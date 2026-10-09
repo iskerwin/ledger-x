@@ -60,6 +60,12 @@ jobs:
         run: |
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/Ledger.app Payload/
+          # ad-hoc sign with the entitlements (App Group for the widget); SideStore re-signs with your Apple ID
+          for x in Payload/Ledger.app/PlugIns/*.appex; do
+            [ -d "$x" ] && codesign -f -s - --entitlements LedgerWidget/LedgerWidget.entitlements "$x"
+          done
+          codesign -f -s - --entitlements Ledger/Ledger.entitlements Payload/Ledger.app
+          codesign -dv --entitlements - Payload/Ledger.app 2>&1 | tail -5 || true
           zip -qry Ledger.ipa Payload
           ls -la Ledger.ipa
 
@@ -172,6 +178,11 @@ jobs:
           shot 35-manage SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_MANAGE=1
           shot 36-edit-account SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_EDIT_ACCOUNT=Assets:Bank:CGB
           shot 37-prices SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_OPEN_HOLDINGS=1 SIMCTL_CHILD_LEDGER_PRICES=1
+          shot 38-import SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_IMPORT="$GITHUB_WORKSPACE/LedgerKit/Tests/LedgerKitTests/Fixtures/import/alipay.csv"
+          shot 39-select SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_SELECT=1
+          BUD="$GITHUB_WORKSPACE/LedgerKit/Tests/LedgerKitTests/Fixtures/import/budget.bean"
+          shot 40-budgets SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=budgets SIMCTL_CHILD_LEDGER_EXTRA="$BUD"
+          shot 41-overview-budget SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_EXTRA="$BUD"
           shot 14-privacy SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_PRIVACY=1
           xcrun simctl ui "$UDID" appearance dark
           shot 15-dark-overview SIMCTL_CHILD_LEDGER_TAB=overview

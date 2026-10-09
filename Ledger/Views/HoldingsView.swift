@@ -175,6 +175,9 @@ struct PriceUpdateSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var date = Day.today()
     @State private var values: [String: String] = [:]
+    @State private var fetching = false
+    @State private var fetchNote: String?
+    @AppStorage(PriceFetch.autoKey) private var auto = false
     @FocusState private var focus: String?
 
     var body: some View {
@@ -221,8 +224,18 @@ struct PriceUpdateSheet: View {
         return Form {
             Section {
                 DatePicker(LS("价格日期"), selection: dateBinding($date), displayedComponents: .date)
+                Button {
+                    Task { await fetch(L, items) }
+                } label: {
+                    HStack {
+                        Label(LS("从 Yahoo Finance 获取最新价格"), systemImage: "arrow.down.circle")
+                        if fetching { Spacer(); ProgressView() }
+                    }
+                }
+                .disabled(fetching || items.isEmpty)
+                if let n = fetchNote { Text(n).font(.footnote).foregroundStyle(.secondary) }
             } footer: {
-                Text(LS("只会写入填写了新价格的项目，每项一条 price 指令。"))
+                Text(LS("只会写入填写了新价格的项目，每项一条 price 指令。证券代码可在 commodity 的 price 元数据中指定，如 price: \"USD:yahoo/VOO\"、\"CNY:yahoo/510300.SS\"；外币默认按 USDCNY=X 查询。"))
             }
             Section {
                 if items.isEmpty { Text(LS("没有需要报价的证券或外币")).foregroundStyle(.secondary) }
@@ -255,7 +268,21 @@ struct PriceUpdateSheet: View {
             if !lines().isEmpty {
                 Section(LS("将写入")) { MonoText(text: lines().joined(separator: "\n")) }
             }
+            Section {
+                Toggle(LS("每天打开 App 时自动更新"), isOn: $auto)
+            } footer: {
+                Text(LS("开启后，每天第一次打开 App 时自动获取并写入当天价格（需要联网）。"))
+            }
         }
+    }
+
+    private func fetch(_ L: Ledger, _ items: [PriceItem]) async {
+        fetching = true
+        defer { fetching = false }
+        let got = await PriceFetch.fetchAll(items, L)
+        for (id, v) in got { values[id] = jsNumberString(roundTo(v, v < 10 ? 6 : 4)) }
+        let miss = items.filter { got[$0.id] == nil }.map { $0.c }
+        fetchNote = miss.isEmpty ? LS("已获取 %@ 项", got.count) : LS("已获取 %@ 项；未找到：%@", got.count, miss.joined(separator: LS("、")))
     }
 
     private func lines() -> [String] {

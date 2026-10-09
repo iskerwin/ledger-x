@@ -30,6 +30,7 @@ struct SettingsView: View {
             if !first {
                 appearanceSection
                 securitySection
+                RemindersSection()
             }
             if first {
                 ConnectionSections(cfg: $cfg)

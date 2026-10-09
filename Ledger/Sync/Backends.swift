@@ -11,6 +11,9 @@ protocol LedgerBackend {
     /// write a file (version nil = create), returning the new version
     func write(_ path: String, text: String, version: String?, message: String) async throws -> String
     func delete(_ path: String, version: String, message: String) async throws
+    /// binary files (attachments), by path
+    func readData(_ path: String) async throws -> Data
+    func writeData(_ path: String, data: Data, message: String) async throws
     /// bean-check status, where the host has one
     func check() async -> GitHub.CI?
     /// a link to the file on the web, where there is one
@@ -132,6 +135,14 @@ struct GitLab: LedgerBackend {
         _ = try await request(file, method: "DELETE", body: ["branch": cfg.branch, "commit_message": message])
     }
 
+    func readData(_ path: String) async throws -> Data {
+        try await request("/repository/files/\(GitHub.enc(path).replacingOccurrences(of: "/", with: "%2F"))/raw?ref=\(ref)").0
+    }
+    func writeData(_ path: String, data: Data, message: String) async throws {
+        let file = "/repository/files/" + GitHub.enc(path).replacingOccurrences(of: "/", with: "%2F")
+        _ = try await request(file, method: "POST", body: ["branch": cfg.branch, "content": data.base64EncodedString(), "commit_message": message, "encoding": "base64"])
+    }
+
     func check() async -> GitHub.CI? { nil }
     func webURL(_ file: String, line: Int?) -> URL? {
         URL(string: "\(base)/\(cfg.owner)/\(cfg.repo)/-/blob/\(GitHub.enc(cfg.branch))/\(GitHub.encPath(file))" + (line.map { "#L\($0)" } ?? ""))
@@ -195,6 +206,19 @@ struct Gitea: LedgerBackend {
 
     func delete(_ path: String, version: String, message: String) async throws {
         _ = try await json("/contents/\(GitHub.encPath(path))", method: "DELETE", body: ["sha": version, "message": message, "branch": cfg.branch])
+    }
+
+    func readData(_ path: String) async throws -> Data {
+        guard let url = URL(string: api + "/raw/\(GitHub.encPath(path))?ref=\(GitHub.enc(cfg.branch))") else { throw GitHubError(status: 0, message: path) }
+        var r = URLRequest(url: url)
+        r.setValue("token " + cfg.token, forHTTPHeaderField: "Authorization")
+        let (data, resp) = try await httpSession.data(for: r)
+        let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(status) else { throw GitHubError(status: status, message: path) }
+        return data
+    }
+    func writeData(_ path: String, data: Data, message: String) async throws {
+        _ = try await json("/contents/\(GitHub.encPath(path))", method: "POST", body: ["content": data.base64EncodedString(), "message": message, "branch": cfg.branch])
     }
 
     func check() async -> GitHub.CI? { nil }
@@ -306,6 +330,21 @@ struct FolderBackend: LedgerBackend {
         }.value
     }
 
+    func readData(_ path: String) async throws -> Data {
+        try await Task.detached { () throws -> Data in
+            try withFolder { (root: URL) throws -> Data in try Data(contentsOf: root.appendingPathComponent(path)) }
+        }.value
+    }
+    func writeData(_ path: String, data: Data, message: String) async throws {
+        try await Task.detached { () throws -> Void in
+            try withFolder { (root: URL) throws -> Void in
+                let url = root.appendingPathComponent(path)
+                try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try data.write(to: url, options: .atomic)
+            }
+        }.value
+    }
+
     func check() async -> GitHub.CI? { nil }
     func webURL(_ file: String, line: Int?) -> URL? { nil }
     var repoURL: URL? { nil }
@@ -413,6 +452,20 @@ struct WebDAV: LedgerBackend {
     func delete(_ path: String, version: String, message: String) async throws {
         guard let u = url(path) else { return }
         _ = try await send(u, method: "DELETE")
+    }
+
+    func readData(_ path: String) async throws -> Data {
+        guard let u = url(path) else { throw GitHubError(status: 0, message: path) }
+        return try await send(u, method: "GET").0
+    }
+    func writeData(_ path: String, data: Data, message: String) async throws {
+        guard let u = url(path) else { throw GitHubError(status: 0, message: path) }
+        var dir = ""
+        for part in path.split(separator: "/").dropLast() {
+            dir += part + "/"
+            if let du = url(dir) { _ = try? await send(du, method: "MKCOL") }
+        }
+        _ = try await send(u, method: "PUT", body: data, type: "application/octet-stream")
     }
 
     func check() async -> GitHub.CI? { nil }

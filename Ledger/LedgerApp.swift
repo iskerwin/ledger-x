@@ -33,6 +33,11 @@ struct LedgerApp: App {
                 if lock.locked { Task { await lock.unlock() } }
                 await store.start()
             }
+            .onOpenURL { url in
+                // ledgerx://add (widget, notifications)
+                if url.host == "add" { store.popToken += 1; store.tab = .add }
+                else if let t = Tab(rawValue: url.host ?? "") { store.tab = t }
+            }
             .onChange(of: phase) { _, p in
                 lock.scenePhase(p)
                 if p == .active { Task { await store.refresh() } }
@@ -44,6 +49,7 @@ struct LedgerApp: App {
 struct RootView: View {
     @EnvironmentObject var store: Store
     @AppStorage(AppTheme.key) private var theme = AppTheme.jade.rawValue
+    @Environment(\.horizontalSizeClass) private var hsize
 
     var body: some View {
         Group {
@@ -51,6 +57,8 @@ struct RootView: View {
                 NavigationStack { SettingsView(first: true) }
             } else if store.L == nil {
                 NavigationStack { LoadingView() }
+            } else if hsize == .regular {
+                SplitRoot().id(theme)
             } else {
                 TabView(selection: $store.tab) {
                     AddView().tabItem { Label(LS("记账"), systemImage: "square.and.pencil") }.tag(Tab.add)
@@ -87,5 +95,46 @@ struct LoadingView: View {
                 Text(LS("正在加载账本…")).foregroundStyle(.secondary)
             }
         }
+    }
+}
+
+
+/// iPad / wide windows: a sidebar with the sections, the section on the right
+struct SplitRoot: View {
+    @EnvironmentObject var store: Store
+    @State private var visibility = NavigationSplitViewVisibility.all
+
+    var body: some View {
+        NavigationSplitView(columnVisibility: $visibility) {
+            List(selection: Binding<Tab?>(get: { store.tab }, set: { if let t = $0 { store.tab = t } })) {
+                Section {
+                    ForEach(Tab.allCases, id: \.self) { t in
+                        Label(t.title, systemImage: t.symbol).tag(t)
+                    }
+                }
+                Section {
+                    Button { store.showSettings = true } label: { Label(LS("设置"), systemImage: "gearshape") }
+                    if let L = store.L, let D = store.D {
+                        let m = Day.ym(Day.today())
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(LS("本月支出")).font(.caption).foregroundStyle(.secondary)
+                            Text(money(D.monthExp[m] ?? 0, L.base)).font(.title3.weight(.semibold)).monospacedDigit().sensitive()
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+            .navigationTitle("Ledger X")
+            .navigationSplitViewColumnWidth(min: 220, ideal: 260)
+        } detail: {
+            switch store.tab {
+            case .add: AddView()
+            case .overview: OverviewView()
+            case .journal: JournalView()
+            case .accounts: AccountsView()
+            case .reports: ReportsView()
+            }
+        }
+        .navigationSplitViewStyle(.balanced)
     }
 }

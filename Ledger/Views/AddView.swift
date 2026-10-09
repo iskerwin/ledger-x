@@ -13,6 +13,7 @@ struct AddView: View {
     @State private var editingText = false
 
     @State private var path = NavigationPath()
+    @State private var importing = false
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -20,11 +21,19 @@ struct AddView: View {
                 if let L = store.L, let D = store.D { content(L, D) } else { ProgressView() }
             }
             .navigationTitle(LS("记账"))
-            .toolbar { StandardToolbar() }
+            .toolbar {
+                StandardToolbar()
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { importing = true } label: { Image(systemName: "square.and.arrow.down.on.square") }
+                        .accessibilityLabel(LS("导入账单"))
+                }
+            }
+            .sheet(isPresented: $importing) { ImportView() }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0) }
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
+        .task { if store.demoEnv["LEDGER_IMPORT"] != nil { importing = true } }
         .task { if store.demoEnv["LEDGER_EDIT_TEXT"] != nil { try? await Task.sleep(nanoseconds: 800_000_000); editingText = true } }
     }
 

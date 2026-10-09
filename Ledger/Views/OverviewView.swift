@@ -22,6 +22,7 @@ struct OverviewView: View {
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0) }
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
             .navigationDestination(for: ErrorsDest.self) { _ in ErrorsView() }
+            .navigationDestination(for: BudgetsDest.self) { _ in BudgetsView() }
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .sheet(item: $reimb) { ReimbSheet(target: $0) }
@@ -75,6 +76,7 @@ struct OverviewView: View {
         return List {
             heroSection(s)
             chartSection(s, D)
+            budgetSection(s, L)
             categorySection(s, D)
             payeeSection(s, L)
             reimbSection(L, D)
@@ -189,6 +191,26 @@ struct OverviewView: View {
                 Text(s.yearMode ? LS("%@ 年月度支出", s.key) : LS("近 12 个月支出"))
                 Spacer()
                 Text(LS("点按柱形查看金额")).textCase(nil)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func budgetSection(_ s: Summary, _ L: Ledger) -> some View {
+        let ps = budgetProgress(L, key: s.key)
+        if !ps.isEmpty {
+            let over = ps.filter { $0.over }.count
+            Section {
+                ForEach(ps.prefix(6)) { p in
+                    NavigationLink(value: BudgetsDest()) { BudgetRow(p: p) }
+                }
+            } header: {
+                HStack {
+                    Text(LS("预算"))
+                    if over > 0 { Text(LS("%@ 项超支", over)).foregroundStyle(Color.loss).textCase(nil) }
+                    Spacer()
+                    NavigationLink(value: BudgetsDest()) { Text(LS("管理")) }.textCase(nil).font(.footnote)
+                }
             }
         }
     }
