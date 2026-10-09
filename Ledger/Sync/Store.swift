@@ -31,6 +31,8 @@ final class DraftModel: ObservableObject {
 @MainActor
 final class Store: ObservableObject {
     @Published var cfg: RepoConfig
+    /// every ledger set up on this phone (tokens stripped; they live in the Keychain)
+    @Published private(set) var sources: [RepoConfig]
     @Published private(set) var L: Ledger?
     @Published private(set) var D: Derived?
     @Published private(set) var version = 0
@@ -64,9 +66,9 @@ final class Store: ObservableObject {
     @Published var explicitAmounts: Bool { didSet { Prefs.set("explicit", explicitAmounts) } }
 
     /// repository layout (settings; empty = detect from the ledger)
-    @Published var mainFile: String { didSet { Prefs.set("mainFile", mainFile) } }
-    @Published var journalPattern: String { didSet { Prefs.set("journalPattern", journalPattern) } }
-    @Published var receivableAccount: String { didSet { Prefs.set("receivable", receivableAccount) } }
+    @Published var mainFile: String { didSet { Prefs.set(pk("mainFile"), mainFile) } }
+    @Published var journalPattern: String { didSet { Prefs.set(pk("journalPattern"), journalPattern) } }
+    @Published var receivableAccount: String { didSet { Prefs.set(pk("receivable"), receivableAccount) } }
     @Published private(set) var detectedLayout = RepoLayout()
 
     /// BQL: queries saved on this phone, and the ones in the ledger (query directives, *.bql files)
@@ -80,42 +82,101 @@ final class Store: ObservableObject {
     private var pushing = false
     private var tplCache: [Template]?
 
+    /// per-ledger settings key ("tree", "tree@<id>", …); the first ledger keeps the original keys
+    static func key(_ k: String, _ id: String) -> String { id == "default" ? k : k + "@" + id }
+    func pk(_ k: String) -> String { Store.key(k, cfg.id) }
+
     init() {
-        var c: RepoConfig = Prefs.get("cfg", RepoConfig())
-        c.token = Keychain.load() ?? ""
+        var list: [RepoConfig] = Prefs.get("sources", [RepoConfig]())
+        if list.isEmpty {
+            let old: RepoConfig = Prefs.get("cfg", RepoConfig())
+            if !old.owner.isEmpty || !old.repo.isEmpty { list = [old] }
+        }
+        for i in list.indices { list[i].token = Keychain.load(account: list[i].keychainAccount) ?? "" }
+        let active: String = Prefs.get("activeSource", "default")
+        let c = list.first { $0.id == active } ?? list.first ?? RepoConfig()
+        sources = list
         cfg = c
-        pending = Prefs.get("pending", [Op]())
-        tree = Prefs.get("tree", RepoTree?.none)
-        lastSync = Prefs.get("lastSync", Date?.none)
-        ci = Prefs.get("ci", GitHub.CI?.none)
+        let id = c.id
+        pending = Prefs.get(Store.key("pending", id), [Op]())
+        tree = Prefs.get(Store.key("tree", id), RepoTree?.none)
+        lastSync = Prefs.get(Store.key("lastSync", id), Date?.none)
+        ci = Prefs.get(Store.key("ci", id), GitHub.CI?.none)
         tplPinned = Prefs.get("tplPinned", [String]())
         tplHidden = Prefs.get("tplHidden", [String]())
         defaultFunding = Prefs.get("defaultFunding", String?.none)
         explicitAmounts = Prefs.get("explicit", true)
-        mainFile = Prefs.get("mainFile", "")
-        journalPattern = Prefs.get("journalPattern", "")
-        receivableAccount = Prefs.get("receivable", "")
+        mainFile = Prefs.get(Store.key("mainFile", id), "")
+        journalPattern = Prefs.get(Store.key("journalPattern", id), "")
+        receivableAccount = Prefs.get(Store.key("receivable", id), "")
         myQueries = Prefs.get("queries", [SavedQuery]())
     }
 
-    var gh: GitHub { GitHub(cfg: cfg) }
+    var backend: LedgerBackend { makeBackend(cfg) }
     var connected: Bool { cfg.isComplete }
 
+    private func persistSources() {
+        Prefs.set("sources", sources.map { s -> RepoConfig in var x = s; x.token = ""; return x })
+    }
+
+    /// add or update a ledger in the list (token to the Keychain)
+    func saveSource(_ c: RepoConfig) {
+        Keychain.save(c.token, account: c.keychainAccount)
+        if let i = sources.firstIndex(where: { $0.id == c.id }) { sources[i] = c } else { sources.append(c) }
+        persistSources()
+    }
+
+    /// save the connection settings of a ledger and make it the active one
     func saveConfig(_ c: RepoConfig) {
-        let changedRepo = c.owner != cfg.owner || c.repo != cfg.repo || c.branch != cfg.branch
+        let same = c.id == cfg.id
+        let changedRepo = !same || c.kind != cfg.kind || c.owner != cfg.owner || c.repo != cfg.repo || c.branch != cfg.branch
+            || c.server != cfg.server || c.bookmark != cfg.bookmark
+        saveSource(c)
+        if !same { switchLedgerState(c); return }
         cfg = c
-        Keychain.save(c.token)
-        var stored = c
-        stored.token = ""
-        Prefs.set("cfg", stored)
+        Prefs.set("activeSource", c.id)
         if changedRepo {
             tree = nil; L = nil; D = nil
-            Prefs.set("tree", RepoTree?.none)
+            Prefs.set(pk("tree"), RepoTree?.none)
         }
     }
 
-    private func saveTree() { Prefs.set("tree", tree) }
-    func savePending() { Prefs.set("pending", pending) }
+    /// switch to another ledger: its own cached files, queue and settings
+    private func switchLedgerState(_ c: RepoConfig) {
+        cfg = c
+        Prefs.set("activeSource", c.id)
+        L = nil; D = nil; ci = nil; ledgerQueries = []; loadError = nil
+        pending = Prefs.get(pk("pending"), [Op]())
+        tree = Prefs.get(pk("tree"), RepoTree?.none)
+        lastSync = Prefs.get(pk("lastSync"), Date?.none)
+        ci = Prefs.get(pk("ci"), GitHub.CI?.none)
+        mainFile = Prefs.get(pk("mainFile"), "")
+        journalPattern = Prefs.get(pk("journalPattern"), "")
+        receivableAccount = Prefs.get(pk("receivable"), "")
+        tplCache = nil
+        draft = Draft()
+        popToken += 1
+    }
+
+    func switchLedger(_ id: String) async {
+        guard id != cfg.id, let c = sources.first(where: { $0.id == id }) else { return }
+        switchLedgerState(c)
+        if tree != nil { await rebuild(quietly: true) }
+        await refresh()
+    }
+
+    func removeLedger(_ id: String) {
+        guard id != cfg.id else { return }
+        sources.removeAll { $0.id == id }
+        persistSources()
+        Keychain.save("", account: id == "default" ? "token" : "token." + id)
+        for k in ["pending", "tree", "lastSync", "ci", "mainFile", "journalPattern", "receivable"] {
+            UserDefaults.standard.removeObject(forKey: "ledger." + Store.key(k, id))
+        }
+    }
+
+    private func saveTree() { Prefs.set(pk("tree"), tree) }
+    func savePending() { Prefs.set(pk("pending"), pending) }
 
     // MARK: - boot / refresh
 
@@ -177,19 +238,19 @@ final class Store: ObservableObject {
         guard connected, !demo else { return }
         syncState = .syncing
         do {
-            let t = try await gh.fetchTree()
+            let t = try await backend.fetchTree()
             let changed = tree == nil || t.sha != tree!.sha
             tree = t
             saveTree()
             var pushed = false
             if pending.contains(where: { $0.failed == nil }) { try await pushPending(); pushed = true }
             if changed || pushed || L == nil { await rebuild() }
-            ci = await gh.latestCheck()
-            Prefs.set("ci", ci)
+            ci = await backend.check()
+            Prefs.set(pk("ci"), ci)
             syncState = .idle
             syncError = ""
             lastSync = Date()
-            Prefs.set("lastSync", lastSync)
+            Prefs.set(pk("lastSync"), lastSync)
         } catch {
             fail(error)
             if L == nil && tree != nil { await rebuild(quietly: true) }
@@ -211,16 +272,16 @@ final class Store: ObservableObject {
             syncState = .idle
             syncError = ""
             lastSync = Date()
-            Prefs.set("lastSync", lastSync)
-            ci = await gh.latestCheck()
+            Prefs.set(pk("lastSync"), lastSync)
+            ci = await backend.check()
         } catch { fail(error) }
     }
 
     // MARK: - files
 
-    private func blobText(_ sha: String) async throws -> String {
+    private func blobText(_ path: String, _ sha: String) async throws -> String {
         if let t = BlobCache.get(sha) { return t }
-        let t = try await gh.blob(sha)
+        let t = try await backend.read(path, version: sha)
         BlobCache.set(sha, t)
         return t
     }
@@ -228,11 +289,11 @@ final class Store: ObservableObject {
     /// download every .bean file not cached yet
     private func ensureBlobs() async throws {
         guard let tree = tree else { return }
-        let missing = tree.files.filter { ($0.key.hasSuffix(".bean") || $0.key.hasSuffix(".bql")) && BlobCache.get($0.value) == nil }.map { $0.value }
+        let missing = tree.files.filter { isLedgerFile($0.key) && BlobCache.get($0.value) == nil }.map { ($0.key, $0.value) }
         if missing.isEmpty { return }
-        let api = gh
+        let api = backend
         try await withThrowingTaskGroup(of: (String, String).self) { group in
-            for sha in missing { group.addTask { (sha, try await api.blob(sha)) } }
+            for (path, sha) in missing { group.addTask { (sha, try await api.read(path, version: sha)) } }
             for try await (sha, text) in group { BlobCache.set(sha, text) }
         }
     }
@@ -240,7 +301,7 @@ final class Store: ObservableObject {
     /// file text with the pending queue applied
     func fileText(_ path: String) async throws -> String {
         var base = ""
-        if let sha = tree?.files[path] { base = try await blobText(sha) }
+        if let sha = tree?.files[path] { base = try await blobText(path, sha) }
         return try applyOps(base, path: path, ops: pending)
     }
 
@@ -304,8 +365,8 @@ final class Store: ObservableObject {
             do {
                 try await pushOnce()
                 break
-            } catch let e as GitHubError where (e.status == 409 || e.status == 422) && attempt == 0 {
-                tree = try await gh.fetchTree()
+            } catch let e as GitHubError where (e.status == 409 || e.status == 412 || e.status == 422) && attempt == 0 {
+                tree = try await backend.fetchTree()
                 saveTree()
             }
         }
@@ -321,17 +382,17 @@ final class Store: ObservableObject {
                 let sha = tree?.files[path]
                 let dels = ops.filter { $0.path == path && $0.kind == .deleteFile }
                 if !dels.isEmpty {
-                    if let sha = sha { try await gh.deleteFile(path, sha: sha, message: dels[0].label ?? LS("删除 %@", path)) }
+                    if let sha = sha { try await backend.delete(path, version: sha, message: dels[0].label ?? LS("删除 %@", path)) }
                     tree?.files[path] = nil
                     pending.removeAll { o in dels.contains { $0.id == o.id } }
                     savePending()
                     continue
                 }
                 var base = ""
-                if let sha = sha { base = try await blobText(sha) }
+                if let sha = sha { base = try await blobText(path, sha) }
                 // an edit/delete whose original text is gone (changed elsewhere) is parked, not pushed
                 let mine = pending.filter { $0.path == path }
-                for (k, o) in mine.enumerated() where o.kind == .remove && o.failed == nil {
+                for (k, o) in mine.enumerated() where (o.kind == .remove || o.kind == .replace) && o.failed == nil {
                     let prior = Array(mine[..<k])
                     if applyRemove((try? applyOps(base, path: path, ops: prior)) ?? base, o) == nil {
                         let why = LS("原交易已在 GitHub 上被修改，本次%@未提交", (o.label ?? "").hasPrefix(LS("删除")) ? LS("删除") : LS("修改"))
@@ -343,13 +404,13 @@ final class Store: ObservableObject {
                 let fileOps = pending.filter { $0.path == path && $0.failed == nil }
                 if fileOps.isEmpty { continue }
                 let text = try applyOps(base, path: path, ops: fileOps, strict: true)
-                let newSha = try await gh.putFile(path, text: text, sha: sha, message: commitMessage(fileOps, path: path))
+                let newSha = try await backend.write(path, text: text, version: sha, message: commitMessage(fileOps, path: path))
                 BlobCache.set(newSha, text)
                 tree?.files[path] = newSha
                 pending.removeAll { o in fileOps.contains { $0.id == o.id } }
                 savePending()
             }
-            tree = try await gh.fetchTree()
+            tree = try await backend.fetchTree()
             saveTree()
         }
     }
@@ -433,9 +494,7 @@ final class Store: ObservableObject {
         return newDraft(kind, D, defaultFunding: defaultFunding)
     }
 
-    func githubURL(_ file: String, line: Int? = nil) -> URL? {
-        URL(string: "https://github.com/\(cfg.owner)/\(cfg.repo)/blob/\(cfg.branch)/\(GitHub.encPath(file))" + (line.map { "#L\($0)" } ?? ""))
-    }
+    func githubURL(_ file: String, line: Int? = nil) -> URL? { backend.webURL(file, line: line) }
 
     func resetCache() async {
         BlobCache.clear()

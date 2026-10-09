@@ -7,6 +7,7 @@ struct SettingsView: View {
     @State private var cfg = RepoConfig()
     @State private var testing = false
     @State private var confirmReset = false
+    @State private var editingLedger: RepoConfig?
     @AppStorage(AppAppearance.key) private var appearance = AppAppearance.system.rawValue
     @AppStorage(AppLock.enabledKey) private var lockOn = false
     @AppStorage(AppLock.graceKey) private var grace = 0
@@ -18,7 +19,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Image("Logo").resizable().frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: 14))
                         Text("Ledger").font(.largeTitle.bold())
-                        Text(LS("连接存放于 GitHub 的 Beancount 账本仓库。账本数据仅在本机与 GitHub 之间传输。")).foregroundStyle(.secondary)
+                        Text(LS("连接你的 Beancount 账本：GitHub、GitLab、Gitea 仓库，「文件」App 中的文件夹，或 WebDAV。账本数据只在本机与你选择的存储之间传输。")).foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 6)
                 }
@@ -30,21 +31,18 @@ struct SettingsView: View {
                 appearanceSection
                 securitySection
             }
-            Section {
-                SecureField("github_pat_…", text: $cfg.token).textInputAutocapitalization(.never).autocorrectionDisabled()
-                LabeledContent(LS("用户")) { TextField(LS("GitHub 用户名"), text: $cfg.owner).multilineTextAlignment(.trailing).textInputAutocapitalization(.never).autocorrectionDisabled() }
-                LabeledContent(LS("仓库")) { TextField(LS("账本仓库名"), text: $cfg.repo).multilineTextAlignment(.trailing).textInputAutocapitalization(.never).autocorrectionDisabled() }
-                LabeledContent(LS("分支")) { TextField("main", text: $cfg.branch).multilineTextAlignment(.trailing).textInputAutocapitalization(.never).autocorrectionDisabled() }
-                Button {
-                    Task { await connect() }
-                } label: {
-                    HStack { Text(first ? LS("连接") : LS("保存并重新同步")); if testing { Spacer(); ProgressView() } }
+            if first {
+                ConnectionSections(cfg: $cfg)
+                Section {
+                    Button {
+                        Task { await connect() }
+                    } label: {
+                        HStack { Text(LS("连接")); if testing { Spacer(); ProgressView() } }
+                    }
+                    .disabled(!cfg.isComplete || testing)
                 }
-                .disabled(!cfg.isComplete || testing)
-            } header: {
-                Text(LS("GitHub 连接"))
-            } footer: {
-                Text(LS("请在 GitHub 创建 fine-grained token：仓库范围仅选择账本仓库，Contents 权限设为 Read and write；如需显示 bean-check 结果，另授予 Actions: Read-only。Token 保存在本机钥匙串中。"))
+            } else {
+                LedgersSection(editing: $editingLedger)
             }
 
             if !first, let L = store.L, let D = store.D {
@@ -71,10 +69,11 @@ struct SettingsView: View {
                         TextField("Assets:Receivable:Reimbursement", text: $store.receivableAccount)
                             .multilineTextAlignment(.trailing).textInputAutocapitalization(.never).autocorrectionDisabled()
                     }
+                    Button { Task { await store.rebuild() } } label: { Label(LS("应用并重新加载"), systemImage: "arrow.clockwise") }
                 } header: {
                     Text(LS("仓库结构"))
                 } footer: {
-                    Text(LS("留空则根据账本自动识别：交易写入最近年度交易所在的文件（{year} 替换为年份，跨年时自动新建文件并在主文件中添加 include）；余额断言、价格、开户等指令写入同类指令最多的文件。修改主文件或应收科目后，请点按上方「保存并重新同步」。"))
+                    Text(LS("留空则根据账本自动识别：交易写入最近年度交易所在的文件（{year} 替换为年份，跨年时自动新建文件并在主文件中添加 include）；余额断言、价格、开户等指令写入同类指令最多的文件。修改主文件或应收科目后，请点按「应用并重新加载」。"))
                 }
 
                 Section {
@@ -105,8 +104,8 @@ struct SettingsView: View {
                     LabeledContent(LS("交易"), value: LS("%@ 笔", L.txns.count))
                     LabeledContent(LS("余额断言"), value: "\(L.balanceResults.filter { $0.ok }.count)/\(L.balanceResults.count)")
                     LabeledContent(LS("文件"), value: LS("%@ 个", L.files.count))
-                    CIRow()
-                    if let u = URL(string: "https://github.com/\(store.cfg.owner)/\(store.cfg.repo)") { Link(LS("在 GitHub 打开仓库"), destination: u) }
+                    if store.cfg.kind == .github { CIRow() }
+                    if let u = store.backend.repoURL { Link(LS("在网页中打开仓库"), destination: u) }
                     Button(LS("清除缓存并重新下载"), role: .destructive) { confirmReset = true }
                 }
 
@@ -118,6 +117,7 @@ struct SettingsView: View {
             }
         }
         .keyboardDone()
+        .navigationDestination(item: $editingLedger) { s in LedgerEditView(initial: s) }
         .navigationTitle(first ? "" : LS("设置"))
         .onAppear { cfg = store.cfg }
         .confirmationDialog(LS("清除本机缓存？同步队列中的变更将保留。"), isPresented: $confirmReset, titleVisibility: .visible) {
@@ -128,14 +128,7 @@ struct SettingsView: View {
     private func connect() async {
         testing = true
         defer { testing = false }
-        var c = cfg
-        c.owner = c.owner.trimmed; c.repo = c.repo.trimmed; c.branch = c.branch.trimmed; c.token = c.token.trimmed
-        do {
-            _ = try await GitHub(cfg: c).fetchTree()
-        } catch {
-            store.show(LS("连接失败：%@", error.localizedDescription))
-            return
-        }
+        guard let c = await testConnection(cfg, store) else { return }
         store.saveConfig(c)
         store.show(first ? LS("已连接，正在下载账本…") : LS("已保存"))
         await store.refresh()

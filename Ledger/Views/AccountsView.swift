@@ -14,7 +14,9 @@ struct AccountsView: View {
             .navigationTitle(LS("账户"))
             .toolbar {
                 StandardToolbar()
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItemGroup(placement: .topBarLeading) {
+                    NavigationLink(value: AccountManagerDest()) { Image(systemName: "slider.horizontal.3") }
+                        .accessibilityLabel(LS("管理账户"))
                     Toggle(isOn: $showClosed) { Image(systemName: "archivebox") }.toggleStyle(.button)
                         .accessibilityLabel(LS("显示已关闭和为零的账户"))
                 }
@@ -23,9 +25,13 @@ struct AccountsView: View {
             .navigationDestination(for: HoldingsDest.self) { _ in HoldingsView() }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0) }
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
+            .navigationDestination(for: AccountManagerDest.self) { _ in AccountManagerView() }
+            .navigationDestination(for: AccountEditDest.self) { AccountEditView(name: $0.name) }
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .task {
+            if store.demoEnv["LEDGER_MANAGE"] != nil, path.isEmpty { path.append(AccountManagerDest()) }
+            if let a = store.demoEnv["LEDGER_EDIT_ACCOUNT"], path.isEmpty { path.append(AccountEditDest(name: a)) }
             if let a = store.demoEnv["LEDGER_OPEN_ACCOUNT"], path.isEmpty { path.append(AccountDest(name: a)) }
             if store.demoEnv["LEDGER_OPEN_HOLDINGS"] != nil, path.isEmpty { path.append(HoldingsDest()) }
         }
@@ -210,6 +216,7 @@ struct AccountKind {
 }
 
 struct AccountRow: View {
+    @EnvironmentObject var store: Store
     let account: String
     let balances: [(String, Double)]
     let closed: Bool
@@ -228,7 +235,7 @@ struct AccountRow: View {
                     if failing { Tag(text: LS("断言不符"), warn: true) }
                     if closed { Tag(text: LS("已关闭")) }
                 }
-                Text(balances.count > 1 ? balances.map { $0.0 }.joined(separator: " · ") : account)
+                Text(balances.count > 1 ? balances.map { $0.0 }.joined(separator: " · ") : (store.displayName(account) ?? account))
                     .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 8)
@@ -262,6 +269,13 @@ struct RegisterView: View {
         .navigationTitle(acctLabel(account).isEmpty ? account : acctLabel(account))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $checking) { p in CheckSheet(account: account, preset: p) }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink(value: AccountEditDest(name: account)) { Image(systemName: "pencil.circle") }
+                    .accessibilityLabel(LS("编辑账户"))
+            }
+        }
+        .navigationDestination(for: AccountEditDest.self) { AccountEditView(name: $0.name) }
         .sheet(item: $reimb) { ReimbSheet(target: $0) }
         .confirmationDialog(deleting.map { LS("删除 %@ 的余额断言？", $0.date) } ?? "", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
             Button(LS("删除"), role: .destructive) {
@@ -308,7 +322,7 @@ struct RegisterView: View {
                     HStack(spacing: 10) {
                         IconBadge(symbol: isIE ? isIEIcon.0 : k.symbol, color: isIE ? isIEIcon.1 : k.color, size: 34)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(acctDisplay(account)).font(.subheadline.weight(.semibold)).lineLimit(1)
+                            Text(store.displayName(account).map { acctLabel(account) + " · " + $0 } ?? acctDisplay(account)).font(.subheadline.weight(.semibold)).lineLimit(1)
                             Text(account + closedNote).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         }
                     }

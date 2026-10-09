@@ -106,4 +106,33 @@ final class QueryTests: XCTestCase {
         op.line = "2026-03-01 balance Assets:Cash 1 CNY"
         XCTAssertThrowsError(try applyOps(text, path: "b.bean", ops: [op], strict: true))
     }
+
+    func testRenameAndReplace() throws {
+        let text = """
+        2025-01-01 open Expenses:Food:Drinks CNY
+        2025-01-01 open Expenses:Food:DrinksExtra CNY
+
+        2025-02-01 * "瑞幸" "拿铁"
+          Expenses:Food:Drinks:Coffee          9.90 CNY
+          Expenses:Food:Drinks                 1.00 CNY
+          Assets:Cash
+        """
+        XCTAssertEqual(countAccount(text, "Expenses:Food:Drinks"), 3)
+        var op = Op(kind: .rename, path: "a.bean")
+        op.old = "Expenses:Food:Drinks"
+        op.text = "Expenses:Food:Coffee"
+        let out = try applyOps(text, path: "a.bean", ops: [op], strict: true)
+        XCTAssertTrue(out.contains("open Expenses:Food:Coffee CNY"))
+        XCTAssertTrue(out.contains("Expenses:Food:Coffee:Coffee"))
+        XCTAssertTrue(out.contains("Expenses:Food:DrinksExtra"))
+        XCTAssertEqual(countAccount(out, "Expenses:Food:Drinks"), 0)
+
+        var rp = Op(kind: .replace, path: "a.bean")
+        rp.old = "2025-01-01 open Expenses:Food:DrinksExtra CNY"
+        rp.text = "2025-01-01 open Expenses:Food:DrinksExtra CNY,USD\n  name: \"饮料\""
+        let out2 = try applyOps(text, path: "a.bean", ops: [rp], strict: true)
+        XCTAssertTrue(out2.contains("DrinksExtra CNY,USD\n  name: \"饮料\"\n\n2025-02-01"))
+        rp.old = "nope"
+        XCTAssertThrowsError(try applyOps(text, path: "a.bean", ops: [rp], strict: true))
+    }
 }

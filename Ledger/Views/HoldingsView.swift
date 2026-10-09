@@ -7,6 +7,7 @@ struct HoldingsDest: Hashable {}
 struct HoldingsView: View {
     @EnvironmentObject var store: Store
     @State private var open: Set<String> = []
+    @State private var pricing = false
 
     var body: some View {
         Group {
@@ -14,6 +15,13 @@ struct HoldingsView: View {
         }
         .navigationTitle(LS("持仓"))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { pricing = true } label: { Label(LS("更新价格"), systemImage: "tag") }
+            }
+        }
+        .sheet(isPresented: $pricing) { PriceUpdateSheet() }
+        .task { if store.demoEnv["LEDGER_PRICES"] != nil { pricing = true } }
     }
 
     private func cny(_ L: Ledger, _ n: Double, _ c: String) -> Double { toCNY(L, n, c) ?? 0 }
@@ -146,5 +154,122 @@ struct HoldingsView: View {
             }
         }
         return all.keys.sorted { abs(all[$0]!) > abs(all[$1]!) }.map { ($0, ytd[$0] ?? 0, all[$0]!) }
+    }
+}
+
+
+// MARK: - 更新价格
+
+/// one row of the price sheet: a commodity or currency and the currency it is quoted in
+struct PriceItem: Identifiable, Hashable {
+    var id: String { c + "/" + q }
+    let c: String
+    let q: String
+    let last: Double?
+    let date: String?
+}
+
+/// write price directives for the held commodities and foreign currencies, all at once
+struct PriceUpdateSheet: View {
+    @EnvironmentObject var store: Store
+    @Environment(\.dismiss) private var dismiss
+    @State private var date = Day.today()
+    @State private var values: [String: String] = [:]
+    @FocusState private var focus: String?
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let L = store.L { form(L) } else { ProgressView() }
+            }
+            .keyboardDone()
+            .navigationTitle(LS("更新价格"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(LS("保存")) { save() }.fontWeight(.semibold).disabled(lines().isEmpty)
+                }
+            }
+        }
+    }
+
+    static func items(_ L: Ledger) -> [PriceItem] {
+        var seen = Set<String>()
+        var out: [PriceItem] = []
+        func add(_ c: String, _ q: String) {
+            guard c != q, seen.insert(c + "/" + q).inserted else { return }
+            let p = latestPrice(L, c, q)
+            out.append(PriceItem(c: c, q: q, last: p?.number, date: p?.date))
+        }
+        for h in holdings(L) { add(h.c, h.q) }
+        // foreign currencies held in assets or liabilities
+        for (a, cs) in L.final.sorted(by: { $0.key < $1.key }) where a.hasPrefix("Assets") || a.hasPrefix("Liabilities") {
+            for (c, n) in cs.sorted(by: { $0.key < $1.key }) where abs(n) > 0.005 && c.count == 3 && c.uppercased() == c && !holdings(L).contains(where: { $0.c == c }) {
+                add(c, L.base)
+            }
+        }
+        // anything else that already has prices
+        for p in L.prices where !seen.contains(p.currency.map { $0 + "/" + (p.quote ?? "") } ?? "") {
+            if let c = p.currency, let q = p.quote, out.count < 40 { add(c, q) }
+        }
+        return out
+    }
+
+    private func form(_ L: Ledger) -> some View {
+        let items = Self.items(L)
+        return Form {
+            Section {
+                DatePicker(LS("价格日期"), selection: dateBinding($date), displayedComponents: .date)
+            } footer: {
+                Text(LS("只会写入填写了新价格的项目，每项一条 price 指令。"))
+            }
+            Section {
+                if items.isEmpty { Text(LS("没有需要报价的证券或外币")).foregroundStyle(.secondary) }
+                ForEach(items) { it in
+                    let days = it.date.flatMap { d in Day.date(d).map { Int(Date().timeIntervalSince($0) / 86400) } }
+                    HStack(alignment: .center, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 6) {
+                                Text(it.c).font(.body.weight(.semibold))
+                                Text("/ " + it.q).font(.caption).foregroundStyle(.secondary)
+                                if let d = days, d > 7 { Tag(text: LS("已过期 %@ 天", d), warn: true) }
+                                if it.last == nil { Tag(text: LS("无价格"), warn: true) }
+                            }
+                            if let l = it.last, let d = it.date {
+                                Text(LS("最新 %@ · %@", fmtNum(l, l < 10 ? 4 : 2), d)).font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
+                            }
+                        }
+                        Spacer()
+                        TextField(it.last.map { fmtNum($0, $0 < 10 ? 4 : 2) } ?? "0.00", text: Binding(get: { values[it.id] ?? "" }, set: { values[it.id] = $0 }))
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .font(.body.monospacedDigit())
+                            .frame(maxWidth: 130)
+                            .focused($focus, equals: it.id)
+                    }
+                }
+            } header: {
+                Text(LS("证券与外币"))
+            }
+            if !lines().isEmpty {
+                Section(LS("将写入")) { MonoText(text: lines().joined(separator: "\n")) }
+            }
+        }
+    }
+
+    private func lines() -> [String] {
+        guard let L = store.L else { return [] }
+        return Self.items(L).compactMap { it in
+            guard let v = evalAmount(values[it.id] ?? ""), v > 0 else { return nil }
+            return "\(date) price \(it.c)" + String(repeating: " ", count: max(1, 26 - it.c.count)) + jsNumberString(roundTo(v, 6)) + " " + it.q
+        }
+    }
+
+    private func save() {
+        let ls = lines()
+        guard !ls.isEmpty, let ops = store.makeOps(ls.joined(separator: "\n"), single: false) else { return }
+        dismiss()
+        Task { await store.commit(ops, word: LS("已更新 %@ 项价格", ls.count)) }
     }
 }

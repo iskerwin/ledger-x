@@ -311,7 +311,7 @@ struct TxDetailView: View {
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
                         store.show(LS("已复制到剪贴板"))
                     } label: { Label(LS("复制源文本"), systemImage: "doc.on.doc") }
-                    if let u = store.githubURL(t.file, line: t.line) { Link(destination: u) { Label(LS("在 GitHub 打开"), systemImage: "arrow.up.right.square") } }
+                    if let u = store.githubURL(t.file, line: t.line) { Link(destination: u) { Label(LS("在网页中打开"), systemImage: "arrow.up.right.square") } }
                 }
             }
             .navigationTitle(t.date)
