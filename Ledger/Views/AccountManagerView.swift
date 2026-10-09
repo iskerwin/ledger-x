@@ -96,6 +96,8 @@ struct AccountEditView: View {
     @State private var currencies = ""
     @State private var booking = ""
     @State private var display = ""
+    @State private var creditLimitText = ""
+    @State private var allowNegative = false
     @State private var closeDate = Day.today()
     @State private var newName = ""
     @State private var impact: (files: Int, places: Int)?
@@ -104,7 +106,8 @@ struct AccountEditView: View {
     @State private var loaded = false
     @State private var initialFields = ""
 
-    private var fields: String { [openDate, currencies, booking, display].joined(separator: "|") }
+    private var fields: String { [openDate, currencies, booking, display, creditLimitText, allowNegative ? "1" : ""].joined(separator: "|") }
+    private var acctName: String { isNew ? account.trimmed : (name ?? "") }
 
     private static let bookings = ["", "STRICT", "FIFO", "LIFO", "HIFO", "AVERAGE", "NONE"]
 
@@ -133,6 +136,8 @@ struct AccountEditView: View {
             currencies = a?.currencies.joined(separator: ",") ?? ""
             booking = a?.booking?.uppercased() ?? ""
             display = store.displayName(n) ?? ""
+            if let v = a?.meta[creditLimitKey] { creditLimitText = v.stringValue ?? v.display }
+            if let v = a?.meta[allowNegativeKey] { allowNegative = ["true", "yes", "1"].contains((v.stringValue ?? v.display).lowercased()) }
             initialFields = fields
         } else {
             account = root + ":"
@@ -198,6 +203,15 @@ struct AccountEditView: View {
             Picker(LS("批次方法"), selection: $booking) {
                 ForEach(Self.bookings, id: \.self) { b in Text(b.isEmpty ? LS("默认") : b).tag(b) }
             }
+            if acctName.hasPrefix("Liabilities:") {
+                LabeledContent(LS("信用额度")) {
+                    TextField(LS("可选，超出时提交前提醒"), text: $creditLimitText)
+                        .multilineTextAlignment(.trailing).keyboardType(.decimalPad)
+                }
+            }
+            if acctName.hasPrefix("Assets:") {
+                Toggle(LS("允许负余额"), isOn: $allowNegative)
+            }
             MonoText(text: openText(L))
             Button {
                 saveOpen(L)
@@ -247,10 +261,13 @@ struct AccountEditView: View {
         if let e = openEntry(L) {
             for l in e.src.components(separatedBy: "\n").dropFirst() {
                 let t = l.trimmingCharacters(in: .whitespaces)
-                if t.hasPrefix("name:") || t.isEmpty { continue }
+                if t.hasPrefix("name:") || t.hasPrefix(creditLimitKey + ":") || t.hasPrefix(allowNegativeKey + ":") || t.isEmpty { continue }
                 lines.append(l)
             }
         }
+        let limit = creditLimitText.replacingOccurrences(of: ",", with: "").trimmed
+        if n.hasPrefix("Liabilities:"), let v = Double(limit), v > 0 { lines.insert("  \(creditLimitKey): \(jsNumberString(v))", at: 1) }
+        if n.hasPrefix("Assets:"), allowNegative { lines.insert("  \(allowNegativeKey): TRUE", at: 1) }
         if !display.trimmed.isEmpty {
             lines.insert("  name: \"\(display.trimmed.replacingOccurrences(of: "\"", with: "'"))\"", at: 1)
         }

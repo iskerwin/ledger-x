@@ -306,8 +306,11 @@ struct ImportView: View {
         guard !rows.isEmpty else { return }
         let text = rows.map { importText($0.row, account: $0.account, funding: $0.funding, keepOrder: keepOrder) }.joined(separator: "\n\n")
         guard let ops = store.makeOps(text, extra: OpExtra(label: LS("导入账单：%@ 笔（%@）", rows.count, source.name)), single: false) else { return }
-        dismiss()
-        Task { await store.commit(ops, word: LS("已导入 %@ 笔", rows.count)) }
+        Task {
+            guard let checked = await store.review(ops) else { return }
+            dismiss()
+            await store.commit(checked, word: LS("已导入 %@ 笔", rows.count), checked: true)
+        }
     }
 }
 

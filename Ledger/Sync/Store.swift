@@ -1,6 +1,5 @@
 import Foundation
 import SwiftUI
-import WidgetKit
 import LedgerKit
 
 enum Tab: String, CaseIterable, Hashable {
@@ -233,6 +232,21 @@ final class Store: ObservableObject {
         version += 1
         afterLoad()
         draft = newDraft(.expense, result.1, defaultFunding: nil)
+        if env["LEDGER_REVIEW"] != nil {
+            // the pre-commit check: an expense the bank account can't cover, dated before its last assertion
+            let before = result.0
+            let acct = "Assets:Bank:CGB"
+            let date = before.balances.last { $0.account == acct }.map { Day.shift($0.date, -3) } ?? Day.today()
+            let txn = "\n\(date) * \"Apple\" \"MacBook Pro\"\n  Expenses:Shopping  250000.00 CNY\n  \(acct)\n"
+            let issues: [ChangeIssue] = await Task.detached {
+                let after = loadLedger(root: "main.bean") { path in
+                    let t = try String(contentsOf: base.appendingPathComponent(path), encoding: .utf8)
+                    return path == "main.bean" ? t + txn : t
+                }
+                return reviewChange(before: before, after: after)
+            }.value
+            Task { try? await Task.sleep(nanoseconds: 800_000_000); _ = await ChangeReview.ask(issues) }
+        }
         if let k = env["LEDGER_KIND"], let kind = DraftKind(rawValue: k) {
             draft = newDraft(kind, result.1, defaultFunding: nil)
             if kind == .multi, let t = result.0.txns.last(where: { isComplex($0) }) { draft = multiDraftFromTxn(t, result.1, defaultFunding: nil) }
@@ -342,14 +356,7 @@ final class Store: ObservableObject {
         let main = self.main
         let receivable = self.receivable
         let result: (Ledger, Derived)? = await Task.detached(priority: .userInitiated) {
-            let L = loadLedger(root: main) { path in
-                var text = ""
-                if let sha = files[path] {
-                    guard let t = BlobCache.get(sha) else { throw GitHubError(status: 0, message: LS("离线状态：%@ 尚未下载", path)) }
-                    text = t
-                } else if path == main { throw GitHubError(status: 404, message: LS("仓库中未找到 %@", main)) }
-                return try applyOps(text, path: path, ops: ops)
-            }
+            let L = Store.loadWith(files: files, main: main, ops: ops)
             if L.txns.isEmpty && L.files.isEmpty { return nil }
             return (L, Derived(L, receivable: receivable))
         }.value
@@ -372,17 +379,73 @@ final class Store: ObservableObject {
         }
     }
 
+    nonisolated static func loadWith(files: [String: String], main: String, ops: [Op]) -> Ledger {
+        loadLedger(root: main) { path in
+            var text = ""
+            if let sha = files[path] {
+                guard let t = BlobCache.get(sha) else { throw GitHubError(status: 0, message: LS("离线状态：%@ 尚未下载", path)) }
+                text = t
+            } else if path == main { throw GitHubError(status: 404, message: LS("仓库中未找到 %@", main)) }
+            return try applyOps(text, path: path, ops: ops)
+        }
+    }
+
+    // MARK: - pre-commit check
+
+    /// build the ledger with `ops` applied and ask the user about anything the change would break.
+    /// Returns the ops to commit (marked `held` when kept on this device), or nil to go back and edit.
+    func review(_ ops: [Op]) async -> [Op]? {
+        guard let before = L, let tree = tree, !ops.isEmpty else { return ops }
+        let files = tree.files, main = self.main, all = pending + ops
+        let issues: [ChangeIssue] = await Task.detached(priority: .userInitiated) {
+            let after = Store.loadWith(files: files, main: main, ops: all)
+            if after.txns.isEmpty && after.files.isEmpty { return [] }
+            return reviewChange(before: before, after: after)
+        }.value
+        if issues.isEmpty { return ops }
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        switch await ChangeReview.ask(issues) {
+        case .edit: return nil
+        case .force: return ops
+        case .hold:
+            let why = LS("已暂存在本机：") + (issues.first?.title ?? "")
+            return ops.map { var o = $0; o.held = why; return o }
+        }
+    }
+
+    /// push items that were kept on this device
+    func release(_ op: Op) async {
+        for i in pending.indices where pending[i].held != nil && (pending[i].id == op.id || pending[i].held == op.held) {
+            pending[i].held = nil
+        }
+        savePending()
+        await syncNow()
+    }
+
     // MARK: - queue
 
     /// queue operations, rebuild locally, then push
-    func commit(_ ops: [Op], word: String = LS("已入账"), undo: (() async -> Void)? = nil) async {
+    @discardableResult
+    func commit(_ ops0: [Op], word: String = LS("已入账"), undo: (() async -> Void)? = nil, checked: Bool = false) async -> Bool {
+        var ops = ops0
+        if !checked {
+            guard let r = await review(ops) else { return false }
+            ops = r
+        }
+        let held = ops.contains { $0.held != nil }
         pending.append(contentsOf: ops)
         savePending()
+        if held {
+            show(LS("已暂存在本机，未推送"))
+            await rebuild()
+            return true
+        }
         if let undo = undo { show(word, action: LS("撤销"), undo) } else { show(word) }
         let gen = UIImpactFeedbackGenerator(style: .light)
         gen.impactOccurred()
         await rebuild()
         await syncNow()
+        return true
     }
 
     func pushPending() async throws {
@@ -402,7 +465,7 @@ final class Store: ObservableObject {
 
     private func pushOnce() async throws {
         for _ in 0..<3 {   // repeat for ops queued while pushing
-            let ops = pending.filter { $0.failed == nil }
+            let ops = pending.filter { $0.failed == nil && $0.held == nil }
             if ops.isEmpty { return }
             var paths: [String] = []
             for o in ops where !paths.contains(o.path) { paths.append(o.path) }
@@ -420,7 +483,7 @@ final class Store: ObservableObject {
                 if let sha = sha { base = try await blobText(path, sha) }
                 // an edit/delete whose original text is gone (changed elsewhere) is parked, not pushed
                 let mine = pending.filter { $0.path == path }
-                for (k, o) in mine.enumerated() where (o.kind == .remove || o.kind == .replace) && o.failed == nil {
+                for (k, o) in mine.enumerated() where (o.kind == .remove || o.kind == .replace) && o.failed == nil && o.held == nil {
                     let prior = Array(mine[..<k])
                     if applyRemove((try? applyOps(base, path: path, ops: prior)) ?? base, o) == nil {
                         let why = LS("原交易已在 GitHub 上被修改，本次%@未提交", (o.label ?? "").hasPrefix(LS("删除")) ? LS("删除") : LS("修改"))
@@ -429,7 +492,7 @@ final class Store: ObservableObject {
                     }
                 }
                 savePending()
-                let fileOps = pending.filter { $0.path == path && $0.failed == nil }
+                let fileOps = pending.filter { $0.path == path && $0.failed == nil && $0.held == nil }
                 if fileOps.isEmpty { continue }
                 let text = try applyOps(base, path: path, ops: fileOps, strict: true)
                 let newSha = try await backend.write(path, text: text, version: sha, message: commitMessage(fileOps, path: path))
@@ -453,28 +516,13 @@ final class Store: ObservableObject {
         await rebuild()
     }
 
-    // MARK: - after every load: widget data and reminders
+    // MARK: - after every load: reminders and prices
 
     func afterLoad() {
-        writeWidget()
         Task {
             await Reminders.reschedule(self)
             await autoUpdatePrices()
         }
-    }
-
-    func writeWidget() {
-        guard let L = L, let D = D else { return }
-        let m = Day.ym(Day.today())
-        let bs = budgetProgress(L, key: m).filter { $0.budget.currency == L.base }
-        let snap = WidgetSnapshot(
-            month: Day.monthLabel(m), spent: D.monthExp[m] ?? 0, income: D.monthInc[m] ?? 0, lastMonth: D.monthExp[Day.addMonth(m, -1)] ?? 0,
-            budgetLimit: bs.reduce(0) { $0 + $1.limit }, budgetSpent: bs.reduce(0) { $0 + $1.spent },
-            budgets: bs.prefix(3).map { WidgetSnapshot.BudgetLine(name: leaf($0.budget.account), spent: $0.spent, limit: $0.limit) },
-            currency: L.base, privacy: UserDefaults.standard.bool(forKey: "ledger.privacy"),
-            theme: UserDefaults.standard.string(forKey: AppTheme.key) ?? "jade", english: AppLanguage.current == .en, updated: Date())
-        snap.save()
-        WidgetCenter.shared.reloadAllTimelines()
     }
 
     // MARK: - helpers for views

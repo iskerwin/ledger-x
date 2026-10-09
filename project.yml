@@ -14,15 +14,8 @@ targets:
     platform: iOS
     sources:
       - path: Ledger
-      - path: Shared
     dependencies:
       - package: LedgerKit
-      - target: LedgerWidget
-        embed: true
-    entitlements:
-      path: Ledger/Ledger.entitlements
-      properties:
-        com.apple.security.application-groups: [group.com.iskerwin.ledger]
     info:
       path: Ledger/Info.plist
       properties:
@@ -57,39 +50,6 @@ targets:
         SWIFT_VERSION: "5.0"
         SWIFT_STRICT_CONCURRENCY: minimal
         ENABLE_PREVIEWS: NO
-        CODE_SIGNING_ALLOWED: NO
-        CODE_SIGNING_REQUIRED: NO
-        CODE_SIGN_IDENTITY: ""
-        DEVELOPMENT_TEAM: ""
-  LedgerWidget:
-    type: app-extension
-    platform: iOS
-    sources:
-      - path: LedgerWidget
-      - path: Shared
-    info:
-      path: LedgerWidget/Info.plist
-      properties:
-        CFBundleDisplayName: Ledger
-        CFBundleShortVersionString: $(MARKETING_VERSION)
-        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        NSExtension:
-          NSExtensionPointIdentifier: com.apple.widgetkit-extension
-    entitlements:
-      path: LedgerWidget/LedgerWidget.entitlements
-      properties:
-        com.apple.security.application-groups: [group.com.iskerwin.ledger]
-    settings:
-      base:
-        PRODUCT_NAME: LedgerWidget
-        PRODUCT_BUNDLE_IDENTIFIER: com.iskerwin.ledger.widget
-        MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "1"
-        TARGETED_DEVICE_FAMILY: "1,2"
-        SWIFT_VERSION: "5.0"
-        SWIFT_STRICT_CONCURRENCY: minimal
-        SKIP_INSTALL: YES
-        APPLICATION_EXTENSION_API_ONLY: YES
         CODE_SIGNING_ALLOWED: NO
         CODE_SIGNING_REQUIRED: NO
         CODE_SIGN_IDENTITY: ""

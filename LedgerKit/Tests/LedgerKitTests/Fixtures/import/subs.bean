@@ -1,0 +1,23 @@
+2023-12-01 open Expenses:Subscription:Cloud CNY
+2023-12-01 open Expenses:Subscription:Video CNY
+2023-12-01 open Expenses:Subscription:Music CNY
+
+2026-03-15 custom "subscription" "iCloud+" "monthly"                    21.00 CNY
+  account: "Expenses:Subscription:Cloud"
+  funding: "Liabilities:CreditCard:CMB"
+  payee: "Apple"
+
+2025-11-01 custom "subscription" "腾讯视频 VIP" "yearly"               258.00 CNY
+  account: "Expenses:Subscription:Video"
+  funding: "Assets:EWallet:Alipay"
+  next: 2027-02-01
+
+2026-01-20 custom "subscription" "Apple Music" "quarterly"              33.00 CNY
+  account: "Expenses:Subscription:Music"
+  funding: "Liabilities:CreditCard:CMB"
+  payee: "Apple"
+
+2026-02-10 custom "subscription" "Keep 会员" "half-yearly"              98.00 CNY
+  account: "Expenses:Subscription:Music"
+  funding: "Assets:EWallet:Alipay"
+  status: "cancelled"

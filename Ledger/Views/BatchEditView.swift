@@ -159,8 +159,10 @@ struct BatchEditSheet: View {
             ops.append(op)
         }
         guard !ops.isEmpty else { store.show(LS("没有需要修改的交易")); return }
+        let n = ops.count
+        guard let checked = await store.review(ops) else { return }
         dismiss()
         done()
-        await store.commit(ops, word: LS("已修改 %@ 笔", ops.count))
+        await store.commit(checked, word: LS("已修改 %@ 笔", n), checked: true)
     }
 }

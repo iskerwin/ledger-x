@@ -34,7 +34,7 @@ struct LedgerApp: App {
                 await store.start()
             }
             .onOpenURL { url in
-                // ledgerx://add (widget, notifications)
+                // ledgerx://add (Shortcuts, notifications)
                 if url.host == "add" { store.popToken += 1; store.tab = .add }
                 else if let t = Tab(rawValue: url.host ?? "") { store.tab = t }
             }

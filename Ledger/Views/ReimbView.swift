@@ -233,8 +233,9 @@ struct ReimbSheet: View {
             }
         }
         let n = ops.count
-        guard let ins = store.makeOps(t, extra: OpExtra(label: LS("报销回款：^%@%@", lk, n > 0 ? LS(" %@ 笔", n) : "")), single: true) else { return }
+        guard let ins = store.makeOps(t, extra: OpExtra(label: LS("报销回款：^%@%@", lk, n > 0 ? LS(" %@ 笔", n) : "")), single: true),
+              let checked = await store.review(ops + ins) else { return }
         dismiss()
-        await store.commit(ops + ins, word: LS("已入账"))
+        await store.commit(checked, word: LS("已入账"), checked: true)
     }
 }

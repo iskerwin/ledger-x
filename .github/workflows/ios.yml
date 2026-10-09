@@ -77,10 +77,6 @@ jobs:
         run: |
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/Ledger.app Payload/
-          # ad-hoc sign with the entitlements (App Group for the widget); SideStore re-signs with your Apple ID
-          for x in Payload/Ledger.app/PlugIns/*.appex; do
-            [ -d "$x" ] && [ -f LedgerWidget/LedgerWidget.entitlements ] && codesign -f -s - --entitlements LedgerWidget/LedgerWidget.entitlements "$x"
-          done
           if [ -f Ledger/Ledger.entitlements ]; then codesign -f -s - --entitlements Ledger/Ledger.entitlements Payload/Ledger.app; fi
           codesign -dv --entitlements - Payload/Ledger.app 2>&1 | tail -5 || true
           zip -qry Ledger.ipa Payload
@@ -222,6 +218,14 @@ jobs:
           BUD="$GITHUB_WORKSPACE/LedgerKit/Tests/LedgerKitTests/Fixtures/import/budget.bean"
           shot 40-budgets SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=budgets SIMCTL_CHILD_LEDGER_EXTRA="$BUD"
           shot 41-overview-budget SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_EXTRA="$BUD"
+          SUBS="$GITHUB_WORKSPACE/LedgerKit/Tests/LedgerKitTests/Fixtures/import/subs.bean"
+          shot 42-overview-donut SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_SCROLL=category
+          shot 43-overview-donut-open SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_SCROLL=category SIMCTL_CHILD_LEDGER_DONUT=1
+          shot 44-overview-liab SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_SCROLL=payee SIMCTL_CHILD_LEDGER_DONUT=1
+          shot 45-review SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_REVIEW=1
+          shot 46-subscriptions SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=subscriptions SIMCTL_CHILD_LEDGER_EXTRA="$SUBS"
+          shot 47-sub-edit SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=subscriptions SIMCTL_CHILD_LEDGER_SUB_EDIT=1 SIMCTL_CHILD_LEDGER_EXTRA="$SUBS"
+          shot 48-overview-subs SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_SCROLL=subs SIMCTL_CHILD_LEDGER_EXTRA="$SUBS"
           shot 14-privacy SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_PRIVACY=1
           xcrun simctl ui "$UDID" appearance dark
           shot 15-dark-overview SIMCTL_CHILD_LEDGER_TAB=overview

@@ -220,6 +220,8 @@ public struct Op: Codable, Identifiable, Equatable {
     public var amountText: String?
     public var silent: Bool?
     public var failed: String?
+    /// kept on this device only (the pre-commit check found a problem); never pushed until released
+    public var held: String?
 
     public init(kind: Kind, path: String) { self.kind = kind; self.path = path }
 }
