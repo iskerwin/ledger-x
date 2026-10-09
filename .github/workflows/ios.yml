@@ -175,7 +175,14 @@ jobs:
           limit() { perl -e 'alarm shift; exec @ARGV' "$@"; }
           echo "$(date +%T) boot" | tee -a shots/progress.txt
           limit 120 xcrun simctl boot "$UDID" || true
-          limit 600 xcrun simctl bootstatus "$UDID" -b || echo "boot timed out" | tee -a shots/crash.txt
+          if ! limit 420 xcrun simctl bootstatus "$UDID" -b; then
+            # a stuck first boot happens on some runners: wipe the simulator and try once more
+            echo "$(date +%T) boot retry" | tee -a shots/progress.txt
+            limit 60 xcrun simctl shutdown "$UDID" || true
+            limit 120 xcrun simctl erase "$UDID" || true
+            limit 120 xcrun simctl boot "$UDID" || true
+            limit 420 xcrun simctl bootstatus "$UDID" -b || echo "boot timed out" | tee -a shots/crash.txt
+          fi
           limit 60 xcrun simctl status_bar "$UDID" override --time 9:41 --batteryLevel 100 --cellularBars 4 || true
           echo "$(date +%T) install" | tee -a shots/progress.txt
           limit 300 xcrun simctl install "$UDID" build-sim/Build/Products/Debug-iphonesimulator/Ledger.app || echo "INSTALL FAILED" | tee -a shots/crash.txt
