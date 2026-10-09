@@ -109,6 +109,8 @@ Beancount 很好用，但它活在电脑上：记一笔要打开编辑器，看�
 1. 打开 [Releases](../../releases/latest)，下载最新版的 `Ledger.ipa`。
 2. 用 [SideStore](https://sidestore.io) 或 AltStore 导入并签名安装（免费 Apple ID 签名 7 天有效，SideStore 会自动续签）。
 
+> 还没有 Beancount 账本？Fork [ledger-demo](https://github.com/iskerwin/ledger-demo)，用里面约 2000 笔虚构交易先体验全部功能。
+
 ### 2. 准备 GitHub Token
 
 在 GitHub → Settings → Developer settings → **Fine-grained tokens** 新建一个：
