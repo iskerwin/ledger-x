@@ -1,0 +1,1356 @@
+{
+ "numText": [
+  [
+   0,
+   "0.00"
+  ],
+  [
+   1,
+   "1.00"
+  ],
+  [
+   -1,
+   "-1.00"
+  ],
+  [
+   12.5,
+   "12.50"
+  ],
+  [
+   0.30000000000000004,
+   "0.30"
+  ],
+  [
+   1234567.891,
+   "1234567.891"
+  ],
+  [
+   19.9,
+   "19.90"
+  ],
+  [
+   -0.005,
+   "-0.005"
+  ],
+  [
+   1e-7,
+   "0.00"
+  ],
+  [
+   33.333333333333,
+   "33.3333333333"
+  ],
+  [
+   100,
+   "100.00"
+  ],
+  [
+   2.675,
+   "2.675"
+  ]
+ ],
+ "fmtNum": [
+  [
+   1234567.891,
+   2,
+   "1,234,567.89"
+  ],
+  [
+   -0.004,
+   2,
+   "-0.00"
+  ],
+  [
+   0,
+   0,
+   "0"
+  ],
+  [
+   -1234.5,
+   0,
+   "-1,235"
+  ],
+  [
+   999.995,
+   2,
+   "1,000.00"
+  ],
+  [
+   12.345,
+   4,
+   "12.3450"
+  ],
+  [
+   1000000,
+   2,
+   "1,000,000.00"
+  ]
+ ],
+ "money": [
+  [
+   12.5,
+   "CNY",
+   "¥12.50"
+  ],
+  [
+   -3,
+   "HKD",
+   "-HK$3.00"
+  ],
+  [
+   1000,
+   "AAPL",
+   "1,000.00 AAPL"
+  ],
+  [
+   0.5,
+   "USD",
+   "$0.50"
+  ]
+ ],
+ "evalAmount": [
+  [
+   "12",
+   12
+  ],
+  [
+   "12.5",
+   12.5
+  ],
+  [
+   "12+8.5",
+   20.5
+  ],
+  [
+   "3×4",
+   12
+  ],
+  [
+   "1,234.50",
+   1234.5
+  ],
+  [
+   "12,5",
+   12.5
+  ],
+  [
+   "-5",
+   -5
+  ],
+  [
+   "(1+2)*3",
+   9
+  ],
+  [
+   "10/3",
+   3.33
+  ],
+  [
+   "abc",
+   null
+  ],
+  [
+   "",
+   null
+  ],
+  [
+   "2-",
+   null
+  ],
+  [
+   ".5",
+   0.5
+  ]
+ ],
+ "formatTxn": [
+  [
+   {
+    "date": "2026-10-01",
+    "payee": "便利店",
+    "narration": "香烟",
+    "tags": [],
+    "links": [],
+    "meta": {},
+    "postings": [
+     {
+      "account": "Expenses:Food:Drinks",
+      "units": 18,
+      "currency": "CNY"
+     },
+     {
+      "account": "Assets:Bank:CGB",
+      "units": -18,
+      "currency": "CNY"
+     }
+    ]
+   },
+   "2026-10-01 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:Bank:CGB                                    -18.00 CNY"
+  ],
+  [
+   {
+    "date": "2026-10-01",
+    "flag": "!",
+    "payee": "Transfer",
+    "narration": "CGB -> BOCHK",
+    "tags": [
+     "transfer"
+    ],
+    "links": [
+     "abc"
+    ],
+    "meta": {
+     "exchange_rate": "1 CNY = 1.08000 HKD"
+    },
+    "postings": [
+     {
+      "account": "Assets:Bank:CGB",
+      "units": -2000,
+      "currency": "CNY"
+     },
+     {
+      "account": "Assets:Bank:BOCHK",
+      "units": 2160,
+      "currency": "HKD",
+      "priceTotal": 2000,
+      "priceCcy": "CNY"
+     }
+    ]
+   },
+   "2026-10-01 ! \"Transfer\" \"CGB -> BOCHK\" #transfer ^abc\n  exchange_rate: \"1 CNY = 1.08000 HKD\"\n  Assets:Bank:CGB                                  -2000.00 CNY\n  Assets:Bank:BOCHK                                 2160.00 HKD @@ 2000.00 CNY"
+  ],
+  [
+   {
+    "date": "2026-10-02",
+    "payee": "",
+    "narration": "buy",
+    "tags": [],
+    "links": [],
+    "meta": {},
+    "postings": [
+     {
+      "account": "Assets:Brokerage:IBKR:Stock",
+      "units": "2",
+      "currency": "AAPL",
+      "cost": "180.50 USD"
+     },
+     {
+      "account": "Assets:Brokerage:IBKR:Cash",
+      "units": null,
+      "currency": null,
+      "flag": "!",
+      "meta": {
+       "note": "cash leg",
+       "date": "2026-10-02"
+      }
+     }
+    ]
+   },
+   "2026-10-02 * \"\" \"buy\"\n  Assets:Brokerage:IBKR:Stock                             2 AAPL {180.50 USD}\n  ! Assets:Brokerage:IBKR:Cash\n    note: \"cash leg\"\n    date: 2026-10-02"
+  ]
+ ],
+ "insertEntry": [
+  [
+   "2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"瑞幸\" \"拿铁\"\n  Expenses:Food:Drinks                                 9.90 CNY\n  Assets:Bank:CGB                                     -9.90 CNY\n\n2026-01-01 * \"Office\" \"垫付打车\" #reimbursed ^reimburse-work-202601\n  Assets:Receivable:Reimbursement                     56.00 CNY\n  Assets:EWallet:Alipay                              -56.00 CNY\n\n2026-01-02 * \"地铁\" \"通勤\"\n  Expenses:Transit:Metro                               6.00 CNY\n  Assets:Bank:CGB                                     -6.00 CNY\n\n2026-01-02 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Liabilities:CreditCard:CMB                         -18.00 CNY\n\n2026-01-02 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:EWallet:Alipay                               -8.50 CNY\n\n2026-01-03 * \"淘宝\" \"纸巾\"\n  Expenses:Shopping:Household                         12.80 CNY\n  Assets:EWallet:Alipay                              -12.80 CNY\n\n2026-01-03 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:EWallet:Alipay                              -18.00 CNY\n\n2026-01-03 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:Bank:CGB                                     -8.50 CNY\n\n",
+   "2026-10-01 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:Bank:CGB                                    -18.00 CNY",
+   "2026-01-02",
+   "2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"瑞幸\" \"拿铁\"\n  Expenses:Food:Drinks                                 9.90 CNY\n  Assets:Bank:CGB                                     -9.90 CNY\n\n2026-01-01 * \"Office\" \"垫付打车\" #reimbursed ^reimburse-work-202601\n  Assets:Receivable:Reimbursement                     56.00 CNY\n  Assets:EWallet:Alipay                              -56.00 CNY\n\n2026-01-02 * \"地铁\" \"通勤\"\n  Expenses:Transit:Metro                               6.00 CNY\n  Assets:Bank:CGB                                     -6.00 CNY\n\n2026-01-02 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Liabilities:CreditCard:CMB                         -18.00 CNY\n\n2026-01-02 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:EWallet:Alipay                               -8.50 CNY\n\n2026-10-01 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:Bank:CGB                                    -18.00 CNY\n\n2026-01-03 * \"淘宝\" \"纸巾\"\n  Expenses:Shopping:Household                         12.80 CNY\n  Assets:EWallet:Alipay                              -12.80 CNY\n\n2026-01-03 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:EWallet:Alipay                              -18.00 CNY\n\n2026-01-03 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:Bank:CGB                                     -8.50 CNY\n"
+  ],
+  [
+   "2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"瑞幸\" \"拿铁\"\n  Expenses:Food:Drinks                                 9.90 CNY\n  Assets:Bank:CGB                                     -9.90 CNY\n\n2026-01-01 * \"Office\" \"垫付打车\" #reimbursed ^reimburse-work-202601\n  Assets:Receivable:Reimbursement                     56.00 CNY\n  Assets:EWallet:Alipay                              -56.00 CNY\n\n2026-01-02 * \"地铁\" \"通勤\"\n  Expenses:Transit:Metro                               6.00 CNY\n  Assets:Bank:CGB                                     -6.00 CNY\n\n2026-01-02 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Liabilities:CreditCard:CMB                         -18.00 CNY\n\n2026-01-02 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:EWallet:Alipay                               -8.50 CNY\n\n2026-01-03 * \"淘宝\" \"纸巾\"\n  Expenses:Shopping:Household                         12.80 CNY\n  Assets:EWallet:Alipay                              -12.80 CNY\n\n2026-01-03 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:EWallet:Alipay                              -18.00 CNY\n\n2026-01-03 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:Bank:CGB                                     -8.50 CNY\n\n",
+   "2026-10-01 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:Bank:CGB                                    -18.00 CNY",
+   "2025-12-31",
+   "2026-10-01 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:Bank:CGB                                    -18.00 CNY\n\n2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"瑞幸\" \"拿铁\"\n  Expenses:Food:Drinks                                 9.90 CNY\n  Assets:Bank:CGB                                     -9.90 CNY\n\n2026-01-01 * \"Office\" \"垫付打车\" #reimbursed ^reimburse-work-202601\n  Assets:Receivable:Reimbursement                     56.00 CNY\n  Assets:EWallet:Alipay                              -56.00 CNY\n\n2026-01-02 * \"地铁\" \"通勤\"\n  Expenses:Transit:Metro                               6.00 CNY\n  Assets:Bank:CGB                                     -6.00 CNY\n\n2026-01-02 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Liabilities:CreditCard:CMB                         -18.00 CNY\n\n2026-01-02 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:EWallet:Alipay                               -8.50 CNY\n\n2026-01-03 * \"淘宝\" \"纸巾\"\n  Expenses:Shopping:Household                         12.80 CNY\n  Assets:EWallet:Alipay                              -12.80 CNY\n\n2026-01-03 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:EWallet:Alipay                              -18.00 CNY\n\n2026-01-03 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:Bank:CGB                                     -8.50 CNY\n"
+  ],
+  [
+   "2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"瑞幸\" \"拿铁\"\n  Expenses:Food:Drinks                                 9.90 CNY\n  Assets:Bank:CGB                                     -9.90 CNY\n\n2026-01-01 * \"Office\" \"垫付打车\" #reimbursed ^reimburse-work-202601\n  Assets:Receivable:Reimbursement                     56.00 CNY\n  Assets:EWallet:Alipay                              -56.00 CNY\n\n2026-01-02 * \"地铁\" \"通勤\"\n  Expenses:Transit:Metro                               6.00 CNY\n  Assets:Bank:CGB                                     -6.00 CNY\n\n2026-01-02 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Liabilities:CreditCard:CMB                         -18.00 CNY\n\n2026-01-02 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:EWallet:Alipay                               -8.50 CNY\n\n2026-01-03 * \"淘宝\" \"纸巾\"\n  Expenses:Shopping:Household                         12.80 CNY\n  Assets:EWallet:Alipay                              -12.80 CNY\n\n2026-01-03 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:EWallet:Alipay                              -18.00 CNY\n\n2026-01-03 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:Bank:CGB                                     -8.50 CNY\n\n",
+   "2026-10-01 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:Bank:CGB                                    -18.00 CNY",
+   "2026-12-31",
+   "2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"瑞幸\" \"拿铁\"\n  Expenses:Food:Drinks                                 9.90 CNY\n  Assets:Bank:CGB                                     -9.90 CNY\n\n2026-01-01 * \"Office\" \"垫付打车\" #reimbursed ^reimburse-work-202601\n  Assets:Receivable:Reimbursement                     56.00 CNY\n  Assets:EWallet:Alipay                              -56.00 CNY\n\n2026-01-02 * \"地铁\" \"通勤\"\n  Expenses:Transit:Metro                               6.00 CNY\n  Assets:Bank:CGB                                     -6.00 CNY\n\n2026-01-02 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Liabilities:CreditCard:CMB                         -18.00 CNY\n\n2026-01-02 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:EWallet:Alipay                               -8.50 CNY\n\n2026-01-03 * \"淘宝\" \"纸巾\"\n  Expenses:Shopping:Household                         12.80 CNY\n  Assets:EWallet:Alipay                              -12.80 CNY\n\n2026-01-03 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:EWallet:Alipay                              -18.00 CNY\n\n2026-01-03 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:Bank:CGB                                     -8.50 CNY\n\n2026-10-01 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:Bank:CGB                                    -18.00 CNY\n"
+  ],
+  [
+   "",
+   "2026-10-01 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:Bank:CGB                                    -18.00 CNY",
+   "2026-01-01",
+   "2026-10-01 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:Bank:CGB                                    -18.00 CNY\n"
+  ],
+  [
+   "2026-01-01 balance Assets:A  1.00 CNY\n2026-01-03 balance Assets:A  2.00 CNY\n",
+   "2026-01-02 balance Assets:A  1.50 CNY",
+   "2026-01-02",
+   "2026-01-01 balance Assets:A  1.00 CNY\n2026-01-02 balance Assets:A  1.50 CNY\n2026-01-03 balance Assets:A  2.00 CNY\n"
+  ],
+  [
+   "; header\n\n2026-01-01 open Assets:A\n",
+   "2026-01-02 open Assets:B",
+   "2026-01-02",
+   "; header\n\n2026-01-01 open Assets:A\n2026-01-02 open Assets:B\n"
+  ]
+ ],
+ "alignText": [
+  [
+   "2026-10-01 * \"a\" \"b\"\n  Expenses:Food   12.5 CNY\n  Assets:Bank:CGB -12.50 CNY ; comment\n  ! Assets:X  3 USD @ 7 CNY",
+   "2026-10-01 * \"a\" \"b\"\n  Expenses:Food                                        12.5 CNY\n  Assets:Bank:CGB                                    -12.50 CNY ; comment\n  ! Assets:X                                              3 USD @ 7 CNY"
+  ],
+  [
+   "2026-10-01 balance Assets:Bank:CGB 100.00 CNY\n2026-10-01 price USD 7.1 CNY\n2026-10-01 balance Assets:X 1.001 ~ 0.01 USD",
+   "2026-10-01 balance Assets:Bank:CGB                   100.00 CNY\n2026-10-01 price USD                                    7.1 CNY\n2026-10-01 balance Assets:X                           1.001 ~ 0.01 USD"
+  ],
+  [
+   "  Assets:钱包:微信 5 USD\n  Expenses:Food 1+2 CNY\n  lowercase 1 CNY",
+   "  Assets:钱包:微信                                            5 USD\n  Expenses:Food 1+2 CNY\n  lowercase 1 CNY"
+  ]
+ ],
+ "removeBlock": [
+  [
+   "2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"瑞幸\" \"拿铁\"\n  Expenses:Food:Drinks                                 9.90 CNY\n  Assets:Bank:CGB                                     -9.90 CNY\n\n2026-01-01 * \"Office\" \"垫付打车\" #reimbursed ^reimburse-work-202601\n  Assets:Receivable:Reimbursement                     56.00 CNY\n  Assets:EWallet:Alipay                              -56.00 CNY\n\n2026-01-02 * \"地铁\" \"通勤\"\n  Expenses:Transit:Metro                               6.00 CNY\n  Assets:Bank:CGB                                     -6.00 CNY\n\n2026-01-02 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Liabilities:CreditCard:CMB                         -18.00 CNY\n\n2026-01-02 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:EWallet:Alipay                               -8.50 CNY\n\n2026-01-03 * \"淘宝\" \"纸巾\"\n  Expenses:Shopping:Household                         12.80 CNY\n  Assets:EWallet:Alipay                              -12.80 CNY\n\n2026-01-03 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:EWallet:Alipay                              -18.00 CNY\n\n2026-01-03 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:Bank:CGB                                     -8.50 CNY\n\n",
+   "2026-01-01 * \"瑞幸\" \"拿铁\"\n  Expenses:Food:Drinks                                 9.90 CNY\n  Assets:Bank:CGB                                     -9.90 CNY",
+   "2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"Office\" \"垫付打车\" #reimbursed ^reimburse-work-202601\n  Assets:Receivable:Reimbursement                     56.00 CNY\n  Assets:EWallet:Alipay                              -56.00 CNY\n\n2026-01-02 * \"地铁\" \"通勤\"\n  Expenses:Transit:Metro                               6.00 CNY\n  Assets:Bank:CGB                                     -6.00 CNY\n\n2026-01-02 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Liabilities:CreditCard:CMB                         -18.00 CNY\n\n2026-01-02 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:EWallet:Alipay                               -8.50 CNY\n\n2026-01-03 * \"淘宝\" \"纸巾\"\n  Expenses:Shopping:Household                         12.80 CNY\n  Assets:EWallet:Alipay                              -12.80 CNY\n\n2026-01-03 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:EWallet:Alipay                              -18.00 CNY\n\n2026-01-03 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:Bank:CGB                                     -8.50 CNY\n\n"
+  ],
+  [
+   "2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"瑞幸\" \"拿铁\"\n  Expenses:Food:Drinks                                 9.90 CNY\n  Assets:Bank:CGB                                     -9.90 CNY\n\n2026-01-01 * \"Office\" \"垫付打车\" #reimbursed ^reimburse-work-202601\n  Assets:Receivable:Reimbursement                     56.00 CNY\n  Assets:EWallet:Alipay                              -56.00 CNY\n\n2026-01-02 * \"地铁\" \"通勤\"\n  Expenses:Transit:Metro                               6.00 CNY\n  Assets:Bank:CGB                                     -6.00 CNY\n\n2026-01-02 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Liabilities:CreditCard:CMB                         -18.00 CNY\n\n2026-01-02 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:EWallet:Alipay                               -8.50 CNY\n\n2026-01-03 * \"淘宝\" \"纸巾\"\n  Expenses:Shopping:Household                         12.80 CNY\n  Assets:EWallet:Alipay                              -12.80 CNY\n\n2026-01-03 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:EWallet:Alipay                              -18.00 CNY\n\n2026-01-03 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:Bank:CGB                                     -8.50 CNY\n\n",
+   "2026-01-05 * \"UniCom\" \"手机充值\"\n  Expenses:Subscription:Phone                         19.90 CNY\n  Assets:EWallet:Alipay                              -19.90 CNY",
+   null
+  ],
+  [
+   "2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"瑞幸\" \"拿铁\"\n  Expenses:Food:Drinks                                 9.90 CNY\n  Assets:Bank:CGB                                     -9.90 CNY\n\n2026-01-01 * \"Office\" \"垫付打车\" #reimbursed ^reimburse-work-202601\n  Assets:Receivable:Reimbursement                     56.00 CNY\n  Assets:EWallet:Alipay                              -56.00 CNY\n\n2026-01-02 * \"地铁\" \"通勤\"\n  Expenses:Transit:Metro                               6.00 CNY\n  Assets:Bank:CGB                                     -6.00 CNY\n\n2026-01-02 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Liabilities:CreditCard:CMB                         -18.00 CNY\n\n2026-01-02 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:EWallet:Alipay                               -8.50 CNY\n\n2026-01-03 * \"淘宝\" \"纸巾\"\n  Expenses:Shopping:Household                         12.80 CNY\n  Assets:EWallet:Alipay                              -12.80 CNY\n\n2026-01-03 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:EWallet:Alipay                              -18.00 CNY\n\n2026-01-03 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:Bank:CGB                                     -8.50 CNY\n\n",
+   "nope",
+   null
+  ]
+ ],
+ "insertBalance": [
+  [
+   {
+    "account": "Assets:Bank:CGB",
+    "date": "2026-10-09",
+    "currency": "CNY",
+    "replace": false,
+    "line": "2026-10-09 balance Assets:Bank:CGB                  1234.50 CNY"
+   },
+   "2024-02-01 balance Assets:Bank:CGB                 58946.40 CNY\n2024-05-01 balance Assets:Bank:CGB                 86251.80 CNY\n2024-08-01 balance Assets:Bank:CGB                107545.30 CNY\n2024-11-01 balance Assets:Bank:CGB                132717.80 CNY\n2025-02-01 balance Assets:Bank:CGB                157877.50 CNY\n2025-05-01 balance Assets:Bank:CGB                183509.00 CNY\n2025-08-01 balance Assets:Bank:CGB                210929.00 CNY\n2025-11-01 balance Assets:Bank:CGB                238410.20 CNY\n2026-02-01 balance Assets:Bank:CGB                263471.90 CNY\n2026-05-01 balance Assets:Bank:CGB                286561.30 CNY\n2026-08-01 balance Assets:Bank:CGB                313947.40 CNY\n2026-10-09 balance Assets:Bank:CGB                  1234.50 CNY\n2024-02-01 balance Assets:Bank:BOCHK                7734.57 HKD\n2024-05-01 balance Assets:Bank:BOCHK                7318.91 HKD\n2024-08-01 balance Assets:Bank:BOCHK               13668.88 HKD\n2024-11-01 balance Assets:Bank:BOCHK               15661.02 HKD\n2025-02-01 balance Assets:Bank:BOCHK               17457.44 HKD\n2025-05-01 balance Assets:Bank:BOCHK               19325.07 HKD\n2025-08-01 balance Assets:Bank:BOCHK               19188.52 HKD\n2025-11-01 balance Assets:Bank:BOCHK               18758.29 HKD\n2026-02-01 balance Assets:Bank:BOCHK               20895.74 HKD\n2026-05-01 balance Assets:Bank:BOCHK               25049.08 HKD\n2026-08-01 balance Assets:Bank:BOCHK               24431.39 HKD\n2024-02-01 balance Liabilities:CreditCard:CMB        567.00 CNY\n2024-05-01 balance Liabilities:CreditCard:CMB       2346.20 CNY\n2024-08-01 balance Liabilities:CreditCard:CMB       4269.90 CNY\n2024-11-01 balance Liabilities:CreditCard:CMB       6397.30 CNY\n2025-02-01 balance Liabilities:CreditCard:CMB       8559.20 CNY\n2025-05-01 balance Liabilities:CreditCard:CMB      10436.50 CNY\n2025-08-01 balance Liabilities:CreditCard:CMB      12265.10 CNY\n2025-11-01 balance Liabilities:CreditCard:CMB      14002.60 CNY\n2026-02-01 balance Liabilities:CreditCard:CMB      15837.80 CNY\n2026-05-01 balance Liabilities:CreditCard:CMB      17869.30 CNY\n2026-08-01 balance Liabilities:CreditCard:CMB      19771.30 CNY\n2024-02-01 balance Assets:EWallet:Alipay            -605.80 CNY\n2024-05-01 balance Assets:EWallet:Alipay           -1941.50 CNY\n2024-08-01 balance Assets:EWallet:Alipay           -3234.70 CNY\n2024-11-01 balance Assets:EWallet:Alipay           -4830.00 CNY\n2025-02-01 balance Assets:EWallet:Alipay           -6216.00 CNY\n2025-05-01 balance Assets:EWallet:Alipay           -7564.80 CNY\n2025-08-01 balance Assets:EWallet:Alipay           -8935.00 CNY\n2025-11-01 balance Assets:EWallet:Alipay          -10303.30 CNY\n2026-02-01 balance Assets:EWallet:Alipay          -11654.20 CNY\n2026-05-01 balance Assets:EWallet:Alipay          -12427.70 CNY\n2026-08-01 balance Assets:EWallet:Alipay          -13899.50 CNY\n"
+  ],
+  [
+   {
+    "account": "Assets:Bank:CGB",
+    "date": "2025-05-01",
+    "currency": "CNY",
+    "replace": true,
+    "line": "2025-05-01 balance Assets:Bank:CGB                    99.00 CNY"
+   },
+   "2024-02-01 balance Assets:Bank:CGB                 58946.40 CNY\n2024-05-01 balance Assets:Bank:CGB                 86251.80 CNY\n2024-08-01 balance Assets:Bank:CGB                107545.30 CNY\n2024-11-01 balance Assets:Bank:CGB                132717.80 CNY\n2025-02-01 balance Assets:Bank:CGB                157877.50 CNY\n2025-05-01 balance Assets:Bank:CGB                    99.00 CNY\n2025-08-01 balance Assets:Bank:CGB                210929.00 CNY\n2025-11-01 balance Assets:Bank:CGB                238410.20 CNY\n2026-02-01 balance Assets:Bank:CGB                263471.90 CNY\n2026-05-01 balance Assets:Bank:CGB                286561.30 CNY\n2026-08-01 balance Assets:Bank:CGB                313947.40 CNY\n2024-02-01 balance Assets:Bank:BOCHK                7734.57 HKD\n2024-05-01 balance Assets:Bank:BOCHK                7318.91 HKD\n2024-08-01 balance Assets:Bank:BOCHK               13668.88 HKD\n2024-11-01 balance Assets:Bank:BOCHK               15661.02 HKD\n2025-02-01 balance Assets:Bank:BOCHK               17457.44 HKD\n2025-05-01 balance Assets:Bank:BOCHK               19325.07 HKD\n2025-08-01 balance Assets:Bank:BOCHK               19188.52 HKD\n2025-11-01 balance Assets:Bank:BOCHK               18758.29 HKD\n2026-02-01 balance Assets:Bank:BOCHK               20895.74 HKD\n2026-05-01 balance Assets:Bank:BOCHK               25049.08 HKD\n2026-08-01 balance Assets:Bank:BOCHK               24431.39 HKD\n2024-02-01 balance Liabilities:CreditCard:CMB        567.00 CNY\n2024-05-01 balance Liabilities:CreditCard:CMB       2346.20 CNY\n2024-08-01 balance Liabilities:CreditCard:CMB       4269.90 CNY\n2024-11-01 balance Liabilities:CreditCard:CMB       6397.30 CNY\n2025-02-01 balance Liabilities:CreditCard:CMB       8559.20 CNY\n2025-05-01 balance Liabilities:CreditCard:CMB      10436.50 CNY\n2025-08-01 balance Liabilities:CreditCard:CMB      12265.10 CNY\n2025-11-01 balance Liabilities:CreditCard:CMB      14002.60 CNY\n2026-02-01 balance Liabilities:CreditCard:CMB      15837.80 CNY\n2026-05-01 balance Liabilities:CreditCard:CMB      17869.30 CNY\n2026-08-01 balance Liabilities:CreditCard:CMB      19771.30 CNY\n2024-02-01 balance Assets:EWallet:Alipay            -605.80 CNY\n2024-05-01 balance Assets:EWallet:Alipay           -1941.50 CNY\n2024-08-01 balance Assets:EWallet:Alipay           -3234.70 CNY\n2024-11-01 balance Assets:EWallet:Alipay           -4830.00 CNY\n2025-02-01 balance Assets:EWallet:Alipay           -6216.00 CNY\n2025-05-01 balance Assets:EWallet:Alipay           -7564.80 CNY\n2025-08-01 balance Assets:EWallet:Alipay           -8935.00 CNY\n2025-11-01 balance Assets:EWallet:Alipay          -10303.30 CNY\n2026-02-01 balance Assets:EWallet:Alipay          -11654.20 CNY\n2026-05-01 balance Assets:EWallet:Alipay          -12427.70 CNY\n2026-08-01 balance Assets:EWallet:Alipay          -13899.50 CNY\n"
+  ],
+  [
+   {
+    "account": "Assets:New",
+    "date": "2026-10-09",
+    "currency": "CNY",
+    "replace": false,
+    "line": "2026-10-09 balance Assets:New                         -5.00 CNY"
+   },
+   "2024-02-01 balance Assets:Bank:CGB                 58946.40 CNY\n2024-05-01 balance Assets:Bank:CGB                 86251.80 CNY\n2024-08-01 balance Assets:Bank:CGB                107545.30 CNY\n2024-11-01 balance Assets:Bank:CGB                132717.80 CNY\n2025-02-01 balance Assets:Bank:CGB                157877.50 CNY\n2025-05-01 balance Assets:Bank:CGB                183509.00 CNY\n2025-08-01 balance Assets:Bank:CGB                210929.00 CNY\n2025-11-01 balance Assets:Bank:CGB                238410.20 CNY\n2026-02-01 balance Assets:Bank:CGB                263471.90 CNY\n2026-05-01 balance Assets:Bank:CGB                286561.30 CNY\n2026-08-01 balance Assets:Bank:CGB                313947.40 CNY\n2024-02-01 balance Assets:Bank:BOCHK                7734.57 HKD\n2024-05-01 balance Assets:Bank:BOCHK                7318.91 HKD\n2024-08-01 balance Assets:Bank:BOCHK               13668.88 HKD\n2024-11-01 balance Assets:Bank:BOCHK               15661.02 HKD\n2025-02-01 balance Assets:Bank:BOCHK               17457.44 HKD\n2025-05-01 balance Assets:Bank:BOCHK               19325.07 HKD\n2025-08-01 balance Assets:Bank:BOCHK               19188.52 HKD\n2025-11-01 balance Assets:Bank:BOCHK               18758.29 HKD\n2026-02-01 balance Assets:Bank:BOCHK               20895.74 HKD\n2026-05-01 balance Assets:Bank:BOCHK               25049.08 HKD\n2026-08-01 balance Assets:Bank:BOCHK               24431.39 HKD\n2024-02-01 balance Liabilities:CreditCard:CMB        567.00 CNY\n2024-05-01 balance Liabilities:CreditCard:CMB       2346.20 CNY\n2024-08-01 balance Liabilities:CreditCard:CMB       4269.90 CNY\n2024-11-01 balance Liabilities:CreditCard:CMB       6397.30 CNY\n2025-02-01 balance Liabilities:CreditCard:CMB       8559.20 CNY\n2025-05-01 balance Liabilities:CreditCard:CMB      10436.50 CNY\n2025-08-01 balance Liabilities:CreditCard:CMB      12265.10 CNY\n2025-11-01 balance Liabilities:CreditCard:CMB      14002.60 CNY\n2026-02-01 balance Liabilities:CreditCard:CMB      15837.80 CNY\n2026-05-01 balance Liabilities:CreditCard:CMB      17869.30 CNY\n2026-08-01 balance Liabilities:CreditCard:CMB      19771.30 CNY\n2024-02-01 balance Assets:EWallet:Alipay            -605.80 CNY\n2024-05-01 balance Assets:EWallet:Alipay           -1941.50 CNY\n2024-08-01 balance Assets:EWallet:Alipay           -3234.70 CNY\n2024-11-01 balance Assets:EWallet:Alipay           -4830.00 CNY\n2025-02-01 balance Assets:EWallet:Alipay           -6216.00 CNY\n2025-05-01 balance Assets:EWallet:Alipay           -7564.80 CNY\n2025-08-01 balance Assets:EWallet:Alipay           -8935.00 CNY\n2025-11-01 balance Assets:EWallet:Alipay          -10303.30 CNY\n2026-02-01 balance Assets:EWallet:Alipay          -11654.20 CNY\n2026-05-01 balance Assets:EWallet:Alipay          -12427.70 CNY\n2026-08-01 balance Assets:EWallet:Alipay          -13899.50 CNY\n\n2026-10-09 balance Assets:New                         -5.00 CNY\n"
+  ]
+ ],
+ "addInclude": [
+  [
+   "option \"title\" \"Test\"\noption \"operating_currency\" \"CNY\"\noption \"booking_method\" \"FIFO\"\n\ninclude \"config/commodities.bean\"\ninclude \"accounts/assets.bean\"\ninclude \"accounts/balance.bean\"\ninclude \"journals/2024.bean\"\ninclude \"journals/2025.bean\"\ninclude \"journals/2026.bean\"\ninclude \"prices.bean\"\n",
+   "include \"journals/2027.bean\"",
+   "option \"title\" \"Test\"\noption \"operating_currency\" \"CNY\"\noption \"booking_method\" \"FIFO\"\n\ninclude \"config/commodities.bean\"\ninclude \"accounts/assets.bean\"\ninclude \"accounts/balance.bean\"\ninclude \"journals/2024.bean\"\ninclude \"journals/2025.bean\"\ninclude \"journals/2026.bean\"\ninclude \"journals/2027.bean\"\ninclude \"prices.bean\"\n"
+  ],
+  [
+   "option \"x\" \"y\"\n\n",
+   "include \"journals/2027.bean\"",
+   "option \"x\" \"y\"\ninclude \"journals/2027.bean\"\n"
+  ]
+ ],
+ "addLinkToHeader": [
+  [
+   "2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"瑞幸\" \"拿铁\"\n  Expenses:Food:Drinks                                 9.90 CNY\n  Assets:Bank:CGB                                     -9.90 CNY\n\n2026-01-01 * \"Office\" \"垫付打车\" #reimbursed ^reimburse-work-202601\n  Assets:Receivable:Reimbursement                     56.00 CNY\n  Assets:EWallet:Alipay                              -56.00 CNY\n\n2026-01-02 * \"地铁\" \"通勤\"\n  Expenses:Transit:Metro                               6.00 CNY\n  Assets:Bank:CGB                                     -6.00 CNY\n\n2026-01-02 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Liabilities:CreditCard:CMB                         -18.00 CNY\n\n2026-01-02 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:EWallet:Alipay                               -8.50 CNY\n\n2026-01-03 * \"淘宝\" \"纸巾\"\n  Expenses:Shopping:Household                         12.80 CNY\n  Assets:EWallet:Alipay                              -12.80 CNY\n\n2026-01-03 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:EWallet:Alipay                              -18.00 CNY\n\n2026-01-03 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:Bank:CGB                                     -8.50 CNY\n\n",
+   {
+    "line": 1,
+    "header": "2026-01-01 * \"喜市多\" \"早餐\"",
+    "link": "refund-x"
+   },
+   "2026-01-01 * \"喜市多\" \"早餐\" ^refund-x\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"瑞幸\" \"拿铁\"\n  Expenses:Food:Drinks                                 9.90 CNY\n  Assets:Bank:CGB                                     -9.90 CNY\n\n2026-01-01 * \"Office\" \"垫付打车\" #reimbursed ^reimburse-work-202601\n  Assets:Receivable:Reimbursement                     56.00 CNY\n  Assets:EWallet:Alipay                              -56.00 CNY\n\n2026-01-02 * \"地铁\" \"通勤\"\n  Expenses:Transit:Metro                               6.00 CNY\n  Assets:Bank:CGB                                     -6.00 CNY\n\n2026-01-02 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Liabilities:CreditCard:CMB                         -18.00 CNY\n\n2026-01-02 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:EWallet:Alipay                               -8.50 CNY\n\n2026-01-03 * \"淘宝\" \"纸巾\"\n  Expenses:Shopping:Household                         12.80 CNY\n  Assets:EWallet:Alipay                              -12.80 CNY\n\n2026-01-03 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:EWallet:Alipay                              -18.00 CNY\n\n2026-01-03 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:Bank:CGB                                     -8.50 CNY\n\n"
+  ],
+  [
+   "2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Liabilities:CreditCard:CMB                          -8.50 CNY\n\n2026-01-01 * \"瑞幸\" \"拿铁\"\n  Expenses:Food:Drinks                                 9.90 CNY\n  Assets:Bank:CGB                                     -9.90 CNY\n\n2026-01-01 * \"Office\" \"垫付打车\" #reimbursed ^reimburse-work-202601\n  Assets:Receivable:Reimbursement                     56.00 CNY\n  Assets:EWallet:Alipay                              -56.00 CNY\n\n2026-01-02 * \"地铁\" \"通勤\"\n  Expenses:Transit:Metro                               6.00 CNY\n  Assets:Bank:CGB                                     -6.00 CNY\n\n2026-01-02 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Liabilities:CreditCard:CMB                         -18.00 CNY\n\n2026-01-02 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:EWallet:Alipay                               -8.50 CNY\n\n2026-01-03 * \"淘宝\" \"纸巾\"\n  Expenses:Shopping:Household                         12.80 CNY\n  Assets:EWallet:Alipay                              -12.80 CNY\n\n2026-01-03 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:EWallet:Alipay                              -18.00 CNY\n\n2026-01-03 * \"喜市多\" \"早餐\"\n  Expenses:Food:Meals                                  8.50 CNY\n  Assets:Bank:CGB                                     -8.50 CNY\n\n",
+   {
+    "line": 99,
+    "header": "nope",
+    "link": "y"
+   },
+   null
+  ]
+ ],
+ "checkText": [
+  [
+   "2026-10-01 * \"x\" \"y\"\n  Expenses:Food:Meals  10.00 CNY\n  Assets:Bank:CGB",
+   1,
+   null,
+   0,
+   1
+  ],
+  [
+   "2026-10-01 * \"x\" \"y\"\n  Expenses:Food:Meals  10.00 CNY\n  Assets:Bank:CGB  -9.00 CNY",
+   0,
+   "不平衡：差 1.0000 CNY",
+   0,
+   1
+  ],
+  [
+   "2026-10-01 * \"x\" \"y\"\n  Expenses:Nope  10.00 CNY\n  Assets:Bank:CGB",
+   0,
+   "账户未开立：Expenses:Nope",
+   0,
+   1
+  ],
+  [
+   "2026-10-01 * \"IBKR\" \"sell\"\n  Assets:Brokerage:IBKR:Stock  -1 AAPL {} @ 200 USD\n  Assets:Brokerage:IBKR:Cash  200.00 USD\n  Income:Invest:Gain",
+   1,
+   null,
+   0,
+   1
+  ],
+  [
+   "2026-10-01 * \"IBKR\" \"sell too much\"\n  Assets:Brokerage:IBKR:Stock  -1000 AAPL {} @ 200 USD\n  Assets:Brokerage:IBKR:Cash  200000.00 USD\n  Income:Invest:Gain",
+   1,
+   null,
+   1,
+   1
+  ],
+  [
+   "2026-10-01 balance Assets:Bank:CGB 1.00 CNY\n2026-10-01 price USD 7.1 CNY\n2026-10-02 open Assets:New CNY",
+   1,
+   null,
+   0,
+   3
+  ],
+  [
+   "include \"x.bean\"",
+   0,
+   "include / option / plugin 请直接改 main.bean",
+   0,
+   0
+  ],
+  [
+   "",
+   0,
+   "没有可以写入的内容",
+   0,
+   0
+  ],
+  [
+   "garbage line",
+   0,
+   "无法识别：garbage line",
+   0,
+   0
+  ]
+ ],
+ "validate": [
+  [
+   "2026-10-01 * \"x\" \"y\"\n  Expenses:Food:Meals  10.00 CNY\n  Assets:Bank:CGB",
+   1,
+   null
+  ],
+  [
+   "2026-10-01 * \"x\" \"y\"\n  Expenses:Food:Meals  10.00 CNY\n  Assets:Bank:CGB  -9.00 CNY",
+   0,
+   "不平衡：差 1.0000 CNY"
+  ],
+  [
+   "2026-10-01 * \"x\" \"y\"\n  Expenses:Nope  10.00 CNY\n  Assets:Bank:CGB",
+   0,
+   "账户未开立：Expenses:Nope"
+  ],
+  [
+   "2026-10-01 * \"IBKR\" \"sell\"\n  Assets:Brokerage:IBKR:Stock  -1 AAPL {} @ 200 USD\n  Assets:Brokerage:IBKR:Cash  200.00 USD\n  Income:Invest:Gain",
+   1,
+   null
+  ],
+  [
+   "2026-10-01 * \"IBKR\" \"sell too much\"\n  Assets:Brokerage:IBKR:Stock  -1000 AAPL {} @ 200 USD\n  Assets:Brokerage:IBKR:Cash  200000.00 USD\n  Income:Invest:Gain",
+   1,
+   null
+  ],
+  [
+   "2026-10-01 balance Assets:Bank:CGB 1.00 CNY\n2026-10-01 price USD 7.1 CNY\n2026-10-02 open Assets:New CNY",
+   0,
+   "这里应当正好是一笔交易"
+  ],
+  [
+   "include \"x.bean\"",
+   0,
+   "include / option / plugin 请直接改 main.bean"
+  ],
+  [
+   "",
+   0,
+   ""
+  ],
+  [
+   "garbage line",
+   0,
+   "无法识别：garbage line"
+  ]
+ ],
+ "drafts": [
+  [
+   {
+    "kind": "expense",
+    "date": "2026-10-08",
+    "payee": "便利店",
+    "narration": "香烟",
+    "amount": "18",
+    "currency": "CNY",
+    "account": "Expenses:Food:Drinks",
+    "funding": "Assets:Bank:CGB",
+    "to": "",
+    "toAmount": "",
+    "paid": "",
+    "reimb": false,
+    "link": "",
+    "tags": [],
+    "edited": null,
+    "refundOf": null,
+    "flag": "*",
+    "tagsText": "",
+    "raw": "",
+    "rows": [
+     {
+      "account": "",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     },
+     {
+      "account": "Assets:Bank:CGB",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     }
+    ]
+   },
+   "2026-10-08 * \"便利店\" \"香烟\"\n  Expenses:Food:Drinks                                18.00 CNY\n  Assets:Bank:CGB                                    -18.00 CNY"
+  ],
+  [
+   {
+    "kind": "expense",
+    "date": "2026-10-08",
+    "payee": "大快活",
+    "narration": "午餐",
+    "amount": "45.6",
+    "currency": "CNY",
+    "account": "Expenses:Food:Meals",
+    "funding": "Assets:Bank:BOCHK",
+    "to": "",
+    "toAmount": "",
+    "paid": "50",
+    "reimb": false,
+    "link": "",
+    "tags": [],
+    "edited": null,
+    "refundOf": null,
+    "flag": "*",
+    "tagsText": "",
+    "raw": "",
+    "rows": [
+     {
+      "account": "",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     },
+     {
+      "account": "Assets:Bank:CGB",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     }
+    ]
+   },
+   "2026-10-08 * \"大快活\" \"午餐\"\n  Expenses:Food:Meals                                 45.60 CNY @ 1.09649 HKD\n  Assets:Bank:BOCHK                                  -50.00 HKD"
+  ],
+  [
+   {
+    "kind": "expense",
+    "date": "2026-10-08",
+    "payee": "Didi",
+    "narration": "打车",
+    "amount": "30+26",
+    "currency": "CNY",
+    "account": "Expenses:Transit:Metro",
+    "funding": "Assets:EWallet:Alipay",
+    "to": "",
+    "toAmount": "",
+    "paid": "",
+    "reimb": true,
+    "link": "reimburse-work-202610",
+    "tags": [],
+    "edited": null,
+    "refundOf": null,
+    "flag": "*",
+    "tagsText": "",
+    "raw": "",
+    "rows": [
+     {
+      "account": "",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     },
+     {
+      "account": "Assets:Bank:CGB",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     }
+    ]
+   },
+   "2026-10-08 * \"Didi\" \"打车\" #reimbursed ^reimburse-work-202610\n  Assets:Receivable:Reimbursement                     56.00 CNY\n  Assets:EWallet:Alipay                              -56.00 CNY"
+  ],
+  [
+   {
+    "kind": "income",
+    "date": "2026-10-08",
+    "payee": "Work",
+    "narration": "工资",
+    "amount": "15000",
+    "currency": "CNY",
+    "account": "Income:Salary:Work",
+    "funding": "Assets:Bank:CGB",
+    "to": "",
+    "toAmount": "",
+    "paid": "",
+    "reimb": false,
+    "link": "",
+    "tags": [],
+    "edited": null,
+    "refundOf": null,
+    "flag": "*",
+    "tagsText": "",
+    "raw": "",
+    "rows": [
+     {
+      "account": "",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     },
+     {
+      "account": "Assets:Bank:CGB",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     }
+    ]
+   },
+   "2026-10-08 * \"Work\" \"工资\"\n  Income:Salary:Work                              -15000.00 CNY\n  Assets:Bank:CGB                                  15000.00 CNY"
+  ],
+  [
+   {
+    "kind": "refund",
+    "date": "2026-10-08",
+    "payee": "淘宝",
+    "narration": "纸巾退款",
+    "amount": "12.8",
+    "currency": "CNY",
+    "account": "Expenses:Shopping:Household",
+    "funding": "Assets:Bank:CGB",
+    "to": "",
+    "toAmount": "",
+    "paid": "",
+    "reimb": false,
+    "link": "refund-x",
+    "tags": [],
+    "edited": null,
+    "refundOf": null,
+    "flag": "*",
+    "tagsText": "",
+    "raw": "",
+    "rows": [
+     {
+      "account": "",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     },
+     {
+      "account": "Assets:Bank:CGB",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     }
+    ]
+   },
+   "2026-10-08 * \"淘宝\" \"纸巾退款\" #refund ^refund-x\n  Expenses:Shopping:Household                        -12.80 CNY\n  Assets:Bank:CGB                                     12.80 CNY"
+  ],
+  [
+   {
+    "kind": "transfer",
+    "date": "2026-10-08",
+    "payee": "",
+    "narration": "",
+    "amount": "2000",
+    "currency": "CNY",
+    "account": "",
+    "funding": "Assets:Bank:CGB",
+    "to": "Assets:Bank:BOCHK",
+    "toAmount": "2190.5",
+    "paid": "",
+    "reimb": false,
+    "link": "",
+    "tags": [],
+    "edited": null,
+    "refundOf": null,
+    "flag": "*",
+    "tagsText": "",
+    "raw": "",
+    "rows": [
+     {
+      "account": "",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     },
+     {
+      "account": "Assets:Bank:CGB",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     }
+    ]
+   },
+   "2026-10-08 * \"Transfer\" \"CGB -> BOCHK\" #transfer\n  exchange_rate: \"1 CNY = 1.09525 HKD\"\n  Assets:Bank:CGB                                  -2000.00 CNY\n  Assets:Bank:BOCHK                                 2190.50 HKD @@ 2000.00 CNY"
+  ],
+  [
+   {
+    "kind": "transfer",
+    "date": "2026-10-08",
+    "payee": "",
+    "narration": "",
+    "amount": "1000",
+    "currency": "CNY",
+    "account": "",
+    "funding": "Assets:Bank:CGB",
+    "to": "Liabilities:CreditCard:CMB",
+    "toAmount": "",
+    "paid": "",
+    "reimb": false,
+    "link": "",
+    "tags": [],
+    "edited": null,
+    "refundOf": null,
+    "flag": "*",
+    "tagsText": "",
+    "raw": "",
+    "rows": [
+     {
+      "account": "",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     },
+     {
+      "account": "Assets:Bank:CGB",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     }
+    ]
+   },
+   "2026-10-08 * \"CMB Credit Card\" \"Repayment\"\n  Liabilities:CreditCard:CMB                        1000.00 CNY\n  Assets:Bank:CGB                                  -1000.00 CNY"
+  ],
+  [
+   {
+    "kind": "transfer",
+    "date": "2026-10-08",
+    "payee": "",
+    "narration": "",
+    "amount": "300",
+    "currency": "CNY",
+    "account": "",
+    "funding": "Assets:Bank:CGB",
+    "to": "Assets:EWallet:Alipay",
+    "toAmount": "",
+    "paid": "",
+    "reimb": false,
+    "link": "",
+    "tags": [],
+    "edited": null,
+    "refundOf": null,
+    "flag": "*",
+    "tagsText": "",
+    "raw": "",
+    "rows": [
+     {
+      "account": "",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     },
+     {
+      "account": "Assets:Bank:CGB",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     }
+    ]
+   },
+   "2026-10-08 * \"Transfer\" \"CGB -> Alipay\" #transfer\n  Assets:Bank:CGB                                   -300.00 CNY\n  Assets:EWallet:Alipay                              300.00 CNY"
+  ],
+  [
+   {
+    "kind": "multi",
+    "date": "2026-10-08",
+    "payee": "超市",
+    "narration": "分摊",
+    "amount": "",
+    "currency": "CNY",
+    "account": "",
+    "funding": "Assets:Bank:CGB",
+    "to": "",
+    "toAmount": "",
+    "paid": "",
+    "reimb": false,
+    "link": "",
+    "tags": [],
+    "edited": null,
+    "refundOf": null,
+    "flag": "*",
+    "tagsText": "#trip ^lnk",
+    "raw": "",
+    "rows": [
+     {
+      "account": "Expenses:Food:Meals",
+      "amount": "30",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     },
+     {
+      "account": "Assets:Receivable:Reimbursement",
+      "amount": "20,5",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": "!"
+     },
+     {
+      "account": "Assets:Bank:CGB",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     }
+    ]
+   },
+   "2026-10-08 * \"超市\" \"分摊\" #trip ^lnk\n  Expenses:Food:Meals                                 30.00 CNY\n  ! Assets:Receivable:Reimbursement                   20.50 CNY\n  Assets:Bank:CGB                                    -50.50 CNY"
+  ],
+  [
+   {
+    "kind": "multi",
+    "date": "2026-10-08",
+    "payee": "IBKR",
+    "narration": "buy",
+    "amount": "",
+    "currency": "CNY",
+    "account": "",
+    "funding": "Assets:Bank:CGB",
+    "to": "",
+    "toAmount": "",
+    "paid": "",
+    "reimb": false,
+    "link": "",
+    "tags": [],
+    "edited": null,
+    "refundOf": null,
+    "flag": "*",
+    "tagsText": "",
+    "raw": "",
+    "rows": [
+     {
+      "account": "Assets:Brokerage:IBKR:Stock",
+      "amount": "2",
+      "currency": "AAPL",
+      "cost": "180 USD",
+      "price": "",
+      "flag": ""
+     },
+     {
+      "account": "Assets:Brokerage:IBKR:Cash",
+      "amount": "",
+      "currency": "USD",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     }
+    ]
+   },
+   "2026-10-08 * \"IBKR\" \"buy\"\n  Assets:Brokerage:IBKR:Stock                          2.00 AAPL {180 USD}\n  Assets:Brokerage:IBKR:Cash"
+  ],
+  [
+   {
+    "kind": "multi",
+    "date": "2026-10-08",
+    "payee": "HK",
+    "narration": "fx",
+    "amount": "",
+    "currency": "CNY",
+    "account": "",
+    "funding": "Assets:Bank:CGB",
+    "to": "",
+    "toAmount": "",
+    "paid": "",
+    "reimb": false,
+    "link": "",
+    "tags": [],
+    "edited": null,
+    "refundOf": null,
+    "flag": "*",
+    "tagsText": "",
+    "raw": "",
+    "rows": [
+     {
+      "account": "Expenses:Food:Meals",
+      "amount": "10*3",
+      "currency": "HKD",
+      "cost": "",
+      "price": "0.92 CNY",
+      "flag": ""
+     },
+     {
+      "account": "Assets:Bank:CGB",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     }
+    ]
+   },
+   "2026-10-08 * \"HK\" \"fx\"\n  Expenses:Food:Meals                                 30.00 HKD @ 0.92 CNY\n  Assets:Bank:CGB                                    -27.60 CNY"
+  ],
+  [
+   {
+    "kind": "expense",
+    "date": "2026-10-08",
+    "payee": "",
+    "narration": "",
+    "amount": "0",
+    "currency": "CNY",
+    "account": "Expenses:Food:Meals",
+    "funding": "Assets:Bank:CGB",
+    "to": "",
+    "toAmount": "",
+    "paid": "",
+    "reimb": false,
+    "link": "",
+    "tags": [],
+    "edited": null,
+    "refundOf": null,
+    "flag": "*",
+    "tagsText": "",
+    "raw": "",
+    "rows": [
+     {
+      "account": "",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     },
+     {
+      "account": "Assets:Bank:CGB",
+      "amount": "",
+      "currency": "CNY",
+      "cost": "",
+      "price": "",
+      "flag": ""
+     }
+    ]
+   },
+   ""
+  ]
+ ],
+ "rowsFromTxn": [
+  [
+   0,
+   [
+    [
+     "Assets:Bank:CGB",
+     "50000.00",
+     "CNY",
+     "",
+     "",
+     ""
+    ],
+    [
+     "Assets:Bank:BOCHK",
+     "8000.00",
+     "HKD",
+     "",
+     "",
+     ""
+    ],
+    [
+     "Assets:Brokerage:IBKR:Cash",
+     "3000.00",
+     "USD",
+     "",
+     "",
+     ""
+    ],
+    [
+     "Equity:Opening",
+     "",
+     "CNY",
+     "",
+     "",
+     ""
+    ]
+   ]
+  ],
+  [
+   11,
+   [
+    [
+     "Assets:Brokerage:IBKR:Stock",
+     "1.00",
+     "AAPL",
+     "190.40 USD",
+     "",
+     ""
+    ],
+    [
+     "Assets:Brokerage:IBKR:Cash",
+     "",
+     "USD",
+     "",
+     "",
+     ""
+    ]
+   ]
+  ],
+  [
+   109,
+   [
+    [
+     "Assets:Brokerage:IBKR:Stock",
+     "3.00",
+     "AAPL",
+     "164.73 USD",
+     "",
+     ""
+    ],
+    [
+     "Assets:Brokerage:IBKR:Cash",
+     "",
+     "USD",
+     "",
+     "",
+     ""
+    ]
+   ]
+  ],
+  [
+   190,
+   [
+    [
+     "Assets:Brokerage:IBKR:Stock",
+     "3.00",
+     "AAPL",
+     "194.39 USD",
+     "",
+     ""
+    ],
+    [
+     "Assets:Brokerage:IBKR:Cash",
+     "",
+     "USD",
+     "",
+     "",
+     ""
+    ]
+   ]
+  ],
+  [
+   250,
+   [
+    [
+     "Assets:Brokerage:IBKR:Stock",
+     "-1.00",
+     "AAPL",
+     "{}",
+     "@ 243.41 USD",
+     ""
+    ],
+    [
+     "Assets:Brokerage:IBKR:Cash",
+     "243.41",
+     "USD",
+     "",
+     "",
+     ""
+    ],
+    [
+     "Income:Invest:Gain",
+     "",
+     "USD",
+     "",
+     "",
+     ""
+    ]
+   ]
+  ],
+  [
+   416,
+   [
+    [
+     "Assets:Brokerage:IBKR:Stock",
+     "-1.00",
+     "AAPL",
+     "{}",
+     "@ 198.04 USD",
+     ""
+    ],
+    [
+     "Assets:Brokerage:IBKR:Cash",
+     "198.04",
+     "USD",
+     "",
+     "",
+     ""
+    ],
+    [
+     "Income:Invest:Gain",
+     "",
+     "USD",
+     "",
+     "",
+     ""
+    ]
+   ]
+  ]
+ ],
+ "fileFor": [
+  [
+   "commodity",
+   "2020-01-01",
+   "CNY",
+   "config/commodities.bean"
+  ],
+  [
+   "txn",
+   "2024-01-21",
+   "",
+   "journals/2024.bean"
+  ],
+  [
+   "txn",
+   "2024-02-21",
+   "",
+   "journals/2024.bean"
+  ],
+  [
+   "txn",
+   "2024-03-31",
+   "",
+   "journals/2024.bean"
+  ],
+  [
+   "txn",
+   "2024-05-02",
+   "",
+   "journals/2024.bean"
+  ],
+  [
+   "txn",
+   "2024-06-05",
+   "",
+   "journals/2024.bean"
+  ],
+  [
+   "txn",
+   "2024-07-11",
+   "",
+   "journals/2024.bean"
+  ],
+  [
+   "txn",
+   "2024-08-15",
+   "",
+   "journals/2024.bean"
+  ],
+  [
+   "txn",
+   "2024-09-18",
+   "",
+   "journals/2024.bean"
+  ],
+  [
+   "txn",
+   "2024-10-24",
+   "",
+   "journals/2024.bean"
+  ],
+  [
+   "txn",
+   "2024-11-29",
+   "",
+   "journals/2024.bean"
+  ],
+  [
+   "txn",
+   "2025-01-05",
+   "",
+   "journals/2025.bean"
+  ],
+  [
+   "txn",
+   "2025-02-05",
+   "",
+   "journals/2025.bean"
+  ],
+  [
+   "txn",
+   "2025-03-08",
+   "",
+   "journals/2025.bean"
+  ],
+  [
+   "txn",
+   "2025-04-15",
+   "",
+   "journals/2025.bean"
+  ],
+  [
+   "txn",
+   "2025-05-17",
+   "",
+   "journals/2025.bean"
+  ],
+  [
+   "txn",
+   "2025-06-24",
+   "",
+   "journals/2025.bean"
+  ],
+  [
+   "balance",
+   "2025-08-01",
+   "Liabilities:CreditCard:CMB",
+   "accounts/balance.bean"
+  ],
+  [
+   "txn",
+   "2025-09-02",
+   "",
+   "journals/2025.bean"
+  ],
+  [
+   "txn",
+   "2025-10-09",
+   "",
+   "journals/2025.bean"
+  ],
+  [
+   "txn",
+   "2025-11-09",
+   "",
+   "journals/2025.bean"
+  ],
+  [
+   "txn",
+   "2025-12-12",
+   "",
+   "journals/2025.bean"
+  ],
+  [
+   "txn",
+   "2026-01-14",
+   "",
+   "journals/2026.bean"
+  ],
+  [
+   "txn",
+   "2026-02-18",
+   "",
+   "journals/2026.bean"
+  ],
+  [
+   "txn",
+   "2026-03-23",
+   "",
+   "journals/2026.bean"
+  ],
+  [
+   "txn",
+   "2026-04-25",
+   "",
+   "journals/2026.bean"
+  ],
+  [
+   "txn",
+   "2026-05-24",
+   "",
+   "journals/2026.bean"
+  ],
+  [
+   "txn",
+   "2026-06-30",
+   "",
+   "journals/2026.bean"
+  ],
+  [
+   "txn",
+   "2026-08-04",
+   "",
+   "journals/2026.bean"
+  ],
+  [
+   "txn",
+   "2026-09-09",
+   "",
+   "journals/2026.bean"
+  ]
+ ],
+ "newDraft": [
+  "Assets:Bank:CGB",
+  "CNY"
+ ]
+}

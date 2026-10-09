@@ -1,0 +1,11 @@
+option "title" "Test"
+option "operating_currency" "CNY"
+option "booking_method" "FIFO"
+
+include "config/commodities.bean"
+include "accounts/assets.bean"
+include "accounts/balance.bean"
+include "journals/2024.bean"
+include "journals/2025.bean"
+include "journals/2026.bean"
+include "prices.bean"

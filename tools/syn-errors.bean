@@ -1,0 +1,15 @@
+2020-01-01 open Assets:A USD
+2020-01-01 open Assets:S
+2020-01-02 * "x"
+  Assets:A   10 USD
+  Assets:B  -9 USD
+2020-01-03 * "eur not allowed"
+  Assets:A   1 EUR
+  Assets:S  -1 EUR
+2020-01-04 balance Assets:A 3 USD
+2020-01-05 * "buy"
+  Assets:S   1 HOOL {10 USD}
+  Assets:A  -10 USD
+2020-01-06 * "wrong lot"
+  Assets:S  -1 HOOL {20 USD}
+  Assets:A   20 USD

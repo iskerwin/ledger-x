@@ -1,0 +1,75 @@
+option "operating_currency" "USD"
+option "booking_method" "FIFO"
+* Org header
+2020-01-01 open Assets:Bank
+2020-01-01 open Assets:Broker:Cash
+2020-01-01 open Assets:Broker:Stock "STRICT"
+2020-01-01 open Assets:Broker:Fifo "FIFO"
+2020-01-01 open Assets:Broker:Hifo "HIFO"
+2020-01-01 open Assets:Broker:Avg "AVERAGE"
+2020-01-01 open Expenses:Food
+2020-01-01 open Expenses:Fee
+2020-01-01 open Income:Gain
+2020-01-01 open Equity:Opening
+2020-01-01 open Assets:钱包:微信
+2020-01-01 commodity HOOL
+  name: "Hooli"
+pushtag #trip
+2020-01-02 * "Bank" "multi
+line narration" #extra ^lnk
+  memo: "hello"
+  Assets:Bank          (100 + 50) * 2 USD
+    receipt: "r1"
+  Equity:Opening
+poptag #trip
+2020-01-03 ! "Cafe" "coffee"
+  ! Expenses:Food       4.50 USD
+  Assets:Bank
+2020-01-04 txn "Broker" "buy"
+  Assets:Broker:Fifo    10 HOOL {100 USD}
+  Assets:Broker:Fifo    10 HOOL {120 USD, 2020-01-04, "second"}
+  Assets:Broker:Hifo    10 HOOL {{1000 USD}}
+  Assets:Broker:Hifo    10 HOOL {110 # 5 USD}
+  Assets:Broker:Avg     10 HOOL {100 USD}
+  Assets:Broker:Avg     10 HOOL {120 USD}
+  Assets:Broker:Stock   5 HOOL {100.00 USD}
+  Assets:Broker:Cash
+2020-01-05 * "Broker" "sell fifo"
+  Assets:Broker:Fifo   -15 HOOL {} @ 130 USD
+  Assets:Broker:Cash    1950 USD
+  Income:Gain
+2020-01-05 * "Broker" "sell hifo"
+  Assets:Broker:Hifo   -10 HOOL {} @ 130 USD
+  Assets:Broker:Cash    1300 USD
+  Income:Gain
+2020-01-05 * "sell avg"
+  Assets:Broker:Avg    -10 HOOL {} @@ 1300 USD
+  Assets:Broker:Cash    1300 USD
+  Income:Gain
+2020-01-05 * "sell strict"
+  Assets:Broker:Stock  -5 HOOL {100.00 USD} @ 130 USD
+  Assets:Broker:Cash    650.00 USD
+  Income:Gain
+2020-01-06 * "fx with fee"
+  Expenses:Food        26.10 CNY @ 1.19118 HKD
+  Expenses:Fee          1.68 HKD
+  Assets:Bank          -32.77 HKD
+2020-01-07 * "cost missing number"
+  Assets:Broker:Stock   2 HOOL {USD}
+  Assets:Bank          -250.00 USD
+2020-01-08 * "price missing number"
+  Assets:Bank           70.00 EUR @ USD
+  Assets:Bank          -80.00 USD
+2020-01-09 * "unicode account"
+  Assets:钱包:微信       5 USD
+  Assets:Bank          -5 USD
+2020-01-10 pad Assets:Bank Equity:Opening
+2020-01-11 balance Assets:Bank   1000.00 USD
+2020-01-11 balance Assets:Bank   1000.001 ~ 0.01 USD
+2020-01-12 price HOOL  140.00 USD
+2020-01-12 note Assets:Bank "called the bank"
+2020-01-12 event "location" "Shanghai"
+2020-01-12 document Assets:Bank "/docs/x.pdf" #stmt
+2020-01-12 query "cash" "SELECT 1"
+2020-01-12 custom "budget" Expenses:Food "monthly" 100.00 USD TRUE
+2020-01-13 close Expenses:Fee

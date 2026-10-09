@@ -1,0 +1,3053 @@
+2026-01-01 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Liabilities:CreditCard:CMB                          -8.50 CNY
+
+2026-01-01 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Liabilities:CreditCard:CMB                          -8.50 CNY
+
+2026-01-01 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-01-01 * "Office" "垫付打车" #reimbursed ^reimburse-work-202601
+  Assets:Receivable:Reimbursement                     56.00 CNY
+  Assets:EWallet:Alipay                              -56.00 CNY
+
+2026-01-02 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:Bank:CGB                                     -6.00 CNY
+
+2026-01-02 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-01-02 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-01-03 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-01-03 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-01-03 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:Bank:CGB                                     -8.50 CNY
+
+2026-01-03 * "IBKR" "Buy AAPL"
+  Assets:Brokerage:IBKR:Stock                      1 AAPL {171.63 USD}
+  Assets:Brokerage:IBKR:Cash
+
+2026-01-04 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-01-04 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-01-04 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-01-05 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-01-05 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-01-05 * "UniCom" "手机充值"
+  Expenses:Subscription:Phone                         19.90 CNY
+  Assets:EWallet:Alipay                              -19.90 CNY
+
+2026-01-06 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-01-06 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-01-06 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Liabilities:CreditCard:CMB                         -45.50 CNY
+
+2026-01-07 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-01-07 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-01-07 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Liabilities:CreditCard:CMB                         -29.90 CNY
+
+2026-01-08 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-01-08 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-01-08 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-01-08 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Liabilities:CreditCard:CMB                         -12.00 CNY
+
+2026-01-09 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-01-10 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Assets:EWallet:Alipay                              -25.00 CNY
+
+2026-01-10 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-01-10 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Assets:EWallet:Alipay                              -25.00 CNY
+
+2026-01-10 * "Work" "工资"
+  Income:Salary:Work                              -15000.00 CNY
+  Assets:Bank:CGB                                  15000.00 CNY
+
+2026-01-11 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-01-12 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-01-12 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:EWallet:Alipay                              -45.50 CNY
+
+2026-01-12 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-01-12 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-01-12 * "Landlord" "房租"
+  Expenses:Housing:Rent                             4500.00 CNY
+  Assets:Bank:CGB                                  -4500.00 CNY
+
+2026-01-13 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:Bank:CGB                                    -12.00 CNY
+
+2026-01-13 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-01-14 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:EWallet:Alipay                              -29.90 CNY
+
+2026-01-14 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-01-15 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Assets:EWallet:Alipay                              -25.00 CNY
+
+2026-01-15 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-01-15 * "大快活" "午餐" #fx
+  Expenses:Food:Meals                                 35.24 CNY @ 1.07448 HKD
+  Assets:Bank:BOCHK                                  -37.87 HKD
+
+2026-01-16 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Liabilities:CreditCard:CMB                         -25.00 CNY
+
+2026-01-16 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-01-17 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-01-17 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Liabilities:CreditCard:CMB                          -6.00 CNY
+
+2026-01-17 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-01-17 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Liabilities:CreditCard:CMB                          -6.00 CNY
+
+2026-01-18 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Liabilities:CreditCard:CMB                         -45.50 CNY
+
+2026-01-18 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-01-19 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Liabilities:CreditCard:CMB                          -6.00 CNY
+
+2026-01-20 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:EWallet:Alipay                              -29.90 CNY
+
+2026-01-20 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-01-20 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-01-20 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-01-20 * "CMB Credit Card" "Repayment"
+  Liabilities:CreditCard:CMB                        1000.00 CNY
+  Assets:Bank:CGB                                  -1000.00 CNY
+
+2026-01-21 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-01-22 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-01-23 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-01-24 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Liabilities:CreditCard:CMB                          -6.00 CNY
+
+2026-01-24 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-01-25 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Assets:EWallet:Alipay                              -25.00 CNY
+
+2026-01-25 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Liabilities:CreditCard:CMB                         -12.80 CNY
+
+2026-01-26 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-01-27 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-01-27 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-01-27 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-01-27 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-01-28 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Liabilities:CreditCard:CMB                         -12.00 CNY
+
+2026-01-28 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:Bank:CGB                                     -8.50 CNY
+
+2026-01-28 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:Bank:CGB                                     -8.50 CNY
+
+2026-01-28 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-01-28 * "IBKR" "Sell AAPL"
+  Assets:Brokerage:IBKR:Stock                     -1 AAPL {} @ 246.35 USD
+  Assets:Brokerage:IBKR:Cash                         246.35 USD
+  Income:Invest:Gain
+
+2026-01-29 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:EWallet:Alipay                              -12.00 CNY
+
+2026-01-29 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-01-29 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:Bank:CGB                                     -4.00 CNY
+
+2026-01-29 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-01-30 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-01-30 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-01-30 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-01-31 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-02-01 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-02-01 * "Office" "垫付打车" #reimbursed ^reimburse-work-202602
+  Assets:Receivable:Reimbursement                     56.00 CNY
+  Assets:EWallet:Alipay                              -56.00 CNY
+
+2026-02-02 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-02-03 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Liabilities:CreditCard:CMB                          -6.00 CNY
+
+2026-02-03 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:Bank:CGB                                     -6.00 CNY
+
+2026-02-04 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-02-04 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-02-04 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-02-05 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-02-05 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-02-05 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:EWallet:Alipay                              -29.90 CNY
+
+2026-02-05 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:Bank:CGB                                     -6.00 CNY
+
+2026-02-05 * "UniCom" "手机充值"
+  Expenses:Subscription:Phone                         19.90 CNY
+  Assets:EWallet:Alipay                              -19.90 CNY
+
+2026-02-06 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-02-07 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-02-07 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-02-07 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:Bank:CGB                                     -5.00 CNY
+
+2026-02-08 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-02-08 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:Bank:CGB                                     -8.50 CNY
+
+2026-02-08 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-02-09 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-02-09 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Liabilities:CreditCard:CMB                          -6.00 CNY
+
+2026-02-09 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-02-10 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-02-10 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Assets:EWallet:Alipay                              -25.00 CNY
+
+2026-02-10 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-02-10 * "Work" "工资"
+  Income:Salary:Work                              -15000.00 CNY
+  Assets:Bank:CGB                                  15000.00 CNY
+
+2026-02-11 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Liabilities:CreditCard:CMB                         -12.80 CNY
+
+2026-02-12 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-02-12 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:Bank:CGB                                    -29.90 CNY
+
+2026-02-12 * "Landlord" "房租"
+  Expenses:Housing:Rent                             4500.00 CNY
+  Assets:Bank:CGB                                  -4500.00 CNY
+
+2026-02-13 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:EWallet:Alipay                              -45.50 CNY
+
+2026-02-13 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Assets:Bank:CGB                                    -25.00 CNY
+
+2026-02-14 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-02-14 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:Bank:CGB                                    -12.80 CNY
+
+2026-02-15 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-02-15 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-02-15 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:Bank:CGB                                     -5.00 CNY
+
+2026-02-15 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:Bank:CGB                                     -6.00 CNY
+
+2026-02-15 * "大快活" "午餐" #fx
+  Expenses:Food:Meals                                234.70 CNY @ 1.05575 HKD
+  Assets:Bank:BOCHK                                 -247.78 HKD
+
+2026-02-16 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Liabilities:CreditCard:CMB                          -8.50 CNY
+
+2026-02-16 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Liabilities:CreditCard:CMB                          -5.00 CNY
+
+2026-02-17 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Liabilities:CreditCard:CMB                          -8.50 CNY
+
+2026-02-17 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:Bank:CGB                                    -12.80 CNY
+
+2026-02-17 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-02-17 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:Bank:CGB                                    -12.00 CNY
+
+2026-02-18 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Liabilities:CreditCard:CMB                         -12.00 CNY
+
+2026-02-18 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:Bank:CGB                                    -29.90 CNY
+
+2026-02-18 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-02-19 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-02-20 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:Bank:CGB                                     -4.00 CNY
+
+2026-02-20 * "CMB Credit Card" "Repayment"
+  Liabilities:CreditCard:CMB                        1000.00 CNY
+  Assets:Bank:CGB                                  -1000.00 CNY
+
+2026-02-21 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-02-21 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-02-21 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Liabilities:CreditCard:CMB                          -5.00 CNY
+
+2026-02-21 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Liabilities:CreditCard:CMB                         -12.00 CNY
+
+2026-02-22 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-02-22 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Liabilities:CreditCard:CMB                          -8.50 CNY
+
+2026-02-23 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:Bank:CGB                                     -6.00 CNY
+
+2026-02-23 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-02-23 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-02-24 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Liabilities:CreditCard:CMB                         -29.90 CNY
+
+2026-02-25 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Liabilities:CreditCard:CMB                          -5.00 CNY
+
+2026-02-25 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-02-25 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-02-25 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-02-25 * "Transfer" "CGB -> BOCHK" #transfer
+  exchange_rate: "1 CNY = 1.11776 HKD"
+  Assets:Bank:CGB                                  -2000.00 CNY
+  Assets:Bank:BOCHK                                 2235.52 HKD @@ 2000.00 CNY
+
+2026-02-26 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Assets:EWallet:Alipay                              -25.00 CNY
+
+2026-02-27 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Liabilities:CreditCard:CMB                         -45.50 CNY
+
+2026-02-27 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-02-27 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-02-28 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:Bank:CGB                                     -8.50 CNY
+
+2026-02-28 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-02-28 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-02-28 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Liabilities:CreditCard:CMB                         -45.50 CNY
+
+2026-03-01 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-03-01 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-03-01 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-03-01 * "Office" "垫付打车" #reimbursed ^reimburse-work-202603
+  Assets:Receivable:Reimbursement                     56.00 CNY
+  Assets:EWallet:Alipay                              -56.00 CNY
+
+2026-03-01 pad Assets:EWallet:Alipay Equity:Opening
+
+2026-03-02 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:Bank:CGB                                     -5.00 CNY
+
+2026-03-03 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:EWallet:Alipay                              -45.50 CNY
+
+2026-03-03 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-03-03 * "IBKR" "Buy AAPL"
+  Assets:Brokerage:IBKR:Stock                      2 AAPL {173.70 USD}
+  Assets:Brokerage:IBKR:Cash
+
+2026-03-04 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-03-04 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:Bank:CGB                                    -29.90 CNY
+
+2026-03-04 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-03-05 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Liabilities:CreditCard:CMB                         -29.90 CNY
+
+2026-03-05 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:Bank:CGB                                     -4.00 CNY
+
+2026-03-05 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-03-05 * "UniCom" "手机充值"
+  Expenses:Subscription:Phone                         19.90 CNY
+  Assets:EWallet:Alipay                              -19.90 CNY
+
+2026-03-06 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:EWallet:Alipay                              -12.00 CNY
+
+2026-03-06 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:EWallet:Alipay                              -12.00 CNY
+
+2026-03-07 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Liabilities:CreditCard:CMB                          -6.00 CNY
+
+2026-03-07 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-03-08 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Liabilities:CreditCard:CMB                          -6.00 CNY
+
+2026-03-08 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-03-08 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-03-08 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:Bank:CGB                                    -12.00 CNY
+
+2026-03-09 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Assets:EWallet:Alipay                              -25.00 CNY
+
+2026-03-09 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Liabilities:CreditCard:CMB                         -29.90 CNY
+
+2026-03-09 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-03-10 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Liabilities:CreditCard:CMB                          -5.00 CNY
+
+2026-03-10 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-03-10 * "Work" "工资"
+  Income:Salary:Work                              -15000.00 CNY
+  Assets:Bank:CGB                                  15000.00 CNY
+
+2026-03-11 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:Bank:CGB                                     -4.00 CNY
+
+2026-03-11 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Liabilities:CreditCard:CMB                         -12.80 CNY
+
+2026-03-11 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-03-11 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Liabilities:CreditCard:CMB                          -8.50 CNY
+
+2026-03-12 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-03-12 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-03-12 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-03-12 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-03-12 * "Landlord" "房租"
+  Expenses:Housing:Rent                             4500.00 CNY
+  Assets:Bank:CGB                                  -4500.00 CNY
+
+2026-03-13 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Liabilities:CreditCard:CMB                          -6.00 CNY
+
+2026-03-14 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:Bank:CGB                                    -12.00 CNY
+
+2026-03-14 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-03-14 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-03-14 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-03-15 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-03-15 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:EWallet:Alipay                              -29.90 CNY
+
+2026-03-16 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-03-17 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-03-17 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-03-17 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Liabilities:CreditCard:CMB                          -8.50 CNY
+
+2026-03-18 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:Bank:CGB                                     -8.50 CNY
+
+2026-03-18 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:EWallet:Alipay                              -29.90 CNY
+
+2026-03-18 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-03-19 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:Bank:CGB                                    -29.90 CNY
+
+2026-03-19 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-03-19 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:EWallet:Alipay                              -45.50 CNY
+
+2026-03-20 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Liabilities:CreditCard:CMB                         -25.00 CNY
+
+2026-03-20 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-03-20 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Liabilities:CreditCard:CMB                         -25.00 CNY
+
+2026-03-20 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Liabilities:CreditCard:CMB                          -8.50 CNY
+
+2026-03-20 * "CMB Credit Card" "Repayment"
+  Liabilities:CreditCard:CMB                        1000.00 CNY
+  Assets:Bank:CGB                                  -1000.00 CNY
+
+2026-03-21 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Liabilities:CreditCard:CMB                          -5.00 CNY
+
+2026-03-21 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-03-22 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:Bank:CGB                                    -29.90 CNY
+
+2026-03-23 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-03-23 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Liabilities:CreditCard:CMB                          -4.00 CNY
+
+2026-03-23 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-03-24 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:Bank:CGB                                     -6.00 CNY
+
+2026-03-24 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-03-24 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-03-24 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-03-25 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:Bank:CGB                                    -12.00 CNY
+
+2026-03-25 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-03-25 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-03-26 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-03-27 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-03-27 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-03-28 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:Bank:CGB                                     -8.50 CNY
+
+2026-03-28 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-03-28 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:Bank:CGB                                     -8.50 CNY
+
+2026-03-28 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:Bank:CGB                                    -12.00 CNY
+
+2026-03-28 * "IBKR" "Sell AAPL"
+  Assets:Brokerage:IBKR:Stock                     -1 AAPL {} @ 217.37 USD
+  Assets:Brokerage:IBKR:Cash                         217.37 USD
+  Income:Invest:Gain
+
+2026-03-29 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-03-29 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-03-30 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-03-30 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-03-30 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-03-31 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-03-31 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-03-31 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Liabilities:CreditCard:CMB                          -8.50 CNY
+
+2026-03-31 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-04-01 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:EWallet:Alipay                              -29.90 CNY
+
+2026-04-01 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Liabilities:CreditCard:CMB                         -12.00 CNY
+
+2026-04-01 * "Office" "垫付打车" #reimbursed ^reimburse-work-202604
+  Assets:Receivable:Reimbursement                     56.00 CNY
+  Assets:EWallet:Alipay                              -56.00 CNY
+
+2026-04-02 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-04-03 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:Bank:CGB                                     -8.50 CNY
+
+2026-04-03 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-04-04 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-04-04 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:EWallet:Alipay                              -29.90 CNY
+
+2026-04-04 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:Bank:CGB                                    -12.00 CNY
+
+2026-04-04 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Liabilities:CreditCard:CMB                         -29.90 CNY
+
+2026-04-05 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-04-05 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Liabilities:CreditCard:CMB                         -25.00 CNY
+
+2026-04-05 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-04-05 * "UniCom" "手机充值"
+  Expenses:Subscription:Phone                         19.90 CNY
+  Assets:EWallet:Alipay                              -19.90 CNY
+
+2026-04-06 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Liabilities:CreditCard:CMB                         -12.00 CNY
+
+2026-04-06 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:Bank:CGB                                     -5.00 CNY
+
+2026-04-06 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-04-07 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Liabilities:CreditCard:CMB                          -8.50 CNY
+
+2026-04-07 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-04-08 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-04-08 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-04-08 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Liabilities:CreditCard:CMB                          -8.50 CNY
+
+2026-04-08 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-04-09 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Liabilities:CreditCard:CMB                          -5.00 CNY
+
+2026-04-09 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-04-09 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Liabilities:CreditCard:CMB                          -4.00 CNY
+
+2026-04-10 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Liabilities:CreditCard:CMB                         -12.80 CNY
+
+2026-04-10 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Liabilities:CreditCard:CMB                         -29.90 CNY
+
+2026-04-10 * "Work" "工资"
+  Income:Salary:Work                              -15000.00 CNY
+  Assets:Bank:CGB                                  15000.00 CNY
+
+2026-04-11 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-04-12 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-04-12 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:Bank:CGB                                     -4.00 CNY
+
+2026-04-12 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:Bank:CGB                                     -8.50 CNY
+
+2026-04-12 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-04-12 * "Landlord" "房租"
+  Expenses:Housing:Rent                             4500.00 CNY
+  Assets:Bank:CGB                                  -4500.00 CNY
+
+2026-04-13 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:EWallet:Alipay                              -12.00 CNY
+
+2026-04-13 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-04-14 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-04-14 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-04-15 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Liabilities:CreditCard:CMB                         -12.80 CNY
+
+2026-04-15 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-04-15 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-04-15 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-04-15 * "大快活" "午餐" #fx
+  Expenses:Food:Meals                                 51.19 CNY @ 1.10701 HKD
+  Assets:Bank:BOCHK                                  -56.67 HKD
+
+2026-04-16 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Liabilities:CreditCard:CMB                          -4.00 CNY
+
+2026-04-17 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-04-17 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:Bank:CGB                                    -12.80 CNY
+
+2026-04-17 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:Bank:CGB                                    -12.00 CNY
+
+2026-04-17 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-04-18 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:Bank:CGB                                     -6.00 CNY
+
+2026-04-18 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-04-18 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:Bank:CGB                                     -4.00 CNY
+
+2026-04-18 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-04-19 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-04-19 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Liabilities:CreditCard:CMB                          -8.50 CNY
+
+2026-04-20 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:Bank:CGB                                     -6.00 CNY
+
+2026-04-20 * "CMB Credit Card" "Repayment"
+  Liabilities:CreditCard:CMB                        1000.00 CNY
+  Assets:Bank:CGB                                  -1000.00 CNY
+
+2026-04-21 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Assets:Bank:CGB                                    -25.00 CNY
+
+2026-04-22 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:EWallet:Alipay                              -45.50 CNY
+
+2026-04-22 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Liabilities:CreditCard:CMB                         -25.00 CNY
+
+2026-04-23 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-04-23 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-04-23 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Liabilities:CreditCard:CMB                         -29.90 CNY
+
+2026-04-23 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Liabilities:CreditCard:CMB                          -8.50 CNY
+
+2026-04-24 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-04-24 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-04-24 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:Bank:CGB                                     -5.00 CNY
+
+2026-04-25 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-04-25 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-04-25 * "Transfer" "CGB -> BOCHK" #transfer
+  exchange_rate: "1 CNY = 1.11113 HKD"
+  Assets:Bank:CGB                                  -2000.00 CNY
+  Assets:Bank:BOCHK                                 2222.27 HKD @@ 2000.00 CNY
+
+2026-04-26 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-04-26 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:EWallet:Alipay                              -29.90 CNY
+
+2026-04-26 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Liabilities:CreditCard:CMB                          -6.00 CNY
+
+2026-04-27 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-04-27 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:Bank:CGB                                    -29.90 CNY
+
+2026-04-27 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-04-27 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:Bank:CGB                                     -4.00 CNY
+
+2026-04-28 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Liabilities:CreditCard:CMB                         -29.90 CNY
+
+2026-04-29 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-04-29 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:Bank:CGB                                     -6.00 CNY
+
+2026-04-29 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Liabilities:CreditCard:CMB                          -5.00 CNY
+
+2026-04-30 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-04-30 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-04-30 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-04-30 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-05-01 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-05-01 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-05-01 * "Office" "垫付打车" #reimbursed ^reimburse-work-202605
+  Assets:Receivable:Reimbursement                     56.00 CNY
+  Assets:EWallet:Alipay                              -56.00 CNY
+
+2026-05-02 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Assets:Bank:CGB                                    -25.00 CNY
+
+2026-05-03 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Liabilities:CreditCard:CMB                          -6.00 CNY
+
+2026-05-03 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:Bank:CGB                                     -8.50 CNY
+
+2026-05-03 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-05-03 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-05-03 * "IBKR" "Buy AAPL"
+  Assets:Brokerage:IBKR:Stock                      2 AAPL {184.13 USD}
+  Assets:Brokerage:IBKR:Cash
+
+2026-05-04 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-05-04 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-05-05 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-05-05 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-05-05 * "UniCom" "手机充值"
+  Expenses:Subscription:Phone                         19.90 CNY
+  Assets:EWallet:Alipay                              -19.90 CNY
+
+2026-05-06 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-05-06 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Liabilities:CreditCard:CMB                         -12.00 CNY
+
+2026-05-06 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-05-06 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-05-07 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-05-07 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:Bank:CGB                                    -12.80 CNY
+
+2026-05-07 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-05-07 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-05-08 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-05-08 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Assets:EWallet:Alipay                              -25.00 CNY
+
+2026-05-08 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Liabilities:CreditCard:CMB                         -12.00 CNY
+
+2026-05-09 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-05-09 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-05-10 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-05-10 * "Work" "工资"
+  Income:Salary:Work                              -15000.00 CNY
+  Assets:Bank:CGB                                  15000.00 CNY
+
+2026-05-11 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-05-11 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:Bank:CGB                                     -5.00 CNY
+
+2026-05-11 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-05-11 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:EWallet:Alipay                              -45.50 CNY
+
+2026-05-12 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-05-12 * "Landlord" "房租"
+  Expenses:Housing:Rent                             4500.00 CNY
+  Assets:Bank:CGB                                  -4500.00 CNY
+
+2026-05-13 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-05-13 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Liabilities:CreditCard:CMB                         -45.50 CNY
+
+2026-05-14 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-05-14 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:Bank:CGB                                     -8.50 CNY
+
+2026-05-15 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Assets:Bank:CGB                                    -25.00 CNY
+
+2026-05-15 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:EWallet:Alipay                              -45.50 CNY
+
+2026-05-15 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-05-15 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-05-15 * "大快活" "午餐" #fx
+  Expenses:Food:Meals                                282.72 CNY @ 1.05950 HKD
+  Assets:Bank:BOCHK                                 -299.54 HKD
+
+2026-05-16 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-05-16 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-05-16 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-05-16 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:EWallet:Alipay                              -12.00 CNY
+
+2026-05-17 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-05-17 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:EWallet:Alipay                              -29.90 CNY
+
+2026-05-17 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-05-17 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-05-18 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-05-18 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-05-18 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Liabilities:CreditCard:CMB                         -12.00 CNY
+
+2026-05-19 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Liabilities:CreditCard:CMB                         -12.00 CNY
+
+2026-05-19 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:Bank:CGB                                    -12.00 CNY
+
+2026-05-19 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-05-20 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-05-20 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Liabilities:CreditCard:CMB                         -12.00 CNY
+
+2026-05-20 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:EWallet:Alipay                              -12.00 CNY
+
+2026-05-20 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:Bank:CGB                                    -12.00 CNY
+
+2026-05-20 * "CMB Credit Card" "Repayment"
+  Liabilities:CreditCard:CMB                        1000.00 CNY
+  Assets:Bank:CGB                                  -1000.00 CNY
+
+2026-05-21 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-05-21 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:Bank:CGB                                     -5.00 CNY
+
+2026-05-21 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:EWallet:Alipay                              -45.50 CNY
+
+2026-05-22 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-05-22 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Liabilities:CreditCard:CMB                         -45.50 CNY
+
+2026-05-22 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Liabilities:CreditCard:CMB                         -29.90 CNY
+
+2026-05-23 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-05-23 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-05-23 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-05-23 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-05-24 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Liabilities:CreditCard:CMB                         -25.00 CNY
+
+2026-05-24 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-05-24 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-05-24 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-05-25 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-05-26 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Liabilities:CreditCard:CMB                         -12.00 CNY
+
+2026-05-26 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-05-26 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:Bank:CGB                                    -29.90 CNY
+
+2026-05-27 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-05-28 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-05-28 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:EWallet:Alipay                              -45.50 CNY
+
+2026-05-29 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Liabilities:CreditCard:CMB                          -4.00 CNY
+
+2026-05-29 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-05-29 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-05-30 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-05-31 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-05-31 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-06-01 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-06-01 * "Office" "垫付打车" #reimbursed ^reimburse-work-202606
+  Assets:Receivable:Reimbursement                     56.00 CNY
+  Assets:EWallet:Alipay                              -56.00 CNY
+
+2026-06-02 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-06-02 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-06-02 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Liabilities:CreditCard:CMB                         -12.80 CNY
+
+2026-06-02 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:Bank:CGB                                     -5.00 CNY
+
+2026-06-03 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-06-04 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:EWallet:Alipay                              -45.50 CNY
+
+2026-06-04 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-06-04 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Liabilities:CreditCard:CMB                         -29.90 CNY
+
+2026-06-04 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-06-05 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Liabilities:CreditCard:CMB                          -6.00 CNY
+
+2026-06-05 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:EWallet:Alipay                              -12.00 CNY
+
+2026-06-05 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-06-05 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Liabilities:CreditCard:CMB                          -5.00 CNY
+
+2026-06-05 * "UniCom" "手机充值"
+  Expenses:Subscription:Phone                         19.90 CNY
+  Assets:EWallet:Alipay                              -19.90 CNY
+
+2026-06-06 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:Bank:CGB                                     -5.00 CNY
+
+2026-06-06 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-06-06 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:Bank:CGB                                     -6.00 CNY
+
+2026-06-06 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-06-07 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-06-08 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Liabilities:CreditCard:CMB                         -29.90 CNY
+
+2026-06-08 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-06-09 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-06-09 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-06-09 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-06-09 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Liabilities:CreditCard:CMB                          -8.50 CNY
+
+2026-06-10 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-06-10 * "Work" "工资"
+  Income:Salary:Work                              -15000.00 CNY
+  Assets:Bank:CGB                                  15000.00 CNY
+
+2026-06-11 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:Bank:CGB                                    -12.80 CNY
+
+2026-06-12 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-06-12 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-06-12 * "Landlord" "房租"
+  Expenses:Housing:Rent                             4500.00 CNY
+  Assets:Bank:CGB                                  -4500.00 CNY
+
+2026-06-13 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-06-13 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-06-13 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:EWallet:Alipay                              -12.00 CNY
+
+2026-06-13 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-06-14 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-06-14 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-06-15 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-06-15 * "大快活" "午餐" #fx
+  Expenses:Food:Meals                                298.80 CNY @ 1.06476 HKD
+  Assets:Bank:BOCHK                                 -318.15 HKD
+
+2026-06-16 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:Bank:CGB                                     -8.50 CNY
+
+2026-06-16 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-06-17 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-06-17 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Liabilities:CreditCard:CMB                         -12.00 CNY
+
+2026-06-17 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Liabilities:CreditCard:CMB                          -5.00 CNY
+
+2026-06-18 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-06-18 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-06-18 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-06-19 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-06-20 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-06-20 * "CMB Credit Card" "Repayment"
+  Liabilities:CreditCard:CMB                        1000.00 CNY
+  Assets:Bank:CGB                                  -1000.00 CNY
+
+2026-06-21 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-06-21 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-06-22 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-06-22 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:Bank:CGB                                    -12.00 CNY
+
+2026-06-23 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-06-23 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:EWallet:Alipay                              -29.90 CNY
+
+2026-06-23 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-06-23 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-06-24 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-06-24 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:Bank:CGB                                     -4.00 CNY
+
+2026-06-24 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-06-25 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:Bank:CGB                                     -8.50 CNY
+
+2026-06-25 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-06-26 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-06-26 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-06-27 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-06-27 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-06-27 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-06-28 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Liabilities:CreditCard:CMB                         -12.80 CNY
+
+2026-06-28 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Assets:Bank:CGB                                    -25.00 CNY
+
+2026-06-28 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-06-28 * "IBKR" "Sell AAPL"
+  Assets:Brokerage:IBKR:Stock                     -1 AAPL {} @ 191.00 USD
+  Assets:Brokerage:IBKR:Cash                         191.00 USD
+  Income:Invest:Gain
+
+2026-06-29 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-06-30 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-06-30 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-06-30 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:Bank:CGB                                    -29.90 CNY
+
+2026-06-30 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-07-01 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-07-01 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Liabilities:CreditCard:CMB                          -8.50 CNY
+
+2026-07-01 * "Office" "垫付打车" #reimbursed ^reimburse-work-202607
+  Assets:Receivable:Reimbursement                     56.00 CNY
+  Assets:EWallet:Alipay                              -56.00 CNY
+
+2026-07-02 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Liabilities:CreditCard:CMB                         -29.90 CNY
+
+2026-07-02 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:Bank:CGB                                     -4.00 CNY
+
+2026-07-02 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Liabilities:CreditCard:CMB                          -8.50 CNY
+
+2026-07-03 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:EWallet:Alipay                              -29.90 CNY
+
+2026-07-04 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-07-05 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-07-05 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:Bank:CGB                                     -4.00 CNY
+
+2026-07-05 * "UniCom" "手机充值"
+  Expenses:Subscription:Phone                         19.90 CNY
+  Assets:EWallet:Alipay                              -19.90 CNY
+
+2026-07-06 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Liabilities:CreditCard:CMB                         -29.90 CNY
+
+2026-07-06 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-07-07 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-07-08 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Liabilities:CreditCard:CMB                          -5.00 CNY
+
+2026-07-08 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:EWallet:Alipay                              -29.90 CNY
+
+2026-07-08 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-07-09 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-07-09 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:EWallet:Alipay                              -45.50 CNY
+
+2026-07-10 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-07-10 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:EWallet:Alipay                              -12.00 CNY
+
+2026-07-10 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-07-10 * "Work" "工资"
+  Income:Salary:Work                              -15000.00 CNY
+  Assets:Bank:CGB                                  15000.00 CNY
+
+2026-07-11 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-07-12 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Liabilities:CreditCard:CMB                          -6.00 CNY
+
+2026-07-12 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-07-12 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Liabilities:CreditCard:CMB                         -45.50 CNY
+
+2026-07-12 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-07-12 * "Landlord" "房租"
+  Expenses:Housing:Rent                             4500.00 CNY
+  Assets:Bank:CGB                                  -4500.00 CNY
+
+2026-07-13 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-07-13 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-07-13 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:EWallet:Alipay                              -12.00 CNY
+
+2026-07-13 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-07-14 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:Bank:CGB                                    -12.00 CNY
+
+2026-07-14 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Liabilities:CreditCard:CMB                          -8.50 CNY
+
+2026-07-15 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-07-15 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Liabilities:CreditCard:CMB                         -12.80 CNY
+
+2026-07-15 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:EWallet:Alipay                              -12.00 CNY
+
+2026-07-16 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-07-17 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Liabilities:CreditCard:CMB                          -5.00 CNY
+
+2026-07-17 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-07-17 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-07-17 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:Bank:CGB                                     -8.50 CNY
+
+2026-07-18 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:Bank:CGB                                     -5.00 CNY
+
+2026-07-18 * "Didi" "打车" #reimbursed
+  Assets:Receivable:Reimbursement                     45.50 CNY
+  Assets:EWallet:Alipay                              -45.50 CNY
+
+2026-07-19 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-07-19 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Liabilities:CreditCard:CMB                          -4.00 CNY
+
+2026-07-20 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-07-20 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Liabilities:CreditCard:CMB                          -5.00 CNY
+
+2026-07-20 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-07-20 * "CMB Credit Card" "Repayment"
+  Liabilities:CreditCard:CMB                        1000.00 CNY
+  Assets:Bank:CGB                                  -1000.00 CNY
+
+2026-07-21 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Liabilities:CreditCard:CMB                         -12.00 CNY
+
+2026-07-22 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-07-22 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-07-23 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-07-24 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-07-25 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:Bank:CGB                                    -12.80 CNY
+
+2026-07-25 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:Bank:CGB                                    -12.80 CNY
+
+2026-07-26 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-07-26 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-07-26 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-07-26 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-07-26 * "Didi" "打车" #reimbursed
+  Assets:Receivable:Reimbursement                     32.00 CNY
+  Assets:EWallet:Alipay                              -32.00 CNY
+
+2026-07-27 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Liabilities:CreditCard:CMB                         -12.80 CNY
+
+2026-07-27 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-07-27 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-07-28 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Liabilities:CreditCard:CMB                         -12.80 CNY
+
+2026-07-28 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:EWallet:Alipay                              -12.00 CNY
+
+2026-07-28 * "IBKR" "Sell AAPL"
+  Assets:Brokerage:IBKR:Stock                     -1 AAPL {} @ 205.00 USD
+  Assets:Brokerage:IBKR:Cash                         205.00 USD
+  Income:Invest:Gain
+
+2026-07-29 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-07-29 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-07-30 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-07-30 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-07-30 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Liabilities:CreditCard:CMB                          -6.00 CNY
+
+2026-07-31 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:Bank:CGB                                     -6.00 CNY
+
+2026-07-31 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:EWallet:Alipay                              -29.90 CNY
+
+2026-08-01 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Liabilities:CreditCard:CMB                          -4.00 CNY
+
+2026-08-01 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-08-01 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-08-01 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-08-01 * "Office" "垫付打车" #reimbursed ^reimburse-work-202608
+  Assets:Receivable:Reimbursement                     56.00 CNY
+  Assets:EWallet:Alipay                              -56.00 CNY
+
+2026-08-02 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-08-02 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-08-02 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-08-03 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:Bank:CGB                                     -4.00 CNY
+
+2026-08-03 * "IBKR" "Buy AAPL"
+  Assets:Brokerage:IBKR:Stock                      3 AAPL {151.89 USD}
+  Assets:Brokerage:IBKR:Cash
+
+2026-08-04 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-08-05 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-08-05 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-08-05 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Liabilities:CreditCard:CMB                         -29.90 CNY
+
+2026-08-05 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-08-05 * "UniCom" "手机充值"
+  Expenses:Subscription:Phone                         19.90 CNY
+  Assets:EWallet:Alipay                              -19.90 CNY
+
+2026-08-06 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Assets:Bank:CGB                                    -25.00 CNY
+
+2026-08-06 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-08-07 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:Bank:CGB                                    -12.80 CNY
+
+2026-08-08 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:EWallet:Alipay                              -12.00 CNY
+
+2026-08-08 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Liabilities:CreditCard:CMB                         -29.90 CNY
+
+2026-08-08 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Assets:Bank:CGB                                    -25.00 CNY
+
+2026-08-08 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-08-09 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-08-10 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:Bank:CGB                                     -6.00 CNY
+
+2026-08-10 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-08-10 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:EWallet:Alipay                              -29.90 CNY
+
+2026-08-10 * "Work" "工资"
+  Income:Salary:Work                              -15000.00 CNY
+  Assets:Bank:CGB                                  15000.00 CNY
+
+2026-08-11 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Liabilities:CreditCard:CMB                         -25.00 CNY
+
+2026-08-12 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-08-12 * "Landlord" "房租"
+  Expenses:Housing:Rent                             4500.00 CNY
+  Assets:Bank:CGB                                  -4500.00 CNY
+
+2026-08-13 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-08-13 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-08-14 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-08-14 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-08-14 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:Bank:CGB                                     -5.00 CNY
+
+2026-08-15 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Liabilities:CreditCard:CMB                          -6.00 CNY
+
+2026-08-15 * "大快活" "午餐" #fx
+  Expenses:Food:Meals                                156.18 CNY @ 1.05269 HKD
+  Assets:Bank:BOCHK                                 -164.41 HKD
+
+2026-08-16 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-08-16 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Liabilities:CreditCard:CMB                          -4.00 CNY
+
+2026-08-17 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:Bank:CGB                                     -5.00 CNY
+
+2026-08-17 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-08-17 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-08-17 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-08-18 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-08-18 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-08-18 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-08-18 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:Bank:CGB                                     -6.00 CNY
+
+2026-08-18 * "Didi" "打车" #reimbursed
+  Assets:Receivable:Reimbursement                     45.50 CNY
+  Assets:EWallet:Alipay                              -45.50 CNY
+
+2026-08-19 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-08-20 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-08-20 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-08-20 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:Bank:CGB                                     -6.00 CNY
+
+2026-08-20 * "CMB Credit Card" "Repayment"
+  Liabilities:CreditCard:CMB                        1000.00 CNY
+  Assets:Bank:CGB                                  -1000.00 CNY
+
+2026-08-21 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:Bank:CGB                                    -12.80 CNY
+
+2026-08-21 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-08-22 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-08-22 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Liabilities:CreditCard:CMB                          -5.00 CNY
+
+2026-08-22 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-08-22 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-08-23 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Liabilities:CreditCard:CMB                          -6.00 CNY
+
+2026-08-24 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-08-25 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-08-25 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-08-25 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-08-25 * "Transfer" "CGB -> BOCHK" #transfer
+  exchange_rate: "1 CNY = 1.11496 HKD"
+  Assets:Bank:CGB                                  -2000.00 CNY
+  Assets:Bank:BOCHK                                 2229.93 HKD @@ 2000.00 CNY
+
+2026-08-26 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-08-26 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-08-26 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-08-26 * "Didi" "打车" #reimbursed
+  Assets:Receivable:Reimbursement                     32.00 CNY
+  Assets:EWallet:Alipay                              -32.00 CNY
+
+2026-08-27 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-08-27 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-08-27 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-08-27 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Liabilities:CreditCard:CMB                          -5.00 CNY
+
+2026-08-28 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Liabilities:CreditCard:CMB                         -12.80 CNY
+
+2026-08-28 * "IBKR" "Sell AAPL"
+  Assets:Brokerage:IBKR:Stock                     -1 AAPL {} @ 208.71 USD
+  Assets:Brokerage:IBKR:Cash                         208.71 USD
+  Income:Invest:Gain
+
+2026-08-29 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-08-29 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Liabilities:CreditCard:CMB                          -4.00 CNY
+
+2026-08-29 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-08-30 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-08-31 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-08-31 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-08-31 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Liabilities:CreditCard:CMB                          -5.00 CNY
+
+2026-09-01 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-09-01 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-09-01 * "Office" "垫付打车" #reimbursed ^reimburse-work-202609
+  Assets:Receivable:Reimbursement                     56.00 CNY
+  Assets:EWallet:Alipay                              -56.00 CNY
+
+2026-09-02 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-09-02 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Assets:EWallet:Alipay                              -25.00 CNY
+
+2026-09-03 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-09-03 * "IBKR" "Buy AAPL"
+  Assets:Brokerage:IBKR:Stock                      3 AAPL {171.35 USD}
+  Assets:Brokerage:IBKR:Cash
+
+2026-09-04 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:Bank:CGB                                     -4.00 CNY
+
+2026-09-04 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-09-05 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-09-05 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-09-05 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-09-05 * "UniCom" "手机充值"
+  Expenses:Subscription:Phone                         19.90 CNY
+  Assets:EWallet:Alipay                              -19.90 CNY
+
+2026-09-06 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-09-07 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-09-07 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-09-08 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-09-08 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-09-09 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:Bank:CGB                                    -29.90 CNY
+
+2026-09-09 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-09-09 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-09-09 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Liabilities:CreditCard:CMB                         -45.50 CNY
+
+2026-09-10 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:EWallet:Alipay                              -45.50 CNY
+
+2026-09-10 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-09-10 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-09-10 * "Work" "工资"
+  Income:Salary:Work                              -15000.00 CNY
+  Assets:Bank:CGB                                  15000.00 CNY
+
+2026-09-11 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Liabilities:CreditCard:CMB                         -29.90 CNY
+
+2026-09-11 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Liabilities:CreditCard:CMB                          -8.50 CNY
+
+2026-09-11 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-09-12 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:Bank:CGB                                     -5.00 CNY
+
+2026-09-12 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Liabilities:CreditCard:CMB                          -8.50 CNY
+
+2026-09-12 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:EWallet:Alipay                              -29.90 CNY
+
+2026-09-12 * "Landlord" "房租"
+  Expenses:Housing:Rent                             4500.00 CNY
+  Assets:Bank:CGB                                  -4500.00 CNY
+
+2026-09-13 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Liabilities:CreditCard:CMB                         -45.50 CNY
+
+2026-09-14 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-09-15 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-09-15 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Liabilities:CreditCard:CMB                         -45.50 CNY
+
+2026-09-15 * "大快活" "午餐" #fx
+  Expenses:Food:Meals                                 93.92 CNY @ 1.09439 HKD
+  Assets:Bank:BOCHK                                 -102.78 HKD
+
+2026-09-16 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:Bank:CGB                                    -13.90 CNY
+
+2026-09-16 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:Bank:CGB                                    -29.90 CNY
+
+2026-09-16 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Assets:Bank:CGB                                    -25.00 CNY
+
+2026-09-17 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-09-18 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-09-18 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Liabilities:CreditCard:CMB                         -12.00 CNY
+
+2026-09-18 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Liabilities:CreditCard:CMB                         -45.50 CNY
+
+2026-09-18 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-09-18 * "Didi" "打车" #reimbursed
+  Assets:Receivable:Reimbursement                     45.50 CNY
+  Assets:EWallet:Alipay                              -45.50 CNY
+
+2026-09-19 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-09-19 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Liabilities:CreditCard:CMB                         -12.80 CNY
+
+2026-09-19 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Liabilities:CreditCard:CMB                          -9.90 CNY
+
+2026-09-20 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Liabilities:CreditCard:CMB                         -12.80 CNY
+
+2026-09-20 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:Bank:CGB                                     -6.00 CNY
+
+2026-09-20 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-09-20 * "CMB Credit Card" "Repayment"
+  Liabilities:CreditCard:CMB                        1000.00 CNY
+  Assets:Bank:CGB                                  -1000.00 CNY
+
+2026-09-21 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-09-21 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:Bank:CGB                                     -4.00 CNY
+
+2026-09-21 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:Bank:CGB                                    -29.90 CNY
+
+2026-09-22 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-09-22 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:Bank:CGB                                    -29.90 CNY
+
+2026-09-23 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Liabilities:CreditCard:CMB                         -25.00 CNY
+
+2026-09-23 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:Bank:CGB                                    -12.80 CNY
+
+2026-09-23 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-09-23 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:Bank:CGB                                     -5.00 CNY
+
+2026-09-24 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:Bank:CGB                                     -4.00 CNY
+
+2026-09-24 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-09-24 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:EWallet:Alipay                              -12.00 CNY
+
+2026-09-25 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-09-25 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Assets:EWallet:Alipay                              -25.00 CNY
+
+2026-09-25 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Liabilities:CreditCard:CMB                          -6.00 CNY
+
+2026-09-26 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-09-26 * "Didi" "打车" #reimbursed
+  Assets:Receivable:Reimbursement                     32.00 CNY
+  Assets:EWallet:Alipay                              -32.00 CNY
+
+2026-09-27 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-09-27 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-09-28 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-09-28 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-09-28 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:Bank:CGB                                    -18.00 CNY
+
+2026-09-29 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  8.50 CNY
+  Assets:EWallet:Alipay                               -8.50 CNY
+
+2026-09-30 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:Bank:CGB                                     -4.00 CNY
+
+2026-10-01 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Liabilities:CreditCard:CMB                          -5.00 CNY
+
+2026-10-01 * "Office" "垫付打车" #reimbursed ^reimburse-work-202610
+  Assets:Receivable:Reimbursement                     56.00 CNY
+  Assets:EWallet:Alipay                              -56.00 CNY
+
+2026-10-02 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Liabilities:CreditCard:CMB                         -25.00 CNY
+
+2026-10-02 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-10-02 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:Bank:CGB                                     -5.00 CNY
+
+2026-10-03 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                 9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-10-03 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-10-03 * "便利店" "香烟"
+  Expenses:Food:Drinks                                18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-10-03 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:Bank:CGB                                    -45.50 CNY
+
+2026-10-04 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Liabilities:CreditCard:CMB                         -25.00 CNY
+
+2026-10-04 * "便利店" "香烟"
+  Expenses:Food:Drinks                                25.00 CNY
+  Liabilities:CreditCard:CMB                         -25.00 CNY
+
+2026-10-04 * "喜市多" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:Bank:CGB                                     -9.90 CNY
+
+2026-10-05 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         12.80 CNY
+  Assets:EWallet:Alipay                              -12.80 CNY
+
+2026-10-05 * "UniCom" "手机充值"
+  Expenses:Subscription:Phone                         19.90 CNY
+  Assets:EWallet:Alipay                              -19.90 CNY
+
+2026-10-06 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-10-06 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Liabilities:CreditCard:CMB                          -5.00 CNY
+
+2026-10-06 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         29.90 CNY
+  Assets:Bank:CGB                                    -29.90 CNY
+
+2026-10-07 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-10-07 * "喜市多" "早餐"
+  Expenses:Food:Meals                                 12.00 CNY
+  Assets:Bank:CGB                                    -12.00 CNY
+
+2026-10-08 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Liabilities:CreditCard:CMB                          -5.00 CNY
+
+2026-10-08 * "淘宝" "纸巾"
+  Expenses:Shopping:Household                         45.50 CNY
+  Assets:EWallet:Alipay                              -45.50 CNY

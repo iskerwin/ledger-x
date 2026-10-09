@@ -1,0 +1,6 @@
+2020-01-01 commodity CNY
+2020-01-01 commodity HKD
+2020-01-01 commodity USD
+2020-01-01 commodity AAPL
+  asset-class: "equity"
+  price: "USD:yahoo/AAPL"

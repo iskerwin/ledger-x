@@ -1,0 +1,160 @@
+name: iOS
+
+# Tests LedgerKit, builds an unsigned Ledger.ipa (sign it yourself with SideStore / AltStore)
+# and launches the app in the simulator for screenshots.
+#   push to main  -> prerelease "dev" (Ledger.ipa, logs, screenshots)
+#   push a tag v* -> release with that version (e.g. v1.0)
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)"
+          xcodebuild -version
+
+      - name: Tests (LedgerKit)
+        id: tests
+        continue-on-error: true
+        working-directory: LedgerKit
+        run: |
+          set -o pipefail
+          swift test 2>&1 | tee ../test.log
+
+      - name: Build
+        id: build
+        run: |
+          brew install xcodegen
+          xcodegen generate
+          VERSION=$(sed -nE 's/^ *MARKETING_VERSION: *"?([^"]+)"?$/\1/p' project.yml | head -1)
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then VERSION="${GITHUB_REF_NAME#v}"; fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          set +e
+          xcodebuild -project Ledger.xcodeproj -scheme Ledger -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
+            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build > build.log 2>&1
+          status=$?
+          grep -E "error:|BUILD" build.log | sort -u | head -40
+          exit $status
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/Ledger.app Payload/
+          zip -qry Ledger.ipa Payload
+          ls -la Ledger.ipa
+
+      - name: Stop if the tests failed
+        if: steps.tests.outcome == 'failure'
+        run: |
+          grep -E "error:" test.log | head -30
+          echo "::error::LedgerKit 测试未通过，见 dev 版本里的 test.log"
+          exit 1
+
+      - name: Publish release (tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" Ledger.ipa --verify-tag --latest \
+            --title "Ledger $GITHUB_REF_NAME" \
+            --notes "未签名的 Ledger.ipa（版本 ${{ steps.build.outputs.version }}，构建 $GITHUB_RUN_NUMBER）。在 iPhone 上下载后用 SideStore / AltStore 导入签名安装。"
+
+      - name: Publish dev build (main)
+        if: always() && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p out
+          [ -f Ledger.ipa ] && [ "${{ steps.tests.outcome }}" = "success" ] && cp Ledger.ipa out/
+          cp test.log out/ 2>/dev/null || true
+          [ -f build.log ] && grep -E "error:|warning:" build.log | sort -u > out/build-errors.log || true
+          gh release delete dev -y --cleanup-tag || true
+          gh release create dev out/* --target "$GITHUB_SHA" --prerelease --title "开发版（main 最新）" \
+            --notes "main ${GITHUB_SHA::7} · 构建 $GITHUB_RUN_NUMBER · $(date -u +%Y-%m-%dT%H:%MZ)。正式版请用最新的 v 版本。"
+
+  screens:
+    # launches the app in the simulator on the test ledger and takes screenshots of each page
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)"
+      - name: Build for simulator
+        run: |
+          brew install xcodegen
+          xcodegen generate
+          xcodebuild -project Ledger.xcodeproj -scheme Ledger -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build-sim CODE_SIGNING_ALLOWED=NO build > sim.log 2>&1 || { grep -E "error:" sim.log | sort -u | head -40; exit 1; }
+      - name: Screenshots
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import sys,json
+          d=json.load(sys.stdin)['devices']
+          c=[x for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone 16') or x['name'].startswith('iPhone 15')]
+          c.sort(key=lambda x: (x['name']!='iPhone 16', x['name']))
+          print(c[0]['udid'])")
+          echo "device $UDID"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override --time 9:41 --batteryLevel 100 --cellularBars 4 || true
+          xcrun simctl install "$UDID" build-sim/Build/Products/Debug-iphonesimulator/Ledger.app
+          FIX="$GITHUB_WORKSPACE/LedgerKit/Tests/LedgerKitTests/Fixtures/realistic"
+          BUNDLE=$(sed -nE 's/^ *PRODUCT_BUNDLE_IDENTIFIER: *(.+)$/\1/p' project.yml | head -1)
+          mkdir -p shots
+          shot() {
+            name=$1; shift
+            xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
+            env SIMCTL_CHILD_LEDGER_DEMO="$FIX" "$@" xcrun simctl launch "$UDID" "$BUNDLE" > /dev/null
+            sleep 7
+            xcrun simctl io "$UDID" screenshot "shots/$name.png" > /dev/null 2>&1
+            if ! xcrun simctl spawn "$UDID" launchctl list | grep -q "$BUNDLE"; then echo "CRASH on $name" | tee -a shots/crash.txt; fi
+          }
+          shot 01-add SIMCTL_CHILD_LEDGER_TAB=add
+          shot 02-add-filled SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1
+          shot 03-transfer SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_KIND=transfer
+          shot 04-multi SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_KIND=multi
+          shot 05-raw SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_KIND=raw
+          shot 06-overview SIMCTL_CHILD_LEDGER_TAB=overview
+          shot 07-journal SIMCTL_CHILD_LEDGER_TAB=journal
+          shot 08-search SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_QUERY="#fx"
+          shot 09-detail SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_OPEN_TX=1
+          shot 10-accounts SIMCTL_CHILD_LEDGER_TAB=accounts
+          shot 11-register SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_OPEN_ACCOUNT=Assets:Bank:CGB
+          shot 12-check SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_OPEN_ACCOUNT=Assets:Bank:CGB SIMCTL_CHILD_LEDGER_CHECK=180000
+          shot 13-settings SIMCTL_CHILD_LEDGER_TAB=settings
+          shot 17-holdings SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_OPEN_HOLDINGS=1
+          shot 18-reimb SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_REIMB=1
+          shot 19-edit-text SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_EDIT_TEXT=1
+          shot 20-refund SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_KIND=refund
+          shot 21-detail-actions SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_OPEN_TX=1
+          shot 14-privacy SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_PRIVACY=1
+          xcrun simctl ui "$UDID" appearance dark
+          shot 15-dark-overview SIMCTL_CHILD_LEDGER_TAB=overview
+          shot 16-dark-add SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1
+          xcrun simctl spawn "$UDID" log show --last 5m --style compact --predicate 'process == "Ledger"' > shots/app.log 2>&1 || true
+          ls -la shots
+      - name: Add screenshots to the dev build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload dev shots/* --clobber

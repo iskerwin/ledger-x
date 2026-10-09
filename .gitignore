@@ -1,0 +1,6 @@
+build/
+Ledger.xcodeproj/
+Payload/
+*.ipa
+*.log
+.build/
