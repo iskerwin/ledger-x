@@ -64,6 +64,7 @@ struct Sparkline: View {
         }
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
+        .chartYScale(domain: .automatic(includesZero: false))
         .sensitive()
     }
 }
@@ -151,7 +152,11 @@ struct ForecastView: View {
 
     private func chart(_ f: Forecast) -> some View {
         let low = f.lowest
-        let minV = min(0, low.value)
+        let hi = f.points.map { $0.value }.max() ?? 0
+        // zoom to the data; keep 0 in view only when the balance gets near or below it
+        let span = max(hi - low.value, abs(hi) * 0.05, 1)
+        let minV = low.value < span ? min(0, low.value) - span * 0.1 : low.value - span * 0.25
+        let maxV = hi + span * 0.1
         return Chart {
             ForEach(f.points) { p in
                 AreaMark(x: .value(LS("日期"), Day.date(p.date) ?? Date(), unit: .day), yStart: .value("0", minV), yEnd: .value(LS("余额"), p.value))
@@ -168,6 +173,7 @@ struct ForecastView: View {
                 .foregroundStyle(low.value < 0 ? Color.loss : Color.warn)
                 .symbolSize(40)
         }
+        .chartYScale(domain: minV...maxV)
         .chartYAxis { AxisMarks(position: .trailing) }
         .chartXAxis { AxisMarks(values: .stride(by: .day, count: days > 30 ? 30 : 7)) { _ in AxisGridLine(); AxisValueLabel(format: .dateTime.month(.defaultDigits).day()) } }
         .frame(height: 190)

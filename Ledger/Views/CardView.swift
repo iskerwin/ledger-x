@@ -61,7 +61,7 @@ struct CardDueSection: View {
                             HStack(spacing: 12) {
                                 IconBadge(symbol: "creditcard.fill", color: c.overdue(today: today) ? .red : .orange, size: 28)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(acctLabel(c.account))
+                                    Text(accountTitle(L, c.account)).lineLimit(1)
                                     Text(c.overdue(today: today) ? LS("%@ 到期 · 已逾期", c.due) : LS("%@ 到期 · %@", c.due, daysText(c.due, today: today)))
                                         .font(.caption).foregroundStyle(c.overdue(today: today) ? Color.loss : Color.secondary)
                                 }

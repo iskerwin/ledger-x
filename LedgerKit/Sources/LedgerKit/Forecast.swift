@@ -169,7 +169,7 @@ public func forecast(_ L: Ledger, today: String = Day.today(), days: Int = 90, i
     let cycleCards = Set(cycles.map { $0.account })
     for c in cycles {
         let from = usualRepaymentAccount(c.account, L)
-        let title = acctLabel(c.account)
+        let title = accountTitle(L, c.account)
         if !c.settled && c.due >= today {
             events.append(ForecastEvent(date: max(c.due, Day.shift(today, 1)), title: title, amount: -cny(c.remaining, c.currency), kind: .card, account: from))
         }

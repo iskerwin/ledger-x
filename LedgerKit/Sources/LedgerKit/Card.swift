@@ -112,6 +112,12 @@ public func repaymentText(card: String, from: String, amount: Double, currency: 
     return alignText("\(date) * \"\(tr("信用卡还款", "Card repayment"))\" \(quoted(acctLabel(card)))\n  \(card)  \(n) \(currency)\n  \(from)  -\(n) \(currency)")
 }
 
+/// the account's display name (`name:` metadata) or its short form
+public func accountTitle(_ L: Ledger, _ a: String) -> String {
+    if let v = L.accounts[a]?.meta["name"] { let s = v.stringValue ?? v.display; if !s.isEmpty { return s } }
+    return acctLabel(a)
+}
+
 /// the account most often used to pay this card (by past transfers into it), if any
 public func usualRepaymentAccount(_ card: String, _ L: Ledger) -> String? {
     var n: [String: Int] = [:]
