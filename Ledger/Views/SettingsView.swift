@@ -84,8 +84,12 @@ struct SettingsView: View {
                             Text(o.label ?? o.summary ?? "\(o.kind.rawValue) \(o.path)").font(.subheadline)
                             Text("\(o.path)\(o.silent == true ? LS(" · 与上一项合并提交") : "")").font(.caption).foregroundStyle(.secondary)
                             if let f = o.failed { Text(f).font(.caption).foregroundStyle(Color.loss) }
+                            if let h = o.held { Text(h).font(.caption).foregroundStyle(Color.warn) }
                         }
-                        .swipeActions { Button(LS("删除"), role: .destructive) { Task { await store.dropPending(o) } } }
+                        .swipeActions {
+                            Button(LS("删除"), role: .destructive) { Task { await store.dropPending(o) } }
+                            if o.held != nil { Button(LS("推送")) { Task { await store.release(o) } }.tint(Color.jade) }
+                        }
                     }
                     Button { Task { await store.syncNow() } } label: { Label(LS("立即同步"), systemImage: "arrow.triangle.2.circlepath") }
                 } header: {
@@ -94,7 +98,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         if let d = store.lastSync { Text(LS("上次同步 %@", d.formatted(date: .abbreviated, time: .shortened))) }
                         if !store.syncError.isEmpty { Text(store.syncError).foregroundStyle(Color.loss) }
-                        Text(LS("离线时的变更暂存于本机，恢复联网后自动提交。左滑可移除单项。"))
+                        Text(LS("离线时的变更暂存于本机，恢复联网后自动提交。未通过提交前检查而暂存的项目不会自动推送，左滑可推送或移除。"))
                     }
                 }
 

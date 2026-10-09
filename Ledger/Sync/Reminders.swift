@@ -11,6 +11,9 @@ enum Reminders {
     static let balanceKey = "ledger.remind.balance"
     static let balanceDaysKey = "ledger.remind.balanceDays"
     static let budgetKey = "ledger.remind.budget"
+    static let subsKey = "ledger.remind.subs"
+    static let subsDaysKey = "ledger.remind.subsDays"
+    static var subsDays: Int { UserDefaults.standard.object(forKey: subsDaysKey) as? Int ?? 3 }
     /// card account → repayment day of month (0 = none)
     static var cardDays: [String: Int] {
         get { Prefs.get("remind.cards", [String: Int]()) }
@@ -85,6 +88,23 @@ enum Reminders {
             }
         }
 
+        // subscriptions: N days before the next charge
+        if flag(subsKey) {
+            let lead = subsDays
+            for sub in subscriptions(L) where sub.status == .active {
+                let due = sub.due(onOrAfter: today)
+                let at = Day.shift(due, -lead)
+                guard let d = Day.date(max(at, today)) else { continue }
+                var when = Calendar.current.dateComponents([.year, .month, .day], from: d)
+                when.hour = 9
+                if at < today { when = next(hour: 9) }   // already inside the lead window
+                if let fire = Calendar.current.date(from: when), fire <= Date() { continue }
+                let left = due == today ? LS("今天") : due == Day.shift(today, 1) ? LS("明天") : due
+                add("sub." + sub.name + "." + due, LS("订阅即将扣费"),
+                    LS("%@ %@ 将扣费 %@", sub.name, left, money(sub.amount, sub.currency)), when)
+            }
+        }
+
         // budgets over
         if flag(budgetKey) {
             let over = budgetProgress(L, key: Day.ym(today)).filter { $0.over }
@@ -104,6 +124,8 @@ struct RemindersSection: View {
     @AppStorage(Reminders.balanceKey) private var balance = true
     @AppStorage(Reminders.balanceDaysKey) private var balanceDays = 30
     @AppStorage(Reminders.budgetKey) private var budget = true
+    @AppStorage(Reminders.subsKey) private var subs = true
+    @AppStorage(Reminders.subsDaysKey) private var subsDays = 3
     @State private var cards: [String: Int] = Reminders.cardDays
 
     var body: some View {
@@ -118,6 +140,10 @@ struct RemindersSection: View {
             if on {
                 Toggle(LS("固定交易本月未入账"), isOn: $fixed)
                 Toggle(LS("预算超支"), isOn: $budget)
+                Toggle(LS("订阅扣费"), isOn: $subs)
+                if subs {
+                    Stepper(LS("提前 %@ 天", subsDays), value: $subsDays, in: 0...14)
+                }
                 Toggle(LS("长期未做余额核对"), isOn: $balance)
                 if balance {
                     Stepper(LS("超过 %@ 天", balanceDays), value: $balanceDays, in: 7...180, step: 7)
@@ -134,7 +160,8 @@ struct RemindersSection: View {
         } footer: {
             Text(LS("提醒在本机生成，每次打开 App 或同步后按最新账本重新安排。"))
         }
-        .onChange(of: [fixed, balance, budget]) { _, _ in Task { await Reminders.reschedule(store) } }
+        .onChange(of: subsDays) { _, _ in Task { await Reminders.reschedule(store) } }
+        .onChange(of: [fixed, balance, budget, subs]) { _, _ in Task { await Reminders.reschedule(store) } }
         .onChange(of: balanceDays) { _, _ in Task { await Reminders.reschedule(store) } }
         .onChange(of: cards) { _, _ in Task { await Reminders.reschedule(store) } }
     }

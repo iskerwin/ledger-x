@@ -27,6 +27,9 @@ struct ReportsView: View {
                     NavigationLink(value: BudgetsDest()) {
                         ReportRow(symbol: "chart.bar.doc.horizontal.fill", color: .purple, title: LS("预算"), detail: LS("按月 / 按年的分类额度与执行进度"))
                     }
+                    NavigationLink(value: SubscriptionsDest()) {
+                        ReportRow(symbol: "repeat", color: .indigo, title: LS("订阅管理"), detail: LS("周期扣费、到期提醒与一键入账"))
+                    }
                 } header: {
                     Text(LS("财务报表"))
                 }
@@ -63,6 +66,7 @@ struct ReportsView: View {
                 }
             }
             .navigationDestination(for: BudgetsDest.self) { _ in BudgetsView() }
+            .navigationDestination(for: SubscriptionsDest.self) { _ in SubscriptionsView() }
             .navigationDestination(for: QueryDest.self) { QueryEditorView(initial: $0.query) }
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name) }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0) }
@@ -72,6 +76,7 @@ struct ReportsView: View {
         .task {
             guard path.isEmpty, let r = store.demoEnv["LEDGER_REPORT"] else { return }
             if r == "budgets" { path.append(BudgetsDest()) }
+            else if r == "subscriptions" { path.append(SubscriptionsDest()) }
             else if let k = ReportKind(rawValue: r) { path.append(k) }
             else if let q = (builtinQueries + store.ledgerQueries).first(where: { $0.id == r || $0.name == r }) { path.append(QueryDest(query: q)) }
         }

@@ -53,7 +53,7 @@ struct SyncBadge: View {
                 case .error: Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                 case .idle: Image(systemName: store.pending.isEmpty ? "checkmark.icloud" : "icloud.and.arrow.up").foregroundStyle(store.pending.isEmpty ? Color.secondary : Color.orange)
                 }
-                let n = store.pending.filter { $0.failed == nil }.count
+                let n = store.pending.filter { $0.failed == nil && $0.held == nil }.count
                 if n > 0 { Text("\(n)").font(.caption.monospacedDigit()).foregroundStyle(.orange) }
             }
         }

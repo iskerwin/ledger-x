@@ -302,6 +302,8 @@ public func fileFor(_ e: Entry, _ L: Ledger, layout: RepoLayout = RepoLayout()) 
     case .commodity: return most { $0.type == .commodity } ?? journal
     case .document: return most { $0.type == .document } ?? journal
     case .custom where e.name == "budget": return most { $0.type == .custom && $0.name == "budget" } ?? layout.main
+    case .custom where e.name == "subscription":
+        return most { $0.type == .custom && $0.name == "subscription" } ?? most { $0.type == .custom && $0.name == "budget" } ?? layout.main
     default: return journal
     }
 }

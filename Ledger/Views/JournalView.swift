@@ -322,6 +322,7 @@ struct TxDetailView: View {
     @EnvironmentObject var store: Store
     @Environment(\.dismiss) private var dismiss
     let dest: TxDest
+    @State private var subDraft: SubDraft?
 
     var body: some View {
         if let L = store.L, let D = store.D, let t = store.txn(dest.id, key: dest.key) {
@@ -369,6 +370,7 @@ struct TxDetailView: View {
                         Button { again(t, L, D, kind: nil) } label: { Label(LS("复制为新交易"), systemImage: "arrow.uturn.forward") }
                         if classify(t, L).kind == .expense {
                             Button { refund(t, L, D) } label: { Label(LS("登记退款"), systemImage: "arrow.uturn.backward") }
+                            Button { subDraft = SubDraft(t, L) } label: { Label(LS("加入订阅管理"), systemImage: "repeat") }
                         }
                     }
                     Button {
@@ -381,6 +383,7 @@ struct TxDetailView: View {
             }
             .navigationTitle(t.date)
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(item: $subDraft) { SubEditSheet(draft: $0) }
         } else {
             Text(LS("该交易已不存在")).foregroundStyle(.secondary)
         }
@@ -507,9 +510,10 @@ struct EditTxView: View {
         var rm = Op(kind: .remove, path: path)
         rm.old = old
         rm.label = LS("修改：%@ %@", date, summary)
-        guard let ins = store.makeOps(alignText(text), extra: OpExtra(silent: true), single: true) else { return }
+        guard let ins = store.makeOps(alignText(text), extra: OpExtra(silent: true), single: true),
+              let ops = await store.review([rm] + ins) else { return }
         store.popToken += 1
-        await store.commit([rm] + ins, word: LS("已更新"))
+        await store.commit(ops, word: LS("已更新"), checked: true)
     }
 
     private func delete() async {
@@ -517,7 +521,8 @@ struct EditTxView: View {
         var rm = Op(kind: .remove, path: path)
         rm.old = old
         rm.label = LS("删除：%@ %@", date, summary)
+        guard let ops = await store.review([rm]) else { return }
         store.popToken += 1
-        await store.commit([rm], word: LS("已删除"))
+        await store.commit(ops, word: LS("已删除"), checked: true)
     }
 }

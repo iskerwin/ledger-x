@@ -7,7 +7,9 @@ struct OverviewView: View {
     @State private var path = NavigationPath()
     @AppStorage("ledger.period") private var period = "month"
     @State private var month = Day.ym(Day.today())
-    @State private var expanded: Set<String> = []
+    @State private var selCat: String?
+    @State private var selPay: String?
+    @State private var selLiab: String?
     @State private var picked: String?
     @State private var reimb: ReimbTarget?
 
@@ -23,6 +25,7 @@ struct OverviewView: View {
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
             .navigationDestination(for: ErrorsDest.self) { _ in ErrorsView() }
             .navigationDestination(for: BudgetsDest.self) { _ in BudgetsView() }
+            .navigationDestination(for: SubscriptionsDest.self) { _ in SubscriptionsView() }
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .sheet(item: $reimb) { ReimbSheet(target: $0) }
@@ -73,18 +76,34 @@ struct OverviewView: View {
 
     private func content(_ L: Ledger, _ D: Derived) -> some View {
         let s = summary(L, D)
-        return List {
+        return ScrollViewReader { proxy in
+        List {
             heroSection(s)
             chartSection(s, D)
             budgetSection(s, L)
-            categorySection(s, D)
-            payeeSection(s, L)
+            SubscriptionOverviewSection(L: L).id("subs")
+            categorySection(s, D).id("category")
+            payeeSection(s, L).id("payee")
             reimbSection(L, D)
-            liabilitySection(L)
+            liabilitySection(L).id("liab")
             checkSection(L)
         }
+        .task {
+            // screenshots: scroll to a section and open the largest slice
+            guard let to = store.demoEnv["LEDGER_SCROLL"] else { return }
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            if store.demoEnv["LEDGER_DONUT"] != nil {
+                selCat = categoryGroups(D, s.key).first?.name
+                selLiab = liabilities(L).first?.a
+            }
+            proxy.scrollTo(to, anchor: .top)
+        }
         .listSectionSpacing(.compact)
+        .onChange(of: picked) { _, _ in selCat = nil; selPay = nil }
+        .onChange(of: month) { _, _ in picked = nil; selCat = nil; selPay = nil }
+        .onChange(of: period) { _, _ in picked = nil; selCat = nil; selPay = nil }
         .refreshable { await store.refresh() }
+        }
     }
 
     private func heroSection(_ s: Summary) -> some View {
@@ -190,7 +209,7 @@ struct OverviewView: View {
             HStack {
                 Text(s.yearMode ? LS("%@ 年月度支出", s.key) : LS("近 12 个月支出"))
                 Spacer()
-                Text(LS("点按柱形查看金额")).textCase(nil)
+                Text(LS("点按柱形联动下方图表")).textCase(nil)
             }
         }
     }
@@ -215,57 +234,78 @@ struct OverviewView: View {
         }
     }
 
+    /// the period the donuts show: a tapped bar wins over the header period
+    private func focus(_ s: Summary) -> (key: String, label: String) {
+        if let p = picked { return (p, Day.monthLabel(p)) }
+        return (s.key, s.label)
+    }
+
     private func categorySection(_ s: Summary, _ D: Derived) -> some View {
-        let groups = categoryGroups(D, s.key)
-        let maxG = max(1, groups.map { $0.total }.max() ?? 1)
-        return Section(LS("支出构成")) {
-            if groups.isEmpty { Text(s.label + LS("暂无支出记录")).foregroundStyle(.secondary) }
-            ForEach(groups, id: \.name) { g in
-                Button {
-                    if expanded.contains(g.name) { expanded.remove(g.name) } else { expanded.insert(g.name) }
-                } label: {
-                    CatBar(name: leaf(g.name), sub: acctZH(g.name), value: g.total, frac: g.total / maxG,
-                           share: s.exp > 0 && g.total > 0 ? Int((g.total / s.exp * 100).rounded()) : nil, chevron: expanded.contains(g.name))
-                }
-                .buttonStyle(.plain)
-                if expanded.contains(g.name) {
-                    ForEach(g.leaves, id: \.0) { leafRow in
-                        NavigationLink(value: AccountDest(name: leafRow.0)) {
-                            CatBar(name: leaf(leafRow.0), sub: nil, value: leafRow.1, frac: leafRow.1 / maxG, share: nil, chevron: nil).padding(.leading, 14)
+        let f = focus(s)
+        let groups = categoryGroups(D, f.key)
+        let slices = DonutSlice.make(groups.map { (id: $0.name, label: acctZH($0.name) ?? leaf($0.name), value: $0.total) })
+        let total = groups.reduce(0.0) { $0 + max(0, $1.total) }
+        return Section {
+            if slices.isEmpty {
+                Text(f.label + LS("暂无支出记录")).foregroundStyle(.secondary)
+            } else {
+                DonutChart(slices: slices, title: LS("总支出"), selected: $selCat)
+                if let sel = selCat {
+                    if sel == DonutSlice.otherID {
+                        let shown = Set(slices.map { $0.id })
+                        ForEach(groups.filter { !shown.contains($0.name) && $0.total > 0.005 }, id: \.name) { g in
+                            NavigationLink(value: AccountDest(name: g.name)) {
+                                CatBar(name: acctZH(g.name) ?? leaf(g.name), sub: g.name, value: g.total, frac: g.total / max(total, 1), share: share(g.total, total), chevron: nil)
+                            }
+                        }
+                    } else if let g = groups.first(where: { $0.name == sel }) {
+                        ForEach(g.leaves.filter { $0.1 > 0.005 }, id: \.0) { row in
+                            NavigationLink(value: AccountDest(name: row.0)) {
+                                CatBar(name: leaf(row.0), sub: acctZH(row.0), value: row.1, frac: row.1 / max(g.total, 1), share: share(row.1, g.total), chevron: nil)
+                            }
                         }
                     }
                 }
             }
+        } header: {
+            donutHeader(LS("支出构成"), f.label, LS("点按扇区展开"))
+        }
+    }
+
+    private func share(_ v: Double, _ total: Double) -> Int? { total > 0 && v > 0 ? Int((v / total * 100).rounded()) : nil }
+
+    private func donutHeader(_ title: String, _ sub: String?, _ hint: String) -> some View {
+        HStack {
+            Text(title)
+            if let sub = sub { Text("· " + sub).textCase(nil) }
+            Spacer()
+            Text(hint).textCase(nil)
         }
     }
 
     @ViewBuilder
     private func payeeSection(_ s: Summary, _ L: Ledger) -> some View {
-        let pay = topPayees(L, s.key)
+        let f = focus(s)
+        let pay = topPayees(L, f.key)
         if !pay.isEmpty {
-            let top = max(pay[0].1, 1)
-            Section(LS("商户支出排行")) {
-                ForEach(Array(pay.enumerated()), id: \.offset) { i, row in
-                    HStack(spacing: 12) {
-                        Text("\(i + 1)")
-                            .font(.caption.weight(.bold).monospacedDigit())
-                            .foregroundStyle(i < 3 ? Color.onJade : Color.secondary)
-                            .frame(width: 22, height: 22)
-                            .background(i < 3 ? Color.jade : Color(.tertiarySystemFill), in: Circle())
-                        VStack(alignment: .leading, spacing: 5) {
-                            HStack {
-                                Text(row.0).lineLimit(1)
-                                Spacer()
-                                Text(money(row.1)).monospacedDigit().sensitive()
-                            }
-                            GeometryReader { g in
-                                Capsule().fill(Color.jadeSoft).frame(width: max(2, g.size.width * row.1 / top), height: 4)
-                            }
-                            .frame(height: 4)
+            let slices = DonutSlice.make(pay.map { (id: $0.0, label: $0.0, value: $0.1) })
+            let total = pay.reduce(0.0) { $0 + max(0, $1.1) }
+            Section {
+                DonutChart(slices: slices, title: LS("商户合计"), selected: $selPay)
+                if let sel = selPay {
+                    if sel == DonutSlice.otherID {
+                        let shown = Set(slices.map { $0.id })
+                        ForEach(pay.filter { !shown.contains($0.0) && $0.1 > 0.005 }.prefix(30), id: \.0) { row in
+                            CatBar(name: row.0, sub: nil, value: row.1, frac: row.1 / max(total, 1), share: share(row.1, total), chevron: nil)
+                        }
+                    } else {
+                        ForEach(payeeTxns(L, f.key, sel), id: \.id) { t in
+                            NavigationLink(value: TxDest(t)) { TxRow(t: t, showDate: true) }
                         }
                     }
-                    .padding(.vertical, 2)
                 }
+            } header: {
+                donutHeader(LS("商户支出排行"), f.label, LS("点按扇区展开"))
             }
         }
     }
@@ -318,22 +358,31 @@ struct OverviewView: View {
 
     struct LiabRow { let a: String; let c: String; let n: Double; var id: String { a + "|" + c } }
 
+    @ViewBuilder
     private func liabilitySection(_ L: Ledger) -> some View {
-        var liab: [LiabRow] = []
-        for (a, cs) in L.final where a.hasPrefix("Liabilities:") {
-            for (c, n) in cs where abs(n) > 0.005 { liab.append(LiabRow(a: a, c: c, n: n)) }
-        }
-        liab.sort { $0.n < $1.n }
+        let liab = liabilities(L)
         let total = liab.reduce(0.0) { $0 + (toCNY(L, $1.n, $1.c) ?? 0) }
-        return Section {
-            if liab.isEmpty { Text(LS("无负债")).foregroundStyle(.secondary) }
-            ForEach(liab, id: \.id) { x in
-                NavigationLink(value: AccountDest(name: x.a)) {
-                    HStack(spacing: 12) {
-                        IconBadge(symbol: AccountKind.of(x.a).symbol, color: AccountKind.of(x.a).color, size: 28)
-                        Text(acctLabel(x.a))
-                        Spacer()
-                        Amount(n: x.n, c: x.c)
+        Section {
+            if liab.isEmpty {
+                Text(LS("无负债")).foregroundStyle(.secondary)
+            } else {
+                // owed amounts are negative balances; the ring shows their size
+                let byAcct = liab.reduce(into: [String: Double]()) { $0[$1.a, default: 0] += -(toCNY(L, $1.n, $1.c) ?? 0) }
+                let slices = DonutSlice.make(byAcct.map { (id: $0.key, label: acctLabel($0.key), value: $0.value) })
+                if !slices.isEmpty { DonutChart(slices: slices, title: LS("负债合计"), selected: $selLiab) }
+                let shown = Set(slices.map { $0.id })
+                let rows = slices.isEmpty ? liab
+                    : selLiab == nil ? []
+                    : selLiab == DonutSlice.otherID ? liab.filter { !shown.contains($0.a) }
+                    : liab.filter { $0.a == selLiab }
+                ForEach(rows, id: \.id) { x in
+                    NavigationLink(value: AccountDest(name: x.a)) {
+                        HStack(spacing: 12) {
+                            IconBadge(symbol: AccountKind.of(x.a).symbol, color: AccountKind.of(x.a).color, size: 28)
+                            Text(acctLabel(x.a))
+                            Spacer()
+                            Amount(n: x.n, c: x.c)
+                        }
                     }
                 }
             }
@@ -344,6 +393,14 @@ struct OverviewView: View {
                 Text(money(total)).monospacedDigit().sensitive()
             }
         }
+    }
+
+    private func liabilities(_ L: Ledger) -> [LiabRow] {
+        var liab: [LiabRow] = []
+        for (a, cs) in L.final where a.hasPrefix("Liabilities:") {
+            for (c, n) in cs where abs(n) > 0.005 { liab.append(LiabRow(a: a, c: c, n: n)) }
+        }
+        return liab.sorted { $0.n < $1.n }
     }
 
     private func checkSection(_ L: Ledger) -> some View {
@@ -398,11 +455,16 @@ struct OverviewView: View {
         for t in L.txns where t.date.hasPrefix(key) {
             let c = classify(t, L)
             if c.kind == .expense {
-                let k = !t.payee.isEmpty ? t.payee : !t.narration.isEmpty ? t.narration : "—"
-                pay[k, default: 0] -= c.amount
+                pay[payeeKey(t), default: 0] -= c.amount
             }
         }
-        return Array(pay.sorted { $0.value > $1.value }.prefix(6).map { ($0.key, $0.value) })
+        return pay.sorted { $0.value > $1.value }.map { ($0.key, $0.value) }
+    }
+
+    private func payeeKey(_ t: Entry) -> String { !t.payee.isEmpty ? t.payee : !t.narration.isEmpty ? t.narration : "—" }
+
+    private func payeeTxns(_ L: Ledger, _ key: String, _ payee: String) -> [Entry] {
+        L.txns.filter { $0.date.hasPrefix(key) && payeeKey($0) == payee && classify($0, L).kind == .expense }.sorted { $0.date > $1.date }.prefix(40).map { $0 }
     }
 }
 

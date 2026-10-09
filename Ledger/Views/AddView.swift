@@ -557,7 +557,7 @@ struct AddView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 6) {
                             Text(o.summary ?? o.label ?? "").lineLimit(1)
-                            Text(o.failed != nil ? LS("未提交") : LS("待同步")).font(.caption2.weight(.semibold)).foregroundStyle(o.failed != nil ? Color.loss : Color.orange)
+                            Text(o.failed != nil ? LS("未提交") : o.held != nil ? LS("暂存本机") : LS("待同步")).font(.caption2.weight(.semibold)).foregroundStyle(o.failed != nil ? Color.loss : Color.orange)
                         }
                         Text(o.date ?? "").font(.caption).foregroundStyle(.secondary)
                     }
@@ -581,12 +581,12 @@ struct AddView: View {
         focus = nil
         if d.kind == .raw { await saveRaw(L, overwriteOK: false); return }
         if d.kind == .multi {
-            guard let ops = store.makeOps(text, single: true) else { return }
+            guard let ops0 = store.makeOps(text, single: true), let ops = await store.review(ops0) else { return }
             var nd = store.newDraftFor(.multi)
             nd.date = d.date
             nd.rows = d.rows.map { r in var x = r; x.amount = ""; x.id = UUID(); return x }
             store.draft = nd
-            await store.commit(ops)
+            await store.commit(ops, checked: true)
             return
         }
         guard var ops = store.makeOps(text, single: true) else { return }
@@ -595,12 +595,14 @@ struct AddView: View {
             link.headerLine = o.line; link.header = o.header; link.link = o.link; link.silent = true
             ops.append(link)
         }
+        guard let checked = await store.review(ops) else { return }
+        ops = checked
         var nd = store.newDraftFor(d.kind == .refund ? .expense : d.kind)
         nd.funding = d.funding
         nd.date = d.date
         nd.currency = D.acctCcy[d.funding] ?? "CNY"
         store.draft = nd
-        await store.commit(ops)
+        await store.commit(ops, checked: true)
     }
 
     private func saveRaw(_ L: Ledger, overwriteOK: Bool) async {
@@ -611,11 +613,11 @@ struct AddView: View {
             let dups = duplicateBalances(v.entries, L)
             if !dups.isEmpty { confirmOverwrite = dups; showOverwrite = true; return }
         }
-        guard let ops = store.makeOps(alignText(text), single: false) else { return }
+        guard let ops0 = store.makeOps(alignText(text), single: false), let ops = await store.review(ops0) else { return }
         var nd = store.newDraftFor(.raw)
         nd.date = store.draft.date
         store.draft = nd
-        await store.commit(ops)
+        await store.commit(ops, checked: true)
     }
 }
 
