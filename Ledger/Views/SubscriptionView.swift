@@ -24,7 +24,7 @@ extension Store {
             show(LS("请先为「%@」设置支出科目和付款账户", s.name))
             return
         }
-        func q(_ x: String) -> String { "\"" + x.replacingOccurrences(of: "\"", with: "'") + "\"" }
+        let q = quoted
         let payee = s.payee.isEmpty ? s.name : s.payee
         let narration = s.payee.isEmpty || s.payee == s.name ? "" : s.name
         let text = """
@@ -298,6 +298,10 @@ struct SubEditSheet: View {
                     LabeledContent(LS("商户")) {
                         TextField(LS("可选"), text: $draft.payee).multilineTextAlignment(.trailing)
                     }
+                } footer: {
+                    if nameTaken {
+                        Text(LS("已有同名订阅，请换一个名称")).foregroundStyle(Color.warn)
+                    }
                 }
                 Section {
                     Picker(LS("周期"), selection: Binding(get: { draft.custom ? nil : draft.period }, set: { v in
@@ -318,6 +322,13 @@ struct SubEditSheet: View {
                     }
                     DatePicker(LS("首次扣费"), selection: dateBinding($draft.start), displayedComponents: .date)
                     Toggle(LS("赠送 / 延长周期"), isOn: $draft.extended.animation())
+                        .onChange(of: draft.extended) { _, on in
+                            // start from the next regular charge, never on or before the first one
+                            if on, draft.next <= draft.start {
+                                draft.next = draft.sub?.due(onOrAfter: Day.today()) ?? draft.period.add(draft.start, 1)
+                                if draft.next <= draft.start { draft.next = draft.period.add(draft.start, 1) }
+                            }
+                        }
                     if draft.extended {
                         DatePicker(LS("下次扣费日"), selection: dateBinding($draft.next), in: (Day.date(draft.start) ?? .distantPast)..., displayedComponents: .date)
                     }
@@ -360,7 +371,7 @@ struct SubEditSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(LS("保存")) { save() }.fontWeight(.semibold).disabled(draft.sub == nil)
+                    Button(LS("保存")) { save() }.fontWeight(.semibold).disabled(draft.sub == nil || nameTaken)
                 }
             }
             .sheet(item: $picking) { p in
@@ -378,24 +389,30 @@ struct SubEditSheet: View {
         }
     }
 
+    /// another subscription already uses this name (the later directive would hide the other)
+    private var nameTaken: Bool {
+        guard let L = store.L else { return false }
+        let n = draft.name.trimmed
+        let mine = draft.original.flatMap { e in subscriptions(L).first { $0.entry === e }?.name }
+        return n != mine && subscriptions(L).contains { $0.name == n }
+    }
+
     private func save() {
-        guard let s = draft.sub, let L = store.L else { return }
+        guard let s = draft.sub, let L = store.L, !nameTaken else { return }
         let text = subscriptionText(s)
         let label = LS("订阅：%@ %@", s.name, money(s.amount, s.currency))
-        // editing, or a directive with the same name already exists: replace it
-        if let e = draft.original ?? subscriptions(L).first(where: { $0.name == s.name })?.entry {
+        _ = L
+        if let e = draft.original {
             var op = Op(kind: .replace, path: e.file)
             op.old = e.src
             op.text = text
             op.date = s.start
             op.label = label
-            dismiss()
-            Task { await store.commit([op], word: LS("已更新订阅")) }
+            Task { await store.commit([op], word: LS("已更新订阅"), closing: { dismiss() }) }
             return
         }
         guard let ops = store.makeOps(text, extra: OpExtra(label: label), single: false) else { return }
-        dismiss()
-        Task { await store.commit(ops, word: LS("已添加订阅")) }
+        Task { await store.commit(ops, word: LS("已添加订阅"), closing: { dismiss() }) }
     }
 
     private func delete() {
@@ -404,7 +421,6 @@ struct SubEditSheet: View {
         op.old = e.src
         op.date = e.date
         op.label = LS("删除订阅：%@", draft.name)
-        dismiss()
-        Task { await store.commit([op], word: LS("已删除")) }
+        Task { await store.commit([op], word: LS("已删除"), closing: { dismiss() }) }
     }
 }

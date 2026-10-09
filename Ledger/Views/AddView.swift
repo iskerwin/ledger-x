@@ -14,6 +14,8 @@ struct AddView: View {
 
     @State private var path = NavigationPath()
     @State private var importing = false
+    /// a save in progress (the pre-commit check takes a moment): ignore further taps
+    @State private var saving = false
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -73,14 +75,16 @@ struct AddView: View {
             previewSection(text, v, L)
             Section {
                 Button {
-                    Task { await save(L, D) }
+                    guard !saving else { return }
+                    saving = true
+                    Task { await save(L, D); saving = false }
                 } label: {
                     Text(LS("保存")).frame(maxWidth: .infinity).fontWeight(.semibold)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.jade)
                 .controlSize(.large)
-                .disabled(!(v?.ok ?? false))
+                .disabled(!(v?.ok ?? false) || saving)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
             }
@@ -246,7 +250,11 @@ struct AddView: View {
             .buttonStyle(.plain)
             if x.fixed != nil {
                 Divider().frame(height: 28)
-                Button { Task { await saveTemplateNow(x, L, D) } } label: {
+                Button {
+                    guard !saving else { return }
+                    saving = true
+                    Task { await saveTemplateNow(x, L, D); saving = false }
+                } label: {
                     Text(LS("入账")).font(.subheadline.weight(.semibold)).foregroundStyle(Color.jade).padding(.horizontal, 12).padding(.vertical, 7)
                 }
                 .buttonStyle(.plain)

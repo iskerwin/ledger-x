@@ -138,23 +138,26 @@ public struct Subscription: Identifiable {
     }
 
     /// where the charge cycle is counted from
-    public var anchor: String { next.map { max($0, start) } ?? start }
+    public var anchor: String {
+        guard let n = next, Day.date(n) != nil else { return start }
+        return max(n, start)
+    }
 
     /// first charge on or after `date`
     public func due(onOrAfter date: String) -> String {
         if date <= anchor { return anchor }
-        var k = estimate(date)
-        while period.add(anchor, k) < date { k += 1 }
-        while k > 0 && period.add(anchor, k - 1) >= date { k -= 1 }
+        var k = estimate(date), n = 0
+        while period.add(anchor, k) < date && n < 1000 { k += 1; n += 1 }
+        while k > 0 && period.add(anchor, k - 1) >= date && n < 2000 { k -= 1; n += 1 }
         return period.add(anchor, k)
     }
 
     /// last charge on or before `date` (nil before the first one)
     public func due(onOrBefore date: String) -> String? {
         if date < anchor { return nil }
-        var k = estimate(date)
-        while period.add(anchor, k) > date && k > 0 { k -= 1 }
-        while period.add(anchor, k + 1) <= date { k += 1 }
+        var k = estimate(date), n = 0
+        while period.add(anchor, k) > date && k > 0 && n < 1000 { k -= 1; n += 1 }
+        while period.add(anchor, k + 1) <= date && n < 2000 { k += 1; n += 1 }
         return period.add(anchor, k)
     }
 
@@ -184,9 +187,11 @@ public func subscriptions(_ L: Ledger) -> [Subscription] {
         }
         guard let n = name, let p = period, let m = amount else { continue }
         func str(_ k: String) -> String? { e.meta[k].map { $0.stringValue ?? $0.display } }
+        // a hand-written next date must be a real date (anything else would stall the cycle maths)
+        let next = str("next").flatMap { Day.date($0) }.map { Day.string($0) }
         var s = Subscription(name: n, amount: m.0, currency: m.1, period: p, start: e.date,
                              account: str("account") ?? "", funding: str("funding") ?? "", payee: str("payee") ?? "",
-                             next: str("next"), status: SubStatus(rawValue: (str("status") ?? "").lowercased()) ?? .active)
+                             next: next, status: SubStatus(rawValue: (str("status") ?? "").lowercased()) ?? .active)
         s.entry = e
         if let old = by[n], let oe = old.entry, oe.date > e.date { continue }
         by[n] = s
@@ -196,7 +201,7 @@ public func subscriptions(_ L: Ledger) -> [Subscription] {
 
 /// the directive text for a subscription
 public func subscriptionText(_ s: Subscription) -> String {
-    func q(_ x: String) -> String { "\"" + x.replacingOccurrences(of: "\"", with: "'") + "\"" }
+    let q = quoted
     let left = "\(s.start) custom \"subscription\" \(q(s.name)) \(q(s.period.text))"
     let ns = toFixed(s.amount, 2)
     var lines = [left + String(repeating: " ", count: max(1, NUM_END + 12 - left.utf16.count - ns.utf16.count)) + ns + " " + s.currency]
@@ -218,10 +223,14 @@ public struct SubDue: Identifiable {
 /// was the charge due on `date` recorded? Either tagged with `subscription:` metadata, or a matching
 /// amount to the subscription's expense account within a few days of the date
 public func subscriptionPaid(_ s: Subscription, due date: String, _ L: Ledger) -> Bool {
-    let from = Day.shift(date, -5)
+    // from a few days early, but never back into the previous period (daily / weekly charges)
+    let from = max(Day.shift(date, -5), Day.shift(s.period.add(date, -1), 1))
     let to = Day.shift(s.period.add(date, 1), -1)
     for t in L.txns where t.date >= from && t.date <= to && !t.synthetic {
-        if let m = t.meta["subscription"], (m.stringValue ?? m.display) == s.name { return true }
+        if let m = t.meta["subscription"] {
+            if (m.stringValue ?? m.display) == s.name { return true }
+            continue    // a charge recorded for another subscription
+        }
         if !s.account.isEmpty, t.postings.contains(where: { p in
             p.account == s.account && p.currency == s.currency && abs((p.units ?? 0) - s.amount) <= max(0.01, s.amount * 0.2)
         }) { return true }

@@ -100,6 +100,8 @@ final class Store: ObservableObject {
         RepoLayout(main: main, journal: journalPattern.trimmed.isEmpty ? detectedLayout.journal : journalPattern.trimmed)
     }
     private var pushing = false
+    /// bumped by every rebuild; a rebuild that finishes after a newer one started is dropped
+    private var rebuildGen = 0
     private var tplCache: [Template]?
 
     /// per-ledger settings key ("tree", "tree@<id>", …); the first ledger keeps the original keys
@@ -147,12 +149,16 @@ final class Store: ObservableObject {
     }
 
     /// save the connection settings of a ledger and make it the active one
-    func saveConfig(_ c: RepoConfig) {
+    func saveConfig(_ c: RepoConfig) async {
         let same = c.id == cfg.id
         let changedRepo = !same || c.kind != cfg.kind || c.owner != cfg.owner || c.repo != cfg.repo || c.branch != cfg.branch
             || c.server != cfg.server || c.bookmark != cfg.bookmark
         saveSource(c)
-        if !same { switchLedgerState(c); return }
+        if !same {
+            await waitForPush()
+            switchLedgerState(c)
+            return
+        }
         cfg = c
         Prefs.set("activeSource", c.id)
         if changedRepo {
@@ -175,11 +181,16 @@ final class Store: ObservableObject {
         receivableAccount = Prefs.get(pk("receivable"), "")
         tplCache = nil
         draft = Draft()
+        toast = nil
+        toastAction = nil
+        rebuildGen += 1     // drop a rebuild of the previous ledger still in flight
+        building = false
         popToken += 1
     }
 
     func switchLedger(_ id: String) async {
         guard id != cfg.id, let c = sources.first(where: { $0.id == id }) else { return }
+        await waitForPush()
         switchLedgerState(c)
         if tree != nil { await rebuild(quietly: true) }
         await refresh()
@@ -348,9 +359,12 @@ final class Store: ObservableObject {
 
     func rebuild(quietly: Bool = false) async {
         guard let tree = tree else { return }
+        rebuildGen += 1
+        let gen = rebuildGen
         building = true
-        defer { building = false }
+        defer { if gen == rebuildGen { building = false } }
         do { try await ensureBlobs() } catch { if !quietly { fail(error) } }
+        guard gen == rebuildGen else { return }
         let files = tree.files
         let ops = pending
         let main = self.main
@@ -360,6 +374,8 @@ final class Store: ObservableObject {
             if L.txns.isEmpty && L.files.isEmpty { return nil }
             return (L, Derived(L, receivable: receivable))
         }.value
+        // a newer rebuild started (another commit, or the ledger was switched): its result wins
+        guard gen == rebuildGen else { return }
         if let r = result {
             detectedLayout = RepoLayout.detect(r.0, main: main)
             L = r.0
@@ -396,6 +412,8 @@ final class Store: ObservableObject {
     /// Returns the ops to commit (marked `held` when kept on this device), or nil to go back and edit.
     func review(_ ops: [Op]) async -> [Op]? {
         guard let before = L, let tree = tree, !ops.isEmpty else { return ops }
+        // renaming an account changes every key the check compares; nothing to learn from it
+        if ops.allSatisfy({ $0.kind == .rename }) { return ops }
         let files = tree.files, main = self.main, all = pending + ops
         let issues: [ChangeIssue] = await Task.detached(priority: .userInitiated) {
             let after = Store.loadWith(files: files, main: main, ops: all)
@@ -409,14 +427,17 @@ final class Store: ObservableObject {
         case .force: return ops
         case .hold:
             let why = LS("已暂存在本机：") + (issues.first?.title ?? "")
-            return ops.map { var o = $0; o.held = why; return o }
+            let group = UUID()
+            return ops.map { var o = $0; o.held = why; o.heldGroup = group; return o }
         }
     }
 
     /// push items that were kept on this device
     func release(_ op: Op) async {
-        for i in pending.indices where pending[i].held != nil && (pending[i].id == op.id || pending[i].held == op.held) {
+        for i in pending.indices where pending[i].held != nil
+            && (pending[i].id == op.id || (op.heldGroup != nil && pending[i].heldGroup == op.heldGroup)) {
             pending[i].held = nil
+            pending[i].heldGroup = nil
         }
         savePending()
         await syncNow()
@@ -431,6 +452,15 @@ final class Store: ObservableObject {
         if !checked {
             guard let r = await review(ops) else { return false }
             ops = r
+        }
+        // editing or deleting something that is still held on this device stays with it
+        for i in ops.indices where ops[i].held == nil && (ops[i].kind == .remove || ops[i].kind == .replace) {
+            let old = (ops[i].old ?? "").trimmed
+            if let h = pending.first(where: { $0.held != nil && $0.path == ops[i].path && !old.isEmpty && ($0.text ?? "").trimmed == old }) {
+                ops[i].held = h.held
+                ops[i].heldGroup = h.heldGroup
+                if i + 1 < ops.count, ops[i + 1].silent == true { ops[i + 1].held = h.held; ops[i + 1].heldGroup = h.heldGroup }
+            }
         }
         let held = ops.contains { $0.held != nil }
         pending.append(contentsOf: ops)
@@ -448,7 +478,23 @@ final class Store: ObservableObject {
         return true
     }
 
+    /// wait for a push in progress (switching ledgers mid-push would file its results under the wrong ledger)
+    func waitForPush() async {
+        var n = 0
+        while pushing && n < 600 { try? await Task.sleep(nanoseconds: 100_000_000); n += 1 }
+    }
+
+    /// check first, then close the form (`close`), then commit: "go back and edit" keeps the form open
+    @discardableResult
+    func commit(_ ops: [Op], word: String, closing close: () -> Void) async -> Bool {
+        guard let r = await review(ops) else { return false }
+        close()
+        return await commit(r, word: word, checked: true)
+    }
+
     func pushPending() async throws {
+        // a push already running may have missed ops queued since; wait for it, then push again
+        await waitForPush()
         if pushing { return }
         pushing = true
         defer { pushing = false }
@@ -484,7 +530,9 @@ final class Store: ObservableObject {
                 // an edit/delete whose original text is gone (changed elsewhere) is parked, not pushed
                 let mine = pending.filter { $0.path == path }
                 for (k, o) in mine.enumerated() where (o.kind == .remove || o.kind == .replace) && o.failed == nil && o.held == nil {
-                    let prior = Array(mine[..<k])
+                    // only what will actually be written: earlier failed or held ops are skipped by the push
+                    let skipped = Set(pending.filter { $0.failed != nil || $0.held != nil }.map { $0.id })
+                    let prior = mine[..<k].filter { !skipped.contains($0.id) }
                     if applyRemove((try? applyOps(base, path: path, ops: prior)) ?? base, o) == nil {
                         let why = LS("原交易已在 GitHub 上被修改，本次%@未提交", (o.label ?? "").hasPrefix(LS("删除")) ? LS("删除") : LS("修改"))
                         markFailed(o.id, why)
@@ -494,7 +542,15 @@ final class Store: ObservableObject {
                 savePending()
                 let fileOps = pending.filter { $0.path == path && $0.failed == nil && $0.held == nil }
                 if fileOps.isEmpty { continue }
-                let text = try applyOps(base, path: path, ops: fileOps, strict: true)
+                let text: String
+                do {
+                    text = try applyOps(base, path: path, ops: fileOps, strict: true)
+                } catch let e as ConflictError {
+                    // park this file's ops instead of blocking every other file in the queue
+                    for o in fileOps { markFailed(o.id, e.localizedDescription) }
+                    savePending()
+                    continue
+                }
                 let newSha = try await backend.write(path, text: text, version: sha, message: commitMessage(fileOps, path: path))
                 BlobCache.set(newSha, text)
                 tree?.files[path] = newSha

@@ -222,6 +222,8 @@ public struct Op: Codable, Identifiable, Equatable {
     public var failed: String?
     /// kept on this device only (the pre-commit check found a problem); never pushed until released
     public var held: String?
+    /// ops kept together by one decision are released together
+    public var heldGroup: UUID?
 
     public init(kind: Kind, path: String) { self.kind = kind; self.path = path }
 }
@@ -363,7 +365,8 @@ public func addLinkToHeader(_ text: String, _ op: Op) -> String? {
     if idx < 0 { return nil }
     let add = op.add ?? " ^" + (op.link ?? "")
     let lastWord = add.trimmingCharacters(in: .whitespaces).components(separatedBy: " ").last ?? ""
-    if lines[idx].contains(lastWord) { return text }
+    // whole words only: ^trip is not already there just because ^trip-2026 is
+    if lines[idx].split(whereSeparator: { $0 == " " || $0 == "\t" }).contains(where: { String($0) == lastWord }) { return text }
     lines[idx] = trimTrailing(lines[idx]) + add
     return lines.joined(separator: "\n")
 }

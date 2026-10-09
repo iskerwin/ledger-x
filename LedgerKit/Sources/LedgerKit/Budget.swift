@@ -17,7 +17,7 @@ public enum BudgetPeriod: String, CaseIterable, Codable {
 }
 
 public struct Budget: Identifiable {
-    public var id: String { account + "|" + date }
+    public var id: String { account + "|" + date + "|" + (entry.map { "\($0.file):\($0.line)" } ?? "") }
     public let account: String
     public let period: BudgetPeriod
     public let amount: Double

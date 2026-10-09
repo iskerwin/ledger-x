@@ -134,7 +134,7 @@ struct SettingsView: View {
         testing = true
         defer { testing = false }
         guard let c = await testConnection(cfg, store) else { return }
-        store.saveConfig(c)
+        await store.saveConfig(c)
         store.show(first ? LS("已连接，正在下载账本…") : LS("已保存"))
         await store.refresh()
         if !first { await store.rebuild() }

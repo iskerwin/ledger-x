@@ -32,52 +32,54 @@ public func reviewChange(before: Ledger, after: Ledger) -> [ChangeIssue] {
                                account: e.account))
     }
 
-    // 2. other new errors (unbalanced, account not open / closed, currency not allowed, lots…)
+    // 2. other new errors (unbalanced, account not open / closed, currency not allowed, lots…);
+    // numbers are ignored when matching, so an old error whose amounts shifted is not "new"
+    func norm(_ m: String) -> String { m.replacingOccurrences(of: "-?[0-9][0-9,]*(\\.[0-9]+)?", with: "#", options: .regularExpression) }
     var seen: [String: Int] = [:]
-    for e in before.errors where e.entry?.type != .balance { seen[e.msg, default: 0] += 1 }
+    for e in before.errors where e.entry?.type != .balance { seen[norm(e.msg), default: 0] += 1 }
     for e in after.errors where e.entry?.type != .balance {
-        if let n = seen[e.msg], n > 0 { seen[e.msg] = n - 1; continue }
+        let k = norm(e.msg)
+        if let n = seen[k], n > 0 { seen[k] = n - 1; continue }
         let at = e.entry.map { $0.date + " " + [$0.payee, $0.narration].filter { !$0.isEmpty }.joined(separator: " ") } ?? (e.file ?? "")
         out.append(ChangeIssue(kind: .error, title: e.msg, detail: at.trimmingCharacters(in: .whitespaces)))
     }
 
-    // 3. Assets accounts going below zero, Liabilities beyond their credit limit
-    let lowB = lowPoints(before), lowA = lowPoints(after)
-    for (k, a) in lowA.sorted(by: { $0.key < $1.key }) {
+    // 3. Assets accounts going below zero, Liabilities beyond their credit limit — only on days the
+    //    change made worse, so an account that was overdrawn once years ago is still checked today
+    let serB = dailyBalances(before), serA = dailyBalances(after)
+    for (k, days) in serA.sorted(by: { $0.key < $1.key }) {
         let parts = k.components(separatedBy: "|")
         let acct = parts[0], ccy = parts.count > 1 ? parts[1] : ""
         let account = after.accounts[acct]
         if acct.hasPrefix("Assets:") {
             if metaTrue(account?.meta[allowNegativeKey]) { continue }
-            guard a.min < -0.005 else { continue }
-            if let b = lowB[k], a.min >= b.min - 0.005 { continue }      // not made worse by this change
+            guard let hit = newLow(days, serB[k] ?? [], floor: 0) else { continue }
             out.append(ChangeIssue(kind: .insufficient,
                                    title: tr("余额不足：\(acctLabel(acct))", "Insufficient balance: \(acct)"),
-                                   detail: tr("\(a.date) 余额将变为 \(fmtNum(a.min)) \(ccy)", "Balance would drop to \(fmtNum(a.min)) \(ccy) on \(a.date)"),
+                                   detail: tr("\(hit.date) 余额将变为 \(fmtNum(hit.value)) \(ccy)", "Balance would drop to \(fmtNum(hit.value)) \(ccy) on \(hit.date)"),
                                    account: acct))
         } else if acct.hasPrefix("Liabilities:"), let limit = creditLimit(account?.meta[creditLimitKey], ccy) {
-            guard a.min < -limit - 0.005 else { continue }
-            if let b = lowB[k], a.min >= b.min - 0.005 { continue }
+            guard let hit = newLow(days, serB[k] ?? [], floor: -limit) else { continue }
             out.append(ChangeIssue(kind: .creditLimit,
                                    title: tr("超出信用额度：\(acctLabel(acct))", "Over the credit limit: \(acct)"),
-                                   detail: tr("\(a.date) 欠款将达 \(fmtNum(-a.min)) \(ccy)，额度 \(fmtNum(limit))", "Owed \(fmtNum(-a.min)) \(ccy) on \(a.date), limit \(fmtNum(limit))"),
+                                   detail: tr("\(hit.date) 欠款将达 \(fmtNum(-hit.value)) \(ccy)，额度 \(fmtNum(limit))", "Owed \(fmtNum(-hit.value)) \(ccy) on \(hit.date), limit \(fmtNum(limit))"),
                                    account: acct))
         }
     }
+    // the same problem found twice (two identical imported rows) is shown once
+    var ids = Set<String>()
+    out = out.filter { ids.insert($0.id).inserted }
     return out
 }
 
-/// lowest end-of-day balance of every Assets / Liabilities account and currency
-func lowPoints(_ L: Ledger) -> [String: (min: Double, date: String)] {
+/// end-of-day balance of every Assets / Liabilities account and currency, on the days it changed
+func dailyBalances(_ L: Ledger) -> [String: [(date: String, value: Double)]] {
     var run: [String: Double] = [:]
-    var low: [String: (min: Double, date: String)] = [:]
+    var out: [String: [(date: String, value: Double)]] = [:]
     var day = ""
     var touched = Set<String>()
     func close() {
-        for k in touched {
-            let v = run[k] ?? 0
-            if let l = low[k] { if v < l.min - 1e-9 { low[k] = (v, day) } } else { low[k] = (v, day) }
-        }
+        for k in touched { out[k, default: []].append((day, run[k] ?? 0)) }
         touched.removeAll()
     }
     for t in L.txns {
@@ -90,7 +92,18 @@ func lowPoints(_ L: Ledger) -> [String: (min: Double, date: String)] {
         }
     }
     close()
-    return low
+    return out
+}
+
+/// the first day the balance is below `floor` and lower than it was on that day before the change
+func newLow(_ after: [(date: String, value: Double)], _ before: [(date: String, value: Double)], floor: Double) -> (date: String, value: Double)? {
+    var j = 0
+    var prev = 0.0      // before-balance carried forward to the current day
+    for a in after {
+        while j < before.count && before[j].date <= a.date { prev = before[j].value; j += 1 }
+        if a.value < floor - 0.005 && a.value < prev - 0.005 { return a }
+    }
+    return nil
 }
 
 func metaTrue(_ v: MetaValue?) -> Bool {

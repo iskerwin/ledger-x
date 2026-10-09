@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 import LedgerKit
 
 @main
@@ -10,7 +11,10 @@ struct LedgerApp: App {
     @AppStorage(AppAppearance.key) private var appearance = AppAppearance.system.rawValue
     @AppStorage(AppLanguage.key) private var language = AppLanguage.system.rawValue
 
-    init() { AppLanguage.apply() }
+    init() {
+        AppLanguage.apply()
+        UNUserNotificationCenter.current().delegate = NotificationRouter.shared
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -30,6 +34,10 @@ struct LedgerApp: App {
             .tint(AppTheme(rawValue: theme)?.color ?? .jade)
             .preferredColorScheme(AppAppearance(rawValue: appearance)?.scheme)
             .task {
+                NotificationRouter.shared.open = { [store] t in
+                    if t == "add" { store.popToken += 1 }
+                    store.tab = Tab(rawValue: t) ?? .add
+                }
                 if lock.locked { Task { await lock.unlock() } }
                 await store.start()
             }

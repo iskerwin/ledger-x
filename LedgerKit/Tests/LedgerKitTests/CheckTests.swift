@@ -139,4 +139,90 @@ final class CheckTests: XCTestCase {
         XCTAssertEqual(c.first?.period, .monthly)
         XCTAssertEqual(c.first?.funding, "Liabilities:CreditCard:CMB")
     }
+
+    // MARK: audit fixes
+
+    func testOverdraftOnAccountThatWasNegativeBefore() {
+        // the bank was overdrawn once in January; a new overdraft in March must still be caught
+        let old = base + "\n2026-01-03 * \"Oops\"\n  Expenses:Food  700.00 CNY\n  Assets:Bank:CMB\n2026-01-04 * \"Fix\"\n  Assets:Bank:CMB  700.00 CNY\n  Income:Salary\n"
+        let before = ledger(old)
+        let after = ledger(old + "\n2026-03-05 * \"TV\"\n  Expenses:Food  1600.00 CNY\n  Assets:Bank:CMB\n")
+        let low = reviewChange(before: before, after: after).filter { $0.kind == .insufficient }
+        XCTAssertEqual(low.count, 1)
+        XCTAssertTrue(low.first?.detail.contains("2026-03-05") ?? false)
+        // an unrelated change leaves the old January dip alone
+        let other = ledger(old + "\n2026-03-05 * \"Lunch\"\n  Expenses:Food  10.00 CNY\n  Assets:Bank:CMB\n")
+        XCTAssertEqual(reviewChange(before: before, after: other), [])
+    }
+
+    func testOldErrorWithChangedNumbersIsNotNew() {
+        // the same unbalanced transaction, off by a different amount after an unrelated edit, is not new
+        let a = base + "\n2026-03-02 * \"Odd\"\n  Expenses:Food  50.00 CNY\n  Assets:Bank:CMB  -40.00 CNY\n"
+        let b = base + "\n2026-03-02 * \"Odd\"\n  Expenses:Food  50.00 CNY\n  Assets:Bank:CMB  -45.00 CNY\n"
+        XCTAssertEqual(reviewChange(before: ledger(a), after: ledger(b)).filter { $0.kind == .error }, [])
+    }
+
+    func testShortPeriodsAndTaggedPayments() {
+        var weekly = Subscription(name: "Gym", amount: 30, currency: "CNY", period: .weekly, start: "2026-03-03",
+                                  account: "Expenses:Food", funding: "Assets:Bank:CMB")
+        // paid on 03-10 for that week; the 03-17 charge is not covered by it
+        let L = ledger(base + "\n2026-03-10 * \"Gym\"\n  Expenses:Food  30.00 CNY\n  Assets:Bank:CMB\n")
+        XCTAssertTrue(subscriptionPaid(weekly, due: "2026-03-10", L))
+        XCTAssertFalse(subscriptionPaid(weekly, due: "2026-03-17", L))
+        // a payment tagged for another subscription doesn't count, even with a similar amount
+        weekly.amount = 28
+        let tagged = ledger(base + "\n2026-03-10 * \"X\"\n  subscription: \"Other\"\n  Expenses:Food  30.00 CNY\n  Assets:Bank:CMB\n")
+        XCTAssertFalse(subscriptionPaid(weekly, due: "2026-03-10", tagged))
+    }
+
+    func testMalformedNextAndQuoting() {
+        let text = "2026-01-15 custom \"subscription\" \"A\\\\B \\\"x\\\"\" \"monthly\" 10.00 CNY\n  next: \"2026-06\"\n"
+        let L = ledger(base + "\n" + text)
+        let s = subscriptions(L)
+        XCTAssertEqual(s.count, 1)
+        XCTAssertNil(s.first?.next)
+        XCTAssertEqual(s.first?.due(onOrAfter: "2026-10-10"), "2026-10-15")   // returns instead of looping
+        // names with quotes and backslashes survive a round trip
+        let back = ledger(base + "\n" + subscriptionText(s[0]) + "\n")
+        XCTAssertEqual(subscriptions(back).first?.name, s[0].name)
+    }
+
+    func testLargeForeignCurrencyExpenseBalances() {
+        let L = loadSet("realistic")
+        let D = Derived(L)
+        var d = Draft()
+        d.kind = .expense
+        d.date = TODAY
+        d.payee = "Apple"
+        d.amount = "9999.99"
+        d.currency = "CNY"
+        d.account = "Expenses:Shopping:Household"
+        d.funding = "Assets:Bank:BOCHK"
+        d.paid = "10987.65"
+        let text = draftText(d, L, D)
+        XCTAssertTrue(text.contains("@@ 10987.65 HKD"), text)
+        XCTAssertTrue(checkText(text, L).ok, text)
+    }
+
+    func testImportDuplicatesMatchOnce() {
+        var t = base
+        t += "\n2026-03-02 * \"Cafe\"\n  Expenses:Food  15.00 CNY\n  Assets:Bank:CMB\n"
+        let L = ledger(t)
+        var a = ImportRow(id: 0, date: "2026-03-02"); a.amount = 15; a.payee = "Cafe"
+        var b = ImportRow(id: 1, date: "2026-03-02"); b.amount = 15; b.payee = "Cafe"
+        let d = findDuplicates([(row: a, funding: "Assets:Bank:CMB"), (row: b, funding: "Assets:Bank:CMB")], L)
+        XCTAssertEqual(d.compactMap { $0 }.count, 1)          // the second coffee is a new purchase
+        var refund = a; refund.direction = .income
+        XCTAssertNil(findDuplicate(refund, funding: "Assets:Bank:CMB", L))
+    }
+
+    func testLinkWholeWord() {
+        let text = "2026-03-02 * \"Trip\" \"x\" ^trip-2026\n  Expenses:Food  1.00 CNY\n  Assets:Cash\n"
+        var op = Op(kind: .link, path: "x.bean")
+        op.header = "2026-03-02 * \"Trip\" \"x\" ^trip-2026"
+        op.headerLine = 1
+        op.link = "trip"
+        op.add = " ^trip"
+        XCTAssertTrue(addLinkToHeader(text, op)?.hasPrefix("2026-03-02 * \"Trip\" \"x\" ^trip-2026 ^trip") ?? false)
+    }
 }
