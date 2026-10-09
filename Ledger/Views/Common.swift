@@ -1,12 +1,6 @@
 import SwiftUI
 import LedgerKit
 
-extension Color {
-    static let jade = Color(red: 0x2B / 255, green: 0x80 / 255, blue: 0x6A / 255)
-    static let jadeSoft = Color(red: 0x2B / 255, green: 0x80 / 255, blue: 0x6A / 255).opacity(0.28)
-    static let loss = Color(red: 0xC2 / 255, green: 0x4A / 255, blue: 0x3A / 255)
-}
-
 // MARK: - hide amounts
 
 struct Sensitive: ViewModifier {
@@ -39,7 +33,7 @@ struct Amount: View {
     var body: some View {
         Text(signed ? signedMoney(n, c) : money(n, c, d))
             .monospacedDigit()
-            .foregroundStyle(color ? (n > 1e-9 ? Color.jade : n < -1e-9 ? Color.primary : Color.secondary) : Color.primary)
+            .foregroundStyle(color ? (n > 1e-9 ? Color.gain : n < -1e-9 ? Color.primary : Color.secondary) : Color.primary)
             .sensitive()
     }
 }
@@ -75,11 +69,20 @@ struct SyncBadge: View {
     }
 }
 
+struct SettingsButton: View {
+    @EnvironmentObject var store: Store
+    var body: some View {
+        Button { store.showSettings = true } label: { Image(systemName: "gearshape") }
+            .accessibilityLabel("设置")
+    }
+}
+
 struct StandardToolbar: ToolbarContent {
     var body: some ToolbarContent {
         ToolbarItemGroup(placement: .topBarTrailing) {
             PrivacyButton()
             SyncBadge()
+            SettingsButton()
         }
     }
 }
@@ -129,7 +132,7 @@ struct Chip: View {
                 .lineLimit(1)
                 .padding(.horizontal, 12).padding(.vertical, 6)
                 .background(selected ? Color.jade : Color(.tertiarySystemFill), in: Capsule())
-                .foregroundStyle(selected ? Color.white : Color.primary)
+                .foregroundStyle(selected ? Color.onJade : Color.primary)
         }
         .buttonStyle(.plain)
     }
@@ -326,7 +329,7 @@ struct TextEditSheet: View {
                     .padding(.horizontal, 8)
                 if let v = validate(text) {
                     HStack {
-                        if v.ok { Label("可以保存", systemImage: "checkmark.circle").foregroundStyle(Color.jade) }
+                        if v.ok { Label("校验通过", systemImage: "checkmark.circle").foregroundStyle(Color.gain) }
                         else if let m = v.msg, !m.isEmpty { Label(m, systemImage: "xmark.octagon").foregroundStyle(Color.loss) }
                         Spacer()
                     }

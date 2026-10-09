@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 import LedgerKit
 
-enum Tab: String { case add, overview, journal, accounts, settings }
+enum Tab: String { case add, overview, journal, accounts, reports }
 enum SyncState { case idle, syncing, offline, error }
 
 struct Toast: Identifiable, Equatable {
@@ -50,6 +50,7 @@ final class Store: ObservableObject {
         set { drafts.draft = newValue }
     }
     @Published var tab: Tab = .add
+    @Published var showSettings = false
     @Published var toast: Toast?
     /// bumped to pop every tab back to its root (after an edit or delete)
     @Published var popToken = 0
@@ -67,6 +68,10 @@ final class Store: ObservableObject {
     @Published var journalPattern: String { didSet { Prefs.set("journalPattern", journalPattern) } }
     @Published var receivableAccount: String { didSet { Prefs.set("receivable", receivableAccount) } }
     @Published private(set) var detectedLayout = RepoLayout()
+
+    /// BQL: queries saved on this phone, and the ones in the ledger (query directives, *.bql files)
+    @Published var myQueries: [SavedQuery] { didSet { Prefs.set("queries", myQueries) } }
+    @Published private(set) var ledgerQueries: [SavedQuery] = []
     var main: String { mainFile.trimmed.isEmpty ? "main.bean" : mainFile.trimmed }
     var receivable: String { receivableAccount.trimmed.isEmpty ? "Assets:Receivable:Reimbursement" : receivableAccount.trimmed }
     var layout: RepoLayout {
@@ -90,6 +95,7 @@ final class Store: ObservableObject {
         mainFile = Prefs.get("mainFile", "")
         journalPattern = Prefs.get("journalPattern", "")
         receivableAccount = Prefs.get("receivable", "")
+        myQueries = Prefs.get("queries", [SavedQuery]())
     }
 
     var gh: GitHub { GitHub(cfg: cfg) }
@@ -152,7 +158,16 @@ final class Store: ObservableObject {
             draft.amount = t.fixed.map { jsNumberString($0) } ?? "23.5"
         }
         if let t = env["LEDGER_TAB"], let tab = Tab(rawValue: t) { self.tab = tab }
+        if env["LEDGER_TAB"] == "settings" { tab = .overview; showSettings = true }
+        var qs: [SavedQuery] = []
+        if let names = try? FileManager.default.subpathsOfDirectory(atPath: dir) {
+            for n in names.sorted() where n.hasSuffix(".bql") {
+                if let t = try? String(contentsOf: base.appendingPathComponent(n), encoding: .utf8) { qs += parseBQLFile(t, file: n) }
+            }
+        }
+        ledgerQueries = Self.directiveQueries(result.0) + qs
         UserDefaults.standard.set(env["LEDGER_PRIVACY"] != nil, forKey: "ledger.privacy")
+        UserDefaults.standard.set(env["LEDGER_THEME"] ?? "jade", forKey: "ledger.theme")
         if let a = env["LEDGER_ACCOUNT"] { journalAccount = a }
         lastSync = Date()
     }
@@ -212,7 +227,7 @@ final class Store: ObservableObject {
     /// download every .bean file not cached yet
     private func ensureBlobs() async throws {
         guard let tree = tree else { return }
-        let missing = tree.files.filter { $0.key.hasSuffix(".bean") && BlobCache.get($0.value) == nil }.map { $0.value }
+        let missing = tree.files.filter { ($0.key.hasSuffix(".bean") || $0.key.hasSuffix(".bql")) && BlobCache.get($0.value) == nil }.map { $0.value }
         if missing.isEmpty { return }
         let api = gh
         try await withThrowingTaskGroup(of: (String, String).self) { group in
@@ -241,9 +256,9 @@ final class Store: ObservableObject {
             let L = loadLedger(root: main) { path in
                 var text = ""
                 if let sha = files[path] {
-                    guard let t = BlobCache.get(sha) else { throw GitHubError(status: 0, message: "离线，\(path) 还没有下载") }
+                    guard let t = BlobCache.get(sha) else { throw GitHubError(status: 0, message: "离线状态：\(path) 尚未下载") }
                     text = t
-                } else if path == main { throw GitHubError(status: 404, message: "仓库里找不到 \(main)") }
+                } else if path == main { throw GitHubError(status: 404, message: "仓库中未找到 \(main)") }
                 return try applyOps(text, path: path, ops: ops)
             }
             if L.txns.isEmpty && L.files.isEmpty { return nil }
@@ -254,18 +269,23 @@ final class Store: ObservableObject {
             L = r.0
             D = r.1
             tplCache = nil
+            var qs = Self.directiveQueries(r.0)
+            for path in files.keys.sorted() where path.hasSuffix(".bql") {
+                if let sha = files[path], let t = BlobCache.get(sha) { qs += parseBQLFile(t, file: path) }
+            }
+            ledgerQueries = qs
             loadError = nil
             version += 1
             if draft.funding.isEmpty { draft = newDraft(.expense, r.1, defaultFunding: defaultFunding) }
         } else {
-            loadError = "读不到 \(main)"
+            loadError = "无法读取 \(main)"
         }
     }
 
     // MARK: - queue
 
     /// queue operations, rebuild locally, then push
-    func commit(_ ops: [Op], word: String = "已记", undo: (() async -> Void)? = nil) async {
+    func commit(_ ops: [Op], word: String = "已入账", undo: (() async -> Void)? = nil) async {
         pending.append(contentsOf: ops)
         savePending()
         if let undo = undo { show(word, action: "撤销", undo) } else { show(word) }
@@ -313,7 +333,7 @@ final class Store: ObservableObject {
                 for (k, o) in mine.enumerated() where o.kind == .remove && o.failed == nil {
                     let prior = Array(mine[..<k])
                     if removeBlock((try? applyOps(base, path: path, ops: prior)) ?? base, o.old ?? "") == nil {
-                        let why = "原交易在 GitHub 上已经变了，这次\((o.label ?? "").hasPrefix("删除") ? "删除" : "修改")没有提交"
+                        let why = "原交易已在 GitHub 上被修改，本次\((o.label ?? "").hasPrefix("删除") ? "删除" : "修改")未提交"
                         markFailed(o.id, why)
                         if k + 1 < mine.count, mine[k + 1].kind == .insert, mine[k + 1].silent == true { markFailed(mine[k + 1].id, why) }
                     }
@@ -344,6 +364,19 @@ final class Store: ObservableObject {
     }
 
     // MARK: - helpers for views
+
+    static func directiveQueries(_ L: Ledger) -> [SavedQuery] {
+        L.entries.filter { $0.type == .query }.compactMap { e in
+            guard let q = e.query, !q.trimmed.isEmpty else { return nil }
+            return SavedQuery(id: "query:" + (e.name ?? q), name: e.name ?? "query", text: q.trimmed, source: "ledger")
+        }
+    }
+
+    func saveQuery(_ q: SavedQuery) {
+        if let i = myQueries.firstIndex(where: { $0.id == q.id }) { myQueries[i] = q } else { myQueries.append(q) }
+    }
+
+    func deleteQuery(_ id: String) { myQueries.removeAll { $0.id == id } }
 
     var templateList: [Template] {
         if let c = tplCache { return c }

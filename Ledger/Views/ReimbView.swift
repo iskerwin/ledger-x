@@ -30,7 +30,7 @@ struct ReimbSheet: View {
                 if let L = store.L, let D = store.D { form(L, D) } else { ProgressView() }
             }
             .keyboardDone()
-            .navigationTitle("报销到账")
+            .navigationTitle("报销回款")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } } }
         }
@@ -96,8 +96,8 @@ struct ReimbSheet: View {
             } else if let x = openLink(D) {
                 linkSection(x, D)
             }
-            Section("到账") {
-                DatePicker("到账日期", selection: Binding(get: { Day.date(date) ?? Date() }, set: { date = Day.string($0) }), displayedComponents: .date)
+            Section("回款信息") {
+                DatePicker("回款日期", selection: Binding(get: { Day.date(date) ?? Date() }, set: { date = Day.string($0) }), displayedComponents: .date)
                 if target.link == nil {
                     LabeledContent("关联") {
                         TextField("reimburse-…", text: Binding(get: { link() }, set: { linkText = $0; linkTouched = true }))
@@ -107,41 +107,41 @@ struct ReimbSheet: View {
                     }
                 }
                 VStack(alignment: .leading, spacing: 6) {
-                    TextField("付款方，例如公司名称", text: $payee)
+                    TextField("付款方（如公司名称）", text: $payee)
                     let ps = payeeChoices(L)
                     if !ps.isEmpty {
                         ChipRow { ForEach(ps, id: \.self) { x in Chip(label: x, selected: payee == x) { payee = x } } }
                     }
                 }
-                LabeledContent("到账金额 " + c) {
+                LabeledContent("回款金额 " + c) {
                     TextField(fmtNum(o), text: $amount)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                         .monospacedDigit()
                 }
-                AccountField(label: "到账账户", prefixes: ["Assets:"], chips: accountChoices(L, D), value: $account)
+                AccountField(label: "收款账户", prefixes: ["Assets:"], chips: accountChoices(L, D), value: $account)
             }
             Section("将写入") {
                 if let g = got(D), g > 0, abs(g - o) > 0.004 {
                     let diff = g - o
-                    Text(diff > 0 ? "多收 \(money(diff, c))，记入 Income:ReimbExcess" : "少收 \(money(-diff, c))，记入 \(shortfall(L))")
+                    Text(diff > 0 ? "超额 \(money(diff, c))，计入 Income:ReimbExcess" : "短收 \(money(-diff, c))，计入 \(shortfall(L))")
                         .font(.footnote)
                         .foregroundStyle(diff < 0 ? Color.loss : Color.secondary)
                 }
                 if t.isEmpty {
-                    Text(o > 0 ? "选好到账账户后生成" : "先勾选要报销的垫付").font(.footnote).foregroundStyle(.secondary)
+                    Text(o > 0 ? "选择收款账户后生成" : "请先选择报销明细").font(.footnote).foregroundStyle(.secondary)
                 } else {
                     MonoText(text: t)
                 }
                 if target.link == nil && !selected.isEmpty {
-                    Text("选中的 \(selected.count) 笔会加上 #reimbursed ^\(link())").font(.footnote).foregroundStyle(.secondary)
+                    Text("所选 \(selected.count) 笔将添加 #reimbursed ^\(link())").font(.footnote).foregroundStyle(.secondary)
                 }
             }
             Section {
                 Button {
                     Task { await save(L, D, t) }
                 } label: {
-                    HStack { Spacer(); if saving { ProgressView() } else { Text("记到账").fontWeight(.semibold) }; Spacer() }
+                    HStack { Spacer(); if saving { ProgressView() } else { Text("登记回款").fontWeight(.semibold) }; Spacer() }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.jade)
@@ -182,10 +182,10 @@ struct ReimbSheet: View {
                 }
                 .buttonStyle(.plain)
             }
-            if p.isEmpty { Text("最近 180 天没有未报销的垫付").foregroundStyle(.secondary) }
+            if p.isEmpty { Text("近 180 天无待报销垫款").foregroundStyle(.secondary) }
         } header: {
             HStack {
-                Text("选中 \(selected.count)/\(p.count) 笔，合计 " + money(o)).textCase(nil)
+                Text("已选 \(selected.count)/\(p.count) 笔，合计 " + money(o)).textCase(nil)
                 Spacer()
                 Button(selected.count == p.count ? "全不选" : "全选") {
                     selected = selected.count == p.count ? [] : Set(p.indices)
@@ -199,8 +199,8 @@ struct ReimbSheet: View {
     private func linkSection(_ x: OpenLink, _ D: Derived) -> some View {
         let items = D.byLink[x.link] ?? []
         return Section {
-            LabeledContent("^" + x.link) { Text("待收 " + money(x.amount, x.currency)).monospacedDigit().sensitive() }
-            DisclosureGroup("包含的 \(items.count) 笔交易") {
+            LabeledContent("^" + x.link) { Text("应收 " + money(x.amount, x.currency)).monospacedDigit().sensitive() }
+            DisclosureGroup("包含 \(items.count) 笔交易") {
                 ForEach(items, id: \.id) { t in TxRow(t: t, showDate: true) }
             }
         }
@@ -220,7 +220,7 @@ struct ReimbSheet: View {
             for i in selected.sorted() where p.indices.contains(i) {
                 let e = p[i].t
                 guard done.insert(ObjectIdentifier(e)).inserted else { continue }
-                guard let file = try? await store.fileText(e.file) else { store.show("读不到 \(e.file)"); return }
+                guard let file = try? await store.fileText(e.file) else { store.show("无法读取 \(e.file)"); return }
                 let lines = file.components(separatedBy: "\n")
                 guard e.startLine < lines.count else { continue }
                 var op = Op(kind: .link, path: e.file)
@@ -233,8 +233,8 @@ struct ReimbSheet: View {
             }
         }
         let n = ops.count
-        guard let ins = store.makeOps(t, extra: OpExtra(label: "报销到账：^\(lk)\(n > 0 ? " \(n) 笔" : "")"), single: true) else { return }
+        guard let ins = store.makeOps(t, extra: OpExtra(label: "报销回款：^\(lk)\(n > 0 ? " \(n) 笔" : "")"), single: true) else { return }
         dismiss()
-        await store.commit(ops + ins, word: "已记")
+        await store.commit(ops + ins, word: "已入账")
     }
 }

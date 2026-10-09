@@ -19,7 +19,7 @@ struct AddView: View {
             Group {
                 if let L = store.L, let D = store.D { content(L, D) } else { ProgressView() }
             }
-            .navigationTitle("记一笔")
+            .navigationTitle("记账")
             .toolbar { StandardToolbar() }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0) }
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
@@ -66,7 +66,7 @@ struct AddView: View {
                 Button {
                     Task { await save(L, D) }
                 } label: {
-                    Text("记一笔").frame(maxWidth: .infinity).fontWeight(.semibold)
+                    Text("保存").frame(maxWidth: .infinity).fontWeight(.semibold)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.jade)
@@ -89,7 +89,7 @@ struct AddView: View {
         }
         .sheet(isPresented: $managingTemplates) { TemplateManager() }
         .sheet(isPresented: $editingText) {
-            TextEditSheet(title: "修改文本", initial: text, validate: { t in validateText(t, L, single: true) }) { new in
+            TextEditSheet(title: "编辑源文本", initial: text, validate: { t in validateText(t, L, single: true) }) { new in
                 store.draft.edited = new
             }
         }
@@ -143,7 +143,7 @@ struct AddView: View {
             HStack(alignment: .top) {
                 Image(systemName: "arrow.uturn.backward.circle.fill").font(.title2).foregroundStyle(Color.jade)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("记退款").font(.headline)
+                    Text("登记退款").font(.headline)
                     Text([d.payee, d.narration].filter { !$0.isEmpty }.joined(separator: " ") + (d.link.isEmpty ? "" : " · ^" + d.link))
                         .font(.footnote).foregroundStyle(.secondary).lineLimit(2)
                 }
@@ -153,7 +153,7 @@ struct AddView: View {
                     .controlSize(.small)
             }
         } footer: {
-            Text("退款会冲减原来的分类，并和原交易用同一个 ^链接 关联。")
+            Text("退款将冲减原支出科目，并通过同一 ^link 与原交易关联。")
         }
     }
 
@@ -229,7 +229,7 @@ struct AddView: View {
                     }
                     HStack(spacing: 4) {
                         Text(x.fixed.map { money($0, x.currency) } ?? "金额待填").font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
-                        if x.due { Text("本月未记").font(.caption2.weight(.semibold)).foregroundStyle(.orange) }
+                        if x.due { Text("本月未入账").font(.caption2.weight(.semibold)).foregroundStyle(.orange) }
                     }
                 }
                 .padding(.horizontal, 12).padding(.vertical, 7)
@@ -238,10 +238,10 @@ struct AddView: View {
             if x.fixed != nil {
                 Divider().frame(height: 28)
                 Button { Task { await saveTemplateNow(x, L, D) } } label: {
-                    Text("记").font(.subheadline.weight(.semibold)).foregroundStyle(Color.jade).padding(.horizontal, 12).padding(.vertical, 7)
+                    Text("入账").font(.subheadline.weight(.semibold)).foregroundStyle(Color.jade).padding(.horizontal, 12).padding(.vertical, 7)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("直接记一笔 \(x.label)")
+                .accessibilityLabel("直接入账：\(x.label)")
             }
         }
         .background(x.due ? Color.orange.opacity(0.12) : Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 12))
@@ -254,7 +254,7 @@ struct AddView: View {
         d.date = Day.today()
         let text = draftText(d, L, D)
         guard let ops = store.makeOps(text, single: true), let ins = ops.first(where: { $0.kind == .insert }) else { return }
-        let label = "已记：\(x.label) \(money(x.fixed ?? 0, x.currency))"
+        let label = "已入账：\(x.label) \(money(x.fixed ?? 0, x.currency))"
         await store.commit(ops, word: label, undo: { @MainActor in
             if store.pending.contains(where: { $0.id == ins.id }) {
                 await store.dropPending(ins)
@@ -354,8 +354,8 @@ struct AddView: View {
             AccountField(label: "转出", prefixes: ["Assets:", "Liabilities:"], chips: ctx.funds, value: fromBinding)
             AccountField(label: "转入", prefixes: ["Assets:", "Liabilities:"], chips: toChips, value: field(\.to))
             if !d.to.isEmpty, let tc = ctx.tc, tc != d.currency {
-                LabeledContent("到账 " + tc) {
-                    TextField("实际到账金额", text: field(\.toAmount))
+                LabeledContent("入账金额 " + tc) {
+                    TextField("实际入账金额", text: field(\.toAmount))
                         .keyboardType(.decimalPad)
                         .focused($focus, equals: .toAmount)
                         .multilineTextAlignment(.trailing)
@@ -368,7 +368,7 @@ struct AddView: View {
         let narrs = Array((ctx.payeeStat?.narrations ?? []).prefix(6))
         return Section {
             VStack(alignment: .leading, spacing: 6) {
-                TextField("商户（例如 便利店、淘宝）", text: field(\.payee))
+                TextField("收付款方（如 便利店、淘宝）", text: field(\.payee))
                     .focused($focus, equals: .payee)
                     .submitLabel(.next)
                     .onSubmit {
@@ -378,7 +378,7 @@ struct AddView: View {
                 if focus == .payee { payeeSuggestions(d.payee, D) }
             }
             VStack(alignment: .leading, spacing: 6) {
-                TextField(narrs.first ?? "说明（买了什么）", text: field(\.narration))
+                TextField(narrs.first ?? "摘要", text: field(\.narration))
                     .focused($focus, equals: .narration)
                 if !narrs.isEmpty {
                     ChipRow {
@@ -395,8 +395,8 @@ struct AddView: View {
     }
 
     private func accountSection(_ d: Draft, _ ctx: FormContext) -> some View {
-        let catLabel = d.kind == .income ? "来源" : "分类"
-        let fundLabel = d.kind == .income ? "收到" : d.kind == .refund ? "退回到" : "付款"
+        let catLabel = d.kind == .income ? "收入科目" : "支出科目"
+        let fundLabel = d.kind == .income ? "收款账户" : d.kind == .refund ? "退回账户" : "付款账户"
         return Section {
             AccountField(label: catLabel, prefixes: ctx.catPrefix, chips: ctx.cats, value: field(\.account))
             AccountField(label: fundLabel, prefixes: ["Assets:", "Liabilities:"], chips: ctx.funds, value: field(\.funding))
@@ -416,7 +416,7 @@ struct AddView: View {
         let hint = "关联 ^link，如 reimburse-work-" + Day.today().replacingOccurrences(of: "-", with: "")
         let reimb = Binding<Bool>(get: { store.draft.reimb }, set: { store.draft.reimb = $0; store.draft.edited = nil })
         return Section {
-            Toggle("可报销（记入应收，打 #reimbursed）", isOn: reimb).tint(.jade)
+            Toggle("可报销（计入应收款并标记 #reimbursed）", isOn: reimb).tint(.jade)
             if d.reimb {
                 TextField(hint, text: field(\.link))
                     .textInputAutocapitalization(.never)
@@ -468,11 +468,11 @@ struct AddView: View {
             Button {
                 store.draft.rows.append(DraftRow())
                 store.draft.edited = nil
-            } label: { Label("添加一行", systemImage: "plus.circle") }
+            } label: { Label("添加分录行", systemImage: "plus.circle") }
         } header: {
             Text("分录")
         } footer: {
-            Text("留空一行的金额会自动补平。左滑删除一行。成本写 {} 内的内容，如 180 USD；价格写 @ 7.1 CNY 或 @@ 总价。")
+            Text("金额留空的一行将自动补平；左滑可删除。成本填写 {} 内的内容，如 180 USD；价格填写 @ 7.1 CNY 或 @@ 总价。")
         }
     }
 
@@ -498,16 +498,16 @@ struct AddView: View {
                     .focused($focus, equals: .tags)
                     .overlay(alignment: .topLeading) {
                         if text.isEmpty {
-                            Text("直接写 Beancount，可以一次写多条，例如：\n2026-10-08 price USD 7.10 CNY\n2026-10-09 balance Assets:Cash 400.00 CNY")
+                            Text("直接输入 Beancount 指令，可一次输入多条，例如：\n2026-10-08 price USD 7.10 CNY\n2026-10-09 balance Assets:Cash 400.00 CNY")
                                 .font(.system(size: 12.5, design: .monospaced)).foregroundStyle(.tertiary).padding(.top, 8).padding(.leading, 4).allowsHitTesting(false)
                         }
                     }
             } else if text.isEmpty {
-                Text("填好金额和账户后，这里会生成分录").font(.footnote).foregroundStyle(.tertiary)
+                Text("填写金额与账户后将在此生成分录").font(.footnote).foregroundStyle(.tertiary)
             } else {
                 VStack(alignment: .leading, spacing: 6) {
                     MonoText(text: text)
-                    Label(d.edited != nil ? "已手动修改，点这里继续改" : "点这里修改文本", systemImage: "pencil")
+                    Label(d.edited != nil ? "已手动编辑 · 点按继续编辑" : "点按编辑源文本", systemImage: "pencil")
                         .font(.footnote)
                         .foregroundStyle(Color.jade)
                 }
@@ -517,8 +517,8 @@ struct AddView: View {
             }
             if let v = v {
                 if v.ok {
-                    Label(v.warnings.isEmpty ? "可以保存" : v.warnings[0].msg, systemImage: v.warnings.isEmpty ? "checkmark.circle" : "exclamationmark.triangle")
-                        .font(.footnote).foregroundStyle(v.warnings.isEmpty ? Color.jade : Color.orange)
+                    Label(v.warnings.isEmpty ? "校验通过" : v.warnings[0].msg, systemImage: v.warnings.isEmpty ? "checkmark.circle" : "exclamationmark.triangle")
+                        .font(.footnote).foregroundStyle(v.warnings.isEmpty ? Color.gain : Color.orange)
                 } else if let m = v.msg {
                     Label(m, systemImage: "xmark.octagon").font(.footnote).foregroundStyle(Color.loss)
                 }
@@ -530,7 +530,7 @@ struct AddView: View {
                 if d.kind != .raw && d.edited != nil {
                     Button("恢复自动生成") { store.draft.edited = nil }.font(.footnote).textCase(nil)
                 } else if d.kind != .raw && !text.isEmpty {
-                    Text("点文本可以修改").textCase(nil)
+                    Text("点按文本可编辑").textCase(nil)
                 }
             }
         }
@@ -568,7 +568,7 @@ struct AddView: View {
         let d = store.draft
         let text = draftText(d, L, D, explicit: store.explicitAmounts).trimmed
         let v = validateText(text, L, single: d.kind != .raw)
-        guard v.ok else { store.show(v.msg ?? "内容有误"); return }
+        guard v.ok else { store.show(v.msg ?? "内容校验未通过"); return }
         focus = nil
         if d.kind == .raw { await saveRaw(L, overwriteOK: false); return }
         if d.kind == .multi {
@@ -597,7 +597,7 @@ struct AddView: View {
     private func saveRaw(_ L: Ledger, overwriteOK: Bool) async {
         let text = store.draft.raw.trimmed
         let v = validateText(text, L, single: false)
-        guard v.ok else { store.show(v.msg ?? "内容有误"); return }
+        guard v.ok else { store.show(v.msg ?? "内容校验未通过"); return }
         if !overwriteOK {
             let dups = duplicateBalances(v.entries, L)
             if !dups.isEmpty { confirmOverwrite = dups; showOverwrite = true; return }
@@ -635,7 +635,7 @@ struct RowEditor: View {
                         .foregroundStyle(row.flag == "!" ? Color.white : Color.secondary)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("这一行标记为待确认")
+                .accessibilityLabel("标记为待确认（!）")
             }
             HStack(spacing: 8) {
                 Button {
@@ -663,7 +663,7 @@ struct RowEditor: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Color.jade)
-                .accessibilityLabel("成本和价格")
+                .accessibilityLabel("成本与价格")
             }
             if showMore || !row.cost.isEmpty || !row.price.isEmpty {
                 HStack {
@@ -718,10 +718,10 @@ struct TemplateManager: View {
                         }
                     }
                 } footer: {
-                    Text("最近 120 天里出现 3 次以上的交易会自动出现在这里。置顶的排在最前；左滑隐藏。")
+                    Text("近 120 天内出现 3 次及以上的交易将自动列入；置顶项优先显示，左滑可隐藏。")
                 }
                 if !store.tplHidden.isEmpty {
-                    Button("恢复 \(store.tplHidden.count) 个已隐藏") { store.tplHidden = [] }
+                    Button("恢复 \(store.tplHidden.count) 项已隐藏") { store.tplHidden = [] }
                 }
             }
             .navigationTitle("常用交易")

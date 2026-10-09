@@ -113,8 +113,9 @@ jobs:
           UDID=$(xcrun simctl list devices available -j | python3 -c "
           import sys,json
           d=json.load(sys.stdin)['devices']
-          c=[x for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone 16') or x['name'].startswith('iPhone 15')]
-          c.sort(key=lambda x: (x['name']!='iPhone 16', x['name']))
+          pref=['iPhone 17','iPhone 16','iPhone 17 Pro','iPhone 16 Pro','iPhone 15']
+          c=[x for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')]
+          c.sort(key=lambda x: (pref.index(x['name']) if x['name'] in pref else 99, x['name']))
           print(c[0]['udid'])")
           echo "device $UDID"
           xcrun simctl boot "$UDID" || true
@@ -150,6 +151,13 @@ jobs:
           shot 19-edit-text SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_EDIT_TEXT=1
           shot 20-refund SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_KIND=refund
           shot 21-detail-actions SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_OPEN_TX=1
+          shot 22-reports SIMCTL_CHILD_LEDGER_TAB=reports
+          shot 23-income SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=income
+          shot 24-balance SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=balance
+          shot 25-trial SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=trial
+          shot 26-query SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=b:payees
+          shot 27-theme-orange SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_THEME=orange
+          shot 28-theme-blue SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_THEME=blue
           shot 14-privacy SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_PRIVACY=1
           xcrun simctl ui "$UDID" appearance dark
           shot 15-dark-overview SIMCTL_CHILD_LEDGER_TAB=overview

@@ -1,0 +1,13 @@
+-- 按一级分类汇总（当年）
+
+SELECT PARENT(account) AS category, SUM(position) AS total
+WHERE account ~ "^Expenses:" AND year = YEAR(TODAY())
+GROUP BY category
+ORDER BY total DESC
+
+-- 单月最大支出 Top 20
+
+SELECT date, payee, narration, position
+WHERE account ~ "^Expenses:" AND year = YEAR(TODAY()) AND month = MONTH(TODAY())
+ORDER BY position DESC
+LIMIT 20
