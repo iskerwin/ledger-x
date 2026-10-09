@@ -161,10 +161,10 @@ struct ForecastView: View {
             ForEach(f.points) { p in
                 AreaMark(x: .value(LS("日期"), Day.date(p.date) ?? Date(), unit: .day), yStart: .value("0", minV), yEnd: .value(LS("余额"), p.value))
                     .foregroundStyle(LinearGradient(colors: [Color.jade.opacity(0.25), Color.jade.opacity(0.02)], startPoint: .top, endPoint: .bottom))
-                    .interpolationMethod(.monotone)
+                    .interpolationMethod(.linear)
                 LineMark(x: .value(LS("日期"), Day.date(p.date) ?? Date(), unit: .day), y: .value(LS("余额"), p.value))
                     .foregroundStyle(Color.jade)
-                    .interpolationMethod(.monotone)
+                    .interpolationMethod(.linear)
             }
             if low.value < 0 {
                 RuleMark(y: .value("0", 0)).foregroundStyle(Color.loss.opacity(0.6)).lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
