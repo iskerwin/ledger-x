@@ -181,6 +181,13 @@ struct GitHub: LedgerBackend {
         try await putFile(path, text: text, sha: version, message: message)
     }
     func delete(_ path: String, version: String, message: String) async throws { try await deleteFile(path, sha: version, message: message) }
+    func readData(_ path: String) async throws -> Data {
+        try await request("\(repoPath)/contents/\(GitHub.encPath(path))?ref=\(GitHub.enc(cfg.branch))", raw: true)
+    }
+    func writeData(_ path: String, data: Data, message: String) async throws {
+        _ = try await json("\(repoPath)/contents/\(GitHub.encPath(path))", method: "PUT",
+                           body: ["message": message, "content": data.base64EncodedString(), "branch": cfg.branch])
+    }
     func check() async -> CI? { await latestCheck() }
     func webURL(_ file: String, line: Int?) -> URL? {
         URL(string: "https://github.com/\(cfg.owner)/\(cfg.repo)/blob/\(cfg.branch)/\(GitHub.encPath(file))" + (line.map { "#L\($0)" } ?? ""))

@@ -132,6 +132,9 @@ struct JournalView: View {
     @State private var path = NavigationPath()
     @State private var q = ""
     @State private var limit = 150
+    @State private var selecting = false
+    @State private var selected: Set<String> = []
+    @State private var batch: BatchMode?
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -139,7 +142,18 @@ struct JournalView: View {
                 if let L = store.L { list(L) } else { ProgressView() }
             }
             .navigationTitle(LS("明细"))
-            .toolbar { StandardToolbar() }
+            .toolbar {
+                StandardToolbar()
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(selecting ? LS("完成") : LS("选择")) {
+                        withAnimation { selecting.toggle(); selected = [] }
+                    }
+                }
+            }
+            .safeAreaInset(edge: .bottom) { if selecting { batchBar } }
+            .sheet(item: $batch) { m in
+                BatchEditSheet(entries: selectedEntries, mode: m) { selecting = false; selected = [] }
+            }
             .searchable(text: $q, placement: .navigationBarDrawer(displayMode: .always), prompt: LS("收付款方、摘要、科目、#标签、金额、2026-09"))
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
@@ -151,11 +165,44 @@ struct JournalView: View {
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .task {
             if let q = store.demoEnv["LEDGER_QUERY"] { self.q = q }
+            if store.demoEnv["LEDGER_SELECT"] != nil, let L = store.L {
+                selecting = true
+                selected = Set(search(L).prefix(4).map { TxDest.key($0) })
+            }
             if store.demoEnv["LEDGER_OPEN_TX"] != nil, let L = store.L, path.isEmpty {
                 let id = L.txns.lastIndex(where: { isComplex($0) && !$0.synthetic }) ?? L.txns.count - 1
                 path.append(TxDest(L.txns[id]))
             }
         }
+    }
+
+    private var selectedEntries: [Entry] {
+        guard let L = store.L else { return [] }
+        return L.txns.filter { !$0.synthetic && selected.contains(TxDest.key($0)) }
+    }
+
+    private var batchBar: some View {
+        HStack(spacing: 10) {
+            Button {
+                if let L = store.L {
+                    let keys = search(L).prefix(limit).filter { !$0.synthetic }.map { TxDest.key($0) }
+                    selected = selected.count >= keys.count ? [] : Set(keys)
+                }
+            } label: { Text(LS("全选")).font(.subheadline) }
+            Text(LS("已选 %@ 笔", selected.count)).font(.subheadline).foregroundStyle(.secondary)
+            Spacer()
+            Menu {
+                ForEach(BatchMode.allCases) { m in Button(m.name) { batch = m } }
+            } label: {
+                Label(LS("批量编辑"), systemImage: "square.and.pencil").font(.subheadline.weight(.semibold))
+            }
+            .disabled(selected.isEmpty)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .background(.regularMaterial, in: Capsule())
+        .padding(.horizontal, 12)
+        .padding(.bottom, 4)
     }
 
     private var account: String? {
@@ -232,7 +279,24 @@ struct JournalView: View {
         let year = day.prefix(4) != Day.today().prefix(4) ? " " + day.prefix(4) : ""
         return Section {
             ForEach(ts, id: \.id) { t in
-                NavigationLink(value: TxDest(t)) { TxRow(t: t, account: account) }
+                if selecting {
+                    let key = TxDest.key(t)
+                    Button {
+                        if selected.contains(key) { selected.remove(key) } else { selected.insert(key) }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: selected.contains(key) ? "checkmark.circle.fill" : "circle")
+                                .font(.title3)
+                                .foregroundStyle(selected.contains(key) ? Color.jade : Color.secondary)
+                            TxRow(t: t, account: account)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(t.synthetic)
+                } else {
+                    NavigationLink(value: TxDest(t)) { TxRow(t: t, account: account) }
+                }
             }
         } header: {
             HStack {
@@ -291,10 +355,11 @@ struct TxDetailView: View {
                         ForEach(related, id: \.id) { r in NavigationLink(value: TxDest(r)) { TxRow(t: r, showDate: true) } }
                     }
                 }
+                if !t.synthetic { AttachmentsSection(t: t) }
                 Section {
                     MonoText(text: t.src)
                 } header: {
-                    Text(verbatim: "Beancount 源文本 · \(t.file):\(t.line)").textCase(nil)
+                    Text(LS("Beancount 源文本 · %@:%@", t.file, t.line)).textCase(nil)
                 }
                 Section {
                     if t.synthetic {

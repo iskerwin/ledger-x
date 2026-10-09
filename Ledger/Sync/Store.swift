@@ -1,8 +1,29 @@
 import Foundation
 import SwiftUI
+import WidgetKit
 import LedgerKit
 
-enum Tab: String { case add, overview, journal, accounts, reports }
+enum Tab: String, CaseIterable, Hashable {
+    case add, overview, journal, accounts, reports
+    var title: String {
+        switch self {
+        case .add: return LS("记账")
+        case .overview: return LS("概览")
+        case .journal: return LS("明细")
+        case .accounts: return LS("账户")
+        case .reports: return LS("报表")
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .add: return "square.and.pencil"
+        case .overview: return "chart.bar.xaxis"
+        case .journal: return "list.bullet.rectangle.portrait"
+        case .accounts: return "building.columns"
+        case .reports: return "doc.text.magnifyingglass"
+        }
+    }
+}
 enum SyncState { case idle, syncing, offline, error }
 
 struct Toast: Identifiable, Equatable {
@@ -198,13 +219,19 @@ final class Store: ObservableObject {
         let env = ProcessInfo.processInfo.environment
         let base = URL(fileURLWithPath: dir)
         let result: (Ledger, Derived) = await Task.detached {
-            let L = loadLedger(root: "main.bean") { path in try String(contentsOf: base.appendingPathComponent(path), encoding: .utf8) }
+            let extra = env["LEDGER_EXTRA"]
+            let L = loadLedger(root: "main.bean") { path in
+                if path == "__extra.bean", let x = extra { return try String(contentsOf: URL(fileURLWithPath: x), encoding: .utf8) }
+                let t = try String(contentsOf: base.appendingPathComponent(path), encoding: .utf8)
+                return path == "main.bean" && extra != nil ? t + "\ninclude \"__extra.bean\"\n" : t
+            }
             return (L, Derived(L))
         }.value
         detectedLayout = RepoLayout.detect(result.0)
         L = result.0
         D = result.1
         version += 1
+        afterLoad()
         draft = newDraft(.expense, result.1, defaultFunding: nil)
         if let k = env["LEDGER_KIND"], let kind = DraftKind(rawValue: k) {
             draft = newDraft(kind, result.1, defaultFunding: nil)
@@ -338,6 +365,7 @@ final class Store: ObservableObject {
             ledgerQueries = qs
             loadError = nil
             version += 1
+            afterLoad()
             if draft.funding.isEmpty { draft = newDraft(.expense, r.1, defaultFunding: defaultFunding) }
         } else {
             loadError = LS("无法读取 %@", main)
@@ -423,6 +451,30 @@ final class Store: ObservableObject {
         pending.removeAll { $0.id == op.id }
         savePending()
         await rebuild()
+    }
+
+    // MARK: - after every load: widget data and reminders
+
+    func afterLoad() {
+        writeWidget()
+        Task {
+            await Reminders.reschedule(self)
+            await autoUpdatePrices()
+        }
+    }
+
+    func writeWidget() {
+        guard let L = L, let D = D else { return }
+        let m = Day.ym(Day.today())
+        let bs = budgetProgress(L, key: m).filter { $0.budget.currency == L.base }
+        let snap = WidgetSnapshot(
+            month: Day.monthLabel(m), spent: D.monthExp[m] ?? 0, income: D.monthInc[m] ?? 0, lastMonth: D.monthExp[Day.addMonth(m, -1)] ?? 0,
+            budgetLimit: bs.reduce(0) { $0 + $1.limit }, budgetSpent: bs.reduce(0) { $0 + $1.spent },
+            budgets: bs.prefix(3).map { WidgetSnapshot.BudgetLine(name: leaf($0.budget.account), spent: $0.spent, limit: $0.limit) },
+            currency: L.base, privacy: UserDefaults.standard.bool(forKey: "ledger.privacy"),
+            theme: UserDefaults.standard.string(forKey: AppTheme.key) ?? "jade", english: AppLanguage.current == .en, updated: Date())
+        snap.save()
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     // MARK: - helpers for views
