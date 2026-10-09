@@ -96,6 +96,7 @@ jobs:
           [ -f build.log ] && grep -E "error:|warning:" build.log | sort -u > out/build-errors.log || true
           gh release delete dev -y --cleanup-tag || true
           gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/dev" || true
+          find out -type f -empty -delete
           sleep 3
           ls -la out
           if ! gh release create dev out/* --target "$GITHUB_SHA" --prerelease --title "开发版（main 最新）" \
