@@ -72,7 +72,7 @@ jobs:
       - name: Stop if the tests failed
         if: steps.tests.outcome == 'failure'
         run: |
-          grep -E "error:" test.log | head -30
+          grep -E "error:|failed" test.log | head -30 | while IFS= read -r l; do echo "::error::${l:0:400}"; done
           echo "::error::LedgerKit 测试未通过，见 dev 版本里的 test.log"
           exit 1
 
@@ -91,10 +91,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p out
-          [ -f Ledger.ipa ] && [ "${{ steps.tests.outcome }}" = "success" ] && cp Ledger.ipa out/
+          if [ -f Ledger.ipa ] && [ "${{ steps.tests.outcome }}" = "success" ]; then cp Ledger.ipa out/; fi
           cp test.log out/ 2>/dev/null || true
           [ -f build.log ] && grep -E "error:|warning:" build.log | sort -u > out/build-errors.log || true
           gh release delete dev -y --cleanup-tag || true
+          sleep 3
+          ls -la out
           gh release create dev out/* --target "$GITHUB_SHA" --prerelease --title "开发版（main 最新）" \
             --notes "main ${GITHUB_SHA::7} · 构建 $GITHUB_RUN_NUMBER · $(date -u +%Y-%m-%dT%H:%MZ)。正式版请用最新的 v 版本。"
 
