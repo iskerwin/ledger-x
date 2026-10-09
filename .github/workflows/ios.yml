@@ -9,6 +9,11 @@ on:
     branches: [main]
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      version:
+        description: "发布正式版的版本号（如 1.4，留空则只更新 dev）"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -46,6 +51,7 @@ jobs:
           xcodegen generate
           VERSION=$(sed -nE 's/^ *MARKETING_VERSION: *"?([^"]+)"?$/\1/p' project.yml | head -1)
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then VERSION="${GITHUB_REF_NAME#v}"; fi
+          if [ -n "${{ github.event.inputs.version }}" ]; then VERSION="${{ github.event.inputs.version }}"; VERSION="${VERSION#v}"; fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           set +e
           xcodebuild -project Ledger.xcodeproj -scheme Ledger -configuration Release \
@@ -76,14 +82,19 @@ jobs:
           echo "::error::LedgerKit 测试未通过，见 dev 版本里的 test.log"
           exit 1
 
-      - name: Publish release (tag)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Publish release (tag or manual run)
+        if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.version != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" Ledger.ipa --verify-tag --latest \
-            --title "Ledger $GITHUB_REF_NAME" \
-            --notes "未签名的 Ledger.ipa（版本 ${{ steps.build.outputs.version }}，构建 $GITHUB_RUN_NUMBER）。在 iPhone 上下载后用 SideStore / AltStore 导入签名安装。"
+          TAG="v${{ steps.build.outputs.version }}"
+          NOTES="未签名的 Ledger.ipa（版本 ${{ steps.build.outputs.version }}，构建 $GITHUB_RUN_NUMBER）。在 iPhone 上下载后用 SideStore / AltStore 导入签名安装。"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            # a release made on github.com: attach the build to it
+            gh release upload "$TAG" Ledger.ipa --clobber
+          else
+            gh release create "$TAG" Ledger.ipa --target "$GITHUB_SHA" --latest --title "Ledger $TAG" --notes "$NOTES"
+          fi
 
       - name: Publish dev build (main)
         if: always() && github.ref == 'refs/heads/main'
