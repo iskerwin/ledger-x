@@ -26,7 +26,9 @@ jobs:
 
       - name: Select Xcode
         run: |
-          sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)"
+          ls -d /Applications/Xcode_*.app
+          # newest stable Xcode on the runner (Xcode 26 gives the current iOS look)
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | grep -E 'Xcode_[0-9.]+\.app$' | sort -V | tail -1)"
           xcodebuild -version
 
       - name: Tests (LedgerKit)
@@ -99,7 +101,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Select Xcode
-        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)"
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | grep -E 'Xcode_[0-9.]+\.app$' | sort -V | tail -1)"
       - name: Build for simulator
         run: |
           brew install xcodegen
