@@ -338,7 +338,7 @@ struct OverviewView: View {
                     Text(LS("%@/%@ 余额断言", okCount, L.balanceResults.count)).font(.caption).foregroundStyle(.secondary)
                 }
             }
-            CIRow()
+            if store.cfg.kind == .github { CIRow() }
         }
     }
 
@@ -448,7 +448,7 @@ struct ErrorsView: View {
                         }
                     }
                 }
-                Section { CIRow() }
+                if store.cfg.kind == .github { Section { CIRow() } }
             }
         }
         .navigationTitle(LS("账本校验"))

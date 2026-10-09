@@ -200,7 +200,7 @@ public func alignText(_ text: String) -> String {
 // MARK: - edits applied to repo files (pending queue)
 
 public struct Op: Codable, Identifiable, Equatable {
-    public enum Kind: String, Codable { case insert, remove, link, include, balance, deleteFile }
+    public enum Kind: String, Codable { case insert, remove, link, include, balance, deleteFile, replace, rename }
     public var id = UUID()
     public var kind: Kind
     public var path: String
@@ -241,6 +241,10 @@ public func applyOps(_ text0: String, path: String, ops: [Op], strict: Bool = fa
             else if strict { throw ConflictError(label: op.label ?? "") }
         case .balance: text = insertBalance(text, op)
         case .deleteFile: break
+        case .replace:
+            if let r = applyRemove(text, op) { text = r }
+            else if strict { throw ConflictError(label: op.label ?? "") }
+        case .rename: text = renameAccount(text, from: op.old ?? "", to: op.text ?? "")
         }
     }
     return text
@@ -254,6 +258,7 @@ private func trimEndStr(_ s: Substring) -> String {
 
 /// a remove op: a whole entry (`old`) or a single directive line (`line`, e.g. a balance assertion)
 public func applyRemove(_ text: String, _ op: Op) -> String? {
+    if op.kind == .replace { return replaceBlock(text, op.old ?? "", op.text ?? "") }
     if let l = op.line { return removeLine(text, l) }
     return removeBlock(text, op.old ?? "")
 }
@@ -265,6 +270,41 @@ public func removeLine(_ text: String, _ line: String) -> String? {
     guard !want.isEmpty, let i = lines.firstIndex(where: { trimEndStr(Substring($0)) == want }) else { return nil }
     lines.remove(at: i)
     return lines.joined(separator: "\n")
+}
+
+/// replace an entry (matched line by line, ignoring trailing spaces) with new text, in place
+public func replaceBlock(_ text: String, _ old: String, _ new: String) -> String? {
+    var lines = text.components(separatedBy: "\n")
+    let ol = old.components(separatedBy: "\n").map { trimEndStr(Substring($0)) }
+    guard !ol.isEmpty, !old.isEmpty else { return nil }
+    var i = 0
+    while i + ol.count <= lines.count {
+        var ok = true
+        for k in 0..<ol.count where trimEndStr(Substring(lines[i + k])) != ol[k] { ok = false; break }
+        if ok {
+            lines.replaceSubrange(i..<i + ol.count, with: new.components(separatedBy: "\n"))
+            return lines.joined(separator: "\n")
+        }
+        i += 1
+    }
+    return nil
+}
+
+private func accountRegex(_ name: String) -> NSRegularExpression? {
+    try? NSRegularExpression(pattern: "(?<![\\p{L}\\p{N}:\\-])" + NSRegularExpression.escapedPattern(for: name) + "(?![\\p{L}\\p{N}\\-])")
+}
+
+/// rename an account (and its sub-accounts) everywhere in a file
+public func renameAccount(_ text: String, from: String, to: String) -> String {
+    guard !from.isEmpty, !to.isEmpty, from != to, let re = accountRegex(from) else { return text }
+    return re.stringByReplacingMatches(in: text, range: NSRange(location: 0, length: (text as NSString).length),
+                                       withTemplate: NSRegularExpression.escapedTemplate(for: to))
+}
+
+/// how many times an account (or its sub-accounts) appears in a file
+public func countAccount(_ text: String, _ name: String) -> Int {
+    guard let re = accountRegex(name) else { return 0 }
+    return re.numberOfMatches(in: text, range: NSRange(location: 0, length: (text as NSString).length))
 }
 
 public func removeBlock(_ text: String, _ old: String) -> String? {
