@@ -100,13 +100,15 @@ jobs:
         run: |
           TAG="v${{ steps.build.outputs.version }}"
           NOTES="未签名的 Ledger.ipa（版本 ${{ steps.build.outputs.version }}，构建 $GITHUB_RUN_NUMBER）。在 iPhone 上下载后用 SideStore / AltStore 导入签名安装。"
+          # an older commit (补发): the tag can only point at this run's commit, so name the source in the notes
+          [ -n "${{ github.event.inputs.commit }}" ] && NOTES="$NOTES 源码提交：$(git rev-parse --short HEAD)。"
           if gh release view "$TAG" > /dev/null 2>&1; then
             # a release made on github.com: attach the build to it
             gh release upload "$TAG" Ledger.ipa --clobber
           else
             LATEST="--latest"
             [ "${{ github.event.inputs.latest }}" = "false" ] && LATEST="--latest=false"
-            if ! gh release create "$TAG" Ledger.ipa --target "$(git rev-parse HEAD)" $LATEST --title "Ledger $TAG" --notes "$NOTES" > gh.out 2>&1; then
+            if ! gh release create "$TAG" Ledger.ipa --target "$GITHUB_SHA" $LATEST --title "Ledger $TAG" --notes "$NOTES" > gh.out 2>&1; then
               while IFS= read -r l; do echo "::error::${l:0:300}"; done < gh.out
               exit 1
             fi
