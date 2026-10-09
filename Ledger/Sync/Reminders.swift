@@ -13,6 +13,7 @@ enum Reminders {
     static let budgetKey = "ledger.remind.budget"
     static let subsKey = "ledger.remind.subs"
     static let subsDaysKey = "ledger.remind.subsDays"
+    static let forecastKey = "ledger.remind.forecast"
     static var subsDays: Int { UserDefaults.standard.object(forKey: subsDaysKey) as? Int ?? 3 }
     /// card account → repayment day of month (0 = none), per ledger
     static func cardDays(_ store: Store) -> [String: Int] { Prefs.get(store.pk("remind.cards"), [String: Int]()) }
@@ -50,8 +51,23 @@ enum Reminders {
         guard enabled, !store.demo, let L = store.L else { return }
         let today = Day.today()
 
-        // credit card repayment days
-        for (acct, day) in cardDays(store) where day >= 1 && day <= 31 {
+        // credit cards with a billing cycle: the bill and its amount, a few days ahead and on the day
+        let cycles = cardCycles(L, today: today)
+        let cal0 = Calendar.current
+        for c in cycles where !c.settled && c.due >= today {
+            guard let dueDay = Day.date(c.due) else { continue }
+            let lead = cal0.date(byAdding: .day, value: -subsDays, to: dueDay) ?? dueDay
+            for (k, day) in [lead, dueDay].enumerated() {
+                guard let fire = cal0.date(bySettingHour: 9, minute: 0, second: 0, of: day), fire > Date() else { continue }
+                add("bill." + c.account + "." + c.due + ".\(k)", LS("信用卡还款"),
+                    LS("%@ %@ 到期，应还 %@", acctLabel(c.account), c.due, money(c.remaining, c.currency)),
+                    cal0.dateComponents([.year, .month, .day, .hour, .minute], from: fire), tab: "overview")
+            }
+        }
+
+        // credit card repayment days set here (cards without a statement_day in the ledger)
+        let withCycle = Set(cycles.map { $0.account })
+        for (acct, day) in cardDays(store) where day >= 1 && day <= 31 && !withCycle.contains(acct) {
             let owed = -((L.final[acct] ?? [:]).reduce(0.0) { $0 + (toCNY(L, $1.value, $1.key) ?? 0) })
             var dc = DateComponents()
             dc.day = day
@@ -109,6 +125,23 @@ enum Reminders {
             }
         }
 
+        // cash-flow forecast: money running out within 30 days — one reminder per predicted date
+        // (reschedule removes pending ones, so the planned time is remembered and re-added until it passed)
+        if flag(forecastKey), let f = store.forecastCached(days: 30, daily: UserDefaults.standard.object(forKey: ForecastPrefs.dailyKey) as? Bool ?? true),
+           let low = f.firstBelow(0) {
+            let tag = low.date + "|" + store.cfg.id
+            let k = forecastKey + ".plan"
+            var fire = Calendar.current.date(from: next(hour: 20)) ?? Date()
+            if let saved = UserDefaults.standard.string(forKey: k), saved.hasPrefix(tag + "|"),
+               let t = Double(saved.dropFirst(tag.count + 1)) { fire = Date(timeIntervalSince1970: t) }
+            else { UserDefaults.standard.set(tag + "|\(fire.timeIntervalSince1970)", forKey: k) }
+            if fire > Date() {
+                add("forecast." + low.date, LS("可用资金预警"),
+                    LS("按现有收支推算，%@ 可用余额将降到 %@", low.date, money(low.value, f.currency, 0)),
+                    Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fire), tab: "overview")
+            }
+        }
+
         // budgets over
         if flag(budgetKey) {
             let over = budgetProgress(L, key: Day.ym(today)).filter { $0.over }
@@ -129,6 +162,7 @@ struct RemindersSection: View {
     @AppStorage(Reminders.balanceDaysKey) private var balanceDays = 30
     @AppStorage(Reminders.budgetKey) private var budget = true
     @AppStorage(Reminders.subsKey) private var subs = true
+    @AppStorage(Reminders.forecastKey) private var forecastWarn = true
     @AppStorage(Reminders.subsDaysKey) private var subsDays = 3
     @State private var cards: [String: Int] = [:]
 
@@ -144,6 +178,7 @@ struct RemindersSection: View {
             if on {
                 Toggle(LS("固定交易本月未入账"), isOn: $fixed)
                 Toggle(LS("预算超支"), isOn: $budget)
+                Toggle(LS("可用资金不足预警"), isOn: $forecastWarn)
                 Toggle(LS("订阅扣费"), isOn: $subs)
                 if subs {
                     Stepper(LS("提前 %@ 天", subsDays), value: $subsDays, in: 0...14)
@@ -162,17 +197,18 @@ struct RemindersSection: View {
         } header: {
             Text(LS("提醒"))
         } footer: {
-            Text(LS("提醒在本机生成，每次打开 App 或同步后按最新账本重新安排。"))
+            Text(LS("提醒在本机生成，每次打开 App 或同步后按最新账本重新安排。在「编辑账户」中为信用卡设置账单日和还款日后，会按账单金额提醒还款，提前天数与订阅相同。"))
         }
         .onChange(of: subsDays) { _, _ in Task { await Reminders.reschedule(store) } }
-        .onChange(of: [fixed, balance, budget, subs]) { _, _ in Task { await Reminders.reschedule(store) } }
+        .onChange(of: [fixed, balance, budget, subs, forecastWarn]) { _, _ in Task { await Reminders.reschedule(store) } }
         .onChange(of: balanceDays) { _, _ in Task { await Reminders.reschedule(store) } }
         .onChange(of: cards) { _, _ in Task { await Reminders.reschedule(store) } }
         .onAppear { cards = Reminders.cardDays(store) }
     }
 
     private var cardAccounts: [String] {
-        (store.D?.openAccounts ?? []).filter { $0.hasPrefix("Liabilities:CreditCard") || ($0.hasPrefix("Liabilities:") && $0.lowercased().contains("card")) }
+        let withCycle = Set(store.L.map { cardCycles($0).map { $0.account } } ?? [])
+        return (store.D?.openAccounts ?? []).filter { !withCycle.contains($0) }.filter { $0.hasPrefix("Liabilities:CreditCard") || ($0.hasPrefix("Liabilities:") && $0.lowercased().contains("card")) }
     }
 }
 
@@ -186,7 +222,12 @@ final class NotificationRouter: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        let tab = response.notification.request.content.userInfo["tab"] as? String ?? "add"
-        await MainActor.run { open?(tab) }
+        let info = response.notification.request.content.userInfo
+        let tab = info["tab"] as? String ?? "add"
+        let draft = info["draft"] as? Bool ?? false
+        await MainActor.run {
+            // a Shortcuts entry waiting for confirmation: open it in the form
+            if draft { Store.shared.applyIntentDraft() } else { open?(tab) }
+        }
     }
 }

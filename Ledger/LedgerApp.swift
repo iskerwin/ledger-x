@@ -4,7 +4,7 @@ import LedgerKit
 
 @main
 struct LedgerApp: App {
-    @StateObject private var store = Store()
+    @StateObject private var store = Store.shared
     @StateObject private var lock = AppLock()
     @Environment(\.scenePhase) private var phase
     @AppStorage(AppTheme.key) private var theme = AppTheme.jade.rawValue

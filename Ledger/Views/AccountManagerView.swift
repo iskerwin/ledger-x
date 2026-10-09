@@ -97,6 +97,8 @@ struct AccountEditView: View {
     @State private var booking = ""
     @State private var display = ""
     @State private var creditLimitText = ""
+    @State private var statementDay = 0
+    @State private var dueDay = 0
     @State private var allowNegative = false
     @State private var closeDate = Day.today()
     @State private var newName = ""
@@ -106,7 +108,7 @@ struct AccountEditView: View {
     @State private var loaded = false
     @State private var initialFields = ""
 
-    private var fields: String { [openDate, currencies, booking, display, creditLimitText, allowNegative ? "1" : ""].joined(separator: "|") }
+    private var fields: String { [openDate, currencies, booking, display, creditLimitText, allowNegative ? "1" : "", "\(statementDay)", "\(dueDay)"].joined(separator: "|") }
     private var acctName: String { isNew ? account.trimmed : (name ?? "") }
 
     private static let bookings = ["", "STRICT", "FIFO", "LIFO", "HIFO", "AVERAGE", "NONE"]
@@ -137,6 +139,8 @@ struct AccountEditView: View {
             booking = a?.booking?.uppercased() ?? ""
             display = store.displayName(n) ?? ""
             if let v = a?.meta[creditLimitKey] { creditLimitText = v.stringValue ?? v.display }
+            statementDay = a?.meta[statementDayKey].flatMap { Int(($0.stringValue ?? $0.display)) } ?? 0
+            dueDay = a?.meta[dueDayKey].flatMap { Int(($0.stringValue ?? $0.display)) } ?? 0
             if let v = a?.meta[allowNegativeKey] { allowNegative = ["true", "yes", "1"].contains((v.stringValue ?? v.display).lowercased()) }
             initialFields = fields
         } else {
@@ -208,6 +212,14 @@ struct AccountEditView: View {
                     TextField(LS("可选，超出时提交前提醒"), text: $creditLimitText)
                         .multilineTextAlignment(.trailing).keyboardType(.decimalPad)
                 }
+                Picker(LS("账单日"), selection: $statementDay) {
+                    Text(LS("未设置")).tag(0)
+                    ForEach(1...31, id: \.self) { Text(LS("每月 %@ 日", $0)).tag($0) }
+                }
+                Picker(LS("还款日"), selection: $dueDay) {
+                    Text(LS("未设置")).tag(0)
+                    ForEach(1...31, id: \.self) { Text(LS("每月 %@ 日", $0)).tag($0) }
+                }
             }
             if acctName.hasPrefix("Assets:") {
                 Toggle(LS("允许负余额"), isOn: $allowNegative)
@@ -261,13 +273,16 @@ struct AccountEditView: View {
         if let e = openEntry(L) {
             for l in e.src.components(separatedBy: "\n").dropFirst() {
                 let t = l.trimmingCharacters(in: .whitespaces)
-                if t.hasPrefix("name:") || t.hasPrefix(creditLimitKey + ":") || t.hasPrefix(allowNegativeKey + ":") || t.isEmpty { continue }
+                if t.hasPrefix("name:") || t.hasPrefix(creditLimitKey + ":") || t.hasPrefix(allowNegativeKey + ":")
+                    || t.hasPrefix(statementDayKey + ":") || t.hasPrefix(dueDayKey + ":") || t.isEmpty { continue }
                 lines.append(l)
             }
         }
         let limit = creditLimitText.replacingOccurrences(of: ",", with: "").trimmed
         if n.hasPrefix("Liabilities:"), let v = Double(limit), v > 0 { lines.insert("  \(creditLimitKey): \(jsNumberString(v))", at: 1) }
         if n.hasPrefix("Assets:"), allowNegative { lines.insert("  \(allowNegativeKey): TRUE", at: 1) }
+        if n.hasPrefix("Liabilities:"), dueDay > 0 { lines.insert("  \(dueDayKey): \(dueDay)", at: 1) }
+        if n.hasPrefix("Liabilities:"), statementDay > 0 { lines.insert("  \(statementDayKey): \(statementDay)", at: 1) }
         if !display.trimmed.isEmpty {
             lines.insert("  name: \"\(display.trimmed.replacingOccurrences(of: "\"", with: "'"))\"", at: 1)
         }

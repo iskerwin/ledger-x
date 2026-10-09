@@ -237,6 +237,11 @@ jobs:
           shot 46-subscriptions SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=subscriptions SIMCTL_CHILD_LEDGER_EXTRA="$SUBS"
           shot 47-sub-edit SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=subscriptions SIMCTL_CHILD_LEDGER_SUB_EDIT=1 SIMCTL_CHILD_LEDGER_EXTRA="$SUBS"
           shot 48-overview-subs SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_SCROLL=subs SIMCTL_CHILD_LEDGER_EXTRA="$SUBS"
+          CARDS="$GITHUB_WORKSPACE/LedgerKit/Tests/LedgerKitTests/Fixtures/import/cards.bean"
+          shot 49-card SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_OPEN_ACCOUNT=Liabilities:CreditCard:SPDB SIMCTL_CHILD_LEDGER_EXTRA="$CARDS"
+          shot 50-forecast SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=forecast SIMCTL_CHILD_LEDGER_EXTRA="$CARDS"
+          shot 51-overview-cards SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_SCROLL=cards SIMCTL_CHILD_LEDGER_EXTRA="$CARDS"
+          shot 52-edit-card SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_EDIT_ACCOUNT=Liabilities:CreditCard:SPDB SIMCTL_CHILD_LEDGER_EXTRA="$CARDS"
           shot 14-privacy SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_PRIVACY=1
           xcrun simctl ui "$UDID" appearance dark
           shot 15-dark-overview SIMCTL_CHILD_LEDGER_TAB=overview

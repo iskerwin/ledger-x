@@ -300,6 +300,7 @@ struct RegisterView: View {
         let total = built.0.count
         return List {
             header(L, built.1)
+            if let c = cardCycles(L).first(where: { $0.account == account }) { CardBillSection(cycle: c) }
             Section(total > 300 ? LS("最近 300 条") : LS("共 %@ 条", total)) {
                 ForEach(Array(items.enumerated()), id: \.offset) { pair in
                     itemRow(pair.element, canCheck(L))

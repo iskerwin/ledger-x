@@ -31,6 +31,11 @@ struct SettingsView: View {
                 appearanceSection
                 securitySection
                 RemindersSection()
+                Section {
+                    NavigationLink { ShortcutsSettingsView() } label: {
+                        Label(LS("快捷指令与 Apple Pay"), systemImage: "bolt.horizontal.circle")
+                    }
+                }
             }
             if first {
                 ConnectionSections(cfg: $cfg)
