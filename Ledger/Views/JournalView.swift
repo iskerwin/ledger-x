@@ -140,7 +140,7 @@ struct JournalView: View {
             }
             .navigationTitle("明细")
             .toolbar { StandardToolbar() }
-            .searchable(text: $q, placement: .navigationBarDrawer(displayMode: .always), prompt: "商户、说明、账户、#标签、金额、2026-09")
+            .searchable(text: $q, placement: .navigationBarDrawer(displayMode: .always), prompt: "收付款方、摘要、科目、#标签、金额、2026-09")
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .onChange(of: q) { _, _ in limit = 150 }

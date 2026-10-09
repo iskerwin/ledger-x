@@ -204,7 +204,7 @@ struct AddView: View {
                 .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
             } header: {
                 HStack {
-                    Text("常用")
+                    Text("常用交易")
                     Spacer()
                     Button("管理") { managingTemplates = true }.font(.footnote).textCase(nil)
                 }

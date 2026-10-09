@@ -493,7 +493,7 @@ struct BalanceSheetView: View {
                             Spacer()
                             Figure(label: "负债总额", value: money(liab), color: liab > 0.005 ? Color.loss : Color.primary)
                             Spacer()
-                            Figure(label: "资产负债率", value: assets > 0 ? String(format: "%.1f%%", liab / assets * 100) : "—", alignment: .trailing)
+                            Figure(label: "资产负债率", value: assets > 0 && liab > 0.005 ? String(format: "%.1f%%", liab / assets * 100) : "—", alignment: .trailing)
                         }
                         RatioBar(parts: [(max(0, assets - liab), Color.jade), (liab, Color.loss)])
                     }
