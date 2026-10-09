@@ -14,6 +14,15 @@ on:
         description: "发布正式版的版本号（如 1.4，留空则只更新 dev）"
         required: false
         default: ""
+      commit:
+        description: "要编译的提交（留空 = 当前分支最新）"
+        required: false
+        default: ""
+      latest:
+        description: "设为最新版本"
+        type: boolean
+        required: false
+        default: true
 
 permissions:
   contents: write
@@ -28,6 +37,8 @@ jobs:
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.commit || github.ref }}
 
       - name: Select Xcode
         run: |
@@ -68,9 +79,9 @@ jobs:
           cp -R build/Build/Products/Release-iphoneos/Ledger.app Payload/
           # ad-hoc sign with the entitlements (App Group for the widget); SideStore re-signs with your Apple ID
           for x in Payload/Ledger.app/PlugIns/*.appex; do
-            [ -d "$x" ] && codesign -f -s - --entitlements LedgerWidget/LedgerWidget.entitlements "$x"
+            [ -d "$x" ] && [ -f LedgerWidget/LedgerWidget.entitlements ] && codesign -f -s - --entitlements LedgerWidget/LedgerWidget.entitlements "$x"
           done
-          codesign -f -s - --entitlements Ledger/Ledger.entitlements Payload/Ledger.app
+          if [ -f Ledger/Ledger.entitlements ]; then codesign -f -s - --entitlements Ledger/Ledger.entitlements Payload/Ledger.app; fi
           codesign -dv --entitlements - Payload/Ledger.app 2>&1 | tail -5 || true
           zip -qry Ledger.ipa Payload
           ls -la Ledger.ipa
@@ -93,11 +104,13 @@ jobs:
             # a release made on github.com: attach the build to it
             gh release upload "$TAG" Ledger.ipa --clobber
           else
-            gh release create "$TAG" Ledger.ipa --target "$GITHUB_SHA" --latest --title "Ledger $TAG" --notes "$NOTES"
+            LATEST="--latest"
+            [ "${{ github.event.inputs.latest }}" = "false" ] && LATEST="--latest=false"
+            gh release create "$TAG" Ledger.ipa --target "$(git rev-parse HEAD)" $LATEST --title "Ledger $TAG" --notes "$NOTES"
           fi
 
       - name: Publish dev build (main)
-        if: always() && github.ref == 'refs/heads/main'
+        if: always() && github.ref == 'refs/heads/main' && github.event.inputs.commit == ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -120,7 +133,7 @@ jobs:
   screens:
     # launches the app in the simulator on the test ledger and takes screenshots of each page
     needs: build
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event.inputs.version == ''
     runs-on: macos-15
     timeout-minutes: 75
     steps:
