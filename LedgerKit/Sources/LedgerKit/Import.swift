@@ -442,7 +442,7 @@ public func findDuplicate(_ row: ImportRow, funding: String?, _ L: Ledger) -> En
     guard let d0 = Day.date(row.date) else { return nil }
     let lo = Day.string(d0.addingTimeInterval(-86400 * 1.5)), hi = Day.string(d0.addingTimeInterval(86400 * 1.5))
     for t in L.txns where t.date >= lo && t.date <= hi && !t.synthetic {
-        if !row.orderID.isEmpty, case .string(let o)? = t.meta["order"], o == row.orderID { return t }
+        if !row.orderID.isEmpty, let o = t.meta["order"], (o.stringValue ?? o.display) == row.orderID { return t }
         for p in t.postings where abs(abs(p.units ?? 0) - row.amount) < 0.005 {
             if let f = funding, p.account == f { return t }
             if funding == nil && !row.payee.isEmpty && t.payee == row.payee { return t }
@@ -457,12 +457,17 @@ public func importText(_ row: ImportRow, account: String, funding: String, curre
     tx.flag = flag
     tx.payee = row.payee
     tx.narration = row.narration.isEmpty ? row.note : row.narration
-    if keepOrder && !row.orderID.isEmpty { tx.meta = [("order", row.orderID)] }
+
     let n = row.amount
     if row.direction == .income {
         tx.postings = [TxPosting(account: funding, amount: n, currency: currency), TxPosting(account: account, amount: -n, currency: currency)]
     } else {
         tx.postings = [TxPosting(account: account, amount: n, currency: currency), TxPosting(account: funding, amount: -n, currency: currency)]
     }
-    return formatTxn(tx)
+    var text = formatTxn(tx)
+    // order ids are long digit strings: always quoted, so they stay exact
+    if keepOrder && !row.orderID.isEmpty, let nl = text.firstIndex(of: "\n") {
+        text.insert(contentsOf: "\n  order: " + quoted(row.orderID), at: nl)
+    }
+    return text
 }
