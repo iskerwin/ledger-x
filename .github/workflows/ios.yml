@@ -57,10 +57,15 @@ jobs:
 
       - name: Build
         id: build
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           brew install xcodegen
           xcodegen generate
           VERSION=$(sed -nE 's/^ *MARKETING_VERSION: *"?([^"]+)"?$/\1/p' project.yml | head -1)
+          # dev builds: latest release + run number (1.4.35), so they never look older than an installed release
+          LATEST=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2>/dev/null || true)
+          if [[ "$LATEST" =~ ^v[0-9]+(\.[0-9]+)*$ ]]; then VERSION="${LATEST#v}.$GITHUB_RUN_NUMBER"; fi
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then VERSION="${GITHUB_REF_NAME#v}"; fi
           if [ -n "${{ github.event.inputs.version }}" ]; then VERSION="${{ github.event.inputs.version }}"; VERSION="${VERSION#v}"; fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -77,7 +82,9 @@ jobs:
         run: |
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/Ledger.app Payload/
-          if [ -f Ledger/Ledger.entitlements ]; then codesign -f -s - --entitlements Ledger/Ledger.entitlements Payload/Ledger.app; fi
+          # always ad-hoc sign: SideStore re-signs with your Apple ID, but rejects a bundle with no signature at all
+          if [ -f Ledger/Ledger.entitlements ]; then codesign -f -s - --entitlements Ledger/Ledger.entitlements Payload/Ledger.app
+          else codesign -f -s - Payload/Ledger.app; fi
           codesign -dv --entitlements - Payload/Ledger.app 2>&1 | tail -5 || true
           zip -qry Ledger.ipa Payload
           ls -la Ledger.ipa
