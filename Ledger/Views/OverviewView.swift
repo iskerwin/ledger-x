@@ -26,6 +26,7 @@ struct OverviewView: View {
             .navigationDestination(for: ErrorsDest.self) { _ in ErrorsView() }
             .navigationDestination(for: BudgetsDest.self) { _ in BudgetsView() }
             .navigationDestination(for: SubscriptionsDest.self) { _ in SubscriptionsView() }
+            .navigationDestination(for: ForecastDest.self) { _ in ForecastView() }
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .sheet(item: $reimb) { ReimbSheet(target: $0) }
@@ -81,6 +82,8 @@ struct OverviewView: View {
             heroSection(s)
             chartSection(s, D)
             budgetSection(s, L)
+            CardDueSection(L: L).id("cards")
+            ForecastOverviewSection(L: L).id("forecast")
             SubscriptionOverviewSection(L: L).id("subs")
             categorySection(s, D).id("category")
             payeeSection(s, L).id("payee")

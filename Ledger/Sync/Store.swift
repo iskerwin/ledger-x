@@ -108,6 +108,9 @@ final class Store: ObservableObject {
     static func key(_ k: String, _ id: String) -> String { id == "default" ? k : k + "@" + id }
     func pk(_ k: String) -> String { Store.key(k, cfg.id) }
 
+    /// the one store, shared by the app and its Shortcuts actions
+    static let shared = Store()
+
     init() {
         var list: [RepoConfig] = Prefs.get("sources", [RepoConfig]())
         if list.isEmpty {
@@ -411,15 +414,7 @@ final class Store: ObservableObject {
     /// build the ledger with `ops` applied and ask the user about anything the change would break.
     /// Returns the ops to commit (marked `held` when kept on this device), or nil to go back and edit.
     func review(_ ops: [Op]) async -> [Op]? {
-        guard let before = L, let tree = tree, !ops.isEmpty else { return ops }
-        // renaming an account changes every key the check compares; nothing to learn from it
-        if ops.allSatisfy({ $0.kind == .rename }) { return ops }
-        let files = tree.files, main = self.main, all = pending + ops
-        let issues: [ChangeIssue] = await Task.detached(priority: .userInitiated) {
-            let after = Store.loadWith(files: files, main: main, ops: all)
-            if after.txns.isEmpty && after.files.isEmpty { return [] }
-            return reviewChange(before: before, after: after)
-        }.value
+        let issues = await issues(for: ops)
         if issues.isEmpty { return ops }
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
         switch await ChangeReview.ask(issues) {
@@ -430,6 +425,26 @@ final class Store: ObservableObject {
             let group = UUID()
             return ops.map { var o = $0; o.held = why; o.heldGroup = group; return o }
         }
+    }
+
+    /// what the pre-commit check finds for `ops`, without asking anything
+    func issues(for ops: [Op]) async -> [ChangeIssue] {
+        guard let before = L, let tree = tree, !ops.isEmpty else { return [] }
+        // renaming an account changes every key the check compares; nothing to learn from it
+        if ops.allSatisfy({ $0.kind == .rename }) { return [] }
+        let files = tree.files, main = self.main, all = pending + ops
+        return await Task.detached(priority: .userInitiated) {
+            let after = Store.loadWith(files: files, main: main, ops: all)
+            if after.txns.isEmpty && after.files.isEmpty { return [] }
+            return reviewChange(before: before, after: after)
+        }.value
+    }
+
+    /// load the ledger if it isn't yet (Shortcuts run the app in the background)
+    func ensureLoaded() async {
+        if L != nil { return }
+        if tree != nil { await rebuild(quietly: true) }
+        if L == nil { await refresh() }
     }
 
     /// push items that were kept on this device
