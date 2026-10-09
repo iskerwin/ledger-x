@@ -106,7 +106,10 @@ jobs:
           else
             LATEST="--latest"
             [ "${{ github.event.inputs.latest }}" = "false" ] && LATEST="--latest=false"
-            gh release create "$TAG" Ledger.ipa --target "$(git rev-parse HEAD)" $LATEST --title "Ledger $TAG" --notes "$NOTES"
+            if ! gh release create "$TAG" Ledger.ipa --target "$(git rev-parse HEAD)" $LATEST --title "Ledger $TAG" --notes "$NOTES" > gh.out 2>&1; then
+              while IFS= read -r l; do echo "::error::${l:0:300}"; done < gh.out
+              exit 1
+            fi
           fi
 
       - name: Publish dev build (main)
