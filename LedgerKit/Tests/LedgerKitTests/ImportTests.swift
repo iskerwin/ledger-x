@@ -98,19 +98,39 @@ final class ImportTests: XCTestCase {
     }
 
     func storedZip(_ files: [String: Data]) -> Data {
-        var out = Data(), central = Data()
-        func le16(_ v: Int) -> Data { Data([UInt8(v & 0xff), UInt8(v >> 8 & 0xff)]) }
-        func le32(_ v: Int) -> Data { le16(v & 0xffff) + le16(v >> 16 & 0xffff) }
-        for (name, d) in files.sorted(by: { $0.key < $1.key }) {
+        var out = Data()
+        var central = Data()
+        func put16(_ d: inout Data, _ v: Int) { d.append(UInt8(v & 0xff)); d.append(UInt8((v >> 8) & 0xff)) }
+        func put32(_ d: inout Data, _ v: Int) { put16(&d, v & 0xffff); put16(&d, (v >> 16) & 0xffff) }
+        for (name, body) in files.sorted(by: { $0.key < $1.key }) {
             let n = Data(name.utf8)
             let off = out.count
-            out += le32(0x04034b50) + le16(20) + le16(0) + le16(0) + le16(0) + le16(0) + le32(0) + le32(d.count) + le32(d.count) + le16(n.count) + le16(0) + n + d
-            central += le32(0x02014b50) + le16(20) + le16(20) + le16(0) + le16(0) + le16(0) + le16(0) + le32(0) + le32(d.count) + le32(d.count)
-                + le16(n.count) + le16(0) + le16(0) + le16(0) + le16(0) + le32(0) + le32(off) + n
+            put32(&out, 0x04034b50)
+            for v in [20, 0, 0, 0, 0] { put16(&out, v) }
+            put32(&out, 0)
+            put32(&out, body.count)
+            put32(&out, body.count)
+            put16(&out, n.count)
+            put16(&out, 0)
+            out.append(n)
+            out.append(body)
+            put32(&central, 0x02014b50)
+            for v in [20, 20, 0, 0, 0, 0] { put16(&central, v) }
+            put32(&central, 0)
+            put32(&central, body.count)
+            put32(&central, body.count)
+            for v in [n.count, 0, 0, 0, 0] { put16(&central, v) }
+            put32(&central, 0)
+            put32(&central, off)
+            central.append(n)
         }
         let cdOff = out.count
-        out += central
-        out += le32(0x06054b50) + le16(0) + le16(0) + le16(files.count) + le16(files.count) + le32(central.count) + le32(cdOff) + le16(0)
+        out.append(central)
+        put32(&out, 0x06054b50)
+        for v in [0, 0, files.count, files.count] { put16(&out, v) }
+        put32(&out, central.count)
+        put32(&out, cdOff)
+        put16(&out, 0)
         return out
     }
 
