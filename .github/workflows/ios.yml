@@ -20,7 +20,7 @@ concurrency:
 jobs:
   build:
     runs-on: macos-15
-    timeout-minutes: 40
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
 
@@ -97,7 +97,7 @@ jobs:
     needs: build
     if: github.ref == 'refs/heads/main'
     runs-on: macos-15
-    timeout-minutes: 40
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - name: Select Xcode
@@ -129,7 +129,7 @@ jobs:
             name=$1; shift
             xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
             env SIMCTL_CHILD_LEDGER_DEMO="$FIX" "$@" xcrun simctl launch "$UDID" "$BUNDLE" > /dev/null
-            sleep 7
+            sleep 6
             xcrun simctl io "$UDID" screenshot "shots/$name.png" > /dev/null 2>&1
             if ! xcrun simctl spawn "$UDID" launchctl list | grep -q "$BUNDLE"; then echo "CRASH on $name" | tee -a shots/crash.txt; fi
           }
