@@ -23,6 +23,7 @@ targets:
         CFBundleLocalizations: [zh-Hans]
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSFaceIDUsageDescription: 使用面容 ID 解锁账本
     settings:
       base:
         PRODUCT_NAME: Ledger

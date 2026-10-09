@@ -138,7 +138,7 @@ func qTokenize(_ s: String) throws -> [QTok] {
                 if a[j] == "\\", j + 1 < a.count { j += 1 }
                 v.append(a[j]); j += 1
             }
-            guard j < a.count else { throw QueryError("字符串没有结束引号") }
+            guard j < a.count else { throw QueryError("字符串缺少结束引号") }
             out.append(.string(String(v)))
             i = j + 1
             continue
@@ -164,7 +164,7 @@ func qTokenize(_ s: String) throws -> [QTok] {
         let two = i + 1 < a.count ? str(a[i...i + 1]) : ""
         if ["<=", ">=", "!=", "<>", "!~", "=="].contains(two) { out.append(.op(two == "==" ? "=" : two == "<>" ? "!=" : two)); i += 2; continue }
         if "=<>~+-*/(),".unicodeScalars.contains(c) { out.append(.op(String(c))); i += 1; continue }
-        throw QueryError("看不懂的字符：\(c)")
+        throw QueryError("无法识别的字符：\(c)")
     }
     out.append(.end)
     return out
@@ -232,7 +232,7 @@ final class QParser {
     func eatKw(_ k: String) -> Bool { if kw(k) { i += 1; return true }; return false }
     func isOp(_ o: String) -> Bool { cur == .op(o) }
     func eatOp(_ o: String) -> Bool { if isOp(o) { i += 1; return true }; return false }
-    func expectKw(_ k: String) throws { guard eatKw(k) else { throw QueryError("这里应该是 \(k)") } }
+    func expectKw(_ k: String) throws { guard eatKw(k) else { throw QueryError("此处应为 \(k)") } }
 
     func statement() throws -> QStatement {
         if eatKw("BALANCES") {
@@ -269,7 +269,7 @@ final class QParser {
                 let e = try expr()
                 var alias: String? = nil
                 if eatKw("AS") {
-                    guard case .ident(let a) = cur else { throw QueryError("AS 后面要写名称") }
+                    guard case .ident(let a) = cur else { throw QueryError("AS 之后应为列别名") }
                     alias = a; i += 1
                 }
                 st.targets.append(QTarget(expr: e, alias: alias))
@@ -298,7 +298,7 @@ final class QParser {
             } while eatOp(",")
         }
         if eatKw("LIMIT") {
-            guard case .number(let n) = cur else { throw QueryError("LIMIT 后面要写数字") }
+            guard case .number(let n) = cur else { throw QueryError("LIMIT 之后应为整数") }
             st.limit = Int(n); i += 1
         }
         if eatKw("PIVOT") { throw QueryError("暂不支持 PIVOT BY") }
@@ -308,7 +308,7 @@ final class QParser {
 
     func finish() throws {
         guard cur == .end else {
-            throw QueryError("多余的内容：\(describe(cur))")
+            throw QueryError("无法解析的内容：\(describe(cur))")
         }
     }
 
@@ -412,7 +412,7 @@ final class QParser {
             }
             return .column(s.lowercased())
         default:
-            throw QueryError("这里应该是一个值或列名，而不是 \(describe(cur))")
+            throw QueryError("此处应为值或列名，实际为 \(describe(cur))")
         }
     }
 }
@@ -432,7 +432,16 @@ public let queryColumns = ["date", "year", "month", "day", "quarter", "flag", "p
 final class QEval {
     let L: Ledger
     var aliases: [String: QExpr] = [:]
+    private var regexCache: [String: NSRegularExpression] = [:]
     init(_ L: Ledger) { self.L = L }
+
+    func regex(_ pat: String, ci: Bool) throws -> NSRegularExpression {
+        let key = (ci ? "i:" : "s:") + pat
+        if let re = regexCache[key] { return re }
+        guard let re = try? NSRegularExpression(pattern: pat, options: ci ? [.caseInsensitive] : []) else { throw QueryError("正则表达式有误：\(pat)") }
+        regexCache[key] = re
+        return re
+    }
 
     func column(_ name: String, _ r: QRow) throws -> QValue {
         let t = r.t, p = r.p
@@ -463,7 +472,7 @@ final class QEval {
         case "other_accounts": return .set(t.postings.filter { $0 !== p }.map { $0.account })
         default:
             if let a = aliases[name] { return try eval(a, r) }
-            throw QueryError("没有这一列：\(name)。可用的列：\(queryColumns.joined(separator: " "))")
+            throw QueryError("未知列：\(name)。可用列：\(queryColumns.joined(separator: " "))")
         }
     }
 
@@ -495,7 +504,7 @@ final class QEval {
             let a = try eval(l, r), b = try eval(rr, r)
             return try binary(op, a, b)
         case .call(let n, let args, _):
-            if QExpr.aggregates.contains(n) { throw QueryError("\(n) 只能用在汇总里") }
+            if QExpr.aggregates.contains(n) { throw QueryError("\(n) 仅可用于聚合查询") }
             return try scalar(n, args.map { try eval($0, r) })
         }
     }
@@ -537,7 +546,7 @@ final class QEval {
         case "~", "!~":
             let s = a.stringValue ?? a.text
             guard let pat = b.stringValue else { return .bool(false) }
-            guard let re = try? NSRegularExpression(pattern: pat, options: [.caseInsensitive]) else { throw QueryError("正则写法有误：\(pat)") }
+            let re = try regex(pat, ci: true)
             let hit = re.firstMatch(in: s, range: NSRange(location: 0, length: (s as NSString).length)) != nil
             return .bool(op == "~" ? hit : !hit)
         case "+", "-", "*", "/":
@@ -566,13 +575,13 @@ final class QEval {
             if op == "+", let x = a.stringValue, let y = b.stringValue { return .string(x + y) }
             return .null
         default:
-            throw QueryError("不支持的运算：\(op)")
+            throw QueryError("不支持的运算符：\(op)")
         }
     }
 
     func scalar(_ n: String, _ a: [QValue]) throws -> QValue {
         func arg(_ k: Int) throws -> QValue {
-            guard k < a.count else { throw QueryError("\(n) 的参数不够") }
+            guard k < a.count else { throw QueryError("\(n)  参数数量不足") }
             return a[k]
         }
         func date() throws -> String? { try arg(0).stringValue }
@@ -595,7 +604,7 @@ final class QEval {
             return .string(s.components(separatedBy: ":").prefix(max(1, k)).joined(separator: ":"))
         case "GREP":
             guard let pat = try arg(0).stringValue, let s = try arg(1).stringValue,
-                  let re = try? NSRegularExpression(pattern: pat),
+                  let re = try? regex(pat, ci: false),
                   let m = re.firstMatch(in: s, range: NSRange(location: 0, length: (s as NSString).length)),
                   let rr = Range(m.range, in: s) else { return .null }
             return .string(String(s[rr]))
@@ -656,7 +665,7 @@ final class QEval {
             return .amount(inv.amounts[c] ?? 0, c)
         case "TODAY": return .date(Day.today())
         default:
-            throw QueryError("不认识的函数：\(n)")
+            throw QueryError("未知函数：\(n)")
         }
     }
 
@@ -808,7 +817,7 @@ public func runQuery(_ text: String, _ L: Ledger) throws -> QueryResult {
 
 // MARK: - saved queries
 
-public struct SavedQuery: Codable, Identifiable, Equatable {
+public struct SavedQuery: Codable, Identifiable, Hashable {
     public var id: String
     public var name: String
     public var text: String
@@ -853,10 +862,10 @@ public func parseBQLFile(_ text: String, file: String) -> [SavedQuery] {
 public let builtinQueries: [SavedQuery] = [
     SavedQuery(id: "b:balances", name: "资产余额", text: "SELECT account, SUM(position) AS balance\nWHERE account ~ \"^Assets:\"\nGROUP BY account\nORDER BY account", source: "builtin"),
     SavedQuery(id: "b:liabilities", name: "负债余额", text: "SELECT account, SUM(position) AS balance\nWHERE account ~ \"^Liabilities:\"\nGROUP BY account\nORDER BY account", source: "builtin"),
-    SavedQuery(id: "b:monthly", name: "按月支出", text: "SELECT year, month, SUM(CONVERT(position, 'CNY')) AS total\nWHERE account ~ \"^Expenses:\"\nGROUP BY year, month\nORDER BY year DESC, month DESC", source: "builtin"),
+    SavedQuery(id: "b:monthly", name: "月度支出汇总", text: "SELECT year, month, SUM(CONVERT(position, 'CNY')) AS total\nWHERE account ~ \"^Expenses:\"\nGROUP BY year, month\nORDER BY year DESC, month DESC", source: "builtin"),
     SavedQuery(id: "b:category", name: "本年支出构成", text: "SELECT ROOT(account, 2) AS category, SUM(CONVERT(position, 'CNY')) AS total\nWHERE account ~ \"^Expenses:\" AND year = YEAR(TODAY())\nGROUP BY category\nORDER BY total DESC", source: "builtin"),
     SavedQuery(id: "b:payees", name: "本年商户支出排行", text: "SELECT payee, COUNT(*) AS n, SUM(CONVERT(position, 'CNY')) AS total\nWHERE account ~ \"^Expenses:\" AND year = YEAR(TODAY())\nGROUP BY payee\nORDER BY total DESC\nLIMIT 20", source: "builtin"),
-    SavedQuery(id: "b:income", name: "按年收入", text: "SELECT year, ROOT(account, 2) AS source, SUM(NEG(CONVERT(position, 'CNY'))) AS income\nWHERE account ~ \"^Income:\"\nGROUP BY year, source\nORDER BY year DESC, income DESC", source: "builtin"),
+    SavedQuery(id: "b:income", name: "年度收入构成", text: "SELECT year, ROOT(account, 2) AS source, SUM(NEG(CONVERT(position, 'CNY'))) AS income\nWHERE account ~ \"^Income:\"\nGROUP BY year, source\nORDER BY year DESC, income DESC", source: "builtin"),
     SavedQuery(id: "b:largest", name: "近 90 天大额支出", text: "SELECT date, payee, narration, account, position\nWHERE account ~ \"^Expenses:\" AND date >= TODAY() - 90\nORDER BY position DESC\nLIMIT 30", source: "builtin"),
-    SavedQuery(id: "b:journal", name: "日记账（示例：某账户）", text: "JOURNAL \"^Assets:Bank\"", source: "builtin"),
+    SavedQuery(id: "b:journal", name: "银行账户日记账", text: "JOURNAL \"^Assets:Bank\"", source: "builtin"),
 ]

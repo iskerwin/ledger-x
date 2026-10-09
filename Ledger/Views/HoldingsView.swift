@@ -31,7 +31,7 @@ struct HoldingsView: View {
                     HStack(spacing: 14) {
                         Text("成本 " + money(cost, L.base))
                         Text("浮动盈亏 " + signedMoney(value - cost, L.base) + (cost != 0 ? String(format: "（%@%.1f%%）", value >= cost ? "+" : "", (value - cost) / cost * 100) : ""))
-                            .foregroundStyle(value >= cost ? Color.jade : Color.loss)
+                            .foregroundStyle(value >= cost ? Color.gain : Color.loss)
                     }
                     .font(.caption.monospacedDigit())
                     .sensitive()
@@ -40,14 +40,14 @@ struct HoldingsView: View {
                 .padding(.vertical, 4)
             }
             Section("持仓明细") {
-                if rows.isEmpty { Text("没有按成本记账的持仓").foregroundStyle(.secondary) }
+                if rows.isEmpty { Text("暂无以成本计价的持仓").foregroundStyle(.secondary) }
                 ForEach(rows) { r in holdingRow(r) }
             }
             incomeSection(L)
             Section {
                 EmptyView()
             } footer: {
-                Text("市值用账本里最新的 price 计算；成本来自买入时的 {成本}。卖出按账户的记账方法（FIFO 等）扣减批次。")
+                Text("市值按账本中最新的 price 指令计算；成本取自买入时记录的 {成本}；卖出时按账户的批次匹配方法（如 FIFO）结转。")
             }
         }
     }
@@ -63,7 +63,7 @@ struct HoldingsView: View {
                         Text(r.c).font(.headline)
                         Text(acctLabel(r.acct)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
-                    Text("\(fmtNum(r.units, 4)) 股 · 均价 \(fmtNum(r.avg, 2)) \(r.q)" + (r.px.map { " · 现价 \(fmtNum($0.number, 2))" } ?? " · 没有价格"))
+                    Text("\(fmtNum(r.units, 4)) 份 · 均价 \(fmtNum(r.avg, 2)) \(r.q)" + (r.px.map { " · 现价 \(fmtNum($0.number, 2))" } ?? " · 无价格"))
                         .font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
                 }
                 Spacer()
@@ -72,7 +72,7 @@ struct HoldingsView: View {
                     if let p = r.pnl {
                         Text(signedMoney(p, r.q) + (r.cost != 0 ? String(format: " %@%.1f%%", p >= 0 ? "+" : "", p / r.cost * 100) : ""))
                             .font(.caption.monospacedDigit())
-                            .foregroundStyle(p >= 0 ? Color.jade : Color.loss)
+                            .foregroundStyle(p >= 0 ? Color.gain : Color.loss)
                             .sensitive()
                     }
                 }
@@ -100,7 +100,7 @@ struct HoldingsView: View {
             }
             Spacer()
             if let g = gain {
-                Text(signedMoney(g, r.q)).font(.caption.monospacedDigit()).foregroundStyle(g >= 0 ? Color.jade : Color.loss).sensitive()
+                Text(signedMoney(g, r.q)).font(.caption.monospacedDigit()).foregroundStyle(g >= 0 ? Color.gain : Color.loss).sensitive()
             }
         }
         .padding(.leading, 14)

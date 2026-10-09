@@ -53,7 +53,7 @@ public enum DraftKind: String, CaseIterable, Identifiable {
         case .transfer: return "转账"
         case .refund: return "退款"
         case .multi: return "分录"
-        case .raw: return "原文"
+        case .raw: return "文本"
         }
     }
 }

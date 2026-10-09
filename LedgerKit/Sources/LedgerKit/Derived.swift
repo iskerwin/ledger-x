@@ -41,10 +41,10 @@ public enum Day {
 }
 
 public let ZH: [String: String] = [
-    "Food": "餐饮", "Housing": "居住", "Travel": "旅行", "Transit": "交通", "Shopping": "购物", "Subscription": "订阅", "Gifts": "人情",
-    "Lifestyle": "生活", "Government": "政府", "Healthcare": "医疗", "Fee": "费用", "Charity": "捐赠", "Miscellaneous": "杂项",
-    "Salary": "工资", "Freelance": "副业", "Invest": "投资", "Rewards": "返利", "Sale": "变卖", "ReimbExcess": "报销盈余",
-    "Bank": "银行", "EWallet": "电子钱包", "Cash": "现金", "Brokerage": "券商", "Crypto": "加密", "Receivable": "应收", "CreditCard": "信用卡", "Loan": "借款",
+    "Food": "餐饮", "Housing": "居住", "Travel": "旅行", "Transit": "交通", "Shopping": "购物", "Subscription": "订阅服务", "Gifts": "人情往来",
+    "Lifestyle": "生活服务", "Government": "政府规费", "Healthcare": "医疗保健", "Fee": "手续费", "Charity": "捐赠", "Miscellaneous": "其他支出",
+    "Salary": "工资薪金", "Freelance": "劳务报酬", "Invest": "投资收益", "Rewards": "奖励返现", "Sale": "资产处置", "ReimbExcess": "报销溢收",
+    "Bank": "银行存款", "EWallet": "第三方支付", "Cash": "现金", "Brokerage": "证券账户", "Crypto": "加密资产", "Receivable": "应收款项", "CreditCard": "信用卡", "Loan": "贷款",
     "Assets": "资产", "Liabilities": "负债", "Income": "收入", "Expenses": "支出", "Equity": "权益",
 ]
 

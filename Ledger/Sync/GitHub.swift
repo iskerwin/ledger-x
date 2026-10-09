@@ -22,9 +22,9 @@ struct GitHubError: LocalizedError {
     var errorDescription: String? {
         switch status {
         case 401: return "Token 无效或已过期（401）"
-        case 403: return "没有权限（403）：\(message)"
-        case 404: return "找不到仓库或分支（404）"
-        case 409, 422: return "GitHub 上的文件刚被改过（\(status)），稍后会自动重试"
+        case 403: return "权限不足（403）：\(message)"
+        case 404: return "未找到仓库或分支（404）"
+        case 409, 422: return "GitHub 上的文件已被修改（\(status)），稍后将自动重试"
         default: return "\(status) \(message)"
         }
     }
