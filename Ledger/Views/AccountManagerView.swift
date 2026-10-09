@@ -102,6 +102,9 @@ struct AccountEditView: View {
     @State private var confirmClose = false
     @State private var confirmRename = false
     @State private var loaded = false
+    @State private var initialFields = ""
+
+    private var fields: String { [openDate, currencies, booking, display].joined(separator: "|") }
 
     private static let bookings = ["", "STRICT", "FIFO", "LIFO", "HIFO", "AVERAGE", "NONE"]
 
@@ -130,6 +133,7 @@ struct AccountEditView: View {
             currencies = a?.currencies.joined(separator: ",") ?? ""
             booking = a?.booking?.uppercased() ?? ""
             display = store.displayName(n) ?? ""
+            initialFields = fields
         } else {
             account = root + ":"
             currencies = L.base
@@ -201,7 +205,7 @@ struct AccountEditView: View {
                 Text(isNew ? LS("开立账户") : LS("保存修改")).frame(maxWidth: .infinity).fontWeight(.semibold)
             }
             .buttonStyle(.borderedProminent)
-            .disabled(isNew ? (!valid || exists) : openText(L) == openEntry(L)?.src)
+            .disabled(isNew ? (!valid || exists) : fields == initialFields)
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets())
         } header: {
