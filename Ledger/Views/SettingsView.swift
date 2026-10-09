@@ -149,7 +149,7 @@ extension SettingsView {
     var appearanceSection: some View {
         Section {
             ThemePicker()
-            Picker("外观", selection: $appearance) {
+            Picker("显示模式", selection: $appearance) {
                 ForEach(AppAppearance.allCases) { Text($0.name).tag($0.rawValue) }
             }
         } header: {

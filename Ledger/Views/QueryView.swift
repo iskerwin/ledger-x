@@ -233,15 +233,16 @@ struct CSVFile: Transferable {
 
 func cellText(_ v: QValue) -> String {
     func num(_ n: Double) -> String {
-        if n == n.rounded() && abs(n) < 1e12 { return fmtNum(n, 0) }
+        if n == n.rounded() && abs(n) < 1e12 { return abs(n) < 10000 ? String(Int64(n)) : fmtNum(n, 0) }
         return fmtNum(n, abs(n) < 1 ? 4 : 2)
     }
+    func amt(_ n: Double) -> String { fmtNum(n, abs(n) < 1 && n != 0 ? 4 : 2) }
     switch v {
     case .number(let n): return num(n)
-    case .amount(let n, let c): return num(n) + " " + c
+    case .amount(let n, let c): return amt(n) + " " + c
     case .inventory(let i):
         let parts = i.nonZero
-        return parts.isEmpty ? "0" : parts.map { num($0.1) + " " + $0.0 }.joined(separator: "\n")
+        return parts.isEmpty ? "0" : parts.map { amt($0.1) + " " + $0.0 }.joined(separator: "\n")
     default: return v.text
     }
 }

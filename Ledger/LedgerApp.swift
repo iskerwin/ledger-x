@@ -26,7 +26,7 @@ struct LedgerApp: App {
             .tint(AppTheme(rawValue: theme)?.color ?? .jade)
             .preferredColorScheme(AppAppearance(rawValue: appearance)?.scheme)
             .task {
-                if lock.locked { await lock.unlock() }
+                if lock.locked { Task { await lock.unlock() } }
                 await store.start()
             }
             .onChange(of: phase) { _, p in
