@@ -134,15 +134,17 @@ jobs:
           c.sort(key=lambda x: (pref.index(x['name']) if x['name'] in pref else 99, x['name']))
           print(c[0]['udid'])")
           echo "device $UDID"
-          xcrun simctl boot "$UDID" || true
-          perl -e 'alarm shift; exec @ARGV' 600 xcrun simctl bootstatus "$UDID" -b || echo "boot timed out"
-          xcrun simctl status_bar "$UDID" override --time 9:41 --batteryLevel 100 --cellularBars 4 || true
-          xcrun simctl install "$UDID" build-sim/Build/Products/Debug-iphonesimulator/Ledger.app
+          mkdir -p shots
+          # every simulator call gets a time limit so one stuck call can't hang the job
+          limit() { perl -e 'alarm shift; exec @ARGV' "$@"; }
+          echo "$(date +%T) boot" | tee -a shots/progress.txt
+          limit 120 xcrun simctl boot "$UDID" || true
+          limit 600 xcrun simctl bootstatus "$UDID" -b || echo "boot timed out" | tee -a shots/crash.txt
+          limit 60 xcrun simctl status_bar "$UDID" override --time 9:41 --batteryLevel 100 --cellularBars 4 || true
+          echo "$(date +%T) install" | tee -a shots/progress.txt
+          limit 300 xcrun simctl install "$UDID" build-sim/Build/Products/Debug-iphonesimulator/Ledger.app || echo "INSTALL FAILED" | tee -a shots/crash.txt
           FIX="$GITHUB_WORKSPACE/LedgerKit/Tests/LedgerKitTests/Fixtures/realistic"
           BUNDLE=$(sed -nE 's/^ *PRODUCT_BUNDLE_IDENTIFIER: *(.+)$/\1/p' project.yml | head -1)
-          mkdir -p shots
-          # every simulator call gets a time limit so one stuck launch can't hang the job
-          limit() { perl -e 'alarm shift; exec @ARGV' "$@"; }
           shot() {
             name=$1; shift
             echo "$(date +%T) $name" | tee -a shots/progress.txt
@@ -150,7 +152,7 @@ jobs:
             env SIMCTL_CHILD_LEDGER_DEMO="$FIX" "$@" perl -e 'alarm shift; exec @ARGV' 60 xcrun simctl launch "$UDID" "$BUNDLE" > /dev/null || echo "LAUNCH TIMEOUT $name" | tee -a shots/crash.txt
             sleep 6
             limit 60 xcrun simctl io "$UDID" screenshot "shots/$name.png" > /dev/null 2>&1 || echo "SCREENSHOT TIMEOUT $name" | tee -a shots/crash.txt
-            if ! xcrun simctl spawn "$UDID" launchctl list | grep -q "$BUNDLE"; then echo "CRASH on $name" | tee -a shots/crash.txt; fi
+            if ! limit 30 xcrun simctl spawn "$UDID" launchctl list | grep -q "$BUNDLE"; then echo "CRASH on $name" | tee -a shots/crash.txt; fi
           }
           shot 01-add SIMCTL_CHILD_LEDGER_TAB=add
           shot 02-add-filled SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1
@@ -201,4 +203,8 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload dev shots/* --clobber
+        run: |
+          find shots -type f -empty -delete
+          tail -4 shots/progress.txt 2>/dev/null | while IFS= read -r l; do echo "::notice::progress $l"; done
+          cat shots/crash.txt 2>/dev/null | head -10 | while IFS= read -r l; do echo "::warning::$l"; done
+          gh release upload dev shots/* --clobber
