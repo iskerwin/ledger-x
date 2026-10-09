@@ -98,8 +98,12 @@ jobs:
           gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/dev" || true
           sleep 3
           ls -la out
-          gh release create dev out/* --target "$GITHUB_SHA" --prerelease --title "开发版（main 最新）" \
-            --notes "main ${GITHUB_SHA::7} · 构建 $GITHUB_RUN_NUMBER · $(date -u +%Y-%m-%dT%H:%MZ)。正式版请用最新的 v 版本。"
+          if ! gh release create dev out/* --target "$GITHUB_SHA" --prerelease --title "开发版（main 最新）" \
+            --notes "main ${GITHUB_SHA::7} · 构建 $GITHUB_RUN_NUMBER · $(date -u +%Y-%m-%dT%H:%MZ)。正式版请用最新的 v 版本。" > gh.out 2>&1; then
+            cat gh.out
+            while IFS= read -r l; do echo "::error::${l:0:300}"; done < gh.out
+            exit 1
+          fi
 
   screens:
     # launches the app in the simulator on the test ledger and takes screenshots of each page
