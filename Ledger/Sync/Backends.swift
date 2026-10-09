@@ -131,6 +131,9 @@ struct GitLab: LedgerBackend {
     }
 
     func delete(_ path: String, version: String, message: String) async throws {
+        // like write: never delete a file that changed on the server since we read it
+        guard let now = try await current(path) else { return }
+        if now != version { throw GitHubError(status: 409, message: path) }
         let file = "/repository/files/" + GitHub.enc(path).replacingOccurrences(of: "/", with: "%2F")
         _ = try await request(file, method: "DELETE", body: ["branch": cfg.branch, "commit_message": message])
     }
@@ -320,9 +323,12 @@ struct FolderBackend: LedgerBackend {
     func delete(_ path: String, version: String, message: String) async throws {
         try await Task.detached { () throws -> Void in
             try withFolder { (root: URL) throws -> Void in
+                let url = root.appendingPathComponent(path)
+                guard FileManager.default.fileExists(atPath: url.path) else { return }
+                if gitBlobSHA(try coordinatedRead(url)) != version { throw GitHubError(status: 409, message: path) }
                 var err: NSError?
                 var out: Error?
-                NSFileCoordinator().coordinate(writingItemAt: root.appendingPathComponent(path), options: .forDeleting, error: &err) { u in
+                NSFileCoordinator().coordinate(writingItemAt: url, options: .forDeleting, error: &err) { u in
                     do { try FileManager.default.removeItem(at: u) } catch { out = error }
                 }
                 if let e = err ?? out { throw e }
@@ -451,6 +457,8 @@ struct WebDAV: LedgerBackend {
 
     func delete(_ path: String, version: String, message: String) async throws {
         guard let u = url(path) else { return }
+        guard let et = try await currentEtag(path) else { return }
+        if self.version(path, et) != version { throw GitHubError(status: 409, message: path) }
         _ = try await send(u, method: "DELETE")
     }
 

@@ -296,7 +296,6 @@ struct PriceUpdateSheet: View {
     private func save() {
         let ls = lines()
         guard !ls.isEmpty, let ops = store.makeOps(ls.joined(separator: "\n"), single: false) else { return }
-        dismiss()
-        Task { await store.commit(ops, word: LS("已更新 %@ 项价格", ls.count)) }
+        Task { await store.commit(ops, word: LS("已更新 %@ 项价格", ls.count), closing: { dismiss() }) }
     }
 }

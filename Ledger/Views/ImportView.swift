@@ -128,18 +128,21 @@ struct ImportView: View {
     private func build(_ t: ImportTable) {
         guard let L = store.L, let D = store.D else { return }
         let map = methodMap
-        items = t.rows.map { r in
-            let fund = map[source.rawValue + "|" + r.method] ?? guessFunding(r.method, source: source, L, D) ?? defaultFunding
+        let funds = t.rows.map { r in map[source.rawValue + "|" + r.method] ?? guessFunding(r.method, source: source, L, D) ?? defaultFunding }
+        let dups = findDuplicates(zip(t.rows, funds).map { (row: $0.0, funding: $0.1.isEmpty ? nil : $0.1) }, L)
+        items = t.rows.enumerated().map { i, r in
+            let fund = funds[i]
             let acct = guessCategory(r, L, D) ?? ""
-            let dup = findDuplicate(r, funding: fund.isEmpty ? nil : fund, L)
+            let dup = dups[i]
             return ImportItem(row: r, include: dup == nil && r.direction != .neutral, account: acct, funding: fund, duplicate: dup)
         }.sorted { $0.row.date != $1.row.date ? $0.row.date > $1.row.date : $0.row.time > $1.row.time }
     }
 
     private func recheckDuplicates() {
         guard let L = store.L else { return }
+        let dups = findDuplicates(items.map { (row: $0.row, funding: $0.funding.isEmpty ? nil : $0.funding) }, L)
         for i in items.indices {
-            let d = findDuplicate(items[i].row, funding: items[i].funding.isEmpty ? nil : items[i].funding, L)
+            let d = dups[i]
             if (d == nil) != (items[i].duplicate == nil) { items[i].include = d == nil && items[i].row.direction != .neutral }
             items[i].duplicate = d
         }

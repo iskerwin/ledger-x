@@ -187,7 +187,10 @@ func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
     if d.kind == .refund && !tx.tags.contains("refund") { tx.tags.append("refund") }
     var cat = TxPosting(account: catAccount, amount: sgn * amt, currency: d.currency)
     if fc != d.currency, let paid = evalAmount(d.paid), paid > 0 {
-        cat.suffix = "@ \(toFixed(paid / amt, 5)) \(fc)"
+        // a per-unit price rounded to 5 places can miss the paid total by more than the tolerance on
+        // large amounts (9999.99 USD → 0.03 CNY off); then write the exact total instead
+        let unit = toFixed(paid / amt, 5)
+        cat.suffix = abs((Double(unit) ?? 0) * amt - paid) > 0.004 ? "@@ \(toFixed(paid, 2)) \(fc)" : "@ \(unit) \(fc)"
         tx.postings = [cat, TxPosting(account: d.funding, amount: -sgn * paid, currency: fc)]
     } else {
         tx.postings = [cat, TxPosting(account: d.funding, amount: -sgn * amt, currency: d.currency)]

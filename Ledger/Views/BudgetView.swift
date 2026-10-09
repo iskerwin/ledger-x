@@ -116,6 +116,16 @@ struct BudgetsView: View {
     private func stop(_ b: Budget) {
         let date = Day.ym(Day.today()) + "-01"
         let line = budgetLine(date, b.account, b.period, 0, b.currency)
+        // a budget set this month: turn that line into the zero one instead of adding a second line
+        if b.date == date, let e = b.entry {
+            var op = Op(kind: .replace, path: e.file)
+            op.old = e.src
+            op.text = line
+            op.date = date
+            op.label = LS("停用预算：%@", b.account)
+            Task { await store.commit([op], word: LS("已停用预算")) }
+            return
+        }
         guard let ops = store.makeOps(line, extra: OpExtra(label: LS("停用预算：%@", b.account)), single: false) else { return }
         Task { await store.commit(ops, word: LS("已停用预算")) }
     }
@@ -137,9 +147,11 @@ struct BudgetDraft: Identifiable {
     var currency = "CNY"
     var date = Day.ym(Day.today()) + "-01"
     var original: Entry?
+    var isEdit = false
 
     init(currency: String) { self.currency = currency }
     init(_ b: Budget, today: String) {
+        isEdit = true
         account = b.account
         period = b.period
         amount = jsNumberString(b.amount)
@@ -186,7 +198,7 @@ struct BudgetEditSheet: View {
                 }
             }
             .keyboardDone()
-            .navigationTitle(draft.original != nil || !draft.account.isEmpty ? LS("编辑预算") : LS("添加预算"))
+            .navigationTitle(draft.isEdit ? LS("编辑预算") : LS("添加预算"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } }
@@ -211,12 +223,10 @@ struct BudgetEditSheet: View {
             op.text = line
             op.date = draft.date
             op.label = label
-            dismiss()
-            Task { await store.commit([op], word: LS("已更新预算")) }
+            Task { await store.commit([op], word: LS("已更新预算"), closing: { dismiss() }) }
             return
         }
         guard let ops = store.makeOps(line, extra: OpExtra(label: label), single: false) else { return }
-        dismiss()
-        Task { await store.commit(ops, word: LS("已设置预算")) }
+        Task { await store.commit(ops, word: LS("已设置预算"), closing: { dismiss() }) }
     }
 }

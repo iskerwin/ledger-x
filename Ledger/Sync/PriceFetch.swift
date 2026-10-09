@@ -64,6 +64,9 @@ enum PriceFetch {
         return out
     }
 
+    /// last automatic attempt per ledger (this run only)
+    static var lastTry: [String: Date] = [:]
+
     static func line(_ date: String, _ c: String, _ q: String, _ v: Double) -> String {
         "\(date) price \(c)" + String(repeating: " ", count: max(1, 26 - c.count)) + jsNumberString(roundTo(v, v < 10 ? 6 : 4)) + " " + q
     }
@@ -74,11 +77,17 @@ extension Store {
     func autoUpdatePrices() async {
         guard !demo, UserDefaults.standard.bool(forKey: PriceFetch.autoKey), let L = L else { return }
         let today = Day.today()
-        guard UserDefaults.standard.string(forKey: PriceFetch.lastKey) != today else { return }
-        UserDefaults.standard.set(today, forKey: PriceFetch.lastKey)
+        // per ledger, and only marked done once prices were actually fetched; a failed try
+        // (offline at launch) is retried after a while instead of waiting for tomorrow
+        let key = PriceFetch.lastKey + "@" + cfg.id
+        guard UserDefaults.standard.string(forKey: key) != today else { return }
+        if let t = PriceFetch.lastTry[cfg.id], Date().timeIntervalSince(t) < 1800 { return }
+        PriceFetch.lastTry[cfg.id] = Date()
         let items = PriceUpdateSheet.items(L).filter { $0.date != today }
-        guard !items.isEmpty else { return }
+        guard !items.isEmpty else { UserDefaults.standard.set(today, forKey: key); return }
         let got = await PriceFetch.fetchAll(items, L)
+        guard !got.isEmpty else { return }
+        UserDefaults.standard.set(today, forKey: key)
         let lines = items.compactMap { it in got[it.id].map { PriceFetch.line(today, it.c, it.q, $0) } }
         guard !lines.isEmpty, let ops = makeOps(lines.joined(separator: "\n"), extra: OpExtra(label: LS("自动更新价格：%@ 项", lines.count)), single: false) else { return }
         await commit(ops, word: LS("已自动更新 %@ 项价格", lines.count))

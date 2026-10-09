@@ -323,6 +323,7 @@
  "已更新余额断言": "Balance assertion updated",
  "已更新订阅": "Subscription updated",
  "已更新预算": "Budget updated",
+ "已有同名订阅，请换一个名称": "A subscription with this name already exists; choose another name",
  "已添加订阅": "Subscription added",
  "已添加附件": "Attachment added",
  "已生成退款草稿，请核对金额后保存": "Refund draft created; check the amount and save",

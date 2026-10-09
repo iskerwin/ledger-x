@@ -83,10 +83,14 @@ jobs:
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/Ledger.app Payload/
           # always ad-hoc sign: SideStore re-signs with your Apple ID, but rejects a bundle with no signature at all
-          if [ -f Ledger/Ledger.entitlements ]; then codesign -f -s - --entitlements Ledger/Ledger.entitlements Payload/Ledger.app
-          else codesign -f -s - Payload/Ledger.app; fi
-          codesign -dv --entitlements - Payload/Ledger.app 2>&1 | tail -5 || true
+          codesign -f -s - Payload/Ledger.app
+          # fail the build instead of shipping an IPA SideStore can't install
+          codesign -v Payload/Ledger.app || { echo "::error::Ledger.app 签名校验失败"; exit 1; }
+          V=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Payload/Ledger.app/Info.plist)
+          [ "$V" = "${{ steps.build.outputs.version }}" ] || { echo "::error::版本号不一致：$V"; exit 1; }
           zip -qry Ledger.ipa Payload
+          unzip -tq Ledger.ipa && unzip -l Ledger.ipa | grep -q "Payload/Ledger.app/_CodeSignature/CodeResources" \
+            || { echo "::error::Ledger.ipa 不完整"; exit 1; }
           ls -la Ledger.ipa
 
       - name: Stop if the tests failed

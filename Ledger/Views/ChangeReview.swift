@@ -8,15 +8,22 @@ enum ReviewChoice { case edit, force, hold }
 @MainActor
 enum ChangeReview {
     static func ask(_ issues: [ChangeIssue]) async -> ReviewChoice {
-        await withCheckedContinuation { (cont: CheckedContinuation<ReviewChoice, Never>) in
+        // a sheet that is still closing can't present anything; wait for it to finish
+        var tries = 0
+        while tries < 30, busy() { try? await Task.sleep(nanoseconds: 100_000_000); tries += 1 }
+        return await withCheckedContinuation { (cont: CheckedContinuation<ReviewChoice, Never>) in
             guard let top = topController() else { cont.resume(returning: .edit); return }
             final class Box { var host: UIViewController?; var done = false }
             let box = Box()
             let view = ChangeReviewView(issues: issues) { choice in
                 guard !box.done else { return }
                 box.done = true
-                box.host?.dismiss(animated: true)
-                cont.resume(returning: choice)
+                // resume once the sheet is gone, so the caller can dismiss its own sheet right away
+                if let h = box.host, h.presentingViewController != nil {
+                    h.dismiss(animated: true) { cont.resume(returning: choice) }
+                } else {
+                    cont.resume(returning: choice)
+                }
             }
             .tint(Color.jade)
             let host = UIHostingController(rootView: view)
@@ -27,7 +34,24 @@ enum ChangeReview {
             }
             box.host = host
             top.present(host, animated: true)
+            // UIKit refuses to present over a view controller that is mid-transition and never calls back;
+            // don't leave the caller waiting forever
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                if host.presentingViewController == nil, !box.done { box.done = true; cont.resume(returning: .edit) }
+            }
         }
+    }
+
+    /// true while any view controller in the key window is being presented or dismissed
+    private static func busy() -> Bool {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        var vc = (scenes.flatMap { $0.windows }.first { $0.isKeyWindow } ?? scenes.first?.windows.first)?.rootViewController
+        while let v = vc {
+            if v.isBeingDismissed || v.isBeingPresented || v.transitionCoordinator != nil { return true }
+            vc = v.presentedViewController
+        }
+        return false
     }
 
     static func topController() -> UIViewController? {
@@ -35,6 +59,7 @@ enum ChangeReview {
         let win = scenes.flatMap { $0.windows }.first { $0.isKeyWindow } ?? scenes.first?.windows.first
         var vc = win?.rootViewController
         while let p = vc?.presentedViewController, !p.isBeingDismissed { vc = p }
+        if let v = vc, v.isBeingDismissed { return v.presentingViewController }
         return vc
     }
 }

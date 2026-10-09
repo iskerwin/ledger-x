@@ -371,8 +371,10 @@ struct OverviewView: View {
                 let slices = DonutSlice.make(byAcct.map { (id: $0.key, label: acctLabel($0.key), value: $0.value) })
                 if !slices.isEmpty { DonutChart(slices: slices, title: LS("负债合计"), selected: $selLiab) }
                 let shown = Set(slices.map { $0.id })
+                // overpaid cards (credit balance) are not in the ring; list them so they stay visible
+                let overpaid = liab.filter { (byAcct[$0.a] ?? 0) <= 0.005 }
                 let rows = slices.isEmpty ? liab
-                    : selLiab == nil ? []
+                    : selLiab == nil ? overpaid
                     : selLiab == DonutSlice.otherID ? liab.filter { !shown.contains($0.a) }
                     : liab.filter { $0.a == selLiab }
                 ForEach(rows, id: \.id) { x in

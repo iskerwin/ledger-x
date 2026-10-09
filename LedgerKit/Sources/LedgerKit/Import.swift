@@ -437,18 +437,42 @@ public func guessCategory(_ row: ImportRow, _ L: Ledger, _ D: Derived) -> String
     return nil
 }
 
-/// an existing transaction that looks like this row (same order id, or same day ±1 and amount on the account)
-public func findDuplicate(_ row: ImportRow, funding: String?, _ L: Ledger) -> Entry? {
+/// an existing transaction that looks like this row (same order id, or same day ±1 and amount on the account,
+/// money moving the same way); transactions in `taken` were already matched to another row
+public func findDuplicate(_ row: ImportRow, funding: String?, _ L: Ledger, taken: Set<Int> = []) -> Entry? {
     guard let d0 = Day.date(row.date) else { return nil }
     let lo = Day.string(d0.addingTimeInterval(-86400 * 1.5)), hi = Day.string(d0.addingTimeInterval(86400 * 1.5))
-    for t in L.txns where t.date >= lo && t.date <= hi && !t.synthetic {
-        if !row.orderID.isEmpty, let o = t.meta["order"], (o.stringValue ?? o.display) == row.orderID { return t }
+    let near = L.txns.filter { $0.date >= lo && $0.date <= hi && !$0.synthetic && !taken.contains($0.id) }
+    if !row.orderID.isEmpty {
+        if let t = near.first(where: { t in t.meta["order"].map { ($0.stringValue ?? $0.display) == row.orderID } ?? false }) { return t }
+    }
+    for t in near {
         for p in t.postings where abs(abs(p.units ?? 0) - row.amount) < 0.005 {
-            if let f = funding, p.account == f { return t }
+            if let f = funding, p.account == f {
+                // a ¥15 refund is not the same as a ¥15 purchase
+                let u = p.units ?? 0
+                if row.direction == .expense && u > 0 { continue }
+                if row.direction == .income && u < 0 { continue }
+                return t
+            }
             if funding == nil && !row.payee.isEmpty && t.payee == row.payee { return t }
         }
     }
     return nil
+}
+
+/// duplicates for a whole bill: each existing transaction matches at most one row, order ids first
+public func findDuplicates(_ rows: [(row: ImportRow, funding: String?)], _ L: Ledger) -> [Entry?] {
+    var out = [Entry?](repeating: nil, count: rows.count)
+    var taken = Set<Int>()
+    let order = rows.indices.sorted { (!rows[$0].row.orderID.isEmpty ? 0 : 1) < (!rows[$1].row.orderID.isEmpty ? 0 : 1) }
+    for i in order {
+        if let t = findDuplicate(rows[i].row, funding: rows[i].funding, L, taken: taken) {
+            out[i] = t
+            taken.insert(t.id)
+        }
+    }
+    return out
 }
 
 /// the Beancount text for one imported row

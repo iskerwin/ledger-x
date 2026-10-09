@@ -283,12 +283,11 @@ struct AccountEditView: View {
             op.date = openDate
             op.label = LS("修改账户：%@", name ?? "")
             op.summary = op.label
-            Task { await store.commit([op], word: LS("已修改账户")) }
+            Task { await store.commit([op], word: LS("已修改账户"), closing: { dismiss() }) }
         } else {
             guard let ops = store.makeOps(text, single: false) else { return }
-            Task { await store.commit(ops, word: LS("已开立账户")) }
+            Task { await store.commit(ops, word: LS("已开立账户"), closing: { dismiss() }) }
         }
-        dismiss()
     }
 
     // MARK: close / reopen
@@ -310,8 +309,7 @@ struct AccountEditView: View {
                     op.date = ce.date
                     op.label = LS("重新开启账户：%@", n)
                     op.summary = op.label
-                    Task { await store.commit([op], word: LS("已重新开启")) }
-                    dismiss()
+                    Task { await store.commit([op], word: LS("已重新开启"), closing: { dismiss() }) }
                 }
             } header: {
                 Text(LS("已关闭"))
@@ -337,8 +335,7 @@ struct AccountEditView: View {
 
     private func close(_ L: Ledger) {
         guard let n = name, let ops = store.makeOps("\(closeDate) close \(n)", single: false) else { return }
-        Task { await store.commit(ops, word: LS("已关闭账户")) }
-        dismiss()
+        Task { await store.commit(ops, word: LS("已关闭账户"), closing: { dismiss() }) }
     }
 
     // MARK: rename / merge
@@ -417,9 +414,9 @@ struct AccountEditView: View {
             ops.append(op)
         }
         guard !ops.isEmpty else { store.show(LS("账本中没有出现该账户")); return }
-        dismiss()
-        await store.commit(ops, word: merge ? LS("已合并账户") : LS("已重命名账户"))
-        store.popToken += 1
+        if await store.commit(ops, word: merge ? LS("已合并账户") : LS("已重命名账户"), closing: { dismiss() }) {
+            store.popToken += 1
+        }
     }
 
     private static var roots: [String] { AccountManagerView.roots }

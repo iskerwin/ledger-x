@@ -14,11 +14,9 @@ enum Reminders {
     static let subsKey = "ledger.remind.subs"
     static let subsDaysKey = "ledger.remind.subsDays"
     static var subsDays: Int { UserDefaults.standard.object(forKey: subsDaysKey) as? Int ?? 3 }
-    /// card account → repayment day of month (0 = none)
-    static var cardDays: [String: Int] {
-        get { Prefs.get("remind.cards", [String: Int]()) }
-        set { Prefs.set("remind.cards", newValue) }
-    }
+    /// card account → repayment day of month (0 = none), per ledger
+    static func cardDays(_ store: Store) -> [String: Int] { Prefs.get(store.pk("remind.cards"), [String: Int]()) }
+    static func setCardDays(_ v: [String: Int], _ store: Store) { Prefs.set(store.pk("remind.cards"), v) }
 
     static var enabled: Bool { UserDefaults.standard.bool(forKey: enabledKey) }
     static func flag(_ k: String, _ def: Bool = true) -> Bool { UserDefaults.standard.object(forKey: k) as? Bool ?? def }
@@ -34,12 +32,12 @@ enum Reminders {
         return cal.dateComponents([.year, .month, .day, .hour, .minute], from: d)
     }
 
-    private static func add(_ id: String, _ title: String, _ body: String, _ when: DateComponents, repeats: Bool = false) {
+    private static func add(_ id: String, _ title: String, _ body: String, _ when: DateComponents, repeats: Bool = false, tab: String = "add") {
         let c = UNMutableNotificationContent()
         c.title = title
         c.body = body
         c.sound = .default
-        c.userInfo = ["tab": "add"]
+        c.userInfo = ["tab": tab]
         let req = UNNotificationRequest(identifier: "ledger." + id, content: c, trigger: UNCalendarNotificationTrigger(dateMatching: when, repeats: repeats))
         UNUserNotificationCenter.current().add(req)
     }
@@ -53,7 +51,7 @@ enum Reminders {
         let today = Day.today()
 
         // credit card repayment days
-        for (acct, day) in cardDays where day >= 1 && day <= 31 {
+        for (acct, day) in cardDays(store) where day >= 1 && day <= 31 {
             let owed = -((L.final[acct] ?? [:]).reduce(0.0) { $0 + (toCNY(L, $1.value, $1.key) ?? 0) })
             var dc = DateComponents()
             dc.day = day
@@ -91,17 +89,23 @@ enum Reminders {
         // subscriptions: N days before the next charge
         if flag(subsKey) {
             let lead = subsDays
+            let cal = Calendar.current
             for sub in subscriptions(L) where sub.status == .active {
                 let due = sub.due(onOrAfter: today)
-                let at = Day.shift(due, -lead)
-                guard let d = Day.date(max(at, today)) else { continue }
-                var when = Calendar.current.dateComponents([.year, .month, .day], from: d)
-                when.hour = 9
-                if at < today { when = next(hour: 9) }   // already inside the lead window
-                if let fire = Calendar.current.date(from: when), fire <= Date() { continue }
-                let left = due == today ? LS("今天") : due == Day.shift(today, 1) ? LS("明天") : due
+                guard let dueDay = Day.date(due), let leadDay = Day.date(Day.shift(due, -lead)) else { continue }
+                // 09:00 on the lead day; inside the lead window, the next of 09:00 / 20:00 that is
+                // still on or before the charge day
+                let now = Date()
+                var times: [Date] = []
+                for day in [leadDay, now, cal.date(byAdding: .day, value: 1, to: now) ?? now] {
+                    for h in [9, 20] { if let t = cal.date(bySettingHour: h, minute: 0, second: 0, of: day) { times.append(t) } }
+                }
+                let lastOK = cal.date(bySettingHour: 23, minute: 59, second: 0, of: dueDay) ?? dueDay
+                guard let fire = times.filter({ $0 > now && $0 >= cal.startOfDay(for: leadDay) && $0 <= lastOK }).min() else { continue }
+                // the date itself, not "today"/"tomorrow": the text is fixed when it is scheduled
                 add("sub." + sub.name + "." + due, LS("订阅即将扣费"),
-                    LS("%@ %@ 将扣费 %@", sub.name, left, money(sub.amount, sub.currency)), when)
+                    LS("%@ %@ 将扣费 %@", sub.name, due, money(sub.amount, sub.currency)),
+                    cal.dateComponents([.year, .month, .day, .hour, .minute], from: fire), tab: "overview")
             }
         }
 
@@ -126,7 +130,7 @@ struct RemindersSection: View {
     @AppStorage(Reminders.budgetKey) private var budget = true
     @AppStorage(Reminders.subsKey) private var subs = true
     @AppStorage(Reminders.subsDaysKey) private var subsDays = 3
-    @State private var cards: [String: Int] = Reminders.cardDays
+    @State private var cards: [String: Int] = [:]
 
     var body: some View {
         Section {
@@ -149,7 +153,7 @@ struct RemindersSection: View {
                     Stepper(LS("超过 %@ 天", balanceDays), value: $balanceDays, in: 7...180, step: 7)
                 }
                 ForEach(cardAccounts, id: \.self) { a in
-                    Picker(LS("%@ 还款日", acctLabel(a)), selection: Binding(get: { cards[a] ?? 0 }, set: { cards[a] = $0; Reminders.cardDays = cards })) {
+                    Picker(LS("%@ 还款日", acctLabel(a)), selection: Binding(get: { cards[a] ?? 0 }, set: { cards[a] = $0; Reminders.setCardDays(cards, store) })) {
                         Text(LS("不提醒")).tag(0)
                         ForEach(1...28, id: \.self) { Text(LS("每月 %@ 日", $0)).tag($0) }
                     }
@@ -164,9 +168,25 @@ struct RemindersSection: View {
         .onChange(of: [fixed, balance, budget, subs]) { _, _ in Task { await Reminders.reschedule(store) } }
         .onChange(of: balanceDays) { _, _ in Task { await Reminders.reschedule(store) } }
         .onChange(of: cards) { _, _ in Task { await Reminders.reschedule(store) } }
+        .onAppear { cards = Reminders.cardDays(store) }
     }
 
     private var cardAccounts: [String] {
         (store.D?.openAccounts ?? []).filter { $0.hasPrefix("Liabilities:CreditCard") || ($0.hasPrefix("Liabilities:") && $0.lowercased().contains("card")) }
+    }
+}
+
+/// shows reminders while the app is open, and opens the right tab when one is tapped
+final class NotificationRouter: NSObject, UNUserNotificationCenterDelegate {
+    static let shared = NotificationRouter()
+    var open: ((String) -> Void)?
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+        [.banner, .sound]
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        let tab = response.notification.request.content.userInfo["tab"] as? String ?? "add"
+        await MainActor.run { open?(tab) }
     }
 }
