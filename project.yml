@@ -20,7 +20,7 @@ targets:
       path: Ledger/Info.plist
       properties:
         CFBundleDevelopmentRegion: zh_CN
-        CFBundleLocalizations: [zh-Hans]
+        CFBundleLocalizations: [zh-Hans, en]
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSFaceIDUsageDescription: 使用面容 ID 解锁账本

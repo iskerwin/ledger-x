@@ -40,12 +40,12 @@ final class AppLock: ObservableObject {
         authenticating = true
         defer { authenticating = false }
         let ctx = LAContext()
-        ctx.localizedFallbackTitle = "输入密码"
+        ctx.localizedFallbackTitle = LS("输入密码")
         var err: NSError?
         // no passcode on the device: nothing to authenticate with, don't lock the user out
         guard ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err) else { locked = false; return }
         do {
-            if try await ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "解锁以查看账本") {
+            if try await ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: LS("解锁以查看账本")) {
                 withAnimation(.easeOut(duration: 0.2)) { locked = false }
                 lastError = nil
             }
@@ -69,10 +69,10 @@ final class AppLock: ObservableObject {
         let any = ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err)
         _ = ctx.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
         switch ctx.biometryType {
-        case .faceID: return ("面容 ID", "faceid", any)
-        case .touchID: return ("触控 ID", "touchid", any)
-        case .opticID: return ("视控 ID", "opticid", any)
-        default: return ("设备密码", "lock", any)
+        case .faceID: return (LS("面容 ID"), "faceid", any)
+        case .touchID: return (LS("触控 ID"), "touchid", any)
+        case .opticID: return (LS("视控 ID"), "opticid", any)
+        default: return (LS("设备密码"), "lock", any)
         }
     }
 }
@@ -85,13 +85,13 @@ struct LockScreen: View {
             Spacer()
             Image("Logo").resizable().frame(width: 76, height: 76)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            Text("Ledger 已锁定").font(.title3.weight(.semibold))
+            Text(LS("Ledger 已锁定")).font(.title3.weight(.semibold))
             if let e = lock.lastError { Text(e).font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal) }
             Spacer()
             Button {
                 Task { await lock.unlock() }
             } label: {
-                Label("使用\(b.name)解锁", systemImage: b.symbol)
+                Label(LS("使用%@解锁", b.name), systemImage: b.symbol)
                     .font(.headline)
                     .frame(maxWidth: 280)
                     .padding(.vertical, 6)

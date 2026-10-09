@@ -110,7 +110,7 @@ public func parseFile(_ text: String, file: String) -> ParseResult {
                     if let t = sc.tagOrLink() { tagStack.append(t.value) }
                 case "poptag":
                     let t = sc.tagOrLink()
-                    if let t = t, let k = tagStack.lastIndex(of: t.value) { tagStack.remove(at: k) } else { err(ln, "poptag 没有对应的 pushtag") }
+                    if let t = t, let k = tagStack.lastIndex(of: t.value) { tagStack.remove(at: k) } else { err(ln, tr("poptag 没有对应的 pushtag", "poptag without a matching pushtag")) }
                 case "pushmeta":
                     if let kv = metaKV(Array(sc.s[sc.i...]), requireIndent: false, loose: true) {
                         if metaStack[kv.0] == nil { metaOrder.append(kv.0) }
@@ -126,7 +126,7 @@ public func parseFile(_ text: String, file: String) -> ParseResult {
                 continue
             }
             guard let date = sc.date() else {
-                err(ln, "无法识别：" + String(str(line).prefix(60)))
+                err(ln, tr("无法识别：" + String(str(line).prefix(60)), "Unrecognized: " + String(str(line).prefix(60))))
                 continue
             }
             sc.ws()
@@ -148,7 +148,7 @@ public func parseFile(_ text: String, file: String) -> ParseResult {
                 var tags = tagStack
                 var links: [String] = []
                 while let t = sc.tagOrLink() { if t.isTag { tags.append(t.value) } else { links.append(t.value) } }
-                if !sc.eof() { err(ln, "交易标题行多余内容：" + sc.rest()) }
+                if !sc.eof() { err(ln, tr("交易标题行多余内容：" + sc.rest(), "Extra content on transaction header: " + sc.rest())) }
                 let e = base(.txn)
                 e.flag = flag
                 if strs.count >= 2 { e.payee = strs[0]; e.narration = strs[1] } else if strs.count == 1 { e.narration = strs[0] }
@@ -159,7 +159,7 @@ public func parseFile(_ text: String, file: String) -> ParseResult {
                 cur = e
                 continue
             }
-            guard let kind = word else { err(ln, "无法识别的指令"); continue }
+            guard let kind = word else { err(ln, tr("无法识别的指令", "Unrecognized directive")); continue }
             sc.i += kind.unicodeScalars.count
             var e: Entry? = nil
             switch kind {
@@ -180,7 +180,7 @@ public func parseFile(_ text: String, file: String) -> ParseResult {
                 if sc.eat("~") { tolerance = sc.number()?.value }
                 let currency = sc.currency()
                 if tolerance == nil && sc.eat("~") { tolerance = sc.number()?.value }
-                guard let a = account, let nn = n, let c = currency else { err(ln, "balance 格式不对"); break }
+                guard let a = account, let nn = n, let c = currency else { err(ln, tr("balance 格式不对", "Malformed balance directive")); break }
                 let x = base(.balance)
                 x.account = a; x.number = nn.value; x.digits = nn.digits; x.tolerance = tolerance; x.currency = c
                 e = x
@@ -199,7 +199,7 @@ public func parseFile(_ text: String, file: String) -> ParseResult {
                 let x = base(.query); x.name = sc.string(); x.query = sc.string(); e = x
             case "price":
                 let c = sc.currency(), n = sc.number(), q = sc.currency()
-                guard let cc = c, let nn = n, let qq = q else { err(ln, "price 格式不对"); break }
+                guard let cc = c, let nn = n, let qq = q else { err(ln, tr("price 格式不对", "Malformed price directive")); break }
                 let x = base(.price); x.currency = cc; x.number = nn.value; x.quote = qq
                 e = x
             case "custom":
@@ -221,10 +221,10 @@ public func parseFile(_ text: String, file: String) -> ParseResult {
                 }
                 e = x
             default:
-                err(ln, "未知指令：" + kind)
+                err(ln, tr("未知指令：" + kind, "Unknown directive: " + kind))
             }
             if let x = e {
-                if !sc.eof() && x.type != .custom { err(ln, "\(kind) 多余内容：\(sc.rest())") }
+                if !sc.eof() && x.type != .custom { err(ln, tr("\(kind) 多余内容：\(sc.rest())", "Extra content after \(kind): \(sc.rest())")) }
                 cur = x
             }
             continue
@@ -234,7 +234,7 @@ public func parseFile(_ text: String, file: String) -> ParseResult {
         var k = 0
         while k < full.count, isWS(full[k]) { k += 1 }
         if k < full.count, full[k] == ";" { continue }
-        guard let c = cur else { err(ln, "缩进行不属于任何指令"); continue }
+        guard let c = cur else { err(ln, tr("缩进行不属于任何指令", "Indented line does not belong to any directive")); continue }
         let line = trimEnd(stripComment(full))
         if isBlank(line) { continue }
         c.endLine = ln.end
@@ -250,7 +250,7 @@ public func parseFile(_ text: String, file: String) -> ParseResult {
             }
             continue
         }
-        if c.type != .txn { err(ln, "这里只能写 key: value 元数据"); continue }
+        if c.type != .txn { err(ln, tr("这里只能写 key: value 元数据", "Only key: value metadata is allowed here")); continue }
         guard let p = parsePosting(line) else {
             c.bad.append(str(line).trimmingCharacters(in: .whitespaces))
             continue

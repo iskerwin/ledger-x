@@ -20,7 +20,7 @@ struct PrivacyButton: View {
         Button { privacy.toggle() } label: {
             Image(systemName: privacy ? "eye.slash" : "eye")
         }
-        .accessibilityLabel(privacy ? "显示金额" : "隐藏金额")
+        .accessibilityLabel(privacy ? LS("显示金额") : LS("隐藏金额"))
     }
 }
 
@@ -61,10 +61,10 @@ struct SyncBadge: View {
     }
     var statusText: String {
         switch store.syncState {
-        case .syncing: return "同步中"
-        case .offline: return "离线"
-        case .error: return "同步出错：\(store.syncError)"
-        case .idle: return store.pending.isEmpty ? "已同步" : "\(store.pending.count) 项待同步"
+        case .syncing: return LS("同步中")
+        case .offline: return LS("离线")
+        case .error: return LS("同步出错：%@", store.syncError)
+        case .idle: return store.pending.isEmpty ? LS("已同步") : LS("%@ 项待同步", store.pending.count)
         }
     }
 }
@@ -73,7 +73,7 @@ struct SettingsButton: View {
     @EnvironmentObject var store: Store
     var body: some View {
         Button { store.showSettings = true } label: { Image(systemName: "gearshape") }
-            .accessibilityLabel("设置")
+            .accessibilityLabel(LS("设置"))
     }
 }
 
@@ -163,7 +163,7 @@ struct AccountPicker: View {
         NavigationStack {
             List {
                 if allowAny, !q.isEmpty, isAccountName(q), !(store.D?.openAccounts.contains(q) ?? false) {
-                    Button { pick(q); dismiss() } label: { Label("使用 \(q)", systemImage: "plus.circle") }
+                    Button { pick(q); dismiss() } label: { Label(LS("使用 %@", q), systemImage: "plus.circle") }
                 }
                 ForEach(results, id: \.self) { a in
                     Button { pick(a); dismiss() } label: {
@@ -178,12 +178,12 @@ struct AccountPicker: View {
                     }
                 }
             }
-            .searchable(text: $q, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索账户")
+            .searchable(text: $q, placement: .navigationBarDrawer(displayMode: .always), prompt: LS("搜索账户"))
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } } }
         }
     }
 
@@ -220,7 +220,7 @@ struct AccountField: View {
                 HStack {
                     Text(label).foregroundStyle(.secondary)
                     Spacer()
-                    Text(value.isEmpty ? "选择" : acctDisplay(value))
+                    Text(value.isEmpty ? LS("选择") : acctDisplay(value))
                         .foregroundStyle(value.isEmpty ? Color.secondary : Color.primary)
                         .lineLimit(1)
                     Image(systemName: "chevron.up.chevron.down").font(.caption).foregroundStyle(.tertiary)
@@ -247,12 +247,12 @@ struct DateField: View {
     @Binding var value: String
     var body: some View {
         HStack(spacing: 8) {
-            DatePicker("日期", selection: Binding(get: { Day.date(value) ?? Date() }, set: { value = Day.string($0) }), displayedComponents: .date)
+            DatePicker(LS("日期"), selection: Binding(get: { Day.date(value) ?? Date() }, set: { value = Day.string($0) }), displayedComponents: .date)
                 .labelsHidden()
             Spacer(minLength: 0)
             ForEach(0..<2, id: \.self) { k in
                 let d = Day.shift(Day.today(), -k)
-                Chip(label: k == 0 ? "今天" : "昨天", selected: value == d) { value = d }
+                Chip(label: k == 0 ? LS("今天") : LS("昨天"), selected: value == d) { value = d }
                     .fixedSize()
             }
         }
@@ -273,7 +273,7 @@ struct KeyboardDone: ViewModifier {
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    Button("完成") { hideKeyboard() }.fontWeight(.semibold)
+                    Button(LS("完成")) { hideKeyboard() }.fontWeight(.semibold)
                 }
             }
     }
@@ -329,7 +329,7 @@ struct TextEditSheet: View {
                     .padding(.horizontal, 8)
                 if let v = validate(text) {
                     HStack {
-                        if v.ok { Label("校验通过", systemImage: "checkmark.circle").foregroundStyle(Color.gain) }
+                        if v.ok { Label(LS("校验通过"), systemImage: "checkmark.circle").foregroundStyle(Color.gain) }
                         else if let m = v.msg, !m.isEmpty { Label(m, systemImage: "xmark.octagon").foregroundStyle(Color.loss) }
                         Spacer()
                     }
@@ -342,8 +342,8 @@ struct TextEditSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .keyboardDone()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) { Button("完成") { done(alignText(text)); dismiss() }.fontWeight(.semibold) }
+                ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button(LS("完成")) { done(alignText(text)); dismiss() }.fontWeight(.semibold) }
             }
             .onAppear { text = compactText(initial) }
         }

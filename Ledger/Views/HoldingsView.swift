@@ -12,7 +12,7 @@ struct HoldingsView: View {
         Group {
             if let L = store.L { page(L) } else { ProgressView() }
         }
-        .navigationTitle("持仓")
+        .navigationTitle(LS("持仓"))
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -26,28 +26,28 @@ struct HoldingsView: View {
         return List {
             Section {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("市值合计（折合\(L.base)）").font(.subheadline).foregroundStyle(.secondary)
+                    Text(LS("市值合计（折合%@）", L.base)).font(.subheadline).foregroundStyle(.secondary)
                     Text(money(value, L.base)).font(.system(size: 36, weight: .bold, design: .rounded)).monospacedDigit().sensitive()
                     HStack(spacing: 14) {
-                        Text("成本 " + money(cost, L.base))
-                        Text("浮动盈亏 " + signedMoney(value - cost, L.base) + (cost != 0 ? String(format: "（%@%.1f%%）", value >= cost ? "+" : "", (value - cost) / cost * 100) : ""))
+                        Text(LS("成本 ") + money(cost, L.base))
+                        Text(LS("浮动盈亏 ") + signedMoney(value - cost, L.base) + (cost != 0 ? String(format: LS("（%@%.1f%%）"), value >= cost ? "+" : "", (value - cost) / cost * 100) : ""))
                             .foregroundStyle(value >= cost ? Color.gain : Color.loss)
                     }
                     .font(.caption.monospacedDigit())
                     .sensitive()
-                    if let d = pxDate { Text("价格日期 " + d).font(.caption).foregroundStyle(.secondary) }
+                    if let d = pxDate { Text(LS("价格日期 ") + d).font(.caption).foregroundStyle(.secondary) }
                 }
                 .padding(.vertical, 4)
             }
-            Section("持仓明细") {
-                if rows.isEmpty { Text("暂无以成本计价的持仓").foregroundStyle(.secondary) }
+            Section(LS("持仓明细")) {
+                if rows.isEmpty { Text(LS("暂无以成本计价的持仓")).foregroundStyle(.secondary) }
                 ForEach(rows) { r in holdingRow(r) }
             }
             incomeSection(L)
             Section {
                 EmptyView()
             } footer: {
-                Text("市值按账本中最新的 price 指令计算；成本取自买入时记录的 {成本}；卖出时按账户的批次匹配方法（如 FIFO）结转。")
+                Text(LS("市值按账本中最新的 price 指令计算；成本取自买入时记录的 {成本}；卖出时按账户的批次匹配方法（如 FIFO）结转。"))
             }
         }
     }
@@ -63,7 +63,7 @@ struct HoldingsView: View {
                         Text(r.c).font(.headline)
                         Text(acctLabel(r.acct)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
-                    Text("\(fmtNum(r.units, 4)) 份 · 均价 \(fmtNum(r.avg, 2)) \(r.q)" + (r.px.map { " · 现价 \(fmtNum($0.number, 2))" } ?? " · 无价格"))
+                    Text(LS("%@ 份 · 均价 %@ %@", fmtNum(r.units, 4), fmtNum(r.avg, 2), r.q) + (r.px.map { LS(" · 现价 %@", fmtNum($0.number, 2)) } ?? LS(" · 无价格")))
                         .font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
                 }
                 Spacer()
@@ -85,7 +85,7 @@ struct HoldingsView: View {
                 lotRow(pair.element, r)
             }
             NavigationLink(value: AccountDest(name: r.acct)) {
-                Text("查看 \(acctLabel(r.acct)) 明细").font(.footnote)
+                Text(LS("查看 %@ 明细", acctLabel(r.acct))).font(.footnote)
             }
         }
     }
@@ -122,18 +122,18 @@ struct HoldingsView: View {
                             Spacer()
                             VStack(alignment: .trailing, spacing: 2) {
                                 Text(money(row.1, L.base)).monospacedDigit().sensitive()
-                                Text("累计 " + money(row.2, L.base)).font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
+                                Text(LS("累计 ") + money(row.2, L.base)).font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
                             }
                         }
                     }
                 }
             } header: {
-                Text("投资收入 · \(year) 年")
+                Text(LS("投资收入 · %@ 年", year))
             }
         }
     }
 
-    static let incomeZH = ["Gain": "已实现收益", "Dividend": "股息", "Interest": "利息", "StockAward": "股票奖励", "Coupon": "票息"]
+    static var incomeZH: [String: String] { ["Gain": LS("已实现收益"), "Dividend": LS("股息"), "Interest": LS("利息"), "StockAward": LS("股票奖励"), "Coupon": LS("票息")] }
 
     /// Income:Invest:* (or any income account under an "Invest" group): (account, this year, all time)
     private func investIncome(_ L: Ledger, _ year: String) -> [(String, Double, Double)] {

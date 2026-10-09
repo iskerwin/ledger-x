@@ -11,18 +11,18 @@ enum AppTheme: String, CaseIterable, Identifiable {
 
     var name: String {
         switch self {
-        case .jade: return "翡翠"
-        case .blue: return "蓝色"
-        case .indigo: return "靛蓝"
-        case .purple: return "紫色"
-        case .pink: return "粉色"
-        case .red: return "红色"
-        case .orange: return "橙色"
-        case .yellow: return "黄色"
-        case .green: return "绿色"
-        case .mint: return "薄荷"
-        case .teal: return "青色"
-        case .graphite: return "石墨"
+        case .jade: return LS("翡翠")
+        case .blue: return LS("蓝色")
+        case .indigo: return LS("靛蓝")
+        case .purple: return LS("紫色")
+        case .pink: return LS("粉色")
+        case .red: return LS("红色")
+        case .orange: return LS("橙色")
+        case .yellow: return LS("黄色")
+        case .green: return LS("绿色")
+        case .mint: return LS("薄荷")
+        case .teal: return LS("青色")
+        case .graphite: return LS("石墨")
         }
     }
 
@@ -56,7 +56,7 @@ enum AppAppearance: String, CaseIterable, Identifiable {
     case system, light, dark
     var id: String { rawValue }
     static let key = "ledger.appearance"
-    var name: String { self == .system ? "跟随系统" : self == .light ? "浅色" : "深色" }
+    var name: String { self == .system ? LS("跟随系统") : self == .light ? LS("浅色") : LS("深色") }
     var scheme: ColorScheme? { self == .system ? nil : self == .light ? .light : .dark }
 }
 

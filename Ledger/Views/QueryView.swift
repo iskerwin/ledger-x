@@ -51,7 +51,7 @@ struct QueryEditorView: View {
                 HStack {
                     Text(sourceLabel)
                     Spacer()
-                    Button { showRef = true } label: { Label("语法参考", systemImage: "book") }
+                    Button { showRef = true } label: { Label(LS("语法参考"), systemImage: "book") }
                         .font(.caption).textCase(nil)
                 }
             }
@@ -60,7 +60,7 @@ struct QueryEditorView: View {
                 Button { run() } label: {
                     HStack {
                         if running { ProgressView().tint(Color.onJade) } else { Image(systemName: "play.fill") }
-                        Text("运行查询").fontWeight(.semibold)
+                        Text(LS("运行查询")).fontWeight(.semibold)
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -83,34 +83,34 @@ struct QueryEditorView: View {
             if let r = result {
                 Section {
                     if r.rows.isEmpty {
-                        Text("查询结果为空").foregroundStyle(.secondary)
+                        Text(LS("查询结果为空")).foregroundStyle(.secondary)
                     } else {
                         ResultTable(result: r)
                             .listRowInsets(EdgeInsets(top: 10, leading: 0, bottom: 10, trailing: 0))
                     }
                 } header: {
                     HStack {
-                        Text("结果 · \(r.rows.count) 行 × \(r.columns.count) 列")
+                        Text(LS("结果 · %@ 行 × %@ 列", r.rows.count, r.columns.count))
                         Spacer()
                         Text("\(ms) ms").textCase(nil)
                     }
                 } footer: {
-                    if r.rows.count > ResultTable.limit { Text("仅显示前 \(ResultTable.limit) 行；导出 CSV 可获得完整结果。") }
+                    if r.rows.count > ResultTable.limit { Text(LS("仅显示前 %@ 行；导出 CSV 可获得完整结果。", ResultTable.limit)) }
                 }
             }
         }
         .listSectionSpacing(.compact)
         .keyboardDone()
-        .navigationTitle(q.name)
+        .navigationTitle(q.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbar }
         .sheet(isPresented: $showRef) { QueryReference { insert($0) } }
-        .alert(saveAsCopy ? "另存为" : "保存查询", isPresented: $naming) {
-            TextField("查询名称", text: $newName)
-            Button("取消", role: .cancel) {}
-            Button("保存") { save(name: newName, copy: saveAsCopy) }
+        .alert(saveAsCopy ? LS("另存为") : LS("保存查询"), isPresented: $naming) {
+            TextField(LS("查询名称"), text: $newName)
+            Button(LS("取消"), role: .cancel) {}
+            Button(LS("保存")) { save(name: newName, copy: saveAsCopy) }
         } message: {
-            Text("保存在本机，显示在「我的查询」中。")
+            Text(LS("保存在本机，显示在「我的查询」中。"))
         }
         .onAppear {
             guard !loaded else { return }
@@ -126,27 +126,27 @@ struct QueryEditorView: View {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
                 if isMine {
-                    Button { save(name: q.name, copy: false) } label: { Label("保存", systemImage: "square.and.arrow.down") }
+                    Button { save(name: q.name, copy: false) } label: { Label(LS("保存"), systemImage: "square.and.arrow.down") }
                         .disabled(!dirty)
-                    Button { newName = q.name; saveAsCopy = false; naming = true } label: { Label("重命名", systemImage: "pencil") }
+                    Button { newName = q.name; saveAsCopy = false; naming = true } label: { Label(LS("重命名"), systemImage: "pencil") }
                 }
                 Button {
-                    newName = isMine ? q.name + " 副本" : (q.source == "new" ? "" : q.name)
+                    newName = isMine ? q.name + LS(" 副本") : (q.source == "new" ? "" : q.title)
                     saveAsCopy = true
                     naming = true
-                } label: { Label(isMine ? "另存为…" : "保存到我的查询…", systemImage: "plus.square.on.square") }
+                } label: { Label(isMine ? LS("另存为…") : LS("保存到我的查询…"), systemImage: "plus.square.on.square") }
                 Divider()
                 Button {
                     UIPasteboard.general.string = text
-                    store.show("已复制查询语句")
-                } label: { Label("复制查询语句", systemImage: "doc.on.doc") }
+                    store.show(LS("已复制查询语句"))
+                } label: { Label(LS("复制查询语句"), systemImage: "doc.on.doc") }
                 if let r = result, !r.rows.isEmpty {
                     Button {
                         UIPasteboard.general.string = csv(r)
-                        store.show("已复制 \(r.rows.count) 行（CSV）")
-                    } label: { Label("复制结果（CSV）", systemImage: "tablecells") }
+                        store.show(LS("已复制 %@ 行（CSV）", r.rows.count))
+                    } label: { Label(LS("复制结果（CSV）"), systemImage: "tablecells") }
                     ShareLink(item: CSVFile(name: q.name, text: csv(r)), preview: SharePreview(q.name + ".csv")) {
-                        Label("导出 CSV", systemImage: "square.and.arrow.up")
+                        Label(LS("导出 CSV"), systemImage: "square.and.arrow.up")
                     }
                 }
                 if isMine {
@@ -154,7 +154,7 @@ struct QueryEditorView: View {
                     Button(role: .destructive) {
                         store.deleteQuery(q.id)
                         dismiss()
-                    } label: { Label("删除查询", systemImage: "trash") }
+                    } label: { Label(LS("删除查询"), systemImage: "trash") }
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")
@@ -164,10 +164,10 @@ struct QueryEditorView: View {
 
     private var sourceLabel: String {
         switch q.source {
-        case "builtin": return "内置查询（修改后可另存）"
-        case "ledger": return "来自账本（修改后可另存）"
-        case "mine": return dirty ? "我的查询 · 未保存" : "我的查询"
-        default: return "新建查询"
+        case "builtin": return LS("内置查询（修改后可另存）")
+        case "ledger": return LS("来自账本（修改后可另存）")
+        case "mine": return dirty ? LS("我的查询 · 未保存") : LS("我的查询")
+        default: return LS("新建查询")
         }
     }
 
@@ -199,14 +199,14 @@ struct QueryEditorView: View {
     }
 
     private func save(name: String, copy: Bool) {
-        let n = name.trimmed.isEmpty ? "未命名查询" : name.trimmed
+        let n = name.trimmed.isEmpty ? LS("未命名查询") : name.trimmed
         var x = q
         if copy || !isMine { x = SavedQuery(name: n, text: text.trimmed, source: "mine") }
         else { x.name = n; x.text = text.trimmed }
         store.saveQuery(x)
         q = x
         text = x.text
-        store.show("已保存「\(n)」")
+        store.show(LS("已保存「%@」", n))
     }
 
     private func csv(_ r: QueryResult) -> String {
@@ -305,43 +305,43 @@ struct QueryReference: View {
     @Environment(\.dismiss) private var dismiss
     let insert: (String) -> Void
 
-    static let columns: [(String, String)] = [
-        ("date", "交易日期"), ("year", "年份"), ("month", "月份"), ("day", "日"), ("quarter", "季度"),
-        ("flag", "标记（* 或 !）"), ("payee", "收付款方"), ("narration", "摘要"), ("description", "收付款方与摘要"),
-        ("tags", "标签集合"), ("links", "链接集合"), ("account", "科目"), ("other_accounts", "同一交易中的其他科目"),
-        ("position", "持仓（数量、币种与成本）"), ("units", "数量与币种"), ("number", "数量"), ("currency", "币种"),
-        ("cost_number", "单位成本"), ("cost_currency", "成本币种"), ("price", "价格"), ("weight", "权重（按成本或价格折算）"),
-        ("balance", "累计余额（非汇总查询）"), ("filename", "所在文件"), ("lineno", "行号"), ("id", "交易标识"),
-    ]
-    static let functions: [(String, String)] = [
-        ("SUM(x)", "求和（金额按币种汇总）"), ("COUNT(*)", "计数"), ("FIRST(x)", "首个值"), ("LAST(x)", "末个值"), ("MIN(x)", "最小值"), ("MAX(x)", "最大值"),
-        ("YEAR(date)", "取年份"), ("MONTH(date)", "取月份"), ("DAY(date)", "取日"), ("QUARTER(date)", "取季度"), ("YMONTH(date)", "年月，如 2026-10"),
-        ("TODAY()", "今天"), ("PARENT(account)", "上级科目"), ("LEAF(account)", "末级科目名"), ("ROOT(account, n)", "前 n 级科目"),
-        ("CONVERT(x, 'CNY')", "按最新价格折算币种"), ("VALUE(position)", "按市价折算为本位币"), ("COST(position)", "成本金额"),
-        ("UNITS(position)", "数量"), ("NUMBER(x)", "取数值"), ("CURRENCY(x)", "取币种"), ("ABS(x)", "绝对值"), ("NEG(x)", "取反"),
-        ("POSSIGN(x, account)", "按科目方向调整符号"), ("GREP(pattern, s)", "正则提取"), ("STR(x)", "转为文本"),
-        ("LOWER(s)", "小写"), ("UPPER(s)", "大写"), ("LENGTH(x)", "长度"), ("COALESCE(a, b)", "首个非空值"), ("ONLY(c, inv)", "取指定币种"),
-    ]
-    static let syntax: [(String, String)] = [
-        ("SELECT [DISTINCT] 列 [AS 别名], …", "选择列，可使用函数与算术运算"),
-        ("FROM 条件", "按交易过滤：交易内任一分录满足即保留"),
-        ("WHERE 条件", "按分录过滤"),
-        ("GROUP BY 列 | 序号 | 别名", "分组汇总"),
-        ("ORDER BY 列 [ASC|DESC]", "排序"),
-        ("LIMIT n", "限制行数"),
-        ("BALANCES [WHERE …]", "各科目余额"),
-        ("JOURNAL \"正则\"", "科目日记账，含累计余额"),
-        ("= != < <= > >=", "比较"),
-        ("~  !~", "正则匹配（不区分大小写）"),
-        ("'x' IN tags", "集合包含"),
-        ("AND  OR  NOT  IS NULL", "逻辑运算"),
-        ("date >= TODAY() - 30", "日期加减天数"),
-    ]
+    static var columns: [(String, String)] { [
+        ("date", LS("交易日期")), ("year", LS("年份")), ("month", LS("月份")), ("day", LS("日")), ("quarter", LS("季度")),
+        ("flag", LS("标记（* 或 !）")), ("payee", LS("收付款方")), ("narration", LS("摘要")), ("description", LS("收付款方与摘要")),
+        ("tags", LS("标签集合")), ("links", LS("链接集合")), ("account", LS("科目")), ("other_accounts", LS("同一交易中的其他科目")),
+        ("position", LS("持仓（数量、币种与成本）")), ("units", LS("数量与币种")), ("number", LS("数量")), ("currency", LS("币种")),
+        ("cost_number", LS("单位成本")), ("cost_currency", LS("成本币种")), ("price", LS("价格")), ("weight", LS("权重（按成本或价格折算）")),
+        ("balance", LS("累计余额（非汇总查询）")), ("filename", LS("所在文件")), ("lineno", LS("行号")), ("id", LS("交易标识")),
+    ] }
+    static var functions: [(String, String)] { [
+        ("SUM(x)", LS("求和（金额按币种汇总）")), ("COUNT(*)", LS("计数")), ("FIRST(x)", LS("首个值")), ("LAST(x)", LS("末个值")), ("MIN(x)", LS("最小值")), ("MAX(x)", LS("最大值")),
+        ("YEAR(date)", LS("取年份")), ("MONTH(date)", LS("取月份")), ("DAY(date)", LS("取日")), ("QUARTER(date)", LS("取季度")), ("YMONTH(date)", LS("年月，如 2026-10")),
+        ("TODAY()", LS("今天")), ("PARENT(account)", LS("上级科目")), ("LEAF(account)", LS("末级科目名")), ("ROOT(account, n)", LS("前 n 级科目")),
+        ("CONVERT(x, 'CNY')", LS("按最新价格折算币种")), ("VALUE(position)", LS("按市价折算为本位币")), ("COST(position)", LS("成本金额")),
+        ("UNITS(position)", LS("数量")), ("NUMBER(x)", LS("取数值")), ("CURRENCY(x)", LS("取币种")), ("ABS(x)", LS("绝对值")), ("NEG(x)", LS("取反")),
+        ("POSSIGN(x, account)", LS("按科目方向调整符号")), ("GREP(pattern, s)", LS("正则提取")), ("STR(x)", LS("转为文本")),
+        ("LOWER(s)", LS("小写")), ("UPPER(s)", LS("大写")), ("LENGTH(x)", LS("长度")), ("COALESCE(a, b)", LS("首个非空值")), ("ONLY(c, inv)", LS("取指定币种")),
+    ] }
+    static var syntax: [(String, String)] { [
+        (LS("SELECT [DISTINCT] 列 [AS 别名], …"), LS("选择列，可使用函数与算术运算")),
+        (LS("FROM 条件"), LS("按交易过滤：交易内任一分录满足即保留")),
+        (LS("WHERE 条件"), LS("按分录过滤")),
+        (LS("GROUP BY 列 | 序号 | 别名"), LS("分组汇总")),
+        (LS("ORDER BY 列 [ASC|DESC]"), LS("排序")),
+        ("LIMIT n", LS("限制行数")),
+        ("BALANCES [WHERE …]", LS("各科目余额")),
+        (LS("JOURNAL \"正则\""), LS("科目日记账，含累计余额")),
+        ("= != < <= > >=", LS("比较")),
+        ("~  !~", LS("正则匹配（不区分大小写）")),
+        ("'x' IN tags", LS("集合包含")),
+        ("AND  OR  NOT  IS NULL", LS("逻辑运算")),
+        ("date >= TODAY() - 30", LS("日期加减天数")),
+    ] }
 
     var body: some View {
         NavigationStack {
             List {
-                Section("语法") {
+                Section(LS("语法")) {
                     ForEach(Self.syntax, id: \.0) { s in
                         VStack(alignment: .leading, spacing: 2) {
                             Text(s.0).font(.subheadline.monospaced())
@@ -352,17 +352,17 @@ struct QueryReference: View {
                 Section {
                     ForEach(Self.columns, id: \.0) { c in row(c.0, c.1) }
                 } header: {
-                    Text("列")
+                    Text(LS("列"))
                 } footer: {
-                    Text("点按可插入到查询末尾。")
+                    Text(LS("点按可插入到查询末尾。"))
                 }
-                Section("函数") {
+                Section(LS("函数")) {
                     ForEach(Self.functions, id: \.0) { f in row(f.0, f.1) }
                 }
             }
-            .navigationTitle("BQL 语法参考")
+            .navigationTitle(LS("BQL 语法参考"))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(LS("完成")) { dismiss() } } }
         }
         .presentationDetents([.medium, .large])
     }

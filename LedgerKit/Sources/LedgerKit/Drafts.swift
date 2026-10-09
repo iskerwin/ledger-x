@@ -48,12 +48,12 @@ public enum DraftKind: String, CaseIterable, Identifiable {
     public var id: String { rawValue }
     public var label: String {
         switch self {
-        case .expense: return "支出"
-        case .income: return "收入"
-        case .transfer: return "转账"
-        case .refund: return "退款"
-        case .multi: return "分录"
-        case .raw: return "文本"
+        case .expense: return tr("支出", "Expense")
+        case .income: return tr("收入", "Income")
+        case .transfer: return tr("转账", "Transfer")
+        case .refund: return tr("退款", "Refund")
+        case .multi: return tr("分录", "Split")
+        case .raw: return tr("文本", "Text")
         }
     }
 }
@@ -242,10 +242,10 @@ public func validateText(_ text: String, _ L: Ledger, single: Bool = true) -> Va
     let r = checkText(text, L)
     let txns = r.entries.filter { $0.type == .txn }
     if single && (txns.count != 1 || r.entries.count != 1) {
-        return Validation(ok: false, msg: r.msg ?? "这里应当正好是一笔交易", entries: r.entries, warnings: r.warnings)
+        return Validation(ok: false, msg: r.msg ?? tr("这里应当正好是一笔交易", "This must be exactly one transaction"), entries: r.entries, warnings: r.warnings)
     }
     if r.ok && txns.contains(where: { $0.postings.count < 2 }) {
-        return Validation(ok: false, msg: "交易至少需要两条分录", entries: r.entries, warnings: r.warnings)
+        return Validation(ok: false, msg: tr("交易至少需要两条分录", "A transaction needs at least two postings"), entries: r.entries, warnings: r.warnings)
     }
     return Validation(ok: r.ok, msg: r.msg, entries: r.entries, warnings: r.warnings)
 }
@@ -330,7 +330,7 @@ public struct OpExtra {
 public func makeOps(_ text: String, _ L: Ledger, layout: RepoLayout = RepoLayout(), pending: [Op], fileExists: (String) -> Bool,
                     extra: OpExtra = OpExtra(), single: Bool) -> Result<[Op], OpError> {
     let v = validateText(text, L, single: single)
-    guard v.ok else { return .failure(OpError(v.msg ?? "内容有误")) }
+    guard v.ok else { return .failure(OpError(v.msg ?? tr("内容有误", "Invalid content"))) }
     let many = v.entries.count > 1
     var out: [Op] = []
     for (i, e) in v.entries.enumerated() {
@@ -353,8 +353,8 @@ public func makeOps(_ text: String, _ L: Ledger, layout: RepoLayout = RepoLayout
             op.account = e.account; op.date = e.date; op.currency = e.currency
             op.replace = old != nil
             op.line = src
-            op.label = label ?? "\(old != nil ? "覆盖对账" : "对账")：\(e.account ?? "") \(e.date)"
-            op.summary = "\(old != nil ? "覆盖" : "")余额断言 \(e.account ?? "")"
+            op.label = label ?? tr("\(old != nil ? "覆盖余额断言" : "余额核对")：\(e.account ?? "") \(e.date)", "\(old != nil ? "Replace balance" : "Balance check"): \(e.account ?? "") \(e.date)")
+            op.summary = tr("\(old != nil ? "覆盖" : "")余额断言 \(e.account ?? "")", "\(old != nil ? "Replace " : "")balance \(e.account ?? "")")
             op.amountText = money(e.number, e.currency ?? "CNY")
             op.silent = extra.silent
             out.append(op)
@@ -364,11 +364,11 @@ public func makeOps(_ text: String, _ L: Ledger, layout: RepoLayout = RepoLayout
         var amountText = ""
         if e.type == .txn {
             summary = [e.payee, e.narration].filter { !$0.isEmpty }.joined(separator: " ")
-            if summary.isEmpty { summary = "交易" }
+            if summary.isEmpty { summary = tr("交易", "Transaction") }
             let c = classify(postings: e.postings.filter { $0.units != nil }, date: e.date, L)
             amountText = c.kind == .transfer ? money(c.amount, c.currency ?? "CNY") : signedMoney(c.amount)
         } else {
-            summary = "\(TYPE_ZH[e.type] ?? e.type.rawValue) \(e.account ?? e.currency ?? e.name ?? "")".trimmingCharacters(in: .whitespaces)
+            summary = "\(KitLocale.chinese ? (TYPE_ZH[e.type] ?? e.type.rawValue) : e.type.rawValue) \(e.account ?? e.currency ?? e.name ?? "")".trimmingCharacters(in: .whitespaces)
         }
         var op = Op(kind: .insert, path: path)
         op.date = e.date; op.text = src; op.summary = summary; op.amountText = amountText
@@ -385,14 +385,14 @@ public func commitMessage(_ ops: [Op], path: String) -> String {
         if o.silent == true { return nil }
         if let l = o.label { return l }
         switch o.kind {
-        case .insert: return "记账：\(o.date ?? "") \(o.summary ?? "")"
-        case .balance: return "对账：\(o.account ?? "")"
+        case .insert: return tr("记账：", "Add: ") + "\(o.date ?? "") \(o.summary ?? "")"
+        case .balance: return tr("余额核对：", "Balance check: ") + (o.account ?? "")
         default: return nil
         }
     }
     if labels.count == 1 { return labels[0] }
-    if !labels.isEmpty { return "\(labels[0]) 等 \(labels.count) 项" }
-    return "更新 \(path)"
+    if !labels.isEmpty { return tr("\(labels[0]) 等 \(labels.count) 项", "\(labels[0]) and \(labels.count - 1) more") }
+    return tr("更新 \(path)", "Update \(path)")
 }
 
 // MARK: - from an existing transaction back to a form
@@ -464,7 +464,8 @@ public func draftFromTxn(_ t: Entry, kind: DraftKind? = nil, _ L: Ledger, _ D: D
 public func refundDraft(_ t: Entry, _ L: Ledger, _ D: Derived, defaultFunding: String?) -> Draft {
     var d = draftFromTxn(t, kind: .refund, L, D, defaultFunding: defaultFunding)
     d.kind = .refund; d.date = Day.today(); d.reimb = false
-    d.narration = !t.narration.isEmpty && !t.narration.hasSuffix("退款") ? t.narration + "退款" : t.narration
+    let suffix = tr("退款", " (refund)")
+    d.narration = !t.narration.isEmpty && !t.narration.hasSuffix(suffix) ? t.narration + suffix : t.narration
     let existing = t.links.first { $0.hasPrefix("refund") }
     var h: UInt32 = 0
     for ch in (t.payee + t.narration + t.date).utf16 { h = h &* 31 &+ UInt32(ch) }

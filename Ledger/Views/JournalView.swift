@@ -37,9 +37,9 @@ struct TxRow: View {
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
-                        Text(t.payee.isEmpty ? (t.narration.isEmpty ? "（无收付款方）" : t.narration) : t.payee).lineLimit(1)
+                        Text(t.payee.isEmpty ? (t.narration.isEmpty ? LS("（无收付款方）") : t.narration) : t.payee).lineLimit(1)
                         if !t.payee.isEmpty && !t.narration.isEmpty { Text(t.narration).foregroundStyle(.secondary).lineLimit(1) }
-                        if t.flag == "!" { Tag(text: "待确认", warn: true) }
+                        if t.flag == "!" { Tag(text: LS("待确认"), warn: true) }
                         if t.synthetic { Tag(text: "pad") }
                         ForEach(t.tags.filter { $0 != "transfer" }, id: \.self) { Tag(text: "#" + $0) }
                     }
@@ -138,9 +138,9 @@ struct JournalView: View {
             Group {
                 if let L = store.L { list(L) } else { ProgressView() }
             }
-            .navigationTitle("明细")
+            .navigationTitle(LS("明细"))
             .toolbar { StandardToolbar() }
-            .searchable(text: $q, placement: .navigationBarDrawer(displayMode: .always), prompt: "收付款方、摘要、科目、#标签、金额、2026-09")
+            .searchable(text: $q, placement: .navigationBarDrawer(displayMode: .always), prompt: LS("收付款方、摘要、科目、#标签、金额、2026-09"))
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .onChange(of: q) { _, _ in limit = 150 }
@@ -174,15 +174,15 @@ struct JournalView: View {
                 ChipRow {
                     if let a = account { Chip(label: acctDisplay(a) + " ✕", selected: true) { account = nil } }
                     ForEach(["#reimbursed", "#refund", "#transfer", "#fx", "!"], id: \.self) { x in
-                        Chip(label: x == "!" ? "! 待确认" : x, selected: q == x) { q = q == x ? "" : x }
+                        Chip(label: x == "!" ? LS("! 待确认") : x, selected: q == x) { q = q == x ? "" : x }
                     }
                 }
                 HStack {
-                    Text("\(matches.count) 笔").foregroundStyle(.secondary)
+                    Text(LS("%@ 笔", matches.count)).foregroundStyle(.secondary)
                     Spacer()
                     Group {
-                        if sums.0 != 0 { Text("支出 " + money(sums.0)) }
-                        if sums.1 != 0 { Text("收入 " + money(sums.1)) }
+                        if sums.0 != 0 { Text(LS("支出 ") + money(sums.0)) }
+                        if sums.1 != 0 { Text(LS("收入 ") + money(sums.1)) }
                     }
                     .font(.footnote.monospacedDigit()).foregroundStyle(.secondary).sensitive()
                 }
@@ -192,9 +192,9 @@ struct JournalView: View {
                 daySection(group.0, group.1, L)
             }
             if matches.count > shown.count {
-                Button("加载更多（\(min(300, matches.count - shown.count)) 笔）") { limit += 300 }.frame(maxWidth: .infinity)
+                Button(LS("加载更多（%@ 笔）", min(300, matches.count - shown.count))) { limit += 300 }.frame(maxWidth: .infinity)
             }
-            if matches.isEmpty { Text("无匹配交易").foregroundStyle(.secondary) }
+            if matches.isEmpty { Text(LS("无匹配交易")).foregroundStyle(.secondary) }
         }
         .listStyle(.insetGrouped)
     }
@@ -268,7 +268,7 @@ struct TxDetailView: View {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(t.payee.isEmpty ? (t.narration.isEmpty ? "交易" : t.narration) : t.payee).font(.title2.weight(.semibold))
+                        Text(t.payee.isEmpty ? (t.narration.isEmpty ? LS("交易") : t.narration) : t.payee).font(.title2.weight(.semibold))
                         Text(t.date + (!t.payee.isEmpty && !t.narration.isEmpty ? " · " + t.narration : "")).foregroundStyle(.secondary)
                         if !t.tags.isEmpty || !t.links.isEmpty {
                             HStack { ForEach(t.tags, id: \.self) { Tag(text: "#" + $0) }; ForEach(t.links, id: \.self) { Tag(text: "^" + $0) } }
@@ -276,18 +276,18 @@ struct TxDetailView: View {
                     }
                     .padding(.vertical, 4)
                 }
-                Section("分录") {
+                Section(LS("分录")) {
                     ForEach(Array(t.postings.enumerated()), id: \.offset) { pair in
                         PostingRow(p: pair.element)
                     }
                 }
                 if !t.meta.isEmpty {
-                    Section("元数据") {
+                    Section(LS("元数据")) {
                         ForEach(t.meta.items, id: \.0) { item in LabeledContent(item.0, value: item.1.display) }
                     }
                 }
                 if !related.isEmpty {
-                    Section("关联交易") {
+                    Section(LS("关联交易")) {
                         ForEach(related, id: \.id) { r in NavigationLink(value: TxDest(r)) { TxRow(t: r, showDate: true) } }
                     }
                 }
@@ -298,37 +298,37 @@ struct TxDetailView: View {
                 }
                 Section {
                     if t.synthetic {
-                        Text("此交易由 pad 指令自动生成，如需调整请修改对应的 pad 或余额断言。").font(.footnote).foregroundStyle(.secondary)
+                        Text(LS("此交易由 pad 指令自动生成，如需调整请修改对应的 pad 或余额断言。")).font(.footnote).foregroundStyle(.secondary)
                     } else {
-                        NavigationLink(value: EditDest(t)) { Label("编辑", systemImage: "pencil") }
-                        Button { again(t, L, D, kind: nil) } label: { Label("复制为新交易", systemImage: "arrow.uturn.forward") }
+                        NavigationLink(value: EditDest(t)) { Label(LS("编辑"), systemImage: "pencil") }
+                        Button { again(t, L, D, kind: nil) } label: { Label(LS("复制为新交易"), systemImage: "arrow.uturn.forward") }
                         if classify(t, L).kind == .expense {
-                            Button { refund(t, L, D) } label: { Label("记退款", systemImage: "arrow.uturn.backward") }
+                            Button { refund(t, L, D) } label: { Label(LS("登记退款"), systemImage: "arrow.uturn.backward") }
                         }
                     }
                     Button {
                         UIPasteboard.general.string = t.src
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
-                        store.show("已复制到剪贴板")
-                    } label: { Label("复制源文本", systemImage: "doc.on.doc") }
-                    if let u = store.githubURL(t.file, line: t.line) { Link(destination: u) { Label("在 GitHub 打开", systemImage: "arrow.up.right.square") } }
+                        store.show(LS("已复制到剪贴板"))
+                    } label: { Label(LS("复制源文本"), systemImage: "doc.on.doc") }
+                    if let u = store.githubURL(t.file, line: t.line) { Link(destination: u) { Label(LS("在 GitHub 打开"), systemImage: "arrow.up.right.square") } }
                 }
             }
             .navigationTitle(t.date)
             .navigationBarTitleDisplayMode(.inline)
         } else {
-            Text("该交易已不存在").foregroundStyle(.secondary)
+            Text(LS("该交易已不存在")).foregroundStyle(.secondary)
         }
     }
 
     private func again(_ t: Entry, _ L: Ledger, _ D: Derived, kind: DraftKind?) {
         var d = draftFromTxn(t, kind: kind, L, D, defaultFunding: store.defaultFunding)
         d.date = Day.today()
-        handOff(d, "已载入为新交易，请核对金额与日期")
+        handOff(d, LS("已载入为新交易，请核对金额与日期"))
     }
 
     private func refund(_ t: Entry, _ L: Ledger, _ D: Derived) {
-        handOff(refundDraft(t, L, D, defaultFunding: store.defaultFunding), "已生成退款草稿，请核对金额后保存")
+        handOff(refundDraft(t, L, D, defaultFunding: store.defaultFunding), LS("已生成退款草稿，请核对金额后保存"))
     }
 
     /// hand a filled form to 记一笔: close any open detail pages and switch tabs
@@ -365,7 +365,7 @@ struct PostingRow: View {
         var parts: [String] = []
         if let pr = p.price, let n = pr.number { parts.append("@ \(fmtNum(n, 4)) \(pr.currency ?? "")") }
         if let c = p.cost, let n = c.number { parts.append("{\(fmtNum(n, 4)) \(c.currency ?? "")\(c.date.map { ", " + $0 } ?? "")}") }
-        if p.interpolated { parts.append("自动补平") }
+        if p.interpolated { parts.append(LS("自动补平")) }
         return parts.joined(separator: "  ")
     }
 }
@@ -394,29 +394,29 @@ struct EditTxView: View {
                         .frame(minHeight: 200)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    if v.ok { Label("校验通过", systemImage: "checkmark.circle").font(.footnote).foregroundStyle(Color.gain) }
+                    if v.ok { Label(LS("校验通过"), systemImage: "checkmark.circle").font(.footnote).foregroundStyle(Color.gain) }
                     else if let m = v.msg { Label(m, systemImage: "xmark.octagon").font(.footnote).foregroundStyle(Color.loss) }
                 } header: {
-                    Text("所在文件：\(path)。修改日期后将按新日期重新排序。").textCase(nil)
+                    Text(LS("所在文件：%@。修改日期后将按新日期重新排序。", path)).textCase(nil)
                 }
                 Section {
-                    Button { Task { await save(old, L) } } label: { Text("保存修改").frame(maxWidth: .infinity).fontWeight(.semibold) }
+                    Button { Task { await save(old, L) } } label: { Text(LS("保存修改")).frame(maxWidth: .infinity).fontWeight(.semibold) }
                         .buttonStyle(.borderedProminent).tint(.jade).controlSize(.large)
                         .disabled(!v.ok || aligned.trimmed == old.trimmed)
                         .listRowBackground(Color.clear).listRowInsets(EdgeInsets())
                 }
                 Section {
-                    Button("删除交易", role: .destructive) { confirmDelete = true }
+                    Button(LS("删除交易"), role: .destructive) { confirmDelete = true }
                 }
             } else {
                 ProgressView()
             }
         }
         .keyboardDone()
-        .navigationTitle("编辑交易")
+        .navigationTitle(LS("编辑交易"))
         .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog("删除 \(date) \(summary)？", isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button("删除", role: .destructive) { Task { await delete() } }
+        .confirmationDialog(LS("删除 %@ %@？", date, summary), isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button(LS("删除"), role: .destructive) { Task { await delete() } }
         }
         .task { await load() }
     }
@@ -441,18 +441,18 @@ struct EditTxView: View {
     private func save(_ old: String, _ L: Ledger) async {
         var rm = Op(kind: .remove, path: path)
         rm.old = old
-        rm.label = "修改：\(date) \(summary)"
+        rm.label = LS("修改：%@ %@", date, summary)
         guard let ins = store.makeOps(alignText(text), extra: OpExtra(silent: true), single: true) else { return }
         store.popToken += 1
-        await store.commit([rm] + ins, word: "已更新")
+        await store.commit([rm] + ins, word: LS("已更新"))
     }
 
     private func delete() async {
         guard let old = old else { return }
         var rm = Op(kind: .remove, path: path)
         rm.old = old
-        rm.label = "删除：\(date) \(summary)"
+        rm.label = LS("删除：%@ %@", date, summary)
         store.popToken += 1
-        await store.commit([rm], word: "已删除")
+        await store.commit([rm], word: LS("已删除"))
     }
 }

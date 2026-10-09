@@ -158,6 +158,12 @@ jobs:
           shot 26-query SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=b:payees
           shot 27-theme-orange SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_THEME=orange
           shot 28-theme-blue SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_THEME=blue
+          shot 29-en-overview SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_LANG=en
+          shot 30-en-add SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_LANG=en
+          shot 31-en-accounts SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_LANG=en
+          shot 32-en-income SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=income SIMCTL_CHILD_LEDGER_LANG=en
+          shot 33-en-settings SIMCTL_CHILD_LEDGER_TAB=settings SIMCTL_CHILD_LEDGER_LANG=en
+          shot 34-en-register SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_OPEN_ACCOUNT=Assets:Bank:CGB SIMCTL_CHILD_LEDGER_LANG=en
           shot 14-privacy SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_PRIVACY=1
           xcrun simctl ui "$UDID" appearance dark
           shot 15-dark-overview SIMCTL_CHILD_LEDGER_TAB=overview

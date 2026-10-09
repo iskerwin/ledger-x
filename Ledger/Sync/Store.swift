@@ -168,6 +168,7 @@ final class Store: ObservableObject {
         ledgerQueries = Self.directiveQueries(result.0) + qs
         UserDefaults.standard.set(env["LEDGER_PRIVACY"] != nil, forKey: "ledger.privacy")
         UserDefaults.standard.set(env["LEDGER_THEME"] ?? "jade", forKey: "ledger.theme")
+        UserDefaults.standard.set(env["LEDGER_LANG"] ?? "zh", forKey: "ledger.language")
         if let a = env["LEDGER_ACCOUNT"] { journalAccount = a }
         lastSync = Date()
     }
@@ -256,9 +257,9 @@ final class Store: ObservableObject {
             let L = loadLedger(root: main) { path in
                 var text = ""
                 if let sha = files[path] {
-                    guard let t = BlobCache.get(sha) else { throw GitHubError(status: 0, message: "离线状态：\(path) 尚未下载") }
+                    guard let t = BlobCache.get(sha) else { throw GitHubError(status: 0, message: LS("离线状态：%@ 尚未下载", path)) }
                     text = t
-                } else if path == main { throw GitHubError(status: 404, message: "仓库中未找到 \(main)") }
+                } else if path == main { throw GitHubError(status: 404, message: LS("仓库中未找到 %@", main)) }
                 return try applyOps(text, path: path, ops: ops)
             }
             if L.txns.isEmpty && L.files.isEmpty { return nil }
@@ -278,17 +279,17 @@ final class Store: ObservableObject {
             version += 1
             if draft.funding.isEmpty { draft = newDraft(.expense, r.1, defaultFunding: defaultFunding) }
         } else {
-            loadError = "无法读取 \(main)"
+            loadError = LS("无法读取 %@", main)
         }
     }
 
     // MARK: - queue
 
     /// queue operations, rebuild locally, then push
-    func commit(_ ops: [Op], word: String = "已入账", undo: (() async -> Void)? = nil) async {
+    func commit(_ ops: [Op], word: String = LS("已入账"), undo: (() async -> Void)? = nil) async {
         pending.append(contentsOf: ops)
         savePending()
-        if let undo = undo { show(word, action: "撤销", undo) } else { show(word) }
+        if let undo = undo { show(word, action: LS("撤销"), undo) } else { show(word) }
         let gen = UIImpactFeedbackGenerator(style: .light)
         gen.impactOccurred()
         await rebuild()
@@ -320,7 +321,7 @@ final class Store: ObservableObject {
                 let sha = tree?.files[path]
                 let dels = ops.filter { $0.path == path && $0.kind == .deleteFile }
                 if !dels.isEmpty {
-                    if let sha = sha { try await gh.deleteFile(path, sha: sha, message: dels[0].label ?? "删除 \(path)") }
+                    if let sha = sha { try await gh.deleteFile(path, sha: sha, message: dels[0].label ?? LS("删除 %@", path)) }
                     tree?.files[path] = nil
                     pending.removeAll { o in dels.contains { $0.id == o.id } }
                     savePending()
@@ -332,10 +333,10 @@ final class Store: ObservableObject {
                 let mine = pending.filter { $0.path == path }
                 for (k, o) in mine.enumerated() where o.kind == .remove && o.failed == nil {
                     let prior = Array(mine[..<k])
-                    if removeBlock((try? applyOps(base, path: path, ops: prior)) ?? base, o.old ?? "") == nil {
-                        let why = "原交易已在 GitHub 上被修改，本次\((o.label ?? "").hasPrefix("删除") ? "删除" : "修改")未提交"
+                    if applyRemove((try? applyOps(base, path: path, ops: prior)) ?? base, o) == nil {
+                        let why = LS("原交易已在 GitHub 上被修改，本次%@未提交", (o.label ?? "").hasPrefix(LS("删除")) ? LS("删除") : LS("修改"))
                         markFailed(o.id, why)
-                        if k + 1 < mine.count, mine[k + 1].kind == .insert, mine[k + 1].silent == true { markFailed(mine[k + 1].id, why) }
+                        if k + 1 < mine.count, (mine[k + 1].kind == .insert || mine[k + 1].kind == .balance), mine[k + 1].silent == true { markFailed(mine[k + 1].id, why) }
                     }
                 }
                 savePending()
@@ -370,6 +371,31 @@ final class Store: ObservableObject {
             guard let q = e.query, !q.trimmed.isEmpty else { return nil }
             return SavedQuery(id: "query:" + (e.name ?? q), name: e.name ?? "query", text: q.trimmed, source: "ledger")
         }
+    }
+
+    /// an op removing one balance assertion line (found in the file as it is now, pending ops applied)
+    func balanceRemoveOp(_ e: Entry) async -> Op? {
+        guard let account = e.account, let text = try? await fileText(e.file) else { return nil }
+        let prefix = "\(e.date) balance \(account)"
+        let ccy = e.currency ?? ""
+        guard let line = text.components(separatedBy: "\n").first(where: { l in
+            guard l.hasPrefix(prefix), l.dropFirst(prefix.count).first?.isWhitespace == true else { return false }
+            let toks = l.split(whereSeparator: { $0.isWhitespace }).map(String.init)
+            return ccy.isEmpty || toks.contains(ccy)
+        }) else { return nil }
+        var op = Op(kind: .remove, path: e.file)
+        op.line = line
+        op.date = e.date
+        op.account = account
+        op.currency = e.currency
+        op.label = LS("删除余额断言：%@ %@", account, e.date)
+        op.summary = LS("删除余额断言 %@", account)
+        return op
+    }
+
+    func deleteBalance(_ e: Entry) async {
+        guard let op = await balanceRemoveOp(e) else { show(LS("未在 %@ 中找到该断言", e.file)); return }
+        await commit([op], word: LS("已删除余额断言"))
     }
 
     func saveQuery(_ q: SavedQuery) {
