@@ -226,7 +226,7 @@ public struct Op: Codable, Identifiable, Equatable {
 
 public struct ConflictError: Error, LocalizedError {
     public let label: String
-    public var errorDescription: String? { "要修改的交易在 GitHub 上已经变了：\(label)。请在设置里删除这一项后重新编辑。" }
+    public var errorDescription: String? { tr("要修改的交易在 GitHub 上已经变了：\(label)。请在设置里删除这一项后重新编辑。", "The entry being changed was modified on GitHub: \(label). Remove this item in Settings and edit again.") }
 }
 
 public func applyOps(_ text0: String, path: String, ops: [Op], strict: Bool = false) throws -> String {
@@ -237,7 +237,7 @@ public func applyOps(_ text0: String, path: String, ops: [Op], strict: Bool = fa
         case .link: text = addLinkToHeader(text, op) ?? text
         case .include: if let l = op.line, !text.contains(l) { text = addInclude(text, l) }
         case .remove:
-            if let r = removeBlock(text, op.old ?? "") { text = r }
+            if let r = applyRemove(text, op) { text = r }
             else if strict { throw ConflictError(label: op.label ?? "") }
         case .balance: text = insertBalance(text, op)
         case .deleteFile: break
@@ -250,6 +250,21 @@ private func trimEndStr(_ s: Substring) -> String {
     var x = s
     while let last = x.unicodeScalars.last, isWS(last) { x = x.dropLast() }
     return String(x)
+}
+
+/// a remove op: a whole entry (`old`) or a single directive line (`line`, e.g. a balance assertion)
+public func applyRemove(_ text: String, _ op: Op) -> String? {
+    if let l = op.line { return removeLine(text, l) }
+    return removeBlock(text, op.old ?? "")
+}
+
+/// remove the first line equal to `line` (ignoring trailing spaces), leaving blank lines alone
+public func removeLine(_ text: String, _ line: String) -> String? {
+    var lines = text.components(separatedBy: "\n")
+    let want = trimEndStr(Substring(line))
+    guard !want.isEmpty, let i = lines.firstIndex(where: { trimEndStr(Substring($0)) == want }) else { return nil }
+    lines.remove(at: i)
+    return lines.joined(separator: "\n")
 }
 
 public func removeBlock(_ text: String, _ old: String) -> String? {

@@ -16,20 +16,20 @@ struct ReportsView: View {
             List {
                 Section {
                     NavigationLink(value: ReportKind.income) {
-                        ReportRow(symbol: "chart.bar.doc.horizontal", color: .green, title: "损益表", detail: "收入、支出与净收益")
+                        ReportRow(symbol: "chart.bar.doc.horizontal", color: .green, title: LS("损益表"), detail: LS("收入、支出与净收益"))
                     }
                     NavigationLink(value: ReportKind.balance) {
-                        ReportRow(symbol: "building.columns", color: .blue, title: "资产负债表", detail: "资产、负债、权益与净资产走势")
+                        ReportRow(symbol: "building.columns", color: .blue, title: LS("资产负债表"), detail: LS("资产、负债、权益与净资产走势"))
                     }
                     NavigationLink(value: ReportKind.trial) {
-                        ReportRow(symbol: "scale.3d", color: .orange, title: "试算平衡表", detail: "全部科目余额与借贷平衡校验")
+                        ReportRow(symbol: "scale.3d", color: .orange, title: LS("试算平衡表"), detail: LS("全部科目余额与借贷平衡校验"))
                     }
                 } header: {
-                    Text("财务报表")
+                    Text(LS("财务报表"))
                 }
 
-                querySection("常用查询", builtinQueries)
-                if !store.ledgerQueries.isEmpty { querySection("账本中的查询", store.ledgerQueries) }
+                querySection(LS("常用查询"), builtinQueries)
+                if !store.ledgerQueries.isEmpty { querySection(LS("账本中的查询"), store.ledgerQueries) }
 
                 Section {
                     ForEach(store.myQueries) { q in
@@ -40,17 +40,17 @@ struct ReportsView: View {
                         ids.forEach(store.deleteQuery)
                     }
                     Button {
-                        path.append(QueryDest(query: SavedQuery(id: "new", name: "新建查询", text: newQueryTemplate, source: "new")))
+                        path.append(QueryDest(query: SavedQuery(id: "new", name: LS("新建查询"), text: newQueryTemplate, source: "new")))
                     } label: {
-                        Label("新建查询", systemImage: "plus")
+                        Label(LS("新建查询"), systemImage: "plus")
                     }
                 } header: {
-                    Text("我的查询")
+                    Text(LS("我的查询"))
                 } footer: {
-                    Text("支持 Beancount 查询语言（BQL）的常用子集：SELECT … FROM … WHERE … GROUP BY … ORDER BY … LIMIT，以及 BALANCES、JOURNAL。账本中的 query 指令与 .bql 文件会自动列出。")
+                    Text(LS("支持 Beancount 查询语言（BQL）的常用子集：SELECT … FROM … WHERE … GROUP BY … ORDER BY … LIMIT，以及 BALANCES、JOURNAL。账本中的 query 指令与 .bql 文件会自动列出。"))
                 }
             }
-            .navigationTitle("报表")
+            .navigationTitle(LS("报表"))
             .toolbar { StandardToolbar() }
             .navigationDestination(for: ReportKind.self) { k in
                 switch k {
@@ -106,7 +106,7 @@ struct QueryRow: View {
     let q: SavedQuery
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(q.name)
+            Text(q.title)
             Text(q.text.replacingOccurrences(of: "\n", with: " "))
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
@@ -122,13 +122,13 @@ enum ReportPeriod: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var name: String {
         switch self {
-        case .thisMonth: return "本月"
-        case .lastMonth: return "上月"
-        case .thisYear: return "本年"
-        case .lastYear: return "上年"
-        case .last12: return "近 12 个月"
-        case .all: return "全部"
-        case .custom: return "自定义"
+        case .thisMonth: return LS("本月")
+        case .lastMonth: return LS("上月")
+        case .thisYear: return LS("本年")
+        case .lastYear: return LS("上年")
+        case .last12: return LS("近 12 个月")
+        case .all: return LS("全部")
+        case .custom: return LS("自定义")
         }
     }
 
@@ -149,10 +149,10 @@ enum ReportPeriod: String, CaseIterable, Identifiable {
 
 func rangeLabel(_ r: (String?, String?)) -> String {
     switch r {
-    case (nil, nil): return "全部期间"
-    case (let f?, let t?): return "\(f) 至 \(t)"
-    case (let f?, nil): return "\(f) 起"
-    case (nil, let t?): return "截至 \(t)"
+    case (nil, nil): return LS("全部期间")
+    case (let f?, let t?): return LS("%@ 至 %@", f, t)
+    case (let f?, nil): return LS("%@ 起", f)
+    case (nil, let t?): return LS("截至 %@", t)
     }
 }
 
@@ -168,7 +168,7 @@ struct AccountTreeRows: View {
 
     var body: some View {
         if root.children.isEmpty {
-            Text("无发生额").foregroundStyle(.secondary)
+            Text(LS("无发生额")).foregroundStyle(.secondary)
         }
         ForEach(visible(), id: \.0.name) { pair in
             let node = pair.0
@@ -195,7 +195,7 @@ struct AccountTreeRows: View {
                     }
                     VStack(alignment: .leading, spacing: 1) {
                         Text(node.label).lineLimit(1)
-                        if depth == 0, let zh = ZH[node.label] { Text(zh).font(.caption2).foregroundStyle(.secondary) }
+                        if depth == 0, AppLanguage.current != .en, let zh = ZH[node.label] { Text(zh).font(.caption2).foregroundStyle(.secondary) }
                     }
                     Spacer(minLength: 8)
                     VStack(alignment: .trailing, spacing: 1) {
@@ -248,7 +248,7 @@ struct IncomeStatementView: View {
         Group {
             if let L = store.L, let D = store.D { content(L, D) } else { ProgressView() }
         }
-        .navigationTitle("损益表")
+        .navigationTitle(LS("损益表"))
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -273,8 +273,8 @@ struct IncomeStatementView: View {
             Section {
                 PeriodChips(period: $period)
                 if period == .custom {
-                    DatePicker("开始", selection: dateBinding($from), displayedComponents: .date)
-                    DatePicker("结束", selection: dateBinding($to), displayedComponents: .date)
+                    DatePicker(LS("开始"), selection: dateBinding($from), displayedComponents: .date)
+                    DatePicker(LS("结束"), selection: dateBinding($to), displayedComponents: .date)
                 }
             }
             Section {
@@ -282,16 +282,16 @@ struct IncomeStatementView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text(rangeLabel(r)).font(.caption).foregroundStyle(.secondary)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("净收益").font(.subheadline).foregroundStyle(.secondary)
+                            Text(LS("净收益")).font(.subheadline).foregroundStyle(.secondary)
                             Text(money(s.net)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
                                 .foregroundStyle(s.net < 0 ? Color.loss : Color.primary).sensitive()
                         }
                         HStack(alignment: .top) {
-                            Figure(label: "收入", value: money(inc), color: .gain)
+                            Figure(label: LS("收入"), value: money(inc), color: .gain)
                             Spacer()
-                            Figure(label: "支出", value: money(exp))
+                            Figure(label: LS("支出"), value: money(exp))
                             Spacer()
-                            Figure(label: "储蓄率", value: inc > 0 ? String(format: "%.1f%%", s.net / inc * 100) : "—", alignment: .trailing)
+                            Figure(label: LS("储蓄率"), value: inc > 0 ? String(format: "%.1f%%", s.net / inc * 100) : "—", alignment: .trailing)
                         }
                         if inc > 0 || exp > 0 {
                             RatioBar(parts: [(inc, Color.gain), (exp, Color.jade)])
@@ -304,20 +304,20 @@ struct IncomeStatementView: View {
                 Section {
                     IncomeExpenseChart(months: ms, D: D, picked: $picked)
                 } header: {
-                    Text("月度收支")
+                    Text(LS("月度收支"))
                 }
             }
             Section {
                 AccountTreeRows(root: s.income, sign: -1, share: inc)
             } header: {
-                SectionTotal(title: "收入", value: inc)
+                SectionTotal(title: LS("收入"), value: inc)
             }
             Section {
                 AccountTreeRows(root: s.expenses, sign: 1, share: exp)
             } header: {
-                SectionTotal(title: "支出", value: exp)
+                SectionTotal(title: LS("支出"), value: exp)
             } footer: {
-                Text("金额按期末汇率折算为 \(L.base)。收入以正数列示。")
+                Text(LS("金额按期末汇率折算为 %@。收入以正数列示。", L.base))
             }
         }
         .listSectionSpacing(.compact)
@@ -369,18 +369,18 @@ struct IncomeExpenseChart: View {
             Chart {
                 ForEach(months, id: \.self) { m in
                     BarMark(x: .value("月份", m), y: .value("金额", D.monthInc[m] ?? 0))
-                        .foregroundStyle(by: .value("类别", "收入"))
-                        .position(by: .value("类别", "收入"))
+                        .foregroundStyle(by: .value("类别", LS("收入")))
+                        .position(by: .value("类别", LS("收入")))
                         .cornerRadius(3)
                         .opacity(picked == nil || picked == m ? 1 : 0.35)
                     BarMark(x: .value("月份", m), y: .value("金额", D.monthExp[m] ?? 0))
-                        .foregroundStyle(by: .value("类别", "支出"))
-                        .position(by: .value("类别", "支出"))
+                        .foregroundStyle(by: .value("类别", LS("支出")))
+                        .position(by: .value("类别", LS("支出")))
                         .cornerRadius(3)
                         .opacity(picked == nil || picked == m ? 1 : 0.35)
                 }
             }
-            .chartForegroundStyleScale(["收入": Color.gain, "支出": Color.jade])
+            .chartForegroundStyleScale([LS("收入"): Color.gain, LS("支出"): Color.jade])
             .chartLegend(position: .top, alignment: .leading)
             .chartYAxis { AxisMarks(position: .trailing) }
             .chartXAxis {
@@ -407,17 +407,17 @@ struct IncomeExpenseChart: View {
                 let i = D.monthInc[m] ?? 0, e = D.monthExp[m] ?? 0
                 HStack(spacing: 14) {
                     Text(Day.monthLabel(m)).fontWeight(.medium)
-                    Text("收入 " + money(i)).foregroundStyle(Color.gain)
-                    Text("支出 " + money(e))
+                    Text(LS("收入 ") + money(i)).foregroundStyle(Color.gain)
+                    Text(LS("支出 ") + money(e))
                     Spacer()
-                    Text("结余 " + money(i - e)).foregroundStyle(i - e < 0 ? Color.loss : Color.secondary)
+                    Text(LS("结余 ") + money(i - e)).foregroundStyle(i - e < 0 ? Color.loss : Color.secondary)
                 }
                 .font(.caption.monospacedDigit())
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .sensitive()
             } else {
-                Text("点按柱形查看当月明细").font(.caption).foregroundStyle(.secondary)
+                Text(LS("点按柱形查看当月明细")).font(.caption).foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 6)
@@ -431,10 +431,10 @@ enum AsOf: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var name: String {
         switch self {
-        case .today: return "今日"
-        case .lastMonthEnd: return "上月末"
-        case .lastYearEnd: return "上年末"
-        case .custom: return "指定日期"
+        case .today: return LS("今日")
+        case .lastMonthEnd: return LS("上月末")
+        case .lastYearEnd: return LS("上年末")
+        case .custom: return LS("指定日期")
         }
     }
     func date(today: String, custom: String) -> String {
@@ -458,7 +458,7 @@ struct BalanceSheetView: View {
         Group {
             if let L = store.L { content(L) } else { ProgressView() }
         }
-        .navigationTitle("资产负债表")
+        .navigationTitle(LS("资产负债表"))
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -477,23 +477,23 @@ struct BalanceSheetView: View {
                 }
                 .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
                 if asOf == .custom {
-                    DatePicker("截至日期", selection: dateBinding($custom), displayedComponents: .date)
+                    DatePicker(LS("截至日期"), selection: dateBinding($custom), displayedComponents: .date)
                 }
             }
             Section {
                 Card {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("截至 \(date)").font(.caption).foregroundStyle(.secondary)
+                        Text(LS("截至 %@", date)).font(.caption).foregroundStyle(.secondary)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("净资产").font(.subheadline).foregroundStyle(.secondary)
+                            Text(LS("净资产")).font(.subheadline).foregroundStyle(.secondary)
                             Text(money(bs.netWorth)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit().sensitive()
                         }
                         HStack(alignment: .top) {
-                            Figure(label: "资产总额", value: money(assets))
+                            Figure(label: LS("资产总额"), value: money(assets))
                             Spacer()
-                            Figure(label: "负债总额", value: money(liab), color: liab > 0.005 ? Color.loss : Color.primary)
+                            Figure(label: LS("负债总额"), value: money(liab), color: liab > 0.005 ? Color.loss : Color.primary)
                             Spacer()
-                            Figure(label: "资产负债率", value: assets > 0 && liab > 0.005 ? String(format: "%.1f%%", liab / assets * 100) : "—", alignment: .trailing)
+                            Figure(label: LS("资产负债率"), value: assets > 0 && liab > 0.005 ? String(format: "%.1f%%", liab / assets * 100) : "—", alignment: .trailing)
                         }
                         RatioBar(parts: [(max(0, assets - liab), Color.jade), (liab, Color.loss)])
                     }
@@ -503,38 +503,38 @@ struct BalanceSheetView: View {
             if series.count > 1 {
                 Section {
                     NetWorthChart(series: series, picked: $pickedMonth)
-                    Picker("区间", selection: $nwRange) {
-                        Text("1 年").tag(12)
-                        Text("2 年").tag(24)
-                        Text("5 年").tag(60)
-                        Text("全部").tag(0)
+                    Picker(LS("区间"), selection: $nwRange) {
+                        Text(LS("1 年")).tag(12)
+                        Text(LS("2 年")).tag(24)
+                        Text(LS("5 年")).tag(60)
+                        Text(LS("全部")).tag(0)
                     }
                     .pickerStyle(.segmented)
                 } header: {
-                    Text("净资产走势")
+                    Text(LS("净资产走势"))
                 }
             }
             Section {
                 AccountTreeRows(root: bs.assets, sign: 1)
             } header: {
-                SectionTotal(title: "资产", value: assets)
+                SectionTotal(title: LS("资产"), value: assets)
             }
             Section {
                 AccountTreeRows(root: bs.liabilities, sign: -1)
             } header: {
-                SectionTotal(title: "负债", value: liab)
+                SectionTotal(title: LS("负债"), value: liab)
             }
             Section {
                 AccountTreeRows(root: bs.equity, sign: -1)
                 HStack {
-                    Text("未结转损益").foregroundStyle(.secondary)
+                    Text(LS("未结转损益")).foregroundStyle(.secondary)
                     Spacer()
                     Text(money(-bs.earnings)).monospacedDigit().sensitive()
                 }
             } header: {
-                SectionTotal(title: "权益", value: -bs.equity.total - bs.earnings)
+                SectionTotal(title: LS("权益"), value: -bs.equity.total - bs.earnings)
             } footer: {
-                Text("未结转损益为期初至截止日的收入减支出（Fava 中的 Equity:Earnings:Current）。资产 = 负债 + 权益；外币按截止日汇率折算为 \(L.base)。")
+                Text(LS("未结转损益为期初至截止日的收入减支出（Fava 中的 Equity:Earnings:Current）。资产 = 负债 + 权益；外币按截止日汇率折算为 %@。", L.base))
             }
         }
         .listSectionSpacing(.compact)
@@ -555,11 +555,11 @@ struct NetWorthChart: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 if let s = sel {
-                    Text(Day.monthLabel(s.month) + "末").foregroundStyle(.secondary)
+                    Text(Day.monthLabel(s.month) + LS("末")).foregroundStyle(.secondary)
                     Spacer()
                     Text(money(s.netWorth)).fontWeight(.semibold).monospacedDigit().sensitive()
                 } else if let last = series.last, let first = series.first {
-                    Text("区间变动").foregroundStyle(.secondary)
+                    Text(LS("区间变动")).foregroundStyle(.secondary)
                     Spacer()
                     Text(signedMoney(last.netWorth - first.netWorth)).fontWeight(.semibold).monospacedDigit()
                         .foregroundStyle(last.netWorth >= first.netWorth ? Color.gain : Color.loss).sensitive()
@@ -613,7 +613,7 @@ struct TrialBalanceView: View {
         Group {
             if let L = store.L { content(L) } else { ProgressView() }
         }
-        .navigationTitle("试算平衡表")
+        .navigationTitle(LS("试算平衡表"))
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -628,15 +628,15 @@ struct TrialBalanceView: View {
             Section {
                 Card {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("截至 \(today) · 原始符号（借方为正，贷方为负）").font(.caption).foregroundStyle(.secondary)
+                        Text(LS("截至 %@ · 原始符号（借方为正，贷方为负）", today)).font(.caption).foregroundStyle(.secondary)
                         HStack(alignment: .top) {
-                            Figure(label: "借方合计", value: money(debit))
+                            Figure(label: LS("借方合计"), value: money(debit))
                             Spacer()
-                            Figure(label: "贷方合计", value: money(credit))
+                            Figure(label: LS("贷方合计"), value: money(credit))
                             Spacer()
-                            Figure(label: "差额", value: money(diff), color: abs(diff) < 0.5 ? Color.gain : Color.warn, alignment: .trailing)
+                            Figure(label: LS("差额"), value: money(diff), color: abs(diff) < 0.5 ? Color.gain : Color.warn, alignment: .trailing)
                         }
-                        Label(abs(diff) < 0.5 ? "借贷平衡" : "存在差额（多为外币折算或缺少价格所致）",
+                        Label(abs(diff) < 0.5 ? LS("借贷平衡") : LS("存在差额（多为外币折算或缺少价格所致）"),
                               systemImage: abs(diff) < 0.5 ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
                             .font(.footnote.weight(.medium))
                             .foregroundStyle(abs(diff) < 0.5 ? Color.gain : Color.warn)
@@ -648,7 +648,7 @@ struct TrialBalanceView: View {
                 Section {
                     AccountTreeRows(root: r, sign: 1)
                 } header: {
-                    SectionTotal(title: r.name + " · " + (ZH[r.name] ?? ""), value: r.total)
+                    SectionTotal(title: AppLanguage.current == .en ? r.name : r.name + " · " + (ZH[r.name] ?? ""), value: r.total)
                 }
             }
         }

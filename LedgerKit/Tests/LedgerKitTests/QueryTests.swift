@@ -96,4 +96,14 @@ final class QueryTests: XCTestCase {
         XCTAssertEqual(bs.netWorth, nw, accuracy: 0.01)
         XCTAssertFalse(netWorthSeries(L, today: TODAY).isEmpty)
     }
+
+    func testRemoveBalanceLine() throws {
+        let text = "2026-01-01 balance Assets:Cash        10.00 CNY\n2026-02-01 balance Assets:Cash        20.00 CNY\n\n2026-02-01 balance Assets:Bank        5.00 CNY\n"
+        var op = Op(kind: .remove, path: "b.bean")
+        op.line = "2026-02-01 balance Assets:Cash        20.00 CNY"
+        let out = try applyOps(text, path: "b.bean", ops: [op], strict: true)
+        XCTAssertEqual(out, "2026-01-01 balance Assets:Cash        10.00 CNY\n\n2026-02-01 balance Assets:Bank        5.00 CNY\n")
+        op.line = "2026-03-01 balance Assets:Cash 1 CNY"
+        XCTAssertThrowsError(try applyOps(text, path: "b.bean", ops: [op], strict: true))
+    }
 }

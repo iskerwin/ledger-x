@@ -16,7 +16,7 @@ struct OverviewView: View {
             Group {
                 if let L = store.L, let D = store.D { content(L, D) } else { ProgressView() }
             }
-            .navigationTitle("概览")
+            .navigationTitle(LS("概览"))
             .toolbar { StandardToolbar() }
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name) }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0) }
@@ -49,13 +49,13 @@ struct OverviewView: View {
         let months: [String] = yearMode ? (1...12).map { String(format: "%@-%02d", key, $0) } : (0..<12).map { Day.addMonth(month, $0 - 11) }
         let today = Day.today()
         var prev = 0.0
-        var prevLabel = "上月"
+        var prevLabel = LS("上月")
         if yearMode {
             let thisYear = key == String(today.prefix(4))
             let lastM = thisYear ? (Int(today.dropFirst(5).prefix(2)) ?? 12) : 12
             let py = String((Int(key) ?? 2000) - 1)
             for i in 1...lastM { prev += D.monthExp[String(format: "%@-%02d", py, i)] ?? 0 }
-            prevLabel = thisYear ? "去年同期" : "\(py) 年"
+            prevLabel = thisYear ? LS("去年同期") : LS("%@ 年", py)
         } else {
             prev = D.monthExp[Day.addMonth(month, -1)] ?? 0
         }
@@ -66,7 +66,7 @@ struct OverviewView: View {
         for (a, cs) in L.final where a.hasPrefix("Assets:") || a.hasPrefix("Liabilities:") {
             for (c, n) in cs { nw += toCNY(L, n, c) ?? 0 }
         }
-        return Summary(yearMode: yearMode, key: key, label: yearMode ? "\(key)年" : Day.monthLabel(month), months: months,
+        return Summary(yearMode: yearMode, key: key, label: yearMode ? LS("%@年", key) : Day.monthLabel(month), months: months,
                        exp: sum(D.monthExp, key), inc: sum(D.monthInc, key), prev: prev, prevLabel: prevLabel, avg: avg, nw: nw)
     }
 
@@ -92,9 +92,9 @@ struct OverviewView: View {
         return Group {
             Section {
                 HStack {
-                    Picker("周期", selection: $period) {
-                        Text("月").tag("month")
-                        Text("年").tag("year")
+                    Picker(LS("周期"), selection: $period) {
+                        Text(LS("月")).tag("month")
+                        Text(LS("年")).tag("year")
                     }
                     .pickerStyle(.segmented)
                     .frame(width: 110)
@@ -111,7 +111,7 @@ struct OverviewView: View {
                 Card {
                     VStack(alignment: .leading, spacing: 14) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(s.yearMode ? "本年支出" : "本月支出").font(.subheadline).foregroundStyle(.secondary)
+                            Text(s.yearMode ? LS("本年支出") : LS("本月支出")).font(.subheadline).foregroundStyle(.secondary)
                             Text(money(s.exp)).font(.system(size: 40, weight: .bold, design: .rounded)).monospacedDigit()
                                 .contentTransition(.numericText()).sensitive()
                             HStack(spacing: 6) {
@@ -121,23 +121,23 @@ struct OverviewView: View {
                                         .padding(.horizontal, 7).padding(.vertical, 3)
                                         .background((delta > 0 ? Color.loss : Color.gain).opacity(0.14), in: Capsule())
                                         .foregroundStyle(delta > 0 ? Color.loss : Color.gain)
-                                    Text("较" + s.prevLabel + "（" + money(s.prev) + "）").font(.caption).foregroundStyle(.secondary)
+                                    Text(LS("较") + s.prevLabel + LS("（") + money(s.prev) + LS("）")).font(.caption).foregroundStyle(.secondary)
                                 } else {
-                                    Text(s.prevLabel + "无支出记录").font(.caption).foregroundStyle(.secondary)
+                                    Text(s.prevLabel + LS("无支出记录")).font(.caption).foregroundStyle(.secondary)
                                 }
                             }
                             .sensitive()
                             if !s.yearMode {
-                                Text("前 11 个月月均 " + money(s.avg)).font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
+                                Text(LS("前 11 个月月均 ") + money(s.avg)).font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
                             }
                         }
                         Divider()
                         HStack(alignment: .top) {
-                            Figure(label: "收入", value: money(s.inc, "CNY", 0), color: .gain)
+                            Figure(label: LS("收入"), value: money(s.inc, "CNY", 0), color: .gain)
                             Spacer()
-                            Figure(label: "结余" + (rate.map { String(format: " · %.0f%%", $0) } ?? ""), value: money(net, "CNY", 0), color: net < 0 ? Color.loss : Color.primary)
+                            Figure(label: LS("结余") + (rate.map { String(format: " · %.0f%%", $0) } ?? ""), value: money(net, "CNY", 0), color: net < 0 ? Color.loss : Color.primary)
                             Spacer()
-                            Figure(label: "净资产", value: money(s.nw, "CNY", 0), alignment: .trailing)
+                            Figure(label: LS("净资产"), value: money(s.nw, "CNY", 0), alignment: .trailing)
                         }
                     }
                 }
@@ -179,16 +179,16 @@ struct OverviewView: View {
                     Text(Day.monthLabel(p) + "  " + money(D.monthExp[p] ?? 0)).monospacedDigit().sensitive()
                     Spacer()
                     if p != month || s.yearMode {
-                        Button("查看该月") { month = p; period = "month"; picked = nil }.buttonStyle(.borderless)
+                        Button(LS("查看该月")) { month = p; period = "month"; picked = nil }.buttonStyle(.borderless)
                     }
                 }
                 .font(.footnote)
             }
         } header: {
             HStack {
-                Text(s.yearMode ? "\(s.key) 年月度支出" : "近 12 个月支出")
+                Text(s.yearMode ? LS("%@ 年月度支出", s.key) : LS("近 12 个月支出"))
                 Spacer()
-                Text("点按柱形查看金额").textCase(nil)
+                Text(LS("点按柱形查看金额")).textCase(nil)
             }
         }
     }
@@ -196,8 +196,8 @@ struct OverviewView: View {
     private func categorySection(_ s: Summary, _ D: Derived) -> some View {
         let groups = categoryGroups(D, s.key)
         let maxG = max(1, groups.map { $0.total }.max() ?? 1)
-        return Section("支出构成") {
-            if groups.isEmpty { Text(s.label + "暂无支出记录").foregroundStyle(.secondary) }
+        return Section(LS("支出构成")) {
+            if groups.isEmpty { Text(s.label + LS("暂无支出记录")).foregroundStyle(.secondary) }
             ForEach(groups, id: \.name) { g in
                 Button {
                     if expanded.contains(g.name) { expanded.remove(g.name) } else { expanded.insert(g.name) }
@@ -222,7 +222,7 @@ struct OverviewView: View {
         let pay = topPayees(L, s.key)
         if !pay.isEmpty {
             let top = max(pay[0].1, 1)
-            Section("商户支出排行") {
+            Section(LS("商户支出排行")) {
                 ForEach(Array(pay.enumerated()), id: \.offset) { i, row in
                     HStack(spacing: 12) {
                         Text("\(i + 1)")
@@ -258,8 +258,8 @@ struct OverviewView: View {
                     Button { reimb = ReimbTarget(link: nil) } label: {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("待报销垫款")
-                                Text("\(D.unclaimed.count) 笔 · 最早 \(D.unclaimed[0].t.date) · 点按选择报销明细").font(.caption).foregroundStyle(.secondary)
+                                Text(LS("待报销垫款"))
+                                Text(LS("%@ 笔 · 最早 %@ · 点按选择报销明细", D.unclaimed.count, D.unclaimed[0].t.date)).font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
                             Amount(n: D.unclaimed.reduce(0.0) { $0 + $1.amount })
@@ -274,7 +274,7 @@ struct OverviewView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("^" + x.link).font(.subheadline)
-                                Text("\(x.n) 笔垫款 · 点按登记回款").font(.caption).foregroundStyle(.secondary)
+                                Text(LS("%@ 笔垫款 · 点按登记回款", x.n)).font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
                             Amount(n: x.amount, c: x.currency)
@@ -286,7 +286,7 @@ struct OverviewView: View {
                 }
             } header: {
                 HStack {
-                    Text("应收报销款")
+                    Text(LS("应收报销款"))
                     Spacer()
                     Text(money(recv)).monospacedDigit().sensitive()
                 }
@@ -304,7 +304,7 @@ struct OverviewView: View {
         liab.sort { $0.n < $1.n }
         let total = liab.reduce(0.0) { $0 + (toCNY(L, $1.n, $1.c) ?? 0) }
         return Section {
-            if liab.isEmpty { Text("无负债").foregroundStyle(.secondary) }
+            if liab.isEmpty { Text(LS("无负债")).foregroundStyle(.secondary) }
             ForEach(liab, id: \.id) { x in
                 NavigationLink(value: AccountDest(name: x.a)) {
                     HStack(spacing: 12) {
@@ -317,7 +317,7 @@ struct OverviewView: View {
             }
         } header: {
             HStack {
-                Text("负债")
+                Text(LS("负债"))
                 Spacer()
                 Text(money(total)).monospacedDigit().sensitive()
             }
@@ -326,16 +326,16 @@ struct OverviewView: View {
 
     private func checkSection(_ L: Ledger) -> some View {
         let okCount = L.balanceResults.filter { $0.ok }.count
-        return Section("账本校验") {
+        return Section(LS("账本校验")) {
             NavigationLink(value: ErrorsDest()) {
                 HStack {
                     if L.errors.isEmpty {
-                        Label("账本校验通过", systemImage: "checkmark.seal").foregroundStyle(Color.gain)
+                        Label(LS("账本校验通过"), systemImage: "checkmark.seal").foregroundStyle(Color.gain)
                     } else {
-                        Label("\(L.errors.count) 项错误", systemImage: "exclamationmark.triangle").foregroundStyle(Color.loss)
+                        Label(LS("%@ 项错误", L.errors.count), systemImage: "exclamationmark.triangle").foregroundStyle(Color.loss)
                     }
                     Spacer()
-                    Text("\(okCount)/\(L.balanceResults.count) 余额断言").font(.caption).foregroundStyle(.secondary)
+                    Text(LS("%@/%@ 余额断言", okCount, L.balanceResults.count)).font(.caption).foregroundStyle(.secondary)
                 }
             }
             CIRow()
@@ -419,15 +419,15 @@ struct CIRow: View {
         let ci = store.ci
         let row = HStack {
             switch ci?.state {
-            case .ok?: Label("bean-check 校验通过", systemImage: "checkmark.circle").foregroundStyle(Color.gain)
-            case .fail?: Label("bean-check 校验未通过", systemImage: "xmark.circle").foregroundStyle(Color.loss)
-            case .running?: Label("bean-check 运行中…", systemImage: "hourglass").foregroundStyle(.secondary)
-            case .empty?: Label("暂无 bean-check 运行记录", systemImage: "circle.dashed").foregroundStyle(.secondary)
-            case .noperm?: Label("需为 Token 授予 Actions: Read-only 权限以显示 bean-check 结果", systemImage: "lock").foregroundStyle(.secondary)
-            default: Label("正在获取 bean-check 状态", systemImage: "circle.dashed").foregroundStyle(.secondary)
+            case .ok?: Label(LS("bean-check 校验通过"), systemImage: "checkmark.circle").foregroundStyle(Color.gain)
+            case .fail?: Label(LS("bean-check 校验未通过"), systemImage: "xmark.circle").foregroundStyle(Color.loss)
+            case .running?: Label(LS("bean-check 运行中…"), systemImage: "hourglass").foregroundStyle(.secondary)
+            case .empty?: Label(LS("暂无 bean-check 运行记录"), systemImage: "circle.dashed").foregroundStyle(.secondary)
+            case .noperm?: Label(LS("需为 Token 授予 Actions: Read-only 权限以显示 bean-check 结果"), systemImage: "lock").foregroundStyle(.secondary)
+            default: Label(LS("正在获取 bean-check 状态"), systemImage: "circle.dashed").foregroundStyle(.secondary)
             }
             Spacer()
-            if let sha = ci?.sha, let head = store.tree?.commit, sha != head { Text("尚未校验最新提交").font(.caption).foregroundStyle(.secondary) }
+            if let sha = ci?.sha, let head = store.tree?.commit, sha != head { Text(LS("尚未校验最新提交")).font(.caption).foregroundStyle(.secondary) }
         }
         .font(.subheadline)
         if let u = ci?.url.flatMap(URL.init(string:)) { Link(destination: u) { row }.buttonStyle(.plain) } else { row }
@@ -439,8 +439,8 @@ struct ErrorsView: View {
     var body: some View {
         List {
             if let L = store.L {
-                Section("\(L.files.count) 个文件 · \(L.txns.count) 笔交易 · \(L.balanceResults.filter { $0.ok }.count)/\(L.balanceResults.count) 余额断言") {
-                    if L.errors.isEmpty { Label("未发现错误", systemImage: "checkmark.seal").foregroundStyle(Color.gain) }
+                Section(LS("%@ 个文件 · %@ 笔交易 · %@/%@ 余额断言", L.files.count, L.txns.count, L.balanceResults.filter { $0.ok }.count, L.balanceResults.count)) {
+                    if L.errors.isEmpty { Label(LS("未发现错误"), systemImage: "checkmark.seal").foregroundStyle(Color.gain) }
                     ForEach(Array(L.errors.enumerated()), id: \.offset) { _, e in
                         VStack(alignment: .leading, spacing: 3) {
                             Text(e.msg).font(.subheadline)
@@ -451,7 +451,7 @@ struct ErrorsView: View {
                 Section { CIRow() }
             }
         }
-        .navigationTitle("账本校验")
+        .navigationTitle(LS("账本校验"))
         .navigationBarTitleDisplayMode(.inline)
     }
 }

@@ -69,7 +69,7 @@ func interpolate(_ t: Entry, _ errors: inout [LedgerError]) {
         let r = res[c] ?? 0
         switch u.what {
         case .units:
-            if p.cost != nil || p.price != nil { errors.append(LedgerError(entry: t, msg: "缺数量的分录不能带成本或价格")); continue }
+            if p.cost != nil || p.price != nil { errors.append(LedgerError(entry: t, msg: tr("缺数量的分录不能带成本或价格", "A posting without units cannot have a cost or price"))); continue }
             p.units = roundTo(-r, min(dig[c] ?? 2, 8)); p.interpolated = true; p.digits = dig[c] ?? 2
         case .cost:
             p.cost!.number = abs(-r / p.units!); p.cost!.interpolated = true
@@ -81,7 +81,7 @@ func interpolate(_ t: Entry, _ errors: inout [LedgerError]) {
         if res[c] == nil { resOrder.append(c) }
         res[c] = 0
     }
-    if spread.count > 1 { errors.append(LedgerError(entry: t, msg: "只能有一条分录省略金额")) }
+    if spread.count > 1 { errors.append(LedgerError(entry: t, msg: tr("只能有一条分录省略金额", "Only one posting may omit its amount"))) }
     if let m = spread.first?.p, let idx = t.postings.firstIndex(where: { $0 === m }) {
         let ccys = resOrder.filter { abs(res[$0] ?? 0) > EPS }
         let fill: [Posting] = ccys.map { c in
@@ -125,18 +125,18 @@ func bookTxn(_ t: Entry, _ inv: inout [String: [Lot]], _ methodOf: (String) -> S
         // reduction
         var cands = same.filter { sign($0.units) == -sign(units) && matchLot($0, spec) }
         if cands.isEmpty {
-            errors.append(LedgerError(entry: t, msg: "\(p.account) 找不到匹配的 \(currency) 批次 {\(spec.raw)}", soft: true))
+            errors.append(LedgerError(entry: t, msg: tr("\(p.account) 找不到匹配的 \(currency) 批次 {\(spec.raw)}", "\(p.account): no \(currency) lot matches {\(spec.raw)}"), soft: true))
             continue
         }
         var need = abs(units)
         let avail = cands.reduce(0.0) { $0 + abs($1.units) }
         if avail + 1e-9 < need {
-            errors.append(LedgerError(entry: t, msg: "\(p.account) 的 \(currency) 不够减：需要 \(fmtNum(need, 4))，只有 \(fmtNum(avail, 4))", soft: true))
+            errors.append(LedgerError(entry: t, msg: tr("\(p.account) 的 \(currency) 不够减：需要 \(fmtNum(need, 4))，只有 \(fmtNum(avail, 4))", "\(p.account): not enough \(currency) to reduce: need \(fmtNum(need, 4)), have \(fmtNum(avail, 4))"), soft: true))
         }
         if method == "STRICT" && cands.count > 1 && abs(avail - need) > 1e-9 {
             let costs = Set(cands.map { "\($0.cost!.number)|\($0.cost!.date ?? "")|\($0.cost!.label ?? "")" })
             if costs.count > 1 {
-                errors.append(LedgerError(entry: t, msg: "\(p.account) 有多个 \(currency) 批次符合 {\(spec.raw)}，STRICT 无法确定，已按 FIFO 处理", soft: true))
+                errors.append(LedgerError(entry: t, msg: tr("\(p.account) 有多个 \(currency) 批次符合 {\(spec.raw)}，STRICT 无法确定，已按 FIFO 处理", "\(p.account): several \(currency) lots match {\(spec.raw)}; ambiguous under STRICT, booked as FIFO"), soft: true))
             }
         }
         if method == "LIFO" { cands.reverse() }
@@ -213,7 +213,7 @@ public func loadLedger(root: String = "main.bean", readFile: @escaping (String) 
         seen.insert(path)
         let text: String
         do { text = try readFile(path) } catch {
-            errors.append(LedgerError(file: path, line: 0, msg: "读不到 \(path)：\(error.localizedDescription)"))
+            errors.append(LedgerError(file: path, line: 0, msg: tr("读不到 \(path)：\(error.localizedDescription)", "Cannot read \(path): \(error.localizedDescription)")))
             return
         }
         files.append(path)
@@ -282,12 +282,12 @@ public func build(_ input: [Entry], files: [String] = [], options: [String: [Str
         switch e.type {
         case .open:
             let a = e.account ?? ""
-            if let ex = L.accounts[a], !ex.implicit { L.errors.append(LedgerError(entry: e, msg: "重复开立账户：\(a)")) }
+            if let ex = L.accounts[a], !ex.implicit { L.errors.append(LedgerError(entry: e, msg: tr("重复开立账户：\(a)", "Account opened twice: \(a)"))) }
             L.accounts[a] = Account(name: a, open: e.date, close: nil, currencies: e.currencies, booking: e.booking, meta: e.meta)
         case .close:
             let a = e.account ?? ""
             if L.accounts[a] != nil { L.accounts[a]!.close = e.date }
-            else { L.errors.append(LedgerError(entry: e, msg: "关闭了不存在的账户：\(a)")) }
+            else { L.errors.append(LedgerError(entry: e, msg: tr("关闭了不存在的账户：\(a)", "Closing an account that was never opened: \(a)"))) }
         case .commodity: if let c = e.currency { L.commodities[c] = e.meta }
         case .price: L.prices.append(e)
         case .event: L.events.append(e)
@@ -298,22 +298,22 @@ public func build(_ input: [Entry], files: [String] = [], options: [String: [Str
             if let a = e.account { pending[a] = PadState(e) }
         case .txn:
             let t = e
-            if !t.bad.isEmpty { L.errors.append(LedgerError(entry: t, msg: "无法解析：\(t.bad.joined(separator: " | "))")) }
+            if !t.bad.isEmpty { L.errors.append(LedgerError(entry: t, msg: tr("无法解析：\(t.bad.joined(separator: " | "))", "Cannot parse: \(t.bad.joined(separator: " | "))"))) }
             bookTxn(t, &inv, methodOf, &L.errors)
             interpolate(t, &L.errors)
             for p in t.postings {
                 if let acc = L.accounts[p.account] {
-                    if let o = acc.open, t.date < o { L.errors.append(LedgerError(entry: t, msg: "\(p.account) 在 \(o) 才开立")) }
-                    else if let c = acc.close, t.date > c { L.errors.append(LedgerError(entry: t, msg: "\(p.account) 已于 \(c) 关闭")) }
-                    if !acc.currencies.isEmpty, let c = p.currency, !acc.currencies.contains(c) { L.errors.append(LedgerError(entry: t, msg: "\(p.account) 不允许 \(c)")) }
+                    if let o = acc.open, t.date < o { L.errors.append(LedgerError(entry: t, msg: tr("\(p.account) 在 \(o) 才开立", "\(p.account) is not open until \(o)"))) }
+                    else if let c = acc.close, t.date > c { L.errors.append(LedgerError(entry: t, msg: tr("\(p.account) 已于 \(c) 关闭", "\(p.account) was closed on \(c)"))) }
+                    if !acc.currencies.isEmpty, let c = p.currency, !acc.currencies.contains(c) { L.errors.append(LedgerError(entry: t, msg: tr("\(p.account) 不允许 \(c)", "\(p.account) does not allow \(c)"))) }
                 } else {
                     L.accounts[p.account] = Account(name: p.account, implicit: true)
-                    L.errors.append(LedgerError(entry: t, msg: "账户未开立：\(p.account)"))
+                    L.errors.append(LedgerError(entry: t, msg: tr("账户未开立：\(p.account)", "Account not opened: \(p.account)")))
                 }
             }
             let tol = tolerances(t)
             for (c, v) in weightSums(t) where abs(v) > (tol[c] ?? 0.005) + 1e-9 {
-                L.errors.append(LedgerError(entry: t, msg: "不平衡 \(fmtNum(v, 4)) \(c)"))
+                L.errors.append(LedgerError(entry: t, msg: tr("不平衡 \(fmtNum(v, 4)) \(c)", "Unbalanced by \(fmtNum(v, 4)) \(c)")))
             }
             applyInventory(t, &inv)
             for p in t.postings { if let u = p.units, let c = p.currency { add(p.account, c, u) } }
@@ -345,7 +345,7 @@ public func build(_ input: [Entry], files: [String] = [], options: [String: [Str
             let ok = abs(got - e.number) <= tol + 1e-9
             L.balanceResults.append(BalanceResult(entry: e, got: got, ok: ok, diff: got - e.number))
             if !ok {
-                L.errors.append(LedgerError(entry: e, msg: "余额断言失败：\(acct) 应为 \(fmtNum(e.number)) \(ccy)，实际 \(fmtNum(got))（差 \(fmtNum(got - e.number))）"))
+                L.errors.append(LedgerError(entry: e, msg: tr("余额断言失败：\(acct) 应为 \(fmtNum(e.number)) \(ccy)，实际 \(fmtNum(got))（差 \(fmtNum(got - e.number))）", "Balance failed: \(acct) expected \(fmtNum(e.number)) \(ccy), got \(fmtNum(got)) (off by \(fmtNum(got - e.number)))")))
             }
         default: break
         }
@@ -363,7 +363,7 @@ public func build(_ input: [Entry], files: [String] = [], options: [String: [Str
     for pd in L.pads {
         let a = pd.account ?? ""
         if pending[a] == nil || (pending[a]!.pad === pd && pending[a]!.used.isEmpty) {
-            L.errors.append(LedgerError(entry: pd, msg: "pad \(a) 之后没有余额断言，没有生效"))
+            L.errors.append(LedgerError(entry: pd, msg: tr("pad \(a) 之后没有余额断言，没有生效", "pad \(a) has no following balance assertion and has no effect")))
         }
     }
     for (i, t) in L.txns.enumerated() { t.id = i }
@@ -475,7 +475,7 @@ public struct CheckResult {
 public func checkText(_ text: String, _ L: Ledger?) -> CheckResult {
     let r = parseFile(text, file: "draft")
     var errors = r.errors
-    if !r.includes.isEmpty || !r.options.isEmpty || !r.plugins.isEmpty { errors.append(LedgerError(file: nil, line: nil, msg: "include / option / plugin 请直接改 main.bean")) }
+    if !r.includes.isEmpty || !r.options.isEmpty || !r.plugins.isEmpty { errors.append(LedgerError(file: nil, line: nil, msg: tr("include / option / plugin 请直接改 main.bean", "Edit include / option / plugin directly in main.bean"))) }
     var inv: [String: [Lot]] = [:]
     for (a, lots) in L?.inventory ?? [:] { inv[a] = lots.map { $0.clone() } }
     let defaultBooking = ((L?.options["booking_method"]?.first ?? nil) ?? "STRICT")
@@ -483,33 +483,33 @@ public func checkText(_ text: String, _ L: Ledger?) -> CheckResult {
     func opened(_ a: String) -> Bool { r.entries.contains { $0.type == .open && $0.account == a } }
     for e in r.entries {
         if e.type == .txn {
-            if let b = e.bad.first { errors.append(LedgerError(entry: e, msg: "无法解析：" + b)) }
-            if e.postings.isEmpty { errors.append(LedgerError(entry: e, msg: "交易至少需要一条分录")) }
+            if let b = e.bad.first { errors.append(LedgerError(entry: e, msg: tr("无法解析：" + b, "Cannot parse: " + b))) }
+            if e.postings.isEmpty { errors.append(LedgerError(entry: e, msg: tr("交易至少需要一条分录", "A transaction needs at least one posting"))) }
             var errs: [LedgerError] = []
             bookTxn(e, &inv, methodOf, &errs)
             interpolate(e, &errs)
             errors.append(contentsOf: errs)
             let tol = tolerances(e)
             for (c, v) in weightSums(e) where abs(v) > (tol[c] ?? 0.005) + 1e-9 {
-                errors.append(LedgerError(entry: e, msg: "不平衡：差 \(fmtNum(v, 4)) \(c)"))
+                errors.append(LedgerError(entry: e, msg: tr("不平衡：差 \(fmtNum(v, 4)) \(c)", "Unbalanced by \(fmtNum(v, 4)) \(c)")))
             }
             if let L = L {
                 for p in e.postings where L.accounts[p.account] == nil && !opened(p.account) {
-                    errors.append(LedgerError(entry: e, msg: "账户未开立：" + p.account))
+                    errors.append(LedgerError(entry: e, msg: tr("账户未开立：" + p.account, "Account not opened: " + p.account)))
                 }
             }
             applyInventory(e, &inv)
         } else if [.balance, .pad, .note, .document, .close].contains(e.type) {
             if let L = L {
                 for a in [e.account, e.source].compactMap({ $0 }) where L.accounts[a] == nil && !opened(a) {
-                    errors.append(LedgerError(entry: e, msg: "账户未开立：" + a))
+                    errors.append(LedgerError(entry: e, msg: tr("账户未开立：" + a, "Account not opened: " + a)))
                 }
             }
         } else if e.type == .open, let L = L, let a = e.account, let ex = L.accounts[a], !ex.implicit {
-            errors.append(LedgerError(entry: e, msg: "账户已经开立过：" + a))
+            errors.append(LedgerError(entry: e, msg: tr("账户已经开立过：" + a, "Account already opened: " + a)))
         }
     }
-    if r.entries.isEmpty && errors.isEmpty { errors.append(LedgerError(file: nil, line: nil, msg: "没有可以写入的内容")) }
+    if r.entries.isEmpty && errors.isEmpty { errors.append(LedgerError(file: nil, line: nil, msg: tr("没有可以写入的内容", "Nothing to write"))) }
     let hard = errors.filter { !$0.soft }
     return CheckResult(ok: hard.isEmpty, errors: hard, warnings: errors.filter { $0.soft }, entries: r.entries, msg: hard.first?.msg)
 }

@@ -11,12 +11,12 @@ struct AccountsView: View {
             Group {
                 if let L = store.L { list(L) } else { ProgressView() }
             }
-            .navigationTitle("账户")
+            .navigationTitle(LS("账户"))
             .toolbar {
                 StandardToolbar()
                 ToolbarItem(placement: .topBarLeading) {
                     Toggle(isOn: $showClosed) { Image(systemName: "archivebox") }.toggleStyle(.button)
-                        .accessibilityLabel("显示已关闭和为零的账户")
+                        .accessibilityLabel(LS("显示已关闭和为零的账户"))
                 }
             }
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name) }
@@ -74,8 +74,8 @@ struct AccountsView: View {
             }
         } header: {
             HStack(spacing: 6) {
-                Text(ZH[g] ?? g)
-                Text(g).foregroundStyle(.tertiary).textCase(nil)
+                Text(groupName(g))
+                if AppLanguage.current != .en { Text(g).foregroundStyle(.tertiary).textCase(nil) }
                 Spacer()
                 Text(money(cnyTotal(L, rs))).monospacedDigit().sensitive().textCase(nil)
             }
@@ -87,15 +87,15 @@ struct AccountsView: View {
             Card {
                 VStack(alignment: .leading, spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("净资产").font(.subheadline).foregroundStyle(.secondary)
+                        Text(LS("净资产")).font(.subheadline).foregroundStyle(.secondary)
                         Text(money(assets + liab)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit().sensitive()
                     }
                     HStack(alignment: .top) {
-                        Figure(label: "资产", value: money(assets))
+                        Figure(label: LS("资产"), value: money(assets))
                         Spacer()
-                        Figure(label: "负债", value: money(-liab), color: liab < -0.005 ? Color.loss : Color.primary)
+                        Figure(label: LS("负债"), value: money(-liab), color: liab < -0.005 ? Color.loss : Color.primary)
                         Spacer()
-                        Figure(label: "资产负债率", value: assets > 0 && liab < -0.005 ? String(format: "%.1f%%", -liab / assets * 100) : "—", alignment: .trailing)
+                        Figure(label: LS("资产负债率"), value: assets > 0 && liab < -0.005 ? String(format: "%.1f%%", -liab / assets * 100) : "—", alignment: .trailing)
                     }
                     RatioBar(parts: [(max(0, assets + liab), Color.jade), (-liab, Color.loss)])
                 }
@@ -116,7 +116,7 @@ struct AccountsView: View {
                                       color: item.0.hasPrefix("Income") ? .green : .gray, size: 28)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(leaf(item.0))
-                                Text(acctZH(item.0) ?? (item.0.hasPrefix("Income") ? "收入" : "支出")).font(.caption).foregroundStyle(.secondary)
+                                Text(acctZH(item.0) ?? (item.0.hasPrefix("Income") ? LS("收入") : LS("支出"))).font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
                             Amount(n: -item.1, color: true)
@@ -124,7 +124,7 @@ struct AccountsView: View {
                     }
                 }
             } header: {
-                Text(year + " 年收支科目")
+                Text(year + LS(" 年收支科目"))
             }
         }
     }
@@ -135,19 +135,19 @@ struct AccountsView: View {
         if !hs.isEmpty {
             let value = hs.reduce(0.0) { $0 + (toCNY(L, $1.value ?? $1.cost, $1.q) ?? 0) }
             let cost = hs.reduce(0.0) { $0 + (toCNY(L, $1.cost, $1.q) ?? 0) }
-            let names = NSOrderedSet(array: hs.map { $0.c }).array.compactMap { $0 as? String }.joined(separator: "、")
+            let names = NSOrderedSet(array: hs.map { $0.c }).array.compactMap { $0 as? String }.joined(separator: LS("、"))
             Section {
                 NavigationLink(value: HoldingsDest()) {
                     HStack(spacing: 12) {
                         IconBadge(symbol: "chart.line.uptrend.xyaxis", color: .purple)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("投资持仓")
+                            Text(LS("投资持仓"))
                             Text(names).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         }
                         Spacer()
                         VStack(alignment: .trailing, spacing: 2) {
                             Amount(n: value, c: L.base)
-                            Text(signedMoney(value - cost, L.base) + (cost > 0 ? String(format: "（%@%.1f%%）", value >= cost ? "+" : "", (value - cost) / cost * 100) : ""))
+                            Text(signedMoney(value - cost, L.base) + (cost > 0 ? String(format: LS("（%@%.1f%%）"), value >= cost ? "+" : "", (value - cost) / cost * 100) : ""))
                                 .font(.caption.monospacedDigit())
                                 .foregroundStyle(value >= cost ? Color.gain : Color.loss).sensitive()
                         }
@@ -225,8 +225,8 @@ struct AccountRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(name).foregroundStyle(closed ? Color.secondary : Color.primary).lineLimit(1)
-                    if failing { Tag(text: "断言不符", warn: true) }
-                    if closed { Tag(text: "已关闭") }
+                    if failing { Tag(text: LS("断言不符"), warn: true) }
+                    if closed { Tag(text: LS("已关闭")) }
                 }
                 Text(balances.count > 1 ? balances.map { $0.0 }.joined(separator: " · ") : account)
                     .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
@@ -251,6 +251,7 @@ struct RegisterView: View {
     let account: String
     @State private var checking: CheckPreset?
     @State private var reimb: ReimbTarget?
+    @State private var deleting: Entry?
 
     enum Item { case txn(Entry, String), balance(BalanceResult), document(Entry) }
 
@@ -262,6 +263,14 @@ struct RegisterView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $checking) { p in CheckSheet(account: account, preset: p) }
         .sheet(item: $reimb) { ReimbSheet(target: $0) }
+        .confirmationDialog(deleting.map { LS("删除 %@ 的余额断言？", $0.date) } ?? "", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
+            Button(LS("删除"), role: .destructive) {
+                if let e = deleting { Task { await store.deleteBalance(e) } }
+                deleting = nil
+            }
+        } message: {
+            Text(LS("将从账本文件中移除这一行断言。"))
+        }
         .task {
             if store.demoEnv["LEDGER_CHECK"] != nil { checking = CheckPreset(actual: store.demoEnv["LEDGER_CHECK"]) }
         }
@@ -277,11 +286,11 @@ struct RegisterView: View {
         let total = built.0.count
         return List {
             header(L, built.1)
-            Section(total > 300 ? "最近 300 条" : "共 \(total) 条") {
+            Section(total > 300 ? LS("最近 300 条") : LS("共 %@ 条", total)) {
                 ForEach(Array(items.enumerated()), id: \.offset) { pair in
                     itemRow(pair.element, canCheck(L))
                 }
-                if items.isEmpty { Text("暂无记录").foregroundStyle(.secondary) }
+                if items.isEmpty { Text(LS("暂无记录")).foregroundStyle(.secondary) }
             }
         }
     }
@@ -289,7 +298,7 @@ struct RegisterView: View {
     private func header(_ L: Ledger, _ bal: [(String, Double)]) -> some View {
         let isIE = account.hasPrefix("Income") || account.hasPrefix("Expenses")
         let bs = bal.filter { abs($0.1) > 0.0049 }
-        let closedNote = L.accounts[account]?.close.map { " · 已于 \($0) 关闭" } ?? ""
+        let closedNote = L.accounts[account]?.close.map { LS(" · 已于 %@ 关闭", $0) } ?? ""
         let check = canCheck(L)
         let k = AccountKind.of(account)
         let isIEIcon = account.hasPrefix("Income") ? ("arrow.down.circle.fill", Color.green) : ("arrow.up.circle.fill", Color.gray)
@@ -304,18 +313,18 @@ struct RegisterView: View {
                         }
                     }
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(isIE ? "累计发生额" : "当前余额").font(.caption).foregroundStyle(.secondary)
+                        Text(isIE ? LS("累计发生额") : LS("当前余额")).font(.caption).foregroundStyle(.secondary)
                         if bs.isEmpty { Text("0.00").font(.system(size: 30, weight: .bold, design: .rounded)) }
                         ForEach(bs, id: \.0) { b in
                             Text(money(isIE ? -b.1 : b.1, b.0)).font(.system(size: 30, weight: .bold, design: .rounded)).monospacedDigit().sensitive()
                         }
                     }
                     HStack(spacing: 8) {
-                        Button { store.journalAccount = account; store.tab = .journal } label: { Label("查看明细", systemImage: "list.bullet") }
+                        Button { store.journalAccount = account; store.tab = .journal } label: { Label(LS("查看明细"), systemImage: "list.bullet") }
                         if account == store.receivable, !(store.D?.unclaimed.isEmpty ?? true) {
-                            Button { reimb = ReimbTarget(link: nil) } label: { Label("登记报销回款", systemImage: "arrow.down.left") }
+                            Button { reimb = ReimbTarget(link: nil) } label: { Label(LS("登记报销回款"), systemImage: "arrow.down.left") }
                         }
-                        if check { Button { checking = CheckPreset() } label: { Label("余额核对", systemImage: "checkmark.seal") } }
+                        if check { Button { checking = CheckPreset() } label: { Label(LS("余额核对"), systemImage: "checkmark.seal") } }
                     }
                     .buttonStyle(.bordered)
                     .buttonBorderShape(.capsule)
@@ -333,15 +342,31 @@ struct RegisterView: View {
         case .txn(let t, let b):
             NavigationLink(value: TxDest(t)) { TxRow(t: t, account: account, balance: b, showDate: true) }
         case .balance(let r):
+            let own = r.entry.account == account && check
             BalanceRow(r: r) {
-                if r.entry.account == account && check {
-                    checking = CheckPreset(date: r.entry.date, currency: r.entry.currency, actual: jsNumberString(r.entry.number))
+                if own { checking = CheckPreset(date: r.entry.date, currency: r.entry.currency, actual: jsNumberString(r.entry.number), original: r.entry) }
+            }
+            .swipeActions(edge: .trailing) {
+                if r.entry.account == account {
+                    Button(role: .destructive) { deleting = r.entry } label: { Label(LS("删除"), systemImage: "trash") }
+                    if own {
+                        Button { checking = CheckPreset(date: r.entry.date, currency: r.entry.currency, actual: jsNumberString(r.entry.number), original: r.entry) } label: { Label(LS("编辑"), systemImage: "pencil") }
+                            .tint(.orange)
+                    }
+                }
+            }
+            .contextMenu {
+                if r.entry.account == account {
+                    if own {
+                        Button { checking = CheckPreset(date: r.entry.date, currency: r.entry.currency, actual: jsNumberString(r.entry.number), original: r.entry) } label: { Label(LS("编辑断言"), systemImage: "pencil") }
+                    }
+                    Button(role: .destructive) { deleting = r.entry } label: { Label(LS("删除断言"), systemImage: "trash") }
                 }
             }
         case .document(let d):
             HStack {
                 Image(systemName: "doc.text")
-                Text(d.date + " 对账单")
+                Text(d.date + LS(" 对账单"))
                 Spacer()
                 if let p = d.path, let u = docURL(p) {
                     Link((p as NSString).lastPathComponent, destination: u).font(.caption)
@@ -395,13 +420,13 @@ struct BalanceRow: View {
         let c = r.entry.currency ?? "CNY"
         Button(action: tap) {
             HStack {
-                Text(r.entry.date + " 余额断言").font(.subheadline)
+                Text(r.entry.date + LS(" 余额断言")).font(.subheadline)
                 Text(money(r.entry.number, c)).font(.subheadline.monospacedDigit()).sensitive()
                 Spacer()
                 if r.ok {
-                    Label("相符", systemImage: "checkmark").font(.caption).foregroundStyle(Color.gain)
+                    Label(LS("相符"), systemImage: "checkmark").font(.caption).foregroundStyle(Color.gain)
                 } else {
-                    Text("实际 " + money(r.got, c)).font(.caption.monospacedDigit()).foregroundStyle(Color.loss).sensitive()
+                    Text(LS("实际 ") + money(r.got, c)).font(.caption.monospacedDigit()).foregroundStyle(Color.loss).sensitive()
                 }
             }
         }
@@ -415,6 +440,8 @@ struct CheckPreset: Identifiable {
     var date: String?
     var currency: String?
     var actual: String?
+    /// editing an existing assertion: it is removed when the new one is written
+    var original: Entry?
 }
 
 // MARK: - 对账
@@ -436,9 +463,9 @@ struct CheckSheet: View {
                 if let L = store.L, let D = store.D { form(L, D) } else { ProgressView() }
             }
             .keyboardDone()
-            .navigationTitle("余额核对")
+            .navigationTitle(preset.original != nil ? LS("编辑余额断言") : LS("余额核对"))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } } }
         }
     }
 
@@ -454,8 +481,20 @@ struct CheckSheet: View {
         let a = evalAmount(actual)
         return Form {
             inputSection(ccys)
-            infoSection(L, old, a)
+            infoSection(L, clash(old), a)
             saveSection(L, old, a)
+            if let o = preset.original {
+                Section {
+                    Button(role: .destructive) {
+                        dismiss()
+                        Task { await store.deleteBalance(o) }
+                    } label: {
+                        Label(LS("删除此断言"), systemImage: "trash").frame(maxWidth: .infinity)
+                    }
+                } footer: {
+                    Text(LS("修改日期、币种或金额后保存，原断言（%@ %@）将被替换，不会产生重复记录。", o.date, money(o.number, o.currency ?? "CNY")))
+                }
+            }
         }
         .onAppear {
             if let d = preset.date { date = d }
@@ -476,24 +515,24 @@ struct CheckSheet: View {
                     Text("±").font(.title3).frame(width: 38, height: 34).background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 8))
                 }
                 .buttonStyle(.plain)
-                TextField(account.hasPrefix("Liabilities") ? "负债以负数填写，如 -1200" : "金融机构显示的实际余额", text: $actual)
+                TextField(account.hasPrefix("Liabilities") ? LS("负债以负数填写，如 -1200") : LS("金融机构显示的实际余额"), text: $actual)
                     .keyboardType(.decimalPad)
                     .focused($focused)
                     .font(.title3.monospacedDigit())
                     .onChange(of: actual) { _, _ in armed = false }
             }
             if ccys.count > 1 {
-                Picker("币种", selection: $currency) {
+                Picker(LS("币种"), selection: $currency) {
                     ForEach(ccys, id: \.self) { Text($0).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 .onChange(of: currency) { _, _ in armed = false }
             }
-            DatePicker("断言日期", selection: Binding(get: { Day.date(date) ?? Date() }, set: { date = Day.string($0); armed = false }), displayedComponents: .date)
+            DatePicker(LS("断言日期"), selection: Binding(get: { Day.date(date) ?? Date() }, set: { date = Day.string($0); armed = false }), displayedComponents: .date)
         } header: {
-            Text("实际余额")
+            Text(LS("实际余额"))
         } footer: {
-            Text("Beancount 余额断言在当日开始时校验；断言日期设为明天，即核对今日日终余额。")
+            Text(LS("Beancount 余额断言在当日开始时校验；断言日期设为明天，即核对今日日终余额。"))
         }
     }
 
@@ -501,34 +540,42 @@ struct CheckSheet: View {
         let book = bookAt(L)
         let diff = a.map { roundTo($0 - book, 2) }
         return Section {
-            LabeledContent("账本余额（\(date) 之前）") {
+            LabeledContent(LS("账本余额（%@ 之前）", date)) {
                 Text(money(book, currency)).monospacedDigit().sensitive()
             }
             if let diff = diff {
-                LabeledContent("差额") {
-                    Text(abs(diff) > 0.004 ? signedMoney(diff, currency) + "，请先补录遗漏的交易" : "一致")
+                LabeledContent(LS("差额")) {
+                    Text(abs(diff) > 0.004 ? signedMoney(diff, currency) + LS("，请先补录遗漏的交易") : LS("一致"))
                         .foregroundStyle(abs(diff) > 0.004 ? Color.loss : Color.gain)
                         .monospacedDigit()
                         .sensitive()
                 }
             }
             if let o = old {
-                LabeledContent("\(date) 已存在余额断言") {
-                    Text(money(o.entry.number, currency) + (o.ok ? "（相符）" : "（不符）")).monospacedDigit().sensitive()
+                LabeledContent(LS("%@ 已存在余额断言", date)) {
+                    Text(money(o.entry.number, currency) + (o.ok ? LS("（相符）") : LS("（不符）"))).monospacedDigit().sensitive()
                 }
                 .foregroundStyle(.orange)
             }
             if let a = a {
                 MonoText(text: balanceLine(date, account, a, currency))
-                Text(old != nil ? "将覆盖 \(old!.entry.file) 中的原断言。" : "将写入 \(balanceFile(L))，位于该账户已有断言之后。")
+                Text(old != nil ? LS("将覆盖 %@ 中的原断言。", old!.entry.file) : preset.original.map { LS("将替换 %@ 中的原断言。", $0.file) } ?? LS("将写入 %@，位于该账户已有断言之后。", balanceFile(L)))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }
     }
 
-    private func saveSection(_ L: Ledger, _ old: BalanceResult?, _ a: Double?) -> some View {
-        let title = old != nil ? (armed ? "再次点按以确认覆盖" : "覆盖原断言") : "写入余额断言"
+    /// another assertion (not the one being edited) already on this date and currency
+    private func clash(_ old: BalanceResult?) -> BalanceResult? {
+        guard let o = old else { return nil }
+        if let orig = preset.original, o.entry === orig { return nil }
+        return o
+    }
+
+    private func saveSection(_ L: Ledger, _ old0: BalanceResult?, _ a: Double?) -> some View {
+        let old = clash(old0)
+        let title = old != nil ? (armed ? LS("再次点按以确认覆盖") : LS("覆盖原断言")) : preset.original != nil ? LS("保存修改") : LS("写入余额断言")
         return Section {
             Button {
                 save(L, old, a)
@@ -544,8 +591,13 @@ struct CheckSheet: View {
         }
     }
 
-    private func save(_ L: Ledger, _ old: BalanceResult?, _ a: Double?) {
-        guard let a = a else { store.show("请填写实际余额"); return }
+    private func save(_ L: Ledger, _ old0: BalanceResult?, _ a: Double?) {
+        guard let a = a else { store.show(LS("请填写实际余额")); return }
+        if let orig = preset.original {
+            saveEdit(L, orig, old0, a)
+            return
+        }
+        let old = old0
         if old != nil && !armed { armed = true; return }
         var op = Op(kind: .balance, path: old?.entry.file ?? balanceFile(L))
         op.account = account
@@ -553,12 +605,39 @@ struct CheckSheet: View {
         op.currency = currency
         op.replace = old != nil
         op.line = balanceLine(date, account, a, currency)
-        op.label = (old != nil ? "覆盖余额断言：" : "余额核对：") + account + " " + date
-        op.summary = (old != nil ? "覆盖" : "") + "余额断言 " + account
+        op.label = (old != nil ? LS("覆盖余额断言：") : LS("余额核对：")) + account + " " + date
+        op.summary = (old != nil ? LS("覆盖") : "") + LS("余额断言 ") + account
         op.amountText = money(a, currency)
         dismiss()
-        let word = old != nil ? "已更新余额断言" : "已写入余额断言"
+        let word = old != nil ? LS("已更新余额断言") : LS("已写入余额断言")
         Task { await store.commit([op], word: word) }
+    }
+
+    private func saveEdit(_ L: Ledger, _ orig: Entry, _ old0: BalanceResult?, _ a: Double) {
+        let other = clash(old0)
+        if other != nil && !armed { armed = true; return }
+        let sameLine = old0.map { $0.entry === orig } ?? false
+        var op = Op(kind: .balance, path: sameLine ? orig.file : (other?.entry.file ?? balanceFile(L)))
+        op.account = account
+        op.date = date
+        op.currency = currency
+        op.replace = sameLine || other != nil
+        op.line = balanceLine(date, account, a, currency)
+        op.amountText = money(a, currency)
+        op.label = LS("修改余额断言：") + account + " " + date
+        op.summary = LS("修改余额断言 ") + account
+        dismiss()
+        Task {
+            if sameLine {
+                await store.commit([op], word: LS("已更新余额断言"))
+                return
+            }
+            guard var rm = await store.balanceRemoveOp(orig) else { store.show(LS("未在 %@ 中找到原断言", orig.file)); return }
+            rm.label = op.label
+            op.label = nil
+            op.silent = true
+            await store.commit([rm, op], word: LS("已更新余额断言"))
+        }
     }
 
     private func currencies(_ L: Ledger, _ D: Derived) -> [String] {

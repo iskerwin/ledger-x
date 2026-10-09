@@ -138,7 +138,7 @@ func qTokenize(_ s: String) throws -> [QTok] {
                 if a[j] == "\\", j + 1 < a.count { j += 1 }
                 v.append(a[j]); j += 1
             }
-            guard j < a.count else { throw QueryError("字符串缺少结束引号") }
+            guard j < a.count else { throw QueryError(tr("字符串缺少结束引号", "Unterminated string")) }
             out.append(.string(String(v)))
             i = j + 1
             continue
@@ -164,7 +164,7 @@ func qTokenize(_ s: String) throws -> [QTok] {
         let two = i + 1 < a.count ? str(a[i...i + 1]) : ""
         if ["<=", ">=", "!=", "<>", "!~", "=="].contains(two) { out.append(.op(two == "==" ? "=" : two == "<>" ? "!=" : two)); i += 2; continue }
         if "=<>~+-*/(),".unicodeScalars.contains(c) { out.append(.op(String(c))); i += 1; continue }
-        throw QueryError("无法识别的字符：\(c)")
+        throw QueryError(tr("无法识别的字符：\(c)", "Unexpected character: \(c)"))
     }
     out.append(.end)
     return out
@@ -232,7 +232,7 @@ final class QParser {
     func eatKw(_ k: String) -> Bool { if kw(k) { i += 1; return true }; return false }
     func isOp(_ o: String) -> Bool { cur == .op(o) }
     func eatOp(_ o: String) -> Bool { if isOp(o) { i += 1; return true }; return false }
-    func expectKw(_ k: String) throws { guard eatKw(k) else { throw QueryError("此处应为 \(k)") } }
+    func expectKw(_ k: String) throws { guard eatKw(k) else { throw QueryError(tr("此处应为 \(k)", "Expected \(k)")) } }
 
     func statement() throws -> QStatement {
         if eatKw("BALANCES") {
@@ -269,7 +269,7 @@ final class QParser {
                 let e = try expr()
                 var alias: String? = nil
                 if eatKw("AS") {
-                    guard case .ident(let a) = cur else { throw QueryError("AS 之后应为列别名") }
+                    guard case .ident(let a) = cur else { throw QueryError(tr("AS 之后应为列别名", "Expected a column alias after AS")) }
                     alias = a; i += 1
                 }
                 st.targets.append(QTarget(expr: e, alias: alias))
@@ -298,17 +298,17 @@ final class QParser {
             } while eatOp(",")
         }
         if eatKw("LIMIT") {
-            guard case .number(let n) = cur else { throw QueryError("LIMIT 之后应为整数") }
+            guard case .number(let n) = cur else { throw QueryError(tr("LIMIT 之后应为整数", "Expected an integer after LIMIT")) }
             st.limit = Int(n); i += 1
         }
-        if eatKw("PIVOT") { throw QueryError("暂不支持 PIVOT BY") }
+        if eatKw("PIVOT") { throw QueryError(tr("暂不支持 PIVOT BY", "PIVOT BY is not supported")) }
         try finish()
         return st
     }
 
     func finish() throws {
         guard cur == .end else {
-            throw QueryError("无法解析的内容：\(describe(cur))")
+            throw QueryError(tr("无法解析的内容：\(describe(cur))", "Unexpected input: \(describe(cur))"))
         }
     }
 
@@ -319,7 +319,7 @@ final class QParser {
         case .number(let n): return QValue.fmt(n)
         case .date(let d): return d
         case .op(let o): return o
-        case .end: return "结尾"
+        case .end: return tr("结尾", "end of query")
         }
     }
 
@@ -360,7 +360,7 @@ final class QParser {
         guard eatOp("(") else { return [try additive()] }   // "x IN tags" style
         var out: [QExpr] = []
         if !isOp(")") { repeat { out.append(try expr()) } while eatOp(",") }
-        guard eatOp(")") else { throw QueryError("缺少右括号") }
+        guard eatOp(")") else { throw QueryError(tr("缺少右括号", "Missing closing parenthesis")) }
         return out
     }
     func additive() throws -> QExpr {
@@ -392,7 +392,7 @@ final class QParser {
         case .op("("):
             i += 1
             let e = try expr()
-            guard eatOp(")") else { throw QueryError("缺少右括号") }
+            guard eatOp(")") else { throw QueryError(tr("缺少右括号", "Missing closing parenthesis")) }
             return e
         case .ident(let s):
             i += 1
@@ -402,17 +402,17 @@ final class QParser {
             if up == "NULL" { return .lit(.null) }
             if eatOp("(") {
                 if eatOp("*") {
-                    guard eatOp(")") else { throw QueryError("缺少右括号") }
+                    guard eatOp(")") else { throw QueryError(tr("缺少右括号", "Missing closing parenthesis")) }
                     return .call(up, [], star: true)
                 }
                 var args: [QExpr] = []
                 if !isOp(")") { repeat { args.append(try expr()) } while eatOp(",") }
-                guard eatOp(")") else { throw QueryError("缺少右括号") }
+                guard eatOp(")") else { throw QueryError(tr("缺少右括号", "Missing closing parenthesis")) }
                 return .call(up, args, star: false)
             }
             return .column(s.lowercased())
         default:
-            throw QueryError("此处应为值或列名，实际为 \(describe(cur))")
+            throw QueryError(tr("此处应为值或列名，实际为 \(describe(cur))", "Expected a value or column, found \(describe(cur))"))
         }
     }
 }
@@ -438,7 +438,7 @@ final class QEval {
     func regex(_ pat: String, ci: Bool) throws -> NSRegularExpression {
         let key = (ci ? "i:" : "s:") + pat
         if let re = regexCache[key] { return re }
-        guard let re = try? NSRegularExpression(pattern: pat, options: ci ? [.caseInsensitive] : []) else { throw QueryError("正则表达式有误：\(pat)") }
+        guard let re = try? NSRegularExpression(pattern: pat, options: ci ? [.caseInsensitive] : []) else { throw QueryError(tr("正则表达式有误：\(pat)", "Invalid regular expression: \(pat)")) }
         regexCache[key] = re
         return re
     }
@@ -472,7 +472,7 @@ final class QEval {
         case "other_accounts": return .set(t.postings.filter { $0 !== p }.map { $0.account })
         default:
             if let a = aliases[name] { return try eval(a, r) }
-            throw QueryError("未知列：\(name)。可用列：\(queryColumns.joined(separator: " "))")
+            throw QueryError(tr("未知列：\(name)。可用列：\(queryColumns.joined(separator: " "))", "Unknown column: \(name). Available: \(queryColumns.joined(separator: " "))"))
         }
     }
 
@@ -504,7 +504,7 @@ final class QEval {
             let a = try eval(l, r), b = try eval(rr, r)
             return try binary(op, a, b)
         case .call(let n, let args, _):
-            if QExpr.aggregates.contains(n) { throw QueryError("\(n) 仅可用于聚合查询") }
+            if QExpr.aggregates.contains(n) { throw QueryError(tr("\(n) 仅可用于聚合查询", "\(n) is only allowed in aggregate queries")) }
             return try scalar(n, args.map { try eval($0, r) })
         }
     }
@@ -575,13 +575,13 @@ final class QEval {
             if op == "+", let x = a.stringValue, let y = b.stringValue { return .string(x + y) }
             return .null
         default:
-            throw QueryError("不支持的运算符：\(op)")
+            throw QueryError(tr("不支持的运算符：\(op)", "Unsupported operator: \(op)"))
         }
     }
 
     func scalar(_ n: String, _ a: [QValue]) throws -> QValue {
         func arg(_ k: Int) throws -> QValue {
-            guard k < a.count else { throw QueryError("\(n)  参数数量不足") }
+            guard k < a.count else { throw QueryError(tr("\(n)  参数数量不足", "\(n): not enough arguments")) }
             return a[k]
         }
         func date() throws -> String? { try arg(0).stringValue }
@@ -665,7 +665,7 @@ final class QEval {
             return .amount(inv.amounts[c] ?? 0, c)
         case "TODAY": return .date(Day.today())
         default:
-            throw QueryError("未知函数：\(n)")
+            throw QueryError(tr("未知函数：\(n)", "Unknown function: \(n)"))
         }
     }
 
@@ -678,7 +678,7 @@ final class QEval {
                 if star || args.isEmpty { return .number(Double(rows.count)) }
                 return .number(Double(try rows.filter { try eval(args[0], $0) != .null }.count))
             case "SUM":
-                guard let x = args.first else { throw QueryError("SUM 需要一个参数") }
+                guard let x = args.first else { throw QueryError(tr("SUM 需要一个参数", "SUM takes one argument")) }
                 var inv = Inventory()
                 var plain = 0.0, allPlain = true
                 for r in rows {

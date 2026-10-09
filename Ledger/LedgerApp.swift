@@ -8,11 +8,15 @@ struct LedgerApp: App {
     @Environment(\.scenePhase) private var phase
     @AppStorage(AppTheme.key) private var theme = AppTheme.jade.rawValue
     @AppStorage(AppAppearance.key) private var appearance = AppAppearance.system.rawValue
+    @AppStorage(AppLanguage.key) private var language = AppLanguage.system.rawValue
+
+    init() { AppLanguage.apply() }
 
     var body: some Scene {
         WindowGroup {
             ZStack {
                 RootView()
+                    .id(language)   // every string is looked up on redraw
                 if lock.locked {
                     LockScreen().transition(.opacity).zIndex(2)
                 } else if phase != .active && lock.enabled {
@@ -22,7 +26,7 @@ struct LedgerApp: App {
             .environmentObject(store)
             .environmentObject(store.drafts)
             .environmentObject(lock)
-            .environment(\.locale, Locale(identifier: "zh_CN"))
+            .environment(\.locale, AppLanguage.current.locale)
             .tint(AppTheme(rawValue: theme)?.color ?? .jade)
             .preferredColorScheme(AppAppearance(rawValue: appearance)?.scheme)
             .task {
@@ -49,11 +53,11 @@ struct RootView: View {
                 NavigationStack { LoadingView() }
             } else {
                 TabView(selection: $store.tab) {
-                    AddView().tabItem { Label("记账", systemImage: "square.and.pencil") }.tag(Tab.add)
-                    OverviewView().tabItem { Label("概览", systemImage: "chart.bar.xaxis") }.tag(Tab.overview)
-                    JournalView().tabItem { Label("明细", systemImage: "list.bullet.rectangle.portrait") }.tag(Tab.journal)
-                    AccountsView().tabItem { Label("账户", systemImage: "building.columns") }.tag(Tab.accounts)
-                    ReportsView().tabItem { Label("报表", systemImage: "doc.text.magnifyingglass") }.tag(Tab.reports)
+                    AddView().tabItem { Label(LS("记账"), systemImage: "square.and.pencil") }.tag(Tab.add)
+                    OverviewView().tabItem { Label(LS("概览"), systemImage: "chart.bar.xaxis") }.tag(Tab.overview)
+                    JournalView().tabItem { Label(LS("明细"), systemImage: "list.bullet.rectangle.portrait") }.tag(Tab.journal)
+                    AccountsView().tabItem { Label(LS("账户"), systemImage: "building.columns") }.tag(Tab.accounts)
+                    ReportsView().tabItem { Label(LS("报表"), systemImage: "doc.text.magnifyingglass") }.tag(Tab.reports)
                 }
                 .minimizingTabBar()
                 .id(theme)   // theme colours are static; rebuild the tabs when it changes
@@ -63,7 +67,7 @@ struct RootView: View {
         .sheet(isPresented: $store.showSettings) {
             NavigationStack {
                 SettingsView()
-                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { store.showSettings = false }.fontWeight(.semibold) } }
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button(LS("完成")) { store.showSettings = false }.fontWeight(.semibold) } }
             }
         }
     }
@@ -76,11 +80,11 @@ struct LoadingView: View {
             Image("Logo").resizable().frame(width: 72, height: 72).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             if let e = store.loadError ?? (store.syncState == .error || store.syncState == .offline ? store.syncError : nil), !e.isEmpty {
                 Text(e).multilineTextAlignment(.center).foregroundStyle(.secondary).padding(.horizontal)
-                Button("重试") { Task { await store.refresh() } }.buttonStyle(.borderedProminent)
-                NavigationLink("设置") { SettingsView() }
+                Button(LS("重试")) { Task { await store.refresh() } }.buttonStyle(.borderedProminent)
+                NavigationLink(LS("设置")) { SettingsView() }
             } else {
                 ProgressView()
-                Text("正在加载账本…").foregroundStyle(.secondary)
+                Text(LS("正在加载账本…")).foregroundStyle(.secondary)
             }
         }
     }

@@ -30,9 +30,9 @@ struct ReimbSheet: View {
                 if let L = store.L, let D = store.D { form(L, D) } else { ProgressView() }
             }
             .keyboardDone()
-            .navigationTitle("报销回款")
+            .navigationTitle(LS("报销回款"))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } } }
         }
     }
 
@@ -73,7 +73,7 @@ struct ReimbSheet: View {
         tx.payee = payee.trimmed
         let lk = link()
         let digits = lk.range(of: #"\d{8}$"#, options: .regularExpression).map { String(lk[$0]) } ?? date.replacingOccurrences(of: "-", with: "")
-        tx.narration = "报销入账-" + digits
+        tx.narration = LS("报销入账-") + digits
         tx.tags = ["reimbursement"]
         tx.links = [lk]
         tx.postings = [TxPosting(account: D.receivable, amount: -o, currency: c)]
@@ -96,10 +96,10 @@ struct ReimbSheet: View {
             } else if let x = openLink(D) {
                 linkSection(x, D)
             }
-            Section("回款信息") {
-                DatePicker("回款日期", selection: Binding(get: { Day.date(date) ?? Date() }, set: { date = Day.string($0) }), displayedComponents: .date)
+            Section(LS("回款信息")) {
+                DatePicker(LS("回款日期"), selection: Binding(get: { Day.date(date) ?? Date() }, set: { date = Day.string($0) }), displayedComponents: .date)
                 if target.link == nil {
-                    LabeledContent("关联") {
+                    LabeledContent(LS("关联")) {
                         TextField("reimburse-…", text: Binding(get: { link() }, set: { linkText = $0; linkTouched = true }))
                             .multilineTextAlignment(.trailing)
                             .textInputAutocapitalization(.never)
@@ -107,41 +107,41 @@ struct ReimbSheet: View {
                     }
                 }
                 VStack(alignment: .leading, spacing: 6) {
-                    TextField("付款方（如公司名称）", text: $payee)
+                    TextField(LS("付款方（如公司名称）"), text: $payee)
                     let ps = payeeChoices(L)
                     if !ps.isEmpty {
                         ChipRow { ForEach(ps, id: \.self) { x in Chip(label: x, selected: payee == x) { payee = x } } }
                     }
                 }
-                LabeledContent("回款金额 " + c) {
+                LabeledContent(LS("回款金额 ") + c) {
                     TextField(fmtNum(o), text: $amount)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                         .monospacedDigit()
                 }
-                AccountField(label: "收款账户", prefixes: ["Assets:"], chips: accountChoices(L, D), value: $account)
+                AccountField(label: LS("收款账户"), prefixes: ["Assets:"], chips: accountChoices(L, D), value: $account)
             }
-            Section("将写入") {
+            Section(LS("将写入")) {
                 if let g = got(D), g > 0, abs(g - o) > 0.004 {
                     let diff = g - o
-                    Text(diff > 0 ? "超额 \(money(diff, c))，计入 Income:ReimbExcess" : "短收 \(money(-diff, c))，计入 \(shortfall(L))")
+                    Text(diff > 0 ? LS("超额 %@，计入 Income:ReimbExcess", money(diff, c)) : LS("短收 %@，计入 %@", money(-diff, c), shortfall(L)))
                         .font(.footnote)
                         .foregroundStyle(diff < 0 ? Color.loss : Color.secondary)
                 }
                 if t.isEmpty {
-                    Text(o > 0 ? "选择收款账户后生成" : "请先选择报销明细").font(.footnote).foregroundStyle(.secondary)
+                    Text(o > 0 ? LS("选择收款账户后生成") : LS("请先选择报销明细")).font(.footnote).foregroundStyle(.secondary)
                 } else {
                     MonoText(text: t)
                 }
                 if target.link == nil && !selected.isEmpty {
-                    Text("所选 \(selected.count) 笔将添加 #reimbursed ^\(link())").font(.footnote).foregroundStyle(.secondary)
+                    Text(LS("所选 %@ 笔将添加 #reimbursed ^%@", selected.count, link())).font(.footnote).foregroundStyle(.secondary)
                 }
             }
             Section {
                 Button {
                     Task { await save(L, D, t) }
                 } label: {
-                    HStack { Spacer(); if saving { ProgressView() } else { Text("登记回款").fontWeight(.semibold) }; Spacer() }
+                    HStack { Spacer(); if saving { ProgressView() } else { Text(LS("登记回款")).fontWeight(.semibold) }; Spacer() }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.jade)
@@ -182,12 +182,12 @@ struct ReimbSheet: View {
                 }
                 .buttonStyle(.plain)
             }
-            if p.isEmpty { Text("近 180 天无待报销垫款").foregroundStyle(.secondary) }
+            if p.isEmpty { Text(LS("近 180 天无待报销垫款")).foregroundStyle(.secondary) }
         } header: {
             HStack {
-                Text("已选 \(selected.count)/\(p.count) 笔，合计 " + money(o)).textCase(nil)
+                Text(LS("已选 %@/%@ 笔，合计 ", selected.count, p.count) + money(o)).textCase(nil)
                 Spacer()
-                Button(selected.count == p.count ? "全不选" : "全选") {
+                Button(selected.count == p.count ? LS("全不选") : LS("全选")) {
                     selected = selected.count == p.count ? [] : Set(p.indices)
                 }
                 .font(.footnote)
@@ -199,8 +199,8 @@ struct ReimbSheet: View {
     private func linkSection(_ x: OpenLink, _ D: Derived) -> some View {
         let items = D.byLink[x.link] ?? []
         return Section {
-            LabeledContent("^" + x.link) { Text("应收 " + money(x.amount, x.currency)).monospacedDigit().sensitive() }
-            DisclosureGroup("包含 \(items.count) 笔交易") {
+            LabeledContent("^" + x.link) { Text(LS("应收 ") + money(x.amount, x.currency)).monospacedDigit().sensitive() }
+            DisclosureGroup(LS("包含 %@ 笔交易", items.count)) {
                 ForEach(items, id: \.id) { t in TxRow(t: t, showDate: true) }
             }
         }
@@ -220,7 +220,7 @@ struct ReimbSheet: View {
             for i in selected.sorted() where p.indices.contains(i) {
                 let e = p[i].t
                 guard done.insert(ObjectIdentifier(e)).inserted else { continue }
-                guard let file = try? await store.fileText(e.file) else { store.show("无法读取 \(e.file)"); return }
+                guard let file = try? await store.fileText(e.file) else { store.show(LS("无法读取 %@", e.file)); return }
                 let lines = file.components(separatedBy: "\n")
                 guard e.startLine < lines.count else { continue }
                 var op = Op(kind: .link, path: e.file)
@@ -233,8 +233,8 @@ struct ReimbSheet: View {
             }
         }
         let n = ops.count
-        guard let ins = store.makeOps(t, extra: OpExtra(label: "报销回款：^\(lk)\(n > 0 ? " \(n) 笔" : "")"), single: true) else { return }
+        guard let ins = store.makeOps(t, extra: OpExtra(label: LS("报销回款：^%@%@", lk, n > 0 ? LS(" %@ 笔", n) : "")), single: true) else { return }
         dismiss()
-        await store.commit(ops + ins, word: "已入账")
+        await store.commit(ops + ins, word: LS("已入账"))
     }
 }

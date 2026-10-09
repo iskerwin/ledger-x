@@ -1,5 +1,17 @@
 import Foundation
 
+// MARK: - language
+
+public enum KitLocale {
+    /// false = English messages and labels (the app sets this from its language setting)
+    public static var chinese = true
+}
+
+/// pick the Chinese or English text
+public func tr(_ zh: @autoclosure () -> String, _ en: @autoclosure () -> String) -> String { KitLocale.chinese ? zh() : en() }
+
+let MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
 // MARK: - dates & labels
 
 public enum Day {
@@ -31,11 +43,20 @@ public enum Day {
         mo = ((mo % 12) + 12) % 12
         return String(format: "%04d-%02d", y, mo + 1)
     }
-    public static func monthLabel(_ m: String) -> String { "\(m.prefix(4))年\(Int(m.dropFirst(5).prefix(2)) ?? 0)月" }
+    public static func monthLabel(_ m: String) -> String {
+        let mo = Int(m.dropFirst(5).prefix(2)) ?? 0
+        if !KitLocale.chinese { return "\(MONTHS_EN[max(0, min(11, mo - 1))]) \(m.prefix(4))" }
+        return "\(m.prefix(4))年\(mo)月"
+    }
     public static func dayLabel(_ d: String) -> String {
-        let week = Array("日一二三四五六")
         let wd = date(d).map { calendar.component(.weekday, from: $0) - 1 } ?? 0
-        return "\(Int(d.dropFirst(5).prefix(2)) ?? 0)月\(Int(d.dropFirst(8).prefix(2)) ?? 0)日 周\(week[wd])"
+        let mo = Int(d.dropFirst(5).prefix(2)) ?? 0, day = Int(d.dropFirst(8).prefix(2)) ?? 0
+        if !KitLocale.chinese {
+            let week = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+            return "\(week[wd]), \(MONTHS_EN[max(0, min(11, mo - 1))]) \(day)"
+        }
+        let week = Array("日一二三四五六")
+        return "\(mo)月\(day)日 周\(week[wd])"
     }
     public static func monthEnd(_ m: String) -> String { shift(addMonth(m, 1) + "-01", -1) }
 }
@@ -59,7 +80,7 @@ public func leaf(_ a: String) -> String { a.components(separatedBy: ":").last ??
 public func catOf(_ a: String) -> String { a.components(separatedBy: ":").prefix(2).joined(separator: ":") }
 public func catLabel(_ a: String) -> String {
     let p = a.components(separatedBy: ":")
-    return p.count > 1 ? (ZH[p[1]] ?? p[1]) : a
+    return p.count > 1 ? (KitLocale.chinese ? (ZH[p[1]] ?? p[1]) : p[1]) : a
 }
 /// the account without its root, exactly as written in the ledger ("Food:Drinks", "Bank:CGB")
 public func acctLabel(_ a: String) -> String {
@@ -70,7 +91,7 @@ public func acctLabel(_ a: String) -> String {
 /// Chinese description of the account's group, if there is one ("餐饮" for Expenses:Food:…)
 public func acctZH(_ a: String) -> String? {
     let p = a.components(separatedBy: ":")
-    guard p.count > 1 else { return nil }
+    guard p.count > 1, KitLocale.chinese else { return nil }
     return ZH[p[1]]
 }
 
