@@ -69,8 +69,9 @@ Beancount 很好用，但它活在电脑上：记一笔要打开编辑器，看�
 
 - 净资产卡片 + 资产负债率；账户按类型分组（银行存款、第三方支付、证券、信用卡……），带图标与小计
 - 账户明细带滚动余额，余额断言一目了然（相符 / 不符）
+- **管理账户**：新建、修改开户信息（显示名称、币种、批次方法）、关闭 / 重新开启，以及跨文件重命名、合并科目
 - **余额核对**：输入银行 App 里的余额，自动算差额，生成 `balance` 断言；左滑或长按可编辑、删除，编辑会替换原行而不是新增
-- 投资持仓：市值、成本、浮动盈亏、每一批次（STRICT / FIFO / LIFO / HIFO / AVERAGE）、投资收益
+- 投资持仓：市值、成本、浮动盈亏、每一批次（STRICT / FIFO / LIFO / HIFO / AVERAGE）、投资收益；一次性手动更新所有证券与外币价格，过期价格会标出
 
 ### 报表与 BQL 查询：口袋里的 Fava
 
@@ -133,7 +134,17 @@ Beancount 很好用，但它活在电脑上：记一笔要打开编辑器，看�
 
 ## 使用自己的账本
 
-体验完后，把 Token 换成指向你自己账本仓库的，在「设置 → GitHub 连接」里改仓库名并点「保存并重新同步」。
+账本可以放在这些地方（设置 → 账本 → 添加账本，可同时保存多个并随时切换）：
+
+| 存储位置 | 说明 |
+| --- | --- |
+| GitHub | fine-grained token，Contents 读写；每次保存是一次提交，可显示 bean-check 结果 |
+| GitLab | gitlab.com 或自建，Personal / Project access token（api 权限） |
+| Gitea / Forgejo | 自建或 Codeberg，应用令牌（repository 读写） |
+| 文件夹 | 「文件」App 里的任意文件夹：我的 iPhone、iCloud Drive、坚果云、OneDrive，或 Working Copy 管理的本地 Git 仓库 |
+| WebDAV | 坚果云、Nextcloud、群晖等，填账本文件夹地址、账号和应用密码 |
+
+以下以 GitHub 为例。
 
 ### 1. Token 权限
 
