@@ -102,30 +102,48 @@ Beancount 很好用，但它活在电脑上：记一笔要打开编辑器，看�
 - **面容 ID / 触控 ID 锁定**，可设自动锁定时间；多任务界面自动遮挡
 - 一键模糊所有金额，适合在人前打开
 
-## 使用方法
+## 快速体验：用演示账本试一试
 
-### 1. 安装
+不用准备自己的账本，5 分钟就能把所有功能过一遍。[**ledger-demo**](https://github.com/iskerwin/ledger-demo) 是一份完全虚构的 Beancount 账本：约 2000 笔交易、每月余额断言、信用卡还款、美股定投、报销垫款、旅行标签和预置的 BQL 查询，App 的每个页面都有数据可看。
 
-1. 打开 [Releases](../../releases/latest)，下载最新版的 `Ledger.ipa`。
-2. 用 [SideStore](https://sidestore.io) 或 AltStore 导入并签名安装（免费 Apple ID 签名 7 天有效，SideStore 会自动续签）。
+1. **安装 App**：打开 [Releases](../../releases/latest) 下载最新的 `Ledger.ipa`，用 [SideStore](https://sidestore.io) 或 AltStore 导入并签名安装（免费 Apple ID 签名 7 天有效，SideStore 会自动续签）。
+2. **Fork 演示账本**：打开 [iskerwin/ledger-demo](https://github.com/iskerwin/ledger-demo)，点右上角 **Fork**。
+3. **创建 Token**：GitHub → Settings → Developer settings → **Fine-grained tokens** → Generate new token
 
-> 还没有 Beancount 账本？Fork [ledger-demo](https://github.com/iskerwin/ledger-demo)，用里面约 2000 笔虚构交易先体验全部功能。
+   | 设置 | 值 |
+   | --- | --- |
+   | Repository access | Only select repositories → 你 fork 的 `ledger-demo` |
+   | Contents | **Read and write** |
+   | Actions（可选） | Read-only，用来显示 bean-check 结果 |
 
-### 2. 准备 GitHub Token
+4. **连接**：打开 App，填写你的 GitHub 用户名、仓库 `ledger-demo`、分支 `main` 和 Token，点「连接」。
 
-在 GitHub → Settings → Developer settings → **Fine-grained tokens** 新建一个：
+### 推荐试试这些
 
-| 设置 | 值 |
+| 页面 | 操作 |
 | --- | --- |
-| Repository access | 只选你的账本仓库 |
-| Contents | **Read and write** |
-| Actions（可选） | Read-only，用来显示 bean-check 结果 |
+| 记账 | 常用交易里点「入账」一键记一笔；手动记一笔支出，看底部实时生成的 Beancount 文本 |
+| 概览 | 切换月 / 年、点柱形；点「待报销垫款」把最近几笔打车登记为报销回款 |
+| 明细 | 搜索 `#trip-tokyo`、`^refund-618`、`星巴克`、`>1000`、`2025-10` |
+| 账户 | 打开「Bank:CMB」做一次余额核对；左滑余额断言试试编辑 / 删除；查看「投资持仓」的批次与浮动盈亏 |
+| 报表 | 损益表切换本年 / 上年；资产负债表看净资产走势；运行「账本中的查询」，改写一条保存为「我的查询」 |
+| 设置 | 换主题色、切换 English、开启面容 ID 锁定 |
 
-### 3. 连接账本
+在 App 里记的每一笔都会成为你 fork 仓库里的一次 Git 提交，可以在 GitHub 上直接看到改动。想恢复初始数据，在 GitHub 上对 fork 执行 Sync fork（丢弃改动）即可。
 
-第一次打开 App，填写 GitHub 用户名、仓库名、分支和 Token，点「连接」。App 会读取主文件（默认 `main.bean`）及其 `include` 的所有文件。
+## 使用自己的账本
 
-### 4. 不需要改你的仓库结构
+体验完后，把 Token 换成指向你自己账本仓库的，在「设置 → GitHub 连接」里改仓库名并点「保存并重新同步」。
+
+### 1. Token 权限
+
+与上面相同：Repository access 只选你的账本仓库，Contents 设为 **Read and write**，Actions 可选 Read-only。Token 存在 iOS 钥匙串里，只在手机和 GitHub 之间传输。
+
+### 2. 连接账本
+
+填写 GitHub 用户名、仓库名、分支和 Token，点「连接」。App 会读取主文件（默认 `main.bean`）及其 `include` 的所有文件。
+
+### 3. 不需要改你的仓库结构
 
 App 会自动识别新内容写到哪里：
 
@@ -136,7 +154,7 @@ App 会自动识别新内容写到哪里：
 
 如有不同，可在「设置 → 仓库结构」里指定主文件、交易文件（`{year}` 代表年份）和报销用的应收科目。
 
-### 5. 日常使用小贴士
+### 4. 日常使用小贴士
 
 - **记账**：常用交易点「入账」一步完成；其他交易填金额 → 选科目 → 保存。
 - **对账**：账户页 → 某个账户 → 余额核对，填银行 App 里的余额；断言日期默认是明天（Beancount 在当日开始时检查）。
