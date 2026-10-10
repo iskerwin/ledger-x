@@ -751,7 +751,7 @@ struct ErrorsView: View {
                 Section {
                     LedgerCheckRow()
                 } footer: {
-                    Text(LS("%@ 个文件 · %@ 笔交易 · %@/%@ 余额断言", L.files.count, L.txns.count, L.balanceResults.filter { $0.ok }.count, L.balanceResults.count))
+                    Text(LS("%@ 个文件 · %@ 笔交易", L.files.count, L.txns.count))
                 }
                 if !L.errors.isEmpty {
                     Section(LS("账本错误 · %@", L.errors.count)) {
