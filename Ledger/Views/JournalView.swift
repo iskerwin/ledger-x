@@ -545,7 +545,12 @@ struct EditTxView: View {
         do {
             let file = try await store.fileText(t.file)
             let lines = file.components(separatedBy: "\n")
-            guard t.endLine < lines.count else { return }
+            guard t.startLine >= 0, t.startLine <= t.endLine, t.endLine < lines.count else {
+                // Dirty line numbers (stale parse, file rewritten in background): never trap,
+                // and never leave the UI spinning — tell the user what happened.
+                store.show(LS("找不到该交易在文件中的位置（%@ 第 %@–%@ 行），文件可能已被改动，请返回重试。", t.file, t.startLine + 1, t.endLine + 1))
+                return
+            }
             let o = lines[t.startLine...t.endLine].joined(separator: "\n")
             old = o
             text = compactText(o)
