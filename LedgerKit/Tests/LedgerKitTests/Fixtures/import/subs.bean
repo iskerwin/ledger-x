@@ -21,3 +21,46 @@
   account: "Expenses:Subscription:Music"
   funding: "Assets:EWallet:Alipay"
   status: "cancelled"
+
+2026-07-01 custom "subscription" "iCloud+" "paused"
+2026-08-20 custom "subscription" "iCloud+" "monthly"                    25.00 CNY
+
+2026-03-15 * "Apple" "iCloud+ 首月" ^sub-icloud
+  Expenses:Subscription:Cloud                          1.00 CNY
+  Liabilities:CreditCard:CMB
+
+2026-04-15 * "Apple" "iCloud+" ^sub-icloud
+  Expenses:Subscription:Cloud                         21.00 CNY
+  Liabilities:CreditCard:CMB
+
+2026-05-15 * "Apple" "iCloud+" ^sub-icloud
+  Expenses:Subscription:Cloud                         21.00 CNY
+  Liabilities:CreditCard:CMB
+
+2026-06-15 * "Apple" "iCloud+" ^sub-icloud
+  Expenses:Subscription:Cloud                         21.00 CNY
+  Liabilities:CreditCard:CMB
+
+2026-08-20 * "Apple" "iCloud+" ^sub-icloud
+  Expenses:Subscription:Cloud                         25.00 CNY
+  Liabilities:CreditCard:CMB
+
+2026-09-20 * "Apple" "iCloud+" ^sub-icloud
+  Expenses:Subscription:Cloud                         25.00 CNY
+  Liabilities:CreditCard:CMB
+
+2026-06-08 * "网易云音乐" "黑胶 VIP"
+  Expenses:Subscription:Music                         15.00 CNY
+  Assets:EWallet:Alipay
+
+2026-07-08 * "网易云音乐" "黑胶 VIP"
+  Expenses:Subscription:Music                         15.00 CNY
+  Assets:EWallet:Alipay
+
+2026-08-08 * "网易云音乐" "黑胶 VIP"
+  Expenses:Subscription:Music                         15.00 CNY
+  Assets:EWallet:Alipay
+
+2026-09-08 * "网易云音乐" "黑胶 VIP"
+  Expenses:Subscription:Music                         15.00 CNY
+  Assets:EWallet:Alipay

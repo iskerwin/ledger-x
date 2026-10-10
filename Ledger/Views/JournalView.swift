@@ -370,7 +370,18 @@ struct TxDetailView: View {
                         Button { again(t, L, D, kind: nil) } label: { Label(LS("复制为新交易"), systemImage: "arrow.uturn.forward") }
                         if classify(t, L).kind == .expense {
                             Button { refund(t, L, D) } label: { Label(LS("登记退款"), systemImage: "arrow.uturn.backward") }
-                            Button { subDraft = SubDraft(t, L) } label: { Label(LS("加入订阅管理"), systemImage: "repeat") }
+                            if let s = store.subs.first(where: { s in s.charges.contains { $0.txn.id == t.id } }) {
+                                NavigationLink { SubscriptionDetailView(name: s.name) } label: {
+                                    Label(LS("订阅：%@", s.name), systemImage: "repeat")
+                                }
+                            } else {
+                                Menu {
+                                    Button { subDraft = SubDraft(t, L) } label: { Label(LS("新建订阅"), systemImage: "plus") }
+                                    ForEach(store.subs) { s in
+                                        Button(s.name) { Task { await linkTo(s, t) } }
+                                    }
+                                } label: { Label(LS("加入订阅管理"), systemImage: "repeat") }
+                            }
                         }
                     }
                     Button {
@@ -387,6 +398,12 @@ struct TxDetailView: View {
         } else {
             Text(LS("该交易已不存在")).foregroundStyle(.secondary)
         }
+    }
+
+    private func linkTo(_ s: Subscription, _ t: Entry) async {
+        let ops = await store.linkOps([t], link: s.link, label: LS("关联订阅：%@ %@ 笔", s.name, 1))
+        guard !ops.isEmpty else { return }
+        await store.commit(ops, word: LS("已关联到 %@", s.name))
     }
 
     private func again(_ t: Entry, _ L: Ledger, _ D: Derived, kind: DraftKind?) {

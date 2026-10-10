@@ -79,6 +79,8 @@ final class Store: ObservableObject {
     /// account filter handed to the journal tab
     @Published var journalAccount: String?
     var toastAction: (() async -> Void)?
+    /// a regular payment offered as a subscription after saving it
+    @Published var subSuggestion: SubCandidate?
 
     @Published var tplPinned: [String] { didSet { Prefs.set("tplPinned", tplPinned); tplCache = nil } }
     @Published var tplHidden: [String] { didSet { Prefs.set("tplHidden", tplHidden); tplCache = nil } }
@@ -468,6 +470,9 @@ final class Store: ObservableObject {
             guard let r = await review(ops) else { return false }
             ops = r
         }
+        // new charges of a subscription get its link
+        let (linked, subNames) = autoLinkSubscriptions(ops)
+        ops = linked
         // editing or deleting something that is still held on this device stays with it
         for i in ops.indices where ops[i].held == nil && (ops[i].kind == .remove || ops[i].kind == .replace) {
             let old = (ops[i].old ?? "").trimmed
@@ -485,10 +490,12 @@ final class Store: ObservableObject {
             await rebuild()
             return true
         }
-        if let undo = undo { show(word, action: LS("撤销"), undo) } else { show(word) }
+        let shown = subNames.isEmpty ? word : word + LS(" · 已关联到 %@", subNames.first ?? "")
+        if let undo = undo { show(shown, action: LS("撤销"), undo) } else { show(shown) }
         let gen = UIImpactFeedbackGenerator(style: .light)
         gen.impactOccurred()
         await rebuild()
+        if subNames.isEmpty { suggestSubscription(after: ops) }
         await syncNow()
         return true
     }
