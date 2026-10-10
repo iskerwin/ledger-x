@@ -4,6 +4,9 @@ import LedgerKit
 
 enum ReviewChoice { case edit, force, hold }
 
+/// what a presented sheet needs to remember while waiting for its answer
+private final class SheetBox { var host: UIViewController?; var done = false }
+
 /// the pre-commit check sheet; presented from UIKit so it can sit on top of whatever sheet is open
 @MainActor
 enum ChangeReview {
@@ -18,8 +21,7 @@ enum ChangeReview {
         while tries < 30, busy() { try? await Task.sleep(nanoseconds: 100_000_000); tries += 1 }
         return await withCheckedContinuation { (cont: CheckedContinuation<T, Never>) in
             guard let top = topController() else { cont.resume(returning: fallback); return }
-            final class Box { var host: UIViewController?; var done = false }
-            let box = Box()
+            let box = SheetBox()
             let view = make { choice in
                 guard !box.done else { return }
                 box.done = true
