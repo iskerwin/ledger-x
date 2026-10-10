@@ -138,6 +138,11 @@ struct QuickRecordIntent: AppIntent {
             await store.askToConfirm(x, why: LS("内容校验未通过"))
             return .result(value: "", dialog: IntentDialog(stringLiteral: LS("已发送通知，请在 App 中确认")))
         }
+        // running balance assertions are confirmed in the app, like any other problem
+        if !(await store.runningBalances(for: ops)).isEmpty {
+            await store.askToConfirm(x, why: LS("需要确认余额断言"))
+            return .result(value: "", dialog: IntentDialog(stringLiteral: LS("这笔会改变余额断言，已发送通知请你在 App 中确认")))
+        }
         let issues = await store.issues(for: ops)
         if let first = issues.first {
             await store.askToConfirm(x, why: first.title)

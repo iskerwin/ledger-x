@@ -8,14 +8,19 @@ enum ReviewChoice { case edit, force, hold }
 @MainActor
 enum ChangeReview {
     static func ask(_ issues: [ChangeIssue]) async -> ReviewChoice {
+        await present(fallback: .edit) { choose in ChangeReviewView(issues: issues, choose: choose) }
+    }
+
+    /// show a sheet on top of everything and wait for its answer; `fallback` if it can't be shown
+    static func present<T, V: View>(fallback: T, _ make: (@escaping (T) -> Void) -> V) async -> T {
         // a sheet that is still closing can't present anything; wait for it to finish
         var tries = 0
         while tries < 30, busy() { try? await Task.sleep(nanoseconds: 100_000_000); tries += 1 }
-        return await withCheckedContinuation { (cont: CheckedContinuation<ReviewChoice, Never>) in
-            guard let top = topController() else { cont.resume(returning: .edit); return }
+        return await withCheckedContinuation { (cont: CheckedContinuation<T, Never>) in
+            guard let top = topController() else { cont.resume(returning: fallback); return }
             final class Box { var host: UIViewController?; var done = false }
             let box = Box()
-            let view = ChangeReviewView(issues: issues) { choice in
+            let view = make { choice in
                 guard !box.done else { return }
                 box.done = true
                 // resume once the sheet is gone, so the caller can dismiss its own sheet right away
@@ -38,7 +43,7 @@ enum ChangeReview {
             // don't leave the caller waiting forever
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
-                if host.presentingViewController == nil, !box.done { box.done = true; cont.resume(returning: .edit) }
+                if host.presentingViewController == nil, !box.done { box.done = true; cont.resume(returning: fallback) }
             }
         }
     }
@@ -128,5 +133,74 @@ struct ChangeReviewView: View {
         case .balance, .error: return .loss
         case .insufficient, .creditLimit: return .warn
         }
+    }
+}
+
+/// assertions dated after today that a change moves: confirm (or correct) their new amounts
+@MainActor
+enum RunningReview {
+    /// new amount per assertion id, or nil to go back and edit
+    static func ask(_ items: [RunningBalance]) async -> [String: Double]? {
+        await ChangeReview.present(fallback: [String: Double]?.none) { choose in RunningReviewView(items: items, choose: choose) }
+    }
+}
+
+struct RunningReviewView: View {
+    let items: [RunningBalance]
+    let choose: ([String: Double]?) -> Void
+    @State private var texts: [String: String] = [:]
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(items) { r in
+                    Section {
+                        LabeledContent(LS("原断言"), value: money(r.asserted, r.currency)).sensitive()
+                        LabeledContent(LS("记账后余额"), value: money(r.computed, r.currency)).sensitive()
+                        LabeledContent(LS("实际余额")) {
+                            TextField(toFixed(r.computed, 2), text: Binding(get: { texts[r.id] ?? toFixed(r.computed, 2) }, set: { texts[r.id] = $0 }))
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing)
+                                .monospacedDigit()
+                        }
+                        if let v = value(r), abs(v - r.computed) > 0.005 {
+                            Text(LS("与记账后余额相差 %@，提交前会再提示一次", money(v - r.computed, r.currency)))
+                                .font(.caption).foregroundStyle(Color.warn).sensitive()
+                        }
+                    } header: {
+                        Text(acctLabel(r.account) + " · " + r.date).textCase(nil)
+                    }
+                }
+            }
+            .navigationTitle(LS("更新余额断言"))
+            .navigationBarTitleDisplayMode(.inline)
+            .safeAreaInset(edge: .bottom) {
+                VStack(spacing: 10) {
+                    Text(LS("这些断言日期在今天之后，记录的是当前余额，这次修改会改变它。对照银行 App 确认实际余额，会和这次修改一起提交。"))
+                        .font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    Button {
+                        var out: [String: Double] = [:]
+                        for r in items { out[r.id] = value(r) ?? r.computed }
+                        choose(out)
+                    } label: {
+                        Text(LS("更新断言并提交")).frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(items.contains { value($0) == nil })
+                    Button { choose(nil) } label: { Text(LS("返回修改")).frame(maxWidth: .infinity) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 10)
+                .background(.bar)
+            }
+        }
+    }
+
+    private func value(_ r: RunningBalance) -> Double? {
+        guard let t = texts[r.id] else { return r.computed }
+        return evalAmount(t.replacingOccurrences(of: ",", with: ""))
     }
 }

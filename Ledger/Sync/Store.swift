@@ -473,7 +473,15 @@ final class Store: ObservableObject {
 
     /// build the ledger with `ops` applied and ask the user about anything the change would break.
     /// Returns the ops to commit (marked `held` when kept on this device), or nil to go back and edit.
-    func review(_ ops: [Op]) async -> [Op]? {
+    func review(_ ops0: [Op]) async -> [Op]? {
+        var ops = ops0
+        // assertions dated after today hold the balance as it is now: confirm their new amounts and
+        // write them in the same commit; an amount that differs from the computed one is checked below
+        let running = await runningBalances(for: ops)
+        if !running.isEmpty {
+            guard let amounts = await RunningReview.ask(running) else { return nil }
+            ops += running.map { runningBalanceOp($0, amount: amounts[$0.id] ?? $0.computed) }
+        }
         // held changes that pass together with this one go out with it, in the same commit
         let heldGroups = Set(pending.compactMap { $0.held != nil ? $0.heldGroup : nil })
         if !heldGroups.isEmpty, await issues(for: pending.filter { $0.held != nil } + ops).isEmpty {
@@ -509,6 +517,22 @@ final class Store: ObservableObject {
             let a = Store.loadWith(files: files, main: main, ops: after)
             if a.txns.isEmpty && a.files.isEmpty { return [] }
             return reviewChange(before: b, after: a)
+        }.value
+    }
+
+    /// assertions dated after today that `ops` would move (see `RunningBalance`)
+    func runningBalances(for ops: [Op]) async -> [RunningBalance] {
+        guard let tree = tree, !ops.isEmpty, !ops.allSatisfy({ $0.kind == .rename }) else { return [] }
+        let files = tree.files, main = self.main
+        let base = pending.filter { $0.failed == nil && $0.held == nil }
+        let mine = Set(ops.map { $0.id })
+        let after = base.filter { !mine.contains($0.id) } + ops.map { var o = $0; o.held = nil; return o }
+        let today = Day.today()
+        return await Task.detached(priority: .userInitiated) {
+            let b = Store.loadWith(files: files, main: main, ops: base)
+            let a = Store.loadWith(files: files, main: main, ops: after)
+            if a.txns.isEmpty && a.files.isEmpty { return [] }
+            return LedgerKit.runningBalances(before: b, after: a, today: today)
         }.value
     }
 
