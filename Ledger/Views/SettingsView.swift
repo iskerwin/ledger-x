@@ -54,14 +54,22 @@ struct SettingsView: View {
             }
 
             if !first, let L = store.L, let D = store.D {
-                Section(LS("记账偏好")) {
+                Section {
                     Picker(LS("默认付款账户"), selection: Binding(get: { store.defaultFunding ?? "" }, set: { store.defaultFunding = $0.isEmpty ? nil : $0 })) {
                         Text(LS("自动（使用频率最高）")).tag("")
                         ForEach(D.rankAccounts(["Assets:", "Liabilities:CreditCard"]).filter { !$0.hasPrefix("Assets:Receivable") }.prefix(15), id: \.self) { a in
                             Text(acctDisplay(a)).tag(a)
                         }
                     }
+                    Picker(LS("默认币种"), selection: Binding(get: { store.defaultCurrency ?? "" }, set: { store.defaultCurrency = $0.isEmpty ? nil : $0 })) {
+                        Text(LS("跟随付款账户")).tag("")
+                        ForEach(D.currencies, id: \.self) { c in Text(c).tag(c) }
+                    }
                     Toggle(LS("分录显式写出自动补平金额"), isOn: $store.explicitAmounts)
+                } header: {
+                    Text(LS("记账偏好"))
+                } footer: {
+                    Text(LS("默认币种用于新的支出、收入和退款；付款账户是其他币种时，可填写账户实付金额。转账始终使用转出账户的币种。"))
                 }
 
                 Section {
@@ -94,6 +102,9 @@ struct SettingsView: View {
                         }
                     }
                     Button { Task { await store.syncNow() } } label: { Label(LS("立即同步"), systemImage: "arrow.triangle.2.circlepath") }
+                    NavigationLink { HistoryView() } label: {
+                        LabeledContent(LS("最近改动"), value: store.history.isEmpty ? "" : LS("%@ 项", store.history.count))
+                    }
                 } header: {
                     Text(LS("同步队列"))
                 } footer: {

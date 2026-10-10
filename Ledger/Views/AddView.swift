@@ -178,6 +178,7 @@ struct AddView: View {
         d.kind = k
         d.edited = nil
         if k == .transfer { d.currency = D.acctCcy[d.funding] ?? d.currency }
+        else if k != .multi, let c = store.defaultCurrency { d.currency = c }
         if k == .multi && !d.rows.contains(where: { !$0.account.isEmpty }) {
             d.rows = [DraftRow(), DraftRow(account: d.funding, currency: D.acctCcy[d.funding] ?? "CNY")]
         }
@@ -610,7 +611,7 @@ struct AddView: View {
         var nd = store.newDraftFor(d.kind == .refund ? .expense : d.kind)
         nd.funding = d.funding
         nd.date = d.date
-        nd.currency = D.acctCcy[d.funding] ?? "CNY"
+        nd.currency = store.entryCurrency(nd.kind, funding: d.funding)
         store.draft = nd
         await store.commit(ops, checked: true)
     }
