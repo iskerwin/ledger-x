@@ -76,6 +76,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build > build.log 2>&1
           status=$?
           grep -E "error:|BUILD" build.log | sort -u | head -40
+          if [ $status -ne 0 ]; then grep -E "error:" build.log | sort -u | head -20 | while IFS= read -r l; do echo "::error::${l:0:400}"; done; fi
           exit $status
 
       - name: Package IPA
