@@ -273,7 +273,7 @@ struct SubscriptionCalendarView: View {
         return List {
             if byDate.isEmpty { Text(LS("近两个月没有扣费")).foregroundStyle(.secondary) }
             ForEach(months, id: \.key) { m in
-                let total = m.value.flatMap { byDate[$0] ?? [] }.reduce(0.0) { $0 + (store.L.flatMap { L in toCNY(L, $1.0.amount, $1.0.currency) } ?? 0) }
+                let total = monthTotal(m.value.flatMap { byDate[$0] ?? [] }.map { $0.0 })
                 Section {
                     ForEach(m.value, id: \.self) { d in
                         ForEach(Array((byDate[d] ?? []).enumerated()), id: \.offset) { _, pair in
@@ -307,6 +307,11 @@ struct SubscriptionCalendarView: View {
         .listSectionSpacing(.compact)
         .navigationTitle(LS("订阅日历"))
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func monthTotal(_ subs: [Subscription]) -> Double {
+        guard let L = store.L else { return 0 }
+        return subs.reduce(0.0) { $0 + (toCNY(L, $1.amount, $1.currency) ?? 0) }
     }
 }
 extension Entry: Identifiable {}
