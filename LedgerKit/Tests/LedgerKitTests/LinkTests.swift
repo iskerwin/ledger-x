@@ -148,6 +148,15 @@ final class LinkTests: XCTestCase {
         XCTAssertEqual(newRefundLink(L.txns[0], taken: ["refund-youyiku-20250902", "refund-youyiku-20250902-2"]), "refund-youyiku-20250902-3")
         XCTAssertEqual(newRefundLink(L.txns[1]), "refund-apple-store-20250903")
         XCTAssertEqual(newRefundLink(L.txns[2]), "refund-20250904")
+        // place names and company words dropped, at most 16 letters cut between syllables, overrides first
+        XCTAssertEqual(linkSlug("广州腾视"), "tengshi")
+        XCTAssertEqual(linkSlug("车海汽车美容中心"), "chehaiqichemei")
+        XCTAssertEqual(linkSlug("岭南通 羊城通"), "lingnantongyang")
+        XCTAssertEqual(linkSlug("KFC 肯德基"), "kendeji")
+        LinkNaming.overrides = ["岭南通 羊城通": "yangchengtong"]
+        XCTAssertEqual(linkSlug("岭南通 羊城通"), "yangchengtong")
+        LinkNaming.overrides = [:]
+        XCTAssertEqual(newLink("reimburse", payee: "良帆", date: "2025-08-31", taken: ["reimburse-liangfan-20250831"]), "reimburse-liangfan-20250831-2")
         XCTAssertTrue(isValidLink("refund-youyiku-20250902"))
         XCTAssertFalse(isValidLink("退款-1"))
         XCTAssertFalse(isValidLink("a b"))

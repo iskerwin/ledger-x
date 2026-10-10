@@ -208,7 +208,7 @@
  "关联": "Link",
  "关联 %@ 笔": "Link %@",
  "关联 ^%@：%@ 笔": "Link ^%@: %@ items",
- "关联 ^link，如 reimburse-work-": "Link ^link, e.g. reimburse-work-",
+ "关联 ^link，如 reimburse-商户拼音-": "Link ^link, e.g. reimburse-payee-",
  "关联交易": "Linked Transactions",
  "关联到已有订阅": "Link to a Subscription",
  "关联到订阅": "Link to Subscription",

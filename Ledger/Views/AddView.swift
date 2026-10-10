@@ -431,7 +431,7 @@ struct AddView: View {
 
     private func reimbSection(_ d: Draft, _ D: Derived) -> some View {
         let links = Array(D.openLinks.filter { $0.link.hasPrefix("reimburse") }.suffix(4))
-        let hint = LS("关联 ^link，如 reimburse-work-") + Day.today().replacingOccurrences(of: "-", with: "")
+        let hint = LS("关联 ^link，如 reimburse-商户拼音-") + Day.today().replacingOccurrences(of: "-", with: "")
         let reimb = Binding<Bool>(get: { store.draft.reimb }, set: { store.draft.reimb = $0; store.draft.edited = nil })
         return Section {
             Toggle(LS("可报销（计入应收款并标记 #reimbursed）"), isOn: reimb).tint(.jade)
