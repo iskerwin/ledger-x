@@ -2,6 +2,35 @@ import Foundation
 
 typealias US = Unicode.Scalar
 
+/// Thousands separators must group correctly: "1,234,567" is fine, but
+/// "1,2,3", "12,34", ",123" and "123," are rejected instead of being silently
+/// stripped (which used to turn "1,2,3" into 123). Shared by the ledger parser
+/// (`Scan.lit`) and the entry form (`evalExpr`) so both paths agree.
+func thousandsGroupingOK(_ s: String) -> Bool {
+    var i = s.startIndex
+    while i < s.endIndex {
+        let c = s[i]
+        if c.isASCII && (c.isNumber || c == ",") {
+            var j = i
+            while j < s.endIndex, s[j].isASCII && (s[j].isNumber || s[j] == ",") { j = s.index(after: j) }
+            if !validThousandsGrouping(String(s[i..<j])) { return false }
+            i = j
+        } else {
+            i = s.index(after: i)
+        }
+    }
+    return true
+}
+
+private func validThousandsGrouping(_ run: String) -> Bool {
+    guard run.contains(",") else { return true }
+    let parts = run.split(separator: ",", omittingEmptySubsequences: false)
+    guard parts.count >= 2 else { return true }
+    guard let first = parts.first, (1...3).contains(first.count),
+          first.allSatisfy({ $0.isASCII && $0.isNumber }) else { return false }
+    return parts.dropFirst().allSatisfy { $0.count == 3 && $0.allSatisfy({ $0.isASCII && $0.isNumber }) }
+}
+
 @inline(__always) func isWS(_ c: US) -> Bool { c.properties.isWhitespace || c.value == 0xFEFF }
 @inline(__always) func isDigit(_ c: US) -> Bool { c.value >= 48 && c.value <= 57 }
 @inline(__always) func isAZ(_ c: US) -> Bool { c.value >= 65 && c.value <= 90 }
@@ -155,16 +184,18 @@ final class Scan {
         return r
     }
 
-    // arithmetic expression: + - * / ( ) unary, numbers with optional thousands commas
+    // arithmetic expression: + - * / ( ) unary, numbers with validated thousands commas
     private var nDigits = 0
     private var nOK = true
 
     private func lit() -> Double {
         ws()
         var j = i
+        var raw = String.UnicodeScalarView()
         var t = String.UnicodeScalarView()
         if j < s.count, isDigit(s[j]) {
-            while j < s.count, isDigit(s[j]) || s[j] == "," { if s[j] != "," { t.append(s[j]) }; j += 1 }
+            while j < s.count, isDigit(s[j]) || s[j] == "," { raw.append(s[j]); if s[j] != "," { t.append(s[j]) }; j += 1 }
+            guard thousandsGroupingOK(String(raw)) else { nOK = false; return 0 }
             if j < s.count, s[j] == "." {
                 t.append("."); j += 1
                 var f = 0
