@@ -98,13 +98,15 @@ public func parseTagsLinks(_ s: String) -> (tags: [String], links: [String]) {
     return (tags, links)
 }
 
-public func newDraft(_ kind: DraftKind = .expense, _ D: Derived, defaultFunding: String?) -> Draft {
+/// `defaultCurrency`: currency for expenses, income and refunds whatever account pays (nil = the account's own)
+public func newDraft(_ kind: DraftKind = .expense, _ D: Derived, defaultFunding: String?, defaultCurrency: String? = nil) -> Draft {
     var d = Draft()
     d.kind = kind
     let funding = defaultFunding.flatMap { D.openAccounts.contains($0) ? $0 : nil } ?? D.rankAccounts(["Assets:", "Liabilities:CreditCard"]).first ?? ""
     d.funding = funding
-    d.currency = D.acctCcy[funding] ?? "CNY"
-    d.rows = [DraftRow(), DraftRow(account: funding, currency: D.acctCcy[funding] ?? "CNY")]
+    let own = D.acctCcy[funding] ?? defaultCurrency ?? "CNY"
+    d.currency = kind == .transfer || kind == .multi ? own : defaultCurrency ?? own
+    d.rows = [DraftRow(), DraftRow(account: funding, currency: own)]
     return d
 }
 

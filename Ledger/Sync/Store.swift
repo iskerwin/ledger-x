@@ -89,6 +89,10 @@ final class Store: ObservableObject {
     @Published var tplPinned: [String] { didSet { Prefs.set("tplPinned", tplPinned); tplCache = nil } }
     @Published var tplHidden: [String] { didSet { Prefs.set("tplHidden", tplHidden); tplCache = nil } }
     @Published var defaultFunding: String? { didSet { Prefs.set("defaultFunding", defaultFunding) } }
+    /// currency of new expenses / income / refunds; nil = the paying account's own currency
+    @Published var defaultCurrency: String? { didSet { Prefs.set("defaultCurrency", defaultCurrency) } }
+    /// changes made from this device, newest first, so they can be taken back
+    @Published private(set) var history: [ChangeRecord] = []
     @Published var explicitAmounts: Bool { didSet { Prefs.set("explicit", explicitAmounts) } }
 
     /// repository layout (settings; empty = detect from the ledger)
@@ -166,6 +170,8 @@ final class Store: ObservableObject {
         tplPinned = Prefs.get("tplPinned", [String]())
         tplHidden = Prefs.get("tplHidden", [String]())
         defaultFunding = Prefs.get("defaultFunding", String?.none)
+        defaultCurrency = Prefs.get("defaultCurrency", String?.none)
+        history = Prefs.get(Store.key("history", id), [ChangeRecord]())
         explicitAmounts = Prefs.get("explicit", true)
         mainFile = Prefs.get(Store.key("mainFile", id), "")
         journalPattern = Prefs.get(Store.key("journalPattern", id), "")
@@ -213,6 +219,7 @@ final class Store: ObservableObject {
         Prefs.set("activeSource", c.id)
         L = nil; D = nil; ci = nil; ledgerQueries = []; loadError = nil
         pending = Prefs.get(pk("pending"), [Op]())
+        history = Prefs.get(pk("history"), [ChangeRecord]())
         tree = Prefs.get(pk("tree"), RepoTree?.none)
         lastSync = Prefs.get(pk("lastSync"), Date?.none)
         ci = Prefs.get(pk("ci"), GitHub.CI?.none)
@@ -250,6 +257,7 @@ final class Store: ObservableObject {
 
     private func saveTree() { Prefs.set(pk("tree"), tree) }
     func savePending() { Prefs.set(pk("pending"), pending) }
+    private func saveHistory() { Prefs.set(pk("history"), history) }
 
     // MARK: - boot / refresh
 
@@ -435,7 +443,7 @@ final class Store: ObservableObject {
             loadError = nil
             version += 1
             afterLoad()
-            if draft.funding.isEmpty { draft = newDraft(.expense, r.1, defaultFunding: defaultFunding) }
+            if draft.funding.isEmpty { draft = newDraft(.expense, r.1, defaultFunding: defaultFunding, defaultCurrency: defaultCurrency) }
         } else {
             loadError = LS("无法读取 %@", main)
         }
@@ -561,9 +569,16 @@ final class Store: ObservableObject {
             for i in ops.indices { ops[i].releases = nil; if ops[i].heldGroup.map(releases.contains) == true { ops[i].held = nil; ops[i].heldGroup = nil } }
         }
         let held = ops.contains { $0.held != nil }
+        // what it takes to undo this, worked out against the files as they are before it
+        let record = held ? nil : await changeRecord(ops)
         noteMoved(ops)
         pending.append(contentsOf: ops)
         savePending()
+        if let r = record {
+            history.insert(r, at: 0)
+            if history.count > 100 { history.removeLast(history.count - 100) }
+            saveHistory()
+        }
         if held {
             show(LS("已暂存在本机，未推送"))
             await rebuild()
@@ -571,7 +586,9 @@ final class Store: ObservableObject {
         }
         var shown = subNames.isEmpty ? word : word + LS(" · 已关联到 %@", subNames.first ?? "")
         if released > 0 { shown = LS("检查通过，暂存的修改已一并推送") }
-        if let undo = undo { show(shown, action: LS("撤销"), undo) } else { show(shown) }
+        if let undo = undo { show(shown, action: LS("撤销"), undo) }
+        else if let r = record { show(shown, action: LS("撤销")) { [weak self] in _ = await self?.revert(r.id) } }
+        else { show(shown) }
         let gen = UIImpactFeedbackGenerator(style: .light)
         gen.impactOccurred()
         await rebuild()
@@ -815,7 +832,65 @@ final class Store: ObservableObject {
 
     func newDraftFor(_ kind: DraftKind) -> Draft {
         guard let D = D else { return Draft() }
-        return newDraft(kind, D, defaultFunding: defaultFunding)
+        return newDraft(kind, D, defaultFunding: defaultFunding, defaultCurrency: defaultCurrency)
+    }
+
+    /// currency for a new entry paid from / into `funding`
+    func entryCurrency(_ kind: DraftKind, funding: String) -> String {
+        if kind != .transfer && kind != .multi, let c = defaultCurrency { return c }
+        return D?.acctCcy[funding] ?? defaultCurrency ?? L?.base ?? "CNY"
+    }
+
+    // MARK: - undo
+
+    /// whether a file exists once the queue is applied
+    private func fileExists(_ path: String) -> Bool {
+        var exists = tree?.files[path] != nil
+        for o in pending where o.path == path && o.failed == nil { exists = o.kind != .deleteFile }
+        return exists
+    }
+
+    /// the record of a change about to be queued: the ops that take each touched file back
+    private func changeRecord(_ ops: [Op]) async -> ChangeRecord? {
+        var paths: [String] = []
+        for o in ops where !paths.contains(o.path) { paths.append(o.path) }
+        var undo: [Op] = []
+        for p in paths {
+            var before: String?
+            if fileExists(p) {
+                guard let t = try? await fileText(p) else { return nil }
+                before = t
+            }
+            let after: String? = ops.contains { $0.path == p && $0.kind == .deleteFile } ? nil
+                : (try? applyOps(before ?? "", path: p, ops: ops)) ?? before
+            undo += revertOps(path: p, before: before, after: after)
+        }
+        if undo.isEmpty { return nil }
+        let label = commitMessage(ops, path: paths.count == 1 ? paths[0] : LS("%@ 个文件", paths.count))
+        return ChangeRecord(label: label, files: paths, undo: undo)
+    }
+
+    /// take back a change made from this device; refused when what it wrote has been edited since
+    @discardableResult
+    func revert(_ id: UUID) async -> Bool {
+        guard let r = history.first(where: { $0.id == id }), r.undone == nil else { return false }
+        var cur: [String: String] = [:]
+        for p in Set(r.undo.map { $0.path }) where fileExists(p) {
+            guard let t = try? await fileText(p) else { show(LS("文件尚未下载，暂时无法撤回")); return false }
+            cur[p] = t
+        }
+        switch undoOps(r, current: { cur[$0] }) {
+        case .failure(.changedSince(let path)):
+            show(LS("无法撤回：%@ 中的这部分内容之后又被修改过", path))
+            return false
+        case .success(var ops):
+            if !ops.isEmpty {
+                for k in ops.indices { ops[k].label = LS("撤回：%@", r.label); if k > 0 { ops[k].silent = true } }
+                guard await commit(ops, word: LS("已撤回")) else { return false }
+            }
+            if let j = history.firstIndex(where: { $0.id == id }) { history[j].undone = Date(); saveHistory() }
+            return true
+        }
     }
 
     func githubURL(_ file: String, line: Int? = nil) -> URL? { backend.webURL(file, line: line) }
