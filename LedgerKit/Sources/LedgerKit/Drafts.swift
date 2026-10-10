@@ -2,10 +2,17 @@ import Foundation
 
 // MARK: - amount input
 
-/// "12+8.5", "3×4", "1,234.5", "12,5" → number (nil if not a valid expression)
+/// "12+8.5", "3×4", "1,234.5", "12,5" → number (nil if not a valid expression).
+/// Badly grouped thousands separators ("1,2,3") are rejected, not read as 123.
 public func evalExpr(_ input: String) -> Double? {
     var s = input.trimmingCharacters(in: .whitespacesAndNewlines)
-    if s.range(of: #"^-?\d+,\d{1,2}$"#, options: .regularExpression) != nil { s = s.replacingOccurrences(of: ",", with: ".") }
+    if s.range(of: #"^-?\d+,\d{1,2}$"#, options: .regularExpression) != nil {
+        // European decimal comma: "12,5" → "12.5"
+        s = s.replacingOccurrences(of: ",", with: ".")
+    } else {
+        // thousands separators must group correctly, same rule as the ledger parser
+        guard thousandsGroupingOK(s) else { return nil }
+    }
     s = s.replacingOccurrences(of: #"[，,\s]"#, with: "", options: .regularExpression)
         .replacingOccurrences(of: #"[×xX]"#, with: "*", options: .regularExpression)
         .replacingOccurrences(of: "÷", with: "/")
