@@ -527,8 +527,9 @@ struct EditTxView: View {
         var rm = Op(kind: .remove, path: path)
         rm.old = old
         rm.label = LS("修改：%@ %@", date, summary)
-        guard let ins = store.makeOps(alignText(text), extra: OpExtra(silent: true), single: true),
-              let ops = await store.review([rm] + ins) else { return }
+        let newText = alignText(text)
+        guard let ins = store.makeOps(newText, extra: OpExtra(silent: true), single: true),
+              let ops = await store.review([rm] + ins + store.pairedLinkOps(oldText: old, newText: newText)) else { return }
         store.popToken += 1
         await store.commit(ops, word: LS("已更新"), checked: true)
     }
@@ -538,7 +539,7 @@ struct EditTxView: View {
         var rm = Op(kind: .remove, path: path)
         rm.old = old
         rm.label = LS("删除：%@ %@", date, summary)
-        guard let ops = await store.review([rm]) else { return }
+        guard let ops = await store.review([rm] + store.pairedLinkOps(oldText: old, newText: nil)) else { return }
         store.popToken += 1
         await store.commit(ops, word: LS("已删除"), checked: true)
     }

@@ -19,6 +19,32 @@ protocol LedgerBackend {
     /// a link to the file on the web, where there is one
     func webURL(_ file: String, line: Int?) -> URL?
     var repoURL: URL? { get }
+    /// write several files as ONE commit where the host can (so CI never sees half a change);
+    /// returns the new version of each written path (deleted paths are absent)
+    func writeMany(_ changes: [FileChange], message: String) async throws -> [String: String]
+}
+
+/// one file in a multi-file commit: new text, or nil to delete
+struct FileChange {
+    let path: String
+    let text: String?
+    /// the version the change was made against (nil = a new file)
+    let version: String?
+}
+
+extension LedgerBackend {
+    /// one file at a time (hosts without multi-file commits, or a plain folder)
+    func writeSequentially(_ changes: [FileChange], message: String) async throws -> [String: String] {
+        var out: [String: String] = [:]
+        for c in changes {
+            if let t = c.text { out[c.path] = try await write(c.path, text: t, version: c.version, message: message) }
+            else if let v = c.version { try await delete(c.path, version: v, message: message) }
+        }
+        return out
+    }
+    func writeMany(_ changes: [FileChange], message: String) async throws -> [String: String] {
+        try await writeSequentially(changes, message: message)
+    }
 }
 
 func makeBackend(_ c: RepoConfig) -> LedgerBackend {
@@ -130,6 +156,26 @@ struct GitLab: LedgerBackend {
         return gitBlobSHA(text)
     }
 
+    /// one commit with several actions
+    func writeMany(_ changes: [FileChange], message: String) async throws -> [String: String] {
+        if changes.count <= 1 { return try await writeSequentially(changes, message: message) }
+        var actions: [[String: Any]] = []
+        for c in changes {
+            let now = try await current(c.path)
+            if now != c.version { throw GitHubError(status: 409, message: c.path) }
+            if let t = c.text {
+                actions.append(["action": now == nil ? "create" : "update", "file_path": c.path, "content": t, "encoding": "text"])
+            } else if now != nil {
+                actions.append(["action": "delete", "file_path": c.path])
+            }
+        }
+        if actions.isEmpty { return [:] }
+        _ = try await request("/repository/commits", method: "POST", body: ["branch": cfg.branch, "commit_message": message, "actions": actions])
+        var out: [String: String] = [:]
+        for c in changes { if let t = c.text { out[c.path] = gitBlobSHA(t) } }
+        return out
+    }
+
     func delete(_ path: String, version: String, message: String) async throws {
         // like write: never delete a file that changed on the server since we read it
         guard let now = try await current(path) else { return }
@@ -209,6 +255,32 @@ struct Gitea: LedgerBackend {
 
     func delete(_ path: String, version: String, message: String) async throws {
         _ = try await json("/contents/\(GitHub.encPath(path))", method: "DELETE", body: ["sha": version, "message": message, "branch": cfg.branch])
+    }
+
+    /// Gitea 1.20+ / Forgejo: several files in one commit; older servers fall back to one at a time
+    func writeMany(_ changes: [FileChange], message: String) async throws -> [String: String] {
+        if changes.count <= 1 { return try await writeSequentially(changes, message: message) }
+        var files: [[String: Any]] = []
+        for c in changes {
+            var f: [String: Any] = ["path": c.path]
+            if let t = c.text {
+                f["operation"] = c.version == nil ? "create" : "update"
+                f["content"] = Data(t.utf8).base64EncodedString()
+            } else {
+                guard c.version != nil else { continue }
+                f["operation"] = "delete"
+            }
+            if let v = c.version { f["sha"] = v }
+            files.append(f)
+        }
+        do {
+            _ = try await json("/contents", method: "POST", body: ["branch": cfg.branch, "message": message, "files": files])
+        } catch let e as GitHubError where e.status == 404 || e.status == 405 {
+            return try await writeSequentially(changes, message: message)
+        }
+        var out: [String: String] = [:]
+        for c in changes { if let t = c.text { out[c.path] = gitBlobSHA(t) } }
+        return out
     }
 
     func readData(_ path: String) async throws -> Data {

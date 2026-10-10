@@ -598,9 +598,10 @@ struct AddView: View {
             return
         }
         guard var ops = store.makeOps(text, single: true) else { return }
-        if let o = d.refundOf {
+        // the original purchase gets the refund link that is actually in the saved text (it may have been edited)
+        if let o = d.refundOf, let lk = store.refundLink(in: text, preferred: o.link) {
             var link = Op(kind: .link, path: o.path)
-            link.headerLine = o.line; link.header = o.header; link.link = o.link; link.silent = true
+            link.headerLine = o.line; link.header = o.header; link.link = lk; link.add = " ^" + lk; link.silent = true
             ops.append(link)
         }
         guard let checked = await store.review(ops) else { return }
