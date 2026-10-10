@@ -159,6 +159,7 @@ public func forecast(_ L: Ledger, today: String = Day.today(), days: Int = 90, i
         covered.insert(s.name + "|" + s.account)
         var d = s.due(onOrAfter: Day.shift(today, 1)), k = 0
         while d <= end && k < 400 {
+            if let t = s.trialEnd, d <= t { d = s.due(onOrAfter: Day.shift(d, 1)); k += 1; continue }
             events.append(ForecastEvent(date: d, title: s.name, amount: -cny(s.amount, s.currency), kind: .subscription, account: s.funding))
             d = s.due(onOrAfter: Day.shift(d, 1)); k += 1
         }

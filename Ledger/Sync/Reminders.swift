@@ -106,9 +106,19 @@ enum Reminders {
         if flag(subsKey) {
             let lead = subsDays
             let cal = Calendar.current
-            for sub in subscriptions(L) where sub.status == .active {
+            for sub in store.subs where sub.status == .active {
+                // a free trial: remind before it turns into a paid plan
+                if let t = sub.trialEnd, t >= today, let tDay = Day.date(Day.shift(t, -2)),
+                   let fire = cal.date(bySettingHour: 9, minute: 0, second: 0, of: max(tDay, cal.date(byAdding: .day, value: 1, to: Date()) ?? Date())) {
+                    add("trial." + sub.name + "." + t, LS("免费试用即将结束"),
+                        LS("%@ 的试用 %@ 结束，之后开始扣费 %@；不需要的话记得取消", sub.name, t, money(sub.amount, sub.currency)),
+                        cal.dateComponents([.year, .month, .day, .hour, .minute], from: fire), tab: "overview")
+                }
+                // yearly plans: a week ahead, to decide whether to renew
+                let subLead = sub.period.months >= 12 ? max(lead, 7) : lead
                 let due = sub.due(onOrAfter: today)
-                guard let dueDay = Day.date(due), let leadDay = Day.date(Day.shift(due, -lead)) else { continue }
+                if let t = sub.trialEnd, due <= t { continue }
+                guard let dueDay = Day.date(due), let leadDay = Day.date(Day.shift(due, -subLead)) else { continue }
                 // 09:00 on the lead day; inside the lead window, the next of 09:00 / 20:00 that is
                 // still on or before the charge day
                 let now = Date()

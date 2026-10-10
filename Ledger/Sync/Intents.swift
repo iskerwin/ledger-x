@@ -221,7 +221,7 @@ struct UpcomingIntent: AppIntent {
         var parts: [String] = []
         let due = subscriptionsDue(L, today: today)
         if !due.isEmpty { parts.append(LS("待记账：%@", due.map { $0.sub.name }.joined(separator: LS("、")))) }
-        let soon = subscriptions(L).filter { $0.status == .active }.compactMap { s -> String? in
+        let soon = store.subs.filter { $0.status == .active }.compactMap { s -> String? in
             let d = s.due(onOrAfter: Day.shift(today, 1))
             return d <= week ? LS("%@ %@ %@", s.name, d, money(s.amount, s.currency)) : nil
         }
