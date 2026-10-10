@@ -512,7 +512,7 @@ public func makeOps(_ text: String, _ L: Ledger, layout: RepoLayout = RepoLayout
             op.line = src
             op.label = label ?? tr("\(old != nil ? "覆盖余额断言" : "余额核对")：\(e.account ?? "") \(e.date)", "\(old != nil ? "Replace balance" : "Balance check"): \(e.account ?? "") \(e.date)")
             op.summary = tr("\(old != nil ? "覆盖" : "")余额断言 \(e.account ?? "")", "\(old != nil ? "Replace " : "")balance \(e.account ?? "")")
-            op.amountText = money(e.number, e.currency ?? "CNY")
+            op.amountText = plainMoney(e.number, e.currency ?? "CNY")
             op.silent = extra.silent
             out.append(op)
             continue
@@ -523,7 +523,7 @@ public func makeOps(_ text: String, _ L: Ledger, layout: RepoLayout = RepoLayout
             summary = [e.payee, e.narration].filter { !$0.isEmpty }.joined(separator: " ")
             if summary.isEmpty { summary = tr("交易", "Transaction") }
             let c = classify(postings: e.postings.filter { $0.units != nil }, date: e.date, L)
-            amountText = c.kind == .transfer ? money(c.amount, c.currency ?? "CNY") : signedMoney(c.amount)
+            amountText = c.kind == .transfer ? plainMoney(c.amount, c.currency ?? "CNY") : (c.amount > 1e-9 ? "+" : "") + plainMoney(c.amount)
         } else {
             summary = "\(KitLocale.chinese ? (TYPE_ZH[e.type] ?? e.type.rawValue) : e.type.rawValue) \(e.account ?? e.currency ?? e.name ?? "")".trimmingCharacters(in: .whitespaces)
         }

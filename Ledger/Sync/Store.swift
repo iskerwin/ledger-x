@@ -73,6 +73,8 @@ final class Store: ObservableObject {
     }
     @Published var tab: Tab = .add
     @Published var showSettings = false
+    /// open 账本检查 on the overview tab (from Settings)
+    @Published var openCheck = false
     @Published var toast: Toast?
     /// bumped to pop every tab back to its root (after an edit or delete)
     @Published var popToken = 0

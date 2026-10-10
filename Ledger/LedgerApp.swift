@@ -13,6 +13,7 @@ struct LedgerApp: App {
 
     init() {
         AppLanguage.apply()
+        KitPrivacy.masked = UserDefaults.standard.bool(forKey: "ledger.privacy")
         UNUserNotificationCenter.current().delegate = NotificationRouter.shared
     }
 
@@ -57,16 +58,19 @@ struct LedgerApp: App {
 struct RootView: View {
     @EnvironmentObject var store: Store
     @AppStorage(AppTheme.key) private var theme = AppTheme.jade.rawValue
+    @AppStorage("ledger.privacy") private var privacy = false
     @Environment(\.horizontalSizeClass) private var hsize
 
     var body: some View {
+        // before any child is built: money() reads it
+        let _ = (KitPrivacy.masked = privacy)
         Group {
             if !store.connected {
                 NavigationStack { SettingsView(first: true) }
             } else if store.L == nil {
                 NavigationStack { LoadingView() }
             } else if hsize == .regular {
-                SplitRoot().id(theme)
+                SplitRoot().id(theme + (privacy ? "|private" : ""))
             } else {
                 TabView(selection: $store.tab) {
                     AddView().tabItem { Label(LS("记账"), systemImage: "square.and.pencil") }.tag(Tab.add)
@@ -76,7 +80,8 @@ struct RootView: View {
                     ReportsView().tabItem { Label(LS("报表"), systemImage: "doc.text.magnifyingglass") }.tag(Tab.reports)
                 }
                 .minimizingTabBar()
-                .id(theme)   // theme colours are static; rebuild the tabs when it changes
+                // theme colours and hidden amounts are read when views are built; rebuild the tabs when they change
+                .id(theme + (privacy ? "|private" : ""))
             }
         }
         .overlay(alignment: .bottom) { ToastView().animation(.spring(duration: 0.3), value: store.toast) }

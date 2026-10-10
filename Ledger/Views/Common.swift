@@ -3,12 +3,19 @@ import LedgerKit
 
 // MARK: - hide amounts
 
+// Amounts are hidden where they are formatted: money() gives "¥***" while 隐藏金额 is on (KitPrivacy),
+// and the tabs are rebuilt when it changes. Charts keep their shape but lose the value axis.
+
 struct Sensitive: ViewModifier {
     @AppStorage("ledger.privacy") private var privacy = false
+    @ViewBuilder
     func body(content: Content) -> some View {
-        content.blur(radius: privacy ? 7 : 0).animation(.easeInOut(duration: 0.2), value: privacy)
+        if privacy { content.chartYAxis(.hidden) } else { content }
     }
 }
+
+/// a number that is not an amount from money() (units, prices, query cells), hidden the same way
+func masked(_ s: String) -> String { KitPrivacy.masked ? "***" : s }
 
 extension View {
     func sensitive() -> some View { modifier(Sensitive()) }

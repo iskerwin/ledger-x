@@ -35,13 +35,20 @@ struct OverviewView: View {
             .navigationDestination(for: ForecastDest.self) { _ in ForecastView() }
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
+        // 设置 → 账本检查 opens the check here, where every problem can be opened and fixed
+        .onChange(of: store.openCheck) { _, open in
+            guard open else { return }
+            store.openCheck = false
+            path = NavigationPath()
+            path.append(ErrorsDest())
+        }
         .sheet(item: $reimb) { ReimbSheet(target: $0) }
         .task {
             if store.demoEnv["LEDGER_REIMB"] != nil { reimb = ReimbTarget(link: nil) }
             if store.demo {
                 chartStyle = store.demoEnv["LEDGER_CHART"] ?? "list"
                 trend = store.demoEnv["LEDGER_TREND"] ?? "exp"
-                if store.demoEnv["LEDGER_LINK_ISSUES"] != nil, path.isEmpty { path.append(LinkIssuesDest()) }
+                if store.demoEnv["LEDGER_LINK_ISSUES"] != nil, path.isEmpty { path.append(ErrorsDest()) }
             }
         }
     }
@@ -589,20 +596,8 @@ struct OverviewView: View {
     }
 
     private func checkSection(_ L: Ledger) -> some View {
-        let okCount = L.balanceResults.filter { $0.ok }.count
-        return Section(LS("账本校验")) {
-            NavigationLink(value: ErrorsDest()) {
-                HStack {
-                    if L.errors.isEmpty {
-                        Label(LS("账本校验通过"), systemImage: "checkmark.seal").foregroundStyle(Color.gain)
-                    } else {
-                        Label(LS("%@ 项错误", L.errors.count), systemImage: "exclamationmark.triangle").foregroundStyle(Color.loss)
-                    }
-                    Spacer()
-                    Text(LS("%@/%@ 余额断言", okCount, L.balanceResults.count)).font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            LinkCheckRow()
+        Section(LS("账本检查")) {
+            NavigationLink(value: ErrorsDest()) { LedgerCheckRow() }
             if store.cfg.kind == .github { CIRow() }
         }
     }
@@ -699,24 +694,27 @@ struct CatBar: View {
     }
 }
 
-struct LinkCheckRow: View {
+/// the one summary of everything the ledger check finds: Beancount errors (failed balances included) and link problems
+struct LedgerCheckRow: View {
     @EnvironmentObject var store: Store
     var body: some View {
-        let issues = store.linkProblems
-        let errors = issues.filter { $0.isError }.count
-        NavigationLink(value: LinkIssuesDest()) {
+        if let L = store.L {
+            let links = store.linkProblems
+            let errors = L.errors.count + links.filter { $0.isError }.count
+            let warnings = links.filter { !$0.isError }.count
             HStack {
-                if issues.isEmpty {
-                    Label(LS("链接检查通过"), systemImage: "link").foregroundStyle(Color.gain)
+                if errors + warnings == 0 {
+                    Label(LS("账本检查通过"), systemImage: "checkmark.seal").foregroundStyle(Color.gain)
                 } else {
-                    Label(LS("链接问题 %@ 项", issues.count), systemImage: "link.badge.plus")
+                    Label(errors > 0 && warnings > 0 ? LS("%@ 项错误 · %@ 项提醒", errors, warnings)
+                          : errors > 0 ? LS("%@ 项错误", errors) : LS("%@ 项提醒", warnings),
+                          systemImage: "exclamationmark.triangle")
                         .foregroundStyle(errors > 0 ? Color.loss : Color.warn)
                 }
                 Spacer()
-                if errors > 0 { Text(LS("%@ 项错误", errors)).font(.caption).foregroundStyle(.secondary) }
+                Text(LS("%@/%@ 余额断言", L.balanceResults.filter { $0.ok }.count, L.balanceResults.count)).font(.caption).foregroundStyle(.secondary)
             }
         }
-        .font(.subheadline)
     }
 }
 
@@ -741,27 +739,47 @@ struct CIRow: View {
     }
 }
 
+/// 账本检查: Beancount errors, link problems and bean-check in one place, each opening what needs fixing
 struct ErrorsView: View {
     @EnvironmentObject var store: Store
-    /// the link check row needs the tab's navigation destinations (not there in Settings)
-    var links = true
     var body: some View {
         List {
             if let L = store.L {
-                Section(LS("%@ 个文件 · %@ 笔交易 · %@/%@ 余额断言", L.files.count, L.txns.count, L.balanceResults.filter { $0.ok }.count, L.balanceResults.count)) {
-                    if L.errors.isEmpty { Label(LS("未发现错误"), systemImage: "checkmark.seal").foregroundStyle(Color.gain) }
-                    ForEach(Array(L.errors.enumerated()), id: \.offset) { _, e in
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(e.msg).font(.subheadline)
-                            if let f = e.file { Text("\(f)\(e.line.map { ":\($0)" } ?? "")").font(.caption.monospaced()).foregroundStyle(.secondary) }
+                let links = store.linkProblems
+                let linkErrors = links.filter { $0.isError }, linkWarnings = links.filter { !$0.isError }
+                let ignored = store.ignoredLinkIssues.count
+                Section {
+                    LedgerCheckRow()
+                } footer: {
+                    Text(LS("%@ 个文件 · %@ 笔交易 · %@/%@ 余额断言", L.files.count, L.txns.count, L.balanceResults.filter { $0.ok }.count, L.balanceResults.count))
+                }
+                if !L.errors.isEmpty {
+                    Section(LS("账本错误 · %@", L.errors.count)) {
+                        ForEach(Array(L.errors.enumerated()), id: \.offset) { _, e in
+                            let t = e.file.flatMap { f in L.txns.first { $0.file == f && $0.line == e.line && !$0.synthetic } }
+                            let row = VStack(alignment: .leading, spacing: 3) {
+                                Text(e.msg).font(.subheadline)
+                                if let f = e.file { Text("\(f)\(e.line.map { ":\($0)" } ?? "")").font(.caption.monospaced()).foregroundStyle(.secondary) }
+                            }
+                            if let t = t { NavigationLink(value: TxDest(t)) { row } } else { row }
                         }
                     }
                 }
-                if links { Section { LinkCheckRow() } }
+                if !linkErrors.isEmpty {
+                    Section(LS("链接错误 · %@", linkErrors.count)) { ForEach(linkErrors) { LinkIssueRow(i: $0) } }
+                }
+                if !linkWarnings.isEmpty {
+                    Section(LS("链接提醒 · %@", linkWarnings.count)) { ForEach(linkWarnings) { LinkIssueRow(i: $0) } }
+                }
                 if store.cfg.kind == .github { Section { CIRow() } }
+                Section {
+                    if ignored > 0 { Button(LS("恢复已忽略的 %@ 项", ignored)) { store.clearIgnoredLinkIssues() } }
+                } footer: {
+                    Text(LS("链接检查：退款、报销和订阅链接只剩一笔、找不到原交易或垫付、金额对不上、科目不一致，以及带 #refund / #reimbursement 却没有链接的交易。点按打开交易处理，左滑可忽略。"))
+                }
             }
         }
-        .navigationTitle(LS("账本校验"))
+        .navigationTitle(LS("账本检查"))
         .navigationBarTitleDisplayMode(.inline)
     }
 }

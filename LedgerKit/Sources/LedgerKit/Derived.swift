@@ -2,6 +2,11 @@ import Foundation
 
 // MARK: - language
 
+public enum KitPrivacy {
+    /// true = amounts show as "¥***" (the app sets this from its 隐藏金额 setting)
+    public static var masked = false
+}
+
 public enum KitLocale {
     /// false = English messages and labels (the app sets this from its language setting)
     public static var chinese = true
@@ -71,10 +76,15 @@ public let ZH: [String: String] = [
 
 public let SYM: [String: String] = ["CNY": "¥", "HKD": "HK$", "USD": "$", "EUR": "€", "GBP": "£", "SGD": "S$", "MOP": "MOP$"]
 
+/// an amount for display; "¥***" while amounts are hidden
 public func money(_ n: Double, _ c: String = "CNY", _ d: Int = 2) -> String {
+    KitPrivacy.masked ? (SYM[c] ?? "") + "***" + (SYM[c] != nil ? "" : " " + c) : plainMoney(n, c, d)
+}
+/// an amount that is never hidden (stored with queued changes, compared, copied)
+public func plainMoney(_ n: Double, _ c: String = "CNY", _ d: Int = 2) -> String {
     (n < -1e-9 ? "-" : "") + (SYM[c] ?? "") + fmtNum(abs(n), d) + (SYM[c] != nil ? "" : " " + c)
 }
-public func signedMoney(_ n: Double, _ c: String = "CNY") -> String { (n > 1e-9 ? "+" : "") + money(n, c) }
+public func signedMoney(_ n: Double, _ c: String = "CNY") -> String { (n > 1e-9 && !KitPrivacy.masked ? "+" : "") + money(n, c) }
 
 public func leaf(_ a: String) -> String { a.components(separatedBy: ":").last ?? a }
 public func catOf(_ a: String) -> String { a.components(separatedBy: ":").prefix(2).joined(separator: ":") }

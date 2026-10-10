@@ -283,7 +283,7 @@ struct ResultTable: View {
     private func cell(_ v: QValue, numeric: Bool) -> some View {
         let t = cellText(v)
         if numeric {
-            Text(t)
+            Text(masked(t))
                 .font(.footnote.monospacedDigit())
                 .foregroundStyle((v.sortNumber ?? 0) < -1e-9 ? Color.loss : Color.primary)
                 .multilineTextAlignment(.trailing)

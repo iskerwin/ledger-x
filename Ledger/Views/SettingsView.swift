@@ -105,9 +105,16 @@ struct SettingsView: View {
                 }
 
                 Section(LS("账本")) {
-                    NavigationLink { ErrorsView(links: false) } label: {
-                        LabeledContent(LS("账本校验"), value: L.errors.isEmpty ? LS("通过") : LS("%@ 项错误", L.errors.count))
+                    // the same page as on the overview: problems open the transactions to fix them there
+                    Button {
+                        store.showSettings = false
+                        store.tab = .overview
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { store.openCheck = true }
+                    } label: {
+                        HStack { LedgerCheckRow(); Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) }
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                     LabeledContent(LS("交易"), value: LS("%@ 笔", L.txns.count))
                     LabeledContent(LS("余额断言"), value: "\(L.balanceResults.filter { $0.ok }.count)/\(L.balanceResults.count)")
                     LabeledContent(LS("文件"), value: LS("%@ 个", L.files.count))
