@@ -135,4 +135,36 @@ final class QueryTests: XCTestCase {
         rp.old = "nope"
         XCTAssertThrowsError(try applyOps(text, path: "a.bean", ops: [rp], strict: true))
     }
+
+    func testHavingFiltersGroups() throws {
+        let H = loadLedger(root: "main.bean") { _ in """
+        option "operating_currency" "CNY"
+        2026-01-01 open Expenses:Food CNY
+        2026-01-01 open Expenses:Travel CNY
+        2026-01-01 open Assets:Cash CNY
+        2026-01-02 * "a"
+          Expenses:Food  100 CNY
+          Assets:Cash
+        2026-01-03 * "b"
+          Expenses:Food  50 CNY
+          Assets:Cash
+        2026-01-04 * "c"
+          Expenses:Travel  500 CNY
+          Assets:Cash
+        """ }
+        XCTAssertTrue(H.errors.isEmpty, H.errors.map { $0.msg }.joined(separator: "; "))
+        let all = try runQuery("SELECT account, SUM(position) AS t GROUP BY account ORDER BY account", H)
+        XCTAssertEqual(all.rows.count, 3)
+        // only groups with total > 100 survive: Food (150) and Travel (500); Cash (-650) is out
+        let r = try runQuery("SELECT account, SUM(position) AS t GROUP BY account HAVING SUM(position) > 100 ORDER BY account", H)
+        XCTAssertEqual(r.rows.map { $0[0].text }, ["Expenses:Food", "Expenses:Travel"])
+        // aliases resolve inside HAVING too
+        let r2 = try runQuery("SELECT account, SUM(position) AS t GROUP BY account HAVING t > 400", H)
+        XCTAssertEqual(r2.rows.map { $0[0].text }, ["Expenses:Travel"])
+        // HAVING without GROUP BY treats the whole result as one group (total = 650 here)
+        let s1 = try runQuery("SELECT SUM(position) AS t WHERE account ~ \"^Expenses:\" HAVING SUM(position) > 100", H)
+        XCTAssertEqual(s1.rows.count, 1)
+        let s2 = try runQuery("SELECT SUM(position) AS t WHERE account ~ \"^Expenses:\" HAVING SUM(position) > 1000", H)
+        XCTAssertEqual(s2.rows.count, 0)
+    }
 }
