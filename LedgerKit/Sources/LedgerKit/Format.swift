@@ -224,6 +224,8 @@ public struct Op: Codable, Identifiable, Equatable {
     public var held: String?
     /// ops kept together by one decision are released together
     public var heldGroup: UUID?
+    /// held groups this change makes valid again: released and pushed together with it
+    public var releases: [UUID]?
 
     public init(kind: Kind, path: String) { self.kind = kind; self.path = path }
 }

@@ -416,6 +416,13 @@ final class Store: ObservableObject {
     /// build the ledger with `ops` applied and ask the user about anything the change would break.
     /// Returns the ops to commit (marked `held` when kept on this device), or nil to go back and edit.
     func review(_ ops: [Op]) async -> [Op]? {
+        // held changes that pass together with this one go out with it, in the same commit
+        let heldGroups = Set(pending.compactMap { $0.held != nil ? $0.heldGroup : nil })
+        if !heldGroups.isEmpty, await issues(for: pending.filter { $0.held != nil } + ops).isEmpty {
+            var out = ops
+            if !out.isEmpty { out[0].releases = Array(heldGroups) }
+            return out
+        }
         let issues = await issues(for: ops)
         if issues.isEmpty { return ops }
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
@@ -429,16 +436,21 @@ final class Store: ObservableObject {
         }
     }
 
-    /// what the pre-commit check finds for `ops`, without asking anything
+    /// What the pre-commit check finds for `ops`, without asking anything. It compares the ledger as it
+    /// will be on the server — pushable queue only, held and failed items left out — before and after.
     func issues(for ops: [Op]) async -> [ChangeIssue] {
-        guard let before = L, let tree = tree, !ops.isEmpty else { return [] }
+        guard let tree = tree, !ops.isEmpty else { return [] }
         // renaming an account changes every key the check compares; nothing to learn from it
         if ops.allSatisfy({ $0.kind == .rename }) { return [] }
-        let files = tree.files, main = self.main, all = pending + ops
+        let files = tree.files, main = self.main
+        let base = pending.filter { $0.failed == nil && $0.held == nil }
+        let mine = Set(ops.map { $0.id })
+        let after = base.filter { !mine.contains($0.id) } + ops.map { var o = $0; o.held = nil; return o }
         return await Task.detached(priority: .userInitiated) {
-            let after = Store.loadWith(files: files, main: main, ops: all)
-            if after.txns.isEmpty && after.files.isEmpty { return [] }
-            return reviewChange(before: before, after: after)
+            let b = Store.loadWith(files: files, main: main, ops: base)
+            let a = Store.loadWith(files: files, main: main, ops: after)
+            if a.txns.isEmpty && a.files.isEmpty { return [] }
+            return reviewChange(before: b, after: a)
         }.value
     }
 
@@ -449,14 +461,21 @@ final class Store: ObservableObject {
         if L == nil { await refresh() }
     }
 
-    /// push items that were kept on this device
+    /// push items that were kept on this device (checked again first: if they still break something, ask)
     func release(_ op: Op) async {
-        for i in pending.indices where pending[i].held != nil
-            && (pending[i].id == op.id || (op.heldGroup != nil && pending[i].heldGroup == op.heldGroup)) {
+        let group = pending.filter { $0.held != nil && ($0.id == op.id || (op.heldGroup != nil && $0.heldGroup == op.heldGroup)) }
+        let issues = await issues(for: group)
+        if !issues.isEmpty {
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            guard await ChangeReview.ask(issues) == .force else { return }
+        }
+        let ids = Set(group.map { $0.id })
+        for i in pending.indices where ids.contains(pending[i].id) {
             pending[i].held = nil
             pending[i].heldGroup = nil
         }
         savePending()
+        await rebuild()
         await syncNow()
     }
 
@@ -482,6 +501,15 @@ final class Store: ObservableObject {
                 if i + 1 < ops.count, ops[i + 1].silent == true { ops[i + 1].held = h.held; ops[i + 1].heldGroup = h.heldGroup }
             }
         }
+        // held changes that pass together with this one: release them so everything goes in one commit
+        let releases = Set(ops.flatMap { $0.releases ?? [] })
+        var released = 0
+        if !releases.isEmpty {
+            for i in pending.indices where pending[i].heldGroup.map(releases.contains) == true {
+                pending[i].held = nil; pending[i].heldGroup = nil; released += 1
+            }
+            for i in ops.indices { ops[i].releases = nil; if ops[i].heldGroup.map(releases.contains) == true { ops[i].held = nil; ops[i].heldGroup = nil } }
+        }
         let held = ops.contains { $0.held != nil }
         pending.append(contentsOf: ops)
         savePending()
@@ -490,7 +518,8 @@ final class Store: ObservableObject {
             await rebuild()
             return true
         }
-        let shown = subNames.isEmpty ? word : word + LS(" · 已关联到 %@", subNames.first ?? "")
+        var shown = subNames.isEmpty ? word : word + LS(" · 已关联到 %@", subNames.first ?? "")
+        if released > 0 { shown = LS("检查通过，暂存的修改已一并推送") }
         if let undo = undo { show(shown, action: LS("撤销"), undo) } else { show(shown) }
         let gen = UIImpactFeedbackGenerator(style: .light)
         gen.impactOccurred()
@@ -531,20 +560,23 @@ final class Store: ObservableObject {
         }
     }
 
+    /// push everything that can go, as ONE commit (one per host request where the host can't),
+    /// so bean-check on the server never sees half of a change
     private func pushOnce() async throws {
         for _ in 0..<3 {   // repeat for ops queued while pushing
             let ops = pending.filter { $0.failed == nil && $0.held == nil }
             if ops.isEmpty { return }
             var paths: [String] = []
             for o in ops where !paths.contains(o.path) { paths.append(o.path) }
+            var changes: [FileChange] = []
+            var texts: [String: String] = [:]
+            var included: [Op] = []
             for path in paths {
                 let sha = tree?.files[path]
                 let dels = ops.filter { $0.path == path && $0.kind == .deleteFile }
                 if !dels.isEmpty {
-                    if let sha = sha { try await backend.delete(path, version: sha, message: dels[0].label ?? LS("删除 %@", path)) }
-                    tree?.files[path] = nil
-                    pending.removeAll { o in dels.contains { $0.id == o.id } }
-                    savePending()
+                    changes.append(FileChange(path: path, text: nil, version: sha))
+                    included += dels
                     continue
                 }
                 var base = ""
@@ -564,21 +596,31 @@ final class Store: ObservableObject {
                 savePending()
                 let fileOps = pending.filter { $0.path == path && $0.failed == nil && $0.held == nil }
                 if fileOps.isEmpty { continue }
-                let text: String
                 do {
-                    text = try applyOps(base, path: path, ops: fileOps, strict: true)
+                    let text = try applyOps(base, path: path, ops: fileOps, strict: true)
+                    texts[path] = text
+                    changes.append(FileChange(path: path, text: text, version: sha))
+                    included += fileOps
                 } catch let e as ConflictError {
                     // park this file's ops instead of blocking every other file in the queue
                     for o in fileOps { markFailed(o.id, e.localizedDescription) }
                     savePending()
-                    continue
                 }
-                let newSha = try await backend.write(path, text: text, version: sha, message: commitMessage(fileOps, path: path))
-                BlobCache.set(newSha, text)
-                tree?.files[path] = newSha
-                pending.removeAll { o in fileOps.contains { $0.id == o.id } }
-                savePending()
             }
+            if changes.isEmpty { return }
+            let message = commitMessage(included, path: paths.count == 1 ? paths[0] : LS("%@ 个文件", paths.count))
+            let versions = try await backend.writeMany(changes, message: message)
+            for c in changes {
+                if let t = texts[c.path], let v = versions[c.path] {
+                    BlobCache.set(v, t)
+                    tree?.files[c.path] = v
+                } else if c.text == nil {
+                    tree?.files[c.path] = nil
+                }
+            }
+            let ids = Set(included.map { $0.id })
+            pending.removeAll { ids.contains($0.id) }
+            savePending()
             tree = try await backend.fetchTree()
             saveTree()
         }

@@ -181,6 +181,43 @@ struct GitHub: LedgerBackend {
         try await putFile(path, text: text, sha: version, message: message)
     }
     func delete(_ path: String, version: String, message: String) async throws { try await deleteFile(path, sha: version, message: message) }
+
+    /// several files as one commit through the Git data API: tree → commit → move the branch.
+    /// Each file must still be at the version the change was made against, else 409 (refetch and retry).
+    func writeMany(_ changes: [FileChange], message: String) async throws -> [String: String] {
+        if changes.count <= 1 { return try await writeSequentially(changes, message: message) }
+        let ref = try await json("\(repoPath)/git/ref/heads/\(GitHub.encPath(cfg.branch))")
+        guard let head = (ref["object"] as? [String: Any])?["sha"] as? String else { throw GitHubError(status: 404, message: cfg.branch) }
+        let commit = try await json("\(repoPath)/git/commits/\(head)")
+        guard let baseTree = (commit["tree"] as? [String: Any])?["sha"] as? String else { throw GitHubError(status: 404, message: head) }
+        let t = try await json("\(repoPath)/git/trees/\(baseTree)?recursive=1")
+        var now: [String: String] = [:]
+        for n in (t["tree"] as? [[String: Any]]) ?? [] where n["type"] as? String == "blob" {
+            if let p = n["path"] as? String, let s = n["sha"] as? String { now[p] = s }
+        }
+        var entries: [[String: Any]] = []
+        for c in changes {
+            if now[c.path] != c.version { throw GitHubError(status: 409, message: c.path) }
+            if let text = c.text {
+                entries.append(["path": c.path, "mode": "100644", "type": "blob", "content": text])
+            } else if c.version != nil {
+                entries.append(["path": c.path, "mode": "100644", "type": "blob", "sha": NSNull()])
+            }
+        }
+        if entries.isEmpty { return [:] }
+        let tree = try await json("\(repoPath)/git/trees", method: "POST", body: ["base_tree": baseTree, "tree": entries])
+        guard let treeSHA = tree["sha"] as? String else { throw GitHubError(status: 0, message: "tree") }
+        let c = try await json("\(repoPath)/git/commits", method: "POST", body: ["message": message, "tree": treeSHA, "parents": [head]])
+        guard let newCommit = c["sha"] as? String else { throw GitHubError(status: 0, message: "commit") }
+        do {
+            _ = try await json("\(repoPath)/git/refs/heads/\(GitHub.encPath(cfg.branch))", method: "PATCH", body: ["sha": newCommit, "force": false])
+        } catch let e as GitHubError where e.status == 422 {
+            throw GitHubError(status: 409, message: e.message)      // someone pushed in between
+        }
+        var out: [String: String] = [:]
+        for c in changes { if let text = c.text { out[c.path] = gitBlobSHA(text) } }
+        return out
+    }
     func readData(_ path: String) async throws -> Data {
         try await request("\(repoPath)/contents/\(GitHub.encPath(path))?ref=\(GitHub.enc(cfg.branch))", raw: true)
     }
