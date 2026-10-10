@@ -251,6 +251,14 @@ jobs:
           shot 50-forecast SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=forecast SIMCTL_CHILD_LEDGER_EXTRA="$CARDS"
           shot 51-overview-cards SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_SCROLL=cards SIMCTL_CHILD_LEDGER_EXTRA="$CARDS"
           shot 52-edit-card SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_EDIT_ACCOUNT=Liabilities:CreditCard:SPDB SIMCTL_CHILD_LEDGER_EXTRA="$CARDS"
+          LINKS="$GITHUB_WORKSPACE/LedgerKit/Tests/LedgerKitTests/Fixtures/import/links.bean"
+          shot 54-link-detail SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_OPEN_LINK=refund-20260902-ab12 SIMCTL_CHILD_LEDGER_EXTRA="$LINKS"
+          shot 55-link-orphan SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_OPEN_LINK=refund-20260801-zz99 SIMCTL_CHILD_LEDGER_EXTRA="$LINKS"
+          shot 56-link-issues SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_LINK_ISSUES=1 SIMCTL_CHILD_LEDGER_EXTRA="$LINKS"
+          shot 57-overview-flow SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_TREND=flow
+          shot 58-overview-donut-style SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_SCROLL=category SIMCTL_CHILD_LEDGER_CHART=donut
+          shot 59-overview-liab-cards SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_SCROLL=liab SIMCTL_CHILD_LEDGER_EXTRA="$CARDS"
+          shot 60-repo-layout SIMCTL_CHILD_LEDGER_TAB=settings SIMCTL_CHILD_LEDGER_LAYOUT=1
           shot 14-privacy SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_PRIVACY=1
           xcrun simctl ui "$UDID" appearance dark
           shot 15-dark-overview SIMCTL_CHILD_LEDGER_TAB=overview

@@ -11,6 +11,8 @@ extension View {
     func subscriptionDestinations() -> some View {
         navigationDestination(for: SubDetailDest.self) { SubscriptionDetailView(name: $0.name) }
             .navigationDestination(for: SubCalendarDest.self) { _ in SubscriptionCalendarView() }
+            .navigationDestination(for: LinkDest.self) { LinkDetailView(link: $0.link) }
+            .navigationDestination(for: LinkIssuesDest.self) { _ in LinkIssuesView() }
     }
 }
 
@@ -197,7 +199,7 @@ extension Store {
     }
 }
 
-private func trimTrailingSpaces(_ s: String) -> String {
+func trimTrailingSpaces(_ s: String) -> String {
     var x = s
     while x.last == " " || x.last == "\t" { x.removeLast() }
     return x

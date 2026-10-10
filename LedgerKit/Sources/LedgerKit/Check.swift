@@ -113,7 +113,7 @@ func metaTrue(_ v: MetaValue?) -> Bool {
 }
 
 /// `credit_limit: 50000` or `credit_limit: "50000 CNY"`; a limit in another currency is ignored
-func creditLimit(_ v: MetaValue?, _ ccy: String) -> Double? {
+public func creditLimit(_ v: MetaValue?, _ ccy: String) -> Double? {
     guard let v = v else { return nil }
     let parts = (v.stringValue ?? v.display).replacingOccurrences(of: ",", with: "").split(separator: " ").map(String.init)
     guard let first = parts.first, let n = Double(first), n > 0 else { return nil }

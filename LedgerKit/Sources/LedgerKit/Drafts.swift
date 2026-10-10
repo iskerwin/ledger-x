@@ -256,14 +256,107 @@ public func validateText(_ text: String, _ L: Ledger, single: Bool = true) -> Va
 public let TYPE_ZH: [EntryType: String] = [.txn: "交易", .balance: "余额断言", .price: "价格", .open: "开户", .close: "关户", .commodity: "商品",
                                            .pad: "补齐", .note: "备注", .event: "事件", .document: "文档", .query: "查询", .custom: "自定义"]
 
+/// What a file in the layout holds (the keys of ledger-x.json's "files").
+public enum LayoutKind: String, CaseIterable, Codable, Identifiable {
+    case transactions, accounts, balance, price, commodity, budget, subscriptions, document, note, query
+    public var id: String { rawValue }
+    public var title: String {
+        switch self {
+        case .transactions: return tr("交易", "Transactions")
+        case .accounts: return tr("开户 / 关户", "Open / close")
+        case .balance: return tr("余额断言 / pad", "Balance / pad")
+        case .price: return tr("价格", "Prices")
+        case .commodity: return tr("商品", "Commodities")
+        case .budget: return tr("预算", "Budgets")
+        case .subscriptions: return tr("订阅", "Subscriptions")
+        case .document: return tr("票据", "Documents")
+        case .note: return tr("事件 / 备注", "Events / notes")
+        case .query: return tr("查询", "Queries")
+        }
+    }
+    public static func of(_ e: Entry) -> LayoutKind? {
+        switch e.type {
+        case .txn: return .transactions
+        case .open, .close: return .accounts
+        case .balance, .pad: return .balance
+        case .price: return .price
+        case .commodity: return .commodity
+        case .document: return .document
+        case .note, .event: return .note
+        case .query: return .query
+        case .custom where e.name == "budget": return .budget
+        case .custom where e.name == "subscription": return .subscriptions
+        default: return nil
+        }
+    }
+}
+
+/// transactions touching `account` (or its sub-accounts) go to `file`
+public struct LayoutRule: Codable, Equatable, Hashable {
+    public var account: String
+    public var file: String
+    public init(account: String, file: String) { self.account = account; self.file = file }
+    public func matches(_ e: Entry) -> Bool {
+        let a = account.trimmingCharacters(in: .whitespaces)
+        guard !a.isEmpty else { return false }
+        return e.postings.contains { $0.account == a || $0.account.hasPrefix(a + ":") }
+    }
+}
+
+/// ledger-x.json in the repository root: where each kind of directive is written, shared by every device
+public struct LedgerXConfig: Codable, Equatable {
+    public static let path = "ledger-x.json"
+    public var files: [String: String] = [:]
+    public var rules: [LayoutRule] = []
+    public var receivable: String?
+
+    public init(files: [String: String] = [:], rules: [LayoutRule] = [], receivable: String? = nil) {
+        self.files = files; self.rules = rules; self.receivable = receivable
+    }
+
+    enum CodingKeys: String, CodingKey { case files, rules, receivable }
+
+    /// every key is optional, so a hand-written file with only some of them still loads
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        files = try c.decodeIfPresent([String: String].self, forKey: .files) ?? [:]
+        rules = try c.decodeIfPresent([LayoutRule].self, forKey: .rules) ?? []
+        receivable = try c.decodeIfPresent(String.self, forKey: .receivable)
+    }
+
+    public func file(_ k: LayoutKind) -> String? {
+        let v = (files[k.rawValue] ?? "").trimmingCharacters(in: .whitespaces)
+        return v.isEmpty ? nil : v
+    }
+
+    public static func parse(_ text: String) -> LedgerXConfig? {
+        guard let d = text.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(LedgerXConfig.self, from: d)
+    }
+
+    public func json() -> String {
+        let e = JSONEncoder()
+        e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        var c = self
+        c.files = files.filter { !$0.value.trimmingCharacters(in: .whitespaces).isEmpty }
+        c.rules = rules.filter { !$0.account.trimmingCharacters(in: .whitespaces).isEmpty && !$0.file.trimmingCharacters(in: .whitespaces).isEmpty }
+        if c.receivable?.trimmingCharacters(in: .whitespaces).isEmpty ?? false { c.receivable = nil }
+        return (String(data: (try? e.encode(c)) ?? Data(), encoding: .utf8) ?? "{}") + "\n"
+    }
+}
+
 /// Where things go in the repository. Defaults follow the usual layout
 /// (main.bean including journals/<year>.bean); `detect` reads it off an existing ledger.
 public struct RepoLayout: Equatable, Codable {
     public var main: String
-    /// file for transactions; "{year}" is replaced by the transaction's year
+    /// file for transactions; "{year}" / "{month}" are replaced from the transaction's date
     public var journal: String
     /// file for subscription lines (kept out of the main file)
     public var subscriptions: String?
+    /// files set for the other kinds (empty = the file already holding most of them)
+    public var files: [LayoutKind: String] = [:]
+    /// transactions by account, before the journal
+    public var rules: [LayoutRule] = []
 
     public init(main: String = "main.bean", journal: String = "journals/{year}.bean", subscriptions: String? = nil) {
         self.main = main
@@ -283,12 +376,28 @@ public struct RepoLayout: Equatable, Codable {
         return "include \"\(rel)\""
     }
 
-    public func journalPath(_ date: String) -> String { journal.replacingOccurrences(of: "{year}", with: String(date.prefix(4))) }
-    public var perYear: Bool { journal.contains("{year}") }
+    /// a file pattern filled in: {year}, {month} from the date, {root} from the account (Assets, Expenses, …)
+    public static func expand(_ pattern: String, date: String, account: String? = nil) -> String {
+        var p = pattern.replacingOccurrences(of: "{year}", with: String(date.prefix(4)))
+        if p.contains("{month}") { p = p.replacingOccurrences(of: "{month}", with: String(date.dropFirst(5).prefix(2))) }
+        if p.contains("{root}") { p = p.replacingOccurrences(of: "{root}", with: (account ?? "").components(separatedBy: ":")[0]) }
+        return p
+    }
+
+    public func journalPath(_ date: String) -> String { RepoLayout.expand(journal, date: date) }
+    public var perYear: Bool { journal.contains("{year}") || journal.contains("{month}") }
     /// "journals/" for "journals/{year}.bean"
     public var journalDir: String {
         guard let r = journal.range(of: "/", options: .backwards) else { return "" }
         return String(journal[..<r.upperBound])
+    }
+
+    /// the configured file for an entry (rules and kinds set in ledger-x.json), nil = decide automatically
+    public func configured(_ e: Entry) -> String? {
+        if e.type == .txn, let r = rules.first(where: { $0.matches(e) }) { return RepoLayout.expand(r.file, date: e.date) }
+        guard let k = LayoutKind.of(e), k != .transactions, k != .subscriptions,
+              let f = files[k]?.trimmingCharacters(in: .whitespaces), !f.isEmpty else { return nil }
+        return RepoLayout.expand(f, date: e.date, account: e.account)
     }
 
     /// guess from the ledger: the file holding most of the latest year's transactions,
@@ -305,6 +414,7 @@ public struct RepoLayout: Equatable, Codable {
 }
 
 public func fileFor(_ e: Entry, _ L: Ledger, layout: RepoLayout = RepoLayout()) -> String {
+    if let f = layout.configured(e) { return f }
     let journal = layout.journalPath(e.date)
     func most(_ pred: (Entry) -> Bool) -> String? {
         var c: [String: Int] = [:]
@@ -323,6 +433,35 @@ public func fileFor(_ e: Entry, _ L: Ledger, layout: RepoLayout = RepoLayout()) 
     case .custom where e.name == "subscription": return layout.subscriptionsPath
     default: return journal
     }
+}
+
+/// where each kind of entry is now: the file holding most of them, and how many there are
+public func layoutUsage(_ L: Ledger) -> [LayoutKind: (file: String, count: Int, files: Int)] {
+    var by: [LayoutKind: [String: Int]] = [:]
+    for e in L.entries where !e.file.isEmpty && !(e.type == .txn && e.synthetic) {
+        guard let k = LayoutKind.of(e) else { continue }
+        by[k, default: [:]][e.file, default: 0] += 1
+    }
+    var out: [LayoutKind: (file: String, count: Int, files: Int)] = [:]
+    for (k, m) in by {
+        let top = m.max { $0.value != $1.value ? $0.value < $1.value : $0.key > $1.key }!
+        out[k] = (top.key, m.values.reduce(0, +), m.count)
+    }
+    return out
+}
+
+/// entries not in the file the configured layout gives them (only kinds and rules that are set)
+public func misplacedEntries(_ L: Ledger, layout: RepoLayout) -> [(entry: Entry, to: String)] {
+    var out: [(Entry, String)] = []
+    for e in L.entries where !e.file.isEmpty && !e.src.isEmpty {
+        if e.type == .txn && e.synthetic { continue }
+        var to: String?
+        if let f = layout.configured(e) { to = f }
+        else if e.type == .txn, layout.files[.transactions] != nil { to = layout.journalPath(e.date) }
+        else if LayoutKind.of(e) == .subscriptions, layout.files[.subscriptions] != nil { to = layout.subscriptionsPath }
+        if let t = to, t != e.file { out.append((e, t)) }
+    }
+    return out
 }
 
 /// an existing assertion for the same account, date and currency (exact account)
@@ -355,10 +494,9 @@ public func makeOps(_ text: String, _ L: Ledger, layout: RepoLayout = RepoLayout
     var out: [Op] = []
     for (i, e) in v.entries.enumerated() {
         let path = fileFor(e, L, layout: layout)
-        let newFile = (layout.perYear && path == layout.journalPath(e.date)) || path == layout.subscriptionsPath
-        if newFile && !fileExists(path) && !L.files.contains(path)
+        // a new file (a new year, the subscriptions file, a file from the layout): include it from the main file
+        if path != layout.main && !fileExists(path) && !L.files.contains(path)
             && !pending.contains(where: { $0.path == path }) && !out.contains(where: { $0.path == path }) {
-            // a new file (a new year, the subscriptions file): include it from the main file
             var inc = Op(kind: .include, path: layout.main)
             inc.line = layout.includeLine(path)
             inc.silent = true
@@ -480,15 +618,20 @@ public func draftFromTxn(_ t: Entry, kind: DraftKind? = nil, _ L: Ledger, _ D: D
     return d
 }
 
+/// a refund link for a purchase: refund-<date>-<hash of payee, narration and date>
+public func newRefundLink(_ t: Entry) -> String {
+    var h: UInt32 = 0
+    for ch in (t.payee + t.narration + t.date).utf16 { h = h &* 31 &+ UInt32(ch) }
+    return "refund-\(t.date.replacingOccurrences(of: "-", with: ""))-\(String(String(h, radix: 36).suffix(4)))"
+}
+
 public func refundDraft(_ t: Entry, _ L: Ledger, _ D: Derived, defaultFunding: String?) -> Draft {
     var d = draftFromTxn(t, kind: .refund, L, D, defaultFunding: defaultFunding)
     d.kind = .refund; d.date = Day.today(); d.reimb = false
     let suffix = tr("退款", " (refund)")
     d.narration = !t.narration.isEmpty && !t.narration.hasSuffix(suffix) ? t.narration + suffix : t.narration
     let existing = t.links.first { $0.hasPrefix("refund") }
-    var h: UInt32 = 0
-    for ch in (t.payee + t.narration + t.date).utf16 { h = h &* 31 &+ UInt32(ch) }
-    let base = existing ?? "refund-\(t.date.replacingOccurrences(of: "-", with: ""))-\(String(String(h, radix: 36).suffix(4)))"
+    let base = existing ?? newRefundLink(t)
     d.link = base
     if existing == nil {
         let header = t.src.components(separatedBy: "\n").first ?? ""
