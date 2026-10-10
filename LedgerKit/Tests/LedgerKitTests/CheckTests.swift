@@ -43,6 +43,26 @@ final class CheckTests: XCTestCase {
         XCTAssertEqual(issues.filter { $0.kind == .error }.count, 0)
     }
 
+    func testRunningBalanceIsUpdatedNotBlocked() {
+        // 04-01 holds the balance as of now (today is 03-10): a new March entry moves it
+        let text = base + "\n2026-04-01 balance Assets:Bank:CMB 1500.00 CNY ; from the bank app\n"
+        let before = ledger(text)
+        let after = ledger(text + "\n2026-03-05 * \"Dinner\"\n  Expenses:Food  20.00 CNY\n  Assets:Bank:CMB\n")
+        XCTAssertEqual(reviewChange(before: before, after: after, today: "2026-03-10"), [])
+        XCTAssertEqual(reviewChange(before: before, after: after).map { $0.kind }, [.balance])
+        let run = runningBalances(before: before, after: after, today: "2026-03-10")
+        XCTAssertEqual(run.count, 1)
+        XCTAssertEqual(run.first?.asserted, 1500)
+        XCTAssertEqual(run.first?.computed, 1480)
+        // a past assertion broken by the same change is still an issue, and not a running one
+        XCTAssertEqual(runningBalances(before: before, after: after, today: "2026-04-02"), [])
+        // the rewritten line keeps its comment and makes the ledger pass again
+        let op = runningBalanceOp(run[0], amount: 1480)
+        XCTAssertTrue(op.line?.hasSuffix("1480.00 CNY ; from the bank app") ?? false)
+        let fixed = insertBalance(text + "\n2026-03-05 * \"Dinner\"\n  Expenses:Food  20.00 CNY\n  Assets:Bank:CMB\n", op)
+        XCTAssertEqual(reviewChange(before: before, after: ledger(fixed)), [])
+    }
+
     func testExistingFailureDoesNotBlock() {
         let broken = base + "\n2026-01-10 * \"Lunch\"\n  Expenses:Food  30.00 CNY\n  Assets:Bank:CMB\n"
         let before = ledger(broken)

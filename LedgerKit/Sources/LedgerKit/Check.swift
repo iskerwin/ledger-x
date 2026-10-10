@@ -15,15 +15,60 @@ public let allowNegativeKey = "allow_negative"
 /// open-directive metadata giving a credit card's limit, e.g. `credit_limit: 50000` or `"50000 CNY"`
 public let creditLimitKey = "credit_limit"
 
+/// A balance assertion dated after today that a change moves. Such an assertion holds the balance
+/// as it is now (dated the first of next month, say), so every new entry is expected to change it:
+/// it is updated together with the entry instead of blocking it.
+public struct RunningBalance: Identifiable, Equatable {
+    public let account: String
+    public let currency: String
+    public let date: String
+    public let file: String
+    /// the first line of the assertion as written
+    public let line: String
+    /// the amount asserted now
+    public let asserted: Double
+    /// the balance once the change is made
+    public let computed: Double
+    public var id: String { date + "|" + account + "|" + currency }
+}
+
+private func balanceKey(_ r: BalanceResult) -> String { "\(r.entry.date)|\(r.entry.account ?? "")|\(r.entry.currency ?? "")" }
+
+/// future-dated assertions that held before the change and fail after it
+public func runningBalances(before: Ledger, after: Ledger, today: String) -> [RunningBalance] {
+    let failedBefore = Set(before.balanceResults.filter { !$0.ok }.map(balanceKey))
+    return after.balanceResults.filter { !$0.ok && $0.entry.date > today && !failedBefore.contains(balanceKey($0)) }.map { r in
+        let e = r.entry
+        return RunningBalance(account: e.account ?? "", currency: e.currency ?? "", date: e.date, file: e.file,
+                              line: e.src.components(separatedBy: "\n").first ?? "", asserted: e.number, computed: r.got)
+    }
+}
+
+/// the op that rewrites a running assertion with a new amount (a trailing comment is kept)
+public func runningBalanceOp(_ r: RunningBalance, amount: Double) -> Op {
+    var op = Op(kind: .balance, path: r.file)
+    op.account = r.account; op.date = r.date; op.currency = r.currency
+    op.replace = true
+    var line = balanceLine(r.date, r.account, amount, r.currency)
+    if let c = r.line.range(of: " ;") { line += " " + r.line[c.lowerBound...].trimmingCharacters(in: .whitespaces) }
+    op.line = line
+    op.amountText = plainMoney(amount, r.currency)
+    op.label = tr("更新余额断言：\(r.account) \(r.date)", "Update balance: \(r.account) \(r.date)")
+    op.summary = tr("余额断言 \(r.account)", "balance \(r.account)")
+    op.silent = true
+    return op
+}
+
 /// compare the ledger before and after a change; only problems the change introduces are reported,
-/// so a ledger that already had a failing assertion does not block every later edit
-public func reviewChange(before: Ledger, after: Ledger) -> [ChangeIssue] {
+/// so a ledger that already had a failing assertion does not block every later edit.
+/// With `today`, assertions dated after it are left out: they are running balances (`runningBalances`).
+public func reviewChange(before: Ledger, after: Ledger, today: String? = nil) -> [ChangeIssue] {
     var out: [ChangeIssue] = []
 
     // 1. balance assertions that newly fail
-    func key(_ r: BalanceResult) -> String { "\(r.entry.date)|\(r.entry.account ?? "")|\(r.entry.currency ?? "")" }
+    let key = balanceKey
     let failedBefore = Set(before.balanceResults.filter { !$0.ok }.map(key))
-    for r in after.balanceResults where !r.ok && !failedBefore.contains(key(r)) {
+    for r in after.balanceResults where !r.ok && !failedBefore.contains(key(r)) && !(today.map { r.entry.date > $0 } ?? false) {
         let e = r.entry
         out.append(ChangeIssue(kind: .balance,
                                title: tr("余额断言将失败：\(acctLabel(e.account ?? ""))", "Balance assertion would fail: \(e.account ?? "")"),
