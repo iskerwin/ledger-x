@@ -222,7 +222,7 @@ struct UpcomingIntent: AppIntent {
         let due = subscriptionsDue(L, today: today)
         if !due.isEmpty { parts.append(LS("待记账：%@", due.map { $0.sub.name }.joined(separator: LS("、")))) }
         let soon = store.subs.filter { $0.status == .active }.compactMap { s -> String? in
-            let d = s.due(onOrAfter: Day.shift(today, 1))
+            let d = s.nextCharge(onOrAfter: Day.shift(today, 1))
             return d <= week ? LS("%@ %@ %@", s.name, d, money(s.amount, s.currency)) : nil
         }
         if !soon.isEmpty { parts.append(LS("7 天内扣费：%@", soon.joined(separator: LS("、")))) }

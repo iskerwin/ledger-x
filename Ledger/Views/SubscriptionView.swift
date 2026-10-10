@@ -64,11 +64,23 @@ extension Store {
         await commit(ops, word: LS("已记录 %@", s.name))
     }
 
-    /// add `^link` to the header of each transaction
+    /// links that belong to an existing subscription (any other ^sub-… is left over from a deleted one)
+    var ownedSubLinks: Set<String> { Set(subs.map { $0.link }) }
+
+    /// add `^link` to the header of each transaction; a left-over or other subscription's link is replaced
     func linkOps(_ txns: [Entry], link: String, label: String?) async -> [Op] {
         var ops: [Op] = []
         var files: [String: [String]] = [:]
         for e in txns where !e.links.contains(link) {
+            if let oldLink = e.links.first(where: { $0.hasPrefix("sub-") }) {
+                var lines = e.src.components(separatedBy: "\n")
+                lines[0] = lines[0].components(separatedBy: " ").map { $0 == "^" + oldLink ? "^" + link : $0 }.joined(separator: " ")
+                var op = Op(kind: .replace, path: e.file)
+                op.old = e.src; op.text = lines.joined(separator: "\n"); op.date = e.date
+                if ops.isEmpty, let l = label { op.label = l } else { op.silent = true }
+                ops.append(op)
+                continue
+            }
             if files[e.file] == nil { files[e.file] = (try? await fileText(e.file))?.components(separatedBy: "\n") ?? [] }
             guard let lines = files[e.file], e.startLine < lines.count else { continue }
             var op = Op(kind: .link, path: e.file)
@@ -97,18 +109,52 @@ extension Store {
         return op
     }
 
+    /// remove the subscription's link from all its charges
+    func unlinkAllOps(_ s: Subscription) -> [Op] {
+        var ops: [Op] = []
+        for c in s.charges where c.txn.links.contains(s.link) {
+            guard var op = unlinkOp(c.txn, link: s.link) else { continue }
+            op.label = nil; op.silent = true
+            ops.append(op)
+        }
+        return ops
+    }
+
+    /// subscription lines that are not in the subscriptions file yet: move them there (one commit)
+    var misplacedSubLines: [Entry] { subs.flatMap { $0.entries }.filter { $0.file != layout.subscriptionsPath } }
+
+    func moveSubLinesOps() -> [Op]? {
+        let lines = misplacedSubLines
+        guard !lines.isEmpty else { return [] }
+        var ops: [Op] = lines.enumerated().map { i, e in
+            var op = Op(kind: .remove, path: e.file)
+            op.old = e.src; op.date = e.date
+            if i == 0 { op.label = LS("整理订阅记录到 %@", layout.subscriptionsPath) } else { op.silent = true }
+            return op
+        }
+        guard let ins = makeOps(lines.sorted { $0.date < $1.date }.map { trimTrailingSpaces($0.src) }.joined(separator: "\n\n"),
+                                extra: OpExtra(silent: true), single: false) else { return nil }
+        ops += ins
+        return ops
+    }
+
     /// new transactions that match a subscription get its link (returns the names linked)
     func autoLinkSubscriptions(_ ops: [Op]) -> ([Op], [String]) {
         guard let L = L, !subs.isEmpty else { return (ops, []) }
+        let owned = ownedSubLinks
         var names: [String] = []
         let out = ops.map { op -> Op in
             guard op.kind == .insert, let text = op.text else { return op }
             let blocks = text.components(separatedBy: "\n\n").map { block -> String in
                 let r = checkText(block, L)
-                guard r.entries.count == 1, let t = r.entries.first, t.type == .txn, !t.links.contains(where: { $0.hasPrefix("sub-") }),
+                guard r.entries.count == 1, let t = r.entries.first, t.type == .txn, !t.links.contains(where: { owned.contains($0) }),
                       t.meta["subscription"] == nil,
-                      let exp = t.postings.first(where: { $0.account.hasPrefix("Expenses:") }), let u = exp.units, u > 0, let c = exp.currency,
-                      let s = matchSubscription(payee: t.payee.isEmpty ? t.narration : t.payee, account: exp.account, amount: u, currency: c, subs)
+                      let exp = t.postings.first(where: { $0.account.hasPrefix("Expenses:") }), let u = exp.units, u > 0, let c = exp.currency
+                else { return block }
+                let payee = t.payee.isEmpty ? t.narration : t.payee
+                // two subscriptions fit equally (same payee, account and price): leave it to you
+                guard ambiguousSubscriptions(payee: payee, account: exp.account, amount: u, currency: c, subs).count <= 1,
+                      let s = matchSubscription(payee: payee, account: exp.account, amount: u, currency: c, subs)
                 else { return block }
                 var lines = block.components(separatedBy: "\n")
                 guard let i = lines.firstIndex(where: { $0.hasPrefix(t.date) }) else { return block }
@@ -158,7 +204,7 @@ struct SubscriptionOverviewSection: View {
         let due = subscriptionsDue(L, subs: all)
         let today = Day.today()
         let monthly = subs.reduce(0.0) { $0 + (toCNY(L, $1.monthly, $1.currency) ?? 0) }
-        let upcoming = subs.map { ($0, $0.due(onOrAfter: today)) }.min { $0.1 < $1.1 }
+        let upcoming = subs.map { ($0, $0.nextCharge(onOrAfter: today)) }.min { $0.1 < $1.1 }
         let cands = store.subCandidates
         let alerts = all.reduce(0) { $0 + subscriptionAlerts($1, today: today).count }
         Section {
@@ -197,7 +243,7 @@ struct SubDueRow: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(due.sub.name)
-                Text(LS("%@ 应扣费 · 未入账", due.date)).font(.caption).foregroundStyle(Color.warn)
+                Text(due.sub.manual ? LS("%@ 应续费 · 未记录", due.date) : LS("%@ 应扣费 · 未入账", due.date)).font(.caption).foregroundStyle(Color.warn)
             }
             Spacer()
             Text(money(due.sub.amount, due.sub.currency)).monospacedDigit().sensitive()
@@ -245,7 +291,8 @@ struct SubscriptionsView: View {
     private func list(_ L: Ledger) -> some View {
         let all = store.subs
         let today = Day.today()
-        let active = all.filter { $0.status == .active }.sorted { $0.due(onOrAfter: today) < $1.due(onOrAfter: today) }
+        let active = all.filter { $0.status == .active }.sorted { $0.nextCharge(onOrAfter: today) < $1.nextCharge(onOrAfter: today) }
+        let misplaced = store.misplacedSubLines.count
         let inactive = all.filter { $0.status != .active }
         let due = subscriptionsDue(L, today: today, subs: all)
         let monthly = active.reduce(0.0) { $0 + (toCNY(L, $1.monthly, $1.currency) ?? 0) }
@@ -264,6 +311,16 @@ struct SubscriptionsView: View {
                     }
                 }
                 .cardRow()
+                NavigationLink { SubscriptionCalendarView() } label: { Label(LS("订阅日历"), systemImage: "calendar") }
+            }
+            if misplaced > 0 {
+                Section {
+                    Button { tidy() } label: {
+                        Label(LS("把 %@ 条订阅记录移到 %@", misplaced, store.layout.subscriptionsPath), systemImage: "tray.and.arrow.down")
+                    }
+                } footer: {
+                    Text(LS("订阅记录集中放在单独的文件里，主文件只保留 include；移动在一次提交中完成。文件名可在 设置 → 仓库结构 中修改。"))
+                }
             }
             if !due.isEmpty {
                 Section(LS("待记账")) { ForEach(due) { SubDueRow(due: $0) } }
@@ -302,8 +359,13 @@ struct SubscriptionsView: View {
         .listSectionSpacing(.compact)
     }
 
+    private func tidy() {
+        guard let ops = store.moveSubLinesOps(), !ops.isEmpty else { return }
+        Task { await store.commit(ops, word: LS("已整理订阅记录")) }
+    }
+
     private func row(_ s: Subscription, _ L: Ledger, _ today: String) -> some View {
-        let next = s.due(onOrAfter: today)
+        let next = s.nextCharge(onOrAfter: today)
         let alerts = subscriptionAlerts(s, today: today)
         return NavigationLink { SubscriptionDetailView(name: s.name) } label: {
             HStack(spacing: 12) {
@@ -317,11 +379,11 @@ struct SubscriptionsView: View {
                         if s.status == .active {
                             Text(s.period.name + " · " + LS("下次 %@（%@）", next, daysText(next, today: today)))
                         } else {
-                            Text(s.period.name + " · " + s.status.name + " · " + s.statusDate)
+                            Text(s.period.name + " · " + s.status.name + " · " + (s.until.map { $0 >= today ? LS("可用至 %@", $0) : s.statusDate } ?? s.statusDate))
                         }
                     }
                     .font(.caption).foregroundStyle(.secondary)
-                    Text(LS("已扣 %@ 期 · 累计 %@", s.charges.count, money(s.totalPaid, s.currency, 0))).font(.caption2).foregroundStyle(.secondary).sensitive()
+                    Text(LS("已扣 %@ 期 · 累计 %@", s.charges.filter { !$0.refund }.count, money(s.totalPaid, s.currency, 0))).font(.caption2).foregroundStyle(.secondary).sensitive()
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
@@ -379,6 +441,7 @@ struct SubscriptionDetailView: View {
     @State private var stateChange: SubStatus?
     @State private var linking = false
     @State private var confirmDelete = false
+    @State private var undoing: SubTimelineItem?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -394,8 +457,9 @@ struct SubscriptionDetailView: View {
 
     private func content(_ s: Subscription) -> some View {
         let today = Day.today()
-        let next = s.due(onOrAfter: today)
+        let next = s.nextCharge(onOrAfter: today)
         let alerts = subscriptionAlerts(s, today: today)
+        let statusText = s.status.name + " · " + s.statusDate + (s.until.map { $0 >= today ? " · " + LS("可用至 %@", $0) : "" } ?? "")
         return List {
             Section {
                 Card {
@@ -403,7 +467,7 @@ struct SubscriptionDetailView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(money(s.amount, s.currency) + " / " + s.period.name).font(.title3.weight(.semibold)).sensitive()
-                                Text(s.status == .active ? LS("下次扣费 %@（%@）", next, daysText(next, today: today)) : s.status.name + " · " + s.statusDate)
+                                Text(s.status == .active ? LS(s.manual ? "下次续费 %@（%@）" : "下次扣费 %@（%@）", next, daysText(next, today: today)) : statusText)
                                     .font(.subheadline).foregroundStyle(s.status == .active ? Color.secondary : Color.warn)
                             }
                             Spacer()
@@ -413,8 +477,10 @@ struct SubscriptionDetailView: View {
                             Spacer()
                             Figure(label: LS("今年"), value: money(s.paid(in: String(today.prefix(4))), s.currency, 0))
                             Spacer()
-                            Figure(label: LS("扣费次数"), value: "\(s.charges.count)", alignment: .trailing)
+                            Figure(label: LS("扣费次数"), value: "\(s.charges.filter { !$0.refund }.count)", alignment: .trailing)
                         }
+                        Text([s.manual ? LS("手动续费") : LS("自动扣费"), s.variable ? LS("金额不固定") : nil].compactMap { $0 }.joined(separator: " · "))
+                            .font(.caption).foregroundStyle(.secondary)
                         if !s.paymentAccount.isEmpty {
                             Text(LS("付款账户：%@", acctDisplay(s.paymentAccount)) + (s.lastCharge.map { _ in LS("（按最近一次扣费）") } ?? ""))
                                 .font(.caption).foregroundStyle(.secondary)
@@ -430,8 +496,9 @@ struct SubscriptionDetailView: View {
             }
             Section {
                 if s.status == .active {
-                    Button { Task { await store.recordSubscription(s, date: s.due(onOrBefore: today) ?? today) } } label: { Label(LS("记一笔扣费"), systemImage: "plus.circle") }
+                    Button { Task { await store.recordSubscription(s, date: s.due(onOrBefore: today) ?? today) } } label: { Label(s.manual ? LS("记一笔续费") : LS("记一笔扣费"), systemImage: "plus.circle") }
                     Button { editing = SubDraft(s, mode: .change) } label: { Label(LS("调价或更改"), systemImage: "slider.horizontal.3") }
+                    Button { skip(s, next) } label: { Label(LS("跳过下一期（%@）", next), systemImage: "forward.end") }
                     Button { stateChange = .paused } label: { Label(LS("暂停"), systemImage: "pause.circle") }
                     Button(role: .destructive) { stateChange = .cancelled } label: { Label(LS("取消订阅"), systemImage: "xmark.circle") }
                 } else {
@@ -439,7 +506,7 @@ struct SubscriptionDetailView: View {
                 }
                 Button { linking = true } label: { Label(LS("关联已有交易"), systemImage: "link") }
             }
-            Section(LS("历史")) {
+            Section {
                 ForEach(subscriptionTimeline(s)) { item in
                     HStack(alignment: .top, spacing: 12) {
                         Image(systemName: item.kind == .event ? icon(item.eventKind) : item.kind == .gap ? "pause.circle" : "creditcard")
@@ -452,7 +519,17 @@ struct SubscriptionDetailView: View {
                         Spacer()
                         if !item.detail.isEmpty { Text(item.detail).font(.caption).foregroundStyle(.secondary).sensitive() }
                     }
+                    .swipeActions {
+                        // a change, pause, resume, cancel or skip can be taken back (not the very first line)
+                        if item.kind == .event, item.eventKind != .start, item.entry != nil {
+                            Button(LS("撤销")) { undoing = item }.tint(.orange)
+                        }
+                    }
                 }
+            } header: {
+                Text(LS("历史"))
+            } footer: {
+                Text(LS("左滑变更记录可撤销。"))
             }
             Section {
                 if s.charges.isEmpty { Text(LS("还没有关联的扣费交易")).foregroundStyle(.secondary) }
@@ -481,9 +558,16 @@ struct SubscriptionDetailView: View {
         }
         .listSectionSpacing(.compact)
         .confirmationDialog(LS("删除订阅「%@」？", name), isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button(LS("删除"), role: .destructive) { delete(s) }
+            let n = s.charges.filter { $0.txn.links.contains(s.link) }.count
+            Button(n > 0 ? LS("删除，并移除 %@ 笔交易的链接", n) : LS("删除"), role: .destructive) { delete(s, unlink: true) }
+            if n > 0 { Button(LS("删除，保留交易上的链接")) { delete(s, unlink: false) } }
         } message: {
-            Text(LS("删除这个订阅的全部记录；扣费交易保留，链接也不会移除。不再续费时建议改为「取消订阅」。"))
+            Text(LS("删除这个订阅的全部记录，扣费交易本身保留。不再续费时建议改为「取消订阅」。"))
+        }
+        .confirmationDialog(LS("撤销这条记录？"), isPresented: Binding(get: { undoing != nil }, set: { if !$0 { undoing = nil } }), titleVisibility: .visible) {
+            Button(LS("撤销"), role: .destructive) { if let u = undoing { undo(u, s) } }
+        } message: {
+            Text(undoing.map { $0.from + " " + $0.title } ?? "")
         }
     }
 
@@ -494,7 +578,8 @@ struct SubscriptionDetailView: View {
         case .pause?: return "pause.fill"
         case .resume?: return "play.fill"
         case .cancel?: return "xmark"
-        default: return "circle"
+        case .skip?: return "forward.end"
+        default: return "arrow.uturn.backward"
         }
     }
 
@@ -526,15 +611,32 @@ struct SubscriptionDetailView: View {
         .padding(.vertical, 2)
     }
 
-    private func delete(_ s: Subscription) {
-        let ops: [Op] = s.entries.enumerated().map { i, e in
+    private func delete(_ s: Subscription, unlink: Bool) {
+        var ops: [Op] = s.entries.enumerated().map { i, e in
             var op = Op(kind: .remove, path: e.file)
             op.old = e.src
             op.date = e.date
             if i == 0 { op.label = LS("删除订阅：%@", s.name) } else { op.silent = true }
             return op
         }
+        if unlink { ops += store.unlinkAllOps(s) }
         Task { if await store.commit(ops, word: LS("已删除")) { dismiss() } }
+    }
+
+    private func undo(_ item: SubTimelineItem, _ s: Subscription) {
+        guard let e = item.entry else { return }
+        var op = Op(kind: .remove, path: e.file)
+        op.old = e.src
+        op.date = e.date
+        op.label = LS("撤销订阅记录：%@ %@ %@", s.name, item.from, item.title)
+        undoing = nil
+        Task { await store.commit([op], word: LS("已撤销")) }
+    }
+
+    private func skip(_ s: Subscription, _ due: String) {
+        let text = subscriptionSkipText(s.name, due: due)
+        guard let ops = store.makeOps(text, extra: OpExtra(label: LS("跳过一期：%@ %@", s.name, due)), single: false) else { return }
+        Task { await store.commit(ops, word: LS("已跳过 %@ 这一期", due)) }
     }
 }
 
@@ -546,6 +648,9 @@ struct SubStateSheet: View {
     let name: String
     let status: SubStatus
     @State private var date = Day.today()
+    @State private var keepUntil = true
+    @State private var until = Day.today()
+    @State private var loaded = false
 
     var body: some View {
         NavigationStack {
@@ -555,7 +660,15 @@ struct SubStateSheet: View {
                 } footer: {
                     Text(status == .paused ? LS("暂停后不再提醒扣费；恢复时可以重新设定价格。") : LS("取消后不再提醒扣费，历史记录保留。"))
                 }
-                Section(LS("将写入")) { MonoText(text: subscriptionStateText(name, status, date: date)) }
+                if status == .cancelled {
+                    Section {
+                        Toggle(LS("本期仍可使用"), isOn: $keepUntil)
+                        if keepUntil { DatePicker(LS("可用至"), selection: dateBinding($until), displayedComponents: .date) }
+                    } footer: {
+                        Text(LS("取消后多数订阅仍能用到已付期末。"))
+                    }
+                }
+                Section(LS("将写入")) { MonoText(text: text) }
             }
             .navigationTitle(status == .paused ? LS("暂停订阅") : LS("取消订阅"))
             .navigationBarTitleDisplayMode(.inline)
@@ -564,11 +677,21 @@ struct SubStateSheet: View {
                 ToolbarItem(placement: .confirmationAction) { Button(LS("保存")) { save() }.fontWeight(.semibold) }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
+        .onAppear {
+            guard !loaded else { return }
+            loaded = true
+            if let s = store.subs.first(where: { $0.name == name }), let c = s.lastCharge {
+                until = max(Day.shift(s.period.add(c.date, 1), -1), date)
+            }
+        }
+    }
+
+    private var text: String {
+        subscriptionStateText(name, status, date: date, until: status == .cancelled && keepUntil ? until : nil)
     }
 
     private func save() {
-        let text = subscriptionStateText(name, status, date: date)
         guard let ops = store.makeOps(text, extra: OpExtra(label: (status == .paused ? LS("暂停订阅：%@") : LS("取消订阅：%@")).replacingOccurrences(of: "%@", with: name)), single: false) else { return }
         Task { await store.commit(ops, word: status == .paused ? LS("已暂停") : LS("已取消订阅"), closing: { dismiss() }) }
     }
@@ -586,24 +709,12 @@ struct SubLinkSheet: View {
         NavigationStack {
             Group {
                 if let L = store.L, let s = store.subs.first(where: { $0.name == name }) {
-                    let pool = candidates(L, s)
-                    List {
-                        if pool.isEmpty { Text(LS("没有找到同一科目或商户的未关联交易")).foregroundStyle(.secondary) }
-                        ForEach(pool, id: \.id) { t in
-                            Button { if picked.contains(t.id) { picked.remove(t.id) } else { picked.insert(t.id) } } label: {
-                                HStack {
-                                    Image(systemName: picked.contains(t.id) ? "checkmark.circle.fill" : "circle").foregroundStyle(Color.jade)
-                                    TxRow(t: t, showDate: true)
-                                }
+                    TxPicker(hint: SubHint(s), exclude: Set(s.charges.map { $0.txn.id }), picked: $picked)
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button(LS("关联 %@ 笔", picked.count)) { save(L, s) }.fontWeight(.semibold).disabled(picked.isEmpty)
                             }
-                            .buttonStyle(.plain)
                         }
-                    }
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button(LS("关联 %@ 笔", picked.count)) { save(L, s, pool) }.fontWeight(.semibold).disabled(picked.isEmpty)
-                        }
-                    }
                 } else { ProgressView() }
             }
             .navigationTitle(LS("关联已有交易"))
@@ -612,19 +723,8 @@ struct SubLinkSheet: View {
         }
     }
 
-    /// unlinked expenses to the same account or payee in the last two years, newest first
-    private func candidates(_ L: Ledger, _ s: Subscription) -> [Entry] {
-        let since = Day.shift(Day.today(), -760)
-        let mine = Set(s.charges.map { $0.txn.id })
-        return Array(L.txns.filter { t in
-            t.date >= since && !t.synthetic && !mine.contains(t.id) && !t.links.contains(where: { $0.hasPrefix("sub-") })
-                && t.postings.contains { $0.account.hasPrefix("Expenses:") }
-                && (t.postings.contains { $0.account == s.account } || (!s.payee.isEmpty && t.payee == s.payee) || t.payee == s.name)
-        }.reversed())
-    }
-
-    private func save(_ L: Ledger, _ s: Subscription, _ pool: [Entry]) {
-        let txns = pool.filter { picked.contains($0.id) }
+    private func save(_ L: Ledger, _ s: Subscription) {
+        let txns = picked.sorted().compactMap { $0 < L.txns.count ? L.txns[$0] : nil }
         Task {
             let ops = await store.linkOps(txns, link: s.link, label: LS("关联订阅：%@ %@ 笔", s.name, txns.count))
             guard !ops.isEmpty else { return }
@@ -656,6 +756,8 @@ struct SubDraft: Identifiable {
     var trialEnd = Day.shift(Day.today(), 30)
     var status = SubStatus.active
     var link = ""
+    var manual = false
+    var variable = false
     /// the subscription being changed
     var original: Subscription?
     /// transactions to link (from a candidate)
@@ -674,6 +776,7 @@ struct SubDraft: Identifiable {
         trial = s.trialEnd != nil
         trialEnd = s.trialEnd ?? Day.shift(Day.today(), 30)
         status = s.status; link = s.link; original = s
+        manual = s.manual; variable = s.variable
         date = Day.today()
     }
 
@@ -703,6 +806,8 @@ struct SubDraft: Identifiable {
                              account: account, funding: funding, payee: payee.trimmed,
                              next: extended && next > (mode == .change ? date : start) ? next : nil, status: status,
                              link: link.isEmpty ? nil : link, trialEnd: trial ? trialEnd : nil)
+        s.manual = manual
+        s.variable = variable
         if mode == .change { s.status = .active }
         return s
     }
@@ -721,9 +826,30 @@ struct SubDraft: Identifiable {
                 if s.funding != o.funding { lines.insert("  funding: " + q(s.funding), at: 1) }
                 if s.payee != o.payee { lines.insert("  payee: " + q(s.payee), at: 1) }
                 if s.trialEnd != o.trialEnd, let t = s.trialEnd { lines.insert("  trial_end: " + t, at: 1) }
+                if s.manual != o.manual { lines.insert("  renew: " + q(s.manual ? "manual" : "auto"), at: 1) }
+                if s.variable != o.variable { lines.insert("  variable: " + (s.variable ? "TRUE" : "FALSE"), at: 1) }
             }
             return lines.joined(separator: "\n")
         }
+    }
+
+    /// what this change does, for the commit message and the toast
+    var changeSummary: String {
+        guard let s = sub else { return "" }
+        guard let o = original else { return LS("新订阅：%@ %@ / %@", s.name, money(s.amount, s.currency), s.period.name) }
+        var parts: [String] = []
+        if o.status != .active && mode == .change { parts.append(LS("恢复")) }
+        if abs(s.amount - o.amount) > 0.005 { parts.append(LS("调价 %@ → %@", money(o.amount, o.currency), money(s.amount, s.currency))) }
+        if s.period != o.period { parts.append(o.period.name + " → " + s.period.name) }
+        if s.account != o.account { parts.append(LS("科目 → %@", acctLabel(s.account))) }
+        if s.funding != o.funding { parts.append(LS("付款账户 → %@", acctLabel(s.funding))) }
+        if s.manual != o.manual { parts.append(s.manual ? LS("改为手动续费") : LS("改为自动扣费")) }
+        if s.variable != o.variable { parts.append(s.variable ? LS("金额不固定") : LS("金额固定")) }
+        if s.name != o.name { parts.append(LS("改名为 %@", s.name)) }
+        if s.trialEnd != o.trialEnd { parts.append(LS("试用期")) }
+        if s.next != o.next { parts.append(LS("下次扣费日")) }
+        let what = parts.isEmpty ? LS("更新") : parts.joined(separator: LS("，"))
+        return mode == .change ? LS("%@：%@（%@ 起）", s.name, what, date) : LS("%@：%@", s.name, what)
     }
 }
 
@@ -784,6 +910,11 @@ struct SubEditSheet: View {
                     if draft.mode != .change {
                         DatePicker(LS("首次扣费"), selection: dateBinding($draft.start), displayedComponents: .date)
                     }
+                    Picker(LS("续费方式"), selection: $draft.manual) {
+                        Text(LS("自动扣费")).tag(false)
+                        Text(LS("手动续费")).tag(true)
+                    }
+                    Toggle(LS("金额不固定（按量计费）"), isOn: $draft.variable)
                     Toggle(LS("免费试用"), isOn: $draft.trial.animation())
                     if draft.trial {
                         DatePicker(LS("试用结束"), selection: dateBinding($draft.trialEnd), displayedComponents: .date)
@@ -801,6 +932,8 @@ struct SubEditSheet: View {
                 } footer: {
                     if draft.extended {
                         Text(LS("赠送或延长的时间到「下次扣费日」为止，之后按原周期（%@）继续计算。", draft.period.name))
+                    } else if draft.manual {
+                        Text(LS("手动续费：到期前提醒你去续费；自动扣费：提醒将要扣费，漏记时提示补记。"))
                     } else if draft.trial {
                         Text(LS("试用结束前会提醒你，试用期内不提示待记账。"))
                     }
@@ -817,21 +950,19 @@ struct SubEditSheet: View {
                 } footer: {
                     Text(LS("新记的交易科目、商户一致且金额相近时，会自动关联到这个订阅。付款账户只是默认值，每次扣费用哪个账户以交易为准，「记一笔」时沿用最近一次扣费的账户。"))
                 }
-                if !draft.txns.isEmpty {
+                if draft.mode == .new {
                     Section {
-                        ForEach(draft.txns.reversed(), id: \.id) { t in
-                            Button {
-                                if draft.picked.contains(t.id) { draft.picked.remove(t.id) } else { draft.picked.insert(t.id) }
-                            } label: {
-                                HStack {
-                                    Image(systemName: draft.picked.contains(t.id) ? "checkmark.circle.fill" : "circle").foregroundStyle(Color.jade)
-                                    TxRow(t: t, showDate: true)
-                                }
-                            }
-                            .buttonStyle(.plain)
+                        NavigationLink {
+                            TxPicker(hint: SubHint(payee: draft.payee.isEmpty ? draft.name : draft.payee, name: draft.name,
+                                                   account: draft.account, amount: evalAmount(draft.amount) ?? 0),
+                                     exclude: [], picked: $draft.picked)
+                                .navigationTitle(LS("选择要关联的交易"))
+                                .navigationBarTitleDisplayMode(.inline)
+                        } label: {
+                            LabeledContent(LS("关联交易"), value: draft.picked.isEmpty ? LS("选择") : LS("%@ 笔", draft.picked.count))
                         }
-                    } header: {
-                        Text(LS("关联这些交易（%@/%@）", draft.picked.count, draft.txns.count))
+                    } footer: {
+                        Text(LS("把过去的扣费交易关联到这个订阅，可搜索商户、说明、金额或日期。"))
                     }
                 }
                 if let t = draft.text {
@@ -865,8 +996,12 @@ struct SubEditSheet: View {
     }
 
     private func save() {
+        // a new subscription gets a link no other subscription uses ("sub-icloud-2")
+        if draft.mode == .new && draft.link.isEmpty {
+            draft.link = uniqueSubscriptionLink(draft.name.trimmed, taken: store.ownedSubLinks)
+        }
         guard let s = draft.sub, let text = draft.text, !nameTaken else { return }
-        let label = LS("订阅：%@ %@", s.name, money(s.amount, s.currency))
+        let label = draft.changeSummary
         Task {
             var ops: [Op] = []
             switch draft.mode {
@@ -874,7 +1009,8 @@ struct SubEditSheet: View {
                 guard let x = store.makeOps(text, extra: OpExtra(label: label), single: false) else { return }
                 ops = x
                 let link = s.link
-                ops += await store.linkOps(draft.txns.filter { draft.picked.contains($0.id) }, link: link, label: nil)
+                let txns = draft.picked.sorted().compactMap { id in store.L.flatMap { id < $0.txns.count ? $0.txns[id] : nil } }
+                ops += await store.linkOps(txns, link: link, label: nil)
             case .correct:
                 guard let o = draft.original, let e = o.entry else { return }
                 var op = Op(kind: .replace, path: e.file)
@@ -902,7 +1038,7 @@ struct SubEditSheet: View {
                     ops = x
                 }
             }
-            await store.commit(ops, word: draft.mode == .new ? LS("已添加订阅") : LS("已更新订阅"), closing: { dismiss() })
+            await store.commit(ops, word: draft.mode == .new ? LS("已添加订阅") : label, closing: { dismiss() })
         }
     }
 }

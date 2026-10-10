@@ -10,7 +10,10 @@ import Foundation
 //     link: "sub-icloud"            ; the link every charge carries (^sub-icloud)
 //     next: 2024-06-15              ; optional: the next charge after a free / extended period
 //     trial_end: 2024-02-15         ; optional: free trial ends
+//     renew: "manual"               ; optional: renewed by hand (default: charged automatically)
+//     variable: TRUE                ; optional: the amount varies (metered billing)
 //   2025-03-01 custom "subscription" "iCloud+" "paused"               ; or "cancelled"
+//   2025-04-15 custom "subscription" "iCloud+" "skip"                 ; that one charge won't happen
 //   2025-06-10 custom "subscription" "iCloud+" "monthly" 25.00 CNY     ; resumed at a new price
 //
 // A plan line repeats only what changed; metadata carries over from the earlier lines.
@@ -121,21 +124,28 @@ public enum SubStatus: String, CaseIterable, Codable {
 public struct SubCharge: Identifiable {
     public var id: Int { txn.id }
     public let date: String
+    /// in the subscription's currency (converted when charged in another); negative = refund
     public let amount: Double
     public let currency: String
     public let funding: String
     public let txn: Entry
+    /// what the transaction itself says, when it was in another currency
+    public var original: (Double, String)?
+    public var refund: Bool { amount < 0 }
 }
 
 /// a line in the subscription's history
 public struct SubEvent: Identifiable {
-    public enum Kind: String { case start, change, pause, resume, cancel }
+    public enum Kind: String { case start, change, pause, resume, cancel, skip }
     public var id: String { date + "|" + kind.rawValue + "|\(entry?.line ?? 0)" }
     public let date: String
     public let kind: Kind
     public var amount: Double?
     public var currency: String?
     public var period: SubPeriod?
+    /// for a change: what it was before
+    public var previousAmount: Double?
+    public var previousPeriod: SubPeriod?
     public weak var entry: Entry?
 }
 
@@ -159,6 +169,14 @@ public struct Subscription: Identifiable {
     public var statusDate: String
     public var link: String
     public var trialEnd: String?
+    /// renewed by hand rather than charged automatically
+    public var manual = false
+    /// metered: the amount varies from charge to charge
+    public var variable = false
+    /// due dates that won't be charged
+    public var skips = Set<String>()
+    /// for a cancelled plan: the paid period runs until this day
+    public var until: String?
     /// the latest line, and all of them oldest first
     public weak var entry: Entry?
     public var entries: [Entry] = []
@@ -173,14 +191,25 @@ public struct Subscription: Identifiable {
         self.link = link ?? subscriptionLink(name); self.trialEnd = trialEnd
     }
 
-    public var lastCharge: SubCharge? { charges.last }
+    /// the latest real charge (refunds aside)
+    public var lastCharge: SubCharge? { charges.last { !$0.refund } }
 
     /// the account the next charge is expected from: the latest charge's, else the one on the plan
     /// (cards change; the transactions are what counts)
     public var paymentAccount: String {
-        if let f = charges.last?.funding, !f.isEmpty { return f }
+        if let f = lastCharge?.funding, !f.isEmpty { return f }
         return funding
     }
+
+    /// the next charge from `date` on, leaving out skipped ones
+    public func nextCharge(onOrAfter date: String) -> String {
+        var d = due(onOrAfter: date), n = 0
+        while skips.contains(d) && n < 24 { d = due(onOrAfter: Day.shift(d, 1)); n += 1 }
+        return d
+    }
+
+    /// how far off a charge may be and still count as this subscription
+    public var tolerance: Double { variable ? 0.6 : 0.3 }
 
     /// a gap of at least this many days means a period was skipped (a late renewal isn't one)
     public var skipDays: Double { periodDays * 2 - max(5, periodDays * 0.2) }
@@ -188,7 +217,7 @@ public struct Subscription: Identifiable {
     /// where the charge cycle is counted from: the start of the current run, the latest charge, or an extension
     public var anchor: String {
         var a = since
-        if let c = charges.last?.date, c >= a { a = c }
+        if let c = lastCharge?.date, c >= a { a = c }
         if let n = next, Day.date(n) != nil, n > a { a = n }
         return a
     }
@@ -222,8 +251,8 @@ public struct Subscription: Identifiable {
     public var periodDays: Double { period.months * 30.436875 }
 
     /// paid in total, and within a year ("2026")
-    public var totalPaid: Double { charges.filter { $0.currency == currency }.reduce(0) { $0 + $1.amount } }
-    public func paid(in year: String) -> Double { charges.filter { $0.date.hasPrefix(year) && $0.currency == currency }.reduce(0) { $0 + $1.amount } }
+    public var totalPaid: Double { charges.reduce(0) { $0 + $1.amount } }
+    public func paid(in year: String) -> Double { charges.filter { $0.date.hasPrefix(year) }.reduce(0) { $0 + $1.amount } }
 }
 
 /// a link name for a subscription: "sub-" + its ASCII letters and digits, or a short hash for other names
@@ -240,12 +269,30 @@ public func subscriptionLink(_ name: String) -> String {
     return "sub-" + slug.prefix(40)
 }
 
-/// the charges' amount: what went to the subscription's account (or the first expense)
+/// a link not in `taken`: "sub-icloud", else "sub-icloud-2", …
+public func uniqueSubscriptionLink(_ name: String, taken: Set<String>) -> String {
+    let base = subscriptionLink(name)
+    if !taken.contains(base) { return base }
+    var k = 2
+    while taken.contains("\(base)-\(k)") { k += 1 }
+    return "\(base)-\(k)"
+}
+
+/// the charge's amount: what went to the subscription's account (or the first expense); negative = refund
 func chargeOf(_ t: Entry, account: String) -> (Double, String, String)? {
     let p = t.postings.first { $0.account == account && $0.units != nil } ?? t.postings.first { $0.account.hasPrefix("Expenses:") && $0.units != nil }
     guard let p = p, let u = p.units, let c = p.currency else { return nil }
     let funding = t.postings.first { $0.account.hasPrefix("Assets:") || $0.account.hasPrefix("Liabilities:") }?.account ?? ""
-    return (abs(u), c, funding)
+    return (u, c, funding)
+}
+
+/// `n` of currency `from` in currency `to`, through the base currency
+func convert(_ L: Ledger, _ n: Double, _ from: String, _ to: String, _ date: String) -> Double? {
+    if from == to { return n }
+    guard let inBase = toCNY(L, n, from, date) else { return nil }
+    if to == L.base { return inBase }
+    guard let rate = toCNY(L, 1, to, date), rate != 0 else { return nil }
+    return inBase / rate
 }
 
 /// every subscription in the ledger, its history and its charges
@@ -277,7 +324,8 @@ public func subscriptions(_ L: Ledger) -> [Subscription] {
                 let next = e.meta["next"].flatMap { v in Day.date(v.stringValue ?? v.display) }.map { Day.string($0) }
                 if var x = s {
                     let resumed = x.status != .active && state == .active
-                    x.events.append(SubEvent(date: e.date, kind: resumed ? .resume : .change, amount: m.0, currency: m.1, period: p, entry: e))
+                    x.events.append(SubEvent(date: e.date, kind: resumed ? .resume : .change, amount: m.0, currency: m.1, period: p,
+                                             previousAmount: x.amount, previousPeriod: x.period, entry: e))
                     x.amount = m.0; x.currency = m.1; x.period = p
                     if resumed { x.since = e.date }
                     if x.status != state { x.statusDate = e.date }
@@ -292,6 +340,13 @@ public func subscriptions(_ L: Ledger) -> [Subscription] {
                 }
             } else if let w = word, var x = s {
                 // a state line
+                if w == "skip" {
+                    x.events.append(SubEvent(date: e.date, kind: .skip, entry: e))
+                    x.skips.insert(e.date)
+                    x.entry = e; x.entries.append(e)
+                    s = x
+                    continue
+                }
                 let st: SubStatus = w == "paused" || w == "pause" ? .paused : w == "cancelled" || w == "canceled" || w == "cancel" ? .cancelled : .active
                 let kind: SubEvent.Kind = st == .paused ? .pause : st == .cancelled ? .cancel : .resume
                 x.events.append(SubEvent(date: e.date, kind: kind, entry: e))
@@ -307,6 +362,9 @@ public func subscriptions(_ L: Ledger) -> [Subscription] {
                 x.payee = meta["payee"] ?? x.payee
                 if let l = meta["link"], !l.isEmpty { x.link = l }
                 x.trialEnd = meta["trial_end"].flatMap { Day.date($0) }.map { Day.string($0) }
+                x.manual = (meta["renew"] ?? "").lowercased() == "manual"
+                x.variable = ["true", "yes", "1"].contains((meta["variable"] ?? "").lowercased())
+                x.until = x.status == .cancelled ? e.meta["until"].flatMap { v in Day.date(v.stringValue ?? v.display) }.map { Day.string($0) } : nil
                 x.entry = e
                 x.entries.append(e)
                 s = x
@@ -321,9 +379,21 @@ public func subscriptions(_ L: Ledger) -> [Subscription] {
         var i = t.links.lazy.compactMap { byLink[$0] }.first
         if i == nil, let m = t.meta["subscription"] { i = byName[m.stringValue ?? m.display] }
         guard let k = i, let c = chargeOf(t, account: out[k].account) else { continue }
-        out[k].charges.append(SubCharge(date: t.date, amount: c.0, currency: c.1, funding: c.2, txn: t))
+        // charged in another currency (a USD plan on a CNY card): convert at that day's rate
+        let cur = out[k].currency
+        let v = c.1 == cur ? c.0 : (convert(L, c.0, c.1, cur, t.date) ?? c.0)
+        var ch = SubCharge(date: t.date, amount: roundTo(v, 2), currency: cur, funding: c.2, txn: t)
+        if c.1 != cur { ch.original = (c.0, c.1) }
+        out[k].charges.append(ch)
     }
-    for k in out.indices { out[k].charges.sort { $0.date < $1.date } }
+    for k in out.indices {
+        out[k].charges.sort { $0.date < $1.date }
+        // a cancelled plan stays usable until the end of the last paid period
+        if out[k].status == .cancelled, out[k].until == nil, let c = out[k].lastCharge {
+            let end = Day.shift(out[k].period.add(c.date, 1), -1)
+            if end >= out[k].statusDate { out[k].until = end }
+        }
+    }
     return out.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
 }
 
@@ -340,15 +410,24 @@ public func subscriptionText(_ s: Subscription, date: String? = nil, full: Bool 
         if !s.payee.isEmpty { lines.append("  payee: " + q(s.payee)) }
         if !s.link.isEmpty { lines.append("  link: " + q(s.link)) }
         if let t = s.trialEnd { lines.append("  trial_end: " + t) }
+        if s.manual { lines.append("  renew: \"manual\"") }
+        if s.variable { lines.append("  variable: TRUE") }
     }
     if let n = s.next, n > d { lines.append("  next: " + n) }
     if s.status != .active { lines.append("  status: " + q(s.status.rawValue)) }
     return lines.joined(separator: "\n")
 }
 
-/// a state line: paused / cancelled
-public func subscriptionStateText(_ name: String, _ status: SubStatus, date: String) -> String {
-    "\(date) custom \"subscription\" \(quoted(name)) \(quoted(status.rawValue))"
+/// a state line: paused / cancelled (with the day the paid period runs to) / skip (dated the skipped charge)
+public func subscriptionStateText(_ name: String, _ status: SubStatus, date: String, until: String? = nil) -> String {
+    var t = "\(date) custom \"subscription\" \(quoted(name)) \(quoted(status.rawValue))"
+    if let u = until, u >= date { t += "\n  until: " + u }
+    return t
+}
+
+/// skip one charge (the line is dated that charge)
+public func subscriptionSkipText(_ name: String, due: String) -> String {
+    "\(due) custom \"subscription\" \(quoted(name)) \"skip\""
 }
 
 /// a charge that has come due and is not in the ledger yet
@@ -364,7 +443,7 @@ public func subscriptionPaid(_ s: Subscription, due date: String, _ L: Ledger) -
     // from a few days early, but never back into the previous period (daily / weekly charges)
     let from = max(Day.shift(date, -5), Day.shift(s.period.add(date, -1), 1))
     let to = Day.shift(s.period.add(date, 1), -1)
-    if s.charges.contains(where: { $0.date >= from && $0.date <= to }) { return true }
+    if s.charges.contains(where: { !$0.refund && $0.date >= from && $0.date <= to }) { return true }
     for t in L.txns where t.date >= from && t.date <= to && !t.synthetic {
         if let m = t.meta["subscription"] {
             if (m.stringValue ?? m.display) == s.name { return true }
@@ -382,7 +461,7 @@ public func subscriptionPaid(_ s: Subscription, due date: String, _ L: Ledger) -
 public func subscriptionsDue(_ L: Ledger, today: String = Day.today(), subs: [Subscription]? = nil) -> [SubDue] {
     var out: [SubDue] = []
     for s in subs ?? subscriptions(L) where s.status == .active {
-        guard let d = s.due(onOrBefore: today), d >= s.since else { continue }
+        guard let d = s.due(onOrBefore: today), d >= s.since, !s.skips.contains(d) else { continue }
         if let t = s.trialEnd, d <= t { continue }
         if !subscriptionPaid(s, due: d, L) { out.append(SubDue(sub: s, date: d)) }
     }
@@ -400,6 +479,8 @@ public struct SubTimelineItem: Identifiable {
     public let title: String
     public var detail: String = ""
     public var eventKind: SubEvent.Kind?
+    /// the ledger line behind an event (to undo it)
+    public weak var entry: Entry?
 }
 
 /// plan changes and charges as one history, newest first: runs of charges at one price, gaps without charges
@@ -410,14 +491,19 @@ public func subscriptionTimeline(_ s: Subscription) -> [SubTimelineItem] {
         let title: String
         switch e.kind {
         case .start: title = tr("开始订阅", "Started")
-        case .change: title = tr("变更", "Changed")
+        case .change: title = subscriptionChangeTitle(e, currency: e.currency ?? s.currency)
         case .pause: title = tr("暂停", "Paused")
         case .resume: title = tr("恢复", "Resumed")
         case .cancel: title = tr("取消", "Cancelled")
+        case .skip: title = tr("跳过这一期", "Skipped this charge")
         }
-        items.append(SubTimelineItem(kind: .event, from: e.date, title: title, detail: price, eventKind: e.kind))
+        items.append(SubTimelineItem(kind: .event, from: e.date, title: title, detail: e.kind == .skip ? "" : price, eventKind: e.kind, entry: e.entry))
     }
-    let cs = s.charges.filter { $0.currency == s.currency }
+    for c in s.charges where c.refund {
+        items.append(SubTimelineItem(kind: .event, from: c.date, title: tr("退款 \(money(-c.amount, s.currency))", "Refund \(money(-c.amount, s.currency))"),
+                                     eventKind: nil))
+    }
+    let cs = s.charges.filter { !$0.refund }
     // renewing a few days late is not a gap; only a whole skipped period is
     let longGap = s.skipDays
     var i = 0
@@ -452,6 +538,16 @@ public func subscriptionTimeline(_ s: Subscription) -> [SubTimelineItem] {
     return items.sorted { $0.from != $1.from ? $0.from > $1.from : (order[$0.kind] ?? 0) < (order[$1.kind] ?? 0) }
 }
 
+/// "调价 ¥21.00 → ¥25.00", "月付 → 年付", or "变更"
+public func subscriptionChangeTitle(_ e: SubEvent, currency: String) -> String {
+    var parts: [String] = []
+    if let a = e.amount, let b = e.previousAmount, abs(a - b) > 0.005 {
+        parts.append(tr("调价 \(money(b, currency)) → \(money(a, currency))", "Price \(money(b, currency)) → \(money(a, currency))"))
+    }
+    if let p = e.period, let q = e.previousPeriod, p != q { parts.append(q.name + " → " + p.name) }
+    return parts.isEmpty ? tr("变更", "Changed") : parts.joined(separator: tr("，", ", "))
+}
+
 // MARK: - things worth a look
 
 public struct SubAlert: Identifiable {
@@ -467,14 +563,14 @@ public struct SubAlert: Identifiable {
 
 public func subscriptionAlerts(_ s: Subscription, today: String = Day.today()) -> [SubAlert] {
     var out: [SubAlert] = []
-    let last = s.charges.last
-    if s.status == .active, let c = last, c.date >= s.since, c.currency == s.currency, abs(c.amount - s.amount) > max(0.01, s.amount * 0.01) {
+    let last = s.lastCharge
+    if s.status == .active, !s.variable, let c = last, c.date >= s.since, abs(c.amount - s.amount) > max(0.01, s.amount * (c.original != nil ? 0.05 : 0.01)) {
         out.append(SubAlert(kind: .priceChanged,
                             message: tr("最近一次扣费 \(money(c.amount, c.currency))，订阅金额为 \(money(s.amount, s.currency))",
                                         "Last charge was \(money(c.amount, c.currency)); the plan says \(money(s.amount, s.currency))"),
                             amount: c.amount, date: c.date))
     }
-    if s.status != .active, let c = s.charges.last(where: { $0.date > s.statusDate }) {
+    if s.status != .active, let c = s.charges.last(where: { !$0.refund && $0.date > s.statusDate }) {
         out.append(SubAlert(kind: .chargedWhileInactive,
                             message: tr("\(s.status.name)后仍有扣费：\(c.date) \(money(c.amount, c.currency))，请确认是否已退订",
                                         "Charged after it was \(s.status.name.lowercased()): \(c.date) \(money(c.amount, c.currency)). Check the cancellation"),
@@ -524,9 +620,11 @@ public func subscriptionCandidates(_ L: Ledger, today: String = Day.today(), sub
     let since = Day.shift(today, -760)
     let known = subs ?? subscriptions(L)
     let linked = Set(known.flatMap { $0.charges.map { $0.txn.id } })
+    let owned = Set(known.map { $0.link })
     var groups: [String: [(t: Entry, amount: Double, currency: String, account: String, funding: String, payee: String)]] = [:]
     for t in L.txns where t.date >= since && t.date <= today && !t.synthetic && !linked.contains(t.id) {
-        if t.links.contains(where: { $0.hasPrefix("sub-") }) { continue }
+        // links left behind by a deleted subscription don't count
+        if t.links.contains(where: { owned.contains($0) }) { continue }
         guard let exp = t.postings.first(where: { $0.account.hasPrefix("Expenses:") }), let u = exp.units, u > 0, let c = exp.currency else { continue }
         let payee = !t.payee.isEmpty ? t.payee : t.narration
         guard !payee.isEmpty else { continue }
@@ -571,11 +669,23 @@ public func subscriptionCandidates(_ L: Ledger, today: String = Day.today(), sub
     return out.sorted { $0.amount / $0.period.months > $1.amount / $1.period.months }
 }
 
-/// the subscription a new transaction belongs to: same expense account and payee (or name), a similar amount
+/// the subscription a new transaction belongs to: same expense account and payee (or name), a similar
+/// amount; with several (iCloud+ and Apple Music both from Apple), the closest amount
 public func matchSubscription(payee: String, account: String, amount: Double, currency: String, _ subs: [Subscription]) -> Subscription? {
-    subs.first { s in
+    let fits = subs.filter { s in
         s.status != .cancelled && s.account == account && !account.isEmpty
             && (s.payee == payee || s.name == payee || (!s.payee.isEmpty && payee.contains(s.payee)))
-            && s.currency == currency && abs(amount - s.amount) <= max(0.01, s.amount * 0.3)
+            && s.currency == currency && abs(amount - s.amount) <= max(0.01, s.amount * s.tolerance)
+    }
+    return fits.min { abs($0.amount - amount) < abs($1.amount - amount) }
+}
+
+/// several subscriptions fit equally well (same amount): better ask than guess
+public func ambiguousSubscriptions(payee: String, account: String, amount: Double, currency: String, _ subs: [Subscription]) -> [Subscription] {
+    guard let best = matchSubscription(payee: payee, account: account, amount: amount, currency: currency, subs) else { return [] }
+    let d = abs(best.amount - amount)
+    return subs.filter { s in
+        s.account == account && s.status != .cancelled && s.currency == currency
+            && (s.payee == payee || s.name == payee) && abs(abs(s.amount - amount) - d) < 0.005
     }
 }

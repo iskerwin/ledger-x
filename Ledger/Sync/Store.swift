@@ -91,6 +91,7 @@ final class Store: ObservableObject {
     @Published var mainFile: String { didSet { Prefs.set(pk("mainFile"), mainFile) } }
     @Published var journalPattern: String { didSet { Prefs.set(pk("journalPattern"), journalPattern) } }
     @Published var receivableAccount: String { didSet { Prefs.set(pk("receivable"), receivableAccount) } }
+    @Published var subsFile: String { didSet { Prefs.set(pk("subsFile"), subsFile) } }
     @Published private(set) var detectedLayout = RepoLayout()
 
     /// BQL: queries saved on this phone, and the ones in the ledger (query directives, *.bql files)
@@ -99,7 +100,8 @@ final class Store: ObservableObject {
     var main: String { mainFile.trimmed.isEmpty ? "main.bean" : mainFile.trimmed }
     var receivable: String { receivableAccount.trimmed.isEmpty ? "Assets:Receivable:Reimbursement" : receivableAccount.trimmed }
     var layout: RepoLayout {
-        RepoLayout(main: main, journal: journalPattern.trimmed.isEmpty ? detectedLayout.journal : journalPattern.trimmed)
+        RepoLayout(main: main, journal: journalPattern.trimmed.isEmpty ? detectedLayout.journal : journalPattern.trimmed,
+                   subscriptions: subsFile.trimmed.isEmpty ? nil : subsFile.trimmed)
     }
     private var pushing = false
     /// bumped by every rebuild; a rebuild that finishes after a newer one started is dropped
@@ -136,6 +138,7 @@ final class Store: ObservableObject {
         mainFile = Prefs.get(Store.key("mainFile", id), "")
         journalPattern = Prefs.get(Store.key("journalPattern", id), "")
         receivableAccount = Prefs.get(Store.key("receivable", id), "")
+        subsFile = Prefs.get(Store.key("subsFile", id), "")
         myQueries = Prefs.get("queries", [SavedQuery]())
     }
 
@@ -184,6 +187,7 @@ final class Store: ObservableObject {
         mainFile = Prefs.get(pk("mainFile"), "")
         journalPattern = Prefs.get(pk("journalPattern"), "")
         receivableAccount = Prefs.get(pk("receivable"), "")
+        subsFile = Prefs.get(pk("subsFile"), "")
         tplCache = nil
         draft = Draft()
         toast = nil
@@ -206,7 +210,7 @@ final class Store: ObservableObject {
         sources.removeAll { $0.id == id }
         persistSources()
         Keychain.save("", account: id == "default" ? "token" : "token." + id)
-        for k in ["pending", "tree", "lastSync", "ci", "mainFile", "journalPattern", "receivable"] {
+        for k in ["pending", "tree", "lastSync", "ci", "mainFile", "journalPattern", "receivable", "subsFile", "sub.ignored", "remind.cards"] {
             UserDefaults.standard.removeObject(forKey: "ledger." + Store.key(k, id))
         }
     }
