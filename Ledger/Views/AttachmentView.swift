@@ -118,40 +118,41 @@ struct AttachmentsSection: View {
                 .foregroundStyle(.primary)
             }
             Button { choosing = true } label: { Label(LS("添加附件"), systemImage: "paperclip") }
+            // presentations hang off this one row: on the Section they would be copied onto every row
+            .confirmationDialog(LS("添加附件"), isPresented: $choosing) {
+                if UIImagePickerController.isSourceTypeAvailable(.camera) { Button(LS("拍照")) { showCamera = true } }
+                Button(LS("从照片选择")) { showPhotos = true }
+                Button(LS("从文件选择")) { showFiles = true }
+            }
+            .photosPicker(isPresented: $showPhotos, selection: $photo, matching: .images)
+            .onChange(of: photo) { _, item in
+                guard let item = item else { return }
+                Task {
+                    if let d = try? await item.loadTransferable(type: Data.self), let img = UIImage(data: d), let jpg = jpegForUpload(img) {
+                        await store.attach(jpg, ext: "jpg", to: t)
+                    }
+                    photo = nil
+                }
+            }
+            .fileImporter(isPresented: $showFiles, allowedContentTypes: [.pdf, .image, .data]) { result in
+                guard case .success(let url) = result else { return }
+                let ok = url.startAccessingSecurityScopedResource()
+                defer { if ok { url.stopAccessingSecurityScopedResource() } }
+                guard let d = try? Data(contentsOf: url) else { return }
+                let ext = url.pathExtension.isEmpty ? "dat" : url.pathExtension.lowercased()
+                Task { await store.attach(d, ext: ext, to: t) }
+            }
+            .fullScreenCover(isPresented: $showCamera) {
+                CameraPicker { img in
+                    showCamera = false
+                    if let img = img, let jpg = jpegForUpload(img) { Task { await store.attach(jpg, ext: "jpg", to: t) } }
+                }
+                .ignoresSafeArea()
+            }
+            .sheet(item: $viewing) { DocumentViewer(path: $0.path) }
         } header: {
             Text(LS("附件"))
         }
-        .confirmationDialog(LS("添加附件"), isPresented: $choosing) {
-            if UIImagePickerController.isSourceTypeAvailable(.camera) { Button(LS("拍照")) { showCamera = true } }
-            Button(LS("从照片选择")) { showPhotos = true }
-            Button(LS("从文件选择")) { showFiles = true }
-        }
-        .photosPicker(isPresented: $showPhotos, selection: $photo, matching: .images)
-        .onChange(of: photo) { _, item in
-            guard let item = item else { return }
-            Task {
-                if let d = try? await item.loadTransferable(type: Data.self), let img = UIImage(data: d), let jpg = jpegForUpload(img) {
-                    await store.attach(jpg, ext: "jpg", to: t)
-                }
-                photo = nil
-            }
-        }
-        .fileImporter(isPresented: $showFiles, allowedContentTypes: [.pdf, .image, .data]) { result in
-            guard case .success(let url) = result else { return }
-            let ok = url.startAccessingSecurityScopedResource()
-            defer { if ok { url.stopAccessingSecurityScopedResource() } }
-            guard let d = try? Data(contentsOf: url) else { return }
-            let ext = url.pathExtension.isEmpty ? "dat" : url.pathExtension.lowercased()
-            Task { await store.attach(d, ext: ext, to: t) }
-        }
-        .fullScreenCover(isPresented: $showCamera) {
-            CameraPicker { img in
-                showCamera = false
-                if let img = img, let jpg = jpegForUpload(img) { Task { await store.attach(jpg, ext: "jpg", to: t) } }
-            }
-            .ignoresSafeArea()
-        }
-        .sheet(item: $viewing) { DocumentViewer(path: $0.path) }
     }
 
     private func icon(_ p: String) -> String {

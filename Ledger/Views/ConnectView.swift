@@ -213,16 +213,16 @@ struct LedgersSection: View {
             } label: {
                 Label(LS("添加账本"), systemImage: "plus")
             }
+            .confirmationDialog(LS("从本机移除「%@」？账本文件本身不受影响。", removing?.title ?? ""), isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), titleVisibility: .visible) {
+                Button(LS("移除"), role: .destructive) {
+                    if let r = removing { store.removeLedger(r.id) }
+                    removing = nil
+                }
+            }
         } header: {
             Text(LS("账本"))
         } footer: {
             Text(LS("点按切换账本；左滑可编辑连接或删除。每个账本有独立的缓存、同步队列与仓库结构设置。"))
-        }
-        .confirmationDialog(LS("从本机移除「%@」？账本文件本身不受影响。", removing?.title ?? ""), isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), titleVisibility: .visible) {
-            Button(LS("移除"), role: .destructive) {
-                if let r = removing { store.removeLedger(r.id) }
-                removing = nil
-            }
         }
     }
 

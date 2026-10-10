@@ -5,7 +5,6 @@ import LedgerKit
 struct CardBillSection: View {
     @EnvironmentObject var store: Store
     let cycle: CardCycle
-    @State private var repaying = false
 
     var body: some View {
         let today = Day.today()
@@ -32,14 +31,13 @@ struct CardBillSection: View {
                 LabeledContent(LS("可用额度"), value: money(a, c.currency) + " / " + money(l, c.currency, 0)).sensitive()
             }
             if c.balance > 0.005 {
-                Button { repaying = true } label: { Label(LS("还款"), systemImage: "arrow.uturn.left.circle") }
+                Button { store.repaying = c } label: { Label(LS("还款"), systemImage: "arrow.uturn.left.circle") }
             }
         } header: {
             Text(LS("信用卡账单"))
         } footer: {
             if c.dueEstimated { Text(LS("未设置还款日，按账单日后 20 天估算。可在「编辑账户」中设置。")) }
         }
-        .sheet(isPresented: $repaying) { RepaySheet(cycle: c) }
     }
 }
 
@@ -47,7 +45,6 @@ struct CardBillSection: View {
 struct CardDueSection: View {
     @EnvironmentObject var store: Store
     let L: Ledger
-    @State private var repaying: CardCycle?
 
     var body: some View {
         let today = Day.today()
@@ -69,11 +66,10 @@ struct CardDueSection: View {
                                 Text(money(c.remaining, c.currency)).monospacedDigit().sensitive()
                             }
                         }
-                        Button(LS("还款")) { repaying = c }.buttonStyle(.borderedProminent).controlSize(.small)
+                        Button(LS("还款")) { store.repaying = c }.buttonStyle(.borderedProminent).controlSize(.small)
                     }
                 }
             }
-            .sheet(item: $repaying) { RepaySheet(cycle: $0) }
         }
     }
 }
