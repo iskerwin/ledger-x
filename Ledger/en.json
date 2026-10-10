@@ -24,6 +24,7 @@
  "%@ · 近一年 %@ 笔 · 最近 %@": "%@ · %@ in the past year · last %@",
  "%@ 个": "%@",
  "%@ 个文件": "%@ files",
+ "%@ 个文件 · %@ 笔交易": "%@ files · %@ transactions",
  "%@ 个文件 · %@ 笔交易 · %@/%@ 余额断言": "%@ files · %@ transactions · %@/%@ balances",
  "%@ 个订阅 · 月均 %@": "%@ subscriptions · %@ a month",
  "%@ 个账户超过 %@ 天未做余额核对：%@": "%@ accounts not reconciled for over %@ days: %@",
