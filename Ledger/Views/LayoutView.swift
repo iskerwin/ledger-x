@@ -108,6 +108,7 @@ struct RepoLayoutView: View {
             switch k {
             case .transactions: return store.journalPattern.trimmed.isEmpty ? store.detectedLayout.journal : store.journalPattern.trimmed
             case .subscriptions: return store.subsFile.trimmed.isEmpty ? "subscriptions.bean" : store.subsFile.trimmed
+            case .accounts: return LS("自动（按科目大类）")
             default: return u?.file ?? LS("自动")
             }
         }()
