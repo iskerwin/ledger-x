@@ -86,6 +86,7 @@ struct RootView: View {
         }
         .overlay(alignment: .bottom) { ToastView().animation(.spring(duration: 0.3), value: store.toast) }
         .sheet(item: $store.subSuggestion) { c in SubEditSheet(draft: SubDraft(c)) }
+        .sheet(item: $store.repaying) { RepaySheet(cycle: $0) }
         .sheet(isPresented: $store.showSettings) {
             NavigationStack {
                 SettingsView()

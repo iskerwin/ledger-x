@@ -73,6 +73,8 @@ final class Store: ObservableObject {
     }
     @Published var tab: Tab = .add
     @Published var showSettings = false
+    /// the card bill being repaid: the sheet lives at the root, so a List section can't present it twice
+    @Published var repaying: CardCycle?
     /// open 账本检查 on the overview tab (from Settings)
     @Published var openCheck = false
     @Published var toast: Toast?

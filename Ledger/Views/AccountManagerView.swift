@@ -369,6 +369,11 @@ struct AccountEditView: View {
             TextField(n, text: $newName)
                 .textInputAutocapitalization(.never).autocorrectionDisabled()
                 .font(.body.monospaced())
+            .task(id: to) {
+                impact = nil
+                guard valid else { return }
+                impact = await count(n)
+            }
             if let i = impact, valid {
                 Text(LS("将修改 %@ 个文件中的 %@ 处", i.files, i.places)).font(.footnote).foregroundStyle(.secondary)
             }
@@ -382,11 +387,6 @@ struct AccountEditView: View {
             Text(LS("重命名 / 合并"))
         } footer: {
             Text(LS("子账户会一起改名，例如 %@:Sub 变为 %@:Sub。", n, valid ? to : "…"))
-        }
-        .task(id: to) {
-            impact = nil
-            guard valid else { return }
-            impact = await count(n)
         }
     }
 

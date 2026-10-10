@@ -186,6 +186,11 @@ struct RemindersSection: View {
                     await Reminders.reschedule(store)
                 }
             })) { Label(LS("本地提醒"), systemImage: "bell.badge") }
+            .onChange(of: subsDays) { _, _ in Task { await Reminders.reschedule(store) } }
+            .onChange(of: [fixed, balance, budget, subs, forecastWarn]) { _, _ in Task { await Reminders.reschedule(store) } }
+            .onChange(of: balanceDays) { _, _ in Task { await Reminders.reschedule(store) } }
+            .onChange(of: cards) { _, _ in Task { await Reminders.reschedule(store) } }
+            .onAppear { cards = Reminders.cardDays(store) }
             if on {
                 Toggle(LS("固定交易本月未入账"), isOn: $fixed)
                 Toggle(LS("预算超支"), isOn: $budget)
@@ -210,11 +215,6 @@ struct RemindersSection: View {
         } footer: {
             Text(LS("提醒在本机生成，每次打开 App 或同步后按最新账本重新安排。在「编辑账户」中为信用卡设置账单日和还款日后，会按账单金额提醒还款，提前天数与订阅相同。"))
         }
-        .onChange(of: subsDays) { _, _ in Task { await Reminders.reschedule(store) } }
-        .onChange(of: [fixed, balance, budget, subs, forecastWarn]) { _, _ in Task { await Reminders.reschedule(store) } }
-        .onChange(of: balanceDays) { _, _ in Task { await Reminders.reschedule(store) } }
-        .onChange(of: cards) { _, _ in Task { await Reminders.reschedule(store) } }
-        .onAppear { cards = Reminders.cardDays(store) }
     }
 
     private var cardAccounts: [String] {

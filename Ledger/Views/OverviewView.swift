@@ -344,7 +344,7 @@ struct OverviewView: View {
                     if selCat == g.name {
                         ForEach(g.leaves.filter { abs($0.1) > 0.005 }, id: \.0) { row in
                             NavigationLink(value: AccountDest(name: row.0)) {
-                                CatBar(name: leaf(row.0), sub: acctZH(row.0), value: row.1, frac: row.1 / max(g.total, 1), share: share(row.1, g.total), chevron: nil)
+                                CatBar(name: leafTitle(row.0).name, sub: leafTitle(row.0).sub, value: row.1, frac: row.1 / max(g.total, 1), share: share(row.1, g.total), chevron: nil)
                             }
                             .padding(.leading, 20)
                         }
@@ -380,7 +380,7 @@ struct OverviewView: View {
                     } else if let g = groups.first(where: { $0.name == sel }) {
                         ForEach(g.leaves.filter { $0.1 > 0.005 }, id: \.0) { row in
                             NavigationLink(value: AccountDest(name: row.0)) {
-                                CatBar(name: leaf(row.0), sub: acctZH(row.0), value: row.1, frac: row.1 / max(g.total, 1), share: share(row.1, g.total), chevron: nil)
+                                CatBar(name: leafTitle(row.0).name, sub: leafTitle(row.0).sub, value: row.1, frac: row.1 / max(g.total, 1), share: share(row.1, g.total), chevron: nil)
                             }
                         }
                     }
@@ -389,6 +389,12 @@ struct OverviewView: View {
         } header: {
             donutHeader(LS("支出构成"), f.label, LS("点按扇区展开"))
         }
+    }
+
+    /// a category's own name from the ledger (name: "咖啡饮品"), with the account leaf under it; else the leaf
+    private func leafTitle(_ a: String) -> (name: String, sub: String?) {
+        if let v = store.L?.accounts[a]?.meta["name"], let s = v.stringValue, !s.isEmpty { return (s, leaf(a)) }
+        return (leaf(a), acctZH(a))
     }
 
     private func share(_ v: Double, _ total: Double) -> Int? { total > 0 && v > 0 ? Int((v / total * 100).rounded()) : nil }
