@@ -254,6 +254,16 @@ public final class Ledger: @unchecked Sendable {
 }
 
 // MARK: - JS number helpers
+//
+// Rounding rule used everywhere money is displayed: ties go toward +∞
+// (like JS `Math.round`: 2.5 → 3, -2.5 → -2). This is NOT banker's rounding
+// and NOT "away from zero" — see the pin-down tests in RoundingTests.
+//
+// Known divergences from real JS `String(n)` — locked in deliberately, do not
+// "fix" without checking the golden tests first:
+//   * 1e15 expands to "1000000000000000.0" (real JS prints plain digits up to 1e21)
+//   * 1e-7 expands to "0.0000001" (real JS prints "1e-7")
+//   * Infinity renders as "inf" (real JS prints "Infinity")
 
 /// `String(n)` in JS for the values we deal with (shortest round-trip, no exponent for normal ranges).
 public func jsNumberString(_ n: Double) -> String {
@@ -271,6 +281,9 @@ public func jsNumberString(_ n: Double) -> String {
 }
 
 /// JS `Number.prototype.toFixed(d)`.
+/// Exact binary ties (.5 representable) round away from zero (printf rounds
+/// them to even, hence the manual correction below). "-0.00" is stripped to
+/// "0.00" — real JS keeps the minus sign; locked in here deliberately.
 public func toFixed(_ n: Double, _ d: Int) -> String {
     var s = String(format: "%.\(d)f", n)
     // JS rounds exact ties away from zero (printf rounds them to even)
@@ -285,7 +298,8 @@ public func toFixed(_ n: Double, _ d: Int) -> String {
     return s
 }
 
-/// JS `Math.round` (half rounds toward +infinity)
+/// JS `Math.round`: ties go toward +∞. jsRound(2.5) == 3, jsRound(-2.5) == -2.
+/// (Differs from "round half away from zero" only for negative ties.)
 @inline(__always) func jsRound(_ x: Double) -> Double { (x + 0.5).rounded(.down) }
 
 public func roundTo(_ n: Double, _ d: Int) -> Double {
