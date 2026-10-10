@@ -200,7 +200,7 @@ public func alignText(_ text: String) -> String {
 // MARK: - edits applied to repo files (pending queue)
 
 public struct Op: Codable, Identifiable, Equatable {
-    public enum Kind: String, Codable { case insert, remove, link, include, balance, deleteFile, replace, rename }
+    public enum Kind: String, Codable { case insert, remove, link, include, balance, deleteFile, replace, rename, write }
     public var id = UUID()
     public var kind: Kind
     public var path: String
@@ -251,6 +251,7 @@ public func applyOps(_ text0: String, path: String, ops: [Op], strict: Bool = fa
             if let r = applyRemove(text, op) { text = r }
             else if strict { throw ConflictError(label: op.label ?? "") }
         case .rename: text = renameAccount(text, from: op.old ?? "", to: op.text ?? "")
+        case .write: text = op.text ?? ""
         }
     }
     return text

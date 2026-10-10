@@ -1,4 +1,5 @@
 import Foundation
+import LedgerKit
 import CryptoKit
 
 /// Where the ledger files live. Every file has a version token (a git blob sha, or a
@@ -59,7 +60,7 @@ func makeBackend(_ c: RepoConfig) -> LedgerBackend {
 
 /// files the app reads
 func isLedgerFile(_ path: String) -> Bool {
-    (path.hasSuffix(".bean") || path.hasSuffix(".beancount") || path.hasSuffix(".bql"))
+    (path.hasSuffix(".bean") || path.hasSuffix(".beancount") || path.hasSuffix(".bql") || path == LedgerXConfig.path)
         && !path.split(separator: "/").contains(where: { $0.hasPrefix(".") })
 }
 

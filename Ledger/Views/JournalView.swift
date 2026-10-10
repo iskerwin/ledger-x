@@ -170,6 +170,10 @@ struct JournalView: View {
                 selecting = true
                 selected = Set(search(L).prefix(4).map { TxDest.key($0) })
             }
+            if let l = store.demoEnv["LEDGER_OPEN_LINK"], let L = store.L, path.isEmpty,
+               let t = L.txns.first(where: { $0.links.contains(l) }) {
+                path.append(TxDest(t))
+            }
             if store.demoEnv["LEDGER_OPEN_TX"] != nil, let L = store.L, path.isEmpty {
                 let id = L.txns.lastIndex(where: { isComplex($0) && !$0.synthetic }) ?? L.txns.count - 1
                 path.append(TxDest(L.txns[id]))
@@ -328,21 +332,29 @@ struct TxDetailView: View {
 
     var body: some View {
         if let L = store.L, let D = store.D, let t = store.txn(dest.id, key: dest.key) {
-            let related: [Entry] = {
-                var seen = Set<ObjectIdentifier>([ObjectIdentifier(t)])
-                return t.links.flatMap { D.byLink[$0] ?? [] }.filter { seen.insert(ObjectIdentifier($0)).inserted }
-            }()
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(t.payee.isEmpty ? (t.narration.isEmpty ? LS("交易") : t.narration) : t.payee).font(.title2.weight(.semibold))
                         Text(t.date + (!t.payee.isEmpty && !t.narration.isEmpty ? " · " + t.narration : "")).foregroundStyle(.secondary)
-                        if !t.tags.isEmpty || !t.links.isEmpty {
-                            HStack { ForEach(t.tags, id: \.self) { Tag(text: "#" + $0) }; ForEach(t.links, id: \.self) { Tag(text: "^" + $0) } }
+                        if !t.tags.isEmpty {
+                            HStack { ForEach(t.tags, id: \.self) { Tag(text: "#" + $0) } }
                         }
                     }
                     .padding(.vertical, 4)
+                    // links: open one to see everything it ties together
+                    ForEach(t.links, id: \.self) { l in
+                        let n = (D.byLink[l] ?? []).filter { !$0.synthetic }.count
+                        NavigationLink(value: LinkDest(link: l)) {
+                            HStack {
+                                Label("^" + l, systemImage: "link").lineLimit(1)
+                                Spacer()
+                                Text(LinkRole.of(l).title + " · " + LS("%@ 笔", n)).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
                 }
+                LinkIssueSection(t: t, subDraft: $subDraft)
                 Section(LS("分录")) {
                     ForEach(Array(t.postings.enumerated()), id: \.offset) { pair in
                         PostingRow(p: pair.element)
@@ -353,11 +365,7 @@ struct TxDetailView: View {
                         ForEach(t.meta.items, id: \.0) { item in LabeledContent(item.0, value: item.1.display) }
                     }
                 }
-                if !related.isEmpty {
-                    Section(LS("关联交易")) {
-                        ForEach(related, id: \.id) { r in NavigationLink(value: TxDest(r)) { TxRow(t: r, showDate: true) } }
-                    }
-                }
+                LinkGroupsSection(t: t, L: L, D: D)
                 if !t.synthetic { AttachmentsSection(t: t) }
                 Section {
                     MonoText(text: t.src)

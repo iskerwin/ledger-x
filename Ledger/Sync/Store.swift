@@ -93,15 +93,43 @@ final class Store: ObservableObject {
     @Published var receivableAccount: String { didSet { Prefs.set(pk("receivable"), receivableAccount) } }
     @Published var subsFile: String { didSet { Prefs.set(pk("subsFile"), subsFile) } }
     @Published private(set) var detectedLayout = RepoLayout()
+    /// ledger-x.json in the repository (shared by every device); nil = not there yet
+    @Published private(set) var repoConfig: LedgerXConfig?
 
     /// BQL: queries saved on this phone, and the ones in the ledger (query directives, *.bql files)
     @Published var myQueries: [SavedQuery] { didSet { Prefs.set("queries", myQueries) } }
     @Published private(set) var ledgerQueries: [SavedQuery] = []
     var main: String { mainFile.trimmed.isEmpty ? "main.bean" : mainFile.trimmed }
-    var receivable: String { receivableAccount.trimmed.isEmpty ? "Assets:Receivable:Reimbursement" : receivableAccount.trimmed }
+    var receivable: String {
+        if let r = repoConfig?.receivable?.trimmed, !r.isEmpty { return r }
+        return receivableAccount.trimmed.isEmpty ? "Assets:Receivable:Reimbursement" : receivableAccount.trimmed
+    }
+    /// ledger-x.json first, then the older settings on this phone, then what the ledger looks like
     var layout: RepoLayout {
-        RepoLayout(main: main, journal: journalPattern.trimmed.isEmpty ? detectedLayout.journal : journalPattern.trimmed,
-                   subscriptions: subsFile.trimmed.isEmpty ? nil : subsFile.trimmed)
+        let c = repoConfig ?? LedgerXConfig()
+        let journal = c.file(.transactions) ?? (journalPattern.trimmed.isEmpty ? detectedLayout.journal : journalPattern.trimmed)
+        let subs = c.file(.subscriptions) ?? (subsFile.trimmed.isEmpty ? nil : subsFile.trimmed)
+        var l = RepoLayout(main: main, journal: journal, subscriptions: subs)
+        for k in LayoutKind.allCases { if let f = c.file(k) { l.files[k] = f } }
+        l.rules = c.rules
+        return l
+    }
+    /// the settings ledger-x.json would hold right now (the file's, or this phone's older ones)
+    var effectiveConfig: LedgerXConfig {
+        if let c = repoConfig { return c }
+        var c = LedgerXConfig()
+        if !journalPattern.trimmed.isEmpty { c.files[LayoutKind.transactions.rawValue] = journalPattern.trimmed }
+        if !subsFile.trimmed.isEmpty { c.files[LayoutKind.subscriptions.rawValue] = subsFile.trimmed }
+        if !receivableAccount.trimmed.isEmpty { c.receivable = receivableAccount.trimmed }
+        return c
+    }
+
+    /// write ledger-x.json (one commit), then reload with it
+    func saveRepoConfig(_ c: LedgerXConfig) async -> Bool {
+        var op = Op(kind: .write, path: LedgerXConfig.path)
+        op.text = c.json()
+        op.label = LS("更新仓库结构（%@）", LedgerXConfig.path)
+        return await commit([op], word: LS("已保存到 %@", LedgerXConfig.path), checked: true)
     }
     private var pushing = false
     /// bumped by every rebuild; a rebuild that finishes after a newer one started is dropped
@@ -184,6 +212,7 @@ final class Store: ObservableObject {
         tree = Prefs.get(pk("tree"), RepoTree?.none)
         lastSync = Prefs.get(pk("lastSync"), Date?.none)
         ci = Prefs.get(pk("ci"), GitHub.CI?.none)
+        repoConfig = nil
         mainFile = Prefs.get(pk("mainFile"), "")
         journalPattern = Prefs.get(pk("journalPattern"), "")
         receivableAccount = Prefs.get(pk("receivable"), "")
@@ -247,6 +276,7 @@ final class Store: ObservableObject {
             return (L, Derived(L))
         }.value
         detectedLayout = RepoLayout.detect(result.0)
+        repoConfig = (try? String(contentsOf: base.appendingPathComponent(LedgerXConfig.path), encoding: .utf8)).flatMap(LedgerXConfig.parse)
         L = result.0
         D = result.1
         version += 1
@@ -377,6 +407,7 @@ final class Store: ObservableObject {
         let files = tree.files
         let ops = pending
         let main = self.main
+        repoConfig = Self.readConfig(files: files, ops: ops)
         let receivable = self.receivable
         let result: (Ledger, Derived)? = await Task.detached(priority: .userInitiated) {
             let L = Store.loadWith(files: files, main: main, ops: ops)
@@ -402,6 +433,15 @@ final class Store: ObservableObject {
         } else {
             loadError = LS("无法读取 %@", main)
         }
+    }
+
+    /// ledger-x.json from the downloaded files, with queued changes applied
+    static func readConfig(files: [String: String], ops: [Op]) -> LedgerXConfig? {
+        let path = LedgerXConfig.path
+        let base = files[path].flatMap { BlobCache.get($0) }
+        guard base != nil || ops.contains(where: { $0.path == path }) else { return nil }
+        guard let text = try? applyOps(base ?? "", path: path, ops: ops), !text.trimmed.isEmpty else { return nil }
+        return LedgerXConfig.parse(text)
     }
 
     nonisolated static func loadWith(files: [String: String], main: String, ops: [Op]) -> Ledger {

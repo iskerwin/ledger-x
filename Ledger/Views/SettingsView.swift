@@ -8,7 +8,9 @@ struct SettingsView: View {
     @State private var testing = false
     @State private var confirmReset = false
     @State private var editingLedger: RepoConfig?
+    @State private var demoLayout = false
     @AppStorage(AppAppearance.key) private var appearance = AppAppearance.system.rawValue
+    @AppStorage(OverviewChart.styleKey) private var chartStyle = "list"
     @AppStorage(AppLock.enabledKey) private var lockOn = false
     @AppStorage(AppLock.graceKey) private var grace = 0
 
@@ -67,23 +69,14 @@ struct SettingsView: View {
                         TextField("main.bean", text: $store.mainFile)
                             .multilineTextAlignment(.trailing).textInputAutocapitalization(.never).autocorrectionDisabled()
                     }
-                    LabeledContent(LS("交易写入")) {
-                        TextField(store.detectedLayout.journal, text: $store.journalPattern)
-                            .multilineTextAlignment(.trailing).textInputAutocapitalization(.never).autocorrectionDisabled()
-                    }
-                    LabeledContent(LS("订阅文件")) {
-                        TextField("subscriptions.bean", text: $store.subsFile)
-                            .multilineTextAlignment(.trailing).textInputAutocapitalization(.never).autocorrectionDisabled()
-                    }
-                    LabeledContent(LS("报销应收科目")) {
-                        TextField("Assets:Receivable:Reimbursement", text: $store.receivableAccount)
-                            .multilineTextAlignment(.trailing).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    NavigationLink { RepoLayoutView() } label: {
+                        LabeledContent(LS("文件规则"), value: store.repoConfig == nil ? LS("自动识别") : LedgerXConfig.path)
                     }
                     Button { Task { await store.rebuild() } } label: { Label(LS("应用并重新加载"), systemImage: "arrow.clockwise") }
                 } header: {
                     Text(LS("仓库结构"))
                 } footer: {
-                    Text(LS("留空则根据账本自动识别：交易写入最近年度交易所在的文件（{year} 替换为年份，跨年时自动新建文件并在主文件中添加 include）；余额断言、价格、开户等指令写入同类指令最多的文件。修改主文件或应收科目后，请点按「应用并重新加载」。"))
+                    Text(LS("主文件保存在本机；交易、开户、余额断言等各类记录写入哪个文件、按科目分流的规则和报销应收科目，保存在仓库的 ledger-x.json 中，所有设备共用。修改主文件后，请点按「应用并重新加载」。"))
                 }
 
                 Section {
@@ -112,7 +105,7 @@ struct SettingsView: View {
                 }
 
                 Section(LS("账本")) {
-                    NavigationLink { ErrorsView() } label: {
+                    NavigationLink { ErrorsView(links: false) } label: {
                         LabeledContent(LS("账本校验"), value: L.errors.isEmpty ? LS("通过") : LS("%@ 项错误", L.errors.count))
                     }
                     LabeledContent(LS("交易"), value: LS("%@ 笔", L.txns.count))
@@ -132,6 +125,8 @@ struct SettingsView: View {
         }
         .keyboardDone()
         .navigationDestination(item: $editingLedger) { s in LedgerEditView(initial: s) }
+        .navigationDestination(isPresented: $demoLayout) { RepoLayoutView() }
+        .task { if store.demoEnv["LEDGER_LAYOUT"] != nil { try? await Task.sleep(nanoseconds: 500_000_000); demoLayout = true } }
         .navigationTitle(first ? "" : LS("设置"))
         .onAppear { cfg = store.cfg }
         .confirmationDialog(LS("清除本机缓存？同步队列中的变更将保留。"), isPresented: $confirmReset, titleVisibility: .visible) {
@@ -162,6 +157,10 @@ extension SettingsView {
             LanguagePicker()
             Picker(LS("显示模式"), selection: $appearance) {
                 ForEach(AppAppearance.allCases) { Text($0.name).tag($0.rawValue) }
+            }
+            Picker(LS("概览图表"), selection: $chartStyle) {
+                Text(LS("排行列表")).tag("list")
+                Text(LS("环形图")).tag("donut")
             }
         } header: {
             Text(LS("外观"))

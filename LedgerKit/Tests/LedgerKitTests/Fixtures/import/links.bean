@@ -1,0 +1,21 @@
+; links between transactions, a few of them broken (screenshots of the link check)
+
+2026-09-02 * "优衣库" "羽绒服" ^refund-20260902-ab12
+  Expenses:Shopping:Household                        599.00 CNY
+  Liabilities:CreditCard:CMB
+
+2026-09-06 * "优衣库" "羽绒服退款" #refund ^refund-20260902-ab12
+  Expenses:Shopping:Household                       -200.00 CNY
+  Liabilities:CreditCard:CMB
+
+2026-09-12 * "京东" "退款" #refund ^refund-20260801-zz99
+  Expenses:Shopping:Household                        -45.00 CNY
+  Liabilities:CreditCard:CMB
+
+2026-09-15 * "网易云音乐" "黑胶会员" ^sub-netease
+  Expenses:Subscription:Music                         15.00 CNY
+  Assets:EWallet:Alipay
+
+2026-09-18 * "喜茶" "退款" #refund
+  Expenses:Food:Drinks                               -19.00 CNY
+  Assets:EWallet:Alipay
