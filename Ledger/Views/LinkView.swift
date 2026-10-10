@@ -182,7 +182,7 @@ struct LinkIssueSection: View {
                 Button(LS("移除链接"), role: .destructive) { removing = LinkPick(t: t, link: l, includeSelf: false) }
             }
         case .refundUnlinked:
-            Button(LS("选择原交易")) { pick = LinkPick(t: t, link: newRefundLink(t), includeSelf: true) }
+            Button(LS("选择原交易")) { pick = LinkPick(t: t, link: newRefundLink(t, taken: Set(store.D?.allLinks ?? [])), includeSelf: true) }
         case .subUnknown:
             Button(LS("关联到订阅")) { subPick = t }
             if let l = i.link { Button(LS("移除链接"), role: .destructive) { removing = LinkPick(t: t, link: l, includeSelf: false) } }
@@ -244,18 +244,44 @@ struct LinkConfirmView: View {
     let chosen: [Entry]
     let close: () -> Void
     @State private var saving = false
+    /// a new link can be renamed before it is written; an existing one stays as it is
+    @State private var name: String
+
+    init(pick: LinkPick, chosen: [Entry], close: @escaping () -> Void) {
+        self.pick = pick; self.chosen = chosen; self.close = close
+        _name = State(initialValue: pick.link)
+    }
+
+    private var link: String { name.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "^", with: "") }
+    /// empty = fine
+    private var nameProblem: String {
+        if !isValidLink(link) { return LS("链接只能包含英文字母、数字和 - _ / .") }
+        if link != pick.link, store.D?.byLink[link] != nil { return LS("这个链接已被其他交易使用") }
+        return ""
+    }
 
     var body: some View {
         let targets = (pick.includeSelf ? [pick.t] : []) + chosen
-        let role = LinkRole.of(pick.link)
-        let existing = (store.D?.byLink[pick.link] ?? []).filter { !$0.synthetic }
+        let link = self.link
+        let role = LinkRole.of(link)
+        let existing = (store.D?.byLink[link] ?? []).filter { !$0.synthetic }
         var group = existing
         for e in targets where !group.contains(where: { $0 === e }) { group.append(e) }
-        let figs = store.L.map { linkFigures(pick.link, group, $0) } ?? []
+        let figs = store.L.map { linkFigures(link, group, $0) } ?? []
         let net = figs.last?.value ?? 0
+        let problem = nameProblem
         return List {
             Section {
-                LabeledContent(LS("链接"), value: "^" + pick.link)
+                if pick.includeSelf {
+                    LabeledContent(LS("链接")) {
+                        TextField("refund-…", text: $name)
+                            .multilineTextAlignment(.trailing).textInputAutocapitalization(.never).autocorrectionDisabled()
+                            .font(.callout.monospaced())
+                    }
+                    if !problem.isEmpty { Text(problem).font(.footnote).foregroundStyle(Color.loss) }
+                } else {
+                    LabeledContent(LS("链接"), value: "^" + link)
+                }
                 LabeledContent(LS("用途"), value: role.title)
                 LabeledContent(LS("关联后共"), value: LS("%@ 笔", group.count))
                 if !figs.isEmpty { LinkFiguresRow(figs: figs) }
@@ -271,7 +297,7 @@ struct LinkConfirmView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         TxRow(t: e, showDate: true)
                         let before = e.src.components(separatedBy: "\n").first ?? ""
-                        let after = headerLinkEdit(e.src, link: pick.link, remove: false).components(separatedBy: "\n").first ?? ""
+                        let after = headerLinkEdit(e.src, link: link, remove: false).components(separatedBy: "\n").first ?? ""
                         VStack(alignment: .leading, spacing: 2) {
                             Text("− " + before).foregroundStyle(Color.loss)
                             Text("+ " + after).foregroundStyle(Color.gain)
@@ -293,13 +319,13 @@ struct LinkConfirmView: View {
             Button {
                 saving = true
                 Task {
-                    await store.addLink(pick.link, to: targets, closing: close)
+                    await store.addLink(link, to: targets, closing: close)
                     saving = false
                 }
             } label: {
                 Text(saving ? LS("提交中…") : LS("确认关联")).frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent).controlSize(.large).padding().disabled(saving || targets.isEmpty)
+            .buttonStyle(.borderedProminent).controlSize(.large).padding().disabled(saving || targets.isEmpty || !problem.isEmpty)
             .background(.bar)
         }
         .interactiveDismissDisabled(saving)

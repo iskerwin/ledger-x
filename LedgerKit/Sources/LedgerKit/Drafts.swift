@@ -618,11 +618,34 @@ public func draftFromTxn(_ t: Entry, kind: DraftKind? = nil, _ L: Ledger, _ D: D
     return d
 }
 
-/// a refund link for a purchase: refund-<date>-<hash of payee, narration and date>
-public func newRefundLink(_ t: Entry) -> String {
-    var h: UInt32 = 0
-    for ch in (t.payee + t.narration + t.date).utf16 { h = h &* 31 &+ UInt32(ch) }
-    return "refund-\(t.date.replacingOccurrences(of: "-", with: ""))-\(String(String(h, radix: 36).suffix(4)))"
+/// a readable piece of a link: "优衣库" → "youyiku", "Apple Store" → "apple-store" (links allow only A-Z a-z 0-9 - _ / .)
+public func linkSlug(_ s: String, max: Int = 20) -> String {
+    let cjk = s.unicodeScalars.contains { (0x3400...0x9FFF).contains($0.value) || (0xF900...0xFAFF).contains($0.value) }
+    var t = s.applyingTransform(.toLatin, reverse: false) ?? s
+    t = (t.applyingTransform(.stripDiacritics, reverse: false) ?? t).lowercased()
+    // pinyin syllables of one Chinese name belong together
+    if cjk { t = t.replacingOccurrences(of: " ", with: "") }
+    let mapped = String(t.unicodeScalars.map { ($0.isASCII && CharacterSet.alphanumerics.contains($0)) ? Character($0) : "-" })
+    var slug = mapped.split(separator: "-").joined(separator: "-")
+    if slug.count > max { slug = String(slug.prefix(max)) }
+    while slug.hasSuffix("-") { slug.removeLast() }
+    return slug
+}
+
+/// a refund link for a purchase: refund-<payee>-<date>, with -2, -3 … when that one is taken
+public func newRefundLink(_ t: Entry, taken: Set<String> = []) -> String {
+    let date = t.date.replacingOccurrences(of: "-", with: "")
+    let slug = linkSlug(!t.payee.isEmpty ? t.payee : t.narration)
+    let base = slug.isEmpty ? "refund-\(date)" : "refund-\(slug)-\(date)"
+    if !taken.contains(base) { return base }
+    var k = 2
+    while taken.contains("\(base)-\(k)") { k += 1 }
+    return "\(base)-\(k)"
+}
+
+/// a link Beancount accepts
+public func isValidLink(_ l: String) -> Bool {
+    l.range(of: #"^[A-Za-z0-9][A-Za-z0-9\-_/.]*$"#, options: .regularExpression) != nil
 }
 
 public func refundDraft(_ t: Entry, _ L: Ledger, _ D: Derived, defaultFunding: String?) -> Draft {
@@ -631,7 +654,7 @@ public func refundDraft(_ t: Entry, _ L: Ledger, _ D: Derived, defaultFunding: S
     let suffix = tr("退款", " (refund)")
     d.narration = !t.narration.isEmpty && !t.narration.hasSuffix(suffix) ? t.narration + suffix : t.narration
     let existing = t.links.first { $0.hasPrefix("refund") }
-    let base = existing ?? newRefundLink(t)
+    let base = existing ?? newRefundLink(t, taken: Set(L.txns.flatMap { $0.links }))
     d.link = base
     if existing == nil {
         let header = t.src.components(separatedBy: "\n").first ?? ""
