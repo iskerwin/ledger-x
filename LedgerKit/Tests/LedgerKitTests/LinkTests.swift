@@ -95,6 +95,28 @@ final class LinkTests: XCTestCase {
         XCTAssertTrue(all.prefix(2).allSatisfy { $0.isError })
     }
 
+    func testRefundLinkName() {
+        let L = ledger(base + """
+        2025-09-02 * "优衣库" "羽绒服"
+          Expenses:Shopping  1 CNY
+          Assets:Bank
+        2025-09-03 * "Apple Store" ""
+          Expenses:Shopping  1 CNY
+          Assets:Bank
+        2025-09-04 * "" "!!"
+          Expenses:Shopping  1 CNY
+          Assets:Bank
+
+        """)
+        XCTAssertEqual(newRefundLink(L.txns[0]), "refund-youyiku-20250902")
+        XCTAssertEqual(newRefundLink(L.txns[0], taken: ["refund-youyiku-20250902", "refund-youyiku-20250902-2"]), "refund-youyiku-20250902-3")
+        XCTAssertEqual(newRefundLink(L.txns[1]), "refund-apple-store-20250903")
+        XCTAssertEqual(newRefundLink(L.txns[2]), "refund-20250904")
+        XCTAssertTrue(isValidLink("refund-youyiku-20250902"))
+        XCTAssertFalse(isValidLink("退款-1"))
+        XCTAssertFalse(isValidLink("a b"))
+    }
+
     func testHeaderLinkEdit() {
         let t = "2025-01-01 * \"A ;b\" \"c\" ; note\n  Expenses:Food  1 CNY\n  Assets:Bank"
         let added = headerLinkEdit(t, link: "refund-x", remove: false)
