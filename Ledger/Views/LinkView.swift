@@ -118,20 +118,21 @@ struct LinkFiguresRow: View {
 
 // MARK: - transaction detail: problems and fixes
 
-/// what to do about a link problem from the transaction it is on
+/// a "choose the other transactions" fix: put `link` on the picked ones (and on `t` when it has none yet)
+struct LinkPick: Identifiable {
+    let t: Entry
+    let link: String
+    let includeSelf: Bool
+    var id: String { link }
+}
+
+/// what to do about a link problem from the transaction it is on. The sheets live on the detail page:
+/// a sheet attached to a List section is copied onto every row, and goes away with the row.
 struct LinkIssueSection: View {
     @EnvironmentObject var store: Store
     let t: Entry
-    @State private var pick: LinkPick?
-    @State private var subPick: Entry?
-    @Binding var subDraft: SubDraft?
-
-    struct LinkPick: Identifiable {
-        let link: String
-        /// also put the link on the transaction itself (it had none yet)
-        let includeSelf: Bool
-        var id: String { link }
-    }
+    @Binding var pick: LinkPick?
+    @Binding var subPick: Entry?
 
     var body: some View {
         let issues = store.linkProblems(for: t)
@@ -156,14 +157,6 @@ struct LinkIssueSection: View {
             } header: {
                 Text(LS("链接检查"))
             }
-            .sheet(item: $pick) { p in
-                LinkPickSheet(t: t, link: p.link) { picked in
-                    await store.addLink(p.link, to: (p.includeSelf ? [t] : []) + picked, closing: { pick = nil })
-                }
-            }
-            .sheet(item: $subPick) { e in
-                SubPickSheet(t: e) { if let L = store.L { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { subDraft = SubDraft(e, L) } } }
-            }
         }
     }
 
@@ -172,17 +165,17 @@ struct LinkIssueSection: View {
         switch i.kind {
         case .refundAlone, .refundNoPurchase:
             if let l = i.link {
-                Button(LS("选择原交易")) { pick = LinkPick(link: l, includeSelf: false) }
+                Button(LS("选择原交易")) { pick = LinkPick(t: t, link: l, includeSelf: false) }
                 Button(LS("移除链接"), role: .destructive) { Task { await store.removeLink(l, from: t) } }
             }
         case .refundUnlinked:
-            Button(LS("选择原交易")) { pick = LinkPick(link: newRefundLink(t), includeSelf: true) }
+            Button(LS("选择原交易")) { pick = LinkPick(t: t, link: newRefundLink(t), includeSelf: true) }
         case .subUnknown:
             Button(LS("关联到订阅")) { subPick = t }
             if let l = i.link { Button(LS("移除链接"), role: .destructive) { Task { await store.removeLink(l, from: t) } } }
         case .single:
             if let l = i.link {
-                Button(LS("选择关联交易")) { pick = LinkPick(link: l, includeSelf: false) }
+                Button(LS("选择关联交易")) { pick = LinkPick(t: t, link: l, includeSelf: false) }
                 Button(LS("移除链接"), role: .destructive) { Task { await store.removeLink(l, from: t) } }
             }
         default:
@@ -192,38 +185,45 @@ struct LinkIssueSection: View {
     }
 }
 
-/// choose the transactions that should share `link` with `t`
+/// choose the transactions that should share the link, then one commit
 struct LinkPickSheet: View {
     @EnvironmentObject var store: Store
     @Environment(\.dismiss) private var dismiss
-    let t: Entry
-    let link: String
-    let done: ([Entry]) async -> Void
+    let pick: LinkPick
     @State private var picked: Set<Int> = []
     @State private var saving = false
+    /// the ledger the picker's row numbers refer to (a sync while picking must not shift them)
+    @State private var snapshot: Ledger?
 
     var body: some View {
+        let t = pick.t
         let exp = t.postings.first { $0.account.hasPrefix("Expenses:") }
-        let linked = Set((store.D?.byLink[link] ?? []).map { $0.id }).union([t.id])
+        let linked = Set((store.D?.byLink[pick.link] ?? []).map { $0.id }).union([t.id])
         NavigationStack {
             TxPicker(hint: SubHint(payee: t.payee.isEmpty ? t.narration : t.payee, name: t.narration,
                                    account: exp?.account ?? "", amount: abs(exp?.units ?? 0)),
                      exclude: linked, picked: $picked)
-                .navigationTitle(LinkRole.of(link) == .refund ? LS("选择原交易") : LS("选择关联交易"))
+                .navigationTitle(LinkRole.of(pick.link) == .refund ? LS("选择原交易") : LS("选择关联交易"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } }
                     ToolbarItem(placement: .confirmationAction) {
-                        Button(LS("关联")) {
-                            guard let L = store.L else { return }
-                            let es = picked.sorted().compactMap { $0 < L.txns.count ? L.txns[$0] : nil }
-                            saving = true
-                            Task { await done(es); saving = false }
-                        }
-                        .disabled(picked.isEmpty || saving)
+                        Button(LS("关联")) { Task { await save() } }
+                            .disabled(picked.isEmpty || saving)
                     }
                 }
         }
+        .interactiveDismissDisabled(saving)
+        .onAppear { if snapshot == nil { snapshot = store.L } }
+    }
+
+    private func save() async {
+        guard let L = snapshot ?? store.L else { return }
+        let es = picked.sorted().compactMap { $0 >= 0 && $0 < L.txns.count ? L.txns[$0] : nil }
+        guard !es.isEmpty else { return }
+        saving = true
+        defer { saving = false }
+        await store.addLink(pick.link, to: (pick.includeSelf ? [pick.t] : []) + es, closing: { dismiss() })
     }
 }
 

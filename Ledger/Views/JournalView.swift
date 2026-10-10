@@ -329,6 +329,7 @@ struct TxDetailView: View {
     let dest: TxDest
     @State private var subDraft: SubDraft?
     @State private var subPick: Entry?
+    @State private var linkPick: LinkPick?
 
     var body: some View {
         if let L = store.L, let D = store.D, let t = store.txn(dest.id, key: dest.key) {
@@ -354,7 +355,7 @@ struct TxDetailView: View {
                         }
                     }
                 }
-                LinkIssueSection(t: t, subDraft: $subDraft)
+                LinkIssueSection(t: t, pick: $linkPick, subPick: $subPick)
                 Section(LS("分录")) {
                     ForEach(Array(t.postings.enumerated()), id: \.offset) { pair in
                         PostingRow(p: pair.element)
@@ -400,6 +401,7 @@ struct TxDetailView: View {
             .navigationTitle(t.date)
             .navigationBarTitleDisplayMode(.inline)
             .sheet(item: $subDraft) { SubEditSheet(draft: $0) }
+            .sheet(item: $linkPick) { LinkPickSheet(pick: $0) }
             .sheet(item: $subPick) { e in
                 SubPickSheet(t: e) { if let L = store.L { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { subDraft = SubDraft(e, L) } } }
             }
