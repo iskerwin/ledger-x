@@ -218,6 +218,7 @@ struct QStatement {
     var from: QExpr?
     var whereExpr: QExpr?
     var groupBy: [QExpr]?
+    var having: QExpr?
     var orderBy: [QOrder] = []
     var limit: Int?
 }
@@ -286,8 +287,9 @@ final class QParser {
             var g: [QExpr] = []
             repeat { g.append(try expr()) } while eatOp(",")
             st.groupBy = g
-            if eatKw("HAVING") { _ = try expr() }
         }
+        // HAVING may appear with or without GROUP BY (without: the whole result is one group)
+        if eatKw("HAVING") { st.having = try expr() }
         if eatKw("ORDER") {
             try expectKw("BY")
             repeat {
@@ -757,13 +759,17 @@ public func runQuery(_ text: String, _ L: Ledger) throws -> QueryResult {
         return e
     }
 
-    let aggregate = st.groupBy != nil || st.targets.contains { $0.expr.hasAggregate }
+    let aggregate = st.groupBy != nil || st.having != nil || st.targets.contains { $0.expr.hasAggregate }
     var out: [[QValue]] = []
     var sortKeys: [[QValue]] = []
     let orders = st.orderBy.map { QOrder(expr: resolve($0.expr), desc: $0.desc) }
 
     if aggregate {
-        let keys = st.groupBy.map { $0.map(resolve) } ?? st.targets.map { $0.expr }.filter { !$0.hasAggregate }
+        // HAVING without GROUP BY treats the whole result as one group (SQL semantics)
+        let keys: [QExpr]
+        if let g = st.groupBy { keys = g.map(resolve) }
+        else if st.having != nil { keys = [] }
+        else { keys = st.targets.map { $0.expr }.filter { !$0.hasAggregate } }
         var groups: [String: [QRow]] = [:]
         var order: [String] = []
         for r in rows {
@@ -772,8 +778,10 @@ public func runQuery(_ text: String, _ L: Ledger) throws -> QueryResult {
             groups[k, default: []].append(r)
         }
         if keys.isEmpty && order.isEmpty { order = [""]; groups[""] = [] }
+        let having = st.having.map(resolve)
         for k in order {
             let g = groups[k]!
+            if let h = having, !(try ev.evalGroup(h, g).truthy) { continue }
             out.append(try st.targets.map { try ev.evalGroup($0.expr, g) })
             sortKeys.append(try orders.map { try ev.evalGroup($0.expr, g) })
         }
