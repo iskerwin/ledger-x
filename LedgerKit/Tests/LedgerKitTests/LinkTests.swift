@@ -95,6 +95,42 @@ final class LinkTests: XCTestCase {
         XCTAssertTrue(all.prefix(2).allSatisfy { $0.isError })
     }
 
+    func testRefundsOfIncomeLoansAndAdvances() {
+        let L = ledger(base + """
+        2023-01-01 open Income:Salary CNY
+        2023-01-01 open Liabilities:Loan:Mom CNY
+        2023-01-01 open Assets:EWallet CNY
+        2025-04-16 * "Boss" "salary advance" ^refund-salary-20250416
+          Income:Salary  -500 CNY
+          Assets:Bank
+        2025-04-17 * "Boss" "advance returned" #refund ^refund-salary-20250416
+          Income:Salary  500 CNY
+          Assets:EWallet
+        2025-07-04 * "Mom" "repayment" ^refund-loan-20250704
+          Liabilities:Loan:Mom  1000 CNY
+          Assets:Bank
+        2025-07-05 * "Mom" "repayment back" #refund ^refund-loan-20250704
+          Liabilities:Loan:Mom  -1000 CNY
+          Assets:Bank
+        2025-08-01 * "Taxi" "" #reimbursed ^refund-taxi-20250801
+          Assets:Receivable:Reimbursement  54.57 CNY
+          Assets:Bank
+        2025-08-01 * "Taxi" "refund" #refund #reimbursed ^refund-taxi-20250801
+          Assets:Receivable:Reimbursement  -8.23 CNY
+          Assets:EWallet
+        2025-09-01 * "Taxi" "" ^refund-taxi-20250901
+          Expenses:Food  39.81 CNY
+          Assets:Bank
+        2025-09-01 * "Taxi" "refund" #refund ^refund-taxi-20250901
+          Expenses:Food  -39.81 CNY
+          Assets:EWallet
+
+        """)
+        XCTAssertTrue(linkIssues(L, subscriptions: []).isEmpty, "\(linkIssues(L, subscriptions: []).map { $0.kind })")
+        let figs = linkFigures("refund-taxi-20250801", L.txns.filter { $0.links.contains("refund-taxi-20250801") }, L)
+        XCTAssertEqual(figs.map { $0.value }, [54.57, 8.23, 46.34])
+    }
+
     func testRefundLinkName() {
         let L = ledger(base + """
         2025-09-02 * "优衣库" "羽绒服"

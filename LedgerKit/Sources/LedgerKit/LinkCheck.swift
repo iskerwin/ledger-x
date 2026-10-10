@@ -91,12 +91,50 @@ func receivableValues(_ t: Entry, _ L: Ledger) -> (plus: Double, minus: Double) 
     return (plus, minus)
 }
 
+/// money accounts (where it was paid from / back to), as opposed to what it was for
+func isFunding(_ a: String) -> Bool {
+    (a.hasPrefix("Assets:") && !a.hasPrefix("Assets:Receivable")) || a.hasPrefix("Liabilities:CreditCard")
+}
+
+/// A refund group split into what was paid and what came back. Refunds are the transactions tagged
+/// #refund (or, untagged, those that reduce spending). What they are compared on is the "what for"
+/// side — an expense, but also income returned (a salary advance), a loan repayment reversed or an
+/// advance to be reimbursed — never the bank or card it went through.
+struct RefundSplit {
+    var purchases: [Entry] = []
+    var refunds: [Entry] = []
+    var paid = 0.0
+    var back = 0.0
+    var purchaseAccounts = Set<String>()
+    func accounts(_ t: Entry) -> Set<String> { Set(t.postings.map { $0.account }.filter { !isFunding($0) }) }
+}
+
+func refundSplit(_ ts: [Entry], _ L: Ledger) -> RefundSplit {
+    var r = RefundSplit()
+    let tagged = ts.contains { $0.tags.contains("refund") }
+    for t in ts {
+        let isRefund = tagged ? t.tags.contains("refund") : expenseValue(t, L) < -0.005
+        if isRefund { r.refunds.append(t) } else { r.purchases.append(t) }
+    }
+    for t in r.purchases { r.purchaseAccounts.formUnion(r.accounts(t)) }
+    func amount(_ t: Entry) -> Double {
+        var v = 0.0
+        for p in t.postings where !isFunding(p.account) {
+            if let u = p.units, let c = p.currency { v += toCNY(L, u, c, t.date) ?? 0 }
+        }
+        return abs(v)
+    }
+    r.paid = r.purchases.reduce(0) { $0 + amount($1) }
+    r.back = r.refunds.reduce(0) { $0 + amount($1) }
+    return r
+}
+
 /// totals for one link's transactions
 public func linkFigures(_ link: String, _ entries: [Entry], _ L: Ledger) -> [LinkFigure] {
     switch LinkRole.of(link) {
     case .refund:
-        let vs = entries.map { expenseValue($0, L) }
-        let paid = vs.filter { $0 > 0 }.reduce(0, +), back = -vs.filter { $0 < 0 }.reduce(0, +)
+        let r = refundSplit(entries, L)
+        let paid = r.paid, back = r.back
         guard paid > 0 || back > 0 else { return [] }
         return [LinkFigure(label: tr("原价", "Paid"), value: roundTo(paid, 2)),
                 LinkFigure(label: tr("已退", "Refunded"), value: roundTo(back, 2)),
@@ -132,23 +170,20 @@ public func linkIssues(_ L: Ledger, subscriptions subs: [Subscription]) -> [Link
         switch LinkRole.of(l) {
         case .refund:
             if ts.count == 1 { out.append(LinkIssue(kind: .refundAlone, link: l, txn: ts[0], detail: "^" + l)); continue }
-            let vals = ts.map { ($0, expenseValue($0, L)) }
-            let purchases = vals.filter { $0.1 > 0.005 }, refunds = vals.filter { $0.1 < -0.005 }
-            if purchases.isEmpty {
-                for r in refunds { out.append(LinkIssue(kind: .refundNoPurchase, link: l, txn: r.0, detail: "^" + l)) }
+            let r = refundSplit(ts, L)
+            if r.purchases.isEmpty {
+                for t in r.refunds { out.append(LinkIssue(kind: .refundNoPurchase, link: l, txn: t, detail: "^" + l)) }
                 continue
             }
-            let paid = purchases.reduce(0) { $0 + $1.1 }, back = -refunds.reduce(0) { $0 + $1.1 }
-            if back > paid + 0.01, let last = refunds.last {
-                out.append(LinkIssue(kind: .refundExceeds, link: l, txn: last.0,
-                                     detail: String(format: tr("原价 %@，已退 %@", "Paid %@, refunded %@"), fmtNum(roundTo(paid, 2), 2), fmtNum(roundTo(back, 2), 2))))
+            if r.back > r.paid + 0.01, let last = r.refunds.last {
+                out.append(LinkIssue(kind: .refundExceeds, link: l, txn: last,
+                                     detail: String(format: tr("原价 %@，已退 %@", "Paid %@, refunded %@"), fmtNum(roundTo(r.paid, 2), 2), fmtNum(roundTo(r.back, 2), 2))))
             }
-            let bought = Set(purchases.flatMap { $0.0.postings.filter { $0.account.hasPrefix("Expenses:") }.map { $0.account } })
-            for r in refunds {
-                let accts = Set(r.0.postings.filter { $0.account.hasPrefix("Expenses:") }.map { $0.account })
-                if !accts.isEmpty && accts.isDisjoint(with: bought) {
-                    out.append(LinkIssue(kind: .refundAccount, link: l, txn: r.0,
-                                         detail: accts.sorted().joined(separator: ", ") + " ≠ " + bought.sorted().joined(separator: ", ")))
+            for t in r.refunds {
+                let accts = r.accounts(t)
+                if !accts.isEmpty && !r.purchaseAccounts.isEmpty && accts.isDisjoint(with: r.purchaseAccounts) {
+                    out.append(LinkIssue(kind: .refundAccount, link: l, txn: t,
+                                         detail: accts.sorted().joined(separator: ", ") + " ≠ " + r.purchaseAccounts.sorted().joined(separator: ", ")))
                 }
             }
         case .reimburse:
