@@ -571,7 +571,7 @@ struct AddView: View {
                         Text(o.date ?? "").font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Text(o.amountText ?? "").monospacedDigit().sensitive()
+                    Text(masked(o.amountText ?? "")).monospacedDigit().sensitive()
                 }
             }
             ForEach(recent, id: \.id) { t in

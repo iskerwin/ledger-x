@@ -623,7 +623,7 @@ struct CheckSheet: View {
         op.line = balanceLine(date, account, a, currency)
         op.label = (old != nil ? LS("覆盖余额断言：") : LS("余额核对：")) + account + " " + date
         op.summary = (old != nil ? LS("覆盖") : "") + LS("余额断言 ") + account
-        op.amountText = money(a, currency)
+        op.amountText = plainMoney(a, currency)
         let word = old != nil ? LS("已更新余额断言") : LS("已写入余额断言")
         Task { await store.commit([op], word: word, closing: { dismiss() }) }
     }
@@ -638,7 +638,7 @@ struct CheckSheet: View {
         op.currency = currency
         op.replace = sameLine || other != nil
         op.line = balanceLine(date, account, a, currency)
-        op.amountText = money(a, currency)
+        op.amountText = plainMoney(a, currency)
         op.label = LS("修改余额断言：") + account + " " + date
         op.summary = LS("修改余额断言 ") + account
         Task {

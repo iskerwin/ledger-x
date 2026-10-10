@@ -12,7 +12,6 @@ extension View {
         navigationDestination(for: SubDetailDest.self) { SubscriptionDetailView(name: $0.name) }
             .navigationDestination(for: SubCalendarDest.self) { _ in SubscriptionCalendarView() }
             .navigationDestination(for: LinkDest.self) { LinkDetailView(link: $0.link) }
-            .navigationDestination(for: LinkIssuesDest.self) { _ in LinkIssuesView() }
     }
 }
 

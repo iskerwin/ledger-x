@@ -5,7 +5,6 @@ import LedgerKit
 // that lost their other half or whose amounts do not add up.
 
 struct LinkDest: Hashable { let link: String }
-struct LinkIssuesDest: Hashable {}
 
 extension Store {
     /// link problems in the current ledger (ignored ones left out), computed once per rebuild
@@ -126,6 +125,19 @@ struct LinkPick: Identifiable {
     var id: String { link }
 }
 
+extension View {
+    /// ask before taking a link off a transaction (lives on the detail page, not in a List section)
+    func linkRemovalDialog(_ removing: Binding<LinkPick?>, store: Store) -> some View {
+        confirmationDialog(LS("从这笔交易移除 ^%@？", removing.wrappedValue?.link ?? ""),
+                           isPresented: Binding(get: { removing.wrappedValue != nil }, set: { if !$0 { removing.wrappedValue = nil } }),
+                           titleVisibility: .visible, presenting: removing.wrappedValue) { r in
+            Button(LS("移除链接"), role: .destructive) { Task { await store.removeLink(r.link, from: r.t) } }
+        } message: { _ in
+            Text(LS("只修改这笔交易的第一行，金额和分录不变。"))
+        }
+    }
+}
+
 /// what to do about a link problem from the transaction it is on. The sheets live on the detail page:
 /// a sheet attached to a List section is copied onto every row, and goes away with the row.
 struct LinkIssueSection: View {
@@ -133,6 +145,7 @@ struct LinkIssueSection: View {
     let t: Entry
     @Binding var pick: LinkPick?
     @Binding var subPick: Entry?
+    @Binding var removing: LinkPick?
 
     var body: some View {
         let issues = store.linkProblems(for: t)
@@ -166,17 +179,17 @@ struct LinkIssueSection: View {
         case .refundAlone, .refundNoPurchase:
             if let l = i.link {
                 Button(LS("选择原交易")) { pick = LinkPick(t: t, link: l, includeSelf: false) }
-                Button(LS("移除链接"), role: .destructive) { Task { await store.removeLink(l, from: t) } }
+                Button(LS("移除链接"), role: .destructive) { removing = LinkPick(t: t, link: l, includeSelf: false) }
             }
         case .refundUnlinked:
             Button(LS("选择原交易")) { pick = LinkPick(t: t, link: newRefundLink(t), includeSelf: true) }
         case .subUnknown:
             Button(LS("关联到订阅")) { subPick = t }
-            if let l = i.link { Button(LS("移除链接"), role: .destructive) { Task { await store.removeLink(l, from: t) } } }
+            if let l = i.link { Button(LS("移除链接"), role: .destructive) { removing = LinkPick(t: t, link: l, includeSelf: false) } }
         case .single:
             if let l = i.link {
                 Button(LS("选择关联交易")) { pick = LinkPick(t: t, link: l, includeSelf: false) }
-                Button(LS("移除链接"), role: .destructive) { Task { await store.removeLink(l, from: t) } }
+                Button(LS("移除链接"), role: .destructive) { removing = LinkPick(t: t, link: l, includeSelf: false) }
             }
         default:
             EmptyView()
@@ -185,13 +198,13 @@ struct LinkIssueSection: View {
     }
 }
 
-/// choose the transactions that should share the link, then one commit
+/// choose the transactions that should share the link, check what will change, then one commit
 struct LinkPickSheet: View {
     @EnvironmentObject var store: Store
     @Environment(\.dismiss) private var dismiss
     let pick: LinkPick
     @State private var picked: Set<Int> = []
-    @State private var saving = false
+    @State private var confirming = false
     /// the ledger the picker's row numbers refer to (a sync while picking must not shift them)
     @State private var snapshot: Ledger?
 
@@ -208,22 +221,88 @@ struct LinkPickSheet: View {
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } }
                     ToolbarItem(placement: .confirmationAction) {
-                        Button(LS("关联")) { Task { await save() } }
-                            .disabled(picked.isEmpty || saving)
+                        Button(LS("下一步")) { confirming = true }.disabled(picked.isEmpty)
                     }
                 }
+                .navigationDestination(isPresented: $confirming) {
+                    LinkConfirmView(pick: pick, chosen: chosen) { dismiss() }
+                }
         }
-        .interactiveDismissDisabled(saving)
         .onAppear { if snapshot == nil { snapshot = store.L } }
     }
 
-    private func save() async {
-        guard let L = snapshot ?? store.L else { return }
-        let es = picked.sorted().compactMap { $0 >= 0 && $0 < L.txns.count ? L.txns[$0] : nil }
-        guard !es.isEmpty else { return }
-        saving = true
-        defer { saving = false }
-        await store.addLink(pick.link, to: (pick.includeSelf ? [pick.t] : []) + es, closing: { dismiss() })
+    private var chosen: [Entry] {
+        guard let L = snapshot ?? store.L else { return [] }
+        return picked.sorted().compactMap { $0 >= 0 && $0 < L.txns.count ? L.txns[$0] : nil }
+    }
+}
+
+/// what linking will change: each transaction's first line before and after, and the totals afterwards
+struct LinkConfirmView: View {
+    @EnvironmentObject var store: Store
+    let pick: LinkPick
+    let chosen: [Entry]
+    let close: () -> Void
+    @State private var saving = false
+
+    var body: some View {
+        let targets = (pick.includeSelf ? [pick.t] : []) + chosen
+        let role = LinkRole.of(pick.link)
+        let existing = (store.D?.byLink[pick.link] ?? []).filter { !$0.synthetic }
+        var group = existing
+        for e in targets where !group.contains(where: { $0 === e }) { group.append(e) }
+        let figs = store.L.map { linkFigures(pick.link, group, $0) } ?? []
+        let net = figs.last?.value ?? 0
+        return List {
+            Section {
+                LabeledContent(LS("链接"), value: "^" + pick.link)
+                LabeledContent(LS("用途"), value: role.title)
+                LabeledContent(LS("关联后共"), value: LS("%@ 笔", group.count))
+                if !figs.isEmpty { LinkFiguresRow(figs: figs) }
+                if role == .refund && net < -0.005 {
+                    Label(LS("退款合计大于原价，请确认选择的是否是对应的原交易"), systemImage: "exclamationmark.triangle.fill")
+                        .font(.footnote).foregroundStyle(Color.warn)
+                }
+            } header: {
+                Text(LS("关联结果"))
+            }
+            Section {
+                ForEach(Array(targets.enumerated()), id: \.offset) { _, e in
+                    VStack(alignment: .leading, spacing: 6) {
+                        TxRow(t: e, showDate: true)
+                        let before = e.src.components(separatedBy: "\n").first ?? ""
+                        let after = headerLinkEdit(e.src, link: pick.link, remove: false).components(separatedBy: "\n").first ?? ""
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("− " + before).foregroundStyle(Color.loss)
+                            Text("+ " + after).foregroundStyle(Color.gain)
+                        }
+                        .font(.caption2.monospaced())
+                        .lineLimit(3)
+                    }
+                    .padding(.vertical, 2)
+                }
+            } header: {
+                Text(LS("将修改 %@ 笔交易", targets.count))
+            } footer: {
+                Text(LS("只在每笔交易的第一行加上链接，金额和分录不变；所有修改在一次提交中完成，提交前会再做账本检查。"))
+            }
+        }
+        .navigationTitle(LS("确认关联"))
+        .navigationBarTitleDisplayMode(.inline)
+        .safeAreaInset(edge: .bottom) {
+            Button {
+                saving = true
+                Task {
+                    await store.addLink(pick.link, to: targets, closing: close)
+                    saving = false
+                }
+            } label: {
+                Text(saving ? LS("提交中…") : LS("确认关联")).frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent).controlSize(.large).padding().disabled(saving || targets.isEmpty)
+            .background(.bar)
+        }
+        .interactiveDismissDisabled(saving)
     }
 }
 
@@ -280,33 +359,5 @@ struct LinkIssueRow: View {
             }
         }
         .swipeActions { Button(LS("忽略")) { store.ignoreLinkIssue(i) }.tint(.gray) }
-    }
-}
-
-/// every link problem in the ledger
-struct LinkIssuesView: View {
-    @EnvironmentObject var store: Store
-    var body: some View {
-        let issues = store.linkProblems
-        let errors = issues.filter { $0.isError }, warnings = issues.filter { !$0.isError }
-        let ignored = store.ignoredLinkIssues.count
-        List {
-            if issues.isEmpty {
-                Label(LS("未发现链接问题"), systemImage: "checkmark.seal").foregroundStyle(Color.gain)
-            }
-            if !errors.isEmpty {
-                Section(LS("错误 · %@", errors.count)) { ForEach(errors) { LinkIssueRow(i: $0) } }
-            }
-            if !warnings.isEmpty {
-                Section(LS("提醒 · %@", warnings.count)) { ForEach(warnings) { LinkIssueRow(i: $0) } }
-            }
-            Section {
-                if ignored > 0 { Button(LS("恢复已忽略的 %@ 项", ignored)) { store.clearIgnoredLinkIssues() } }
-            } footer: {
-                Text(LS("检查退款、报销和订阅链接：链接只剩一笔、找不到原交易或垫付、金额对不上、科目不一致，以及带 #refund / #reimbursement 却没有链接的交易。左滑可忽略。"))
-            }
-        }
-        .navigationTitle(LS("链接检查"))
-        .navigationBarTitleDisplayMode(.inline)
     }
 }

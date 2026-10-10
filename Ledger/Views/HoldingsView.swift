@@ -71,7 +71,7 @@ struct HoldingsView: View {
                         Text(r.c).font(.headline)
                         Text(acctLabel(r.acct)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
-                    Text(LS("%@ 份 · 均价 %@ %@", fmtNum(r.units, 4), fmtNum(r.avg, 2), r.q) + (r.px.map { LS(" · 现价 %@", fmtNum($0.number, 2)) } ?? LS(" · 无价格")))
+                    Text(LS("%@ 份 · 均价 %@ %@", masked(fmtNum(r.units, 4)), masked(fmtNum(r.avg, 2)), r.q) + (r.px.map { LS(" · 现价 %@", fmtNum($0.number, 2)) } ?? LS(" · 无价格")))
                         .font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
                 }
                 Spacer()
@@ -104,7 +104,7 @@ struct HoldingsView: View {
         return HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text((c?.date ?? "") + (c?.label.map { " · " + $0 } ?? "")).font(.caption)
-                Text("\(fmtNum(l.units, 4)) × \(fmtNum(c?.number ?? 0, 4)) \(c?.currency ?? "")").font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
+                Text("\(masked(fmtNum(l.units, 4))) × \(masked(fmtNum(c?.number ?? 0, 4))) \(c?.currency ?? "")").font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
             }
             Spacer()
             if let g = gain {
