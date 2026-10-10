@@ -22,7 +22,9 @@ struct QueryEditorView: View {
     @State private var loaded = false
     @FocusState private var editing: Bool
 
-    private var isMine: Bool { q.source == "mine" }
+    /// saved in a .bql file of the ledger (or, from before, on this phone): can be saved over, renamed, deleted
+    private var isMine: Bool { store.isEditableQuery(q) }
+    @State private var saving = false
     private var dirty: Bool { text.trimmed != q.text.trimmed }
 
     var body: some View {
@@ -110,7 +112,7 @@ struct QueryEditorView: View {
             Button(LS("取消"), role: .cancel) {}
             Button(LS("保存")) { save(name: newName, copy: saveAsCopy) }
         } message: {
-            Text(LS("保存在本机，显示在「我的查询」中。"))
+            Text(LS("保存到账本的 %@，所有设备同步。", Store.customQueries))
         }
         .onAppear {
             guard !loaded else { return }
@@ -134,7 +136,7 @@ struct QueryEditorView: View {
                     newName = isMine ? q.name + LS(" 副本") : (q.source == "new" ? "" : q.title)
                     saveAsCopy = true
                     naming = true
-                } label: { Label(isMine ? LS("另存为…") : LS("保存到我的查询…"), systemImage: "plus.square.on.square") }
+                } label: { Label(isMine ? LS("另存为…") : LS("保存到账本…"), systemImage: "plus.square.on.square") }
                 Divider()
                 Button {
                     UIPasteboard.general.string = text
@@ -152,8 +154,8 @@ struct QueryEditorView: View {
                 if isMine {
                     Divider()
                     Button(role: .destructive) {
-                        store.deleteQuery(q.id)
-                        dismiss()
+                        let x = q
+                        Task { await store.deleteQuery(x); dismiss() }
                     } label: { Label(LS("删除查询"), systemImage: "trash") }
                 }
             } label: {
@@ -165,8 +167,10 @@ struct QueryEditorView: View {
     private var sourceLabel: String {
         switch q.source {
         case "builtin": return LS("内置查询（修改后可另存）")
-        case "ledger": return LS("来自账本（修改后可另存）")
-        case "mine": return dirty ? LS("我的查询 · 未保存") : LS("我的查询")
+        case "ledger":
+            guard let loc = bqlLocation(q.id) else { return LS("来自账本（修改后可另存）") }
+            return dirty ? LS("%@ · 未保存", loc.path) : loc.path
+        case "mine": return dirty ? LS("本机查询 · 未保存") : LS("本机查询（保存后移到账本）")
         default: return LS("新建查询")
         }
     }
@@ -200,13 +204,17 @@ struct QueryEditorView: View {
 
     private func save(name: String, copy: Bool) {
         let n = name.trimmed.isEmpty ? LS("未命名查询") : name.trimmed
-        var x = q
-        if copy || !isMine { x = SavedQuery(name: n, text: text.trimmed, source: "mine") }
-        else { x.name = n; x.text = text.trimmed }
-        store.saveQuery(x)
-        q = x
-        text = x.text
-        store.show(LS("已保存「%@」", n))
+        guard !saving else { return }
+        saving = true
+        let src = q, body = text.trimmed
+        Task {
+            // a phone-only query moves into the ledger the first time it is saved
+            if let x = await store.saveQuery(src, name: n, text: body, asNew: copy || !isMine) {
+                q = x
+                text = x.text
+            }
+            saving = false
+        }
     }
 
     private func csv(_ r: QueryResult) -> String {

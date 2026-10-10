@@ -135,4 +135,16 @@ final class QueryTests: XCTestCase {
         rp.old = "nope"
         XCTAssertThrowsError(try applyOps(text, path: "a.bean", ops: [rp], strict: true))
     }
+
+    func testBQLFileRoundTrip() {
+        let qs = [SavedQuery(name: "咖啡", text: "SELECT payee\nWHERE account = \"Expenses:Food:Drinks\"", source: "ledger"),
+                  SavedQuery(name: "旅行", text: "SELECT date\nORDER BY date", source: "ledger")]
+        let back = parseBQLFile(serializeBQL(qs), file: "queries/custom.bql")
+        XCTAssertEqual(back.map { $0.name }, ["咖啡", "旅行"])
+        XCTAssertEqual(back.map { $0.text }, qs.map { $0.text })
+        XCTAssertEqual(back[1].id, "file:queries/custom.bql#1")
+        XCTAssertEqual(bqlLocation(back[1].id)?.path, "queries/custom.bql")
+        XCTAssertEqual(bqlLocation(back[1].id)?.index, 1)
+        XCTAssertNil(bqlLocation("b:monthly"))
+    }
 }
