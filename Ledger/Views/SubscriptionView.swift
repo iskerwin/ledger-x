@@ -367,23 +367,28 @@ struct SubscriptionsView: View {
     private func row(_ s: Subscription, _ L: Ledger, _ today: String) -> some View {
         let next = s.nextCharge(onOrAfter: today)
         let alerts = subscriptionAlerts(s, today: today)
+        let when: String
+        if s.status == .active {
+            when = s.period.name + " · " + LS("下次 %@（%@）", next, daysText(next, today: today))
+        } else {
+            var tail = s.statusDate
+            if let u = s.until, u >= today { tail = LS("可用至 %@", u) }
+            when = s.period.name + " · " + s.status.name + " · " + tail
+        }
+        let count = s.charges.filter { !$0.refund }.count
+        let countLine = LS("已扣 %@ 期 · 累计 %@", count, money(s.totalPaid, s.currency, 0))
+        let icon = s.status == .active ? "repeat" : s.status == .paused ? "pause" : "xmark"
+        let tint: Color = s.status == .active ? .purple : .gray
         return NavigationLink { SubscriptionDetailView(name: s.name) } label: {
             HStack(spacing: 12) {
-                IconBadge(symbol: s.status == .active ? "repeat" : s.status == .paused ? "pause" : "xmark", color: s.status == .active ? .purple : .gray, size: 30)
+                IconBadge(symbol: icon, color: tint, size: 30)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
                         Text(s.name)
                         if !alerts.isEmpty { Image(systemName: "exclamationmark.circle.fill").font(.caption).foregroundStyle(Color.warn) }
                     }
-                    Group {
-                        if s.status == .active {
-                            Text(s.period.name + " · " + LS("下次 %@（%@）", next, daysText(next, today: today)))
-                        } else {
-                            Text(s.period.name + " · " + s.status.name + " · " + (s.until.map { $0 >= today ? LS("可用至 %@", $0) : s.statusDate } ?? s.statusDate))
-                        }
-                    }
-                    .font(.caption).foregroundStyle(.secondary)
-                    Text(LS("已扣 %@ 期 · 累计 %@", s.charges.filter { !$0.refund }.count, money(s.totalPaid, s.currency, 0))).font(.caption2).foregroundStyle(.secondary).sensitive()
+                    Text(when).font(.caption).foregroundStyle(.secondary)
+                    Text(countLine).font(.caption2).foregroundStyle(.secondary).sensitive()
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
