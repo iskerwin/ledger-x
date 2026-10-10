@@ -98,7 +98,8 @@ struct PayeeRankRow: View {
                     }
                     .frame(height: 10)
                     Text(LS("%@ 次 · 均 %@", count, money(value / Double(max(count, 1)), "CNY", 0)))
-                        .font(.caption2.monospacedDigit()).foregroundStyle(.secondary).fixedSize().sensitive()
+                        .font(.caption2.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
+                        .frame(width: 104, alignment: .trailing).sensitive()
                 }
             }
             Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.caption2).foregroundStyle(.tertiary)
