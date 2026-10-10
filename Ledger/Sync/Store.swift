@@ -844,7 +844,7 @@ final class Store: ObservableObject {
     // MARK: - undo
 
     /// whether a file exists once the queue is applied
-    private func fileExists(_ path: String) -> Bool {
+    private func existsLocally(_ path: String) -> Bool {
         var exists = tree?.files[path] != nil
         for o in pending where o.path == path && o.failed == nil { exists = o.kind != .deleteFile }
         return exists
@@ -857,7 +857,7 @@ final class Store: ObservableObject {
         var undo: [Op] = []
         for p in paths {
             var before: String?
-            if fileExists(p) {
+            if existsLocally(p) {
                 guard let t = try? await fileText(p) else { return nil }
                 before = t
             }
@@ -875,7 +875,7 @@ final class Store: ObservableObject {
     func revert(_ id: UUID) async -> Bool {
         guard let r = history.first(where: { $0.id == id }), r.undone == nil else { return false }
         var cur: [String: String] = [:]
-        for p in Set(r.undo.map { $0.path }) where fileExists(p) {
+        for p in Set(r.undo.map { $0.path }) where existsLocally(p) {
             guard let t = try? await fileText(p) else { show(LS("文件尚未下载，暂时无法撤回")); return false }
             cur[p] = t
         }
