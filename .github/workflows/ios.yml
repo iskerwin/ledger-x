@@ -2,8 +2,9 @@ name: iOS
 
 # Tests LedgerKit, builds an unsigned Ledger.ipa (sign it yourself with SideStore / AltStore)
 # and launches the app in the simulator for screenshots.
-#   push to main  -> prerelease "dev" (Ledger.ipa, logs, screenshots)
-#   push a tag v* -> release with that version (e.g. v1.0)
+#   push to main  -> prerelease "dev" (Ledger.ipa, logs, screenshots), no release notes
+#   push a tag v* or run with a version -> release with that version (e.g. v0.0.2);
+#   0.x versions are published as pre-releases; the notes come from that version's section in CHANGELOG.md
 on:
   push:
     branches: [main]
@@ -11,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "发布正式版的版本号（如 1.4，留空则只更新 dev）"
+        description: "发布的版本号（如 0.0.2，留空则只更新 dev；0.x 为预览版；说明取自 CHANGELOG.md）"
         required: false
         default: ""
       commit:
@@ -63,8 +64,8 @@ jobs:
           brew install xcodegen
           xcodegen generate
           VERSION=$(sed -nE 's/^ *MARKETING_VERSION: *"?([^"]+)"?$/\1/p' project.yml | head -1)
-          # dev builds: latest release + run number (1.4.35), so they never look older than an installed release
-          LATEST=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2>/dev/null || true)
+          # dev builds: newest release (pre-releases included) + run number (0.0.1.35), never older than an installed release
+          LATEST=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=30" --jq '[.[] | select(.tag_name | test("^v[0-9]"))][0].tag_name // ""' 2>/dev/null || true)
           if [[ "$LATEST" =~ ^v[0-9]+(\.[0-9]+)*$ ]]; then VERSION="${LATEST#v}.$GITHUB_RUN_NUMBER"; fi
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then VERSION="${GITHUB_REF_NAME#v}"; fi
           if [ -n "${{ github.event.inputs.version }}" ]; then VERSION="${{ github.event.inputs.version }}"; VERSION="${VERSION#v}"; fi
@@ -106,8 +107,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="v${{ steps.build.outputs.version }}"
-          NOTES="未签名的 Ledger.ipa（版本 ${{ steps.build.outputs.version }}，构建 $GITHUB_RUN_NUMBER）。在 iPhone 上下载后用 SideStore / AltStore 导入签名安装。"
+          V="${{ steps.build.outputs.version }}"
+          TAG="v$V"
+          # release notes: this version's section of CHANGELOG.md ("## 0.0.1 …" up to the next "## ")
+          awk -v v="$V" '$0 ~ "^## \\[?"v"[] ]" {f=1; next} /^## / {if (f) exit} f' CHANGELOG.md > notes.md || true
+          INSTALL="未签名的 Ledger.ipa（版本 $V，构建 $GITHUB_RUN_NUMBER）。在 iPhone 上下载后用 SideStore / AltStore 导入签名安装。"
+          if [ -s notes.md ]; then NOTES="$(cat notes.md)"$'\n\n---\n'"$INSTALL"; else NOTES="$INSTALL"; fi
           # an older commit (补发): the tag can only point at this run's commit, so name the source in the notes
           [ -n "${{ github.event.inputs.commit }}" ] && NOTES="$NOTES 源码提交：$(git rev-parse --short HEAD)。"
           if gh release view "$TAG" > /dev/null 2>&1; then
@@ -116,7 +121,10 @@ jobs:
           else
             LATEST="--latest"
             [ "${{ github.event.inputs.latest }}" = "false" ] && LATEST="--latest=false"
-            if ! gh release create "$TAG" Ledger.ipa --target "$GITHUB_SHA" $LATEST --title "Ledger $TAG" --notes "$NOTES" > gh.out 2>&1; then
+            TITLE="Ledger X $TAG"
+            # 0.x: not yet a finished app
+            if [[ "$V" == 0.* ]]; then LATEST="--prerelease"; TITLE="$TITLE（预览版）"; fi
+            if ! gh release create "$TAG" Ledger.ipa --target "$GITHUB_SHA" $LATEST --title "$TITLE" --notes "$NOTES" > gh.out 2>&1; then
               while IFS= read -r l; do echo "::error::${l:0:300}"; done < gh.out
               exit 1
             fi
