@@ -95,7 +95,8 @@ final class SubTests: XCTestCase {
         u += "2026-02-05 * \"Video\" \"\" ^sub-video\n  Expenses:Subscription  35.00 CNY\n  Liabilities:CreditCard:CMB\n"
         let a = subscriptionAlerts(try XCTUnwrap(subscriptions(ledger(u)).first), today: "2026-02-10")
         XCTAssertEqual(a.first { $0.kind == .priceChanged }?.amount, 35)
-        XCTAssertEqual(a.first { $0.kind == .fundingChanged }?.account, "Liabilities:CreditCard:CMB")
+        // the card changed: no alert, the next charge just follows the latest transaction
+        XCTAssertEqual(try XCTUnwrap(subscriptions(ledger(u)).first).paymentAccount, "Liabilities:CreditCard:CMB")
         // nothing for months
         let quiet = subscriptionAlerts(try XCTUnwrap(subscriptions(ledger(u)).first), today: "2026-06-10")
         XCTAssertTrue(quiet.contains { $0.kind == .silent })
@@ -136,5 +137,17 @@ final class SubTests: XCTestCase {
         // the state line text parses back
         let paused = ledger(t + "\n" + subscriptionStateText("iCloud+", .paused, date: "2026-03-01") + "\n")
         XCTAssertEqual(subscriptions(paused).first?.status, .paused)
+    }
+
+    func testLateRenewalIsNotAGap() throws {
+        var t = base + "2026-01-15 custom \"subscription\" \"iCloud+\" \"monthly\" 21.00 CNY\n  account: \"Expenses:Subscription\"\n  payee: \"Apple\"\n\n"
+        for d in ["2026-01-15", "2026-02-15", "2026-03-28", "2026-04-28"] { t += charge(d, "21.00") }
+        let s = try XCTUnwrap(subscriptions(ledger(t)).first)
+        let tl = subscriptionTimeline(s)
+        XCTAssertEqual(tl.filter { $0.kind == .gap }.count, 0)
+        let run = try XCTUnwrap(tl.first { $0.kind == .run })
+        XCTAssertTrue(run.detail.contains("1"), run.detail)             // one late renewal noted
+        XCTAssertFalse(subscriptionAlerts(s, today: "2026-06-05").contains { $0.kind == .silent })
+        XCTAssertTrue(subscriptionAlerts(s, today: "2026-08-10").contains { $0.kind == .silent })
     }
 }

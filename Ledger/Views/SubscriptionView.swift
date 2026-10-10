@@ -48,7 +48,7 @@ extension Store {
 
     /// write the charge as a transaction carrying the subscription's link
     func recordSubscription(_ s: Subscription, date: String) async {
-        guard !s.account.isEmpty, !s.funding.isEmpty else {
+        guard !s.account.isEmpty, !s.paymentAccount.isEmpty else {
             show(LS("请先为「%@」设置支出科目和付款账户", s.name))
             return
         }
@@ -58,7 +58,7 @@ extension Store {
         let text = """
         \(date) * \(q(payee)) \(q(narration)) ^\(s.link)
           \(s.account)  \(toFixed(s.amount, 2)) \(s.currency)
-          \(s.funding)
+          \(s.paymentAccount)
         """
         guard let ops = makeOps(alignText(text), extra: OpExtra(label: LS("订阅扣费：%@ %@", s.name, money(s.amount, s.currency))), single: true) else { return }
         await commit(ops, word: LS("已记录 %@", s.name))
@@ -415,6 +415,10 @@ struct SubscriptionDetailView: View {
                             Spacer()
                             Figure(label: LS("扣费次数"), value: "\(s.charges.count)", alignment: .trailing)
                         }
+                        if !s.paymentAccount.isEmpty {
+                            Text(LS("付款账户：%@", acctDisplay(s.paymentAccount)) + (s.lastCharge.map { _ in LS("（按最近一次扣费）") } ?? ""))
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
                     }
                 }
                 .cardRow()
@@ -506,11 +510,8 @@ struct SubscriptionDetailView: View {
                             var d = SubDraft(s, mode: .change); d.amount = jsNumberString(v); d.date = a.date ?? Day.today(); editing = d
                         }
                     }
-                case .fundingChanged:
-                    if let acct = a.account {
-                        Button(LS("改为 %@", acctLabel(acct))) { var d = SubDraft(s, mode: .change); d.funding = acct; editing = d }
-                    }
                 case .silent:
+                    Button(LS("补记一笔续费")) { Task { await store.recordSubscription(s, date: s.due(onOrBefore: Day.today()) ?? Day.today()) } }
                     Button(LS("标记为暂停")) { stateChange = .paused }
                     Button(LS("标记为取消")) { stateChange = .cancelled }
                 case .chargedWhileInactive:
@@ -814,7 +815,7 @@ struct SubEditSheet: View {
                     }
                     .foregroundStyle(.primary)
                 } footer: {
-                    Text(LS("新记的交易科目、商户一致且金额相近时，会自动关联到这个订阅。"))
+                    Text(LS("新记的交易科目、商户一致且金额相近时，会自动关联到这个订阅。付款账户只是默认值，每次扣费用哪个账户以交易为准，「记一笔」时沿用最近一次扣费的账户。"))
                 }
                 if !draft.txns.isEmpty {
                     Section {
