@@ -827,6 +827,18 @@ public struct SavedQuery: Codable, Identifiable, Hashable {
     }
 }
 
+/// A .bql file from named queries: "-- name", a blank line, the query; queries separated by a blank line.
+public func serializeBQL(_ qs: [SavedQuery]) -> String {
+    qs.map { "-- " + $0.name.replacingOccurrences(of: "\n", with: " ") + "\n\n" + $0.text.trimmingCharacters(in: .whitespacesAndNewlines) + "\n" }
+        .joined(separator: "\n")
+}
+
+/// "file:queries/custom.bql#2" → ("queries/custom.bql", 2)
+public func bqlLocation(_ id: String) -> (path: String, index: Int)? {
+    guard id.hasPrefix("file:"), let r = id.range(of: "#", options: .backwards), let i = Int(id[r.upperBound...]) else { return nil }
+    return (String(id[id.index(id.startIndex, offsetBy: 5)..<r.lowerBound]), i)
+}
+
 /// Split a .bql file into queries; "-- title" comment lines name the query that follows.
 public func parseBQLFile(_ text: String, file: String) -> [SavedQuery] {
     var out: [SavedQuery] = []

@@ -38,15 +38,16 @@ struct ReportsView: View {
                 }
 
                 querySection(LS("常用查询"), builtinQueries)
-                if !store.ledgerQueries.isEmpty { querySection(LS("账本中的查询"), store.ledgerQueries) }
 
                 Section {
-                    ForEach(store.myQueries) { q in
+                    ForEach(store.ledgerQueries) { q in
                         NavigationLink(value: QueryDest(query: q)) { QueryRow(q: q) }
+                            .deleteDisabled(!store.isEditableQuery(q))
                     }
                     .onDelete { idx in
-                        let ids = idx.map { store.myQueries[$0].id }
-                        ids.forEach(store.deleteQuery)
+                        // one file at a time, from the last one, so the positions of the others hold
+                        let qs = idx.map { store.ledgerQueries[$0] }.sorted { (bqlLocation($0.id)?.index ?? 0) > (bqlLocation($1.id)?.index ?? 0) }
+                        Task { for q in qs { await store.deleteQuery(q) } }
                     }
                     Button {
                         path.append(QueryDest(query: SavedQuery(id: "new", name: LS("新建查询"), text: newQueryTemplate, source: "new")))
@@ -56,7 +57,26 @@ struct ReportsView: View {
                 } header: {
                     Text(LS("我的查询"))
                 } footer: {
-                    Text(LS("支持 Beancount 查询语言（BQL）的常用子集：SELECT … FROM … WHERE … GROUP BY … ORDER BY … LIMIT，以及 BALANCES、JOURNAL。账本中的 query 指令与 .bql 文件会自动列出。"))
+                    Text(LS("保存在账本的 %@ 中，所有设备同步；左滑可删除。支持 Beancount 查询语言（BQL）的常用子集：SELECT … FROM … WHERE … GROUP BY … ORDER BY … LIMIT，以及 BALANCES、JOURNAL。账本中的 query 指令与其他 .bql 文件也会列在这里。", Store.customQueries))
+                }
+
+                if !store.myQueries.isEmpty {
+                    Section {
+                        ForEach(store.myQueries) { q in
+                            NavigationLink(value: QueryDest(query: q)) { QueryRow(q: q) }
+                        }
+                        .onDelete { idx in
+                            let qs = idx.map { store.myQueries[$0] }
+                            Task { for q in qs { await store.deleteQuery(q) } }
+                        }
+                        Button { Task { await store.moveLocalQueries() } } label: {
+                            Label(LS("全部移到账本"), systemImage: "arrow.up.doc")
+                        }
+                    } header: {
+                        Text(LS("本机查询（未同步）"))
+                    } footer: {
+                        Text(LS("旧版本保存在这台手机上的查询。移到账本后所有设备都能看到。"))
+                    }
                 }
             }
             .navigationTitle(LS("报表"))

@@ -426,8 +426,10 @@ final class Store: ObservableObject {
             D = r.1
             tplCache = nil
             var qs = Self.directiveQueries(r.0)
-            for path in files.keys.sorted() where path.hasSuffix(".bql") {
-                if let sha = files[path], let t = BlobCache.get(sha) { qs += parseBQLFile(t, file: path) }
+            let bql = Set(files.keys.filter { $0.hasSuffix(".bql") }).union(ops.map { $0.path }.filter { $0.hasSuffix(".bql") })
+            for path in bql.sorted() {
+                let base = files[path].flatMap { BlobCache.get($0) } ?? ""
+                if let t = try? applyOps(base, path: path, ops: ops) { qs += parseBQLFile(t, file: path) }
             }
             ledgerQueries = qs
             loadError = nil
@@ -728,11 +730,64 @@ final class Store: ObservableObject {
         await commit([op], word: LS("已删除余额断言"))
     }
 
-    func saveQuery(_ q: SavedQuery) {
-        if let i = myQueries.firstIndex(where: { $0.id == q.id }) { myQueries[i] = q } else { myQueries.append(q) }
+    // MARK: - saved queries live in the ledger (queries/custom.bql), so every device has them
+
+    static let customQueries = "queries/custom.bql"
+
+    /// a query that can be changed: one from a .bql file in the repository
+    func isEditableQuery(_ q: SavedQuery) -> Bool { q.source == "mine" || bqlLocation(q.id) != nil }
+
+    private func bqlQueries(_ path: String) async -> [SavedQuery] {
+        parseBQLFile((try? await fileText(path)) ?? "", file: path)
     }
 
-    func deleteQuery(_ id: String) { myQueries.removeAll { $0.id == id } }
+    private func writeBQL(_ path: String, _ qs: [SavedQuery], label: String, word: String) async -> Bool {
+        var op = Op(kind: .write, path: path)
+        op.text = serializeBQL(qs)
+        op.label = label
+        return await commit([op], word: word, checked: true)
+    }
+
+    /// save `q` under `name` with `text`: in its own .bql file if it came from one, else appended to
+    /// queries/custom.bql. Returns the saved query (with its id in the file), nil when not saved.
+    func saveQuery(_ q: SavedQuery, name: String, text: String, asNew: Bool) async -> SavedQuery? {
+        let path: String, index: Int
+        var qs: [SavedQuery]
+        if !asNew, let loc = bqlLocation(q.id) {
+            path = loc.path
+            qs = await bqlQueries(path)
+            guard loc.index < qs.count else { show(LS("查询已在别处被修改，请重新打开")); return nil }
+            qs[loc.index].name = name; qs[loc.index].text = text
+            index = loc.index
+        } else {
+            path = Store.customQueries
+            qs = await bqlQueries(path)
+            qs.append(SavedQuery(name: name, text: text, source: "ledger"))
+            index = qs.count - 1
+        }
+        guard await writeBQL(path, qs, label: LS("保存查询：%@", name), word: LS("已保存「%@」", name)) else { return nil }
+        if q.source == "mine" && !asNew { myQueries.removeAll { $0.id == q.id } }
+        return SavedQuery(id: "file:\(path)#\(index)", name: name, text: text, source: "ledger")
+    }
+
+    func deleteQuery(_ q: SavedQuery) async {
+        if q.source == "mine" { myQueries.removeAll { $0.id == q.id }; return }
+        guard let loc = bqlLocation(q.id) else { return }
+        var qs = await bqlQueries(loc.path)
+        guard loc.index < qs.count else { return }
+        let name = qs.remove(at: loc.index).name
+        _ = await writeBQL(loc.path, qs, label: LS("删除查询：%@", name), word: LS("已删除「%@」", name))
+    }
+
+    /// queries kept on this phone from before: move them into queries/custom.bql (one commit)
+    func moveLocalQueries() async {
+        guard !myQueries.isEmpty else { return }
+        var qs = await bqlQueries(Store.customQueries)
+        qs += myQueries.map { SavedQuery(name: $0.name, text: $0.text, source: "ledger") }
+        if await writeBQL(Store.customQueries, qs, label: LS("移入 %@ 条本机查询", myQueries.count), word: LS("已移到账本")) {
+            myQueries = []
+        }
+    }
 
     var templateList: [Template] {
         if let c = tplCache { return c }
