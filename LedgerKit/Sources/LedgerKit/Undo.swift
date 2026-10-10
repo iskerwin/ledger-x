@@ -152,7 +152,7 @@ public func changeHunks(_ r: ChangeRecord) -> [ChangeHunk] {
     }
 }
 
-public enum UndoProblem: Equatable {
+public enum UndoProblem: Error, Equatable {
     /// a region the change wrote is not in the file any more (edited or removed since)
     case changedSince(path: String)
 }
