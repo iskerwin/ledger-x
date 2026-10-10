@@ -2,6 +2,17 @@ import SwiftUI
 import LedgerKit
 
 struct SubscriptionsDest: Hashable {}
+struct SubDetailDest: Hashable { let name: String }
+struct SubCalendarDest: Hashable {}
+
+extension View {
+    /// subscription pages pushed by value, so they live in the tab's navigation path like everything else
+    /// (a view-based link mixed with value-based ones makes SwiftUI push pages twice)
+    func subscriptionDestinations() -> some View {
+        navigationDestination(for: SubDetailDest.self) { SubscriptionDetailView(name: $0.name) }
+            .navigationDestination(for: SubCalendarDest.self) { _ in SubscriptionCalendarView() }
+    }
+}
 
 /// "3 天后" / "今天" / "已过 2 天"
 func daysText(_ date: String, today: String = Day.today()) -> String {
@@ -275,6 +286,10 @@ struct SubscriptionsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink(value: SubCalendarDest()) { Image(systemName: "calendar") }
+                    .accessibilityLabel(LS("订阅日历"))
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 Button { editing = SubDraft(currency: store.L?.base ?? "CNY") } label: { Image(systemName: "plus") }
                     .accessibilityLabel(LS("添加订阅"))
             }
@@ -311,7 +326,6 @@ struct SubscriptionsView: View {
                     }
                 }
                 .cardRow()
-                NavigationLink { SubscriptionCalendarView() } label: { Label(LS("订阅日历"), systemImage: "calendar") }
             }
             if misplaced > 0 {
                 Section {
@@ -379,7 +393,7 @@ struct SubscriptionsView: View {
         let countLine = LS("已扣 %@ 期 · 累计 %@", count, money(s.totalPaid, s.currency, 0))
         let icon = s.status == .active ? "repeat" : s.status == .paused ? "pause" : "xmark"
         let tint: Color = s.status == .active ? .purple : .gray
-        return NavigationLink { SubscriptionDetailView(name: s.name) } label: {
+        return NavigationLink(value: SubDetailDest(name: s.name)) {
             HStack(spacing: 12) {
                 IconBadge(symbol: icon, color: tint, size: 30)
                 VStack(alignment: .leading, spacing: 2) {

@@ -22,6 +22,7 @@ struct OverviewView: View {
             .toolbar { StandardToolbar() }
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name) }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0) }
+            .subscriptionDestinations()
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
             .navigationDestination(for: ErrorsDest.self) { _ in ErrorsView() }
             .navigationDestination(for: BudgetsDest.self) { _ in BudgetsView() }

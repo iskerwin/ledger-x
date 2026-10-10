@@ -74,6 +74,7 @@ struct ReportsView: View {
             .navigationDestination(for: QueryDest.self) { QueryEditorView(initial: $0.query) }
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name) }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0) }
+            .subscriptionDestinations()
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }

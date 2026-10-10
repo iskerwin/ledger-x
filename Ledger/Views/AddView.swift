@@ -32,6 +32,7 @@ struct AddView: View {
             }
             .sheet(isPresented: $importing) { ImportView() }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0) }
+            .subscriptionDestinations()
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
