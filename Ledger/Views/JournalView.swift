@@ -19,7 +19,26 @@ extension Store {
     func txn(_ id: Int, key: String) -> Entry? {
         guard let L = L else { return nil }
         if id >= 0, id < L.txns.count, TxDest.key(L.txns[id]) == key { return L.txns[id] }
-        return L.txns.first { TxDest.key($0) == key }
+        if let t = L.txns.first(where: { TxDest.key($0) == key }) { return t }
+        // edited in place (a link added or removed): follow it to its new text
+        var k = key, hops = 0
+        while let next = Store.movedKeys[Store.normKey(k)], hops < 8 { k = next; hops += 1 }
+        guard hops > 0 else { return nil }
+        let want = Store.normKey(k)
+        return L.txns.first { Store.normKey(TxDest.key($0)) == want }
+    }
+
+    /// old text → new text of transactions changed in place, so open pages keep showing them
+    static var movedKeys: [String: String] = [:]
+    static func normKey(_ k: String) -> String {
+        k.components(separatedBy: "\n").map { $0.replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression) }
+            .joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    func noteMoved(_ ops: [Op]) {
+        for o in ops where o.kind == .replace {
+            guard let d = o.date, let old = o.old, let new = o.text else { continue }
+            Store.movedKeys[Store.normKey(d + "\u{1}" + old)] = d + "\u{1}" + new
+        }
     }
 }
 

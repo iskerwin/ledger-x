@@ -557,6 +557,7 @@ final class Store: ObservableObject {
             for i in ops.indices { ops[i].releases = nil; if ops[i].heldGroup.map(releases.contains) == true { ops[i].held = nil; ops[i].heldGroup = nil } }
         }
         let held = ops.contains { $0.held != nil }
+        noteMoved(ops)
         pending.append(contentsOf: ops)
         savePending()
         if held {
