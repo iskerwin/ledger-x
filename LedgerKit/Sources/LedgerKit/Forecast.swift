@@ -154,13 +154,13 @@ public func forecast(_ L: Ledger, today: String = Day.today(), days: Int = 90, i
     }
 
     // subscriptions paid from spendable accounts
-    for s in subs where liquidSet.contains(s.funding) {
+    for s in subs where liquidSet.contains(s.paymentAccount) {
         covered.insert(s.payee + "|" + s.account)
         covered.insert(s.name + "|" + s.account)
         var d = s.due(onOrAfter: Day.shift(today, 1)), k = 0
         while d <= end && k < 400 {
             if let t = s.trialEnd, d <= t { d = s.due(onOrAfter: Day.shift(d, 1)); k += 1; continue }
-            events.append(ForecastEvent(date: d, title: s.name, amount: -cny(s.amount, s.currency), kind: .subscription, account: s.funding))
+            events.append(ForecastEvent(date: d, title: s.name, amount: -cny(s.amount, s.currency), kind: .subscription, account: s.paymentAccount))
             d = s.due(onOrAfter: Day.shift(d, 1)); k += 1
         }
     }

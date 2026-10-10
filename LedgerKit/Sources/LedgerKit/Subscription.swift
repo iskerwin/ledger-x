@@ -175,6 +175,16 @@ public struct Subscription: Identifiable {
 
     public var lastCharge: SubCharge? { charges.last }
 
+    /// the account the next charge is expected from: the latest charge's, else the one on the plan
+    /// (cards change; the transactions are what counts)
+    public var paymentAccount: String {
+        if let f = charges.last?.funding, !f.isEmpty { return f }
+        return funding
+    }
+
+    /// a gap of at least this many days means a period was skipped (a late renewal isn't one)
+    public var skipDays: Double { periodDays * 2 - max(5, periodDays * 0.2) }
+
     /// where the charge cycle is counted from: the start of the current run, the latest charge, or an extension
     public var anchor: String {
         var a = since
@@ -408,7 +418,8 @@ public func subscriptionTimeline(_ s: Subscription) -> [SubTimelineItem] {
         items.append(SubTimelineItem(kind: .event, from: e.date, title: title, detail: price, eventKind: e.kind))
     }
     let cs = s.charges.filter { $0.currency == s.currency }
-    let longGap = s.periodDays * 1.6
+    // renewing a few days late is not a gap; only a whole skipped period is
+    let longGap = s.skipDays
     var i = 0
     while i < cs.count {
         var j = i
@@ -419,17 +430,20 @@ public func subscriptionTimeline(_ s: Subscription) -> [SubTimelineItem] {
             j += 1
         }
         let n = j - i + 1
+        var late = 0
+        if j > i { for k in i..<j where Double(daysBetween(cs[k].date, cs[k + 1].date)) > s.periodDays + 3 { late += 1 } }
         let first = i == 0 && n == 1 && cs.count > 1 && abs(cs[1].amount - cs[0].amount) > max(0.01, cs[0].amount * 0.01)
         let title = first ? tr("首期 \(money(cs[i].amount, s.currency))", "First charge \(money(cs[i].amount, s.currency))")
             : tr("\(money(cs[i].amount, s.currency)) × \(n) 期", "\(money(cs[i].amount, s.currency)) × \(n)")
-        items.append(SubTimelineItem(kind: .run, from: cs[i].date, to: n > 1 ? cs[j].date : nil, title: title,
-                                     detail: tr("合计 \(money(cs[i].amount * Double(n), s.currency))", "Total \(money(cs[i].amount * Double(n), s.currency))")))
+        var detail = tr("合计 \(money(cs[i].amount * Double(n), s.currency))", "Total \(money(cs[i].amount * Double(n), s.currency))")
+        if late > 0 { detail += tr(" · \(late) 次延后续费", " · \(late) renewed late") }
+        items.append(SubTimelineItem(kind: .run, from: cs[i].date, to: n > 1 ? cs[j].date : nil, title: title, detail: detail))
         if j + 1 < cs.count {
             let gap = Double(daysBetween(cs[j].date, cs[j + 1].date))
             if gap > longGap {
                 let missed = max(1, Int((gap / s.periodDays).rounded()) - 1)
                 items.append(SubTimelineItem(kind: .gap, from: Day.shift(cs[j].date, 1), to: Day.shift(cs[j + 1].date, -1),
-                                             title: tr("无扣费（约 \(missed) 期）", "No charges (about \(missed))")))
+                                             title: tr("约 \(missed) 期未续费", "About \(missed) not renewed")))
             }
         }
         i = j + 1
@@ -441,7 +455,7 @@ public func subscriptionTimeline(_ s: Subscription) -> [SubTimelineItem] {
 // MARK: - things worth a look
 
 public struct SubAlert: Identifiable {
-    public enum Kind: String { case priceChanged, chargedWhileInactive, silent, fundingChanged, trialEnding }
+    public enum Kind: String { case priceChanged, chargedWhileInactive, silent, trialEnding }
     public var id: String { kind.rawValue }
     public let kind: Kind
     public let message: String
@@ -466,18 +480,17 @@ public func subscriptionAlerts(_ s: Subscription, today: String = Day.today()) -
                                         "Charged after it was \(s.status.name.lowercased()): \(c.date) \(money(c.amount, c.currency)). Check the cancellation"),
                             date: c.date))
     }
+    // only after a whole period has been skipped, and only as a question: it may just be a renewal
+    // that wasn't recorded (or was paid late), so nothing changes unless you say so
     if s.status == .active, s.trialEnd.map({ $0 < today }) ?? true {
         let ref = max(last?.date ?? s.since, s.since, s.next ?? "")
-        if Double(daysBetween(ref, today)) > s.periodDays * 2 + 5 {
+        let days = daysBetween(ref, today)
+        if Double(days) > s.periodDays + s.skipDays {
             out.append(SubAlert(kind: .silent,
-                                message: tr("自 \(ref) 以来没有扣费记录，是否已停止？", "No charges since \(ref). Has it stopped?"),
+                                message: tr("已有 \(days) 天没有续费记录（上次 \(ref)）。可能忘记记账或续费，也可能已停止",
+                                            "No renewal for \(days) days (last \(ref)). It may be unrecorded, renewed late, or stopped"),
                                 date: ref))
         }
-    }
-    if s.status == .active, let c = last, !c.funding.isEmpty, c.funding != s.funding, !s.funding.isEmpty {
-        out.append(SubAlert(kind: .fundingChanged,
-                            message: tr("最近一次用 \(acctLabel(c.funding)) 付款", "Last paid with \(acctLabel(c.funding))"),
-                            account: c.funding))
     }
     if s.status == .active, let t = s.trialEnd, t >= today, daysBetween(today, t) <= 7 {
         out.append(SubAlert(kind: .trialEnding,
