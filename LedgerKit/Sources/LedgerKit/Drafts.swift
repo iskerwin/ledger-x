@@ -309,12 +309,14 @@ public struct LedgerXConfig: Codable, Equatable {
     public var files: [String: String] = [:]
     public var rules: [LayoutRule] = []
     public var receivable: String?
+    /// link spellings for payees (polyphones, preferred names): "岭南通 羊城通": "yangchengtong"
+    public var slugs: [String: String] = [:]
 
-    public init(files: [String: String] = [:], rules: [LayoutRule] = [], receivable: String? = nil) {
-        self.files = files; self.rules = rules; self.receivable = receivable
+    public init(files: [String: String] = [:], rules: [LayoutRule] = [], receivable: String? = nil, slugs: [String: String] = [:]) {
+        self.files = files; self.rules = rules; self.receivable = receivable; self.slugs = slugs
     }
 
-    enum CodingKeys: String, CodingKey { case files, rules, receivable }
+    enum CodingKeys: String, CodingKey { case files, rules, receivable, slugs }
 
     /// every key is optional, so a hand-written file with only some of them still loads
     public init(from decoder: Decoder) throws {
@@ -322,6 +324,7 @@ public struct LedgerXConfig: Codable, Equatable {
         files = try c.decodeIfPresent([String: String].self, forKey: .files) ?? [:]
         rules = try c.decodeIfPresent([LayoutRule].self, forKey: .rules) ?? []
         receivable = try c.decodeIfPresent(String.self, forKey: .receivable)
+        slugs = try c.decodeIfPresent([String: String].self, forKey: .slugs) ?? [:]
     }
 
     public func file(_ k: LayoutKind) -> String? {
@@ -618,29 +621,76 @@ public func draftFromTxn(_ t: Entry, kind: DraftKind? = nil, _ L: Ledger, _ D: D
     return d
 }
 
-/// a readable piece of a link: "优衣库" → "youyiku", "Apple Store" → "apple-store" (links allow only A-Z a-z 0-9 - _ / .)
-public func linkSlug(_ s: String, max: Int = 20) -> String {
-    let cjk = s.unicodeScalars.contains { (0x3400...0x9FFF).contains($0.value) || (0xF900...0xFAFF).contains($0.value) }
-    var t = s.applyingTransform(.toLatin, reverse: false) ?? s
-    t = (t.applyingTransform(.stripDiacritics, reverse: false) ?? t).lowercased()
-    // pinyin syllables of one Chinese name belong together
-    if cjk { t = t.replacingOccurrences(of: " ", with: "") }
-    let mapped = String(t.unicodeScalars.map { ($0.isASCII && CharacterSet.alphanumerics.contains($0)) ? Character($0) : "-" })
-    var slug = mapped.split(separator: "-").joined(separator: "-")
-    if slug.count > max { slug = String(slug.prefix(max)) }
-    while slug.hasSuffix("-") { slug.removeLast() }
-    return slug
+/// Link naming: <purpose>-<payee in pinyin>-<yyyymmdd>, e.g. refund-taobao-20260902.
+/// `overrides` (from ledger-x.json "slugs") fixes polyphones and preferred spellings: 岭南通 羊城通 → yangchengtong.
+public enum LinkNaming {
+    public static var overrides: [String: String] = [:]
+    /// place names in front and company words at the end say nothing about the payee
+    static let prefixes = ["广东省", "广州市", "中国", "广东", "广州", "佛山", "南海区", "深圳"]
+    static let suffixes = ["有限公司", "公司", "门店", "中心"]
 }
 
-/// a refund link for a purchase: refund-<payee>-<date>, with -2, -3 … when that one is taken
-public func newRefundLink(_ t: Entry, taken: Set<String> = []) -> String {
-    let date = t.date.replacingOccurrences(of: "-", with: "")
-    let slug = linkSlug(!t.payee.isEmpty ? t.payee : t.narration)
-    let base = slug.isEmpty ? "refund-\(date)" : "refund-\(slug)-\(date)"
+func isHan(_ u: Unicode.Scalar) -> Bool { (0x3400...0x9FFF).contains(u.value) || (0xF900...0xFAFF).contains(u.value) }
+
+/// a readable piece of a link: "优衣库" → "youyiku", "Apple Store" → "apple-store", "广州腾视" → "tengshi".
+/// At most `max` letters, cut between syllables or words (never inside one). Links allow only A-Z a-z 0-9 - _ / .
+public func linkSlug(_ s0: String, max: Int = 16) -> String {
+    let key = s0.trimmingCharacters(in: .whitespaces)
+    if let o = LinkNaming.overrides[key], !o.isEmpty { return o }
+    var s = key
+    // "KFC 肯德基" → 肯德基: the Chinese name is the one that's meant
+    if let r = s.range(of: #"^[A-Za-z0-9'&. ]+ (?=\p{Han})"#, options: .regularExpression) { s.removeSubrange(r) }
+    for p in LinkNaming.prefixes where s.hasPrefix(p) && s.count - p.count >= 2 { s.removeFirst(p.count); break }
+    for x in LinkNaming.suffixes where s.hasSuffix(x) && s.count - x.count >= 2 { s.removeLast(x.count); break }
+    // pieces: one per Chinese character (its pinyin), one per run of ASCII letters/digits
+    var parts: [(han: Bool, text: String)] = []
+    var word = ""
+    func flush() { if !word.isEmpty { parts.append((false, word.lowercased())); word = "" } }
+    for ch in s {
+        let u = ch.unicodeScalars.first!
+        if isHan(u) {
+            flush()
+            var py = String(ch).applyingTransform(.toLatin, reverse: false) ?? ""
+            py = (py.applyingTransform(.stripDiacritics, reverse: false) ?? py).lowercased()
+            py = String(py.unicodeScalars.filter { $0.isASCII && CharacterSet.alphanumerics.contains($0) }.map(Character.init))
+            if !py.isEmpty { parts.append((true, py)) }
+        } else if u.isASCII && CharacterSet.alphanumerics.contains(u) {
+            word.append(ch)
+        } else {
+            flush()
+        }
+    }
+    flush()
+    var out = "", prevHan = false
+    for p in parts {
+        // syllables of one Chinese name run together; words are joined with "-"
+        let sep = out.isEmpty || (p.han && prevHan) ? "" : "-"
+        if !out.isEmpty && (out + sep + p.text).count > max { break }
+        out = String((out + sep + p.text).prefix(max))
+        prevHan = p.han
+    }
+    while out.hasSuffix("-") { out.removeLast() }
+    return out
+}
+
+func uniqueLink(_ base: String, taken: Set<String>) -> String {
     if !taken.contains(base) { return base }
     var k = 2
     while taken.contains("\(base)-\(k)") { k += 1 }
     return "\(base)-\(k)"
+}
+
+/// <purpose>-<payee>-<date> (the narration when there is no payee), with -2, -3 … when taken
+public func newLink(_ purpose: String, payee: String, narration: String = "", date: String, taken: Set<String> = []) -> String {
+    let d = date.replacingOccurrences(of: "-", with: "")
+    var slug = linkSlug(payee)
+    if slug.isEmpty { slug = linkSlug(narration) }
+    return uniqueLink(slug.isEmpty ? "\(purpose)-\(d)" : "\(purpose)-\(slug)-\(d)", taken: taken)
+}
+
+/// a refund link for a purchase: refund-<payee>-<purchase date>
+public func newRefundLink(_ t: Entry, taken: Set<String> = []) -> String {
+    newLink("refund", payee: t.payee, narration: t.narration, date: t.date, taken: taken)
 }
 
 /// a link Beancount accepts

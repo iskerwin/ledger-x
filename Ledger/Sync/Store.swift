@@ -96,7 +96,7 @@ final class Store: ObservableObject {
     @Published var subsFile: String { didSet { Prefs.set(pk("subsFile"), subsFile) } }
     @Published private(set) var detectedLayout = RepoLayout()
     /// ledger-x.json in the repository (shared by every device); nil = not there yet
-    @Published private(set) var repoConfig: LedgerXConfig?
+    @Published private(set) var repoConfig: LedgerXConfig? { didSet { LinkNaming.overrides = repoConfig?.slugs ?? [:] } }
 
     /// BQL: queries saved on this phone, and the ones in the ledger (query directives, *.bql files)
     @Published var myQueries: [SavedQuery] { didSet { Prefs.set("queries", myQueries) } }

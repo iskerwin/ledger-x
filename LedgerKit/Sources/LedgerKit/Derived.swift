@@ -67,7 +67,7 @@ public enum Day {
 }
 
 public let ZH: [String: String] = [
-    "Food": "餐饮", "Housing": "居住", "Travel": "旅行", "Transit": "交通", "Shopping": "购物", "Subscription": "订阅服务", "Gifts": "人情往来",
+    "Food": "餐饮", "Housing": "居住", "Travel": "旅行", "Transit": "交通", "Shopping": "购物", "Subscription": "订阅服务", "Digital": "数字服务", "Gifts": "人情往来",
     "Lifestyle": "生活服务", "Government": "政府规费", "Healthcare": "医疗保健", "Fee": "手续费", "Charity": "捐赠", "Miscellaneous": "其他支出",
     "Salary": "工资薪金", "Freelance": "劳务报酬", "Invest": "投资收益", "Rewards": "奖励返现", "Sale": "资产处置", "ReimbExcess": "报销溢收",
     "Bank": "银行存款", "EWallet": "第三方支付", "Cash": "现金", "Brokerage": "证券账户", "Crypto": "加密资产", "Receivable": "应收款项", "CreditCard": "信用卡", "Loan": "贷款",

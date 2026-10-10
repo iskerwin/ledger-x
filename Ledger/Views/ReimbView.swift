@@ -49,7 +49,9 @@ struct ReimbSheet: View {
     }
     private func link() -> String {
         if let l = target.link { return l }
-        return linkTouched ? linkText.trimmed.replacingOccurrences(of: "^", with: "") : "reimburse-work-" + date.replacingOccurrences(of: "-", with: "")
+        if linkTouched { return linkText.trimmed.replacingOccurrences(of: "^", with: "") }
+        // reimburse-<who pays back>-<date>, like every other link
+        return newLink("reimburse", payee: payee.trimmed.isEmpty ? "work" : payee.trimmed, date: date, taken: Set(store.D?.allLinks ?? []))
     }
     private func got(_ D: Derived) -> Double? { amount.trimmed.isEmpty ? owed(D) : evalAmount(amount) }
     private func shortfall(_ L: Ledger) -> String { L.accounts["Expenses:Unreimbursed"] != nil ? "Expenses:Unreimbursed" : "Expenses:Miscellaneous" }
