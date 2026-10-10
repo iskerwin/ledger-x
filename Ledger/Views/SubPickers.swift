@@ -277,7 +277,7 @@ struct SubscriptionCalendarView: View {
                 Section {
                     ForEach(m.value, id: \.self) { d in
                         ForEach(Array((byDate[d] ?? []).enumerated()), id: \.offset) { _, pair in
-                            NavigationLink { SubscriptionDetailView(name: pair.0.name) } label: {
+                            NavigationLink(value: SubDetailDest(name: pair.0.name)) {
                                 HStack(spacing: 12) {
                                     VStack(spacing: 0) {
                                         Text(String(d.suffix(2))).font(.headline.monospacedDigit())

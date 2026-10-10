@@ -24,6 +24,7 @@ struct AccountsView: View {
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name) }
             .navigationDestination(for: HoldingsDest.self) { _ in HoldingsView() }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0) }
+            .subscriptionDestinations()
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
             .navigationDestination(for: AccountManagerDest.self) { _ in AccountManagerView() }
             .navigationDestination(for: AccountEditDest.self) { AccountEditView(name: $0.name) }

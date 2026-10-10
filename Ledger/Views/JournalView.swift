@@ -159,6 +159,7 @@ struct JournalView: View {
             .autocorrectionDisabled()
             .onChange(of: q) { _, _ in limit = 150 }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0) }
+            .subscriptionDestinations()
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name) }
         }
@@ -372,7 +373,7 @@ struct TxDetailView: View {
                         if classify(t, L).kind == .expense {
                             Button { refund(t, L, D) } label: { Label(LS("登记退款"), systemImage: "arrow.uturn.backward") }
                             if let s = store.subs.first(where: { s in s.charges.contains { $0.txn.id == t.id } }) {
-                                NavigationLink { SubscriptionDetailView(name: s.name) } label: {
+                                NavigationLink(value: SubDetailDest(name: s.name)) {
                                     Label(LS("订阅：%@", s.name), systemImage: "repeat")
                                 }
                             } else {
