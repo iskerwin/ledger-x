@@ -262,10 +262,25 @@ public struct RepoLayout: Equatable, Codable {
     public var main: String
     /// file for transactions; "{year}" is replaced by the transaction's year
     public var journal: String
+    /// file for subscription lines (kept out of the main file)
+    public var subscriptions: String?
 
-    public init(main: String = "main.bean", journal: String = "journals/{year}.bean") {
+    public init(main: String = "main.bean", journal: String = "journals/{year}.bean", subscriptions: String? = nil) {
         self.main = main
         self.journal = journal
+        self.subscriptions = subscriptions
+    }
+
+    public var subscriptionsPath: String {
+        let s = (subscriptions ?? "").trimmingCharacters(in: .whitespaces)
+        return s.isEmpty ? "subscriptions.bean" : s
+    }
+
+    /// the include line for `path`, relative to the main file's folder
+    public func includeLine(_ path: String) -> String {
+        let mainDir = RepoLayout(journal: main).journalDir
+        let rel = !mainDir.isEmpty && path.hasPrefix(mainDir) ? String(path.dropFirst(mainDir.count)) : path
+        return "include \"\(rel)\""
     }
 
     public func journalPath(_ date: String) -> String { journal.replacingOccurrences(of: "{year}", with: String(date.prefix(4))) }
@@ -305,8 +320,7 @@ public func fileFor(_ e: Entry, _ L: Ledger, layout: RepoLayout = RepoLayout()) 
     case .commodity: return most { $0.type == .commodity } ?? journal
     case .document: return most { $0.type == .document } ?? journal
     case .custom where e.name == "budget": return most { $0.type == .custom && $0.name == "budget" } ?? layout.main
-    case .custom where e.name == "subscription":
-        return most { $0.type == .custom && $0.name == "subscription" } ?? most { $0.type == .custom && $0.name == "budget" } ?? layout.main
+    case .custom where e.name == "subscription": return layout.subscriptionsPath
     default: return journal
     }
 }
@@ -341,13 +355,12 @@ public func makeOps(_ text: String, _ L: Ledger, layout: RepoLayout = RepoLayout
     var out: [Op] = []
     for (i, e) in v.entries.enumerated() {
         let path = fileFor(e, L, layout: layout)
-        if layout.perYear && path == layout.journalPath(e.date) && !fileExists(path)
+        let newFile = (layout.perYear && path == layout.journalPath(e.date)) || path == layout.subscriptionsPath
+        if newFile && !fileExists(path) && !L.files.contains(path)
             && !pending.contains(where: { $0.path == path }) && !out.contains(where: { $0.path == path }) {
-            // a new year's file: include it from the main file (path relative to it)
+            // a new file (a new year, the subscriptions file): include it from the main file
             var inc = Op(kind: .include, path: layout.main)
-            let mainDir = RepoLayout(journal: layout.main).journalDir
-            let rel = !mainDir.isEmpty && path.hasPrefix(mainDir) ? String(path.dropFirst(mainDir.count)) : path
-            inc.line = "include \"\(rel)\""
+            inc.line = layout.includeLine(path)
             inc.silent = true
             out.append(inc)
         }

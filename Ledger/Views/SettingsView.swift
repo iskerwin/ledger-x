@@ -71,6 +71,10 @@ struct SettingsView: View {
                         TextField(store.detectedLayout.journal, text: $store.journalPattern)
                             .multilineTextAlignment(.trailing).textInputAutocapitalization(.never).autocorrectionDisabled()
                     }
+                    LabeledContent(LS("订阅文件")) {
+                        TextField("subscriptions.bean", text: $store.subsFile)
+                            .multilineTextAlignment(.trailing).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    }
                     LabeledContent(LS("报销应收科目")) {
                         TextField("Assets:Receivable:Reimbursement", text: $store.receivableAccount)
                             .multilineTextAlignment(.trailing).textInputAutocapitalization(.never).autocorrectionDisabled()

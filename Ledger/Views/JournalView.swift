@@ -323,6 +323,7 @@ struct TxDetailView: View {
     @Environment(\.dismiss) private var dismiss
     let dest: TxDest
     @State private var subDraft: SubDraft?
+    @State private var subPick: Entry?
 
     var body: some View {
         if let L = store.L, let D = store.D, let t = store.txn(dest.id, key: dest.key) {
@@ -375,12 +376,7 @@ struct TxDetailView: View {
                                     Label(LS("订阅：%@", s.name), systemImage: "repeat")
                                 }
                             } else {
-                                Menu {
-                                    Button { subDraft = SubDraft(t, L) } label: { Label(LS("新建订阅"), systemImage: "plus") }
-                                    ForEach(store.subs) { s in
-                                        Button(s.name) { Task { await linkTo(s, t) } }
-                                    }
-                                } label: { Label(LS("加入订阅管理"), systemImage: "repeat") }
+                                Button { subPick = t } label: { Label(LS("加入订阅管理"), systemImage: "repeat") }
                             }
                         }
                     }
@@ -395,6 +391,9 @@ struct TxDetailView: View {
             .navigationTitle(t.date)
             .navigationBarTitleDisplayMode(.inline)
             .sheet(item: $subDraft) { SubEditSheet(draft: $0) }
+            .sheet(item: $subPick) { e in
+                SubPickSheet(t: e) { if let L = store.L { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { subDraft = SubDraft(e, L) } } }
+            }
         } else {
             Text(LS("该交易已不存在")).foregroundStyle(.secondary)
         }

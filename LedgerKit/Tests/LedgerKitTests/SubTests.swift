@@ -150,4 +150,64 @@ final class SubTests: XCTestCase {
         XCTAssertFalse(subscriptionAlerts(s, today: "2026-06-05").contains { $0.kind == .silent })
         XCTAssertTrue(subscriptionAlerts(s, today: "2026-08-10").contains { $0.kind == .silent })
     }
+
+    func testRefundsCurrencySkipUntil() throws {
+        var t = base + """
+        2026-01-01 open Expenses:Software USD
+        2026-01-01 price USD 7.00 CNY
+        2026-01-05 custom "subscription" "Tool" "monthly" 20.00 USD
+          account: "Expenses:Subscription"
+          payee: "Tool"
+          renew: "manual"
+        2026-03-05 custom "subscription" "Tool" "skip"
+        2026-05-01 custom "subscription" "Tool" "cancelled"
+
+        """
+        // charged in CNY on the card
+        for d in ["2026-01-05", "2026-02-05", "2026-04-05"] { t += "\(d) * \"Tool\" \"\" ^sub-tool\n  Expenses:Subscription  140.00 CNY\n  Liabilities:CreditCard:CMB\n" }
+        t += "2026-04-10 * \"Tool\" \"refund\" ^sub-tool\n  Expenses:Subscription  -140.00 CNY\n  Liabilities:CreditCard:CMB\n"
+        let s = try XCTUnwrap(subscriptions(ledger(t)).first)
+        XCTAssertTrue(s.manual)
+        XCTAssertTrue(s.skips.contains("2026-03-05"))
+        XCTAssertEqual(s.charges.count, 4)
+        XCTAssertEqual(s.charges.first?.amount ?? 0, 20, accuracy: 0.01)          // 140 CNY at 7.00 = 20 USD
+        XCTAssertEqual(s.charges.first?.original?.1, "CNY")
+        XCTAssertEqual(s.totalPaid, 40, accuracy: 0.01)                           // 3 charges, 1 refund
+        XCTAssertEqual(s.lastCharge?.date, "2026-04-05")                          // refunds aren't charges
+        XCTAssertEqual(s.status, .cancelled)
+        XCTAssertEqual(s.until, "2026-05-04")                                     // paid until the end of that month
+        XCTAssertTrue(subscriptionTimeline(s).contains { $0.title.contains("140") || $0.title.contains("20.00") })
+        XCTAssertTrue(subscriptionTimeline(s).contains { $0.eventKind == .skip })
+        // the skipped date is never "next"
+        var active = s
+        active.status = .active
+        active.charges = Array(s.charges.prefix(2))           // last charge 02-05
+        XCTAssertEqual(active.nextCharge(onOrAfter: "2026-03-01"), "2026-04-05")
+    }
+
+    func testClosestMatchUniqueLinkAndLayout() throws {
+        let t = base + """
+        2026-01-05 custom "subscription" "iCloud+" "monthly" 21.00 CNY
+          account: "Expenses:Subscription"
+          payee: "Apple"
+        2026-01-05 custom "subscription" "Apple Music" "monthly" 11.00 CNY
+          account: "Expenses:Subscription"
+          payee: "Apple"
+
+        """
+        let subs = subscriptions(ledger(t))
+        XCTAssertEqual(matchSubscription(payee: "Apple", account: "Expenses:Subscription", amount: 11, currency: "CNY", subs)?.name, "Apple Music")
+        XCTAssertEqual(matchSubscription(payee: "Apple", account: "Expenses:Subscription", amount: 20, currency: "CNY", subs)?.name, "iCloud+")
+        XCTAssertEqual(uniqueSubscriptionLink("iCloud", taken: ["sub-icloud"]), "sub-icloud-2")
+        XCTAssertEqual(uniqueSubscriptionLink("Netflix", taken: ["sub-icloud"]), "sub-netflix")
+        // subscription lines go to their own file, included from main
+        let L = ledger(t)
+        let lay = RepoLayout(main: "main.bean", journal: "journals/{year}.bean")
+        guard case .success(let ops) = makeOps("2026-02-01 custom \"subscription\" \"Video\" \"monthly\" 30.00 CNY", L, layout: lay,
+                                               pending: [], fileExists: { _ in false }, single: false) else { return XCTFail() }
+        XCTAssertTrue(ops.contains { $0.kind == .include && $0.path == "main.bean" && $0.line == "include \"subscriptions.bean\"" })
+        XCTAssertTrue(ops.contains { $0.kind == .insert && $0.path == "subscriptions.bean" })
+        let lay2 = RepoLayout(main: "ledger/main.bean", journal: "ledger/{year}.bean", subscriptions: "ledger/config/subs.bean")
+        XCTAssertEqual(lay2.includeLine("ledger/config/subs.bean"), "include \"config/subs.bean\"")
+    }
 }

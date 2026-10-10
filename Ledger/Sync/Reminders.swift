@@ -116,7 +116,7 @@ enum Reminders {
                 }
                 // yearly plans: a week ahead, to decide whether to renew
                 let subLead = sub.period.months >= 12 ? max(lead, 7) : lead
-                let due = sub.due(onOrAfter: today)
+                let due = sub.nextCharge(onOrAfter: today)
                 if let t = sub.trialEnd, due <= t { continue }
                 guard let dueDay = Day.date(due), let leadDay = Day.date(Day.shift(due, -subLead)) else { continue }
                 // 09:00 on the lead day; inside the lead window, the next of 09:00 / 20:00 that is
@@ -129,8 +129,9 @@ enum Reminders {
                 let lastOK = cal.date(bySettingHour: 23, minute: 59, second: 0, of: dueDay) ?? dueDay
                 guard let fire = times.filter({ $0 > now && $0 >= cal.startOfDay(for: leadDay) && $0 <= lastOK }).min() else { continue }
                 // the date itself, not "today"/"tomorrow": the text is fixed when it is scheduled
-                add("sub." + sub.name + "." + due, LS("订阅即将扣费"),
-                    LS("%@ %@ 将扣费 %@", sub.name, due, money(sub.amount, sub.currency)),
+                add("sub." + sub.name + "." + due, sub.manual ? LS("订阅需要续费") : LS("订阅即将扣费"),
+                    sub.manual ? LS("%@ %@ 到期，记得续费 %@", sub.name, due, money(sub.amount, sub.currency))
+                               : LS("%@ %@ 将扣费 %@", sub.name, due, money(sub.amount, sub.currency)),
                     cal.dateComponents([.year, .month, .day, .hour, .minute], from: fire), tab: "overview")
             }
         }
