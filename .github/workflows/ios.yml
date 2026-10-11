@@ -5,6 +5,7 @@ name: iOS
 #   push to main  -> prerelease "dev" (Ledger.ipa, logs, screenshots), no release notes
 #   push a tag v* or run with a version -> release with that version (e.g. v0.0.2);
 #   0.x versions are published as pre-releases; the notes come from that version's section in CHANGELOG.md
+#   after either: the SideStore sources on the sidestore branch (release.json, dev.json) are rewritten
 on:
   push:
     branches: [main]
@@ -148,11 +149,25 @@ jobs:
           sleep 3
           ls -la out
           if ! gh release create dev out/* --target "$GITHUB_SHA" --prerelease --title "开发版（main 最新）" \
-            --notes "main ${GITHUB_SHA::7} · 构建 $GITHUB_RUN_NUMBER · $(date -u +%Y-%m-%dT%H:%MZ)。正式版请用最新的 v 版本。" > gh.out 2>&1; then
+            --notes "main ${GITHUB_SHA::7} · 版本 ${{ steps.build.outputs.version }} · 构建 $GITHUB_RUN_NUMBER · $(date -u +%Y-%m-%dT%H:%MZ)。正式版请用最新的 v 版本。" > gh.out 2>&1; then
             cat gh.out
             while IFS= read -r l; do echo "::error::${l:0:300}"; done < gh.out
             exit 1
           fi
+
+      - name: Update the SideStore sources
+        # raw.githubusercontent.com/<repo>/sidestore/release.json and dev.json: added once in SideStore,
+        # new builds then show up there as updates
+        if: always() && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.event.inputs.version != '')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 .github/scripts/sidestore_source.py "$GITHUB_REPOSITORY" site
+          cd site
+          git init -q -b sidestore
+          git add .
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "SideStore sources"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" sidestore
 
   screens:
     # launches the app in the simulator on the test ledger and takes screenshots of each page
