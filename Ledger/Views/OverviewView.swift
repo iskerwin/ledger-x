@@ -34,6 +34,7 @@ struct OverviewView: View {
             .navigationDestination(for: BudgetsDest.self) { _ in BudgetsView() }
             .navigationDestination(for: SubscriptionsDest.self) { _ in SubscriptionsView() }
             .navigationDestination(for: ForecastDest.self) { _ in ForecastView() }
+            .navigationDestination(for: CounterpartyDest.self) { _ in CounterpartyView() }
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         // 设置 → 账本检查 opens the check here, where every problem can be opened and fixed
@@ -481,8 +482,9 @@ struct OverviewView: View {
     @ViewBuilder
     private func reimbSection(_ L: Ledger, _ D: Derived) -> some View {
         let open = D.openLinks.filter { $0.amount > 0.005 }
-        if !D.unclaimed.isEmpty || !open.isEmpty {
-            let recv = cny(L, prefix: "Assets:Receivable")
+        let others = !people(L).filter { !$0.settled }.isEmpty || !employerOpen(L).open.isEmpty
+        if !D.unclaimed.isEmpty || !open.isEmpty || others {
+            let recv = (L.final[D.receivable] ?? [:]).reduce(0.0) { $0 + (toCNY(L, $1.value, $1.key) ?? 0) }
             Section {
                 if !D.unclaimed.isEmpty {
                     Button { reimb = ReimbTarget(link: nil) } label: {
@@ -514,11 +516,12 @@ struct OverviewView: View {
                     }
                     .buttonStyle(.plain)
                 }
+                CounterpartyOverviewRow(L: L)
             } header: {
                 HStack {
-                    Text(LS("应收报销款"))
+                    Text(LS("往来"))
                     Spacer()
-                    Text(money(recv)).monospacedDigit().sensitive()
+                    if abs(recv) > 0.005 { Text(LS("报销应收 ") + money(recv)).monospacedDigit().sensitive() }
                 }
             }
         }

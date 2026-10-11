@@ -335,6 +335,7 @@ struct AddView: View {
             payeeSection(d, D, ctx)
             accountSection(d, ctx)
             if d.kind == .expense { reimbSection(d, D) }
+            if d.kind == .expense && !d.reimb { aaSection(d, L) }
             if d.kind == .refund {
                 Section(LS("关联")) {
                     TextField(LS("^refund-… 可留空"), text: field(\.link)).textInputAutocapitalization(.never).autocorrectionDisabled()
@@ -464,6 +465,84 @@ struct AddView: View {
                 }
             }
         }
+    }
+
+    // MARK: AA
+
+    /// split the expense with people: their parts go to their personal receivables, yours to the category
+    private func aaSection(_ d: Draft, _ L: Ledger) -> some View {
+        let ps = people(L).filter { $0.receivable != nil && !$0.closed }
+        let on = Binding<Bool>(get: { store.draft.split }, set: { v in
+            store.draft.split = v
+            if !v { store.draft.shares = []; store.draft.sharesEdited = false }
+            store.draft.edited = nil
+        })
+        let total = evalAmount(d.amount) ?? 0
+        let theirs = d.shares.reduce(0.0) { $0 + (evalAmount($1.amount) ?? 0) }
+        return Section {
+            Toggle(LS("AA 分摊"), isOn: on).tint(.jade)
+            if d.split {
+                if ps.isEmpty {
+                    Text(LS("还没有个人往来账户。先在「往来」里添加联系人。")).font(.footnote).foregroundStyle(.secondary)
+                } else {
+                    ChipRow {
+                        ForEach(ps) { p in
+                            let a = p.receivable!
+                            Chip(label: p.name, selected: d.shares.contains { $0.account == a }) { toggleShare(a) }
+                        }
+                    }
+                }
+                ForEach(d.shares) { x in
+                    HStack {
+                        Text(ps.first { $0.receivable == x.account }?.name ?? leaf(x.account))
+                        Spacer()
+                        TextField("0.00", text: Binding(get: { x.amount }, set: { v in
+                            guard let i = store.draft.shares.firstIndex(where: { $0.id == x.id }) else { return }
+                            store.draft.shares[i].amount = v
+                            store.draft.sharesEdited = true
+                            store.draft.edited = nil
+                        }))
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .monospacedDigit()
+                        .frame(maxWidth: 120)
+                    }
+                }
+                if !d.shares.isEmpty {
+                    LabeledContent(LS("我的份额")) {
+                        Text(money(total - theirs, d.currency)).monospacedDigit()
+                            .foregroundStyle(total - theirs < -0.004 ? Color.loss : Color.primary).sensitive()
+                    }
+                    if d.sharesEdited {
+                        Button(LS("重新平均分摊")) { spreadShares() }.font(.footnote)
+                    }
+                }
+            }
+        } footer: {
+            if d.split {
+                Text(LS("别人的份额记到他的个人往来（应收），你的份额记入支出科目。之后在「往来」里登记他还你的钱。"))
+            }
+        }
+        .onChange(of: d.amount) { _, _ in if store.draft.split && !store.draft.sharesEdited { spreadShares() } }
+    }
+
+    private func toggleShare(_ account: String) {
+        var d = store.draft
+        if let i = d.shares.firstIndex(where: { $0.account == account }) { d.shares.remove(at: i) }
+        else { d.shares.append(Share(account: account)) }
+        store.draft = d
+        if !store.draft.sharesEdited { spreadShares() } else { store.draft.edited = nil }
+    }
+
+    /// everyone, you included, pays the same; you take the odd cents
+    private func spreadShares() {
+        var d = store.draft
+        let amt = evalAmount(d.amount) ?? 0
+        let each = evenShares(amt, d.shares.count)
+        for i in d.shares.indices { d.shares[i].amount = i < each.count ? toFixed(each[i], 2) : "" }
+        d.sharesEdited = false
+        d.edited = nil
+        store.draft = d
     }
 
     @ViewBuilder

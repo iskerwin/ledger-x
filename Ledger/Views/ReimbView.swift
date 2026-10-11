@@ -23,6 +23,8 @@ struct ReimbSheet: View {
     @State private var selected: Set<Int> = []
     @State private var ready = false
     @State private var saving = false
+    /// a shortfall that will still be paid: leave it on the link instead of settling it
+    @State private var keepOpen = false
 
     var body: some View {
         NavigationStack {
@@ -79,9 +81,10 @@ struct ReimbSheet: View {
         tx.narration = LS("报销入账-") + digits
         tx.tags = ["reimbursement"]
         tx.links = [lk]
-        tx.postings = [TxPosting(account: D.receivable, amount: -o, currency: c)]
+        let pending = diff < -0.004 && keepOpen
+        tx.postings = [TxPosting(account: D.receivable, amount: -(pending ? g : o), currency: c)]
         if diff > 0.004 { tx.postings.append(TxPosting(account: "Income:ReimbExcess", amount: -diff, currency: c)) }
-        if diff < -0.004 { tx.postings.append(TxPosting(account: shortfall(L), amount: -diff, currency: c)) }
+        if diff < -0.004 && !keepOpen { tx.postings.append(TxPosting(account: shortfall(L), amount: -diff, currency: c)) }
         tx.postings.append(TxPosting(account: account, amount: g, currency: c))
         return formatTxn(tx)
     }
@@ -127,9 +130,14 @@ struct ReimbSheet: View {
             Section(LS("将写入")) {
                 if let g = got(D), g > 0, abs(g - o) > 0.004 {
                     let diff = g - o
-                    Text(diff > 0 ? LS("超额 %@，计入 Income:ReimbExcess", money(diff, c)) : LS("短收 %@，计入 %@", money(-diff, c), shortfall(L)))
+                    if diff < 0 {
+                        Toggle(LS("差额以后还会补（挂账）"), isOn: $keepOpen).tint(.jade)
+                    }
+                    Text(diff > 0 ? LS("超额 %@，计入 Income:ReimbExcess", money(diff, c))
+                         : keepOpen ? LS("短收 %@，留在 ^%@ 上待收，补发后再登记回款", money(-diff, c), link())
+                         : LS("短收 %@，计入 %@", money(-diff, c), shortfall(L)))
                         .font(.footnote)
-                        .foregroundStyle(diff < 0 ? Color.loss : Color.secondary)
+                        .foregroundStyle(diff < 0 && !keepOpen ? Color.loss : Color.secondary)
                 }
                 if t.isEmpty {
                     Text(o > 0 ? LS("选择收款账户后生成") : LS("请先选择报销明细")).font(.footnote).foregroundStyle(.secondary)
