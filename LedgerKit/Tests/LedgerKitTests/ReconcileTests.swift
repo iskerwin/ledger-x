@@ -46,41 +46,51 @@ final class ReconcileTests: XCTestCase {
         XCTAssertEqual(due.map { $0.account }, ["Assets:Bank:BOC", "Liabilities:CreditCard:CMB"])
         let boc = due[0]
         XCTAssertEqual(boc.day, "2026-10-10")
-        XCTAssertEqual(boc.date, "2026-10-11")
-        XCTAssertEqual(boc.ledger, 450)     // the 11th's coffee is after the day
+        XCTAssertEqual(boc.date, "2026-10-10")
+        XCTAssertEqual(boc.ledger, 480)     // start of the 10th: the 10th's dinner and later are after it
+        XCTAssertEqual(boc.now, 435)        // what the bank app should show today
+        XCTAssertEqual(boc.since, 2)
+        XCTAssertEqual(boc.sinceTotal, -45)
         XCTAssertEqual(due[1].day, "2026-09-15")
         XCTAssertEqual(due[1].ledger, 0)
+        XCTAssertEqual(due[1].now, -88)
         XCTAssertNil(boc.lastChecked)
     }
 
-    func testCheckedOnce() {
-        // the check's assertion (or any later one) settles it until the next day comes round
-        let checked = ledger(base + "2026-10-11 balance Assets:Bank:BOC 450.00 CNY\n")
-        XCTAssertFalse(reconcileDue(checked, today: "2026-10-20").contains { $0.account == "Assets:Bank:BOC" })
-        let next = reconcileDue(checked, today: "2026-11-11").first { $0.account == "Assets:Bank:BOC" }
-        XCTAssertEqual(next?.day, "2026-11-10")
-        XCTAssertEqual(next?.lastChecked, "2026-10-11")
-        XCTAssertEqual(next?.ledger, 435)
-        // the op writes the day after, with the amount given
-        let op = reconcileOp(next!, amount: 435, path: "accounts/balance.bean")
-        XCTAssertEqual(op.date, "2026-11-11")
-        XCTAssertTrue(op.line?.hasPrefix("2026-11-11 balance Assets:Bank:BOC") ?? false)
-        XCTAssertTrue(op.line?.hasSuffix("435.00 CNY") ?? false)
-    }
-
-    func testOnlyOnceTheDayIsOver() {
-        // on the check day itself the day isn't over yet: the previous one is the latest
+    func testDueOnTheDayItself() {
+        // the day's assertion checks the balance the previous day ended with: final by the morning
         let due = reconcileDue(ledger(base), today: "2026-10-10").first { $0.account == "Assets:Bank:BOC" }
-        XCTAssertEqual(due?.day, "2026-09-10")
-        XCTAssertEqual(due?.date, "2026-09-11")
-        // the assertion date is never after today
-        for t in ["2026-10-10", "2026-10-11", "2026-10-31", "2026-11-01"] {
+        XCTAssertEqual(due?.day, "2026-10-10")
+        XCTAssertEqual(due?.ledger, 480)
+        // never in the future
+        for t in ["2026-10-09", "2026-10-10", "2026-10-11", "2026-10-31", "2026-11-01"] {
             XCTAssertTrue(reconcileDue(ledger(base), today: t).allSatisfy { $0.date <= t }, t)
         }
     }
 
+    func testCheckedOnce() {
+        // the check's assertion (or any later one) settles it until the next day comes round
+        let checked = ledger(base + "2026-10-10 balance Assets:Bank:BOC 480.00 CNY\n")
+        XCTAssertTrue(checked.balanceResults.allSatisfy { $0.ok })
+        XCTAssertFalse(reconcileDue(checked, today: "2026-10-20").contains { $0.account == "Assets:Bank:BOC" })
+        let next = reconcileDue(checked, today: "2026-11-10").first { $0.account == "Assets:Bank:BOC" }
+        XCTAssertEqual(next?.day, "2026-11-10")
+        XCTAssertEqual(next?.lastChecked, "2026-10-10")
+        XCTAssertEqual(next?.ledger, 435)
+        let op = reconcileOp(next!, amount: 435, path: "accounts/balance.bean")
+        XCTAssertEqual(op.date, "2026-11-10")
+        XCTAssertTrue(op.line?.hasPrefix("2026-11-10 balance Assets:Bank:BOC") ?? false)
+        XCTAssertTrue(op.line?.hasSuffix("435.00 CNY") ?? false)
+    }
+
+    func testFutureEntriesLeftOut() {
+        // something entered ahead of time isn't in the bank's balance yet
+        let L = ledger(base + "2026-10-20 * \"Rent\"\n  Expenses:Food  100.00 CNY\n  Assets:Bank:BOC\n")
+        XCTAssertEqual(reconcileDue(L, today: "2026-10-12").first?.now, 435)
+    }
+
     func testOpenedAfterTheDay() {
-        let L = ledger(base + "2026-10-11 open Assets:Bank:New CNY\n  statement_day: 10\n")
+        let L = ledger(base + "2026-10-10 open Assets:Bank:New CNY\n  statement_day: 10\n")
         XCTAssertFalse(reconcileDue(L, today: "2026-10-12").contains { $0.account == "Assets:Bank:New" })
     }
 }

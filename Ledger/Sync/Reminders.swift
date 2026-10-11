@@ -87,8 +87,8 @@ enum Reminders {
             }
         }
 
-        // balances to check against the bank: accounts with a statement / check day, the morning after the day
-        // (the day's balance is final by then), and every morning while some are still waiting
+        // balances to check against the bank: accounts with a statement / check day, that morning,
+        // and every morning while some are still waiting
         if flag(balanceKey) {
             let cal = Calendar.current
             var byDay: [String: [String]] = [:]
@@ -96,8 +96,8 @@ enum Reminders {
             for r in reconcileDue(L, today: today) where !(byDay[firstMorning] ?? []).contains(r.account) {
                 byDay[firstMorning, default: []].append(r.account)
             }
-            for (a, d) in nextCheckDays(L, today: today) where !(byDay[Day.shift(d, 1)] ?? []).contains(a) {
-                byDay[Day.shift(d, 1), default: []].append(a)
+            for (a, d) in nextCheckDays(L, today: today) where !(byDay[d] ?? []).contains(a) {
+                byDay[d, default: []].append(a)
             }
             for (d, accts) in byDay {
                 guard let day = Day.date(d), let fire = cal.date(bySettingHour: 10, minute: 0, second: 0, of: day), fire > Date() else { continue }
@@ -212,7 +212,7 @@ struct RemindersSection: View {
         } header: {
             Text(LS("提醒"))
         } footer: {
-            Text(LS("提醒在本机生成，每次打开 App 或同步后按最新账本重新安排。在「编辑账户」中为信用卡设置账单日和还款日后，会按账单金额提醒还款，提前天数与订阅相同；为账户设置账单日或核对日后，第二天上午提醒核对余额。"))
+            Text(LS("提醒在本机生成，每次打开 App 或同步后按最新账本重新安排。在「编辑账户」中为信用卡设置账单日和还款日后，会按账单金额提醒还款，提前天数与订阅相同；为账户设置账单日或核对日后，当天上午提醒核对余额。"))
         }
     }
 

@@ -1,20 +1,27 @@
 import Foundation
 
-/// An account to check against the bank: it has a statement / check day (`statement_day`), the latest
-/// such day has ended, and no balance assertion covers it yet. Accounts without the day are never checked.
-/// The day must be over: its assertion (dated the day after) is then never in the future, so entries
-/// recorded later can't break it unless they change that day or earlier.
+/// An account to check against the bank: it has a statement / check day (`statement_day`), that day has
+/// come, and no balance assertion covers it yet. Accounts without the day are never checked.
+/// The assertion is dated the day itself — Beancount checks it at the start of the day, i.e. the balance
+/// the previous day ended with — so it is never in the future, and entries recorded on or after the day
+/// can't break it; only changes to earlier days can.
+/// The bank app shows the balance as it is now, so that is what gets compared: with the ledger's balance
+/// up to today. When they agree, the ledger's balance at the start of the day is what is asserted.
 public struct ReconcileDue: Identifiable, Equatable {
     public let account: String
     public let currency: String
-    /// the statement / check day: the balance at the end of this day is checked
+    /// the statement / check day, also the assertion's date
     public let day: String
-    /// the ledger's balance at the end of `day`
+    /// the ledger's balance at the start of `day`: the amount asserted
     public let ledger: Double
+    /// the ledger's balance now (entries up to today), to compare with the bank app
+    public let now: Double
+    /// entries on this account from `day` up to today, and their sum
+    public let since: Int
+    public let sinceTotal: Double
     /// the latest earlier assertion of this account and currency
     public let lastChecked: String?
-    /// the assertion's date: Beancount checks a balance at the start of its day, so the day after
-    public var date: String { Day.shift(day, 1) }
+    public var date: String { day }
     public var id: String { account + "|" + currency }
 }
 
@@ -33,8 +40,8 @@ public func reconcileDue(_ L: Ledger, today: String = Day.today()) -> [Reconcile
     for (name, acc) in L.accounts.sorted(by: { $0.key < $1.key })
     where (name.hasPrefix("Assets:") || name.hasPrefix("Liabilities:")) && (acc.close == nil || acc.close! > today) {
         guard let sd = metaInt(acc.meta[statementDayKey]), sd >= 1, sd <= 31 else { continue }
-        let day = statementOn(orBefore: Day.shift(today, -1), day: sd)
-        if let o = acc.open, o > day { continue }
+        let day = statementOn(orBefore: today, day: sd)
+        if let o = acc.open, o >= day { continue }
         var ccys = acc.currencies
         if ccys.isEmpty { ccys = (L.final[name] ?? [:]).keys.sorted() }
         if ccys.isEmpty { ccys = [L.base] }
@@ -42,11 +49,20 @@ public func reconcileDue(_ L: Ledger, today: String = Day.today()) -> [Reconcile
         for c in ccys {
             let mine = assertions.filter { ($0.currency ?? "") == c }
             // checked on or after the day (by this check, or by hand later on)
-            if mine.contains(where: { $0.date > day }) { continue }
+            if mine.contains(where: { $0.date >= day }) { continue }
+            let start = balance(L, account: name, currency: c, endOf: Day.shift(day, -1))
+            let now = balance(L, account: name, currency: c, endOf: today)
             // a currency the account no longer holds and never asserted
-            let v = balance(L, account: name, currency: c, endOf: day)
-            if abs(v) < 0.005 && mine.isEmpty && ccys.count > 1 { continue }
-            out.append(ReconcileDue(account: name, currency: c, day: day, ledger: v,
+            if abs(start) < 0.005 && abs(now) < 0.005 && mine.isEmpty && ccys.count > 1 { continue }
+            var n = 0, sum = 0.0
+            for x in L.txns where x.date >= day && x.date <= today {
+                let ps = x.postings.filter { $0.account == name && $0.currency == c }
+                if ps.isEmpty { continue }
+                n += 1
+                sum += ps.reduce(0) { $0 + ($1.units ?? 0) }
+            }
+            out.append(ReconcileDue(account: name, currency: c, day: day, ledger: start, now: now,
+                                    since: n, sinceTotal: (sum * 100).rounded() / 100,
                                     lastChecked: mine.map { $0.date }.max()))
         }
     }
