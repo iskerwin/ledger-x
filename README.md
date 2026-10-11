@@ -130,7 +130,11 @@ Beancount 很好用，但它活在电脑上：记一笔要打开编辑器，看�
 
 [**ledger-demo**](https://github.com/iskerwin/ledger-demo) 是一份完全虚构的 Beancount 账本，App 的每个页面都有数据可看。
 
-1. **安装 App**：在 [Releases](../../releases) 下载最新的 `Ledger.ipa`，用 [SideStore](https://sidestore.io) 或 AltStore 导入并签名安装（免费 Apple ID 签名 7 天有效，SideStore 会自动续签）。
+1. **安装 App**：在 [SideStore](https://sidestore.io) 或 AltStore 的「源」里添加下面任一地址，之后在源里安装，有新版本时直接显示更新：
+   - 发布版：`https://raw.githubusercontent.com/iskerwin/ledger-x/sidestore/release.json`
+   - 开发版（main 最新构建，也包含发布版）：`https://raw.githubusercontent.com/iskerwin/ledger-x/sidestore/dev.json`
+
+   两个源是同一个 App，添加一个即可。也可以在 [Releases](../../releases) 下载 `Ledger.ipa` 手动导入（免费 Apple ID 签名 7 天有效，SideStore 会自动续签）。
 2. **Fork 演示账本**：打开 [iskerwin/ledger-demo](https://github.com/iskerwin/ledger-demo)，点右上角 **Fork**。
 3. **创建 Token**：GitHub → Settings → Developer settings → **Fine-grained tokens** → Generate new token
 
