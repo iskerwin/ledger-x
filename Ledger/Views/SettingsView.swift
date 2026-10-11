@@ -128,6 +128,9 @@ struct SettingsView: View {
                     .buttonStyle(.plain)
                     LabeledContent(LS("交易"), value: LS("%@ 笔", L.txns.count))
                     LabeledContent(LS("余额断言"), value: "\(L.balanceResults.filter { $0.ok }.count)/\(L.balanceResults.count)")
+                    NavigationLink { BackupView() } label: {
+                        LabeledContent(LS("备份与导出"), value: Backup.folderName == nil ? LS("未设置") : (Backup.last(store).map { $0.formatted(date: .abbreviated, time: .omitted) } ?? ""))
+                    }
                     NavigationLink { SourceFilesView() } label: {
                         LabeledContent(LS("源文件"), value: LS("%@ 个", L.files.count))
                     }
