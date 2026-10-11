@@ -16,6 +16,9 @@ struct AddView: View {
     @State private var importing = false
     /// a save in progress (the pre-commit check takes a moment): ignore further taps
     @State private var saving = false
+    /// AA: a name typed for someone not in the ledger yet
+    @State private var addingPerson = false
+    @State private var newPerson = ""
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -53,7 +56,7 @@ struct AddView: View {
     private func content(_ L: Ledger, _ D: Derived) -> some View {
         let d = store.draft
         let text = draftText(d, L, D, explicit: store.explicitAmounts)
-        let v: Validation? = text.trimmed.isEmpty ? nil : validateText(text, L, single: d.kind != .raw)
+        let v: Validation? = text.trimmed.isEmpty ? nil : validateText(text, L, single: draftIsSingle(d, L))
         Form {
             if d.kind == .refund {
                 refundBanner(d)
@@ -103,7 +106,7 @@ struct AddView: View {
         }
         .sheet(isPresented: $managingTemplates) { TemplateManager() }
         .sheet(isPresented: $editingText) {
-            TextEditSheet(title: LS("编辑源文本"), initial: text, validate: { t in validateText(t, L, single: true) }) { new in
+            TextEditSheet(title: LS("编辑源文本"), initial: text, validate: { t in validateText(t, L, single: draftIsSingle(store.draft, L)) }) { new in
                 store.draft.edited = new
             }
         }
@@ -471,7 +474,8 @@ struct AddView: View {
 
     /// split the expense with people: their parts go to their personal receivables, yours to the category
     private func aaSection(_ d: Draft, _ L: Ledger) -> some View {
-        let ps = people(L).filter { $0.receivable != nil && !$0.closed }
+        // everyone in 往来 (someone with only a loan account gets a receivable opened with this expense)
+        let ps = people(L).filter { !$0.closed }
         let on = Binding<Bool>(get: { store.draft.split }, set: { v in
             store.draft.split = v
             if !v { store.draft.shares = []; store.draft.sharesEdited = false }
@@ -482,19 +486,34 @@ struct AddView: View {
         return Section {
             Toggle(LS("AA 分摊"), isOn: on).tint(.jade)
             if d.split {
-                if ps.isEmpty {
-                    Text(LS("还没有个人往来账户。先在「往来」里添加联系人。")).font(.footnote).foregroundStyle(.secondary)
-                } else {
-                    ChipRow {
-                        ForEach(ps) { p in
-                            let a = p.receivable!
-                            Chip(label: p.name, selected: d.shares.contains { $0.account == a }) { toggleShare(a) }
-                        }
+                ChipRow {
+                    ForEach(ps) { p in
+                        let a = personalPrefix + p.key
+                        Chip(label: p.name, selected: d.shares.contains { $0.account == a }) { toggleShare(a, name: p.name) }
+                    }
+                    Chip(label: LS("＋ 其他人"), selected: addingPerson) { addingPerson.toggle() }
+                }
+                if addingPerson {
+                    let key = accountPart(from: newPerson)
+                    HStack {
+                        TextField(LS("称呼，如 小王、王五"), text: $newPerson)
+                            .submitLabel(.done)
+                            .onSubmit { addPerson(L) }
+                        Button(LS("加入")) { addPerson(L) }.disabled(key == nil)
+                    }
+                    if !newPerson.trimmed.isEmpty {
+                        Text(key.map { LS("账户 %@", personalPrefix + $0) } ?? LS("这个称呼生成不了账户名，换一种写法试试"))
+                            .font(.caption).foregroundStyle(key == nil ? Color.loss : Color.secondary)
                     }
                 }
                 ForEach(d.shares) { x in
                     HStack {
-                        Text(ps.first { $0.receivable == x.account }?.name ?? leaf(x.account))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(!x.name.isEmpty ? x.name : ps.first { personalPrefix + $0.key == x.account }?.name ?? leaf(x.account))
+                            if L.accounts[x.account] == nil {
+                                Text(LS("新开 %@", acctLabel(x.account))).font(.caption2).foregroundStyle(.secondary)
+                            }
+                        }
                         Spacer()
                         TextField("0.00", text: Binding(get: { x.amount }, set: { v in
                             guard let i = store.draft.shares.firstIndex(where: { $0.id == x.id }) else { return }
@@ -520,16 +539,28 @@ struct AddView: View {
             }
         } footer: {
             if d.split {
-                Text(LS("别人的份额记到他的个人往来（应收），你的份额记入支出科目。之后在「往来」里登记他还你的钱。"))
+                Text(LS("别人的份额记到他的个人往来（应收），你的份额记入支出科目；第一次出现的人随这笔一起开立账户。之后在「往来」里登记他还你的钱。"))
             }
         }
         .onChange(of: d.amount) { _, _ in if store.draft.split && !store.draft.sharesEdited { spreadShares() } }
     }
 
-    private func toggleShare(_ account: String) {
+    /// someone typed in: an existing person when the account name matches, otherwise someone new
+    private func addPerson(_ L: Ledger) {
+        let name = newPerson.trimmed
+        guard let key = accountPart(from: name) else { return }
+        let account = personalPrefix + key
+        if !store.draft.shares.contains(where: { $0.account == account }) {
+            toggleShare(account, name: people(L).first { $0.key == key }?.name ?? name)
+        }
+        newPerson = ""
+        addingPerson = false
+    }
+
+    private func toggleShare(_ account: String, name: String) {
         var d = store.draft
         if let i = d.shares.firstIndex(where: { $0.account == account }) { d.shares.remove(at: i) }
-        else { d.shares.append(Share(account: account)) }
+        else { d.shares.append(Share(account: account, name: name)) }
         store.draft = d
         if !store.draft.sharesEdited { spreadShares() } else { store.draft.edited = nil }
     }
@@ -677,7 +708,7 @@ struct AddView: View {
     private func save(_ L: Ledger, _ D: Derived) async {
         let d = store.draft
         let text = draftText(d, L, D, explicit: store.explicitAmounts).trimmed
-        let v = validateText(text, L, single: d.kind != .raw)
+        let v = validateText(text, L, single: draftIsSingle(d, L))
         guard v.ok else { store.show(v.msg ?? LS("内容校验未通过")); return }
         focus = nil
         if d.kind == .raw { await saveRaw(L, overwriteOK: false); return }
@@ -690,7 +721,7 @@ struct AddView: View {
             await store.commit(ops, checked: true)
             return
         }
-        guard var ops = store.makeOps(text, single: true) else { return }
+        guard var ops = store.makeOps(text, single: draftIsSingle(d, L)) else { return }
         // the original purchase gets the refund link that is actually in the saved text (it may have been edited)
         if let o = d.refundOf, let lk = store.refundLink(in: text, preferred: o.link) {
             var link = Op(kind: .link, path: o.path)

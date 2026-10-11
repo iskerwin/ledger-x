@@ -122,7 +122,10 @@ final class CounterpartyTests: XCTestCase {
         d.key = "rabi"
         XCTAssertEqual(loanText(d, L), "")
         XCTAssertEqual(accountPart(from: "wang wu"), "WangWu")
-        XCTAssertNil(accountPart(from: "王五"))
+        XCTAssertEqual(accountPart(from: "王五"), "WangWu")
+        XCTAssertEqual(accountPart(from: "五姨"), "WuYi")
+        XCTAssertEqual(accountPart(from: "小 Li"), "XiaoLi")
+        XCTAssertNil(accountPart(from: "😀"))
     }
 
     func testSettle() {
@@ -154,6 +157,16 @@ final class CounterpartyTests: XCTestCase {
         // more than the total: nothing to save
         d.shares[1].amount = "250"
         XCTAssertEqual(draftText(d, L, D), "")
+        // someone new: their account is opened with the expense
+        d.shares = [Share(account: "Assets:Receivable:Personal:WangWu", amount: "100", name: "王五"),
+                    Share(account: "Assets:Receivable:Personal:Rabi", amount: "100", name: "Rabi")]
+        let n = draftText(d, L, D)
+        XCTAssertTrue(n.hasPrefix("2026-10-01 open Assets:Receivable:Personal:WangWu\n  name: \"王五\"\n\n2026-10-01 open Assets:Receivable:Personal:Rabi\n\n2026-10-01 * \"火锅\""), n)
+        XCTAssertFalse(draftIsSingle(d, L))
+        XCTAssertTrue(validateText(n, L, single: false).ok)
+        let after = ledger(base + n + "\n")
+        XCTAssertEqual(people(after).first { $0.key == "WangWu" }?.name, "王五")
+        XCTAssertEqual(people(after).first { $0.key == "Rabi" }?.net["CNY"], -5900)
     }
 
     func testReceivableMayGoNegative() {
