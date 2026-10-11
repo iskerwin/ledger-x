@@ -161,6 +161,8 @@ jobs:
         if: always() && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.event.inputs.version != '')
         env:
           GH_TOKEN: ${{ github.token }}
+          # the Cloudflare mirror (tools/cloudflare/worker.js) the sources point to: repository variable SIDESTORE_MIRROR
+          SIDESTORE_MIRROR: ${{ vars.SIDESTORE_MIRROR || (github.repository == 'iskerwin/ledger-x' && 'https://ledger.iskerwin.com' || '') }}
         run: |
           python3 .github/scripts/sidestore_source.py "$GITHUB_REPOSITORY" site
           cd site

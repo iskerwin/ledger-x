@@ -135,7 +135,7 @@ Beancount 很好用，但它活在电脑上：记一笔要打开编辑器，看�
    - 发布版：`https://ledger.iskerwin.com/release.json`
    - 开发版（main 最新构建，也包含发布版）：`https://ledger.iskerwin.com/dev.json`
 
-   两个源是同一个 App，添加一个即可。这两个地址是 Cloudflare 上的镜像（[`tools/cloudflare/worker.js`](tools/cloudflare/worker.js)），源和安装包都从 Cloudflare 下载，国内更快；直接用 GitHub 的地址是 `https://raw.githubusercontent.com/iskerwin/ledger-x/sidestore/release.json`（或 `dev.json`）。也可以在 [Releases](../../releases) 下载 `Ledger.ipa` 手动导入（免费 Apple ID 签名 7 天有效，SideStore 会自动续签）。
+   两个源是同一个 App，添加一个即可。这两个地址是 Cloudflare 上的镜像（[`tools/cloudflare/worker.js`](tools/cloudflare/worker.js)），源和安装包都从 Cloudflare 下载，国内更快；GitHub 上的原始地址 `https://raw.githubusercontent.com/iskerwin/ledger-x/sidestore/release.json`（或 `dev.json`）内容相同，添加后刷新一次也会改用镜像。自己部署镜像时，把仓库变量 `SIDESTORE_MIRROR` 设为镜像地址即可。也可以在 [Releases](../../releases) 下载 `Ledger.ipa` 手动导入（免费 Apple ID 签名 7 天有效，SideStore 会自动续签）。
 2. **Fork 演示账本**：打开 [iskerwin/ledger-demo](https://github.com/iskerwin/ledger-demo)，点右上角 **Fork**。
 3. **创建 Token**：GitHub → Settings → Developer settings → **Fine-grained tokens** → Generate new token
 

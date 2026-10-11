@@ -5,6 +5,10 @@ release.json  the published versions (v*), newest first
 dev.json      the latest dev build first, then the published versions
 
 Usage: sidestore_source.py <owner/repo> <out dir>   (needs `gh` with a token)
+
+With SIDESTORE_MIRROR set (the Cloudflare Worker in tools/cloudflare, e.g. https://ledger.example.com), the
+sources name the mirror as their address and every download goes through it, so a source added from GitHub
+moves to the mirror on its next refresh.
 """
 import json, os, re, subprocess, sys
 
@@ -12,6 +16,15 @@ repo, out = sys.argv[1], sys.argv[2]
 raw = f"https://raw.githubusercontent.com/{repo}"
 icon = f"{raw}/main/Ledger/Assets.xcassets/AppIcon.appiconset/icon-1024.png"
 tint = "2B806A"
+mirror = os.environ.get("SIDESTORE_MIRROR", "").strip().rstrip("/")
+DL = f"https://github.com/{repo}/releases/download/"
+
+
+def link(url, version):
+    """the IPA's address: through the mirror when there is one (the version keeps the dev build's cache fresh)"""
+    if mirror and url.startswith(DL):
+        return f"{mirror}/dl/{url[len(DL):]}?v={version}"
+    return url
 
 releases = json.loads(subprocess.check_output(["gh", "api", f"repos/{repo}/releases?per_page=50"]))
 
@@ -26,7 +39,7 @@ def entry(r, version, desc):
         "buildVersion": m.group(1) if m else "",
         "date": r.get("published_at") or r["created_at"],
         "localizedDescription": desc,
-        "downloadURL": ipa["browser_download_url"],
+        "downloadURL": link(ipa["browser_download_url"], version),
         "size": ipa["size"],
         "minOSVersion": "17.0",
     }
@@ -85,7 +98,7 @@ def source(kind, name, versions):
     return {
         "name": name,
         "identifier": f"com.iskerwin.ledger.{kind}",
-        "sourceURL": f"{raw}/sidestore/{kind}.json",
+        "sourceURL": f"{mirror}/{kind}.json" if mirror else f"{raw}/sidestore/{kind}.json",
         "subtitle": "Beancount 记账",
         "description": about,
         "iconURL": icon,
