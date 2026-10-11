@@ -16,7 +16,7 @@
   <img src="https://img.shields.io/badge/%E8%AF%AD%E8%A8%80-%E4%B8%AD%E6%96%87%20%7C%20English-blue">
 </p>
 
-> **当前版本 0.0.2（预览版）。** 功能已经可以日常使用，仍在打磨；每个版本的新功能和修复见 [CHANGELOG](CHANGELOG.md)。
+> **当前版本 0.0.3（预览版）。** 功能已经可以日常使用，仍在打磨；每个版本的新功能和修复见 [CHANGELOG](CHANGELOG.md)。
 
 ---
 
@@ -124,6 +124,7 @@ Beancount 很好用，但它活在电脑上：记一笔要打开编辑器，看�
 - **隐藏金额**：所有金额显示为 `¥***`，适合在人前打开
 - 面容 ID / 触控 ID 锁定；12 种主题色，浅色 / 深色；**简体中文 / English**
 - **最近改动**：查看本机做过的每次修改并撤回；**源文件**：直接查看和编辑仓库里的账本文件
+- **备份与导出**：每周自动把整个账本打包备份到 iCloud Drive 等文件夹，保留最近 12 份；导出交易明细 CSV
 - 默认币种、本地提醒、快捷指令与 Apple Pay 自动记账、票据附件、批量编辑、iPad 分栏布局
 
 ## 快速体验：用演示账本试一试
@@ -131,10 +132,10 @@ Beancount 很好用，但它活在电脑上：记一笔要打开编辑器，看�
 [**ledger-demo**](https://github.com/iskerwin/ledger-demo) 是一份完全虚构的 Beancount 账本，App 的每个页面都有数据可看。
 
 1. **安装 App**：在 [SideStore](https://sidestore.io) 或 AltStore 的「源」里添加下面任一地址，之后在源里安装，有新版本时直接显示更新：
-   - 发布版：`https://raw.githubusercontent.com/iskerwin/ledger-x/sidestore/release.json`
-   - 开发版（main 最新构建，也包含发布版）：`https://raw.githubusercontent.com/iskerwin/ledger-x/sidestore/dev.json`
+   - 发布版：`https://ledger.iskerwin.com/release.json`
+   - 开发版（main 最新构建，也包含发布版）：`https://ledger.iskerwin.com/dev.json`
 
-   两个源是同一个 App，添加一个即可。国内访问 GitHub 慢的话，可以用 [`tools/cloudflare/worker.js`](tools/cloudflare/worker.js) 在自己的 Cloudflare 上部署一个镜像，源和安装包都从 Cloudflare 下载。也可以在 [Releases](../../releases) 下载 `Ledger.ipa` 手动导入（免费 Apple ID 签名 7 天有效，SideStore 会自动续签）。
+   两个源是同一个 App，添加一个即可。这两个地址是 Cloudflare 上的镜像（[`tools/cloudflare/worker.js`](tools/cloudflare/worker.js)），源和安装包都从 Cloudflare 下载，国内更快；直接用 GitHub 的地址是 `https://raw.githubusercontent.com/iskerwin/ledger-x/sidestore/release.json`（或 `dev.json`）。也可以在 [Releases](../../releases) 下载 `Ledger.ipa` 手动导入（免费 Apple ID 签名 7 天有效，SideStore 会自动续签）。
 2. **Fork 演示账本**：打开 [iskerwin/ledger-demo](https://github.com/iskerwin/ledger-demo)，点右上角 **Fork**。
 3. **创建 Token**：GitHub → Settings → Developer settings → **Fine-grained tokens** → Generate new token
 
