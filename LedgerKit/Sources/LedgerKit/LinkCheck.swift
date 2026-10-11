@@ -71,6 +71,7 @@ public struct LinkFigure: Identifiable {
     public var id: String { label }
     public let label: String
     public let value: Double
+    public var currency: String = "CNY"
 }
 
 func expenseValue(_ t: Entry, _ L: Ledger) -> Double {
@@ -110,6 +111,9 @@ struct RefundSplit {
     var refunds: [Entry] = []
     var paid = 0.0
     var back = 0.0
+    /// what paid / back are in: the transactions' own currency when they share one, else the base
+    /// currency at the first purchase's rate (so a rate that moved in between doesn't count as a difference)
+    var currency = "CNY"
     var purchaseAccounts = Set<String>()
     func accounts(_ t: Entry) -> Set<String> { Set(t.postings.map { $0.account }.filter { !isFunding($0) }) }
 }
@@ -122,10 +126,16 @@ func refundSplit(_ ts: [Entry], _ L: Ledger) -> RefundSplit {
         if isRefund { r.refunds.append(t) } else { r.purchases.append(t) }
     }
     for t in r.purchases { r.purchaseAccounts.formUnion(r.accounts(t)) }
+    var ccys = Set<String>()
+    for t in ts { for p in t.postings where !isFunding(p.account) { if let c = p.currency { ccys.insert(c) } } }
+    let single = ccys.count == 1 ? ccys.first : nil
+    let rateDate = (r.purchases.isEmpty ? ts : r.purchases).map { $0.date }.min() ?? ""
+    r.currency = single ?? L.base
     func amount(_ t: Entry) -> Double {
         var v = 0.0
         for p in t.postings where !isFunding(p.account) {
-            if let u = p.units, let c = p.currency { v += toCNY(L, u, c, t.date) ?? 0 }
+            guard let u = p.units, let c = p.currency else { continue }
+            v += single != nil ? u : (toCNY(L, u, c, rateDate) ?? 0)
         }
         return abs(v)
     }
@@ -141,9 +151,9 @@ public func linkFigures(_ link: String, _ entries: [Entry], _ L: Ledger) -> [Lin
         let r = refundSplit(entries, L)
         let paid = r.paid, back = r.back
         guard paid > 0 || back > 0 else { return [] }
-        return [LinkFigure(label: tr("原价", "Paid"), value: roundTo(paid, 2)),
-                LinkFigure(label: tr("已退", "Refunded"), value: roundTo(back, 2)),
-                LinkFigure(label: tr("净支出", "Net"), value: roundTo(paid - back, 2))]
+        return [LinkFigure(label: tr("原价", "Paid"), value: roundTo(paid, 2), currency: r.currency),
+                LinkFigure(label: tr("已退", "Refunded"), value: roundTo(back, 2), currency: r.currency),
+                LinkFigure(label: tr("净支出", "Net"), value: roundTo(paid - back, 2), currency: r.currency)]
     case .reimburse:
         var plus = 0.0, minus = 0.0
         for t in entries { let r = receivableValues(t, L); plus += r.plus; minus += r.minus }
@@ -182,7 +192,7 @@ public func linkIssues(_ L: Ledger, subscriptions subs: [Subscription]) -> [Link
             }
             if r.back > r.paid + 0.01, let last = r.refunds.last {
                 out.append(LinkIssue(kind: .refundExceeds, link: l, txn: last,
-                                     detail: String(format: tr("原价 %@，已退 %@", "Paid %@, refunded %@"), fmtNum(roundTo(r.paid, 2), 2), fmtNum(roundTo(r.back, 2), 2))))
+                                     detail: String(format: tr("原价 %@，已退 %@", "Paid %@, refunded %@"), money(roundTo(r.paid, 2), r.currency), money(roundTo(r.back, 2), r.currency))))
             }
             for t in r.refunds {
                 let accts = r.accounts(t)

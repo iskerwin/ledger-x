@@ -131,6 +131,27 @@ final class LinkTests: XCTestCase {
         XCTAssertEqual(figs.map { $0.value }, [54.57, 8.23, 46.34])
     }
 
+    func testForeignRefundComparedInItsOwnCurrency() {
+        // the dollar rose between purchase and refund: the same 4.99 USD must not read as "refunded more"
+        let L = ledger(base + """
+        2023-01-01 open Assets:Wise USD
+        2023-01-01 open Expenses:Digital USD
+        2026-06-18 price USD 7.10 CNY
+        2026-06-26 price USD 7.20 CNY
+        2026-06-18 * "App Store" "app" ^refund-app-store-20260618
+          Expenses:Digital  4.99 USD
+          Assets:Wise
+        2026-06-26 * "App Store" "app refund" #refund ^refund-app-store-20260618
+          Expenses:Digital  -4.99 USD
+          Assets:Wise
+
+        """)
+        XCTAssertTrue(linkIssues(L, subscriptions: []).isEmpty, "\(linkIssues(L, subscriptions: []).map { $0.kind })")
+        let figs = linkFigures("refund-app-store-20260618", L.txns.filter { $0.links.contains("refund-app-store-20260618") }, L)
+        XCTAssertEqual(figs.map { $0.value }, [4.99, 4.99, 0])
+        XCTAssertEqual(figs.first?.currency, "USD")
+    }
+
     func testSalaryNettedAgainstReimbursement() {
         // the company keeps an overpaid salary out of a reimbursement: only the reimbursement counts here
         let L = ledger(base + """

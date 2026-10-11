@@ -107,7 +107,7 @@ struct LinkFiguresRow: View {
                 if i > 0 { Spacer() }
                 VStack(alignment: i == 0 ? .leading : i == figs.count - 1 ? .trailing : .center, spacing: 2) {
                     Text(f.label).font(.caption).foregroundStyle(.secondary)
-                    Text(money(f.value)).font(.subheadline.weight(.semibold).monospacedDigit()).sensitive()
+                    Text(money(f.value, f.currency)).font(.subheadline.weight(.semibold).monospacedDigit()).sensitive()
                 }
             }
         }
