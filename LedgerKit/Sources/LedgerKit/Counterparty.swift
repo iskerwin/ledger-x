@@ -122,23 +122,39 @@ public struct OpenDifference: Identifiable, Equatable {
     public var id: String { (link ?? "") + "|" + account + "|" + currency }
 }
 
-/// the company's account: its balance per currency, and what is still open behind it
+/// the company's account: its balance per currency, and what is still open behind it.
+/// Only ^salary-… links count (a payslip netted against a reimbursement carries both links). One entry can
+/// settle several months at once: each of its postings goes to the month it cancels exactly, the rest to the
+/// entry's first salary link.
 public func employerOpen(_ L: Ledger) -> (total: [String: Double], open: [OpenDifference]) {
     var total: [String: Double] = [:]
     var sum: [String: Double] = [:], n: [String: Int] = [:], date: [String: String] = [:], order: [String] = []
     var acctOf: [String: String] = [:]
+    func add(_ k: String, _ v: Double, _ t: Entry, _ a: String) {
+        if sum[k] == nil { order.append(k) }
+        sum[k, default: 0] += v
+        n[k, default: 0] += 1
+        date[k] = t.date
+        acctOf[k] = a
+    }
     for t in L.txns {
-        for p in t.postings where isSalaryClearing(p.account) {
+        let ps = t.postings.filter { isSalaryClearing($0.account) }
+        if ps.isEmpty { continue }
+        let links = t.links.filter { $0.hasPrefix("salary") }
+        var used = Set<String>()
+        for p in ps {
             let c = p.currency ?? L.base, v = p.units ?? 0
             total[c, default: 0] += v
-            for l in t.links {
-                let k = l + "\u{1}" + c
-                if sum[k] == nil { order.append(k) }
-                sum[k, default: 0] += v
-                n[k, default: 0] += 1
-                date[k] = t.date
-                acctOf[k] = p.account
+            guard let first = links.first else { continue }
+            var key = first + "\u{1}" + c
+            if links.count > 1 {
+                // the month this posting closes exactly, if there is one
+                if let l = links.first(where: { !used.contains($0) && abs((sum[$0 + "\u{1}" + c] ?? 0) + v) < 0.005 && sum[$0 + "\u{1}" + c] != nil }) {
+                    key = l + "\u{1}" + c
+                    used.insert(l)
+                }
             }
+            add(key, v, t, p.account)
         }
     }
     var open: [OpenDifference] = []
@@ -152,8 +168,8 @@ public func employerOpen(_ L: Ledger) -> (total: [String: Double], open: [OpenDi
         }
     }
     total = total.mapValues { roundTo($0, 2) }.filter { abs($0.value) > 0.005 }
-    for (c, v) in total {
-        let rest = roundTo(v - (linked[c] ?? 0), 2)
+    for c in Set(total.keys).union(linked.keys).sorted() {
+        let rest = roundTo((total[c] ?? 0) - (linked[c] ?? 0), 2)
         if abs(rest) > 0.005 {
             let acct = L.accounts.keys.filter(isSalaryClearing).sorted().first ?? "Assets:Receivable:Employer"
             open.append(OpenDifference(link: nil, account: acct, amount: rest, currency: c, n: 0, date: ""))

@@ -81,6 +81,31 @@ final class CounterpartyTests: XCTestCase {
         XCTAssertEqual(e.open.map { $0.amount }, [-50, 30])
     }
 
+    func testEmployerSeveralMonthsAtOnce() {
+        // a payslip netted against a reimbursement carries both links; one entry settles two months
+        let L = ledger(base + """
+        2026-09-25 * "公司" "工资" ^salary-co-202609
+          Income:Salary  -10000.00 CNY
+          Assets:Receivable:Employer  -1910.00 CNY
+          Assets:Bank
+
+        2026-09-26 * "公司" "工资" ^salary-co-202610
+          Income:Salary  -10000.00 CNY
+          Assets:Receivable:Employer  940.00 CNY
+          Assets:Bank
+
+        2026-09-28 * "公司" "退回、报销" ^reimburse-co-20260928 ^salary-co-202610 ^salary-co-202609
+          Assets:Receivable:Employer  1910.00 CNY
+          Assets:Receivable:Employer  -940.00 CNY
+          Assets:Receivable:Reimbursement  -100.00 CNY
+          Assets:Bank
+
+        """)
+        let e = employerOpen(L)
+        XCTAssertEqual(e.open.map { $0.link }, ["salary-co-202608", nil])
+        XCTAssertFalse(e.open.contains { $0.link?.hasPrefix("reimburse") ?? false })
+    }
+
     func testLoanOpensNewAccount() {
         let L = ledger(base)
         var d = LoanDraft()
