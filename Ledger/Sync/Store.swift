@@ -713,6 +713,7 @@ final class Store: ObservableObject {
         Task {
             await Reminders.reschedule(self)
             await autoUpdatePrices()
+            await Backup.runIfDue(self)
         }
     }
 
