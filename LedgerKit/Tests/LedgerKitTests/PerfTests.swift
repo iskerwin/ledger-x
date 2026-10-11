@@ -2,9 +2,9 @@ import XCTest
 @testable import LedgerKit
 
 /// A generated ledger about ten times the size of a busy personal one (60k transactions over ten
-/// years), timed through what the app does on every load and save. Each step has a generous ceiling:
-/// the point is to catch a change that makes something several times slower, not to benchmark the
-/// runner. The timings go to the test log (test.log in the dev release).
+/// years), timed through what the app does on every load and save. Each step's ceiling is about four times
+/// what it took when this test was written (load 2.5 s, derived 1.3 s on the CI runner): the point is to
+/// catch a change that makes something several times slower, not to benchmark the runner. The timings go to the test log (test.log in the dev release).
 final class PerfTests: XCTestCase {
     static let txns = 60_000
 
@@ -65,23 +65,23 @@ final class PerfTests: XCTestCase {
 
     func testBigLedger() throws {
         let text = Self.bigLedger()
-        let L = time("load", max: 30) { loadLedger(root: "main.bean") { _ in text } }
+        let L = time("load", max: 10) { loadLedger(root: "main.bean") { _ in text } }
         XCTAssertGreaterThan(L.txns.count, Self.txns)
-        _ = time("derived", max: 30) { Derived(L, today: "2025-01-01") }
+        _ = time("derived", max: 6) { Derived(L, today: "2025-01-01") }
         // the pre-commit check loads the ledger twice and compares
-        let after = time("load (after a change)", max: 30) {
+        let after = time("load (after a change)", max: 10) {
             loadLedger(root: "main.bean") { _ in text + "2024-12-30 * \"X\"\n  Expenses:Travel  1.00 CNY\n  Assets:Cash\n" }
         }
-        _ = time("pre-commit check", max: 30) { reviewChange(before: L, after: after) }
-        _ = time("income statement", max: 15) { incomeStatement(L, from: "2024-01-01", to: "2024-12-31") }
-        _ = time("balance sheet", max: 15) { balanceSheet(L, at: nil) }
-        _ = time("net worth series", max: 30) { netWorthSeries(L, today: "2025-01-01") }
-        _ = time("reconcile", max: 15) { reconcileDue(L, today: "2025-01-01") }
-        _ = try time("BQL group by", max: 30) {
+        _ = time("pre-commit check", max: 3) { reviewChange(before: L, after: after) }
+        _ = time("income statement", max: 2) { incomeStatement(L, from: "2024-01-01", to: "2024-12-31") }
+        _ = time("balance sheet", max: 2) { balanceSheet(L, at: nil) }
+        _ = time("net worth series", max: 3) { netWorthSeries(L, today: "2025-01-01") }
+        _ = time("reconcile", max: 2) { reconcileDue(L, today: "2025-01-01") }
+        _ = try time("BQL group by", max: 3) {
             try runQuery("SELECT account, sum(position) WHERE account ~ '^Expenses' GROUP BY account ORDER BY account", L)
         }
-        _ = time("CSV export", max: 15) { exportCSV(L) }
-        _ = time("link check", max: 30) { linkIssues(L, subscriptions: subscriptions(L)) }
+        _ = time("CSV export", max: 4) { exportCSV(L) }
+        _ = time("link check", max: 3) { linkIssues(L, subscriptions: subscriptions(L)) }
     }
 
     func testExportCSV() {
