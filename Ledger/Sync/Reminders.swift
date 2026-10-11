@@ -87,18 +87,21 @@ enum Reminders {
             }
         }
 
-        // accounts not reconciled for a while
+        // balances to check against the bank: accounts with a statement / check day, in the evening of the day,
+        // and once more the next morning while some are still waiting
         if flag(balanceKey) {
-            let days = max(7, UserDefaults.standard.integer(forKey: balanceDaysKey) == 0 ? 30 : UserDefaults.standard.integer(forKey: balanceDaysKey))
-            var last: [String: String] = [:]
-            for b in L.balances { if let a = b.account, b.date > (last[a] ?? "") { last[a] = b.date } }
-            let cutoff = Day.shift(today, -days)
-            let stale = last.filter { a, d in
-                d < cutoff && (L.accounts[a]?.close == nil) && abs((L.final[a] ?? [:]).values.reduce(0, +)) > 0.005
-            }.keys.sorted()
-            if !stale.isEmpty {
-                add("balance." + today, LS("该核对余额了"),
-                    LS("%@ 个账户超过 %@ 天未做余额核对：%@", stale.count, days, stale.prefix(3).map(acctLabel).joined(separator: LS("、"))), next(hour: 10))
+            let cal = Calendar.current
+            var byDay: [String: [String]] = [:]
+            for (a, d) in nextCheckDays(L, today: today) { byDay[d, default: []].append(a) }
+            for (d, accts) in byDay {
+                guard let day = Day.date(d), let fire = cal.date(bySettingHour: 20, minute: 0, second: 0, of: day), fire > Date() else { continue }
+                add("check." + d, LS("今天核对余额"), LS("%@：对照银行 App 确认余额后写入断言", accts.map { accountTitle(L, $0) }.joined(separator: LS("、"))),
+                    cal.dateComponents([.year, .month, .day, .hour, .minute], from: fire), tab: "overview")
+            }
+            let due = reconcileDue(L, today: today)
+            if !due.isEmpty {
+                add("due." + today, LS("有余额待核对"),
+                    LS("%@ 个账户待核对：%@", due.count, due.prefix(3).map { accountTitle(L, $0.account) }.joined(separator: LS("、"))), next(hour: 10), tab: "overview")
             }
         }
 
@@ -170,7 +173,6 @@ struct RemindersSection: View {
     @AppStorage(Reminders.enabledKey) private var on = false
     @AppStorage(Reminders.fixedKey) private var fixed = true
     @AppStorage(Reminders.balanceKey) private var balance = true
-    @AppStorage(Reminders.balanceDaysKey) private var balanceDays = 30
     @AppStorage(Reminders.budgetKey) private var budget = true
     @AppStorage(Reminders.subsKey) private var subs = true
     @AppStorage(Reminders.forecastKey) private var forecastWarn = true
@@ -188,7 +190,6 @@ struct RemindersSection: View {
             })) { Label(LS("本地提醒"), systemImage: "bell.badge") }
             .onChange(of: subsDays) { _, _ in Task { await Reminders.reschedule(store) } }
             .onChange(of: [fixed, balance, budget, subs, forecastWarn]) { _, _ in Task { await Reminders.reschedule(store) } }
-            .onChange(of: balanceDays) { _, _ in Task { await Reminders.reschedule(store) } }
             .onChange(of: cards) { _, _ in Task { await Reminders.reschedule(store) } }
             .onAppear { cards = Reminders.cardDays(store) }
             if on {
@@ -199,10 +200,7 @@ struct RemindersSection: View {
                 if subs {
                     Stepper(LS("提前 %@ 天", subsDays), value: $subsDays, in: 0...14)
                 }
-                Toggle(LS("长期未做余额核对"), isOn: $balance)
-                if balance {
-                    Stepper(LS("超过 %@ 天", balanceDays), value: $balanceDays, in: 7...180, step: 7)
-                }
+                Toggle(LS("账单日 / 核对日核对余额"), isOn: $balance)
                 ForEach(cardAccounts, id: \.self) { a in
                     Picker(LS("%@ 还款日", acctLabel(a)), selection: Binding(get: { cards[a] ?? 0 }, set: { cards[a] = $0; Reminders.setCardDays(cards, store) })) {
                         Text(LS("不提醒")).tag(0)
@@ -213,7 +211,7 @@ struct RemindersSection: View {
         } header: {
             Text(LS("提醒"))
         } footer: {
-            Text(LS("提醒在本机生成，每次打开 App 或同步后按最新账本重新安排。在「编辑账户」中为信用卡设置账单日和还款日后，会按账单金额提醒还款，提前天数与订阅相同。"))
+            Text(LS("提醒在本机生成，每次打开 App 或同步后按最新账本重新安排。在「编辑账户」中为信用卡设置账单日和还款日后，会按账单金额提醒还款，提前天数与订阅相同；为账户设置账单日或核对日后，当天晚上提醒核对余额。"))
         }
     }
 

@@ -30,6 +30,7 @@ struct OverviewView: View {
             .subscriptionDestinations()
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
             .navigationDestination(for: ErrorsDest.self) { _ in ErrorsView() }
+            .navigationDestination(for: ReconcileDest.self) { _ in ReconcileView() }
             .navigationDestination(for: BudgetsDest.self) { _ in BudgetsView() }
             .navigationDestination(for: SubscriptionsDest.self) { _ in SubscriptionsView() }
             .navigationDestination(for: ForecastDest.self) { _ in ForecastView() }
@@ -100,6 +101,7 @@ struct OverviewView: View {
         return ScrollViewReader { proxy in
         List {
             heroSection(s)
+            ReconcileBanner()
             chartSection(s, D)
             budgetSection(s, L)
             CardDueSection(L: L).id("cards")
