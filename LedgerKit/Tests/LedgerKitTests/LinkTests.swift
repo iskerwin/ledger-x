@@ -131,6 +131,29 @@ final class LinkTests: XCTestCase {
         XCTAssertEqual(figs.map { $0.value }, [54.57, 8.23, 46.34])
     }
 
+    func testSalaryNettedAgainstReimbursement() {
+        // the company keeps an overpaid salary out of a reimbursement: only the reimbursement counts here
+        let L = ledger(base + """
+        2023-01-01 open Assets:Receivable:Employer CNY
+        2023-01-01 open Income:Salary CNY
+        2025-10-01 * "Taxi" "" #reimbursed ^reimburse-x
+          Assets:Receivable:Reimbursement  382.50 CNY
+          Assets:Bank
+        2025-10-28 * "Co" "salary" ^salary-co-202509
+          Income:Salary  -6000.00 CNY
+          Assets:Receivable:Employer  -2500.00 CNY
+          Assets:Bank  8500.00 CNY
+        2025-10-31 * "Co" "overpaid back, net of reimbursement" #reimbursement ^reimburse-x ^salary-co-202509
+          Assets:Receivable:Employer  2500.00 CNY
+          Assets:Receivable:Reimbursement  -382.50 CNY
+          Assets:Bank  -2117.50 CNY
+
+        """)
+        XCTAssertTrue(linkIssues(L, subscriptions: []).isEmpty, "\(linkIssues(L, subscriptions: []).map { $0.kind })")
+        // and the reimbursement is not shown as still open
+        XCTAssertTrue(Derived(L, today: "2025-11-01").openLinks.isEmpty)
+    }
+
     func testRefundLinkName() {
         let L = ledger(base + """
         2025-09-02 * "优衣库" "羽绒服"

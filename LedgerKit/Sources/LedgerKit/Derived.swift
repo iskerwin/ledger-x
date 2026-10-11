@@ -259,7 +259,7 @@ public final class Derived: @unchecked Sendable {
         var linkOrder: [String] = []
         for t in L.txns {
             for l in t.links {
-                for p in t.postings where p.account.hasPrefix("Assets:Receivable") {
+                for p in t.postings where p.account.hasPrefix("Assets:Receivable") && !isSalaryClearing(p.account) {
                     if linkSum[l] == nil { linkOrder.append(l) }
                     linkSum[l, default: 0] += p.units ?? 0
                     linkC[l] = p.currency

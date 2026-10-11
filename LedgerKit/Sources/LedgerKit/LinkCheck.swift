@@ -83,13 +83,18 @@ func expenseValue(_ t: Entry, _ L: Ledger) -> Double {
 
 func receivableValues(_ t: Entry, _ L: Ledger) -> (plus: Double, minus: Double) {
     var plus = 0.0, minus = 0.0
-    for p in t.postings where p.account.hasPrefix("Assets:Receivable") {
+    // the company's salary clearing account settles with its own ^salary-… links, even when a payout
+    // nets it against a reimbursement in the same transaction
+    for p in t.postings where p.account.hasPrefix("Assets:Receivable") && !isSalaryClearing(p.account) {
         guard let u = p.units, let c = p.currency else { continue }
         let v = toCNY(L, u, c, t.date) ?? 0
         if v > 0 { plus += v } else { minus -= v }
     }
     return (plus, minus)
 }
+
+/// Assets:Receivable:Employer (公司往来): salary paid short or over, not a reimbursement advance
+public func isSalaryClearing(_ a: String) -> Bool { a == "Assets:Receivable:Employer" || a.hasPrefix("Assets:Receivable:Employer:") }
 
 /// money accounts (where it was paid from / back to), as opposed to what it was for
 func isFunding(_ a: String) -> Bool {
