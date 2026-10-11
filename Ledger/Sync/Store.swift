@@ -91,11 +91,6 @@ final class Store: ObservableObject {
     @Published var defaultFunding: String? { didSet { Prefs.set("defaultFunding", defaultFunding) } }
     /// currency of new expenses / income / refunds; nil = the paying account's own currency
     @Published var defaultCurrency: String? { didSet { Prefs.set("defaultCurrency", defaultCurrency) } }
-    /// how assertions dated after today (the current balance) follow new entries:
-    /// "later" = updated with the entry, checked against the bank in one go later; "each" = confirmed with every entry
-    @Published var runningMode = "later" { didSet { Prefs.set("runningMode", runningMode) } }
-    /// accounts whose current-balance assertion was updated without checking it against the bank
-    @Published private(set) var toVerify: [BalanceToVerify] = []
     /// changes made from this device, newest first, so they can be taken back
     @Published private(set) var history: [ChangeRecord] = []
     @Published var explicitAmounts: Bool { didSet { Prefs.set("explicit", explicitAmounts) } }
@@ -177,8 +172,6 @@ final class Store: ObservableObject {
         defaultFunding = Prefs.get("defaultFunding", String?.none)
         defaultCurrency = Prefs.get("defaultCurrency", String?.none)
         history = Prefs.get(Store.key("history", id), [ChangeRecord]())
-        toVerify = Prefs.get(Store.key("toVerify", id), [BalanceToVerify]())
-        runningMode = Prefs.get("runningMode", "later")
         explicitAmounts = Prefs.get("explicit", true)
         mainFile = Prefs.get(Store.key("mainFile", id), "")
         journalPattern = Prefs.get(Store.key("journalPattern", id), "")
@@ -227,7 +220,6 @@ final class Store: ObservableObject {
         L = nil; D = nil; ci = nil; ledgerQueries = []; loadError = nil
         pending = Prefs.get(pk("pending"), [Op]())
         history = Prefs.get(pk("history"), [ChangeRecord]())
-        toVerify = Prefs.get(pk("toVerify"), [BalanceToVerify]())
         tree = Prefs.get(pk("tree"), RepoTree?.none)
         lastSync = Prefs.get(pk("lastSync"), Date?.none)
         ci = Prefs.get(pk("ci"), GitHub.CI?.none)
@@ -481,69 +473,25 @@ final class Store: ObservableObject {
 
     /// build the ledger with `ops` applied and ask the user about anything the change would break.
     /// Returns the ops to commit (marked `held` when kept on this device), or nil to go back and edit.
-    func review(_ ops0: [Op]) async -> [Op]? {
-        var ops = ops0
-        // assertions dated after today hold the balance as it is now; they are written in the same commit,
-        // either following the entry (checked against the bank later) or confirmed right away.
-        // An assertion the change itself rewrites is left as written.
-        let running = await runningBalances(for: ops).filter { r in
-            !ops.contains { $0.kind == .balance && $0.account == r.account && $0.date == r.date && $0.currency == r.currency }
-        }
-        var followed: [BalanceToVerify] = []
-        if !running.isEmpty {
-            if runningMode == "each" {
-                guard let amounts = await RunningReview.ask(running) else { return nil }
-                ops += running.map { runningBalanceOp($0, amount: amounts[$0.id] ?? $0.computed) }
-            } else {
-                ops += running.map { runningBalanceOp($0, amount: $0.computed) }
-                followed = running.map { BalanceToVerify(account: $0.account, currency: $0.currency) }
-            }
-        }
-        // assertions written by hand count as checked; ones that followed the entry wait for a check
-        func done(_ out: [Op]) -> [Op] {
-            let written = Set(ops0.filter { $0.kind == .balance }.map { BalanceToVerify(account: $0.account ?? "", currency: $0.currency ?? "") })
-            var list = toVerify.filter { !written.contains($0) }
-            for f in followed where !list.contains(f) { list.append(f) }
-            if list != toVerify { toVerify = list; Prefs.set(pk("toVerify"), list) }
-            return out
-        }
+    func review(_ ops: [Op]) async -> [Op]? {
         // held changes that pass together with this one go out with it, in the same commit
         let heldGroups = Set(pending.compactMap { $0.held != nil ? $0.heldGroup : nil })
         if !heldGroups.isEmpty, await issues(for: pending.filter { $0.held != nil } + ops).isEmpty {
             var out = ops
             if !out.isEmpty { out[0].releases = Array(heldGroups) }
-            return done(out)
+            return out
         }
         let issues = await issues(for: ops)
-        if issues.isEmpty { return done(ops) }
+        if issues.isEmpty { return ops }
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
         switch await ChangeReview.ask(issues) {
         case .edit: return nil
-        case .force: return done(ops)
+        case .force: return ops
         case .hold:
             let why = LS("已暂存在本机：") + (issues.first?.title ?? "")
             let group = UUID()
-            return done(ops.map { var o = $0; o.held = why; o.heldGroup = group; return o })
+            return ops.map { var o = $0; o.held = why; o.heldGroup = group; return o }
         }
-    }
-
-    /// for changes made without asking (Shortcuts): current-balance assertions follow the entry and wait
-    /// for a check; nil when they should be confirmed in the app instead
-    func followRunning(_ ops0: [Op]) async -> [Op]? {
-        let running = await runningBalances(for: ops0)
-        if running.isEmpty { return ops0 }
-        if runningMode == "each" { return nil }
-        for r in running where !toVerify.contains(BalanceToVerify(account: r.account, currency: r.currency)) {
-            toVerify.append(BalanceToVerify(account: r.account, currency: r.currency))
-        }
-        Prefs.set(pk("toVerify"), toVerify)
-        return ops0 + running.map { runningBalanceOp($0, amount: $0.computed) }
-    }
-
-    /// the bank showed the same balance: nothing to write
-    func markVerified(_ items: [BalanceToVerify]) {
-        toVerify.removeAll { items.contains($0) }
-        Prefs.set(pk("toVerify"), toVerify)
     }
 
     /// What the pre-commit check finds for `ops`, without asking anything. It compares the ledger as it
@@ -561,22 +509,6 @@ final class Store: ObservableObject {
             let a = Store.loadWith(files: files, main: main, ops: after)
             if a.txns.isEmpty && a.files.isEmpty { return [] }
             return reviewChange(before: b, after: a)
-        }.value
-    }
-
-    /// assertions dated after today that `ops` would move (see `RunningBalance`)
-    func runningBalances(for ops: [Op]) async -> [RunningBalance] {
-        guard let tree = tree, !ops.isEmpty, !ops.allSatisfy({ $0.kind == .rename }) else { return [] }
-        let files = tree.files, main = self.main
-        let base = pending.filter { $0.failed == nil && $0.held == nil }
-        let mine = Set(ops.map { $0.id })
-        let after = base.filter { !mine.contains($0.id) } + ops.map { var o = $0; o.held = nil; return o }
-        let today = Day.today()
-        return await Task.detached(priority: .userInitiated) {
-            let b = Store.loadWith(files: files, main: main, ops: base)
-            let a = Store.loadWith(files: files, main: main, ops: after)
-            if a.txns.isEmpty && a.files.isEmpty { return [] }
-            return LedgerKit.runningBalances(before: b, after: a, today: today)
         }.value
     }
 
