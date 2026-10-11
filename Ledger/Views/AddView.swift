@@ -182,7 +182,18 @@ struct AddView: View {
         if k == .multi && !d.rows.contains(where: { !$0.account.isEmpty }) {
             d.rows = [DraftRow(), DraftRow(account: d.funding, currency: D.acctCcy[d.funding] ?? "CNY")]
         }
+        // an expense category left over from the previous form would turn income into a negative expense
+        if !Self.fits(k, d.account) { d.account = "" }
         store.draft = d
+    }
+
+    /// whether a category suits the kind of entry (income needs Income:, an expense Expenses:)
+    static func fits(_ k: DraftKind, _ account: String) -> Bool {
+        switch k {
+        case .income: return account.isEmpty || account.hasPrefix("Income:")
+        case .expense: return account.isEmpty || account.hasPrefix("Expenses:")
+        default: return true
+        }
     }
 
     private func applyPayee(_ name: String, _ D: Derived) {
@@ -197,6 +208,7 @@ struct AddView: View {
                 let cat = t.postings.first { $0.account.hasPrefix(d.kind == .income ? "Income:" : "Expenses:") }
                 let fund = t.postings.first { $0.account.hasPrefix("Assets:") || $0.account.hasPrefix("Liabilities:") }
                 if let cat = cat { d.account = cat.account; d.currency = cat.currency ?? d.currency }
+                else if !Self.fits(d.kind, d.account) { d.account = "" }
                 if let fund = fund, !fund.account.hasPrefix("Assets:Receivable") { d.funding = fund.account }
             }
         }
