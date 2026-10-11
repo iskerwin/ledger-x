@@ -63,7 +63,9 @@ public struct Share: Equatable, Identifiable {
     public var id = UUID()
     public var account: String
     public var amount: String
-    public init(account: String, amount: String = "") { self.account = account; self.amount = amount }
+    /// the name to open the account with, for someone new
+    public var name: String
+    public init(account: String, amount: String = "", name: String = "") { self.account = account; self.amount = amount; self.name = name }
 }
 
 public struct RefundOf: Equatable {
@@ -259,8 +261,20 @@ public func draftText(_ d: Draft, _ L: Ledger, _ D: Derived, explicit: Bool = tr
         return text
     }
     guard let tx = draftTx(d, L, D) else { return "" }
-    return formatTxn(tx)
+    // someone new in an AA split: their account is opened with the expense
+    var seen = Set<String>()
+    let opens = newShareAccounts(d, L).filter { seen.insert($0.account).inserted }.map { openLine($0.account, date: d.date, name: $0.name) }
+    return (opens + [formatTxn(tx)]).joined(separator: "\n\n")
 }
+
+/// AA parts for people the ledger has no account for yet
+public func newShareAccounts(_ d: Draft, _ L: Ledger) -> [Share] {
+    guard d.kind == .expense, !d.reimb, d.split else { return [] }
+    return d.shares.filter { !$0.account.isEmpty && (L.accounts[$0.account] == nil || L.accounts[$0.account]!.implicit) }
+}
+
+/// the form's text is exactly one transaction (not when it also opens accounts for someone new)
+public func draftIsSingle(_ d: Draft, _ L: Ledger) -> Bool { d.kind != .raw && newShareAccounts(d, L).isEmpty }
 
 // MARK: - validation & where things go
 

@@ -26,11 +26,27 @@ public func validAccountPart(_ s: String) -> Bool {
     s.range(of: #"^[A-Z0-9][A-Za-z0-9\-]*$"#, options: .regularExpression) != nil
 }
 
-/// a likely account part for a name typed by hand: "wang wu" → "WangWu"; nil when nothing usable is left
+/// a likely account part for a name: "五姨" → "WuYi", "王五" → "WangWu", "wang wu" → "WangWu";
+/// nil when nothing usable is left
 public func accountPart(from s: String) -> String? {
-    let words = s.components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
-    let ascii = words.map { w in String(w.unicodeScalars.filter { $0.isASCII }.map(Character.init)) }.filter { !$0.isEmpty }
-    let joined = ascii.map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined()
+    var parts: [String] = [], word = ""
+    func flush() { if !word.isEmpty { parts.append(word); word = "" } }
+    for ch in s.trimmingCharacters(in: .whitespaces) {
+        guard let u = ch.unicodeScalars.first else { continue }
+        if isHan(u) {
+            flush()
+            var py = String(ch).applyingTransform(.toLatin, reverse: false) ?? ""
+            py = (py.applyingTransform(.stripDiacritics, reverse: false) ?? py).lowercased()
+            py = String(py.unicodeScalars.filter { $0.isASCII && CharacterSet.alphanumerics.contains($0) }.map(Character.init))
+            if !py.isEmpty { parts.append(py) }
+        } else if u.isASCII && CharacterSet.alphanumerics.contains(u) {
+            word.append(ch)
+        } else {
+            flush()
+        }
+    }
+    flush()
+    let joined = parts.map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined()
     return validAccountPart(joined) ? joined : nil
 }
 
