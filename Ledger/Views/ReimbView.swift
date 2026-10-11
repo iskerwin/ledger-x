@@ -54,7 +54,8 @@ struct ReimbSheet: View {
         return newLink("reimburse", payee: payee.trimmed.isEmpty ? "work" : payee.trimmed, date: date, taken: Set(store.D?.allLinks ?? []))
     }
     private func got(_ D: Derived) -> Double? { amount.trimmed.isEmpty ? owed(D) : evalAmount(amount) }
-    private func shortfall(_ L: Ledger) -> String { L.accounts["Expenses:Unreimbursed"] != nil ? "Expenses:Unreimbursed" : "Expenses:Miscellaneous" }
+    /// the difference between what came back and what was advanced, either way (报销差额)
+    private func shortfall(_ L: Ledger) -> String { "Income:ReimbExcess" }
 
     private func past(_ L: Ledger) -> [Entry] { L.txns.filter { $0.tags.contains("reimbursement") } }
     private func payeeChoices(_ L: Ledger) -> [String] {
