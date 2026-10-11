@@ -33,6 +33,12 @@ struct ReportsView: View {
                     NavigationLink(value: SubscriptionsDest()) {
                         ReportRow(symbol: "repeat", color: .indigo, title: LS("订阅管理"), detail: LS("周期扣费、到期提醒与一键入账"))
                     }
+                    NavigationLink(value: EventsDest()) {
+                        ReportRow(symbol: "flag", color: .pink, title: LS("事件"), detail: LS("出差、旅行等按 #标签汇总的花费"))
+                    }
+                    NavigationLink(value: AlertsDest()) {
+                        ReportRow(symbol: "exclamationmark.triangle", color: .orange, title: LS("值得留意"), detail: LS("重复扣款、大额支出、分类超常、订阅调价"))
+                    }
                 } header: {
                     Text(LS("财务报表"))
                 }
@@ -91,6 +97,9 @@ struct ReportsView: View {
             .navigationDestination(for: BudgetsDest.self) { _ in BudgetsView() }
             .navigationDestination(for: SubscriptionsDest.self) { _ in SubscriptionsView() }
             .navigationDestination(for: ForecastDest.self) { _ in ForecastView() }
+            .navigationDestination(for: EventsDest.self) { _ in EventsView() }
+            .navigationDestination(for: EventDest.self) { EventDetailView(tag: $0.tag) }
+            .navigationDestination(for: AlertsDest.self) { _ in AlertsView() }
             .navigationDestination(for: QueryDest.self) { QueryEditorView(initial: $0.query) }
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name) }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0) }

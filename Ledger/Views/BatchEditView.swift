@@ -20,6 +20,8 @@ struct BatchEditSheet: View {
     let entries: [Entry]
     @State var mode: BatchMode
     var done: () -> Void = {}
+    /// a tag or link to start with
+    var initialWord = ""
     @State private var from = ""
     @State private var to = ""
     @State private var word = ""
@@ -107,7 +109,10 @@ struct BatchEditSheet: View {
             .sheet(isPresented: $picking) {
                 AccountPicker(title: LS("新科目"), prefixes: ["Expenses:", "Income:", "Assets:", "Liabilities:", "Equity:"], current: to, allowAny: true) { to = $0 }
             }
-            .onAppear { if from.isEmpty { from = accounts.first { $0.hasPrefix("Expenses:") } ?? "" } }
+            .onAppear {
+                if from.isEmpty { from = accounts.first { $0.hasPrefix("Expenses:") } ?? "" }
+                if word.isEmpty { word = initialWord }
+            }
         }
     }
 

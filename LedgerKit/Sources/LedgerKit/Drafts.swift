@@ -96,6 +96,10 @@ public struct Draft: Equatable {
     public var tagsText = ""
     public var rows: [DraftRow] = [DraftRow(), DraftRow()]
     public var raw = ""
+    /// tags of the events this entry belongs to (#tag on the transaction; not on transfers)
+    public var events: [String] = []
+    /// the events were picked by hand: don't follow the date any more
+    public var eventsTouched = false
     /// AA: split this expense with others
     public var split = false
     /// AA: the others' parts of an expense (your part is what is left)
@@ -135,6 +139,7 @@ func multiTx(_ d: Draft, _ L: Ledger) -> TxDraft? {
     tx.payee = d.payee.trimmingCharacters(in: .whitespaces)
     tx.narration = d.narration.trimmingCharacters(in: .whitespaces)
     tx.tags = tl.tags; tx.links = tl.links
+    for e in d.events where !tx.tags.contains(e) { tx.tags.append(e) }
     tx.postings = rows.map { r in
         let a = r.amount.trimmingCharacters(in: .whitespaces)
         var units: String? = nil
@@ -195,6 +200,7 @@ func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
         return tx
     }
     guard !d.account.isEmpty, !d.funding.isEmpty else { return nil }
+    for e in d.events where !tx.tags.contains(e) { tx.tags.append(e) }
     let sgn: Double = d.kind == .expense ? 1 : -1 // income & refund reduce the category
     let fc = D.acctCcy[d.funding] ?? d.currency
     var catAccount = d.account

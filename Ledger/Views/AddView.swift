@@ -76,6 +76,7 @@ struct AddView: View {
             case .raw: EmptyView()
             default: simpleSection(d, L, D)
             }
+            if d.kind != .transfer && d.kind != .raw { eventSection(d, L) }
             previewSection(text, v, L)
             Section {
                 Button {
@@ -97,6 +98,16 @@ struct AddView: View {
         .scrollDismissesKeyboard(.interactively)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) { keyboardBar }
+        }
+        // new entries follow the events of their day until picked by hand
+        .onChange(of: d.date) { _, day in
+            if !store.draft.eventsTouched { store.draft.events = store.autoEvents(on: day); store.draft.edited = nil }
+        }
+        .onAppear {
+            if !store.draft.eventsTouched && store.draft.events.isEmpty && store.draft.edited == nil {
+                let auto = store.autoEvents(on: store.draft.date)
+                if !auto.isEmpty { store.draft.events = auto }
+            }
         }
         .confirmationDialog(LS("同一天已有余额断言"), isPresented: $showOverwrite, titleVisibility: .visible) {
             Button(LS("覆盖 %@ 条断言", confirmOverwrite.count), role: .destructive) { Task { await saveRaw(L, overwriteOK: true) } }
@@ -466,6 +477,33 @@ struct AddView: View {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    // MARK: events
+
+    /// the events of the entry's day (and any already picked): tap to add or remove the tag
+    @ViewBuilder
+    private func eventSection(_ d: Draft, _ L: Ledger) -> some View {
+        let evs = ledgerEvents(L, today: d.date).filter { ($0.entry != nil && $0.covers(d.date)) || d.events.contains($0.tag) }
+        if !evs.isEmpty {
+            Section {
+                ChipRow {
+                    ForEach(evs) { e in
+                        Chip(label: e.title, selected: d.events.contains(e.tag)) {
+                            var x = store.draft
+                            if let i = x.events.firstIndex(of: e.tag) { x.events.remove(at: i) } else { x.events.append(e.tag) }
+                            x.eventsTouched = true
+                            x.edited = nil
+                            store.draft = x
+                        }
+                    }
+                }
+            } header: {
+                Text(LS("事件"))
+            } footer: {
+                Text(LS("选中的事件以 #标签 记在这笔交易上，事件页按标签汇总花费。"))
             }
         }
     }

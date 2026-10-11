@@ -35,6 +35,9 @@ struct OverviewView: View {
             .navigationDestination(for: SubscriptionsDest.self) { _ in SubscriptionsView() }
             .navigationDestination(for: ForecastDest.self) { _ in ForecastView() }
             .navigationDestination(for: CounterpartyDest.self) { _ in CounterpartyView() }
+            .navigationDestination(for: EventsDest.self) { _ in EventsView() }
+            .navigationDestination(for: EventDest.self) { EventDetailView(tag: $0.tag) }
+            .navigationDestination(for: AlertsDest.self) { _ in AlertsView() }
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         // 设置 → 账本检查 opens the check here, where every problem can be opened and fixed
@@ -103,6 +106,8 @@ struct OverviewView: View {
         List {
             heroSection(s)
             ReconcileBanner()
+            AlertsOverviewSection()
+            EventsOverviewSection(L: L)
             chartSection(s, D)
             budgetSection(s, L)
             CardDueSection(L: L).id("cards")
