@@ -222,6 +222,11 @@ struct AccountEditView: View {
                 }
             }
             if acctName.hasPrefix("Assets:") {
+                // the same statement_day: on this day the balance is checked against the bank
+                Picker(LS("核对日"), selection: $statementDay) {
+                    Text(LS("不核对")).tag(0)
+                    ForEach(1...31, id: \.self) { Text(LS("每月 %@ 日", $0)).tag($0) }
+                }
                 Toggle(LS("允许负余额"), isOn: $allowNegative)
             }
             MonoText(text: openText(L))
@@ -237,7 +242,8 @@ struct AccountEditView: View {
         } header: {
             Text(isNew ? LS("新账户") : LS("开户信息"))
         } footer: {
-            Text(isNew ? LS("写入开户指令最多的文件。显示名称保存为 name 元数据，App 会显示在账户名旁边。") : LS("修改会直接替换原来的 open 指令，保留其他元数据。"))
+            Text((isNew ? LS("写入开户指令最多的文件。显示名称保存为 name 元数据，App 会显示在账户名旁边。") : LS("修改会直接替换原来的 open 指令，保留其他元数据。"))
+                 + " " + LS("设置了账单日或核对日的账户，每月这一天提醒对照银行核对余额，确认后写入余额断言；不设置则不核对。"))
         }
     }
 
@@ -282,7 +288,7 @@ struct AccountEditView: View {
         if n.hasPrefix("Liabilities:"), let v = Double(limit), v > 0 { lines.insert("  \(creditLimitKey): \(jsNumberString(v))", at: 1) }
         if n.hasPrefix("Assets:"), allowNegative { lines.insert("  \(allowNegativeKey): TRUE", at: 1) }
         if n.hasPrefix("Liabilities:"), dueDay > 0 { lines.insert("  \(dueDayKey): \(dueDay)", at: 1) }
-        if n.hasPrefix("Liabilities:"), statementDay > 0 { lines.insert("  \(statementDayKey): \(statementDay)", at: 1) }
+        if n.hasPrefix("Liabilities:") || n.hasPrefix("Assets:"), statementDay > 0 { lines.insert("  \(statementDayKey): \(statementDay)", at: 1) }
         if !display.trimmed.isEmpty {
             lines.insert("  name: \"\(display.trimmed.replacingOccurrences(of: "\"", with: "'"))\"", at: 1)
         }

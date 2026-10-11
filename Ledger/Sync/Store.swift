@@ -591,7 +591,10 @@ final class Store: ObservableObject {
         else { show(shown) }
         let gen = UIImpactFeedbackGenerator(style: .light)
         gen.impactOccurred()
+        let shownID = toast?.id
         await rebuild()
+        // the balances of the accounts the change touched, to compare with the bank app at a glance
+        if let note = balanceNote(ops), let t = toast, t.id == shownID { toast?.text = t.text + "\n" + note }
         if subNames.isEmpty { suggestSubscription(after: ops) }
         await syncNow()
         return true
@@ -839,6 +842,40 @@ final class Store: ObservableObject {
     func entryCurrency(_ kind: DraftKind, funding: String) -> String {
         if kind != .transfer && kind != .multi, let c = defaultCurrency { return c }
         return D?.acctCcy[funding] ?? defaultCurrency ?? L?.base ?? "CNY"
+    }
+
+    /// "中国银行 285.83 · 支付宝 5.93": balances of the asset / liability accounts that `ops` touch
+    func balanceNote(_ ops: [Op]) -> String? {
+        guard let L = L, let re = try? NSRegularExpression(pattern: "(?<![\\w:])(Assets|Liabilities):[\\p{L}\\p{N}:_-]+") else { return nil }
+        var accts: [String] = []
+        for o in ops where o.kind == .insert || o.kind == .replace || o.kind == .remove {
+            for t in [o.text ?? "", o.old ?? ""] {
+                let ns = t as NSString
+                for m in re.matches(in: t, range: NSRange(location: 0, length: ns.length)) {
+                    let a = ns.substring(with: m.range)
+                    if L.accounts[a] != nil, !accts.contains(a) { accts.append(a) }
+                }
+            }
+        }
+        let parts: [String] = accts.prefix(3).compactMap { a in
+            let cs = (L.final[a] ?? [:]).filter { abs($0.value) >= 0.005 }.sorted { $0.key < $1.key }
+            let v = cs.isEmpty ? money(0, L.accounts[a]?.currencies.first ?? L.base) : cs.map { money($0.value, $0.key) }.joined(separator: " / ")
+            return accountTitle(L, a) + " " + v
+        }
+        return parts.isEmpty ? nil : LS("余额：") + parts.joined(separator: " · ")
+    }
+
+    /// write the checked balances (one assertion per account, the day after its statement / check day)
+    @discardableResult
+    func reconcile(_ items: [(ReconcileDue, Double)]) async -> Bool {
+        guard L != nil, !items.isEmpty else { return false }
+        let text = items.map { balanceLine($0.0.date, $0.0.account, $0.1, $0.0.currency) }.joined(separator: "\n")
+        guard var ops = makeOps(text, single: false) else { return false }
+        if let i = ops.firstIndex(where: { $0.kind == .balance }) {
+            ops[i].label = items.count == 1 ? LS("核对余额：%@ %@", items[0].0.account, items[0].0.day) : LS("核对 %@ 个账户的余额", items.count)
+            for k in ops.indices where k != i { ops[k].silent = true }
+        }
+        return await commit(ops, word: LS("已写入余额断言"))
     }
 
     // MARK: - undo

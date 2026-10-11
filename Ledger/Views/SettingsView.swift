@@ -128,7 +128,9 @@ struct SettingsView: View {
                     .buttonStyle(.plain)
                     LabeledContent(LS("交易"), value: LS("%@ 笔", L.txns.count))
                     LabeledContent(LS("余额断言"), value: "\(L.balanceResults.filter { $0.ok }.count)/\(L.balanceResults.count)")
-                    LabeledContent(LS("文件"), value: LS("%@ 个", L.files.count))
+                    NavigationLink { SourceFilesView() } label: {
+                        LabeledContent(LS("源文件"), value: LS("%@ 个", L.files.count))
+                    }
                     if store.cfg.kind == .github { CIRow() }
                     if let u = store.backend.repoURL { Link(LS("在网页中打开仓库"), destination: u) }
                     Button(LS("清除缓存并重新下载"), role: .destructive) { confirmReset = true }
