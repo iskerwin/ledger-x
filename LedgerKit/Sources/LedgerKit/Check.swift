@@ -30,6 +30,15 @@ public struct RunningBalance: Identifiable, Equatable {
     /// the balance once the change is made
     public let computed: Double
     public var id: String { date + "|" + account + "|" + currency }
+
+    /// the assertion of a balance result, as a running balance whose new amount is `computed`
+    public init(_ r: BalanceResult, computed: Double? = nil) {
+        let e = r.entry
+        account = e.account ?? ""; currency = e.currency ?? ""; date = e.date; file = e.file
+        line = e.src.components(separatedBy: "\n").first ?? ""
+        asserted = e.number
+        self.computed = computed ?? r.got
+    }
 }
 
 private func balanceKey(_ r: BalanceResult) -> String { "\(r.entry.date)|\(r.entry.account ?? "")|\(r.entry.currency ?? "")" }
@@ -37,11 +46,21 @@ private func balanceKey(_ r: BalanceResult) -> String { "\(r.entry.date)|\(r.ent
 /// future-dated assertions that held before the change and fail after it
 public func runningBalances(before: Ledger, after: Ledger, today: String) -> [RunningBalance] {
     let failedBefore = Set(before.balanceResults.filter { !$0.ok }.map(balanceKey))
-    return after.balanceResults.filter { !$0.ok && $0.entry.date > today && !failedBefore.contains(balanceKey($0)) }.map { r in
-        let e = r.entry
-        return RunningBalance(account: e.account ?? "", currency: e.currency ?? "", date: e.date, file: e.file,
-                              line: e.src.components(separatedBy: "\n").first ?? "", asserted: e.number, computed: r.got)
-    }
+    return after.balanceResults.filter { !$0.ok && $0.entry.date > today && !failedBefore.contains(balanceKey($0)) }.map { RunningBalance($0) }
+}
+
+/// an account whose current-balance assertion followed new entries and still needs checking against the bank
+public struct BalanceToVerify: Codable, Hashable, Identifiable {
+    public let account: String
+    public let currency: String
+    public var id: String { account + "|" + currency }
+    public init(account: String, currency: String) { self.account = account; self.currency = currency }
+}
+
+/// the assertion dated after `today` that holds an account's current balance (the earliest such one)
+public func currentBalanceAssertion(_ L: Ledger, _ v: BalanceToVerify, today: String) -> BalanceResult? {
+    L.balanceResults.filter { $0.entry.account == v.account && $0.entry.currency == v.currency && $0.entry.date > today }
+        .min { $0.entry.date < $1.entry.date }
 }
 
 /// the op that rewrites a running assertion with a new amount (a trailing comment is kept)
