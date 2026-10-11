@@ -810,6 +810,66 @@ final class Store: ObservableObject {
         }
     }
 
+    // MARK: - events and unusual spending
+
+    static let largeKey = "ledger.alerts.large"
+    static let autoEventsKey = "ledger.events.auto"
+    /// a single expense this large (base currency) is flagged; 0 = never
+    var largeExpense: Double { UserDefaults.standard.object(forKey: Store.largeKey) as? Double ?? 2000 }
+    /// new entries get the tags of the events going on that day
+    var autoEventTags: Bool { UserDefaults.standard.object(forKey: Store.autoEventsKey) as? Bool ?? true }
+    private var anomalyCache: (version: Int, large: Double, day: String, list: [Anomaly])?
+    /// bumped when an alert is dismissed, so views showing them refresh
+    @Published private(set) var alertsVersion = 0
+
+    var dismissedAlerts: Set<String> { Prefs.get(pk("alerts.dismissed"), Set<String>()) }
+
+    /// what looks unusual in the last month, without the ones dismissed
+    var anomalyList: [Anomaly] {
+        guard let L = L else { return [] }
+        let today = Day.today(), large = largeExpense
+        let all: [Anomaly]
+        if let c = anomalyCache, c.version == version, c.large == large, c.day == today { all = c.list }
+        else {
+            all = anomalies(L, today: today, settings: AnomalySettings(large: large))
+            anomalyCache = (version, large, today, all)
+        }
+        let gone = dismissedAlerts
+        return all.filter { !gone.contains($0.id) }
+    }
+
+    func dismissAlert(_ id: String) {
+        var s = dismissedAlerts
+        s.insert(id)
+        // only the ones that can still come up are worth keeping
+        let live = Set(anomalyCache?.list.map { $0.id } ?? [])
+        if s.count > 500 { s = s.filter { live.contains($0) } }
+        Prefs.set(pk("alerts.dismissed"), s)
+        alertsVersion += 1
+    }
+
+    /// alerts shown in the app aren't sent as a notification any more
+    func markAlertsSeen() {
+        Prefs.set(pk("alerts.seen"), Set(anomalyList.map { $0.id }).union(Prefs.get(pk("alerts.seen"), Set<String>())).filter { id in anomalyCache?.list.contains { $0.id == id } ?? true })
+    }
+
+    /// alerts not seen in the app yet
+    var unseenAlerts: [Anomaly] {
+        let seen = Prefs.get(pk("alerts.seen"), Set<String>())
+        return anomalyList.filter { !seen.contains($0.id) }
+    }
+
+    func restoreAlerts() {
+        Prefs.set(pk("alerts.dismissed"), Set<String>())
+        alertsVersion += 1
+    }
+
+    /// the tags a new entry dated `date` gets on its own
+    func autoEvents(on date: String) -> [String] {
+        guard autoEventTags, let L = L else { return [] }
+        return activeEvents(L, on: date).map { $0.tag }
+    }
+
     var templateList: [Template] {
         if let c = tplCache { return c }
         guard let L = L else { return [] }
@@ -836,7 +896,9 @@ final class Store: ObservableObject {
 
     func newDraftFor(_ kind: DraftKind) -> Draft {
         guard let D = D else { return Draft() }
-        return newDraft(kind, D, defaultFunding: defaultFunding, defaultCurrency: defaultCurrency)
+        var d = newDraft(kind, D, defaultFunding: defaultFunding, defaultCurrency: defaultCurrency)
+        if kind != .transfer && kind != .raw { d.events = autoEvents(on: d.date) }
+        return d
     }
 
     /// currency for a new entry paid from / into `funding`

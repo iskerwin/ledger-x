@@ -14,6 +14,7 @@ enum Reminders {
     static let subsKey = "ledger.remind.subs"
     static let subsDaysKey = "ledger.remind.subsDays"
     static let forecastKey = "ledger.remind.forecast"
+    static let alertsKey = "ledger.remind.alerts"
     static var subsDays: Int { UserDefaults.standard.object(forKey: subsDaysKey) as? Int ?? 3 }
     /// card account → repayment day of month (0 = none), per ledger
     static func cardDays(_ store: Store) -> [String: Int] { Prefs.get(store.pk("remind.cards"), [String: Int]()) }
@@ -75,6 +76,16 @@ enum Reminders {
             add("card." + acct, LS("信用卡还款日"),
                 owed > 0.005 ? LS("%@ 今天到期，账本中当前欠款 %@", acctLabel(acct), money(owed)) : LS("%@ 今天到期，记得还款并在 App 中入账", acctLabel(acct)),
                 dc, repeats: true)
+        }
+
+        // unusual spending not looked at in the app yet: one summary in the evening (titles only, no amounts)
+        if flag(alertsKey) {
+            let fresh = store.unseenAlerts
+            if let first = fresh.first {
+                add("alerts", LS("值得留意"),
+                    fresh.count == 1 ? first.title : LS("%@ 等 %@ 条", first.title, fresh.count),
+                    next(hour: 20), tab: "overview")
+            }
         }
 
         // fixed monthly transactions not recorded yet this month
@@ -177,6 +188,7 @@ struct RemindersSection: View {
     @AppStorage(Reminders.budgetKey) private var budget = true
     @AppStorage(Reminders.subsKey) private var subs = true
     @AppStorage(Reminders.forecastKey) private var forecastWarn = true
+    @AppStorage(Reminders.alertsKey) private var alerts = true
     @AppStorage(Reminders.subsDaysKey) private var subsDays = 3
     @State private var cards: [String: Int] = [:]
 
@@ -190,13 +202,14 @@ struct RemindersSection: View {
                 }
             })) { Label(LS("本地提醒"), systemImage: "bell.badge") }
             .onChange(of: subsDays) { _, _ in Task { await Reminders.reschedule(store) } }
-            .onChange(of: [fixed, balance, budget, subs, forecastWarn]) { _, _ in Task { await Reminders.reschedule(store) } }
+            .onChange(of: [fixed, balance, budget, subs, forecastWarn, alerts]) { _, _ in Task { await Reminders.reschedule(store) } }
             .onChange(of: cards) { _, _ in Task { await Reminders.reschedule(store) } }
             .onAppear { cards = Reminders.cardDays(store) }
             if on {
                 Toggle(LS("固定交易本月未入账"), isOn: $fixed)
                 Toggle(LS("预算超支"), isOn: $budget)
                 Toggle(LS("可用资金不足预警"), isOn: $forecastWarn)
+                Toggle(LS("值得留意（重复扣款、大额、分类超常、订阅调价）"), isOn: $alerts)
                 Toggle(LS("订阅扣费"), isOn: $subs)
                 if subs {
                     Stepper(LS("提前 %@ 天", subsDays), value: $subsDays, in: 0...14)

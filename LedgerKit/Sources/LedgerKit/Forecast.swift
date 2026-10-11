@@ -233,7 +233,7 @@ public func forecast(_ L: Ledger, today: String = Day.today(), days: Int = 90, i
                     events: events, dailySpend: daily, cardsWithoutCycle: noCycle)
 }
 
-func daysBetween(_ a: String, _ b: String) -> Int {
+public func daysBetween(_ a: String, _ b: String) -> Int {
     guard let x = Day.date(a), let y = Day.date(b) else { return 0 }
     return Int((y.timeIntervalSince(x) / 86400).rounded())
 }
