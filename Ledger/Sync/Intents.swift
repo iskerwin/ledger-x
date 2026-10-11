@@ -134,14 +134,9 @@ struct QuickRecordIntent: AppIntent {
         let d = store.draftFrom(x)
         guard let L = store.L, let D = store.D else { return .result(value: "", dialog: "") }
         let text = draftText(d, L, D)
-        guard validateText(text, L, single: true).ok, let ops0 = store.makeOps(text, single: true) else {
+        guard validateText(text, L, single: true).ok, let ops = store.makeOps(text, single: true) else {
             await store.askToConfirm(x, why: LS("内容校验未通过"))
             return .result(value: "", dialog: IntentDialog(stringLiteral: LS("已发送通知，请在 App 中确认")))
-        }
-        // current-balance assertions follow the entry, or are confirmed in the app when set to ask every time
-        guard let ops = await store.followRunning(ops0) else {
-            await store.askToConfirm(x, why: LS("需要确认余额断言"))
-            return .result(value: "", dialog: IntentDialog(stringLiteral: LS("这笔会改变余额断言，已发送通知请你在 App 中确认")))
         }
         let issues = await store.issues(for: ops)
         if let first = issues.first {
