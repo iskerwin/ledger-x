@@ -65,11 +65,15 @@ struct SettingsView: View {
                         Text(LS("跟随付款账户")).tag("")
                         ForEach(D.currencies, id: \.self) { c in Text(c).tag(c) }
                     }
+                    Picker(LS("当前余额断言"), selection: $store.runningMode) {
+                        Text(LS("自动更新，稍后核对")).tag("later")
+                        Text(LS("每笔确认")).tag("each")
+                    }
                     Toggle(LS("分录显式写出自动补平金额"), isOn: $store.explicitAmounts)
                 } header: {
                     Text(LS("记账偏好"))
                 } footer: {
-                    Text(LS("默认币种用于新的支出、收入和退款；付款账户是其他币种时，可填写账户实付金额。转账始终使用转出账户的币种。"))
+                    Text(LS("默认币种用于新的支出、收入和退款；付款账户是其他币种时，可填写账户实付金额。转账始终使用转出账户的币种。当前余额断言指日期在今天之后的余额断言（如下月 1 日）：记账时跟着更新，在概览的「余额待核对」里一次对照银行余额；或每记一笔都确认一次。"))
                 }
 
                 Section {
