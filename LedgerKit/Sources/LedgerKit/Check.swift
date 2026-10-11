@@ -52,7 +52,8 @@ public func reviewChange(before: Ledger, after: Ledger) -> [ChangeIssue] {
         let acct = parts[0], ccy = parts.count > 1 ? parts[1] : ""
         let account = after.accounts[acct]
         if acct.hasPrefix("Assets:") {
-            if metaTrue(account?.meta[allowNegativeKey]) { continue }
+            // a receivable below zero is money you owe them (they paid for you, the company paid over)
+            if metaTrue(account?.meta[allowNegativeKey]) || acct.hasPrefix("Assets:Receivable") { continue }
             guard let hit = newLow(days, serB[k] ?? [], floor: 0) else { continue }
             out.append(ChangeIssue(kind: .insufficient,
                                    title: tr("余额不足：\(acctLabel(acct))", "Insufficient balance: \(acct)"),

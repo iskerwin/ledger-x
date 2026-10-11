@@ -58,6 +58,14 @@ public enum DraftKind: String, CaseIterable, Identifiable {
     }
 }
 
+/// someone's part of an expense you paid (AA): it goes to their personal receivable
+public struct Share: Equatable, Identifiable {
+    public var id = UUID()
+    public var account: String
+    public var amount: String
+    public init(account: String, amount: String = "") { self.account = account; self.amount = amount }
+}
+
 public struct RefundOf: Equatable {
     public var path: String
     public var line: Int
@@ -86,6 +94,12 @@ public struct Draft: Equatable {
     public var tagsText = ""
     public var rows: [DraftRow] = [DraftRow(), DraftRow()]
     public var raw = ""
+    /// AA: split this expense with others
+    public var split = false
+    /// AA: the others' parts of an expense (your part is what is left)
+    public var shares: [Share] = []
+    /// the parts were typed by hand: don't even them out again when the amount changes
+    public var sharesEdited = false
     public init() {}
 }
 
@@ -187,6 +201,22 @@ func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
         if !tx.tags.contains("reimbursed") { tx.tags.append("reimbursed") }
     }
     if d.kind == .refund && !tx.tags.contains("refund") { tx.tags.append("refund") }
+    if d.kind == .expense && !d.reimb && d.split && !d.shares.isEmpty {
+        // AA: your part to the category, theirs to their receivables; paying in another currency isn't supported
+        guard fc == d.currency || evalAmount(d.paid) == nil else { return nil }
+        var theirs: [TxPosting] = []
+        var sum = 0.0
+        for x in d.shares {
+            guard let v = evalAmount(x.amount), v > 0, !x.account.isEmpty else { return nil }
+            sum += v
+            theirs.append(TxPosting(account: x.account, amount: v, currency: d.currency))
+        }
+        let mine = roundTo(amt - sum, 2)
+        guard mine > -0.004 else { return nil }
+        tx.postings = (mine > 0.004 ? [TxPosting(account: catAccount, amount: mine, currency: d.currency)] : []) + theirs
+            + [TxPosting(account: d.funding, amount: -amt, currency: d.currency)]
+        return tx
+    }
     var cat = TxPosting(account: catAccount, amount: sgn * amt, currency: d.currency)
     if fc != d.currency, let paid = evalAmount(d.paid), paid > 0 {
         // a per-unit price rounded to 5 places can miss the paid total by more than the tolerance on

@@ -19,6 +19,8 @@ struct AccountsView: View {
                         .accessibilityLabel(LS("管理账户"))
                     Toggle(isOn: $showClosed) { Image(systemName: "archivebox") }.toggleStyle(.button)
                         .accessibilityLabel(LS("显示已关闭和为零的账户"))
+                    NavigationLink(value: CounterpartyDest()) { Image(systemName: "person.2") }
+                        .accessibilityLabel(LS("往来"))
                 }
             }
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name) }
@@ -28,6 +30,7 @@ struct AccountsView: View {
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
             .navigationDestination(for: AccountManagerDest.self) { _ in AccountManagerView() }
             .navigationDestination(for: AccountEditDest.self) { AccountEditView(name: $0.name) }
+            .navigationDestination(for: CounterpartyDest.self) { _ in CounterpartyView() }
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .task {
