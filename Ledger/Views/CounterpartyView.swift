@@ -318,7 +318,7 @@ struct LoanSheet: View {
                 } footer: {
                     Text(!d.key.isEmpty && !validAccountPart(d.key)
                          ? LS("账户名需以大写字母或数字开头，只能包含英文字母、数字和 -，例如拼音 WangWu。")
-                         : LS("账户名用于 %@<账户名>，建议用拼音；称呼显示在 App 里。", d.kind.account(""))
+                         : LS("账户名用于 %@<账户名>，建议用拼音；称呼显示在 App 里。", d.kind.account("")))
                 }
             } else if let p = p {
                 Section {
