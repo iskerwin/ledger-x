@@ -57,7 +57,7 @@ final class ReconcileTests: XCTestCase {
         // the check's assertion (or any later one) settles it until the next day comes round
         let checked = ledger(base + "2026-10-11 balance Assets:Bank:BOC 450.00 CNY\n")
         XCTAssertFalse(reconcileDue(checked, today: "2026-10-20").contains { $0.account == "Assets:Bank:BOC" })
-        let next = reconcileDue(checked, today: "2026-11-10").first { $0.account == "Assets:Bank:BOC" }
+        let next = reconcileDue(checked, today: "2026-11-11").first { $0.account == "Assets:Bank:BOC" }
         XCTAssertEqual(next?.day, "2026-11-10")
         XCTAssertEqual(next?.lastChecked, "2026-10-11")
         XCTAssertEqual(next?.ledger, 435)
@@ -66,6 +66,17 @@ final class ReconcileTests: XCTestCase {
         XCTAssertEqual(op.date, "2026-11-11")
         XCTAssertTrue(op.line?.hasPrefix("2026-11-11 balance Assets:Bank:BOC") ?? false)
         XCTAssertTrue(op.line?.hasSuffix("435.00 CNY") ?? false)
+    }
+
+    func testOnlyOnceTheDayIsOver() {
+        // on the check day itself the day isn't over yet: the previous one is the latest
+        let due = reconcileDue(ledger(base), today: "2026-10-10").first { $0.account == "Assets:Bank:BOC" }
+        XCTAssertEqual(due?.day, "2026-09-10")
+        XCTAssertEqual(due?.date, "2026-09-11")
+        // the assertion date is never after today
+        for t in ["2026-10-10", "2026-10-11", "2026-10-31", "2026-11-01"] {
+            XCTAssertTrue(reconcileDue(ledger(base), today: t).allSatisfy { $0.date <= t }, t)
+        }
     }
 
     func testOpenedAfterTheDay() {

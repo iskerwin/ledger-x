@@ -19,7 +19,7 @@ struct ReconcileView: View {
                     Section {
                         Label(LS("没有待核对的账户"), systemImage: "checkmark.seal").foregroundStyle(Color.gain)
                     } footer: {
-                        Text(LS("在「账户 → 编辑账户」中设置账单日或核对日的账户，每月这一天之后会出现在这里。"))
+                        Text(LS("在「账户 → 编辑账户」中设置账单日或核对日的账户，每月这一天结束后会出现在这里。"))
                     }
                 } else {
                     ForEach(due) { r in row(r, L) }

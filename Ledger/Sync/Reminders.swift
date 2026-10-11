@@ -87,21 +87,22 @@ enum Reminders {
             }
         }
 
-        // balances to check against the bank: accounts with a statement / check day, in the evening of the day,
-        // and once more the next morning while some are still waiting
+        // balances to check against the bank: accounts with a statement / check day, the morning after the day
+        // (the day's balance is final by then), and every morning while some are still waiting
         if flag(balanceKey) {
             let cal = Calendar.current
             var byDay: [String: [String]] = [:]
-            for (a, d) in nextCheckDays(L, today: today) { byDay[d, default: []].append(a) }
-            for (d, accts) in byDay {
-                guard let day = Day.date(d), let fire = cal.date(bySettingHour: 20, minute: 0, second: 0, of: day), fire > Date() else { continue }
-                add("check." + d, LS("今天核对余额"), LS("%@：对照银行 App 确认余额后写入断言", accts.map { accountTitle(L, $0) }.joined(separator: LS("、"))),
-                    cal.dateComponents([.year, .month, .day, .hour, .minute], from: fire), tab: "overview")
+            let firstMorning = Calendar.current.component(.hour, from: Date()) < 10 ? today : Day.shift(today, 1)
+            for r in reconcileDue(L, today: today) where !(byDay[firstMorning] ?? []).contains(r.account) {
+                byDay[firstMorning, default: []].append(r.account)
             }
-            let due = reconcileDue(L, today: today)
-            if !due.isEmpty {
-                add("due." + today, LS("有余额待核对"),
-                    LS("%@ 个账户待核对：%@", due.count, due.prefix(3).map { accountTitle(L, $0.account) }.joined(separator: LS("、"))), next(hour: 10), tab: "overview")
+            for (a, d) in nextCheckDays(L, today: today) where !(byDay[Day.shift(d, 1)] ?? []).contains(a) {
+                byDay[Day.shift(d, 1), default: []].append(a)
+            }
+            for (d, accts) in byDay {
+                guard let day = Day.date(d), let fire = cal.date(bySettingHour: 10, minute: 0, second: 0, of: day), fire > Date() else { continue }
+                add("check." + d, LS("核对余额"), LS("%@ 待核对：对照银行 App 确认余额后写入断言", accts.map { accountTitle(L, $0) }.joined(separator: LS("、"))),
+                    cal.dateComponents([.year, .month, .day, .hour, .minute], from: fire), tab: "overview")
             }
         }
 
@@ -211,7 +212,7 @@ struct RemindersSection: View {
         } header: {
             Text(LS("提醒"))
         } footer: {
-            Text(LS("提醒在本机生成，每次打开 App 或同步后按最新账本重新安排。在「编辑账户」中为信用卡设置账单日和还款日后，会按账单金额提醒还款，提前天数与订阅相同；为账户设置账单日或核对日后，当天晚上提醒核对余额。"))
+            Text(LS("提醒在本机生成，每次打开 App 或同步后按最新账本重新安排。在「编辑账户」中为信用卡设置账单日和还款日后，会按账单金额提醒还款，提前天数与订阅相同；为账户设置账单日或核对日后，第二天上午提醒核对余额。"))
         }
     }
 

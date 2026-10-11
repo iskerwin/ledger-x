@@ -1,7 +1,9 @@
 import Foundation
 
 /// An account to check against the bank: it has a statement / check day (`statement_day`), the latest
-/// such day has passed, and no balance assertion covers it yet. Accounts without the day are never checked.
+/// such day has ended, and no balance assertion covers it yet. Accounts without the day are never checked.
+/// The day must be over: its assertion (dated the day after) is then never in the future, so entries
+/// recorded later can't break it unless they change that day or earlier.
 public struct ReconcileDue: Identifiable, Equatable {
     public let account: String
     public let currency: String
@@ -31,7 +33,7 @@ public func reconcileDue(_ L: Ledger, today: String = Day.today()) -> [Reconcile
     for (name, acc) in L.accounts.sorted(by: { $0.key < $1.key })
     where (name.hasPrefix("Assets:") || name.hasPrefix("Liabilities:")) && (acc.close == nil || acc.close! > today) {
         guard let sd = metaInt(acc.meta[statementDayKey]), sd >= 1, sd <= 31 else { continue }
-        let day = statementOn(orBefore: today, day: sd)
+        let day = statementOn(orBefore: Day.shift(today, -1), day: sd)
         if let o = acc.open, o > day { continue }
         var ccys = acc.currencies
         if ccys.isEmpty { ccys = (L.final[name] ?? [:]).keys.sorted() }
