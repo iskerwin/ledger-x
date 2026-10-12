@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import Observation
+import LedgerKit
 
 /// accent colours; the Apple system palette plus the original jade
 enum AppTheme: String, CaseIterable, Identifiable {
