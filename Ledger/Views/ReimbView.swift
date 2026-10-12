@@ -272,9 +272,9 @@ struct FloatSheet: View {
         }
     }
 
-    /// advances in the float's currency, from the day it was handed over
+    /// advances in the float's currency; ones from before it was handed over count too (it can pay them back)
     private func pool(_ D: Derived, _ f: OpenFloat) -> [Unclaimed] {
-        D.unclaimed.filter { $0.currency == f.currency && $0.amount > 0 && $0.t.date >= f.date }
+        D.unclaimed.filter { $0.currency == f.currency && $0.amount > 0 }
     }
 
     private func form(_ D: Derived, _ f: OpenFloat) -> some View {
@@ -313,7 +313,7 @@ struct FloatSheet: View {
                     }
                     .buttonStyle(.plain)
                 }
-                if p.isEmpty { Text(LS("领取之后没有待报销的垫付")).foregroundStyle(.secondary) }
+                if p.isEmpty { Text(LS("没有待报销的垫付")).foregroundStyle(.secondary) }
             } header: {
                 Text(LS("用备用金支付的垫付（已选 %@ 笔）", selected.count)).textCase(nil)
             } footer: {
