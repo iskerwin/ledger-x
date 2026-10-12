@@ -455,9 +455,14 @@ struct AnomalyDetailView: View {
                             store.confirmAlert(a.id)
                             dismiss()
                         } label: {
-                            Label(LS("核对无误"), systemImage: "checkmark.circle").frame(maxWidth: .infinity).fontWeight(.semibold)
+                            HStack(spacing: 6) {
+                                Spacer(minLength: 0)
+                                Image(systemName: "checkmark.circle")
+                                Text(LS("核对无误")).fontWeight(.semibold)
+                                Spacer(minLength: 0)
+                            }
                         }
-                        .buttonStyle(.borderedProminent).tint(.jade)
+                        .buttonStyle(.borderedProminent).tint(.jade).controlSize(.large)
                         .listRowBackground(Color.clear).listRowInsets(EdgeInsets())
                     }
                 } footer: {
