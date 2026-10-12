@@ -167,7 +167,11 @@ struct TxQuery {
 
 struct JournalView: View {
     @EnvironmentObject var store: Store
-    @State private var path = NavigationPath()
+    /// kept in the store, so the page stays open when the tabs are rebuilt (hidden amounts, theme)
+    private var path: NavigationPath {
+        get { store.paths[.journal] ?? NavigationPath() }
+        nonmutating set { store.paths[.journal] = newValue }
+    }
     @State private var q = ""
     @State private var limit = 150
     @State private var selecting = false
@@ -175,7 +179,7 @@ struct JournalView: View {
     @State private var batch: BatchMode?
 
     var body: some View {
-        NavigationStack(path: $path) {
+        NavigationStack(path: Binding(get: { path }, set: { path = $0 })) {
             Group {
                 if let L = store.L { list(L) } else { ProgressView() }
             }
