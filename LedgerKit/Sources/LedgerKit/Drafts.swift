@@ -660,8 +660,11 @@ public func multiDraftFromTxn(_ t: Entry, _ D: Derived, defaultFunding: String?)
 public func draftFromTxn(_ t: Entry, kind: DraftKind? = nil, _ L: Ledger, _ D: Derived, defaultFunding: String?) -> Draft {
     if kind == nil && isComplex(t) { return multiDraftFromTxn(t, D, defaultFunding: defaultFunding) }
     let c = classify(t, L)
+    // an advance to be reimbursed has no category (reimbursements account ← bank) but is an expense paid for
+    // someone, not a transfer
+    let advance = c.kind == .transfer && t.postings.contains { $0.account == D.receivable && ($0.units ?? 0) > 0 }
     var d = newDraft(kind ?? .expense, D, defaultFunding: defaultFunding)
-    d.kind = kind ?? (c.kind == .refund ? .refund : c.kind == .income ? .income : c.kind == .transfer ? .transfer : .expense)
+    d.kind = kind ?? (advance ? .expense : c.kind == .refund ? .refund : c.kind == .income ? .income : c.kind == .transfer ? .transfer : .expense)
     d.payee = t.payee; d.narration = t.narration
     let cat = t.postings.first { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") } ?? t.postings.first { $0.account.hasPrefix("Assets:Receivable") }
     let fund = t.postings.first { $0 !== cat && ($0.account.hasPrefix("Assets:") || $0.account.hasPrefix("Liabilities:")) }
