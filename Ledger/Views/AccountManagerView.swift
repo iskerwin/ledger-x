@@ -36,7 +36,7 @@ struct AccountManagerView: View {
                     .accessibilityLabel(LS("新建账户"))
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Toggle(isOn: $showClosed) { Image(systemName: "archivebox") }.toggleStyle(.button)
+                Button { showClosed.toggle() } label: { Image(systemName: showClosed ? "archivebox.fill" : "archivebox") }
                     .accessibilityLabel(LS("显示已关闭的账户"))
             }
         }

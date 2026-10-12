@@ -34,7 +34,12 @@ struct SalaryView: View {
                             Button {
                                 filling = PayslipTarget(template: t)
                             } label: {
-                                Label(LS("记一个月工资"), systemImage: "doc.text").frame(maxWidth: .infinity)
+                                HStack(spacing: 6) {
+                                    Spacer(minLength: 0)
+                                    Image(systemName: "doc.text")
+                                    Text(LS("记一个月工资"))
+                                    Spacer(minLength: 0)
+                                }
                             }
                             .buttonStyle(.borderedProminent).tint(.jade)
                         }

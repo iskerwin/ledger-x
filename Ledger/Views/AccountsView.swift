@@ -17,10 +17,10 @@ struct AccountsView: View {
                 ToolbarItemGroup(placement: .topBarLeading) {
                     NavigationLink(value: AccountManagerDest()) { Image(systemName: "slider.horizontal.3") }
                         .accessibilityLabel(LS("管理账户"))
-                    Toggle(isOn: $showClosed) { Image(systemName: "archivebox") }.toggleStyle(.button)
+                    // a plain button: a toggle's "on" background spills out of the toolbar's glass
+                    Button { showClosed.toggle() } label: { Image(systemName: showClosed ? "archivebox.fill" : "archivebox") }
                         .accessibilityLabel(LS("显示已关闭和为零的账户"))
-                    NavigationLink(value: CounterpartyDest()) { Image(systemName: "person.2") }
-                        .accessibilityLabel(LS("往来"))
+                        .accessibilityAddTraits(showClosed ? .isSelected : [])
                 }
             }
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name) }
@@ -175,6 +175,9 @@ struct AccountsView: View {
         let liab = lg.reduce(0.0) { $0 + cnyTotal(L, $1.1) }
         return List {
             heroSection(L, assets: assets, liab: liab)
+            Section {
+                NavigationLink(value: CounterpartyDest()) { Label(LS("往来"), systemImage: "person.2") }
+            }
             holdingsSection(L)
             ForEach(ag, id: \.0) { g in groupSection(L, "Assets", g.0, g.1) }
             ForEach(lg, id: \.0) { g in groupSection(L, "Liabilities", g.0, g.1) }
@@ -508,7 +511,7 @@ struct CheckSheet: View {
                         dismiss()
                         Task { await store.deleteBalance(o) }
                     } label: {
-                        Label(LS("删除此断言"), systemImage: "trash").frame(maxWidth: .infinity)
+                        HStack(spacing: 6) { Spacer(minLength: 0); Image(systemName: "trash"); Text(LS("删除此断言")); Spacer(minLength: 0) }
                     }
                 } footer: {
                     Text(LS("修改日期、币种或金额后保存，原断言（%@ %@）将被替换，不会产生重复记录。", o.date, money(o.number, o.currency ?? "CNY")))
