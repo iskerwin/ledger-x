@@ -12,7 +12,6 @@ public final class AccountNode: Identifiable {
     public var id: String { name }
     public var label: String { leaf(name) }
     public var depth: Int { name.components(separatedBy: ":").count - 1 }
-    public var childrenOrNil: [AccountNode]? { children.isEmpty ? nil : children }
     init(_ name: String) { self.name = name }
 }
 

@@ -77,10 +77,9 @@ final class ReconcileTests: XCTestCase {
         XCTAssertEqual(next?.day, "2026-11-10")
         XCTAssertEqual(next?.lastChecked, "2026-10-10")
         XCTAssertEqual(next?.ledger, 435)
-        let op = reconcileOp(next!, amount: 435, path: "accounts/balance.bean")
-        XCTAssertEqual(op.date, "2026-11-10")
-        XCTAssertTrue(op.line?.hasPrefix("2026-11-10 balance Assets:Bank:BOC") ?? false)
-        XCTAssertTrue(op.line?.hasSuffix("435.00 CNY") ?? false)
+        let line = balanceLine(next!.date, next!.account, next!.ledger, next!.currency)
+        XCTAssertTrue(line.hasPrefix("2026-11-10 balance Assets:Bank:BOC"), line)
+        XCTAssertTrue(line.hasSuffix("435.00 CNY"), line)
     }
 
     func testFutureEntriesLeftOut() {

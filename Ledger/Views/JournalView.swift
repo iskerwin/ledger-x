@@ -459,12 +459,6 @@ struct TxDetailView: View {
         }
     }
 
-    private func linkTo(_ s: Subscription, _ t: Entry) async {
-        let ops = await store.linkOps([t], link: s.link, label: LS("关联订阅：%@ %@ 笔", s.name, 1))
-        guard !ops.isEmpty else { return }
-        await store.commit(ops, word: LS("已关联到 %@", s.name))
-    }
-
     private func again(_ t: Entry, _ L: Ledger, _ D: Derived, kind: DraftKind?) {
         var d = draftFromTxn(t, kind: kind, L, D, defaultFunding: store.defaultFunding)
         d.date = Day.today()

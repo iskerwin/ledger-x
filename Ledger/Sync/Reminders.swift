@@ -9,7 +9,6 @@ enum Reminders {
     static let enabledKey = "ledger.remind.on"
     static let fixedKey = "ledger.remind.fixed"
     static let balanceKey = "ledger.remind.balance"
-    static let balanceDaysKey = "ledger.remind.balanceDays"
     static let budgetKey = "ledger.remind.budget"
     static let subsKey = "ledger.remind.subs"
     static let subsDaysKey = "ledger.remind.subsDays"
