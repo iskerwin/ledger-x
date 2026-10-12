@@ -9,14 +9,10 @@ struct QueryDest: Hashable { var query: SavedQuery }
 
 struct ReportsView: View {
     @EnvironmentObject var store: Store
-    /// kept in the store, so the page stays open when the tabs are rebuilt (hidden amounts, theme)
-    private var path: NavigationPath {
-        get { store.paths[.reports] ?? NavigationPath() }
-        nonmutating set { store.paths[.reports] = newValue }
-    }
+    @State private var path = NavigationPath()
 
     var body: some View {
-        NavigationStack(path: Binding(get: { path }, set: { path = $0 })) {
+        NavigationStack(path: $path) {
             List {
                 Section {
                     NavigationLink(value: ReportKind.income) {
