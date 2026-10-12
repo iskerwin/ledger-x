@@ -106,6 +106,33 @@ final class CounterpartyTests: XCTestCase {
         XCTAssertFalse(e.open.contains { $0.link?.hasPrefix("reimburse") ?? false })
     }
 
+    func testPettyCash() {
+        // 备用金 on the company account, later offset by a reimbursement
+        let L = ledger(base + """
+        2026-09-01 * "公司" "备用金" ^float-co-20260901
+          Assets:Receivable:Employer  -1000.00 CNY
+          Assets:Bank
+
+        2026-09-02 * "店" "工具" #reimbursed ^reimburse-co-20260920
+          Assets:Receivable:Reimbursement  300.00 CNY
+          Assets:Bank
+
+        2026-09-20 * "公司" "报销入账" #reimbursement ^reimburse-co-20260920 ^float-co-20260901
+          Assets:Receivable:Reimbursement  -300.00 CNY
+          Assets:Receivable:Employer  300.00 CNY
+
+        2026-09-25 * "公司" "工资" ^salary-co-202609
+          Income:Salary  -10000.00 CNY
+          Assets:Bank
+
+        """)
+        let open = employerOpen(L).open
+        XCTAssertEqual(open.first { $0.link == "float-co-20260901" }?.amount, -700)
+        XCTAssertFalse(open.contains { $0.link == "salary-co-202609" })
+        let issues = linkIssues(L, subscriptions: [])
+        XCTAssertTrue(issues.isEmpty, issues.map { "\($0.kind) \($0.link ?? "")" }.joined(separator: ", "))
+    }
+
     func testLoanOpensNewAccount() {
         let L = ledger(base)
         var d = LoanDraft()

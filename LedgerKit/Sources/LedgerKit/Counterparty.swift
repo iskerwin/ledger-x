@@ -139,7 +139,7 @@ public struct OpenDifference: Identifiable, Equatable {
 }
 
 /// the company's account: its balance per currency, and what is still open behind it.
-/// Only ^salary-… links count (a payslip netted against a reimbursement carries both links). One entry can
+/// Only ^salary-… and ^float-… (备用金) links count (a payslip netted against a reimbursement carries both links). One entry can
 /// settle several months at once: each of its postings goes to the month it cancels exactly, the rest to the
 /// entry's first salary link.
 public func employerOpen(_ L: Ledger) -> (total: [String: Double], open: [OpenDifference]) {
@@ -156,7 +156,7 @@ public func employerOpen(_ L: Ledger) -> (total: [String: Double], open: [OpenDi
     for t in L.txns {
         let ps = t.postings.filter { isSalaryClearing($0.account) }
         if ps.isEmpty { continue }
-        let links = t.links.filter { $0.hasPrefix("salary") }
+        let links = t.links.filter(isEmployerLink)
         var used = Set<String>()
         for p in ps {
             let c = p.currency ?? L.base, v = p.units ?? 0

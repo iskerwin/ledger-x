@@ -94,6 +94,9 @@ func receivableValues(_ t: Entry, _ L: Ledger) -> (plus: Double, minus: Double) 
     return (plus, minus)
 }
 
+/// links on the company account: a month's salary (^salary-…) or petty cash (备用金, ^float-…)
+public func isEmployerLink(_ l: String) -> Bool { l.hasPrefix("salary-") || l.hasPrefix("float-") }
+
 /// Assets:Receivable:Employer (公司往来): salary paid short or over, not a reimbursement advance
 public func isSalaryClearing(_ a: String) -> Bool { a == "Assets:Receivable:Employer" || a.hasPrefix("Assets:Receivable:Employer:") }
 
@@ -231,7 +234,8 @@ public func linkIssues(_ L: Ledger, subscriptions subs: [Subscription]) -> [Link
                 out.append(LinkIssue(kind: .subAccount, link: l, txn: t, detail: accts.joined(separator: ", ") + " ≠ " + s.account))
             }
         case .other:
-            if ts.count == 1 { out.append(LinkIssue(kind: .single, link: l, txn: ts[0], detail: "^" + l)) }
+            // a month's salary paid in full, petty cash not used yet: one transaction is all there is
+            if ts.count == 1 && !isEmployerLink(l) { out.append(LinkIssue(kind: .single, link: l, txn: ts[0], detail: "^" + l)) }
         }
     }
 
