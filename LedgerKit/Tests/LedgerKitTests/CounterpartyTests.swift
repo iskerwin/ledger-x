@@ -125,7 +125,7 @@ final class CounterpartyTests: XCTestCase {
 
         2026-09-03 * "店" "螺丝"
           Assets:Receivable:Reimbursement  20.00 CNY
-          Assets:Bank
+          Assets:Bank  -20.00 CNY
 
         2026-09-25 * "公司" "工资" ^salary-co-202609
           Income:Salary  -10000.00 CNY
