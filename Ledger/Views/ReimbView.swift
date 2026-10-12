@@ -259,6 +259,8 @@ struct FloatSheet: View {
     let link: String
     @State private var selected: Set<Int> = []
     @State private var saving = false
+    /// a linked transaction to take off this petty cash (back to 待报销)
+    @State private var unlinking: Entry?
 
     var body: some View {
         NavigationStack {
@@ -267,6 +269,15 @@ struct FloatSheet: View {
                 else { Text(LS("这笔备用金已结清")).foregroundStyle(.secondary) }
             }
             .navigationTitle(LS("备用金冲抵"))
+            .confirmationDialog(LS("取消这笔的备用金冲抵？"), isPresented: Binding(get: { unlinking != nil }, set: { if !$0 { unlinking = nil } }),
+                                titleVisibility: .visible, presenting: unlinking) { t in
+                Button(LS("取消冲抵"), role: .destructive) {
+                    selected = []
+                    Task { await store.removeLink(link, from: t) }
+                }
+            } message: { t in
+                Text([t.date, t.payee, t.narration].filter { !$0.isEmpty }.joined(separator: " "))
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } } }
         }
@@ -277,8 +288,23 @@ struct FloatSheet: View {
         D.unclaimed.filter { $0.currency == f.currency && $0.amount > 0 }
     }
 
+    private struct Linked: Identifiable {
+        let t: Entry
+        /// on the reimbursement account: negative is the petty cash handed over
+        let amount: Double
+        var id: ObjectIdentifier { ObjectIdentifier(t) }
+    }
+
+    /// what is on this petty cash so far, newest first
+    private func linked(_ D: Derived) -> [Linked] {
+        (D.byLink[link] ?? []).reversed().map { t in
+            Linked(t: t, amount: roundTo(t.postings.filter { $0.account == D.receivable }.reduce(0.0) { $0 + ($1.units ?? 0) }, 2))
+        }
+    }
+
     private func form(_ D: Derived, _ f: OpenFloat) -> some View {
         let p = pool(D, f)
+        let done = linked(D)
         let picked = roundTo(selected.reduce(0.0) { $0 + (p.indices.contains($1) ? p[$1].amount : 0) }, 2)
         return Form {
             Section {
@@ -292,6 +318,27 @@ struct FloatSheet: View {
                 Text("^" + link).textCase(nil)
             } footer: {
                 if f.left - picked < -0.004 { Text(LS("超出的部分是公司欠你的，之后报销回款时再登记。")) }
+            }
+            Section {
+                ForEach(done) { x in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text([x.t.payee, x.t.narration].filter { !$0.isEmpty }.joined(separator: " ")).lineLimit(1)
+                            Text(x.t.date + (x.amount < 0 ? " · " + LS("领取") : "")).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(money(x.amount, f.currency)).monospacedDigit().sensitive()
+                    }
+                    .swipeActions {
+                        if x.amount > 0 {
+                            Button(LS("取消冲抵")) { unlinking = x.t }.tint(.orange)
+                        }
+                    }
+                }
+            } header: {
+                Text(LS("已关联（%@ 笔）", done.count)).textCase(nil)
+            } footer: {
+                Text(LS("左滑可取消冲抵：只去掉这笔的 ^%@，它会回到待报销。", link))
             }
             Section {
                 ForEach(Array(p.enumerated()), id: \.offset) { pair in
