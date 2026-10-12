@@ -72,8 +72,6 @@ final class Store: ObservableObject {
         set { drafts.draft = newValue }
     }
     @Published var tab: Tab = .add
-    /// each tab's open pages
-    @Published var paths: [Tab: NavigationPath] = [:]
     @Published var showSettings = false
     /// the card bill being repaid: the sheet lives at the root, so a List section can't present it twice
     @Published var repaying: CardCycle?

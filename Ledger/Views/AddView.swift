@@ -12,11 +12,7 @@ struct AddView: View {
     @State private var managingTemplates = false
     @State private var editingText = false
 
-    /// kept in the store, so the page stays open when the tabs are rebuilt (hidden amounts, theme)
-    private var path: NavigationPath {
-        get { store.paths[.add] ?? NavigationPath() }
-        nonmutating set { store.paths[.add] = newValue }
-    }
+    @State private var path = NavigationPath()
     @State private var importing = false
     /// a save in progress (the pre-commit check takes a moment): ignore further taps
     @State private var saving = false
@@ -25,7 +21,7 @@ struct AddView: View {
     @State private var newPerson = ""
 
     var body: some View {
-        NavigationStack(path: Binding(get: { path }, set: { path = $0 })) {
+        NavigationStack(path: $path) {
             Group {
                 if let L = store.L, let D = store.D { content(L, D) } else { ProgressView() }
             }

@@ -4,11 +4,7 @@ import LedgerKit
 
 struct OverviewView: View {
     @EnvironmentObject var store: Store
-    /// kept in the store, so the page stays open when the tabs are rebuilt (hidden amounts, theme)
-    private var path: NavigationPath {
-        get { store.paths[.overview] ?? NavigationPath() }
-        nonmutating set { store.paths[.overview] = newValue }
-    }
+    @State private var path = NavigationPath()
     @AppStorage("ledger.period") private var period = "month"
     @State private var month = Day.ym(Day.today())
     @State private var selCat: String?
@@ -23,7 +19,7 @@ struct OverviewView: View {
     @State private var allPayees = false
 
     var body: some View {
-        NavigationStack(path: Binding(get: { path }, set: { path = $0 })) {
+        NavigationStack(path: $path) {
             Group {
                 if let L = store.L, let D = store.D { content(L, D) } else { ProgressView() }
             }
