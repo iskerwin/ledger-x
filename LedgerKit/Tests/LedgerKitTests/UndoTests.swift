@@ -99,4 +99,31 @@ final class UndoTests: XCTestCase {
         XCTAssertTrue(changeHunks(r).first?.added.contains("; note") ?? false)
         XCTAssertEqual(changeHunks(r).first?.removed, [])
     }
+
+    func testReorderBlocks() {
+        let text = """
+        2026-06-07 * "A"
+          Expenses:Food  1 CNY
+          Assets:Bank
+
+        2026-06-07 balance Assets:Bank 0 CNY
+
+        2026-06-07 * "B"
+          Expenses:Food  2 CNY
+          Assets:Bank
+
+        2026-06-08 * "C"
+          Expenses:Food  3 CNY
+          Assets:Bank
+        """
+        guard let r = reorderBlocks(text, ranges: [(0, 2), (6, 8)], order: [1, 0]) else { return XCTFail() }
+        XCTAssertTrue(r.old.hasPrefix("2026-06-07 * \"A\""))
+        XCTAssertTrue(r.new.hasPrefix("2026-06-07 * \"B\""))
+        XCTAssertTrue(r.new.contains("balance"))
+        XCTAssertTrue(r.new.hasSuffix("Assets:Bank"))
+        let applied = replaceBlock(text, r.old, r.new)!
+        XCTAssertTrue(applied.contains("\"B\"\n  Expenses:Food  2 CNY\n  Assets:Bank\n\n2026-06-07 balance"))
+        XCTAssertTrue(applied.hasSuffix("2026-06-08 * \"C\"\n  Expenses:Food  3 CNY\n  Assets:Bank"))
+        XCTAssertNil(reorderBlocks(text, ranges: [(0, 2), (1, 3)], order: [1, 0]))
+    }
 }

@@ -391,3 +391,23 @@ public func addInclude(_ text: String, _ line: String) -> String {
     lines.insert(line, at: last + 1)
     return lines.joined(separator: "\n")
 }
+
+/// Put entries of one file in a new order, in the stretch of the file they take up.
+/// `ranges` are their lines (start…end, inclusive) in file order; `order[i]` is the entry going to the i-th place.
+/// Whatever lies between them (blank lines, a balance assertion, a comment) stays where it is.
+/// Returns that stretch before and after, for a replace op; nil when the ranges don't fit the text.
+public func reorderBlocks(_ text: String, ranges: [(start: Int, end: Int)], order: [Int]) -> (old: String, new: String)? {
+    let lines = text.components(separatedBy: "\n")
+    guard ranges.count > 1, order.count == ranges.count, Set(order) == Set(ranges.indices),
+          let first = ranges.first, let last = ranges.last, first.start >= 0, last.end < lines.count else { return nil }
+    for k in 1..<ranges.count where ranges[k].start <= ranges[k - 1].end { return nil }
+    let blocks = ranges.map { Array(lines[$0.start...$0.end]) }
+    let gaps = (0..<ranges.count - 1).map { k in Array(lines[(ranges[k].end + 1)..<ranges[k + 1].start]) }
+    var out: [String] = []
+    for (i, j) in order.enumerated() {
+        out += blocks[j]
+        if i < gaps.count { out += gaps[i] }
+    }
+    let old = lines[first.start...last.end].joined(separator: "\n")
+    return (old, out.joined(separator: "\n"))
+}
