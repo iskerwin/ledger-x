@@ -100,8 +100,6 @@ struct LinkGroupsSection: View {
 }
 
 struct LinkFiguresRow: View {
-    /// re-drawn when amounts are hidden or shown
-    @AppStorage("ledger.privacy") var privacyDep = false
     let figs: [LinkFigure]
     var body: some View {
         HStack(alignment: .top) {

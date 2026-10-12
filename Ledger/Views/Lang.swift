@@ -7,14 +7,12 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     static let key = "ledger.language"
 
-    static var stored: AppLanguage { AppLanguage(rawValue: UserDefaults.standard.string(forKey: key) ?? "") ?? .system }
+    static var stored: AppLanguage { AppLanguage(rawValue: AppSettings.shared.language) ?? .system }
 
     /// the language actually shown
     static var current: AppLanguage {
-        var s = stored
-        if s == .system { s = (Locale.preferredLanguages.first ?? "zh").hasPrefix("zh") ? .zh : .en }
-        if KitLocale.chinese != (s != .en) { KitLocale.chinese = s != .en }   // LedgerKit labels follow along
-        return s
+        let s = stored
+        return s == .system ? ((Locale.preferredLanguages.first ?? "zh").hasPrefix("zh") ? .zh : .en) : s
     }
 
     var name: String {
@@ -88,14 +86,12 @@ extension SavedQuery {
 /// Picker for 设置 → 语言
 struct LanguagePicker: View {
     @EnvironmentObject var store: Store
-    @AppStorage(AppLanguage.key) private var lang = AppLanguage.system.rawValue
     var body: some View {
-        Picker(LS("语言"), selection: $lang) {
+        Picker(LS("语言"), selection: Binding(get: { AppSettings.shared.language }, set: { AppSettings.shared.language = $0 })) {
             ForEach(AppLanguage.allCases) { Text($0.name).tag($0.rawValue) }
         }
-        .onChange(of: lang) { _, _ in
-            AppLanguage.apply()
-            Task { await store.rebuild(quietly: true) }   // messages computed by LedgerKit
+        .onChange(of: AppSettings.shared.language) { _, _ in
+            Task { await store.rebuild(quietly: true) }   // messages LedgerKit computed ahead (checks, links)
         }
     }
 }

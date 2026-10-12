@@ -118,9 +118,9 @@ struct SettingsView: View {
                 Section(LS("账本")) {
                     // the same page as on the overview: problems open the transactions to fix them there
                     Button {
-                        store.showSettings = false
+                        store.openCheckAfterSettings = true
                         store.tab = .overview
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { store.openCheck = true }
+                        store.showSettings = false
                     } label: {
                         HStack { LedgerCheckRow(); Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) }
                             .contentShape(Rectangle())
@@ -169,8 +169,7 @@ struct SettingsView: View {
 }
 
 struct PrivacyToggle: View {
-    @EnvironmentObject var store: Store
-    var body: some View { Toggle(LS("隐藏金额"), isOn: $store.privacy) }
+    var body: some View { Toggle(LS("隐藏金额"), isOn: Binding(get: { AppSettings.shared.privacy }, set: { AppSettings.shared.privacy = $0 })) }
 }
 
 extension SettingsView {

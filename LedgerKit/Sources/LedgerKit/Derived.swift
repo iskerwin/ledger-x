@@ -1,15 +1,31 @@
 import Foundation
+import Observation
 
 // MARK: - language
 
+/// Display settings the formatting functions read. Observable, so a SwiftUI view that formatted an
+/// amount or a label while drawing is redrawn by itself when one of them changes — nothing is rebuilt.
+@Observable
+public final class KitSettings: @unchecked Sendable {
+    public static let shared = KitSettings()
+    public var masked = false
+    public var chinese = true
+}
+
 public enum KitPrivacy {
     /// true = amounts show as "¥***" (the app sets this from its 隐藏金额 setting)
-    public static var masked = false
+    public static var masked: Bool {
+        get { KitSettings.shared.masked }
+        set { if KitSettings.shared.masked != newValue { KitSettings.shared.masked = newValue } }
+    }
 }
 
 public enum KitLocale {
     /// false = English messages and labels (the app sets this from its language setting)
-    public static var chinese = true
+    public static var chinese: Bool {
+        get { KitSettings.shared.chinese }
+        set { if KitSettings.shared.chinese != newValue { KitSettings.shared.chinese = newValue } }
+    }
 }
 
 /// pick the Chinese or English text
