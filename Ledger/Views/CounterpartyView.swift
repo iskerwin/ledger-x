@@ -103,6 +103,9 @@ struct CounterpartyView: View {
         if let acct = acct, !emp.open.isEmpty || !emp.total.isEmpty {
             Section {
                 ForEach(emp.open) { x in
+                    if x.link?.hasPrefix("float-") == true {
+                        row("^" + x.link!, LS("备用金 · %@ · 报销时选「备用金冲抵」，用不完的退回", x.date), x.amount, x.currency)
+                    } else {
                     Button {
                         settle = SettleTarget(title: LS("结清公司往来"), payee: metaName(L, acct) ?? LS("公司"), link: x.link,
                                               items: [SettleItem(account: x.account, currency: x.currency, amount: x.amount)],
@@ -113,6 +116,7 @@ struct CounterpartyView: View {
                             x.amount, x.currency)
                     }
                     .buttonStyle(.plain)
+                    }
                 }
                 NavigationLink(value: AccountDest(name: acct)) { Text(LS("公司往来明细")) }
             } header: {

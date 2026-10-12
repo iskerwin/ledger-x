@@ -25,6 +25,8 @@ struct ReimbSheet: View {
     @State private var saving = false
     /// a shortfall that will still be paid: leave it on the link instead of settling it
     @State private var keepOpen = false
+    /// paid back out of petty cash (备用金) instead of into an account: its ^float-… link
+    @State private var floatLink: String?
 
     var body: some View {
         NavigationStack {
@@ -80,7 +82,7 @@ struct ReimbSheet: View {
         let digits = lk.range(of: #"\d{8}$"#, options: .regularExpression).map { String(lk[$0]) } ?? date.replacingOccurrences(of: "-", with: "")
         tx.narration = LS("报销入账-") + digits
         tx.tags = ["reimbursement"]
-        tx.links = [lk]
+        tx.links = [lk] + (floatLink.map { [$0] } ?? [])
         let pending = diff < -0.004 && keepOpen
         tx.postings = [TxPosting(account: D.receivable, amount: -(pending ? g : o), currency: c)]
         if diff > 0.004 { tx.postings.append(TxPosting(account: "Income:ReimbExcess", amount: -diff, currency: c)) }
@@ -125,7 +127,20 @@ struct ReimbSheet: View {
                         .multilineTextAlignment(.trailing)
                         .monospacedDigit()
                 }
-                AccountField(label: LS("收款账户"), prefixes: ["Assets:"], chips: accountChoices(L, D), value: $account)
+                let floats = employerOpen(L).open.filter { ($0.link?.hasPrefix("float-") ?? false) && $0.amount < -0.005 }
+                if floatLink == nil {
+                    AccountField(label: LS("收款账户"), prefixes: ["Assets:"], chips: accountChoices(L, D), value: $account)
+                }
+                if !floats.isEmpty {
+                    ChipRow {
+                        ForEach(floats) { f in
+                            Chip(label: LS("备用金冲抵 ^%@（余 %@）", f.link!, money(-f.amount, f.currency)), selected: floatLink == f.link) {
+                                if floatLink == f.link { floatLink = nil; account = accountChoices(L, D).first ?? "" }
+                                else { floatLink = f.link; account = f.account }
+                            }
+                        }
+                    }
+                }
             }
             Section(LS("将写入")) {
                 if let g = got(D), g > 0, abs(g - o) > 0.004 {
