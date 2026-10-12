@@ -89,6 +89,11 @@ public func payslipText(_ d: PayslipDraft, _ L: Ledger, currency: String = "CNY"
     tx.narration = tr("\(d.month) 工资", "\(d.month) salary")
     tx.links = [d.link]
     if let n = Int(d.days.trimmingCharacters(in: .whitespaces)), n > 0 { tx.meta.append(("payslip_days", String(n))) }
+    // the payslip line by line, when items share an account (several allowances, say)
+    let used = d.template.items.filter { abs(d.value($0)) > 0.004 }
+    if Set(used.map { $0.account }).count < used.count {
+        tx.meta.append(("payslip_items", used.map { "\($0.name) \(toFixed(d.value($0), 2))" }.joined(separator: "; ")))
+    }
     // one posting per account (two deductions may share one)
     var sums: [String: Double] = [:], order: [String] = []
     for i in d.template.items {
@@ -122,7 +127,16 @@ public func lastPayslip(_ L: Ledger, employer: String) -> Entry? {
 /// a new form for `month`, with the amounts of the latest payslip of the employer (by account)
 public func payslipDraft(_ L: Ledger, template t: PayslipTemplate, month: String, date: String) -> PayslipDraft {
     var d = PayslipDraft(template: t, month: month, date: date)
-    if let e = lastPayslip(L, employer: t.employer) {
+    if let e = lastPayslip(L, employer: t.employer), let items = e.meta["payslip_items"].map({ $0.stringValue ?? $0.display }) {
+        // "基本工资 2080.00; 餐补 400.00; …"
+        let known = Set(t.items.map { $0.name })
+        for part in items.components(separatedBy: ";") {
+            let w = part.trimmingCharacters(in: .whitespaces).components(separatedBy: " ")
+            guard w.count >= 2, known.contains(w.dropLast().joined(separator: " ")) else { continue }
+            d.values[w.dropLast().joined(separator: " ")] = w.last!
+        }
+        if let n = e.meta["payslip_days"] { d.days = n.display }
+    } else if let e = lastPayslip(L, employer: t.employer) {
         var byAccount: [String: Double] = [:]
         for p in e.postings { byAccount[p.account, default: 0] += p.units ?? 0 }
         // an account shared by several items: the whole amount on the first of them
