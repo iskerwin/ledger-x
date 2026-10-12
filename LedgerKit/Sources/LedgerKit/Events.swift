@@ -92,7 +92,8 @@ public func eventSummary(_ L: Ledger, _ tag: String, reimbursement: String = "As
     var spent = 0.0, adv = 0.0, unpaid = 0.0
     var cats: [String: Double] = [:]
     for t in ts {
-        let claim = t.links.first { $0.hasPrefix("reimburse") }
+        // covered by petty cash counts as paid back
+        let claim = t.links.first { $0.hasPrefix("reimburse") || isFloatLink($0) }
         for p in t.postings {
             let v = toCNY(L, p.units ?? 0, p.currency ?? L.base, t.date) ?? 0
             if p.account.hasPrefix("Expenses:") {
@@ -100,7 +101,7 @@ public func eventSummary(_ L: Ledger, _ tag: String, reimbursement: String = "As
                 cats[catOf(p.account), default: 0] += v
             } else if p.account == reimbursement && v > 0 {
                 adv += v
-                if claim == nil || openLinks.contains(claim!) { unpaid += v }
+                if claim == nil || (!isFloatLink(claim!) && openLinks.contains(claim!)) { unpaid += v }
             }
         }
     }

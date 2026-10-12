@@ -5,11 +5,12 @@ import Foundation
 // a group whose amounts do not add up, is usually a mistake worth pointing out.
 
 public enum LinkRole: String {
-    case refund, reimburse, subscription, other
+    case refund, reimburse, float, subscription, other
 
     public static func of(_ link: String) -> LinkRole {
         if link.hasPrefix("refund") { return .refund }
         if link.hasPrefix("reimburse") { return .reimburse }
+        if isFloatLink(link) { return .float }
         if link.hasPrefix("sub-") { return .subscription }
         return .other
     }
@@ -18,6 +19,7 @@ public enum LinkRole: String {
         switch self {
         case .refund: return tr("退款", "Refund")
         case .reimburse: return tr("报销", "Reimbursement")
+        case .float: return tr("备用金", "Petty cash")
         case .subscription: return tr("订阅", "Subscription")
         case .other: return tr("自定义", "Custom")
         }
@@ -94,8 +96,12 @@ func receivableValues(_ t: Entry, _ L: Ledger) -> (plus: Double, minus: Double) 
     return (plus, minus)
 }
 
-/// links on the company account: a month's salary (^salary-…) or petty cash (备用金, ^float-…)
-public func isEmployerLink(_ l: String) -> Bool { l.hasPrefix("salary-") || l.hasPrefix("float-") }
+/// a month's salary on the company account (^salary-…)
+public func isSalaryLink(_ l: String) -> Bool { l.hasPrefix("salary-") }
+
+/// petty cash (备用金, ^float-…): money the company hands over in advance on the reimbursement account, used up by
+/// the advances that carry the same link and by what is handed back
+public func isFloatLink(_ l: String) -> Bool { l.hasPrefix("float-") }
 
 /// Assets:Receivable:Employer (公司往来): salary paid short or over, not a reimbursement advance
 public func isSalaryClearing(_ a: String) -> Bool { a == "Assets:Receivable:Employer" || a.hasPrefix("Assets:Receivable:Employer:") }
@@ -164,6 +170,13 @@ public func linkFigures(_ link: String, _ entries: [Entry], _ L: Ledger) -> [Lin
         return [LinkFigure(label: tr("垫付", "Advanced"), value: roundTo(plus, 2)),
                 LinkFigure(label: tr("已回款", "Paid back"), value: roundTo(minus, 2)),
                 LinkFigure(label: tr("待回款", "Outstanding"), value: roundTo(plus - minus, 2))]
+    case .float:
+        var plus = 0.0, minus = 0.0
+        for t in entries { let r = receivableValues(t, L); plus += r.plus; minus += r.minus }
+        guard plus > 0 || minus > 0 else { return [] }
+        return [LinkFigure(label: tr("领取", "Received"), value: roundTo(minus, 2)),
+                LinkFigure(label: tr("已冲抵或退回", "Used or returned"), value: roundTo(plus, 2)),
+                LinkFigure(label: tr("剩余", "Left"), value: roundTo(minus - plus, 2))]
     case .subscription, .other:
         let total = entries.reduce(0.0) { $0 + expenseValue($1, L) }
         return abs(total) > 0.005 ? [LinkFigure(label: tr("合计支出", "Total spent"), value: roundTo(total, 2))] : []
@@ -233,9 +246,12 @@ public func linkIssues(_ L: Ledger, subscriptions subs: [Subscription]) -> [Link
                 guard !accts.isEmpty else { continue }
                 out.append(LinkIssue(kind: .subAccount, link: l, txn: t, detail: accts.joined(separator: ", ") + " ≠ " + s.account))
             }
+        case .float:
+            // petty cash not used yet is one transaction; spending past it is the company owing you
+            break
         case .other:
-            // a month's salary paid in full, petty cash not used yet: one transaction is all there is
-            if ts.count == 1 && !isEmployerLink(l) { out.append(LinkIssue(kind: .single, link: l, txn: ts[0], detail: "^" + l)) }
+            // a month's salary paid in full: one transaction is all there is
+            if ts.count == 1 && !isSalaryLink(l) { out.append(LinkIssue(kind: .single, link: l, txn: ts[0], detail: "^" + l)) }
         }
     }
 

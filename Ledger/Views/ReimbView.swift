@@ -25,8 +25,6 @@ struct ReimbSheet: View {
     @State private var saving = false
     /// a shortfall that will still be paid: leave it on the link instead of settling it
     @State private var keepOpen = false
-    /// paid back out of petty cash (备用金) instead of into an account: its ^float-… link
-    @State private var floatLink: String?
 
     var body: some View {
         NavigationStack {
@@ -82,7 +80,7 @@ struct ReimbSheet: View {
         let digits = lk.range(of: #"\d{8}$"#, options: .regularExpression).map { String(lk[$0]) } ?? date.replacingOccurrences(of: "-", with: "")
         tx.narration = LS("报销入账-") + digits
         tx.tags = ["reimbursement"]
-        tx.links = [lk] + (floatLink.map { [$0] } ?? [])
+        tx.links = [lk]
         let pending = diff < -0.004 && keepOpen
         tx.postings = [TxPosting(account: D.receivable, amount: -(pending ? g : o), currency: c)]
         if diff > 0.004 { tx.postings.append(TxPosting(account: "Income:ReimbExcess", amount: -diff, currency: c)) }
@@ -127,20 +125,7 @@ struct ReimbSheet: View {
                         .multilineTextAlignment(.trailing)
                         .monospacedDigit()
                 }
-                let floats = employerOpen(L).open.filter { ($0.link?.hasPrefix("float-") ?? false) && $0.amount < -0.005 }
-                if floatLink == nil {
-                    AccountField(label: LS("收款账户"), prefixes: ["Assets:"], chips: accountChoices(L, D), value: $account)
-                }
-                if !floats.isEmpty {
-                    ChipRow {
-                        ForEach(floats) { f in
-                            Chip(label: LS("备用金冲抵 ^%@（余 %@）", f.link!, money(-f.amount, f.currency)), selected: floatLink == f.link) {
-                                if floatLink == f.link { floatLink = nil; account = accountChoices(L, D).first ?? "" }
-                                else { floatLink = f.link; account = f.account }
-                            }
-                        }
-                    }
-                }
+                AccountField(label: LS("收款账户"), prefixes: ["Assets:"], chips: accountChoices(L, D), value: $account)
             }
             Section(LS("将写入")) {
                 if let g = got(D), g > 0, abs(g - o) > 0.004 {
@@ -263,5 +248,115 @@ struct ReimbSheet: View {
               let checked = await store.review(ops + ins) else { return }
         dismiss()
         await store.commit(checked, word: LS("已入账"), checked: true)
+    }
+}
+
+/// 备用金冲抵: the advances petty cash paid for get its ^float-… link (and #reimbursed); no money moves, so
+/// nothing new is written — the link's transactions add up to what is still in hand
+struct FloatSheet: View {
+    @EnvironmentObject var store: Store
+    @Environment(\.dismiss) private var dismiss
+    let link: String
+    @State private var selected: Set<Int> = []
+    @State private var saving = false
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let D = store.D, let f = D.floats.first(where: { $0.link == link }) { form(D, f) }
+                else { Text(LS("这笔备用金已结清")).foregroundStyle(.secondary) }
+            }
+            .navigationTitle(LS("备用金冲抵"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } } }
+        }
+    }
+
+    /// advances in the float's currency, from the day it was handed over
+    private func pool(_ D: Derived, _ f: OpenFloat) -> [Unclaimed] {
+        D.unclaimed.filter { $0.currency == f.currency && $0.amount > 0 && $0.t.date >= f.date }
+    }
+
+    private func form(_ D: Derived, _ f: OpenFloat) -> some View {
+        let p = pool(D, f)
+        let picked = roundTo(selected.reduce(0.0) { $0 + (p.indices.contains($1) ? p[$1].amount : 0) }, 2)
+        return Form {
+            Section {
+                LabeledContent(LS("领取")) { Amount(n: f.received, c: f.currency) }
+                LabeledContent(LS("已冲抵或退回")) { Amount(n: f.used, c: f.currency) }
+                LabeledContent(LS("冲抵后剩余")) {
+                    Text(money(f.left - picked, f.currency)).monospacedDigit()
+                        .foregroundStyle(f.left - picked < -0.004 ? Color.warn : Color.primary).sensitive()
+                }
+            } header: {
+                Text("^" + link).textCase(nil)
+            } footer: {
+                if f.left - picked < -0.004 { Text(LS("超出的部分是公司欠你的，之后报销回款时再登记。")) }
+            }
+            Section {
+                ForEach(Array(p.enumerated()), id: \.offset) { pair in
+                    let i = pair.offset, it = pair.element
+                    Button {
+                        if selected.contains(i) { selected.remove(i) } else { selected.insert(i) }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: selected.contains(i) ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(selected.contains(i) ? Color.jade : Color.secondary)
+                                .font(.title3)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text([it.t.payee, it.t.narration].filter { !$0.isEmpty }.joined(separator: " ")).lineLimit(1)
+                                Text(it.t.date).font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(money(it.amount, it.currency)).monospacedDigit().sensitive()
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+                if p.isEmpty { Text(LS("领取之后没有待报销的垫付")).foregroundStyle(.secondary) }
+            } header: {
+                Text(LS("用备用金支付的垫付（已选 %@ 笔）", selected.count)).textCase(nil)
+            } footer: {
+                Text(LS("所选交易将添加 #reimbursed ^%@，不另记新交易。", link))
+            }
+            Section {
+                Button {
+                    Task { await save(p) }
+                } label: {
+                    HStack { Spacer(); if saving { ProgressView() } else { Text(LS("冲抵")).fontWeight(.semibold) }; Spacer() }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.jade)
+                .controlSize(.large)
+                .disabled(selected.isEmpty || saving)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
+            }
+        }
+    }
+
+    private func save(_ p: [Unclaimed]) async {
+        saving = true
+        defer { saving = false }
+        var ops: [Op] = []
+        var done = Set<ObjectIdentifier>()
+        for i in selected.sorted() where p.indices.contains(i) {
+            let e = p[i].t
+            guard done.insert(ObjectIdentifier(e)).inserted else { continue }
+            guard let file = try? await store.fileText(e.file) else { store.show(LS("无法读取 %@", e.file)); return }
+            let lines = file.components(separatedBy: "\n")
+            guard e.startLine < lines.count else { continue }
+            var op = Op(kind: .link, path: e.file)
+            op.headerLine = e.startLine + 1
+            op.header = lines[e.startLine]
+            op.add = (e.tags.contains("reimbursed") ? "" : " #reimbursed") + " ^" + link
+            op.link = link
+            op.silent = !ops.isEmpty
+            if ops.isEmpty { op.label = LS("备用金冲抵：^%@ %@ 笔", link, selected.count) }
+            ops.append(op)
+        }
+        guard !ops.isEmpty, let checked = await store.review(ops) else { return }
+        dismiss()
+        await store.commit(checked, word: LS("已冲抵"), checked: true)
     }
 }

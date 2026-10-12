@@ -177,6 +177,21 @@ public struct OpenLink {
     public let n: Int
 }
 
+/// petty cash (备用金) on the reimbursement account: one ^float-… link
+public struct OpenFloat: Identifiable {
+    public let link: String
+    /// handed over by the company
+    public let received: Double
+    /// used up by linked advances, or handed back
+    public let used: Double
+    public let currency: String
+    /// the day it was handed over
+    public let date: String
+    public var id: String { link }
+    /// still in your hands; negative when the advances went past it and the company owes you
+    public var left: Double { roundTo(received - used, 2) }
+}
+
 public struct Unclaimed {
     public let t: Entry
     public let amount: Double
@@ -197,6 +212,8 @@ public final class Derived: @unchecked Sendable {
     public var openLinks: [OpenLink] = []
     public var unclaimed: [Unclaimed] = []
     public var unclaimedOld = 0.0
+    /// petty cash not settled yet, oldest first
+    public var floats: [OpenFloat] = []
     public var allLinks: [String] = []
     public var byLink: [String: [Entry]] = [:]
 
@@ -288,12 +305,29 @@ public final class Derived: @unchecked Sendable {
         }
         let cutoff = Day.shift(now, -180)
         for t in L.txns {
-            if t.links.contains(where: { $0.hasPrefix("reimburse") }) { continue }
+            // claimed, or covered by petty cash
+            if t.links.contains(where: { $0.hasPrefix("reimburse") || isFloatLink($0) }) { continue }
             for p in t.postings where p.account == receivable {
                 if t.date >= cutoff { unclaimed.append(Unclaimed(t: t, amount: p.units ?? 0, currency: p.currency ?? "CNY")) }
                 else { unclaimedOld += p.units ?? 0 }
             }
         }
+        // petty cash: what was handed over and what used it up, per link
+        var fIn: [String: Double] = [:], fOut: [String: Double] = [:], fC: [String: String] = [:], fD: [String: String] = [:]
+        var fOrder: [String] = []
+        for t in L.txns {
+            for l in t.links where isFloatLink(l) {
+                for p in t.postings where p.account == receivable {
+                    guard let u = p.units else { continue }
+                    if fIn[l] == nil && fOut[l] == nil { fOrder.append(l) }
+                    if u < 0 { fIn[l, default: 0] -= u; if fD[l] == nil { fD[l] = t.date } } else { fOut[l, default: 0] += u }
+                    fC[l] = p.currency ?? L.base
+                }
+            }
+        }
+        floats = fOrder.map { l in
+            OpenFloat(link: l, received: roundTo(fIn[l] ?? 0, 2), used: roundTo(fOut[l] ?? 0, 2), currency: fC[l] ?? L.base, date: fD[l] ?? "")
+        }.filter { abs($0.left) > 0.005 }
         var seenL = Set<String>()
         for t in L.txns {
             for l in t.links {
