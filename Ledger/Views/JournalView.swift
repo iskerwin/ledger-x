@@ -86,8 +86,27 @@ struct TxRow: View {
         } else if c.kind == .transfer {
             Text(money(c.amount, c.currency ?? "CNY")).monospacedDigit().foregroundStyle(.secondary).sensitive()
         } else {
-            Amount(n: c.amount, signed: true, color: true)
+            // in the transaction's own currency (as on the receipt), not converted; what the account was
+            // charged in another currency underneath, for checking against the bank
+            let own = sums(t.postings.filter { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") }, negate: true)
+            let paid = sums(t.postings.filter { !$0.account.hasPrefix("Expenses:") && !$0.account.hasPrefix("Income:") && !$0.account.hasPrefix("Equity:") }, negate: false)
+                .filter { p in !own.contains { $0.0 == p.0 } }
+            VStack(alignment: .trailing, spacing: 1) {
+                ForEach(own, id: \.0) { x in Amount(n: x.1, c: x.0, signed: true, color: true) }
+                ForEach(paid, id: \.0) { x in Text(money(x.1, x.0)).font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive() }
+            }
         }
+    }
+
+    /// per currency, in the order they first appear
+    private func sums(_ ps: [Posting], negate: Bool) -> [(String, Double)] {
+        var order: [String] = [], m: [String: Double] = [:]
+        for p in ps {
+            guard let u = p.units, let c = p.currency else { continue }
+            if m[c] == nil { order.append(c) }
+            m[c, default: 0] += negate ? -u : u
+        }
+        return order.compactMap { c in abs(m[c]!) > 0.004 ? (c, roundTo(m[c]!, 2)) : nil }
     }
 }
 

@@ -674,6 +674,13 @@ struct TrialBalanceView: View {
         let debit = roots.reduce(0.0) { $0 + max(0, $1.total) }
         let credit = roots.reduce(0.0) { $0 + max(0, -$1.total) }
         let diff = roots.reduce(0.0) { $0 + $1.total }
+        // Every transaction balances at its own prices, so what is left is conversions: amounts bought
+        // with another currency (HKD paid in CNY, shares bought in USD) valued at today's rates rather
+        // than the ones they were booked at. Only a currency with no price at all is a real gap.
+        var net: [String: Double] = [:]
+        for t in L.txns where t.date <= today { for p in t.postings { if let u = p.units, let c = p.currency { net[c, default: 0] += u } } }
+        let unpriced = net.filter { abs($0.value) > 0.005 && toCNY(L, $0.value, $0.key) == nil }.keys.sorted()
+        let ok = unpriced.isEmpty
         return List {
             Section {
                 Card {
@@ -684,12 +691,16 @@ struct TrialBalanceView: View {
                             Spacer()
                             Figure(label: LS("贷方合计"), value: money(credit))
                             Spacer()
-                            Figure(label: LS("差额"), value: money(diff), color: abs(diff) < 0.5 ? Color.gain : Color.warn, alignment: .trailing)
+                            Figure(label: LS("折算差额"), value: money(diff), color: ok ? Color.secondary : Color.warn, alignment: .trailing)
                         }
-                        Label(abs(diff) < 0.5 ? LS("借贷平衡") : LS("存在差额（多为外币折算或缺少价格所致）"),
-                              systemImage: abs(diff) < 0.5 ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                        Label(ok ? LS("借贷平衡") : LS("缺少价格：%@", unpriced.joined(separator: ", ")),
+                              systemImage: ok ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
                             .font(.footnote.weight(.medium))
-                            .foregroundStyle(abs(diff) < 0.5 ? Color.gain : Color.warn)
+                            .foregroundStyle(ok ? Color.gain : Color.warn)
+                        if abs(diff) >= 0.5 {
+                            Text(LS("每笔交易都按记账时的汇率平衡。外币和证券（用人民币换的港币、美元买的股票等）在这里按今天的价格折算，和当初的汇率不同，就留下这个差额，相当于未实现的汇兑与价格盈亏，不是账本错误。"))
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
                     }
                 }
                 .cardRow()
