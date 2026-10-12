@@ -69,6 +69,15 @@ final class SalaryTests: XCTestCase {
         XCTAssertEqual(next.values["交通补贴"], "400.00")
         XCTAssertEqual(employerOpen(after2).open.first { $0.link == "salary-xinghe-202609" }?.amount, 800)
 
+        // usual amounts in the template come before last month's
+        var t3 = t2
+        t3.items[0].amount = 2600
+        t3.items[2].amount = 500
+        let std = payslipDraft(after2, template: t3, month: "2026-10", date: "2026-11-24")
+        XCTAssertEqual(std.values["基本工资"], "2600.00")
+        XCTAssertEqual(std.values["餐补"], "500.00")
+        XCTAssertNil(std.values["交通补贴"])
+
         // nothing earned: nothing to save
         XCTAssertEqual(payslipText(PayslipDraft(template: t, month: "2026-08", date: "2026-09-24"), L), "")
     }

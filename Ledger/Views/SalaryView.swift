@@ -251,10 +251,17 @@ struct PayslipTemplateSheet: View {
                                 TextField(LS("项目名称"), text: $t.items[k].name)
                                 Toggle(LS("扣款"), isOn: $t.items[k].deduct).fixedSize()
                             }
-                            Button { picking = k } label: {
-                                Text(t.items[k].account.isEmpty ? LS("选择科目") : t.items[k].account).font(.caption.monospaced())
+                            HStack {
+                                Button { picking = k } label: {
+                                    Text(t.items[k].account.isEmpty ? LS("选择科目") : t.items[k].account).font(.caption.monospaced())
+                                }
+                                .buttonStyle(.borderless)
+                                Spacer()
+                                TextField(LS("每月金额"), text: Binding(get: { t.items[k].amount.map { toFixed($0, 2) } ?? "" },
+                                                                    set: { t.items[k].amount = evalAmount($0) }))
+                                    .keyboardType(.decimalPad).multilineTextAlignment(.trailing).monospacedDigit()
+                                    .font(.caption).frame(maxWidth: 110)
                             }
-                            .buttonStyle(.borderless)
                         }
                     }
                     .onDelete { t.items.remove(atOffsets: $0) }
@@ -263,7 +270,7 @@ struct PayslipTemplateSheet: View {
                 } header: {
                     Text(LS("项目"))
                 } footer: {
-                    Text(LS("应发项记为收入，扣款项（请假、个税等）从应发里减去。几个项目可以记到同一个科目；还没有的科目在第一次记工资时开立。左滑删除。"))
+                    Text(LS("应发项记为收入，扣款项（请假、个税等）从应发里减去。几个项目可以记到同一个科目；还没有的科目在第一次记工资时开立。填了每月金额，记工资时按它带出（转正、调薪后改这里）；都不填则带出上个月的金额。左滑删除。"))
                 }
                 if !isNew {
                     Section {
