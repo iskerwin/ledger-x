@@ -253,9 +253,12 @@ final class Store: ObservableObject {
         sources.removeAll { $0.id == id }
         persistSources()
         Keychain.save("", account: id == "default" ? "token" : "token." + id)
-        for k in ["pending", "tree", "lastSync", "ci", "mainFile", "journalPattern", "receivable", "subsFile", "sub.ignored", "remind.cards"] {
+        // everything kept per ledger on this phone (see pk(_:))
+        for k in ["pending", "tree", "lastSync", "ci", "history", "mainFile", "journalPattern", "receivable", "subsFile",
+                  "sub.ignored", "link.ignored", "remind.cards", "alerts.dismissed", "alerts.seen", "backup.last"] {
             UserDefaults.standard.removeObject(forKey: "ledger." + Store.key(k, id))
         }
+        UserDefaults.standard.removeObject(forKey: PriceFetch.lastKey + "@" + id)
     }
 
     private func saveTree() { Prefs.set(pk("tree"), tree) }
@@ -353,6 +356,7 @@ final class Store: ObservableObject {
             if changed || pushed || L == nil { await rebuild() }
             ci = await backend.check()
             Prefs.set(pk("ci"), ci)
+            pruneCache()
             syncState = .idle
             syncError = ""
             lastSync = Date()
@@ -361,6 +365,20 @@ final class Store: ObservableObject {
             fail(error)
             if L == nil && tree != nil { await rebuild(quietly: true) }
         }
+    }
+
+    /// once a day, after a successful sync: drop cached file versions no ledger on this phone uses any more
+    private func pruneCache() {
+        let k = "ledger.cache.pruned"
+        guard UserDefaults.standard.string(forKey: k) != Day.today() else { return }
+        var keep = Set(tree?.files.values.map { $0 } ?? [])
+        for s in sources where s.id != cfg.id {
+            let t: RepoTree? = Prefs.get(Store.key("tree", s.id), RepoTree?.none)
+            keep.formUnion(t?.files.values.map { $0 } ?? [])
+        }
+        guard !keep.isEmpty else { return }
+        BlobCache.prune(keep: keep)
+        UserDefaults.standard.set(Day.today(), forKey: k)
     }
 
     private func fail(_ error: Error) {

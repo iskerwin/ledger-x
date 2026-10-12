@@ -259,7 +259,14 @@ enum BlobCache {
     }
     static func get(_ sha: String) -> String? { try? String(contentsOf: dir.appendingPathComponent(name(sha)), encoding: .utf8) }
     static func set(_ sha: String, _ text: String) { try? Data(text.utf8).write(to: dir.appendingPathComponent(name(sha)), options: .atomic) }
-    static func clear() {
+    /// delete every cached version except `keep` (the files of each ledger's current tree): every commit
+    /// leaves the previous version of the files it changed behind, and those are never read again
+    static func prune(keep: Set<String>) {
+        let names = Set(keep.map(name))
+        guard let files = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return }
+        for f in files where !names.contains(f) { try? FileManager.default.removeItem(at: dir.appendingPathComponent(f)) }
+    }
+        static func clear() {
         try? FileManager.default.removeItem(at: dir)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     }
@@ -285,6 +292,14 @@ enum Keychain {
                                 kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
         var out: AnyObject?
         if SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let d = out as? Data { return String(decoding: d, as: UTF8.self) }
-        return UserDefaults.standard.string(forKey: "ledger.fallback." + account)
+        guard let v = UserDefaults.standard.string(forKey: "ledger.fallback." + account) else { return nil }
+        // kept outside the Keychain earlier: move it in now if the Keychain works (save removes the copy)
+        if !v.isEmpty { save(v, account: account) }
+        return v
+    }
+
+    /// the token could not go into the Keychain and sits unencrypted in the app's settings
+    static func inFallback(account: String = "token") -> Bool {
+        !(UserDefaults.standard.string(forKey: "ledger.fallback." + account) ?? "").isEmpty
     }
 }

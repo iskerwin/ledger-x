@@ -138,6 +138,10 @@ final class CounterpartyTests: XCTestCase {
         XCTAssertEqual(D.floats[0].left, 700)
         XCTAssertEqual(D.unclaimed.map { $0.amount }, [20])     // only what petty cash did not cover
         XCTAssertFalse(employerOpen(L).open.contains { $0.link?.hasPrefix("float-") ?? false })
+        // copying an advance: paid from the petty cash in hand
+        let again = draftFromTxn(L.txns.first { $0.narration == "螺丝" }!, L, D, defaultFunding: nil)
+        XCTAssertTrue(again.reimb)
+        XCTAssertEqual(again.link, "float-co-20260901")
         XCTAssertEqual(linkFigures("float-co-20260901", D.byLink["float-co-20260901"]!, L).map { $0.value }, [1000, 300, 700])
         let issues = linkIssues(L, subscriptions: [])
         XCTAssertTrue(issues.isEmpty, issues.map { "\($0.kind) \($0.link ?? "")" }.joined(separator: ", "))

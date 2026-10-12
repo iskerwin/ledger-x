@@ -15,6 +15,9 @@ enum Reminders {
     static let forecastKey = "ledger.remind.forecast"
     static let alertsKey = "ledger.remind.alerts"
     static var subsDays: Int { UserDefaults.standard.object(forKey: subsDaysKey) as? Int ?? 3 }
+    /// days before a card bill is due (its own setting; it used to share the subscriptions' one)
+    static let billDaysKey = "ledger.remind.billDays"
+    static var billDays: Int { UserDefaults.standard.object(forKey: billDaysKey) as? Int ?? subsDays }
     /// card account → repayment day of month (0 = none), per ledger
     static func cardDays(_ store: Store) -> [String: Int] { Prefs.get(store.pk("remind.cards"), [String: Int]()) }
     static func setCardDays(_ v: [String: Int], _ store: Store) { Prefs.set(store.pk("remind.cards"), v) }
@@ -56,11 +59,11 @@ enum Reminders {
         let cal0 = Calendar.current
         for c in cycles where !c.settled && c.due >= today {
             guard let dueDay = Day.date(c.due) else { continue }
-            let lead = cal0.date(byAdding: .day, value: -subsDays, to: dueDay) ?? dueDay
+            let lead = cal0.date(byAdding: .day, value: -billDays, to: dueDay) ?? dueDay
             for (k, day) in [lead, dueDay].enumerated() {
                 guard let fire = cal0.date(bySettingHour: 9, minute: 0, second: 0, of: day), fire > Date() else { continue }
                 add("bill." + c.account + "." + c.due + ".\(k)", LS("信用卡还款"),
-                    LS("%@ %@ 到期，应还 %@", acctLabel(c.account), c.due, money(c.remaining, c.currency)),
+                    LS("%@ %@ 到期，应还 %@", accountTitle(L, c.account), c.due, money(c.remaining, c.currency)),
                     cal0.dateComponents([.year, .month, .day, .hour, .minute], from: fire), tab: "overview")
             }
         }
@@ -73,7 +76,7 @@ enum Reminders {
             dc.day = day
             dc.hour = 9
             add("card." + acct, LS("信用卡还款日"),
-                owed > 0.005 ? LS("%@ 今天到期，账本中当前欠款 %@", acctLabel(acct), money(owed)) : LS("%@ 今天到期，记得还款并在 App 中入账", acctLabel(acct)),
+                owed > 0.005 ? LS("%@ 今天到期，账本中当前欠款 %@", accountTitle(L, acct), money(owed)) : LS("%@ 今天到期，记得还款并在 App 中入账", accountTitle(L, acct)),
                 dc, repeats: true)
         }
 
@@ -189,6 +192,7 @@ struct RemindersSection: View {
     @AppStorage(Reminders.forecastKey) private var forecastWarn = true
     @AppStorage(Reminders.alertsKey) private var alerts = true
     @AppStorage(Reminders.subsDaysKey) private var subsDays = 3
+    @AppStorage(Reminders.billDaysKey) private var billDays = Reminders.billDays
     @State private var cards: [String: Int] = [:]
 
     var body: some View {
@@ -200,7 +204,7 @@ struct RemindersSection: View {
                     await Reminders.reschedule(store)
                 }
             })) { Label(LS("本地提醒"), systemImage: "bell.badge") }
-            .onChange(of: subsDays) { _, _ in Task { await Reminders.reschedule(store) } }
+            .onChange(of: [subsDays, billDays]) { _, _ in Task { await Reminders.reschedule(store) } }
             .onChange(of: [fixed, balance, budget, subs, forecastWarn, alerts]) { _, _ in Task { await Reminders.reschedule(store) } }
             .onChange(of: cards) { _, _ in Task { await Reminders.reschedule(store) } }
             .onAppear { cards = Reminders.cardDays(store) }
@@ -213,9 +217,10 @@ struct RemindersSection: View {
                 if subs {
                     Stepper(LS("提前 %@ 天", subsDays), value: $subsDays, in: 0...14)
                 }
+                Stepper(LS("信用卡还款提前 %@ 天", billDays), value: $billDays, in: 0...14)
                 Toggle(LS("账单日 / 核对日核对余额"), isOn: $balance)
                 ForEach(cardAccounts, id: \.self) { a in
-                    Picker(LS("%@ 还款日", acctLabel(a)), selection: Binding(get: { cards[a] ?? 0 }, set: { cards[a] = $0; Reminders.setCardDays(cards, store) })) {
+                    Picker(LS("%@ 还款日", store.L.map { accountTitle($0, a) } ?? acctLabel(a)), selection: Binding(get: { cards[a] ?? 0 }, set: { cards[a] = $0; Reminders.setCardDays(cards, store) })) {
                         Text(LS("不提醒")).tag(0)
                         ForEach(1...28, id: \.self) { Text(LS("每月 %@ 日", $0)).tag($0) }
                     }
@@ -224,7 +229,7 @@ struct RemindersSection: View {
         } header: {
             Text(LS("提醒"))
         } footer: {
-            Text(LS("提醒在本机生成，每次打开 App 或同步后按最新账本重新安排。在「编辑账户」中为信用卡设置账单日和还款日后，会按账单金额提醒还款，提前天数与订阅相同；为账户设置账单日或核对日后，当天上午提醒核对余额。"))
+            Text(LS("提醒在本机生成，每次打开 App 或同步后按最新账本重新安排。在「编辑账户」中为信用卡设置账单日和还款日后，会按账单金额在到期前和当天提醒还款；为账户设置账单日或核对日后，当天上午提醒核对余额。"))
         }
     }
 

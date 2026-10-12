@@ -121,4 +121,45 @@ final class PlanTests: XCTestCase {
         let poor = forecast(ledger(t + "2026-09-30 * \"Car\"\n  Expenses:Food  100000.00 CNY\n  Assets:Bank:CMB\n"), today: "2026-10-01", days: 30, includeDaily: false)
         XCTAssertNotNil(poor.firstBelow(0))
     }
+
+    func testForecastSalaryFromPayslip() {
+        // a payslip of several items: the money into the bank counts, and the template gives the usual month
+        let t = base + """
+        2025-01-01 open Income:Salary:Base CNY
+        2025-01-01 open Income:Salary:Allowance CNY
+        2025-01-01 open Assets:Receivable:Employer
+
+        2026-08-24 * "柴鹿" "2026-07 工资" ^salary-chailu-202607
+          Income:Salary:Base  -2080.00 CNY
+          Income:Salary:Allowance  -500.00 CNY
+          Assets:Receivable:Employer  500.00 CNY
+          Assets:Bank:CMB  2080.00 CNY
+
+        2026-09-24 * "柴鹿" "2026-08 工资" ^salary-chailu-202608
+          Income:Salary:Base  -2080.00 CNY
+          Assets:Bank:CMB  2080.00 CNY
+
+        2026-09-25 * "饭店" "聚餐"
+          Expenses:Food  3000.00 CNY
+          Assets:Bank:CMB
+
+        2026-09-26 * "饭店" "午饭"
+          Expenses:Food  90.00 CNY
+          Assets:Bank:CMB
+
+        """
+        let L = ledger(t)
+        var p = PayslipTemplate(employer: "柴鹿", items: [PayslipItem(name: "基本工资", account: "Income:Salary:Base", amount: 2600),
+                                                        PayslipItem(name: "餐补", account: "Income:Salary:Allowance", amount: 500),
+                                                        PayslipItem(name: "请假", account: "Income:Salary:Deduction", deduct: true)],
+                                account: "Assets:Bank:CMB")
+        p.slug = "chailu"
+        let f = forecast(L, today: "2026-10-01", days: 40, includeDaily: true, payslips: [p], largeExpense: 2000)
+        XCTAssertEqual(f.events.filter { $0.kind == .income }.map { $0.date }, ["2026-10-24"])
+        XCTAssertEqual(f.events.first { $0.kind == .income }?.amount, 3100)
+        // the 3000 dinner is a one-off; the 90 lunch is everyday spending
+        XCTAssertEqual(f.dailySpend, 1.0, accuracy: 0.01)
+        // without a template the series (two payments) is too short to count
+        XCTAssertTrue(forecast(L, today: "2026-10-01", days: 40, includeDaily: false).events.filter { $0.kind == .income }.isEmpty)
+    }
 }

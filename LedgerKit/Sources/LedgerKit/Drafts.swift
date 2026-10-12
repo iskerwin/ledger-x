@@ -676,6 +676,10 @@ public func draftFromTxn(_ t: Entry, kind: DraftKind? = nil, _ L: Ledger, _ D: D
         if cat.account.hasPrefix("Assets:Receivable") {
             d.reimb = true
             d.account = D.rankAccounts(["Expenses:"]).first ?? ""
+            // paid from petty cash like the original while it lasts, else from the petty cash in hand (as when
+            // 可报销 is switched on); a paid reimbursement's link is never reused
+            let open = D.floats.filter { $0.left > 0.005 }
+            d.link = t.links.first { l in open.contains { $0.link == l } } ?? open.last?.link ?? ""
         } else { d.account = cat.account }
         d.amount = jsNumberString(abs(cat.units ?? 0)); d.currency = cat.currency ?? "CNY"
         if let fund = fund {

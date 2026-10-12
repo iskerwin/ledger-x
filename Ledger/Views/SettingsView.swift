@@ -51,6 +51,12 @@ struct SettingsView: View {
                 }
             } else {
                 LedgersSection(editing: $editingLedger)
+                if store.sources.contains(where: { Keychain.inFallback(account: $0.keychainAccount) }) {
+                    Section {
+                        Label(LS("访问令牌未能存入钥匙串，目前未加密保存在本机。通常是安装包的签名缺少钥匙串权限，换用带钥匙串权限的签名重新安装后会自动移入钥匙串。"), systemImage: "exclamationmark.lock")
+                            .font(.footnote).foregroundStyle(Color.warn)
+                    }
+                }
             }
 
             if !first, let L = store.L, let D = store.D {
