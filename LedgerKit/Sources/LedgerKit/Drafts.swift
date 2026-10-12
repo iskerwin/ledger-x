@@ -39,6 +39,8 @@ public struct DraftRow: Equatable, Identifiable {
     public var cost = ""
     public var price = ""
     public var flag = ""
+    /// who a personal receivable row is with (`person:`)
+    public var person = ""
     public var ccyTouched = false
     public init(account: String = "", currency: String = "CNY") { self.account = account; self.currency = currency }
 }
@@ -58,14 +60,12 @@ public enum DraftKind: String, CaseIterable, Identifiable {
     }
 }
 
-/// someone's part of an expense you paid (AA): it goes to their personal receivable
+/// someone's part of an expense you paid (AA): it goes to the personal receivable, `person:` naming them
 public struct Share: Equatable, Identifiable {
     public var id = UUID()
-    public var account: String
+    public var person: String
     public var amount: String
-    /// the name to open the account with, for someone new
-    public var name: String
-    public init(account: String, amount: String = "", name: String = "") { self.account = account; self.amount = amount; self.name = name }
+    public init(person: String, amount: String = "") { self.person = person; self.amount = amount }
 }
 
 public struct RefundOf: Equatable {
@@ -106,6 +106,9 @@ public struct Draft: Equatable {
     public var shares: [Share] = []
     /// the parts were typed by hand: don't even them out again when the amount changes
     public var sharesEdited = false
+    /// who the personal receivable is with, when it is the category or paying account
+    /// (someone paid for you: the paying account is Assets:Receivable:Personal)
+    public var person = ""
     public init() {}
 }
 
@@ -164,6 +167,8 @@ func multiTx(_ d: Draft, _ L: Ledger) -> TxDraft? {
                           flag: r.flag.isEmpty ? nil : r.flag, cost: r.cost.trimmingCharacters(in: .whitespaces).isEmpty ? nil : r.cost.trimmingCharacters(in: .whitespaces),
                           price: pr.isEmpty ? nil : (pr.hasPrefix("@") ? pr : "@ " + pr))
         p.meta = []
+        let who = r.person.trimmingCharacters(in: .whitespaces)
+        if isPersonal(p.account) && !who.isEmpty { p.meta = [(personMeta, who)] }
         return p
     }
     return tx
@@ -215,9 +220,10 @@ func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
         var theirs: [TxPosting] = []
         var sum = 0.0
         for x in d.shares {
-            guard let v = evalAmount(x.amount), v > 0, !x.account.isEmpty else { return nil }
+            let who = x.person.trimmingCharacters(in: .whitespaces)
+            guard let v = evalAmount(x.amount), v > 0, !who.isEmpty else { return nil }
             sum += v
-            theirs.append(TxPosting(account: x.account, amount: v, currency: d.currency))
+            theirs.append(personalPosting(who, amount: v, currency: d.currency))
         }
         let mine = roundTo(amt - sum, 2)
         guard mine > -0.004 else { return nil }
@@ -234,6 +240,10 @@ func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
         tx.postings = [cat, TxPosting(account: d.funding, amount: -sgn * paid, currency: fc)]
     } else {
         tx.postings = [cat, TxPosting(account: d.funding, amount: -sgn * amt, currency: d.currency)]
+    }
+    let who = d.person.trimmingCharacters(in: .whitespaces)
+    if !who.isEmpty {
+        for i in tx.postings.indices where isPersonal(tx.postings[i].account) { tx.postings[i].meta = [(personMeta, who)] }
     }
     return tx
 }
@@ -267,20 +277,18 @@ public func draftText(_ d: Draft, _ L: Ledger, _ D: Derived, explicit: Bool = tr
         return text
     }
     guard let tx = draftTx(d, L, D) else { return "" }
-    // someone new in an AA split: their account is opened with the expense
-    var seen = Set<String>()
-    let opens = newShareAccounts(d, L).filter { seen.insert($0.account).inserted }.map { openLine($0.account, date: d.date, name: $0.name) }
+    // the first AA split opens the personal receivable along with the expense
+    let opens = sharesNeedOpen(d, L) ? [personalOpenLine(L, date: d.date)].compactMap { $0 } : []
     return (opens + [formatTxn(tx)]).joined(separator: "\n\n")
 }
 
-/// AA parts for people the ledger has no account for yet
-public func newShareAccounts(_ d: Draft, _ L: Ledger) -> [Share] {
-    guard d.kind == .expense, !d.reimb, d.split else { return [] }
-    return d.shares.filter { !$0.account.isEmpty && (L.accounts[$0.account] == nil || L.accounts[$0.account]!.implicit) }
+/// an AA split while the ledger has no personal receivable yet
+public func sharesNeedOpen(_ d: Draft, _ L: Ledger) -> Bool {
+    d.kind == .expense && !d.reimb && d.split && !d.shares.isEmpty && personalOpenLine(L, date: d.date) != nil
 }
 
-/// the form's text is exactly one transaction (not when it also opens accounts for someone new)
-public func draftIsSingle(_ d: Draft, _ L: Ledger) -> Bool { d.kind != .raw && newShareAccounts(d, L).isEmpty }
+/// the form's text is exactly one transaction (not when it also opens the personal receivable)
+public func draftIsSingle(_ d: Draft, _ L: Ledger) -> Bool { d.kind != .raw && !sharesNeedOpen(d, L) }
 
 // MARK: - validation & where things go
 
@@ -615,6 +623,7 @@ public func commitMessage(_ ops: [Op], path: String) -> String {
 public func isComplex(_ t: Entry) -> Bool {
     let real = t.postings.filter { !$0.interpolated }
     if t.postings.count > 2 { return true }
+    // `person:` on the receivable: the split form keeps it per row
     if t.postings.contains(where: { $0.cost != nil || ($0.price != nil && t.postings.count > 2) || $0.flag != nil || !$0.meta.isEmpty }) { return true }
     if t.flag != "*" { return true }
     return t.postings.count != real.count && t.postings.count > 1 && !t.tags.contains("transfer")
@@ -634,6 +643,7 @@ public func rowsFromTxn(_ t: Entry, withAmounts: Bool = true) -> [DraftRow] {
             r.price = "\(pr.total ? "@@" : "@") \(pr.total ? numText(abs(pr.raw ?? 0)) : numText(pr.number ?? 0)) \(pr.currency ?? "")"
         }
         r.flag = p.flag ?? ""
+        r.person = postingPerson(p) ?? ""
         rows.append(r)
     }
     return rows.isEmpty ? [DraftRow(), DraftRow()] : rows

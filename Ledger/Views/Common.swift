@@ -437,3 +437,24 @@ struct TextEditSheet: View {
         }
     }
 }
+
+/// who a personal receivable posting is with (person:): typed, or one of the people in 往来
+struct PersonField: View {
+    @EnvironmentObject var store: Store
+    @Binding var value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            LabeledContent(LS("对方")) {
+                TextField(LS("称呼，如 五姨"), text: $value).multilineTextAlignment(.trailing)
+            }
+            let ps = store.L.map { L in Array(people(L).filter { !$0.closed && !$0.unnamed }.prefix(8)) } ?? []
+            if !ps.isEmpty {
+                ChipRow { ForEach(ps) { p in Chip(label: p.name, selected: value == p.name) { value = p.name } } }
+            }
+            if value.trimmed.isEmpty {
+                Text(LS("个人往来的每一笔都要写明是谁")).font(.caption).foregroundStyle(Color.warn)
+            }
+        }
+    }
+}

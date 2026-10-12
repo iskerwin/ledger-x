@@ -493,6 +493,9 @@ public func checkText(_ text: String, _ L: Ledger?) -> CheckResult {
             for (c, v) in weightSums(e) where abs(v) > (tol[c] ?? 0.005) + 1e-9 {
                 errors.append(LedgerError(entry: e, msg: tr("不平衡：差 \(fmtNum(v, 4)) \(c)", "Unbalanced by \(fmtNum(v, 4)) \(c)")))
             }
+            for p in e.postings where p.account == personalAccount && postingPerson(p) == nil {
+                errors.append(LedgerError(entry: e, msg: tr("个人往来没有注明是谁（person:）", "Personal receivable without a person (person:)"), soft: true))
+            }
             if let L = L {
                 for p in e.postings where L.accounts[p.account] == nil && !opened(p.account) {
                     errors.append(LedgerError(entry: e, msg: tr("账户未开立：" + p.account, "Account not opened: " + p.account)))

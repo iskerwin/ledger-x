@@ -2,23 +2,50 @@ import Foundation
 
 // MARK: - 往来: money owed between you and people, the company and the reimbursement desk
 //
-// One person, two accounts at most, both keyed by the same name:
-//   Assets:Receivable:Personal:<Key>  paid for them, lent to them, split with them (positive: they owe you;
-//                                     negative: they paid for you)
-//   Liabilities:Loan:<Key>            money you borrowed from them
-// What they owe you is the sum of the two. The company's account is Assets:Receivable:Employer
-// (salary paid short: positive; paid over: negative), each month's difference linked ^salary-….
+// People share one receivable account; each posting on it says who it is with:
+//   Assets:Receivable:Personal        paid for them, lent to them, split with them (positive: they owe you;
+//     person: "五姨"                  negative: they paid for you)
+//   Liabilities:Loan:<Key>            money you borrowed from them; the account's `name:` is the person
+// What they owe you is the sum of the two. Sub-accounts of Assets:Receivable:Personal (the older layout) still
+// work: without `person:` their `name:` (or last part) is the person.
+// The company's account is Assets:Receivable:Employer (salary paid short: positive; paid over: negative),
+// each month's difference linked ^salary-….
 
-public let personalPrefix = "Assets:Receivable:Personal:"
+public let personalAccount = "Assets:Receivable:Personal"
 public let loanPrefix = "Liabilities:Loan:"
+/// posting metadata naming the person a personal receivable is with
+public let personMeta = "person"
 
-/// the person an account belongs to: "WuYi" for Assets:Receivable:Personal:WuYi or Liabilities:Loan:WuYi
-public func personKey(_ a: String) -> String? {
-    for p in [personalPrefix, loanPrefix] where a.hasPrefix(p) {
-        let k = String(a.dropFirst(p.count)).components(separatedBy: ":")[0]
-        return k.isEmpty ? nil : k
+public func isPersonal(_ a: String) -> Bool { a == personalAccount || a.hasPrefix(personalAccount + ":") }
+
+/// the loan account's own part: "WuYi" for Liabilities:Loan:WuYi or Liabilities:Loan:WuYi:Car
+public func loanKey(_ a: String) -> String? {
+    guard a.hasPrefix(loanPrefix) else { return nil }
+    let k = String(a.dropFirst(loanPrefix.count)).components(separatedBy: ":")[0]
+    return k.isEmpty ? nil : k
+}
+
+/// who a loan account is with: the `name:` on Liabilities:Loan:<Key>, else the key
+public func loanPerson(_ L: Ledger, _ a: String) -> String? {
+    guard let k = loanKey(a) else { return nil }
+    return metaName(L, loanPrefix + k) ?? k
+}
+
+/// the `person:` written on a posting, trimmed (nil when absent or empty)
+public func postingPerson(_ p: Posting) -> String? {
+    guard let v = p.meta[personMeta] else { return nil }
+    let s = (v.stringValue ?? v.display).trimmingCharacters(in: .whitespaces)
+    return s.isEmpty ? nil : s
+}
+
+/// who a posting is with: a personal receivable's `person:` ("" when it names nobody), a loan account's person;
+/// nil for every other account
+public func personOf(_ p: Posting, _ L: Ledger) -> String? {
+    if isPersonal(p.account) {
+        if let n = postingPerson(p) { return n }
+        return p.account == personalAccount ? "" : metaName(L, p.account) ?? leaf(p.account)
     }
-    return nil
+    return loanPerson(L, p.account)
 }
 
 /// an account name part Beancount accepts: a capital letter or digit, then letters, digits and dashes
@@ -58,13 +85,11 @@ public func metaName(_ L: Ledger, _ a: String) -> String? {
 }
 
 public struct Person: Identifiable, Equatable {
-    public let key: String
+    /// the name: `person:` on the receivable postings, the loan account's `name:`; "" for receivables that name nobody
     public let name: String
-    /// Assets:Receivable:Personal:<key>, when it exists
-    public let receivable: String?
-    /// Liabilities:Loan:<key>, when it exists
-    public let loan: String?
-    /// every account of theirs (sub-accounts too) with its balances
+    /// their Liabilities:Loan accounts
+    public let loans: [String]
+    /// per account (the personal receivable, their loan accounts) and currency: their part of its balance
     public let balances: [String: [String: Double]]
     /// what they owe you per currency; negative when you owe them
     public let net: [String: Double]
@@ -72,52 +97,62 @@ public struct Person: Identifiable, Equatable {
     public let netCNY: Double
     /// their latest transaction
     public let last: String?
-    /// every account of theirs is closed
+    /// only loan accounts, all closed: nothing more will happen with them
     public let closed: Bool
-    public var id: String { key }
+    public var id: String { name }
+    public var key: String { name }
+    /// receivable postings that say nobody (no `person:`)
+    public var unnamed: Bool { name.isEmpty }
     public var settled: Bool { net.values.allSatisfy { abs($0) < 0.005 } }
+    /// the open loan account to borrow and repay on, if they have one
+    public func loan(_ L: Ledger) -> String? { loans.first { L.accounts[$0]?.close == nil } ?? loans.first }
 }
 
-/// everyone with a personal receivable or loan account: who still owes (or is owed) first, the largest
+/// everyone with a personal receivable posting or a loan account: who still owes (or is owed) first, the largest
 /// first; then the settled ones, most recent first
 public func people(_ L: Ledger) -> [Person] {
-    var accts: [String: [String]] = [:]
-    for a in L.accounts.keys.sorted() {
-        guard let k = personKey(a) else { continue }
-        accts[k, default: []].append(a)
-    }
-    guard !accts.isEmpty else { return [] }
+    var bal: [String: [String: [String: Double]]] = [:]
+    var loans: [String: [String]] = [:]
     var last: [String: String] = [:]
+    var receivable = Set<String>()
+    for a in L.accounts.keys.sorted() {
+        guard let who = loanPerson(L, a) else { continue }
+        loans[who, default: []].append(a)
+    }
     for t in L.txns {
-        for p in t.postings { if let k = personKey(p.account), (last[k] ?? "") < t.date { last[k] = t.date } }
+        for p in t.postings {
+            guard let who = personOf(p, L) else { continue }
+            if isPersonal(p.account) { receivable.insert(who) }
+            if (last[who] ?? "") < t.date { last[who] = t.date }
+            guard let u = p.units, let c = p.currency else { continue }
+            bal[who, default: [:]][p.account, default: [:]][c, default: 0] += u
+        }
     }
     var out: [Person] = []
-    for (k, list) in accts {
-        let rec = personalPrefix + k, loan = loanPrefix + k
-        var bal: [String: [String: Double]] = [:], net: [String: Double] = [:]
-        for a in list {
-            for (c, v) in L.final[a] ?? [:] where abs(v) > 1e-9 {
-                bal[a, default: [:]][c] = v
+    for who in Set(loans.keys).union(bal.keys) {
+        var b: [String: [String: Double]] = [:], net: [String: Double] = [:]
+        for (a, m) in bal[who] ?? [:] {
+            for (c, v) in m where abs(v) > 1e-9 {
+                b[a, default: [:]][c] = roundTo(v, 2)
                 net[c, default: 0] += v
             }
         }
         net = net.mapValues { roundTo($0, 2) }.filter { abs($0.value) > 0.005 }
         let cny = net.reduce(0.0) { $0 + (toCNY(L, $1.value, $1.key) ?? 0) }
-        let name = metaName(L, rec) ?? metaName(L, loan) ?? k
-        let closed = list.allSatisfy { L.accounts[$0]?.close != nil }
-        out.append(Person(key: k, name: name, receivable: L.accounts[rec] != nil ? rec : nil, loan: L.accounts[loan] != nil ? loan : nil,
-                          balances: bal, net: net, netCNY: roundTo(cny, 2), last: last[k], closed: closed))
+        let ls = loans[who] ?? []
+        let closed = !receivable.contains(who) && !ls.isEmpty && ls.allSatisfy { L.accounts[$0]?.close != nil }
+        out.append(Person(name: who, loans: ls, balances: b, net: net, netCNY: roundTo(cny, 2), last: last[who], closed: closed))
     }
     return out.sorted { a, b in
         if a.settled != b.settled { return !a.settled }
-        if !a.settled { return abs(a.netCNY) != abs(b.netCNY) ? abs(a.netCNY) > abs(b.netCNY) : a.key < b.key }
-        return (a.last ?? "") != (b.last ?? "") ? (a.last ?? "") > (b.last ?? "") : a.key < b.key
+        if !a.settled { return abs(a.netCNY) != abs(b.netCNY) ? abs(a.netCNY) > abs(b.netCNY) : a.name < b.name }
+        return (a.last ?? "") != (b.last ?? "") ? (a.last ?? "") > (b.last ?? "") : a.name < b.name
     }
 }
 
 /// the person's transactions, newest first
-public func personEntries(_ L: Ledger, _ key: String) -> [Entry] {
-    L.txns.filter { t in t.postings.contains { personKey($0.account) == key } }.reversed()
+public func personEntries(_ L: Ledger, _ name: String) -> [Entry] {
+    L.txns.filter { t in t.postings.contains { personOf($0, L) == name } }.reversed()
 }
 
 /// an open difference on the company's account: one ^salary-… link, or (link nil) what no link explains
@@ -132,7 +167,7 @@ public struct OpenDifference: Identifiable, Equatable {
 }
 
 /// the company's account: its balance per currency, and what is still open behind it.
-/// Only ^salary-… and ^float-… (备用金) links count (a payslip netted against a reimbursement carries both links). One entry can
+/// Only ^salary-… links count (a payslip netted against a reimbursement carries both links). One entry can
 /// settle several months at once: each of its postings goes to the month it cancels exactly, the rest to the
 /// entry's first salary link.
 public func employerOpen(_ L: Ledger) -> (total: [String: Double], open: [OpenDifference]) {
@@ -149,7 +184,7 @@ public func employerOpen(_ L: Ledger) -> (total: [String: Double], open: [OpenDi
     for t in L.txns {
         let ps = t.postings.filter { isSalaryClearing($0.account) }
         if ps.isEmpty { continue }
-        let links = t.links.filter(isEmployerLink)
+        let links = t.links.filter(isSalaryLink)
         var used = Set<String>()
         for p in ps {
             let c = p.currency ?? L.base, v = p.units ?? 0
@@ -203,15 +238,17 @@ public enum LoanKind: String, CaseIterable, Identifiable {
     }
     /// money comes into your account
     public var incoming: Bool { self == .collect || self == .borrow }
-    /// the person's account this goes to
-    public func account(_ key: String) -> String { (self == .lend || self == .collect ? personalPrefix : loanPrefix) + key }
+    /// on the personal receivable (lend, collect) rather than a loan account (borrow, repay)
+    public var receivable: Bool { self == .lend || self == .collect }
 }
 
 public struct LoanDraft: Equatable {
     public var kind: LoanKind = .lend
     public var date = Day.today()
-    public var key = ""
+    /// who: written as `person:` (lend, collect) or the new loan account's `name:` (borrow, repay)
     public var name = ""
+    /// Liabilities:Loan:<key> for someone you have not borrowed from before
+    public var key = ""
     public var amount = ""
     public var currency = "CNY"
     /// your account the money leaves or comes into
@@ -229,24 +266,46 @@ func openLine(_ account: String, date: String, name: String?) -> String {
     return s
 }
 
-/// the Beancount text for a loan entry (with the person's account opened first when it is new)
-public func loanText(_ d: LoanDraft, _ L: Ledger) -> String {
-    let key = d.key.trimmingCharacters(in: .whitespaces)
-    guard validAccountPart(key), let amt = evalAmount(d.amount), amt > 0, !d.account.isEmpty, !d.date.isEmpty else { return "" }
-    let target = d.kind.account(key)
+/// the open directive for the personal receivable when the ledger has none yet
+func personalOpenLine(_ L: Ledger, date: String) -> String? {
+    L.accounts[personalAccount] == nil || L.accounts[personalAccount]!.implicit ? openLine(personalAccount, date: date, name: tr("个人往来", "People")) : nil
+}
+
+/// a posting on the personal receivable for one person
+public func personalPosting(_ person: String, amount: Double, currency: String) -> TxPosting {
+    var p = TxPosting(account: personalAccount, amount: amount, currency: currency)
+    p.meta = [(personMeta, person)]
+    return p
+}
+
+/// the loan account a borrow or repay goes to: theirs when they have one, else Liabilities:Loan:<key>
+public func loanAccount(_ d: LoanDraft, _ L: Ledger) -> String? {
     let name = d.name.trimmingCharacters(in: .whitespaces)
+    if let p = people(L).first(where: { $0.name == name }), let a = p.loan(L) { return a }
+    let key = d.key.trimmingCharacters(in: .whitespaces)
+    return validAccountPart(key) ? loanPrefix + key : nil
+}
+
+/// the Beancount text for a loan entry (with the account opened first when the ledger lacks it)
+public func loanText(_ d: LoanDraft, _ L: Ledger) -> String {
+    let name = d.name.trimmingCharacters(in: .whitespaces)
+    guard !name.isEmpty, let amt = evalAmount(d.amount), amt > 0, !d.account.isEmpty, !d.date.isEmpty else { return "" }
     var parts: [String] = []
-    if L.accounts[target] == nil || L.accounts[target]!.implicit {
-        // the name on the other account of theirs, when this one is new
-        parts.append(openLine(target, date: d.date, name: name.isEmpty ? metaName(L, LoanKind.lend.account(key)) ?? metaName(L, LoanKind.borrow.account(key)) : name))
+    let sign: Double = d.kind == .lend || d.kind == .repay ? 1 : -1
+    let theirs: TxPosting
+    if d.kind.receivable {
+        if let o = personalOpenLine(L, date: d.date) { parts.append(o) }
+        theirs = personalPosting(name, amount: sign * amt, currency: d.currency)
+    } else {
+        guard let a = loanAccount(d, L) else { return "" }
+        if L.accounts[a] == nil || L.accounts[a]!.implicit { parts.append(openLine(a, date: d.date, name: name)) }
+        theirs = TxPosting(account: a, amount: sign * amt, currency: d.currency)
     }
     var tx = TxDraft(date: d.date)
-    tx.payee = name.isEmpty ? key : name
+    tx.payee = name
     let note = d.note.trimmingCharacters(in: .whitespaces)
     tx.narration = note.isEmpty ? d.kind.label : note
-    let sign: Double = d.kind == .lend || d.kind == .repay ? 1 : -1
-    tx.postings = [TxPosting(account: target, amount: sign * amt, currency: d.currency),
-                   TxPosting(account: d.account, amount: -sign * amt, currency: d.currency)]
+    tx.postings = [theirs, TxPosting(account: d.account, amount: -sign * amt, currency: d.currency)]
     parts.append(formatTxn(tx))
     return parts.joined(separator: "\n\n")
 }
@@ -257,7 +316,11 @@ public struct SettleItem: Equatable, Hashable {
     public let currency: String
     /// the balance now
     public let amount: Double
-    public init(account: String, currency: String, amount: Double) { self.account = account; self.currency = currency; self.amount = amount }
+    /// whose part of a shared account it is (`person:` on the posting)
+    public let person: String?
+    public init(account: String, currency: String, amount: Double, person: String? = nil) {
+        self.account = account; self.currency = currency; self.amount = amount; self.person = person
+    }
 }
 
 /// Close out what is left: each item's balance goes to `to` (报销差额, 工资, 礼金…), linked when a link is given.
@@ -273,7 +336,9 @@ public func settleText(_ L: Ledger, date: String, payee: String, narration: Stri
     if let l = link, !l.isEmpty { tx.links = [l] }
     var back: [String: Double] = [:], order: [String] = []
     for i in items {
-        tx.postings.append(TxPosting(account: i.account, amount: -roundTo(i.amount, 2), currency: i.currency))
+        var p = TxPosting(account: i.account, amount: -roundTo(i.amount, 2), currency: i.currency)
+        if let who = i.person, !who.isEmpty { p.meta = [(personMeta, who)] }
+        tx.postings.append(p)
         if back[i.currency] == nil { order.append(i.currency) }
         back[i.currency, default: 0] += i.amount
     }

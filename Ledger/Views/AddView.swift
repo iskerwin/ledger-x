@@ -452,6 +452,9 @@ struct AddView: View {
         return Section {
             AccountField(label: catLabel, prefixes: ctx.catPrefix, chips: ctx.cats, value: field(\.account))
             AccountField(label: fundLabel, prefixes: ["Assets:", "Liabilities:"], chips: ctx.funds, value: field(\.funding))
+            if isPersonal(d.account) || isPersonal(d.funding) {
+                PersonField(value: field(\.person))
+            }
             if let fc = ctx.fc, fc != d.currency {
                 LabeledContent(LS("实付 ") + fc) {
                     TextField(LS("账户实际扣款"), text: field(\.paid))
@@ -516,10 +519,9 @@ struct AddView: View {
 
     // MARK: AA
 
-    /// split the expense with people: their parts go to their personal receivables, yours to the category
+    /// split the expense with people: their parts go to the personal receivable (person: on each), yours to the category
     private func aaSection(_ d: Draft, _ L: Ledger) -> some View {
-        // everyone in 往来 (someone with only a loan account gets a receivable opened with this expense)
-        let ps = people(L).filter { !$0.closed }
+        let ps = people(L).filter { !$0.closed && !$0.unnamed }
         let on = Binding<Bool>(get: { store.draft.split }, set: { v in
             store.draft.split = v
             if !v { store.draft.shares = []; store.draft.sharesEdited = false }
@@ -532,32 +534,21 @@ struct AddView: View {
             if d.split {
                 ChipRow {
                     ForEach(ps) { p in
-                        let a = personalPrefix + p.key
-                        Chip(label: p.name, selected: d.shares.contains { $0.account == a }) { toggleShare(a, name: p.name) }
+                        Chip(label: p.name, selected: d.shares.contains { $0.person == p.name }) { toggleShare(p.name) }
                     }
                     Chip(label: LS("＋ 其他人"), selected: addingPerson) { addingPerson.toggle() }
                 }
                 if addingPerson {
-                    let key = accountPart(from: newPerson)
                     HStack {
                         TextField(LS("称呼，如 小王、王五"), text: $newPerson)
                             .submitLabel(.done)
-                            .onSubmit { addPerson(L) }
-                        Button(LS("加入")) { addPerson(L) }.disabled(key == nil)
-                    }
-                    if !newPerson.trimmed.isEmpty {
-                        Text(key.map { LS("账户 %@", personalPrefix + $0) } ?? LS("这个称呼生成不了账户名，换一种写法试试"))
-                            .font(.caption).foregroundStyle(key == nil ? Color.loss : Color.secondary)
+                            .onSubmit { addPerson() }
+                        Button(LS("加入")) { addPerson() }.disabled(newPerson.trimmed.isEmpty)
                     }
                 }
                 ForEach(d.shares) { x in
                     HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(!x.name.isEmpty ? x.name : ps.first { personalPrefix + $0.key == x.account }?.name ?? leaf(x.account))
-                            if L.accounts[x.account] == nil {
-                                Text(LS("新开 %@", acctLabel(x.account))).font(.caption2).foregroundStyle(.secondary)
-                            }
-                        }
+                        Text(x.person)
                         Spacer()
                         TextField("0.00", text: Binding(get: { x.amount }, set: { v in
                             guard let i = store.draft.shares.firstIndex(where: { $0.id == x.id }) else { return }
@@ -583,28 +574,25 @@ struct AddView: View {
             }
         } footer: {
             if d.split {
-                Text(LS("别人的份额记到他的个人往来（应收），你的份额记入支出科目；第一次出现的人随这笔一起开立账户。之后在「往来」里登记他还你的钱。"))
+                Text(LS("别人的份额记到个人往来（Assets:Receivable:Personal），每一行用 person: 写明是谁；你的份额记入支出科目。之后在「往来」里登记他还你的钱。"))
             }
         }
         .onChange(of: d.amount) { _, _ in if store.draft.split && !store.draft.sharesEdited { spreadShares() } }
     }
 
-    /// someone typed in: an existing person when the account name matches, otherwise someone new
-    private func addPerson(_ L: Ledger) {
+    /// someone typed in: the same name as someone in 往来 is that person
+    private func addPerson() {
         let name = newPerson.trimmed
-        guard let key = accountPart(from: name) else { return }
-        let account = personalPrefix + key
-        if !store.draft.shares.contains(where: { $0.account == account }) {
-            toggleShare(account, name: people(L).first { $0.key == key }?.name ?? name)
-        }
+        guard !name.isEmpty else { return }
+        if !store.draft.shares.contains(where: { $0.person == name }) { toggleShare(name) }
         newPerson = ""
         addingPerson = false
     }
 
-    private func toggleShare(_ account: String, name: String) {
+    private func toggleShare(_ name: String) {
         var d = store.draft
-        if let i = d.shares.firstIndex(where: { $0.account == account }) { d.shares.remove(at: i) }
-        else { d.shares.append(Share(account: account, name: name)) }
+        if let i = d.shares.firstIndex(where: { $0.person == name }) { d.shares.remove(at: i) }
+        else { d.shares.append(Share(person: name)) }
         store.draft = d
         if !store.draft.sharesEdited { spreadShares() } else { store.draft.edited = nil }
     }
@@ -859,6 +847,9 @@ struct RowEditor: View {
                     TextField(LS("价格 @ 7.1 CNY"), text: $row.price).textInputAutocapitalization(.never).autocorrectionDisabled()
                 }
                 .font(.footnote)
+            }
+            if isPersonal(row.account) {
+                TextField(LS("对方（person:），如 五姨"), text: $row.person).font(.footnote)
             }
         }
         .padding(.vertical, 2)
