@@ -8,9 +8,10 @@ extension Store {
     /// the forecast for the current ledger, computed once per rebuild
     func forecastCached(days: Int, daily: Bool) -> Forecast? {
         guard let L = L else { return nil }
-        let key = "\(version)|\(days)|\(daily)|\(Day.today())"
+        let large = largeExpense
+        let key = "\(version)|\(days)|\(daily)|\(Day.today())|\(large)"
         if let f = Store.forecastCache[key] { return f }
-        let f = forecast(L, days: days, includeDaily: daily)
+        let f = forecast(L, days: days, includeDaily: daily, payslips: repoConfig?.payslips ?? [], largeExpense: large)
         if Store.forecastCache.count > 8 { Store.forecastCache.removeAll() }
         Store.forecastCache[key] = f
         return f
@@ -140,7 +141,7 @@ struct ForecastView: View {
                 }
             } footer: {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(LS("按近一年的记录推算：工资等周期性收入、房租等固定支出、订阅、信用卡账单（按账单日和还款日）；日常支出取近 90 天的日均值。只是估算，实际以账本为准。"))
+                    Text(LS("按近一年的记录推算：工资（有工资条模板时按模板的实发，在上次发薪一个月后）等周期性收入、房租等固定支出、订阅、信用卡账单（按账单日和还款日）；金额按实际进出账户的钱计算。日常支出取近 90 天的日均值，不含达到「大额支出」金额的单笔。只是估算，实际以账本为准。"))
                     if !f.cardsWithoutCycle.isEmpty {
                         Text(LS("未设置账单日的信用卡未计入：%@", f.cardsWithoutCycle.map(acctLabel).joined(separator: LS("、"))))
                     }

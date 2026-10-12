@@ -12,6 +12,7 @@ struct OverviewView: View {
     @State private var selLiab: String?
     @State private var picked: String?
     @State private var reimb: ReimbTarget?
+    @State private var float: FloatTarget?
     @AppStorage(OverviewChart.styleKey) private var chartStyle = "list"
     @AppStorage(OverviewChart.trendKey) private var trend = "exp"
     @AppStorage("ledger.overview.payeeSort") private var payeeSort = "amount"
@@ -49,6 +50,7 @@ struct OverviewView: View {
             path.append(ErrorsDest())
         }
         .sheet(item: $reimb) { ReimbSheet(target: $0) }
+        .sheet(item: $float) { FloatSheet(link: $0.link) }
         .task {
             if store.demoEnv["LEDGER_REIMB"] != nil { reimb = ReimbTarget(link: nil) }
             if store.demo {
@@ -489,7 +491,7 @@ struct OverviewView: View {
     private func reimbSection(_ L: Ledger, _ D: Derived) -> some View {
         let open = D.openLinks.filter { $0.amount > 0.005 }
         let others = !people(L).filter { !$0.settled }.isEmpty || !employerOpen(L).open.isEmpty
-        if !D.unclaimed.isEmpty || !open.isEmpty || others {
+        if !D.unclaimed.isEmpty || !open.isEmpty || !D.floats.isEmpty || others {
             let recv = (L.final[D.receivable] ?? [:]).reduce(0.0) { $0 + (toCNY(L, $1.value, $1.key) ?? 0) }
             Section {
                 if !D.unclaimed.isEmpty {
@@ -501,6 +503,21 @@ struct OverviewView: View {
                             }
                             Spacer()
                             Amount(n: D.unclaimed.reduce(0.0) { $0 + $1.amount })
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                ForEach(D.floats) { f in
+                    Button { float = FloatTarget(link: f.link) } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(LS("备用金 ^%@", f.link)).font(.subheadline).lineLimit(1)
+                                Text(f.left > 0 ? LS("剩余 · 点按冲抵或核对") : LS("已超支 · 报销时一并登记")).font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Amount(n: f.left, c: f.currency)
                             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
                         }
                         .contentShape(Rectangle())

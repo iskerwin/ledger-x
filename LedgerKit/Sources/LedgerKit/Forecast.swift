@@ -63,11 +63,20 @@ public func recurringSeries(_ L: Ledger, today: String = Day.today()) -> [Recurr
     for t in L.txns where t.date >= since && t.date <= today && !t.synthetic {
         let payee = !t.payee.isEmpty ? t.payee : t.narration
         guard !payee.isEmpty else { continue }
-        let funding = t.postings.first { $0.account.hasPrefix("Assets:") || $0.account.hasPrefix("Liabilities:") }?.account ?? ""
-        if let exp = t.postings.first(where: { $0.account.hasPrefix("Expenses:") }), let u = exp.units, u > 0, let c = exp.currency {
-            groups[payee + "|" + exp.account, default: []].append((t.date, u, c, exp.account, funding, payee))
-        } else if let inc = t.postings.first(where: { $0.account.hasPrefix("Income:") }), let u = inc.units, u < 0, let c = inc.currency {
-            groups[payee + "|" + inc.account, default: []].append((t.date, -u, c, inc.account, funding, payee))
+        // the amount is the money that moved (into the bank for a payslip of several items, out of the card or
+        // account for a bill), not one category's line
+        func flow(_ out: Bool) -> Posting? {
+            t.postings.first { p in
+                (p.account.hasPrefix("Assets:") && !p.account.hasPrefix("Assets:Receivable") || p.account.hasPrefix("Liabilities:"))
+                    && p.cost == nil && ((p.units ?? 0) < 0) == out && abs(p.units ?? 0) > 0.004
+            }
+        }
+        if let exp = t.postings.first(where: { $0.account.hasPrefix("Expenses:") }), (exp.units ?? 0) > 0,
+           let f = flow(true), let u = f.units, let c = f.currency {
+            groups[payee + "|" + exp.account, default: []].append((t.date, -u, c, exp.account, f.account, payee))
+        } else if let inc = t.postings.first(where: { $0.account.hasPrefix("Income:") }), (inc.units ?? 0) < 0,
+                  let f = flow(false), let u = f.units, let c = f.currency {
+            groups[payee + "|" + inc.account, default: []].append((t.date, u, c, inc.account, f.account, payee))
         }
     }
     var out: [RecurringSeries] = []
@@ -120,7 +129,10 @@ public func spendableAccounts(_ L: Ledger, today: String = Day.today()) -> [Stri
     }.sorted()
 }
 
-public func forecast(_ L: Ledger, today: String = Day.today(), days: Int = 90, includeDaily: Bool = true) -> Forecast {
+/// `payslips`: salary templates (ledger-x.json); each one's usual take-home pay is expected monthly, a month after
+/// its last payment. `largeExpense`: single spends at least this large are one-offs, left out of the daily average (0 = keep all).
+public func forecast(_ L: Ledger, today: String = Day.today(), days: Int = 90, includeDaily: Bool = true,
+                     payslips: [PayslipTemplate] = [], largeExpense: Double = 0) -> Forecast {
     let base = L.base
     let end = Day.shift(today, days)
     let liquid = spendableAccounts(L, today: today)
@@ -138,7 +150,30 @@ public func forecast(_ L: Ledger, today: String = Day.today(), days: Int = 90, i
     // recurring income and payments (paid from spendable accounts; card spending is in the card bills)
     let series = recurringSeries(L, today: today)
     var covered = Set<String>()      // payee|account handled as events, left out of the daily average
+
+    // salary from the payslip templates: the take-home pay of a usual month
+    var salaried = Set<String>()     // employer|account: the series found for them is replaced
+    for p in payslips where liquidSet.contains(p.account) {
+        let earned = p.items.filter { !$0.deduct }.reduce(0.0) { $0 + ($1.amount ?? 0) }
+        let net = roundTo(earned - p.items.filter { $0.deduct }.reduce(0.0) { $0 + ($1.amount ?? 0) }, 2)
+        let prefix = "salary-\(p.linkSlug)-"
+        guard net > 0, let last = L.txns.last(where: { t in
+            t.links.contains { $0.hasPrefix(prefix) } && t.postings.contains { $0.account == p.account && ($0.units ?? 0) > 0 }
+        }) else { continue }
+        salaried.insert(p.employer + "|" + p.account)
+        var k = 1
+        while k <= 400 {
+            let d = SubPeriod.monthly.add(last.date, k)
+            if d > end { break }
+            if d > today {
+                events.append(ForecastEvent(date: d, title: p.employer, amount: cny(net, base), kind: .income, account: p.account))
+            }
+            k += 1
+        }
+    }
+
     for s in series where liquidSet.contains(s.funding) {
+        if s.income && salaried.contains(s.payee + "|" + s.funding) { continue }
         if !s.income, subs.contains(where: { $0.account == s.account && ($0.payee == s.payee || $0.name == s.payee) }) { continue }
         covered.insert(s.payee + "|" + s.account)
         var k = 1
@@ -209,9 +244,13 @@ public func forecast(_ L: Ledger, today: String = Day.today(), days: Int = 90, i
             let payee = !t.payee.isEmpty ? t.payee : t.narration
             if let e = t.postings.first(where: { $0.account.hasPrefix("Expenses:") }), covered.contains(payee + "|" + e.account) { continue }
             if let m = t.meta["subscription"], !(m.stringValue ?? m.display).isEmpty { continue }
+            var out = 0.0
             for p in t.postings where liquidSet.contains(p.account) {
-                if let u = p.units, u < 0, let c = p.currency { spent -= cny(u, c) }
+                if let u = p.units, u < 0, let c = p.currency { out -= cny(u, c) }
             }
+            // a one-off this large says nothing about an ordinary day
+            if largeExpense > 0 && out >= largeExpense { continue }
+            spent += out
         }
         daily = roundTo(spent / 90, 2)
     }

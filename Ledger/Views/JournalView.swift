@@ -63,7 +63,8 @@ struct TxRow: View {
                         ForEach(t.tags.filter { $0 != "transfer" }, id: \.self) { Tag(text: "#" + $0) }
                     }
                     .font(.body)
-                    Text((showDate ? t.date + "  " : "") + (cat.map { acctDisplay($0.account) } ?? t.postings.map { D.shortName($0.account) }.joined(separator: " → ")))
+                    Text((showDate ? t.date + "  " : "") + (cat.map { acctDisplay($0.account) } ?? t.postings.map { D.shortName($0.account) }.joined(separator: " → "))
+                         + withWhom(t))
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 4)
@@ -73,6 +74,15 @@ struct TxRow: View {
                 }
             }
         }
+    }
+
+    /// " · 五姨、王五": who the personal receivable lines are with
+    private func withWhom(_ t: Entry) -> String {
+        var names: [String] = []
+        for p in t.postings where isPersonal(p.account) {
+            if let n = postingPerson(p), !names.contains(n) { names.append(n) }
+        }
+        return names.isEmpty ? "" : " · " + names.joined(separator: LS("、"))
     }
 
     @ViewBuilder
@@ -158,7 +168,10 @@ struct TxQuery {
             case .date(let d): if !t.date.hasPrefix(d) { return false }
             case .text(let x):
                 let lw = x.lowercased()
-                if !((t.payee + " " + t.narration).lowercased().contains(lw) || t.postings.contains(where: { $0.account.lowercased().contains(lw) || acctDisplay($0.account).contains(x) })) { return false }
+                // person: on a personal receivable counts too (an AA dinner is found by the friend's name)
+                if !((t.payee + " " + t.narration).lowercased().contains(lw)
+                     || t.postings.contains(where: { $0.account.lowercased().contains(lw) || acctDisplay($0.account).contains(x)
+                         || (postingPerson($0)?.lowercased().contains(lw) ?? false) })) { return false }
             }
         }
         return true
@@ -192,7 +205,7 @@ struct JournalView: View {
             .sheet(item: $batch) { m in
                 BatchEditSheet(entries: selectedEntries, mode: m) { selecting = false; selected = [] }
             }
-            .searchable(text: $q, placement: .navigationBarDrawer(displayMode: .always), prompt: LS("收付款方、摘要、科目、#标签、金额、2026-09"))
+            .searchable(text: $q, placement: .navigationBarDrawer(displayMode: .always), prompt: LS("收付款方、摘要、科目、对方、#标签、金额、2026-09"))
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .onChange(of: q) { _, _ in limit = 150 }
