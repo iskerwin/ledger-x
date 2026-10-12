@@ -38,6 +38,7 @@ struct OverviewView: View {
             .navigationDestination(for: EventsDest.self) { _ in EventsView() }
             .navigationDestination(for: EventDest.self) { EventDetailView(tag: $0.tag) }
             .navigationDestination(for: AlertsDest.self) { _ in AlertsView() }
+            .navigationDestination(for: AnomalyDest.self) { AnomalyDetailView(id: $0.id) }
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         // 设置 → 账本检查 opens the check here, where every problem can be opened and fixed

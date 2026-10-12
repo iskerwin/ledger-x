@@ -822,10 +822,22 @@ final class Store: ObservableObject {
     /// bumped when an alert is dismissed, so views showing them refresh
     @Published private(set) var alertsVersion = 0
 
-    var dismissedAlerts: Set<String> { Prefs.get(pk("alerts.dismissed"), Set<String>()) }
+    /// alerts checked and found fine
+    var confirmedAlertIDs: Set<String> { Prefs.get(pk("alerts.dismissed"), Set<String>()) }
 
-    /// what looks unusual in the last month, without the ones dismissed
+    /// what looks unusual in the last month, not checked yet
     var anomalyList: [Anomaly] {
+        let ok = confirmedAlertIDs
+        return allAnomalies.filter { !ok.contains($0.id) }
+    }
+
+    /// the ones checked and found fine (that would still come up)
+    var confirmedAnomalies: [Anomaly] {
+        let ok = confirmedAlertIDs
+        return allAnomalies.filter { ok.contains($0.id) }
+    }
+
+    var allAnomalies: [Anomaly] {
         guard let L = L else { return [] }
         let today = Day.today(), large = largeExpense
         let all: [Anomaly]
@@ -834,12 +846,12 @@ final class Store: ObservableObject {
             all = anomalies(L, today: today, settings: AnomalySettings(large: large))
             anomalyCache = (version, large, today, all)
         }
-        let gone = dismissedAlerts
-        return all.filter { !gone.contains($0.id) }
+        return all
     }
 
-    func dismissAlert(_ id: String) {
-        var s = dismissedAlerts
+    /// checked: nothing wrong
+    func confirmAlert(_ id: String) {
+        var s = confirmedAlertIDs
         s.insert(id)
         // only the ones that can still come up are worth keeping
         let live = Set(anomalyCache?.list.map { $0.id } ?? [])
@@ -859,8 +871,11 @@ final class Store: ObservableObject {
         return anomalyList.filter { !seen.contains($0.id) }
     }
 
-    func restoreAlerts() {
-        Prefs.set(pk("alerts.dismissed"), Set<String>())
+    /// back on the list to check
+    func unconfirmAlert(_ id: String) {
+        var s = confirmedAlertIDs
+        s.remove(id)
+        Prefs.set(pk("alerts.dismissed"), s)
         alertsVersion += 1
     }
 

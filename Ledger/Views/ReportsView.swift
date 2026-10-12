@@ -104,6 +104,7 @@ struct ReportsView: View {
             .navigationDestination(for: SalaryDest.self) { _ in SalaryView() }
             .navigationDestination(for: EventDest.self) { EventDetailView(tag: $0.tag) }
             .navigationDestination(for: AlertsDest.self) { _ in AlertsView() }
+            .navigationDestination(for: AnomalyDest.self) { AnomalyDetailView(id: $0.id) }
             .navigationDestination(for: QueryDest.self) { QueryEditorView(initial: $0.query) }
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name) }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0) }

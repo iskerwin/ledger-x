@@ -370,7 +370,7 @@ struct AlertsOverviewSection: View {
                     NavigationLink(value: AlertsDest()) { Image(systemName: "slider.horizontal.3").font(.footnote) }
                 }
             } footer: {
-                Text(LS("核实无误后左滑「忽略」即可，只清除这一条提示，不影响以后的检查。"))
+                Text(LS("点开核对，没问题就标记「核对无误」（也可左滑），只清除这一条提示，不影响以后的检查。"))
             }
         }
     }
@@ -378,45 +378,114 @@ struct AlertsOverviewSection: View {
 
 struct AlertsDest: Hashable {}
 
+struct AnomalyDest: Hashable { let id: String }
+
+/// one alert in a list: opens what it is about; swipe to mark it checked
 struct AnomalyRow: View {
     @EnvironmentObject var store: Store
     let a: Anomaly
+    var confirmed = false
     var body: some View {
-        Group {
-            if a.entries.count == 1, let t = a.entries.first {
-                NavigationLink(value: TxDest(t)) { label }
-            } else if a.kind == .duplicate, let t = a.entries.first {
-                NavigationLink(value: TxDest(t)) { label }
-            } else if a.kind == .subscription {
-                NavigationLink(value: SubscriptionsDest()) { label }
-            } else {
-                label
+        NavigationLink(value: AnomalyDest(id: a.id)) { AnomalyLabel(a: a, confirmed: confirmed) }
+            .swipeActions {
+                if confirmed {
+                    Button(LS("重新核对")) { store.unconfirmAlert(a.id) }.tint(.orange)
+                } else {
+                    Button(LS("核对无误")) { store.confirmAlert(a.id) }.tint(.jade)
+                }
             }
-        }
-        .swipeActions {
-            Button(LS("忽略")) { store.dismissAlert(a.id) }.tint(.gray)
-        }
-        .contextMenu {
-            Button(LS("忽略")) { store.dismissAlert(a.id) }
-        }
     }
+}
 
-    private var label: some View {
+struct AnomalyLabel: View {
+    let a: Anomaly
+    var confirmed = false
+    var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: icon).foregroundStyle(Color.warn).frame(width: 22)
+            Image(systemName: confirmed ? "checkmark.circle.fill" : anomalyIcon(a.kind))
+                .foregroundStyle(confirmed ? Color.gain : Color.warn).frame(width: 22)
             VStack(alignment: .leading, spacing: 2) {
                 Text(a.title).lineLimit(1)
                 Text(a.detail).font(.caption).foregroundStyle(.secondary).sensitive()
             }
         }
     }
+}
 
-    private var icon: String {
-        switch a.kind {
-        case .duplicate: return "doc.on.doc"
-        case .large: return "exclamationmark.circle"
-        case .category: return "chart.line.uptrend.xyaxis"
-        case .subscription: return "arrow.triangle.2.circlepath"
+func anomalyIcon(_ k: Anomaly.Kind) -> String {
+    switch k {
+    case .duplicate: return "doc.on.doc"
+    case .large: return "exclamationmark.circle"
+    case .category: return "chart.line.uptrend.xyaxis"
+    case .subscription: return "arrow.triangle.2.circlepath"
+    }
+}
+
+/// one alert: what to check, the transactions behind it, and the verdict
+struct AnomalyDetailView: View {
+    @EnvironmentObject var store: Store
+    @Environment(\.dismiss) private var dismiss
+    let id: String
+
+    var body: some View {
+        let _ = store.alertsVersion
+        List {
+            if let a = store.allAnomalies.first(where: { $0.id == id }), let L = store.L {
+                let ok = store.confirmedAlertIDs.contains(a.id)
+                Section {
+                    AnomalyLabel(a: a, confirmed: ok)
+                } footer: {
+                    Text(hint(a.kind))
+                }
+                let ts = entries(a, L)
+                if !ts.isEmpty {
+                    Section(LS("相关交易（%@ 笔）", ts.count)) {
+                        ForEach(ts, id: \.id) { t in NavigationLink(value: TxDest(t)) { TxRow(t: t, showDate: true) } }
+                    }
+                }
+                if a.kind == .subscription {
+                    Section { NavigationLink(value: SubscriptionsDest()) { Text(LS("打开订阅管理")) } }
+                }
+                Section {
+                    if ok {
+                        Label(LS("已核对无误"), systemImage: "checkmark.seal").foregroundStyle(Color.gain)
+                        Button(LS("重新核对")) { store.unconfirmAlert(a.id) }
+                    } else {
+                        Button {
+                            store.confirmAlert(a.id)
+                            dismiss()
+                        } label: {
+                            Label(LS("核对无误"), systemImage: "checkmark.circle").frame(maxWidth: .infinity).fontWeight(.semibold)
+                        }
+                        .buttonStyle(.borderedProminent).tint(.jade)
+                        .listRowBackground(Color.clear).listRowInsets(EdgeInsets())
+                    }
+                } footer: {
+                    Text(ok ? LS("这条已标记为核对无误，不再提示。") : LS("确认记录没有问题后点「核对无误」，只清除这一条提示，不影响以后的检查。有问题就点开交易修改或删除，改好后提示会自己消失。"))
+                }
+            } else {
+                Label(LS("这条提示已经不存在了：相关记录改过，或已超过 30 天。"), systemImage: "checkmark.seal").foregroundStyle(Color.gain)
+            }
+        }
+        .navigationTitle(LS("核对"))
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// the transactions to look at: the alert's own, or this month's in the category
+    private func entries(_ a: Anomaly, _ L: Ledger) -> [Entry] {
+        if a.kind == .category, let cat = a.subject {
+            let m = Day.ym(a.date)
+            return L.txns.filter { Day.ym($0.date) == m && $0.postings.contains { catOf($0.account) == cat } }.reversed()
+        }
+        return a.entries
+    }
+
+    private func hint(_ k: Anomaly.Kind) -> String {
+        switch k {
+        case .duplicate: return LS("同一天、同一收付款方、金额完全相同的记录不止一笔。对照账单：真的买了两次就核对无误；记重了就删掉多余的那笔。")
+        case .large: return LS("单笔金额超过设定的大额。确认金额、科目和付款账户没记错。")
+        case .category: return LS("本月这一类的支出明显高于近 6 个月的平均。看看下面的交易里有没有记错科目或金额的。")
+        case .subscription: return LS("订阅的扣费金额和设定的不一样，或者停用后仍在扣费。确认是调价就去订阅管理里更新金额。")
         }
     }
 }
@@ -434,15 +503,18 @@ struct AlertsView: View {
                 if list.isEmpty { Label(LS("近 30 天没有发现异常"), systemImage: "checkmark.seal").foregroundStyle(Color.gain) }
                 ForEach(list) { a in AnomalyRow(a: a) }
             } footer: {
-                Text(LS("检查近 30 天：完全相同的重复记录、单笔大额支出、本月某类支出明显高于近 6 个月平均、订阅调价或停用后仍扣费。左滑忽略。"))
+                Text(LS("检查近 30 天：完全相同的重复记录、单笔大额支出、本月某类支出明显高于近 6 个月平均、订阅调价或停用后仍扣费。点开核对，没问题就标记「核对无误」。"))
+            }
+            let done = store.confirmedAnomalies
+            if !done.isEmpty {
+                Section(LS("已核对无误")) {
+                    ForEach(done) { a in AnomalyRow(a: a, confirmed: true) }
+                }
             }
             Section {
                 Picker(LS("大额支出"), selection: $large) {
                     Text(LS("不提醒")).tag(0.0)
                     ForEach([500.0, 1000, 2000, 5000, 10000], id: \.self) { Text(money($0, "CNY", 0)).tag($0) }
-                }
-                if !store.dismissedAlerts.isEmpty {
-                    Button(LS("恢复已忽略的 %@ 条", store.dismissedAlerts.count)) { store.restoreAlerts() }
                 }
             }
         }
