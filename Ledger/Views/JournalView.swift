@@ -513,7 +513,7 @@ struct EditTxView: View {
                     if v.ok { Label(LS("校验通过"), systemImage: "checkmark.circle").font(.footnote).foregroundStyle(Color.gain) }
                     else if let m = v.msg { Label(m, systemImage: "xmark.octagon").font(.footnote).foregroundStyle(Color.loss) }
                 } header: {
-                    Text(LS("所在文件：%@。修改日期后将按新日期重新排序。", path)).textCase(nil)
+                    Text(LS("所在文件：%@。改了日期会移到新日期那一天的最后（跨年时移到那一年的文件）；日期不变则留在原位。", path)).textCase(nil)
                 }
                 Section {
                     Button { Task { await save(old, L) } } label: { Text(LS("保存修改")).frame(maxWidth: .infinity).fontWeight(.semibold) }
@@ -559,8 +559,22 @@ struct EditTxView: View {
         rm.old = old
         rm.label = LS("修改：%@ %@", date, summary)
         let newText = alignText(text)
-        guard let ins = store.makeOps(newText, extra: OpExtra(silent: true), single: true),
-              let ops = await store.review([rm] + ins + store.pairedLinkOps(oldText: old, newText: newText)) else { return }
+        guard var ins = store.makeOps(newText, extra: OpExtra(silent: true), single: true) else { return }
+        var first = [rm]
+        // same date, same file: changed where it is, so it keeps its place among that day's entries;
+        // a new date moves it to the end of that day (in that year's file)
+        if ins.count == 1, ins[0].kind == .insert, ins[0].path == path, ins[0].date == date {
+            var op = Op(kind: .replace, path: path)
+            op.old = old
+            op.text = ins[0].text
+            op.date = date
+            op.label = rm.label
+            op.summary = ins[0].summary
+            op.amountText = ins[0].amountText
+            first = [op]
+            ins = []
+        }
+        guard let ops = await store.review(first + ins + store.pairedLinkOps(oldText: old, newText: newText)) else { return }
         store.popToken += 1
         await store.commit(ops, word: LS("已更新"), checked: true)
     }

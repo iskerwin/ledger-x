@@ -642,7 +642,7 @@
  "截至 %@ · 原始符号（借方为正，贷方为负）": "As of %@ · raw signs (debits positive, credits negative)",
  "截至日期": "As of",
  "所在文件": "File",
- "所在文件：%@。修改日期后将按新日期重新排序。": "In %@. Changing the date re-sorts it by the new date.",
+ "所在文件：%@。改了日期会移到新日期那一天的最后（跨年时移到那一年的文件）；日期不变则留在原位。": "In %@. A new date moves it to the end of that day (to that year's file across years); with the same date it stays where it is.",
  "所有记录都已在对应的文件中": "Every entry is already in its file",
  "所选 %@ 笔将添加 #reimbursed ^%@": "The %@ selected will be tagged #reimbursed ^%@",
  "手动续费": "Manual renewal",
