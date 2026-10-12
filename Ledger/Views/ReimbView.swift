@@ -25,6 +25,7 @@ struct ReimbSheet: View {
     @State private var saving = false
     /// a shortfall that will still be paid: leave it on the link instead of settling it
     @State private var keepOpen = false
+    @State private var exporting: ReimbExportTarget?
 
     var body: some View {
         NavigationStack {
@@ -34,11 +35,27 @@ struct ReimbSheet: View {
             .keyboardDone()
             .navigationTitle(LS("报销回款"))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } }
+                ToolbarItem(placement: .primaryAction) {
+                    Button { exporting = exportTarget() } label: { Image(systemName: "doc.richtext") }
+                        .accessibilityLabel(LS("导出报销单"))
+                }
+            }
+            .sheet(item: $exporting) { ReimbExportSheet(target: $0) }
         }
     }
 
     // MARK: data
+
+    /// the batch, or the advances picked so far
+    private func exportTarget() -> ReimbExportTarget? {
+        guard let D = store.D else { return nil }
+        if let l = target.link { return ReimbExportTarget(title: "^" + l, entries: D.byLink[l] ?? []) }
+        let p = pool(D)
+        let picked = selected.sorted().compactMap { p.indices.contains($0) ? p[$0].t : nil }
+        return ReimbExportTarget(title: LS("待报销 %@", Day.today()), entries: picked)
+    }
 
     private func pool(_ D: Derived) -> [Unclaimed] { target.link == nil ? D.unclaimed : [] }
     private func openLink(_ D: Derived) -> OpenLink? { target.link.flatMap { l in D.openLinks.first { $0.link == l } } }
@@ -261,6 +278,7 @@ struct FloatSheet: View {
     @State private var saving = false
     /// a linked transaction to take off this petty cash (back to 待报销)
     @State private var unlinking: Entry?
+    @State private var exporting: ReimbExportTarget?
 
     var body: some View {
         NavigationStack {
@@ -269,6 +287,13 @@ struct FloatSheet: View {
                 else { Text(LS("这笔备用金已结清")).foregroundStyle(.secondary) }
             }
             .navigationTitle(LS("备用金冲抵"))
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { exporting = ReimbExportTarget(title: "^" + link, entries: store.D?.byLink[link] ?? []) } label: { Image(systemName: "doc.richtext") }
+                        .accessibilityLabel(LS("导出报销单"))
+                }
+            }
+            .sheet(item: $exporting) { ReimbExportSheet(target: $0) }
             .confirmationDialog(LS("取消这笔的备用金冲抵？"), isPresented: Binding(get: { unlinking != nil }, set: { if !$0 { unlinking = nil } }),
                                 titleVisibility: .visible, presenting: unlinking) { t in
                 Button(LS("取消冲抵"), role: .destructive) {

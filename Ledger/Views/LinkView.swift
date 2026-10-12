@@ -337,6 +337,7 @@ struct LinkConfirmView: View {
 struct LinkDetailView: View {
     @EnvironmentObject var store: Store
     let link: String
+    @State private var exporting: ReimbExportTarget?
 
     var body: some View {
         if let L = store.L, let D = store.D {
@@ -363,6 +364,15 @@ struct LinkDetailView: View {
             }
             .navigationTitle("^" + link)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if [.reimburse, .float].contains(LinkRole.of(link)) {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button { exporting = ReimbExportTarget(title: "^" + link, entries: all) } label: { Image(systemName: "doc.richtext") }
+                            .accessibilityLabel(LS("导出报销单"))
+                    }
+                }
+            }
+            .sheet(item: $exporting) { ReimbExportSheet(target: $0) }
         } else {
             ProgressView()
         }

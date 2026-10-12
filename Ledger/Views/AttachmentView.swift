@@ -33,10 +33,12 @@ func relativePath(_ target: String, from file: String) -> String {
 }
 
 extension Store {
-    /// documents linked to a transaction
+    /// documents linked to a transaction. Links that tie a whole group together (a reimbursement, petty cash,
+    /// a refund, a subscription, a month's salary) don't make a document this transaction's own.
     func documents(for t: Entry) -> [Entry] {
-        guard let L = L, !t.links.isEmpty else { return [] }
-        let links = Set(t.links)
+        guard let L = L else { return [] }
+        let links = Set(t.links.filter { LinkRole.of($0) == .other && !isSalaryLink($0) })
+        if links.isEmpty { return [] }
         return L.entries.filter { $0.type == .document && !links.isDisjoint(with: $0.links) }
     }
 
@@ -48,7 +50,8 @@ extension Store {
             .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
         let rnd = String(UUID().uuidString.prefix(4)).lowercased()
         let repoPath = "documents/\(t.date.prefix(4))/\(t.date)-\(safe.isEmpty ? "receipt" : String(safe.prefix(24)))-\(rnd).\(ext)"
-        let link = t.links.first(where: { $0.hasPrefix("doc-") }) ?? t.links.first ?? "doc-\(t.date.replacingOccurrences(of: "-", with: ""))-\(rnd)"
+        // the transaction's own doc- link: a shared one (^float-…, ^reimburse-…) would attach the file to the whole group
+        let link = t.links.first(where: { $0.hasPrefix("doc-") }) ?? "doc-\(t.date.replacingOccurrences(of: "-", with: ""))-\(rnd)"
         let account = t.postings.first { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") }?.account ?? t.postings.first?.account ?? ""
         show(LS("正在上传附件…"))
         do {
