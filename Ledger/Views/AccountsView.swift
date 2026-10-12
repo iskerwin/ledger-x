@@ -436,6 +436,8 @@ struct RegisterView: View {
 }
 
 struct BalanceRow: View {
+    /// re-drawn when amounts are hidden or shown
+    @AppStorage("ledger.privacy") var privacyDep = false
     let r: BalanceResult
     let tap: () -> Void
     var body: some View {

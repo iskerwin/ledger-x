@@ -90,6 +90,13 @@ final class Store: ObservableObject {
     @Published var tplHidden: [String] { didSet { Prefs.set("tplHidden", tplHidden); tplCache = nil } }
     @Published var defaultFunding: String? { didSet { Prefs.set("defaultFunding", defaultFunding) } }
     /// currency of new expenses / income / refunds; nil = the paying account's own currency
+    /// 隐藏金额: views watching the store are redrawn in place when it changes
+    @Published var privacy: Bool = UserDefaults.standard.bool(forKey: "ledger.privacy") {
+        didSet {
+            KitPrivacy.masked = privacy
+            UserDefaults.standard.set(privacy, forKey: "ledger.privacy")
+        }
+    }
     @Published var defaultCurrency: String? { didSet { Prefs.set("defaultCurrency", defaultCurrency) } }
     /// changes made from this device, newest first, so they can be taken back
     @Published private(set) var history: [ChangeRecord] = []
@@ -330,7 +337,7 @@ final class Store: ObservableObject {
             }
         }
         ledgerQueries = Self.directiveQueries(result.0) + qs
-        UserDefaults.standard.set(env["LEDGER_PRIVACY"] != nil, forKey: "ledger.privacy")
+        privacy = env["LEDGER_PRIVACY"] != nil
         UserDefaults.standard.set(env["LEDGER_THEME"] ?? "jade", forKey: "ledger.theme")
         UserDefaults.standard.set(env["LEDGER_LANG"] ?? "zh", forKey: "ledger.language")
         if let a = env["LEDGER_ACCOUNT"] { journalAccount = a }

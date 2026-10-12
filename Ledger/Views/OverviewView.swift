@@ -685,6 +685,8 @@ struct OverviewView: View {
 struct ErrorsDest: Hashable {}
 
 struct CatBar: View {
+    /// re-drawn when amounts are hidden or shown
+    @AppStorage("ledger.privacy") var privacyDep = false
     let name: String
     let sub: String?
     let value: Double
