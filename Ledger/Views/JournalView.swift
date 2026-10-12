@@ -368,6 +368,8 @@ struct TxDetailView: View {
     @State private var subDraft: SubDraft?
     @State private var subPick: Entry?
     @State private var ordering: Entry?
+    /// the subscription form to open once the picker has gone
+    @State private var nextSub: SubDraft?
     @State private var linkPick: LinkPick?
     @State private var linkRemoval: LinkPick?
 
@@ -447,8 +449,10 @@ struct TxDetailView: View {
             .sheet(item: $ordering) { DayOrderSheet(date: $0.date, file: $0.file) }
             .sheet(item: $linkPick) { LinkPickSheet(pick: $0) }
             .linkRemovalDialog($linkRemoval, store: store)
-            .sheet(item: $subPick) { e in
-                SubPickSheet(t: e) { if let L = store.L { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { subDraft = SubDraft(e, L) } } }
+            .sheet(item: $subPick, onDismiss: {
+                if let d = nextSub { nextSub = nil; subDraft = d }
+            }) { e in
+                SubPickSheet(t: e) { if let L = store.L { nextSub = SubDraft(e, L) } }
             }
         } else {
             Text(LS("该交易已不存在")).foregroundStyle(.secondary)
@@ -482,8 +486,6 @@ struct TxDetailView: View {
 }
 
 struct PostingRow: View {
-    /// re-drawn when amounts are hidden or shown
-    @AppStorage("ledger.privacy") var privacyDep = false
     let p: Posting
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {

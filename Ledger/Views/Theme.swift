@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Observation
 
 /// accent colours; the Apple system palette plus the original jade
 enum AppTheme: String, CaseIterable, Identifiable {
@@ -7,7 +8,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     static let key = "ledger.theme"
-    static var current: AppTheme { AppTheme(rawValue: UserDefaults.standard.string(forKey: key) ?? "") ?? .jade }
+    static var current: AppTheme { AppTheme(rawValue: AppSettings.shared.theme) ?? .jade }
 
     var name: String {
         switch self {
@@ -51,6 +52,33 @@ enum AppTheme: String, CaseIterable, Identifiable {
     var onColor: Color { self == .yellow || self == .mint ? .black : .white }
 }
 
+/// The app's display settings (theme, language, hidden amounts). Observable: a view that read one of
+/// them while drawing — through Color.jade, LS() or money() — is redrawn in place when it changes, so
+/// open pages, scroll positions and the toolbar stay as they are. Saved to UserDefaults as before.
+@Observable
+final class AppSettings {
+    static let shared = AppSettings()
+    var theme: String = UserDefaults.standard.string(forKey: AppTheme.key) ?? AppTheme.jade.rawValue {
+        didSet { UserDefaults.standard.set(theme, forKey: AppTheme.key) }
+    }
+    var language: String = UserDefaults.standard.string(forKey: AppLanguage.key) ?? AppLanguage.system.rawValue {
+        didSet {
+            UserDefaults.standard.set(language, forKey: AppLanguage.key)
+            AppLanguage.apply()
+        }
+    }
+    /// a single expense this large (base currency) is flagged in 值得留意; 0 = never
+    var largeExpense: Double = UserDefaults.standard.object(forKey: "ledger.alerts.large") as? Double ?? 2000 {
+        didSet { UserDefaults.standard.set(largeExpense, forKey: "ledger.alerts.large") }
+    }
+    var privacy: Bool = UserDefaults.standard.bool(forKey: "ledger.privacy") {
+        didSet {
+            UserDefaults.standard.set(privacy, forKey: "ledger.privacy")
+            KitPrivacy.masked = privacy
+        }
+    }
+}
+
 /// 外观：跟随系统 / 浅色 / 深色
 enum AppAppearance: String, CaseIterable, Identifiable {
     case system, light, dark
@@ -87,7 +115,10 @@ struct IconBadge: View {
 
 /// grid of colour swatches for 设置 → 外观
 struct ThemePicker: View {
-    @AppStorage(AppTheme.key) private var theme = AppTheme.jade.rawValue
+    private var theme: String {
+        get { AppSettings.shared.theme }
+        nonmutating set { AppSettings.shared.theme = newValue }
+    }
     private let cols = Array(repeating: GridItem(.flexible(), spacing: 8), count: 6)
     var body: some View {
         LazyVGrid(columns: cols, spacing: 14) {

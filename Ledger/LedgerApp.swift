@@ -7,13 +7,11 @@ struct LedgerApp: App {
     @StateObject private var store = Store.shared
     @StateObject private var lock = AppLock()
     @Environment(\.scenePhase) private var phase
-    @AppStorage(AppTheme.key) private var theme = AppTheme.jade.rawValue
     @AppStorage(AppAppearance.key) private var appearance = AppAppearance.system.rawValue
-    @AppStorage(AppLanguage.key) private var language = AppLanguage.system.rawValue
 
     init() {
         AppLanguage.apply()
-        KitPrivacy.masked = UserDefaults.standard.bool(forKey: "ledger.privacy")
+        KitPrivacy.masked = AppSettings.shared.privacy
         UNUserNotificationCenter.current().delegate = NotificationRouter.shared
     }
 
@@ -21,7 +19,6 @@ struct LedgerApp: App {
         WindowGroup {
             ZStack {
                 RootView()
-                    .id(language)   // every string is looked up on redraw
                 if lock.locked {
                     LockScreen().transition(.opacity).zIndex(2)
                 } else if phase != .active && lock.enabled {
@@ -31,8 +28,6 @@ struct LedgerApp: App {
             .environmentObject(store)
             .environmentObject(store.drafts)
             .environmentObject(lock)
-            .environment(\.locale, AppLanguage.current.locale)
-            .tint(AppTheme(rawValue: theme)?.color ?? .jade)
             .preferredColorScheme(AppAppearance(rawValue: appearance)?.scheme)
             .task {
                 NotificationRouter.shared.open = { [store] t in
@@ -57,19 +52,16 @@ struct LedgerApp: App {
 
 struct RootView: View {
     @EnvironmentObject var store: Store
-    @AppStorage(AppTheme.key) private var theme = AppTheme.jade.rawValue
     @Environment(\.horizontalSizeClass) private var hsize
 
     var body: some View {
-        // before any child is built: money() reads it
-        let _ = (KitPrivacy.masked = store.privacy)
         Group {
             if !store.connected {
                 NavigationStack { SettingsView(first: true) }
             } else if store.L == nil {
                 NavigationStack { LoadingView() }
             } else if hsize == .regular {
-                SplitRoot().id(theme)
+                SplitRoot()
             } else {
                 TabView(selection: $store.tab) {
                     AddView().tabItem { Label(LS("记账"), systemImage: "square.and.pencil") }.tag(Tab.add)
@@ -79,14 +71,17 @@ struct RootView: View {
                     ReportsView().tabItem { Label(LS("报表"), systemImage: "doc.text.magnifyingglass") }.tag(Tab.reports)
                 }
                 .minimizingTabBar()
-                // theme colours are read when views are built; rebuild the tabs when the theme changes
-                .id(theme)
             }
         }
+        // read while drawing, so a new theme or language redraws in place
+        .tint(AppTheme.current.color)
+        .environment(\.locale, AppLanguage.current.locale)
         .overlay(alignment: .bottom) { ToastView().animation(.spring(duration: 0.3), value: store.toast) }
         .sheet(item: $store.subSuggestion) { c in SubEditSheet(draft: SubDraft(c)) }
         .sheet(item: $store.repaying) { RepaySheet(cycle: $0) }
-        .sheet(isPresented: $store.showSettings) {
+        .sheet(isPresented: $store.showSettings, onDismiss: {
+            if store.openCheckAfterSettings { store.openCheckAfterSettings = false; store.openCheck = true }
+        }) {
             NavigationStack {
                 SettingsView()
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button(LS("完成")) { store.showSettings = false }.fontWeight(.semibold) } }

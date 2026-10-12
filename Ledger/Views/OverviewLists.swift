@@ -30,8 +30,6 @@ struct ShareBar: View {
 
 /// "↑ ¥320" against the period before: red when spending went up, green when down; faint when small
 struct DeltaText: View {
-    /// re-drawn when amounts are hidden or shown
-    @AppStorage("ledger.privacy") var privacyDep = false
     let now: Double
     let before: Double
     var body: some View {
@@ -54,8 +52,6 @@ struct DeltaText: View {
 }
 
 struct CategoryListRow: View {
-    /// re-drawn when amounts are hidden or shown
-    @AppStorage("ledger.privacy") var privacyDep = false
     let color: Color
     let name: String
     let value: Double
@@ -79,8 +75,6 @@ struct CategoryListRow: View {
 }
 
 struct PayeeRankRow: View {
-    /// re-drawn when amounts are hidden or shown
-    @AppStorage("ledger.privacy") var privacyDep = false
     let rank: Int
     let name: String
     let value: Double
@@ -116,8 +110,6 @@ struct PayeeRankRow: View {
 
 /// a liability with how much of its limit is used and, for a card with a billing cycle, the bill
 struct LiabilityRow: View {
-    /// re-drawn when amounts are hidden or shown
-    @AppStorage("ledger.privacy") var privacyDep = false
     let L: Ledger
     let account: String
     let n: Double

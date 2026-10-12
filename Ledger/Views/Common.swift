@@ -4,15 +4,13 @@ import LedgerKit
 // MARK: - hide amounts
 
 // Amounts are hidden where they are formatted: money() gives "¥***" while 隐藏金额 is on (KitPrivacy).
-// The switch lives in the store, so every view watching it is redrawn in place (nothing is rebuilt);
-// the few small views that format amounts without the store depend on the setting directly.
+// The setting is observable, so whatever formatted an amount is redrawn in place when it changes.
 // Charts keep their shape but lose the value axis.
 
 struct Sensitive: ViewModifier {
-    @AppStorage("ledger.privacy") private var privacy = false
     @ViewBuilder
     func body(content: Content) -> some View {
-        if privacy { content.chartYAxis(.hidden) } else { content }
+        if KitPrivacy.masked { content.chartYAxis(.hidden) } else { content }
     }
 }
 
@@ -24,12 +22,12 @@ extension View {
 }
 
 struct PrivacyButton: View {
-    @EnvironmentObject var store: Store
     var body: some View {
-        Button { store.privacy.toggle() } label: {
-            Image(systemName: store.privacy ? "eye.slash" : "eye")
+        let on = AppSettings.shared.privacy
+        Button { AppSettings.shared.privacy.toggle() } label: {
+            Image(systemName: on ? "eye.slash" : "eye")
         }
-        .accessibilityLabel(store.privacy ? LS("显示金额") : LS("隐藏金额"))
+        .accessibilityLabel(on ? LS("显示金额") : LS("隐藏金额"))
     }
 }
 
@@ -41,8 +39,6 @@ extension View {
 }
 
 struct Amount: View {
-    /// re-drawn when amounts are hidden or shown
-    @AppStorage("ledger.privacy") var privacyDep = false
     let n: Double
     var c = "CNY"
     var d = 2

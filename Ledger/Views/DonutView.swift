@@ -31,8 +31,6 @@ struct DonutSlice: Identifiable, Equatable {
 
 /// a ring chart with a tappable legend; the centre shows the selected slice or the total
 struct DonutChart: View {
-    /// re-drawn when amounts are hidden or shown
-    @AppStorage("ledger.privacy") var privacyDep = false
     let slices: [DonutSlice]
     let title: String
     @Binding var selected: String?

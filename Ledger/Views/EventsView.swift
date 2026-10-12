@@ -498,7 +498,6 @@ struct AnomalyDetailView: View {
 /// every alert, and how large a single expense has to be to count
 struct AlertsView: View {
     @EnvironmentObject var store: Store
-    @AppStorage(Store.largeKey) private var large = 2000.0
 
     var body: some View {
         let _ = store.alertsVersion
@@ -517,7 +516,7 @@ struct AlertsView: View {
                 }
             }
             Section {
-                Picker(LS("大额支出"), selection: $large) {
+                Picker(LS("大额支出"), selection: Binding(get: { AppSettings.shared.largeExpense }, set: { AppSettings.shared.largeExpense = $0 })) {
                     Text(LS("不提醒")).tag(0.0)
                     ForEach([500.0, 1000, 2000, 5000, 10000], id: \.self) { Text(money($0, "CNY", 0)).tag($0) }
                 }
@@ -526,6 +525,5 @@ struct AlertsView: View {
         .navigationTitle(LS("值得留意"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { store.markAlertsSeen() }
-        .onChange(of: large) { _, _ in store.objectWillChange.send() }
     }
 }

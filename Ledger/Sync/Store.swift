@@ -77,6 +77,8 @@ final class Store: ObservableObject {
     @Published var repaying: CardCycle?
     /// open 账本检查 on the overview tab (from Settings)
     @Published var openCheck = false
+    /// 设置 → 账本检查: open the check once the settings sheet has gone
+    var openCheckAfterSettings = false
     @Published var toast: Toast?
     /// bumped to pop every tab back to its root (after an edit or delete)
     @Published var popToken = 0
@@ -90,13 +92,6 @@ final class Store: ObservableObject {
     @Published var tplHidden: [String] { didSet { Prefs.set("tplHidden", tplHidden); tplCache = nil } }
     @Published var defaultFunding: String? { didSet { Prefs.set("defaultFunding", defaultFunding) } }
     /// currency of new expenses / income / refunds; nil = the paying account's own currency
-    /// 隐藏金额: views watching the store are redrawn in place when it changes
-    @Published var privacy: Bool = UserDefaults.standard.bool(forKey: "ledger.privacy") {
-        didSet {
-            KitPrivacy.masked = privacy
-            UserDefaults.standard.set(privacy, forKey: "ledger.privacy")
-        }
-    }
     @Published var defaultCurrency: String? { didSet { Prefs.set("defaultCurrency", defaultCurrency) } }
     /// changes made from this device, newest first, so they can be taken back
     @Published private(set) var history: [ChangeRecord] = []
@@ -146,7 +141,8 @@ final class Store: ObservableObject {
         op.label = LS("更新仓库结构（%@）", LedgerXConfig.path)
         return await commit([op], word: LS("已保存到 %@", LedgerXConfig.path), checked: true)
     }
-    private var pushing = false
+    /// the push in progress, for others to wait on
+    private var pushTask: Task<Void, Error>?
     /// bumped by every rebuild; a rebuild that finishes after a newer one started is dropped
     private var rebuildGen = 0
     private var tplCache: [Template]?
@@ -337,9 +333,9 @@ final class Store: ObservableObject {
             }
         }
         ledgerQueries = Self.directiveQueries(result.0) + qs
-        privacy = env["LEDGER_PRIVACY"] != nil
-        UserDefaults.standard.set(env["LEDGER_THEME"] ?? "jade", forKey: "ledger.theme")
-        UserDefaults.standard.set(env["LEDGER_LANG"] ?? "zh", forKey: "ledger.language")
+        AppSettings.shared.privacy = env["LEDGER_PRIVACY"] != nil
+        AppSettings.shared.theme = env["LEDGER_THEME"] ?? "jade"
+        AppSettings.shared.language = env["LEDGER_LANG"] ?? "zh"
         if let a = env["LEDGER_ACCOUNT"] { journalAccount = a }
         lastSync = Date()
     }
@@ -609,8 +605,7 @@ final class Store: ObservableObject {
 
     /// wait for a push in progress (switching ledgers mid-push would file its results under the wrong ledger)
     func waitForPush() async {
-        var n = 0
-        while pushing && n < 600 { try? await Task.sleep(nanoseconds: 100_000_000); n += 1 }
+        while let t = pushTask { _ = try? await t.value; if pushTask == t { break } }
     }
 
     /// check first, then close the form (`close`), then commit: "go back and edit" keeps the form open
@@ -624,9 +619,14 @@ final class Store: ObservableObject {
     func pushPending() async throws {
         // a push already running may have missed ops queued since; wait for it, then push again
         await waitForPush()
-        if pushing { return }
-        pushing = true
-        defer { pushing = false }
+        if pushTask != nil { return }   // someone else started the next one meanwhile
+        let t = Task { try await self.pushWithRetry() }
+        pushTask = t
+        defer { pushTask = nil }
+        try await t.value
+    }
+
+    private func pushWithRetry() async throws {
         for attempt in 0..<2 {
             do {
                 try await pushOnce()
@@ -819,10 +819,9 @@ final class Store: ObservableObject {
 
     // MARK: - events and unusual spending
 
-    static let largeKey = "ledger.alerts.large"
     static let autoEventsKey = "ledger.events.auto"
     /// a single expense this large (base currency) is flagged; 0 = never
-    var largeExpense: Double { UserDefaults.standard.object(forKey: Store.largeKey) as? Double ?? 2000 }
+    var largeExpense: Double { AppSettings.shared.largeExpense }
     /// new entries get the tags of the events going on that day
     var autoEventTags: Bool { UserDefaults.standard.object(forKey: Store.autoEventsKey) as? Bool ?? true }
     private var anomalyCache: (version: Int, large: Double, day: String, list: [Anomaly])?

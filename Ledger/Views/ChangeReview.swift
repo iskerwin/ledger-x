@@ -8,9 +8,12 @@ enum ReviewChoice { case edit, force, hold }
 @MainActor
 enum ChangeReview {
     static func ask(_ issues: [ChangeIssue]) async -> ReviewChoice {
-        // a sheet that is still closing can't present anything; wait for it to finish
-        var tries = 0
-        while tries < 30, busy() { try? await Task.sleep(nanoseconds: 100_000_000); tries += 1 }
+        // a sheet that is still opening or closing can't present anything: wait for its transition
+        while let tc = transitionInProgress() {
+            await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+                tc.animate(alongsideTransition: nil) { _ in c.resume() }
+            }
+        }
         return await withCheckedContinuation { (cont: CheckedContinuation<ReviewChoice, Never>) in
             guard let top = topController() else { cont.resume(returning: .edit); return }
             final class Box { var host: UIViewController?; var done = false }
@@ -34,24 +37,20 @@ enum ChangeReview {
             }
             box.host = host
             top.present(host, animated: true)
-            // UIKit refuses to present over a view controller that is mid-transition and never calls back;
-            // don't leave the caller waiting forever
-            Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                if host.presentingViewController == nil, !box.done { box.done = true; cont.resume(returning: .edit) }
-            }
+            // UIKit refuses (and never calls back) when it can't present; then the caller goes back to editing
+            if host.presentingViewController == nil, !box.done { box.done = true; cont.resume(returning: .edit) }
         }
     }
 
-    /// true while any view controller in the key window is being presented or dismissed
-    private static func busy() -> Bool {
+    /// the transition of a view controller in the key window being presented or dismissed, if any
+    private static func transitionInProgress() -> UIViewControllerTransitionCoordinator? {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         var vc = (scenes.flatMap { $0.windows }.first { $0.isKeyWindow } ?? scenes.first?.windows.first)?.rootViewController
         while let v = vc {
-            if v.isBeingDismissed || v.isBeingPresented || v.transitionCoordinator != nil { return true }
+            if let tc = v.transitionCoordinator { return tc }
             vc = v.presentedViewController
         }
-        return false
+        return nil
     }
 
     static func topController() -> UIViewController? {
