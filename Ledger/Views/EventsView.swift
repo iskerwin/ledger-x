@@ -71,6 +71,7 @@ func eventDates(_ e: LedgerEvent) -> String {
 struct EventDetailView: View {
     @EnvironmentObject var store: Store
     let tag: String
+    @State private var exporting: ReimbExportTarget?
     @State private var editing: EventEdit?
     @State private var adding = false
     @State private var limit = 100
@@ -110,6 +111,9 @@ struct EventDetailView: View {
                     }
                 }
                 Section {
+                    if s.advanced > 0.005 {
+                        Button(LS("导出报销单…")) { exporting = ReimbExportTarget(title: e.title, entries: s.txns) }
+                    }
                     if e.entry != nil {
                         Button(LS("把这段时间的交易加入事件…")) { adding = true }
                         Button(e.end == nil ? LS("编辑 / 结束事件…") : LS("编辑事件…")) { editing = EventEdit(event: e) }
@@ -133,6 +137,7 @@ struct EventDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $editing) { EventSheet(event: $0.event) }
         .sheet(isPresented: $adding) { EventCandidatesSheet(tag: tag) }
+        .sheet(item: $exporting) { ReimbExportSheet(target: $0) }
     }
 }
 
