@@ -200,7 +200,7 @@ public func alignText(_ text: String) -> String {
 // MARK: - edits applied to repo files (pending queue)
 
 public struct Op: Codable, Identifiable, Equatable {
-    public enum Kind: String, Codable { case insert, remove, link, include, balance, deleteFile, replace, rename, write }
+    public enum Kind: String, Codable { case insert, remove, link, include, balance, deleteFile, replace, rename, renamePayee, write }
     public var id = UUID()
     public var kind: Kind
     public var path: String
@@ -251,6 +251,7 @@ public func applyOps(_ text0: String, path: String, ops: [Op], strict: Bool = fa
             if let r = applyRemove(text, op) { text = r }
             else if strict { throw ConflictError(label: op.label ?? "") }
         case .rename: text = renameAccount(text, from: op.old ?? "", to: op.text ?? "")
+        case .renamePayee: text = renamePayee(text, from: op.old ?? "", to: op.text ?? "")
         case .write: text = op.text ?? ""
         }
     }
@@ -307,6 +308,49 @@ public func renameAccount(_ text: String, from: String, to: String) -> String {
     return re.stringByReplacingMatches(in: text, range: NSRange(location: 0, length: (text as NSString).length),
                                        withTemplate: NSRegularExpression.escapedTemplate(for: to))
 }
+
+// MARK: - payees
+
+/// a transaction header with a payee: `2026-10-01 * "payee" "narration"`; group 1 is the payee's quoted text
+private let payeeHeaderRE = try! NSRegularExpression(pattern: #"^\d{4}-\d{2}-\d{2}[ \t]+(?:\*|!|txn|[A-Z?#%&])[ \t]+("(?:[^"\\]|\\.)*")[ \t]+"(?:[^"\\]|\\.)*""#, options: [.anchorsMatchLines])
+/// `payee: "…"` metadata (subscriptions name the payee their charges come from this way)
+private let payeeMetaRE = try! NSRegularExpression(pattern: #"^([ \t]+payee:[ \t]*)("(?:[^"\\]|\\.)*")"#, options: [.anchorsMatchLines])
+
+/// the text of a quoted Beancount string ("a \"b\"" → a "b")
+func unquote(_ q: String) -> String {
+    var s = q
+    if s.hasPrefix("\""), s.hasSuffix("\""), s.count >= 2 { s = String(s.dropFirst().dropLast()) }
+    var out = "", esc = false
+    for ch in s {
+        if esc { out.append(ch); esc = false } else if ch == "\\" { esc = true } else { out.append(ch) }
+    }
+    return out
+}
+
+/// ranges of the quoted payees equal to `name`: on transaction headers, and in `payee:` metadata
+private func payeeRanges(_ text: String, _ name: String) -> [NSRange] {
+    let ns = text as NSString, all = NSRange(location: 0, length: ns.length)
+    var out: [NSRange] = []
+    for re in [payeeHeaderRE, payeeMetaRE] {
+        let g = re === payeeHeaderRE ? 1 : 2
+        for m in re.matches(in: text, range: all) where unquote(ns.substring(with: m.range(at: g))) == name {
+            out.append(m.range(at: g))
+        }
+    }
+    return out.sorted { $0.location > $1.location }
+}
+
+/// every transaction paid to / received from `from` (and subscriptions naming it) now names `to`; nothing else
+/// on the lines changes
+public func renamePayee(_ text: String, from: String, to: String) -> String {
+    guard !from.isEmpty, !to.trimmingCharacters(in: .whitespaces).isEmpty, from != to else { return text }
+    let m = NSMutableString(string: text)
+    for r in payeeRanges(text, from) { m.replaceCharacters(in: r, with: quoted(to)) }
+    return m as String
+}
+
+/// how many headers and `payee:` lines name `name` in a file
+public func countPayee(_ text: String, _ name: String) -> Int { payeeRanges(text, name).count }
 
 /// how many times an account (or its sub-accounts) appears in a file
 public func countAccount(_ text: String, _ name: String) -> Int {
