@@ -39,6 +39,9 @@ struct ReportsView: View {
                     NavigationLink(value: EventsDest()) {
                         ReportRow(symbol: "flag", color: .pink, title: LS("事件"), detail: LS("出差、旅行等按 #标签汇总的花费"))
                     }
+                    NavigationLink(value: PayeesDest()) {
+                        ReportRow(symbol: "person.2", color: .brown, title: LS("收付款方"), detail: LS("使用次数与金额，重命名、合并商户"))
+                    }
                     NavigationLink(value: AlertsDest()) {
                         ReportRow(symbol: "exclamationmark.triangle", color: .orange, title: LS("值得留意"), detail: LS("重复扣款、大额支出、分类超常、订阅调价"))
                     }
@@ -107,6 +110,8 @@ struct ReportsView: View {
             .navigationDestination(for: SalaryDest.self) { _ in SalaryView().privacyToolbar() }
             .navigationDestination(for: EventDest.self) { EventDetailView(tag: $0.tag).privacyToolbar() }
             .navigationDestination(for: AlertsDest.self) { _ in AlertsView().privacyToolbar() }
+            .navigationDestination(for: PayeesDest.self) { _ in PayeesView().privacyToolbar() }
+            .navigationDestination(for: PayeeDest.self) { PayeeDetailView(name: $0.name).privacyToolbar() }
             .navigationDestination(for: AnomalyDest.self) { AnomalyDetailView(id: $0.id).privacyToolbar() }
             .navigationDestination(for: QueryDest.self) { QueryEditorView(initial: $0.query).privacyToolbar() }
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name).privacyToolbar() }
