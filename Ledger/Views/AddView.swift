@@ -466,26 +466,49 @@ struct AddView: View {
         }
     }
 
+    /// 可报销: the advance goes to the reimbursement account. With petty cash still in hand it is paid from that
+    /// (^float-…, chosen by default); 自己垫付 leaves it for a reimbursement later (no link, or an open ^reimburse-…)
     private func reimbSection(_ d: Draft, _ D: Derived) -> some View {
         let links = Array(D.openLinks.filter { $0.link.hasPrefix("reimburse") }.suffix(4))
+        let floats = D.floats.filter { $0.left > 0.005 }
         let hint = LS("关联 ^link，如 reimburse-商户拼音-") + Day.today().replacingOccurrences(of: "-", with: "")
-        let reimb = Binding<Bool>(get: { store.draft.reimb }, set: { store.draft.reimb = $0; store.draft.edited = nil })
+        let reimb = Binding<Bool>(get: { store.draft.reimb }, set: { on in
+            store.draft.reimb = on
+            // the newest petty cash with money left pays it, unless a link was already given
+            if on && store.draft.link.trimmed.isEmpty, let f = floats.last { store.draft.link = f.link }
+            if !on && isFloatLink(store.draft.link.trimmed) { store.draft.link = "" }
+            store.draft.edited = nil
+        })
+        let onFloat = isFloatLink(d.link.trimmed)
+        func pick(_ l: String) { store.draft.link = l; store.draft.edited = nil }
         return Section {
             Toggle(LS("可报销（计入应收款并标记 #reimbursed）"), isOn: reimb).tint(.jade)
             if d.reimb {
-                TextField(hint, text: field(\.link))
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                if !links.isEmpty {
-                    ChipRow {
-                        ForEach(links, id: \.link) { x in
-                            Chip(label: x.link, selected: d.link == x.link) {
-                                store.draft.link = x.link
-                                store.draft.edited = nil
+                ChipRow {
+                    ForEach(floats) { f in
+                        Chip(label: LS("备用金 %@（剩 %@）", f.date, money(f.left, f.currency)), selected: d.link == f.link) { pick(f.link) }
+                    }
+                    if !floats.isEmpty {
+                        Chip(label: LS("自己垫付"), selected: !onFloat) { if onFloat { pick("") } }
+                    }
+                }
+                if !onFloat {
+                    TextField(hint, text: field(\.link))
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    if !links.isEmpty {
+                        ChipRow {
+                            ForEach(links, id: \.link) { x in
+                                Chip(label: x.link, selected: d.link == x.link) { pick(x.link) }
                             }
                         }
                     }
                 }
+            }
+        } footer: {
+            if d.reimb {
+                Text(onFloat ? LS("用备用金支付：记入报销应收并关联 ^%@，直接冲抵备用金，不进待报销。自己垫付的请选「自己垫付」。", d.link.trimmed)
+                     : LS("自己垫付：进入待报销，公司回款时在「往来」登记；以后改用备用金冲抵，也可在往来里点按备用金勾选。"))
             }
         }
     }
