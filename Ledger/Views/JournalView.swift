@@ -348,6 +348,7 @@ struct TxDetailView: View {
     let dest: TxDest
     @State private var subDraft: SubDraft?
     @State private var subPick: Entry?
+    @State private var ordering: Entry?
     @State private var linkPick: LinkPick?
     @State private var linkRemoval: LinkPick?
 
@@ -398,6 +399,9 @@ struct TxDetailView: View {
                         Text(LS("此交易由 pad 指令自动生成，如需调整请修改对应的 pad 或余额断言。")).font(.footnote).foregroundStyle(.secondary)
                     } else {
                         NavigationLink(value: EditDest(t)) { Label(LS("编辑"), systemImage: "pencil") }
+                        if L.txns.filter({ $0.date == t.date && $0.file == t.file && !$0.synthetic }).count > 1 {
+                            Button { ordering = t } label: { Label(LS("调整当天顺序"), systemImage: "arrow.up.arrow.down") }
+                        }
                         Button { again(t, L, D, kind: nil) } label: { Label(LS("复制为新交易"), systemImage: "arrow.uturn.forward") }
                         if classify(t, L).kind == .expense {
                             Button { refund(t, L, D) } label: { Label(LS("登记退款"), systemImage: "arrow.uturn.backward") }
@@ -421,6 +425,7 @@ struct TxDetailView: View {
             .navigationTitle(t.date)
             .navigationBarTitleDisplayMode(.inline)
             .sheet(item: $subDraft) { SubEditSheet(draft: $0) }
+            .sheet(item: $ordering) { DayOrderSheet(date: $0.date, file: $0.file) }
             .sheet(item: $linkPick) { LinkPickSheet(pick: $0) }
             .linkRemovalDialog($linkRemoval, store: store)
             .sheet(item: $subPick) { e in
@@ -587,5 +592,64 @@ struct EditTxView: View {
         guard let ops = await store.review([rm] + store.pairedLinkOps(oldText: old, newText: nil)) else { return }
         store.popToken += 1
         await store.commit(ops, word: LS("已删除"), checked: true)
+    }
+}
+
+
+/// the transactions of one day in one file, dragged into a new order; the file's lines move with them
+struct DayOrderSheet: View {
+    @EnvironmentObject var store: Store
+    @Environment(\.dismiss) private var dismiss
+    let date: String
+    let file: String
+    @State private var items: [Entry] = []
+    @State private var original: [Int] = []
+    @State private var saving = false
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(items, id: \.id) { t in TxRow(t: t) }
+                        .onMove { items.move(fromOffsets: $0, toOffset: $1) }
+                } footer: {
+                    Text(LS("拖动右侧把手调整 %@ 这一天的先后，保存后 %@ 里这几笔的位置跟着调整，中间的余额断言等内容不动。改到另一天请在「编辑」里改日期。", date, file))
+                }
+            }
+            .environment(\.editMode, .constant(.active))
+            .navigationTitle(LS("调整当天顺序"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(LS("保存")) { Task { await save() } }.disabled(items.map { $0.id } == original || saving)
+                }
+            }
+            .onAppear {
+                guard items.isEmpty, let L = store.L else { return }
+                items = L.txns.filter { $0.date == date && $0.file == file && !$0.synthetic }.sorted { $0.startLine < $1.startLine }
+                original = items.map { $0.id }
+            }
+        }
+    }
+
+    private func save() async {
+        saving = true
+        defer { saving = false }
+        guard let text = try? await store.fileText(file) else { store.show(LS("无法读取 %@", file)); return }
+        let inFile = items.sorted { $0.startLine < $1.startLine }
+        let order = items.compactMap { t in inFile.firstIndex { $0.id == t.id } }
+        guard let r = reorderBlocks(text, ranges: inFile.map { ($0.startLine, $0.endLine) }, order: order) else {
+            store.show(LS("文件已经变了，请刷新后再试")); return
+        }
+        var op = Op(kind: .replace, path: file)
+        op.old = r.old
+        op.text = r.new
+        op.date = date
+        op.label = LS("调整 %@ 的顺序", date)
+        op.summary = op.label
+        guard let ops = await store.review([op]) else { return }
+        dismiss()
+        await store.commit(ops, word: LS("已调整顺序"), checked: true)
     }
 }
