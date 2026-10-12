@@ -369,6 +369,8 @@ struct AlertsOverviewSection: View {
                     Spacer()
                     NavigationLink(value: AlertsDest()) { Image(systemName: "slider.horizontal.3").font(.footnote) }
                 }
+            } footer: {
+                Text(LS("核实无误后左滑「忽略」即可，只清除这一条提示，不影响以后的检查。"))
             }
         }
     }
