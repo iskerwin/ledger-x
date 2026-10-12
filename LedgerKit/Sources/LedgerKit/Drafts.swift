@@ -363,12 +363,14 @@ public struct LedgerXConfig: Codable, Equatable {
     public var receivable: String?
     /// link spellings for payees (polyphones, preferred names): "岭南通 羊城通": "yangchengtong"
     public var slugs: [String: String] = [:]
+    /// payslip templates, one per employer
+    public var payslips: [PayslipTemplate]?
 
     public init(files: [String: String] = [:], rules: [LayoutRule] = [], receivable: String? = nil, slugs: [String: String] = [:]) {
         self.files = files; self.rules = rules; self.receivable = receivable; self.slugs = slugs
     }
 
-    enum CodingKeys: String, CodingKey { case files, rules, receivable, slugs }
+    enum CodingKeys: String, CodingKey { case files, rules, receivable, slugs, payslips }
 
     /// every key is optional, so a hand-written file with only some of them still loads
     public init(from decoder: Decoder) throws {
@@ -377,6 +379,7 @@ public struct LedgerXConfig: Codable, Equatable {
         rules = try c.decodeIfPresent([LayoutRule].self, forKey: .rules) ?? []
         receivable = try c.decodeIfPresent(String.self, forKey: .receivable)
         slugs = try c.decodeIfPresent([String: String].self, forKey: .slugs) ?? [:]
+        payslips = try? c.decodeIfPresent([PayslipTemplate].self, forKey: .payslips)
     }
 
     public func file(_ k: LayoutKind) -> String? {
@@ -396,6 +399,7 @@ public struct LedgerXConfig: Codable, Equatable {
         c.files = files.filter { !$0.value.trimmingCharacters(in: .whitespaces).isEmpty }
         c.rules = rules.filter { !$0.account.trimmingCharacters(in: .whitespaces).isEmpty && !$0.file.trimmingCharacters(in: .whitespaces).isEmpty }
         if c.receivable?.trimmingCharacters(in: .whitespaces).isEmpty ?? false { c.receivable = nil }
+        if c.payslips?.isEmpty ?? false { c.payslips = nil }
         return (String(data: (try? e.encode(c)) ?? Data(), encoding: .utf8) ?? "{}") + "\n"
     }
 }
