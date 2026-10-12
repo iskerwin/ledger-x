@@ -57,13 +57,6 @@ public func metaName(_ L: Ledger, _ a: String) -> String? {
     return s.isEmpty ? nil : s
 }
 
-/// an account opened in the ledger (not one only used, and not closed by `date`)
-public func isOpenAccount(_ L: Ledger, _ a: String, on date: String? = nil) -> Bool {
-    guard let x = L.accounts[a], !x.implicit, x.open != nil else { return false }
-    if let c = x.close, let d = date { return c > d }
-    return x.close == nil
-}
-
 public struct Person: Identifiable, Equatable {
     public let key: String
     public let name: String

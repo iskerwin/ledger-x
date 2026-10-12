@@ -69,17 +69,6 @@ public func reconcileDue(_ L: Ledger, today: String = Day.today()) -> [Reconcile
     return out
 }
 
-/// the assertion line that records a check
-public func reconcileOp(_ r: ReconcileDue, amount: Double, path: String) -> Op {
-    var op = Op(kind: .balance, path: path)
-    op.account = r.account; op.date = r.date; op.currency = r.currency
-    op.line = balanceLine(r.date, r.account, amount, r.currency)
-    op.amountText = plainMoney(amount, r.currency)
-    op.label = tr("核对余额：\(r.account) \(r.day)", "Reconcile: \(r.account) \(r.day)")
-    op.summary = tr("余额断言 \(r.account)", "balance \(r.account)")
-    return op
-}
-
 /// the next statement / check day (today or later) of every account that has one
 public func nextCheckDays(_ L: Ledger, today: String = Day.today()) -> [(account: String, day: String)] {
     L.accounts.sorted(by: { $0.key < $1.key }).compactMap { name, acc in

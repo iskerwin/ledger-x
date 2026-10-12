@@ -444,7 +444,6 @@ public struct RepoLayout: Equatable, Codable {
     }
 
     public func journalPath(_ date: String) -> String { RepoLayout.expand(journal, date: date) }
-    public var perYear: Bool { journal.contains("{year}") || journal.contains("{month}") }
     /// "journals/" for "journals/{year}.bean"
     public var journalDir: String {
         guard let r = journal.range(of: "/", options: .backwards) else { return "" }

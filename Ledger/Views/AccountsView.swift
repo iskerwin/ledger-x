@@ -28,7 +28,7 @@ struct AccountsView: View {
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
             .subscriptionDestinations()
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
-            .navigationDestination(for: AccountManagerDest.self) { _ in AccountManagerView().privacyToolbar() }
+            .navigationDestination(for: AccountManagerDest.self) { _ in AccountManagerView() }
             .navigationDestination(for: AccountEditDest.self) { AccountEditView(name: $0.name) }
             .navigationDestination(for: CounterpartyDest.self) { _ in CounterpartyView().privacyToolbar() }
         }

@@ -29,7 +29,7 @@ struct OverviewView: View {
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
             .subscriptionDestinations()
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
-            .navigationDestination(for: ErrorsDest.self) { _ in ErrorsView().privacyToolbar() }
+            .navigationDestination(for: ErrorsDest.self) { _ in ErrorsView() }
             .navigationDestination(for: ReconcileDest.self) { _ in ReconcileView().privacyToolbar() }
             .navigationDestination(for: BudgetsDest.self) { _ in BudgetsView().privacyToolbar() }
             .navigationDestination(for: SubscriptionsDest.self) { _ in SubscriptionsView().privacyToolbar() }
@@ -617,20 +617,6 @@ struct OverviewView: View {
             NavigationLink(value: ErrorsDest()) { LedgerCheckRow() }
             if store.cfg.kind == .github { CIRow() }
         }
-    }
-
-    private func cny(_ L: Ledger, prefix: String) -> Double {
-        var t = 0.0
-        for (a, cs) in L.final where a.hasPrefix(prefix) { for (c, n) in cs { t += toCNY(L, n, c) ?? 0 } }
-        return t
-    }
-
-    private func stat(_ k: String, _ v: String, color: Color) -> some View {
-        VStack(spacing: 4) {
-            Text(k).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            Text(v).font(.subheadline.weight(.semibold).monospacedDigit()).foregroundStyle(color).lineLimit(1).minimumScaleFactor(0.7).sensitive()
-        }
-        .frame(maxWidth: .infinity)
     }
 
     struct Group2 { let name: String; var total: Double; var leaves: [(String, Double)] }

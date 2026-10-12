@@ -21,7 +21,6 @@ enum SourceKind: String, Codable, CaseIterable, Identifiable, Hashable {
         case .webdav: return "externaldrive.connected.to.line.below"
         }
     }
-    var isGit: Bool { self == .github || self == .gitlab || self == .gitea }
 }
 
 /// one ledger: where it is and how to reach it
