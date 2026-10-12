@@ -103,8 +103,19 @@ struct CounterpartyView: View {
         if let acct = acct, !emp.open.isEmpty || !emp.total.isEmpty {
             Section {
                 ForEach(emp.open) { x in
-                    if x.link?.hasPrefix("float-") == true {
-                        row("^" + x.link!, LS("备用金 · %@ · 报销时选「备用金冲抵」，用不完的退回", x.date), x.amount, x.currency)
+                    if let fl = x.link, fl.hasPrefix("float-") {
+                        // petty cash: its transactions; what is left goes back with a swipe
+                        NavigationLink(value: LinkDest(link: fl)) {
+                            row("^" + fl, LS("备用金 · %@ · 报销时选「备用金冲抵」，左滑退回剩余", x.date), x.amount, x.currency, chevron: false)
+                        }
+                        .swipeActions {
+                            Button(LS("退回剩余")) {
+                                let banks = store.D.map { Array($0.rankAccounts(["Assets:"]).filter { !$0.hasPrefix("Assets:Receivable") }.prefix(4)) } ?? []
+                                settle = SettleTarget(title: LS("退回备用金"), payee: metaName(L, acct) ?? LS("公司"), link: fl,
+                                                      items: [SettleItem(account: x.account, currency: x.currency, amount: x.amount)], to: banks)
+                            }
+                            .tint(.jade)
+                        }
                     } else {
                     Button {
                         settle = SettleTarget(title: LS("结清公司往来"), payee: metaName(L, acct) ?? LS("公司"), link: x.link,
@@ -163,7 +174,7 @@ struct CounterpartyView: View {
         }
     }
 
-    private func row(_ title: String, _ caption: String, _ n: Double, _ c: String) -> some View {
+    private func row(_ title: String, _ caption: String, _ n: Double, _ c: String, chevron: Bool = true) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).lineLimit(1)
@@ -171,7 +182,7 @@ struct CounterpartyView: View {
             }
             Spacer()
             Amount(n: n, c: c)
-            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+            if chevron { Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) }
         }
         .contentShape(Rectangle())
     }
@@ -458,7 +469,7 @@ struct SettleSheet: View {
             }
             Section {
                 DateField(value: $date)
-                AccountField(label: LS("差额记入"), prefixes: ["Income:", "Expenses:", "Equity:"], chips: target.to, value: $to)
+                AccountField(label: LS("差额记入"), prefixes: ["Income:", "Expenses:", "Equity:", "Assets:"], chips: target.to, value: $to)
                 TextField(LS("说明（默认「结清」）"), text: $narration)
             }
             Section(LS("将写入")) {
