@@ -166,22 +166,46 @@ struct AccountPicker: View {
     let pick: (String) -> Void
     @State private var q = ""
 
+    /// accounts grouped by their second level (Food, Bank…), the most used group first; the root
+    /// (Expenses, Assets) only shows when two roots share a group name
+    private struct Group: Identifiable { let id: String; let title: String; let accounts: [String] }
+
     var body: some View {
         NavigationStack {
-            List {
-                if allowAny, !q.isEmpty, isAccountName(q), !(store.D?.openAccounts.contains(q) ?? false) {
-                    Button { pick(q); dismiss() } label: { Label(LS("使用 %@", q), systemImage: "plus.circle") }
-                }
-                ForEach(results, id: \.self) { a in
-                    Button { pick(a); dismiss() } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(acctDisplay(a)).foregroundStyle(.primary)
-                                Text(a).font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if a == current { Image(systemName: "checkmark").foregroundStyle(Color.jade) }
+            ScrollViewReader { proxy in
+                List {
+                    if allowAny, !q.isEmpty, isAccountName(q), !(store.D?.openAccounts.contains(q) ?? false) {
+                        Button { pick(q); dismiss() } label: { Label(LS("使用 %@", q), systemImage: "plus.circle") }
+                    }
+                    if q.trimmingCharacters(in: .whitespaces).isEmpty {
+                        let gs = groups
+                        if gs.count > 1 {
+                            Section {
+                                ChipRow {
+                                    ForEach(gs) { g in Chip(label: g.title) { withAnimation { proxy.scrollTo(g.id, anchor: .top) } } }
+                                }
+                            } header: { Text(LS("分类")) }
                         }
+                        let recent = Array(ranked.prefix(5))
+                        if ranked.count > 8 {
+                            Section(LS("最常用")) { ForEach(recent, id: \.self) { row($0, full: true) } }
+                        }
+                        ForEach(gs) { g in
+                            Section {
+                                ForEach(g.accounts, id: \.self) { row($0, full: false) }
+                            } header: {
+                                Text(g.title).textCase(nil)
+                            }
+                            .id(g.id)
+                        }
+                    } else {
+                        ForEach(results, id: \.self) { row($0, full: true) }
+                    }
+                }
+                .onAppear {
+                    // open on the group of the current choice
+                    if !current.isEmpty, let g = groups.first(where: { $0.accounts.contains(current) }) {
+                        DispatchQueue.main.async { proxy.scrollTo(g.id, anchor: .top) }
                     }
                 }
             }
@@ -194,12 +218,62 @@ struct AccountPicker: View {
         }
     }
 
+    /// one account: in a group just what is below the group (Dining, ZABank:Cash) with its Chinese name
+    private func row(_ a: String, full: Bool) -> some View {
+        Button { pick(a); dismiss() } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(full ? acctDisplay(a) : rest(a)).foregroundStyle(.primary)
+                    if let n = name(a) { Text(n).font(.caption).foregroundStyle(.secondary) }
+                    else if full { Text(a).font(.caption).foregroundStyle(.secondary) }
+                }
+                Spacer()
+                if a == current { Image(systemName: "checkmark").foregroundStyle(Color.jade) }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// below the group: Expenses:Food:Dining → Dining, Assets:Bank:ZABank:Cash → ZABank:Cash
+    private func rest(_ a: String) -> String {
+        let p = a.components(separatedBy: ":")
+        return p.count > 2 ? p.dropFirst(2).joined(separator: ":") : acctLabel(a)
+    }
+
+    /// the account's own name (name: in the ledger), when it says more than the account does
+    private func name(_ a: String) -> String? {
+        guard let L = store.L, let n = metaName(L, a), n != leaf(a) else { return nil }
+        return n
+    }
+
+    private var ranked: [String] { store.D?.rankAccounts(prefixes) ?? [] }
+
+    private var groups: [Group] {
+        var order: [String] = [], members: [String: [String]] = [:]
+        for a in ranked {
+            let p = a.components(separatedBy: ":")
+            let key = p.count > 1 ? p[0] + ":" + p[1] : a
+            if members[key] == nil { order.append(key) }
+            members[key, default: []].append(a)
+        }
+        // a group name used under two roots (Expenses:Gifts, Income:Gifts) keeps its root
+        var count: [String: Int] = [:]
+        for k in order { count[k.components(separatedBy: ":").last ?? k, default: 0] += 1 }
+        return order.map { k in
+            let p = k.components(separatedBy: ":")
+            let g = p.last ?? k
+            let zh = p.count > 1 ? (acctZH(k + ":x").map { " · " + $0 } ?? "") : ""
+            let title = ((count[g] ?? 0) > 1 ? k : g) + zh
+            return Group(id: k, title: title, accounts: members[k]!)
+        }
+    }
+
     var results: [String] {
-        guard let D = store.D else { return [] }
-        let all = D.rankAccounts(prefixes)
+        let all = ranked
         let t = q.trimmingCharacters(in: .whitespaces)
         if t.isEmpty { return all }
-        return all.map { ($0, max(fuzzy(t, $0), fuzzy(t, acctDisplay($0)))) }.filter { $0.1 > 0 }.sorted { $0.1 > $1.1 }.map { $0.0 }
+        return all.map { ($0, max(fuzzy(t, $0), fuzzy(t, acctDisplay($0)), fuzzy(t, name($0) ?? ""))) }.filter { $0.1 > 0 }.sorted { $0.1 > $1.1 }.map { $0.0 }
     }
 }
 
