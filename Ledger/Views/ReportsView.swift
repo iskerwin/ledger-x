@@ -213,6 +213,8 @@ func rangeLabel(_ r: (String?, String?)) -> String {
 
 /// an expandable account tree inside a List section
 struct AccountTreeRows: View {
+    /// re-drawn when amounts are hidden or shown
+    @AppStorage("ledger.privacy") var privacyDep = false
     let root: AccountNode
     /// 1 for debit-normal roots (Assets, Expenses), -1 for credit-normal (Income, Liabilities, Equity)
     let sign: Double
@@ -277,6 +279,8 @@ struct AccountTreeRows: View {
 }
 
 struct SectionTotal: View {
+    /// re-drawn when amounts are hidden or shown
+    @AppStorage("ledger.privacy") var privacyDep = false
     let title: String
     let value: Double
     var body: some View {
@@ -413,6 +417,8 @@ struct RatioBar: View {
 }
 
 struct IncomeExpenseChart: View {
+    /// re-drawn when amounts are hidden or shown
+    @AppStorage("ledger.privacy") var privacyDep = false
     let months: [String]
     let D: Derived
     @Binding var picked: String?
@@ -595,6 +601,8 @@ struct BalanceSheetView: View {
 }
 
 struct NetWorthChart: View {
+    /// re-drawn when amounts are hidden or shown
+    @AppStorage("ledger.privacy") var privacyDep = false
     let series: [NetWorthPoint]
     @Binding var picked: Date?
 

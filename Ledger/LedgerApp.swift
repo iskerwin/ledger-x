@@ -58,19 +58,18 @@ struct LedgerApp: App {
 struct RootView: View {
     @EnvironmentObject var store: Store
     @AppStorage(AppTheme.key) private var theme = AppTheme.jade.rawValue
-    @AppStorage("ledger.privacy") private var privacy = false
     @Environment(\.horizontalSizeClass) private var hsize
 
     var body: some View {
         // before any child is built: money() reads it
-        let _ = (KitPrivacy.masked = privacy)
+        let _ = (KitPrivacy.masked = store.privacy)
         Group {
             if !store.connected {
                 NavigationStack { SettingsView(first: true) }
             } else if store.L == nil {
                 NavigationStack { LoadingView() }
             } else if hsize == .regular {
-                SplitRoot().id(theme + (privacy ? "|private" : ""))
+                SplitRoot().id(theme)
             } else {
                 TabView(selection: $store.tab) {
                     AddView().tabItem { Label(LS("记账"), systemImage: "square.and.pencil") }.tag(Tab.add)
@@ -80,8 +79,8 @@ struct RootView: View {
                     ReportsView().tabItem { Label(LS("报表"), systemImage: "doc.text.magnifyingglass") }.tag(Tab.reports)
                 }
                 .minimizingTabBar()
-                // theme colours and hidden amounts are read when views are built; rebuild the tabs when they change
-                .id(theme + (privacy ? "|private" : ""))
+                // theme colours are read when views are built; rebuild the tabs when the theme changes
+                .id(theme)
             }
         }
         .overlay(alignment: .bottom) { ToastView().animation(.spring(duration: 0.3), value: store.toast) }

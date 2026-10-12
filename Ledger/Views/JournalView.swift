@@ -482,6 +482,8 @@ struct TxDetailView: View {
 }
 
 struct PostingRow: View {
+    /// re-drawn when amounts are hidden or shown
+    @AppStorage("ledger.privacy") var privacyDep = false
     let p: Posting
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {

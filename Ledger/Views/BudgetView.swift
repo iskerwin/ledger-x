@@ -5,6 +5,8 @@ struct BudgetsDest: Hashable {}
 
 /// a budget's progress bar row
 struct BudgetRow: View {
+    /// re-drawn when amounts are hidden or shown
+    @AppStorage("ledger.privacy") var privacyDep = false
     let p: BudgetProgress
     var body: some View {
         let color: Color = p.over ? .loss : p.ahead ? .warn : .jade

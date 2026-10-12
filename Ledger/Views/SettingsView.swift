@@ -169,8 +169,8 @@ struct SettingsView: View {
 }
 
 struct PrivacyToggle: View {
-    @AppStorage("ledger.privacy") private var privacy = false
-    var body: some View { Toggle(LS("隐藏金额"), isOn: $privacy) }
+    @EnvironmentObject var store: Store
+    var body: some View { Toggle(LS("隐藏金额"), isOn: $store.privacy) }
 }
 
 extension SettingsView {

@@ -256,6 +256,8 @@ func cellText(_ v: QValue) -> String {
 }
 
 struct ResultTable: View {
+    /// re-drawn when amounts are hidden or shown
+    @AppStorage("ledger.privacy") var privacyDep = false
     static let limit = 500
     let result: QueryResult
 
