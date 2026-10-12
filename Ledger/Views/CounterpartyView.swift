@@ -49,7 +49,7 @@ struct CounterpartyView: View {
                     .accessibilityLabel(LS("新的往来"))
             }
         }
-        .navigationDestination(for: PersonDest.self) { PersonView(key: $0.key) }
+        .navigationDestination(for: PersonDest.self) { PersonView(key: $0.key).privacyToolbar() }
         .sheet(item: $reimb) { ReimbSheet(target: $0) }
         .sheet(item: $loan) { LoanSheet(target: $0) }
         .sheet(item: $settle) { SettleSheet(target: $0) }

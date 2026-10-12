@@ -196,10 +196,10 @@ struct JournalView: View {
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .onChange(of: q) { _, _ in limit = 150 }
-            .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0) }
+            .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
             .subscriptionDestinations()
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
-            .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name) }
+            .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name).privacyToolbar() }
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .task {

@@ -91,23 +91,26 @@ struct ReportsView: View {
             .navigationTitle(LS("报表"))
             .toolbar { StandardToolbar() }
             .navigationDestination(for: ReportKind.self) { k in
-                switch k {
-                case .income: IncomeStatementView()
-                case .balance: BalanceSheetView()
-                case .trial: TrialBalanceView()
+                Group {
+                    switch k {
+                    case .income: IncomeStatementView()
+                    case .balance: BalanceSheetView()
+                    case .trial: TrialBalanceView()
+                    }
                 }
+                .privacyToolbar()
             }
-            .navigationDestination(for: BudgetsDest.self) { _ in BudgetsView() }
-            .navigationDestination(for: SubscriptionsDest.self) { _ in SubscriptionsView() }
-            .navigationDestination(for: ForecastDest.self) { _ in ForecastView() }
-            .navigationDestination(for: EventsDest.self) { _ in EventsView() }
-            .navigationDestination(for: SalaryDest.self) { _ in SalaryView() }
-            .navigationDestination(for: EventDest.self) { EventDetailView(tag: $0.tag) }
-            .navigationDestination(for: AlertsDest.self) { _ in AlertsView() }
-            .navigationDestination(for: AnomalyDest.self) { AnomalyDetailView(id: $0.id) }
-            .navigationDestination(for: QueryDest.self) { QueryEditorView(initial: $0.query) }
-            .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name) }
-            .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0) }
+            .navigationDestination(for: BudgetsDest.self) { _ in BudgetsView().privacyToolbar() }
+            .navigationDestination(for: SubscriptionsDest.self) { _ in SubscriptionsView().privacyToolbar() }
+            .navigationDestination(for: ForecastDest.self) { _ in ForecastView().privacyToolbar() }
+            .navigationDestination(for: EventsDest.self) { _ in EventsView().privacyToolbar() }
+            .navigationDestination(for: SalaryDest.self) { _ in SalaryView().privacyToolbar() }
+            .navigationDestination(for: EventDest.self) { EventDetailView(tag: $0.tag).privacyToolbar() }
+            .navigationDestination(for: AlertsDest.self) { _ in AlertsView().privacyToolbar() }
+            .navigationDestination(for: AnomalyDest.self) { AnomalyDetailView(id: $0.id).privacyToolbar() }
+            .navigationDestination(for: QueryDest.self) { QueryEditorView(initial: $0.query).privacyToolbar() }
+            .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name).privacyToolbar() }
+            .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
             .subscriptionDestinations()
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
         }

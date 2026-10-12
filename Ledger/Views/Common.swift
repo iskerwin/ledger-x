@@ -31,6 +31,13 @@ struct PrivacyButton: View {
     }
 }
 
+extension View {
+    /// the show / hide amounts button on a pushed page (the root pages have it in their toolbar)
+    func privacyToolbar() -> some View {
+        toolbar { ToolbarItem(placement: .topBarTrailing) { PrivacyButton() } }
+    }
+}
+
 struct Amount: View {
     let n: Double
     var c = "CNY"

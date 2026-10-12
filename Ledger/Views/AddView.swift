@@ -34,7 +34,7 @@ struct AddView: View {
                 }
             }
             .sheet(isPresented: $importing) { ImportView() }
-            .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0) }
+            .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
             .subscriptionDestinations()
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
         }
@@ -84,7 +84,13 @@ struct AddView: View {
                     saving = true
                     Task { await save(L, D); saving = false }
                 } label: {
-                    Text(LS("保存")).frame(maxWidth: .infinity).fontWeight(.semibold)
+                    HStack(spacing: 6) {
+                        Spacer(minLength: 0)
+                        Image(systemName: "square.and.pencil")
+                        Text(LS("记一笔"))
+                        Spacer(minLength: 0)
+                    }
+                    .fontWeight(.semibold)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.jade)
