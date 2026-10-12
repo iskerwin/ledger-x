@@ -186,18 +186,28 @@ struct JournalView: View {
     @State private var selecting = false
     @State private var selected: Set<String> = []
     @State private var batch: BatchMode?
+    /// list or month calendar (remembered on this device)
+    @AppStorage("ledger.journal.calendar") private var showCalendar = false
 
     var body: some View {
         NavigationStack(path: $path) {
             Group {
-                if let L = store.L { list(L) } else { ProgressView() }
+                if let L = store.L {
+                    if showCalendar { JournalCalendar(L: L, entries: search(L), account: account) } else { list(L) }
+                } else { ProgressView() }
             }
             .navigationTitle(LS("明细"))
             .toolbar {
                 StandardToolbar()
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(selecting ? LS("完成") : LS("选择")) {
-                        withAnimation { selecting.toggle(); selected = [] }
+                ToolbarItemGroup(placement: .topBarLeading) {
+                    Button { withAnimation { showCalendar.toggle(); selecting = false; selected = [] } } label: {
+                        Image(systemName: showCalendar ? "list.bullet" : "calendar")
+                    }
+                    .accessibilityLabel(showCalendar ? LS("列表") : LS("日历"))
+                    if !showCalendar {
+                        Button(selecting ? LS("完成") : LS("选择")) {
+                            withAnimation { selecting.toggle(); selected = [] }
+                        }
                     }
                 }
             }
