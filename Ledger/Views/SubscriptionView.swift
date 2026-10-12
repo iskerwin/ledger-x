@@ -10,8 +10,8 @@ extension View {
     /// (a view-based link mixed with value-based ones makes SwiftUI push pages twice)
     func subscriptionDestinations() -> some View {
         navigationDestination(for: SubDetailDest.self) { SubscriptionDetailView(name: $0.name) }
-            .navigationDestination(for: SubCalendarDest.self) { _ in SubscriptionCalendarView() }
-            .navigationDestination(for: LinkDest.self) { LinkDetailView(link: $0.link) }
+            .navigationDestination(for: SubCalendarDest.self) { _ in SubscriptionCalendarView().privacyToolbar() }
+            .navigationDestination(for: LinkDest.self) { LinkDetailView(link: $0.link).privacyToolbar() }
     }
 }
 

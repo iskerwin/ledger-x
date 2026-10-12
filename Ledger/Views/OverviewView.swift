@@ -25,20 +25,20 @@ struct OverviewView: View {
             }
             .navigationTitle(LS("概览"))
             .toolbar { StandardToolbar() }
-            .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name) }
-            .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0) }
+            .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name).privacyToolbar() }
+            .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
             .subscriptionDestinations()
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
-            .navigationDestination(for: ErrorsDest.self) { _ in ErrorsView() }
-            .navigationDestination(for: ReconcileDest.self) { _ in ReconcileView() }
-            .navigationDestination(for: BudgetsDest.self) { _ in BudgetsView() }
-            .navigationDestination(for: SubscriptionsDest.self) { _ in SubscriptionsView() }
-            .navigationDestination(for: ForecastDest.self) { _ in ForecastView() }
-            .navigationDestination(for: CounterpartyDest.self) { _ in CounterpartyView() }
-            .navigationDestination(for: EventsDest.self) { _ in EventsView() }
-            .navigationDestination(for: EventDest.self) { EventDetailView(tag: $0.tag) }
-            .navigationDestination(for: AlertsDest.self) { _ in AlertsView() }
-            .navigationDestination(for: AnomalyDest.self) { AnomalyDetailView(id: $0.id) }
+            .navigationDestination(for: ErrorsDest.self) { _ in ErrorsView().privacyToolbar() }
+            .navigationDestination(for: ReconcileDest.self) { _ in ReconcileView().privacyToolbar() }
+            .navigationDestination(for: BudgetsDest.self) { _ in BudgetsView().privacyToolbar() }
+            .navigationDestination(for: SubscriptionsDest.self) { _ in SubscriptionsView().privacyToolbar() }
+            .navigationDestination(for: ForecastDest.self) { _ in ForecastView().privacyToolbar() }
+            .navigationDestination(for: CounterpartyDest.self) { _ in CounterpartyView().privacyToolbar() }
+            .navigationDestination(for: EventsDest.self) { _ in EventsView().privacyToolbar() }
+            .navigationDestination(for: EventDest.self) { EventDetailView(tag: $0.tag).privacyToolbar() }
+            .navigationDestination(for: AlertsDest.self) { _ in AlertsView().privacyToolbar() }
+            .navigationDestination(for: AnomalyDest.self) { AnomalyDetailView(id: $0.id).privacyToolbar() }
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         // 设置 → 账本检查 opens the check here, where every problem can be opened and fixed

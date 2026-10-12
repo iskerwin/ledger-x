@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 import LedgerKit
 
 struct HoldingsDest: Hashable {}
@@ -8,6 +9,7 @@ struct HoldingsView: View {
     @EnvironmentObject var store: Store
     @State private var open: Set<String> = []
     @State private var pricing = false
+    @State private var chart: ChartTarget?
 
     var body: some View {
         Group {
@@ -21,6 +23,7 @@ struct HoldingsView: View {
             }
         }
         .sheet(isPresented: $pricing) { PriceUpdateSheet() }
+        .sheet(item: $chart) { t in if let L = store.L { KLineSheet(rows: holdings(L), selected: t.id) } }
         .task { if store.demoEnv["LEDGER_PRICES"] != nil { pricing = true } }
     }
 
@@ -43,6 +46,11 @@ struct HoldingsView: View {
                     }
                     .font(.caption.monospacedDigit())
                     .sensitive()
+                    let income = investIncome(L, String(Day.today().prefix(4))).reduce(0.0) { $0 + $1.2 }
+                    if abs(income) > 0.005 {
+                        Text(LS("累计收益 %@（浮动盈亏 + 已实现收益、股息、利息）", signedMoney(value - cost + income, L.base)))
+                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
+                    }
                     if let d = pxDate { Text(LS("价格日期 ") + d).font(.caption).foregroundStyle(.secondary) }
                 }
                 .padding(.vertical, 4)
@@ -55,7 +63,7 @@ struct HoldingsView: View {
             Section {
                 EmptyView()
             } footer: {
-                Text(LS("市值按账本中最新的 price 指令计算；成本取自买入时记录的 {成本}；卖出时按账户的批次匹配方法（如 FIFO）结转。"))
+                Text(LS("市值只是持仓份额 × 最新价格（账本中最新的 price 指令），不含股息、利息和账户里的现金；这些收入列在「投资收入」，信用卡返现不算投资收益。成本取自买入时记录的 {成本}；卖出时按账户的批次匹配方法（如 FIFO）结转。"))
             }
         }
     }
@@ -91,6 +99,9 @@ struct HoldingsView: View {
         if open.contains(r.id) {
             ForEach(Array(r.lots.enumerated()), id: \.offset) { pair in
                 lotRow(pair.element, r)
+            }
+            Button { chart = ChartTarget(id: r.id) } label: {
+                Label(LS("K 线"), systemImage: "chart.bar.xaxis").font(.footnote)
             }
             NavigationLink(value: AccountDest(name: r.acct)) {
                 Text(LS("查看 %@ 明细", acctLabel(r.acct))).font(.footnote)
@@ -297,5 +308,106 @@ struct PriceUpdateSheet: View {
         let ls = lines()
         guard !ls.isEmpty, let ops = store.makeOps(ls.joined(separator: "\n"), single: false) else { return }
         Task { await store.commit(ops, word: LS("已更新 %@ 项价格", ls.count), closing: { dismiss() }) }
+    }
+}
+
+
+struct ChartTarget: Identifiable { let id: String }
+
+/// candles for a holding from Yahoo, with the average cost and the buys marked
+struct KLineSheet: View {
+    @EnvironmentObject var store: Store
+    @Environment(\.dismiss) private var dismiss
+    let rows: [Holding]
+    @State var selected: String
+    @AppStorage("ledger.kline.range") private var range = "6mo"
+    @State private var candles: [PriceFetch.Candle] = []
+    @State private var loading = false
+    @State private var error: String?
+
+    private static let ranges: [(String, String, String)] = [("1mo", "1d", "1月"), ("3mo", "1d", "3月"), ("6mo", "1d", "6月"), ("1y", "1wk", "1年"), ("5y", "1mo", "5年")]
+
+    private var row: Holding? { rows.first { $0.id == selected } }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    if rows.count > 1 {
+                        Picker(LS("股票"), selection: $selected) {
+                            ForEach(rows) { r in Text(r.c + " · " + acctLabel(r.acct)).tag(r.id) }
+                        }
+                    }
+                    Picker(LS("范围"), selection: $range) {
+                        ForEach(Self.ranges, id: \.0) { Text(LS($0.2)).tag($0.0) }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                Section {
+                    if loading { HStack { Spacer(); ProgressView(); Spacer() }.frame(height: 260) }
+                    else if let e = error { Text(e).foregroundStyle(.secondary).frame(height: 120) }
+                    else if candles.isEmpty { Text(LS("没有数据")).foregroundStyle(.secondary) }
+                    else if let r = row { chart(r).frame(height: 300) }
+                } footer: {
+                    if let r = row, let L = store.L {
+                        Text(LS("数据来自 Yahoo Finance（%@），红涨绿跌；虚线为持仓均价 %@，圆点为买入批次。", PriceFetch.symbol(r.c, r.q, L).0, fmtNum(r.avg, 2)))
+                    }
+                }
+                if let last = candles.last, let first = candles.first {
+                    Section {
+                        LabeledContent(LS("最新收盘"), value: fmtNum(last.close, 2) + " " + (row?.q ?? ""))
+                        LabeledContent(LS("区间涨跌"), value: String(format: "%+.2f%%", (last.close - first.open) / first.open * 100))
+                        LabeledContent(LS("区间最高 / 最低"), value: fmtNum(candles.map { $0.high }.max() ?? 0, 2) + " / " + fmtNum(candles.map { $0.low }.min() ?? 0, 2))
+                    }
+                }
+            }
+            .navigationTitle(row?.c ?? LS("K 线"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(LS("完成")) { dismiss() } } }
+            .task(id: selected + range) { await load() }
+        }
+    }
+
+    private func load() async {
+        guard let r = row, let L = store.L else { return }
+        let iv = Self.ranges.first { $0.0 == range }?.1 ?? "1d"
+        loading = true
+        error = nil
+        defer { loading = false }
+        do {
+            candles = try await PriceFetch.candles(PriceFetch.symbol(r.c, r.q, L).0, range: range, interval: iv)
+        } catch {
+            candles = []
+            self.error = LS("获取行情失败：%@", error.localizedDescription)
+        }
+    }
+
+    private func chart(_ r: Holding) -> some View {
+        let up = Color.red, down = Color.green
+        let from = candles.first?.date ?? Date()
+        let buys = r.lots.compactMap { l -> (Date, Double)? in
+            guard let c = l.cost, let ds = c.date, let d = Day.date(ds), d >= from else { return nil }
+            return (d, c.number)
+        }
+        let lo = min(candles.map { $0.low }.min() ?? 0, r.avg), hi = max(candles.map { $0.high }.max() ?? 0, r.avg)
+        let pad = (hi - lo) * 0.05
+        return Chart {
+            ForEach(candles) { c in
+                RuleMark(x: .value("d", c.date), yStart: .value("l", c.low), yEnd: .value("h", c.high))
+                    .foregroundStyle(c.close >= c.open ? up : down)
+                    .lineStyle(StrokeStyle(lineWidth: 1))
+                RectangleMark(x: .value("d", c.date), yStart: .value("o", c.open), yEnd: .value("c", c.close == c.open ? c.open + (hi - lo) * 0.002 : c.close), width: .ratio(0.6))
+                    .foregroundStyle(c.close >= c.open ? up : down)
+            }
+            if r.avg > 0 {
+                RuleMark(y: .value("avg", r.avg))
+                    .foregroundStyle(.secondary)
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            }
+            ForEach(Array(buys.enumerated()), id: \.offset) { p in
+                PointMark(x: .value("d", p.element.0), y: .value("p", p.element.1)).foregroundStyle(Color.jade).symbolSize(30)
+            }
+        }
+        .chartYScale(domain: (lo - pad)...(hi + pad))
     }
 }

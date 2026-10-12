@@ -45,6 +45,37 @@ enum PriceFetch {
         return Quote(price: p, currency: meta["currency"] as? String)
     }
 
+    struct Candle: Identifiable { let date: Date; let open, high, low, close: Double; var id: Date { date } }
+
+    /// daily / weekly / monthly candles for a chart (Yahoo's range: 1mo 3mo 6mo 1y 5y; interval: 1d 1wk 1mo)
+    static func candles(_ symbol: String, range: String, interval: String) async throws -> [Candle] {
+        let s = symbol.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? symbol
+        guard let url = URL(string: "https://query1.finance.yahoo.com/v8/finance/chart/\(s)?interval=\(interval)&range=\(range)") else { throw URLError(.badURL) }
+        var r = URLRequest(url: url)
+        r.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)", forHTTPHeaderField: "User-Agent")
+        r.timeoutInterval = 20
+        let (d, resp) = try await URLSession.shared.data(for: r)
+        guard (resp as? HTTPURLResponse)?.statusCode == 200,
+              let o = try JSONSerialization.jsonObject(with: d) as? [String: Any],
+              let res = ((o["chart"] as? [String: Any])?["result"] as? [[String: Any]])?.first,
+              let ts = res["timestamp"] as? [Double],
+              let q = ((res["indicators"] as? [String: Any])?["quote"] as? [[String: Any]])?.first else {
+            throw URLError(.cannotParseResponse)
+        }
+        func col(_ k: String) -> [Double?] { (q[k] as? [Any] ?? []).map { $0 as? Double } }
+        let op = col("open"), hi = col("high"), lo = col("low"), cl = col("close")
+        var out: [Candle] = []
+        for (i, t) in ts.enumerated() where i < op.count && i < hi.count && i < lo.count && i < cl.count {
+            guard let a = op[i], let h = hi[i], let l = lo[i], let c = cl[i] else { continue }
+            out.append(Candle(date: Date(timeIntervalSince1970: t), open: a, high: h, low: l, close: c))
+        }
+        // London prices come in pence
+        if (res["meta"] as? [String: Any])?["currency"] as? String == "GBp" {
+            out = out.map { Candle(date: $0.date, open: $0.open / 100, high: $0.high / 100, low: $0.low / 100, close: $0.close / 100) }
+        }
+        return out
+    }
+
     /// prices for the rows of the price sheet; failures are left out
     static func fetchAll(_ items: [PriceItem], _ L: Ledger) async -> [String: Double] {
         var out: [String: Double] = [:]
