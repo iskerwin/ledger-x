@@ -53,6 +53,22 @@ final class SalaryTests: XCTestCase {
         XCTAssertEqual(y.deductions, 100)
         XCTAssertEqual(y.months, 1)   // both paid in September
 
+        // items sharing an account are listed, and come back next month
+        var t2 = t
+        t2.items.insert(PayslipItem(name: "餐补", account: "Income:Salary:Allowance"), at: 2)
+        t2.items.insert(PayslipItem(name: "交通补贴", account: "Income:Salary:Allowance"), at: 3)
+        var a = PayslipDraft(template: t2, month: "2026-09", date: "2026-10-24")
+        a.account = "Assets:Bank:BOC"
+        a.values = ["基本工资": "2080", "餐补": "400", "交通补贴": "400"]
+        a.received = "2080"
+        let at = payslipText(a, after)
+        XCTAssertTrue(at.contains("payslip_items: \"基本工资 2080.00; 餐补 400.00; 交通补贴 400.00\""), at)
+        let after2 = ledger(base + text + "\n\n" + at + "\n")
+        let next = payslipDraft(after2, template: t2, month: "2026-10", date: "2026-11-24")
+        XCTAssertEqual(next.values["餐补"], "400.00")
+        XCTAssertEqual(next.values["交通补贴"], "400.00")
+        XCTAssertEqual(employerOpen(after2).open.first { $0.link == "salary-xinghe-202609" }?.amount, 800)
+
         // nothing earned: nothing to save
         XCTAssertEqual(payslipText(PayslipDraft(template: t, month: "2026-08", date: "2026-09-24"), L), "")
     }
