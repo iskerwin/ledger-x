@@ -17,8 +17,12 @@ public struct PayslipItem: Codable, Equatable, Identifiable, Hashable {
     public var account: String
     /// taken off the pay (leave, tax…) rather than part of it
     public var deduct: Bool
+    /// the usual monthly amount (the full one, not a month cut short by probation or leave)
+    public var amount: Double?
     public var id: String { name }
-    public init(name: String, account: String, deduct: Bool = false) { self.name = name; self.account = account; self.deduct = deduct }
+    public init(name: String, account: String, deduct: Bool = false, amount: Double? = nil) {
+        self.name = name; self.account = account; self.deduct = deduct; self.amount = amount
+    }
 }
 
 public struct PayslipTemplate: Codable, Equatable, Identifiable {
@@ -127,6 +131,12 @@ public func lastPayslip(_ L: Ledger, employer: String) -> Entry? {
 /// a new form for `month`, with the amounts of the latest payslip of the employer (by account)
 public func payslipDraft(_ L: Ledger, template t: PayslipTemplate, month: String, date: String) -> PayslipDraft {
     var d = PayslipDraft(template: t, month: month, date: date)
+    // usual amounts set in the template win over last month's, which may have been a short one
+    if t.items.contains(where: { ($0.amount ?? 0) > 0 }) {
+        for i in t.items { if let a = i.amount, a > 0 { d.values[i.name] = toFixed(a, 2) } }
+        if let e = lastPayslip(L, employer: t.employer), let n = e.meta["payslip_days"] { d.days = n.display }
+        return d
+    }
     if let e = lastPayslip(L, employer: t.employer), let items = e.meta["payslip_items"].map({ $0.stringValue ?? $0.display }) {
         // "基本工资 2080.00; 餐补 400.00; …"
         let known = Set(t.items.map { $0.name })
