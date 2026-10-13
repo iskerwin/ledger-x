@@ -671,7 +671,7 @@ struct QuickAddView: View {
     private func key(_ k: String) {
         var a = store.draft.amount
         let ops: Set<Character> = ["+", "-", "×", "÷"]
-        let current = String(a.split(whereSeparator: { ops.contains($0) }, omittingEmptySubsequences: false).last ?? "")
+        let current = String(a.split(omittingEmptySubsequences: false, whereSeparator: { ops.contains($0) }).last ?? "")
         switch k {
         case "⌫":
             if !a.isEmpty { a.removeLast() }
@@ -686,7 +686,7 @@ struct QuickAddView: View {
             a += current.isEmpty ? "0." : "."
         default:
             if let dot = current.firstIndex(of: "."), current[dot...].count > 2 { return }
-            if current.filter(\.isNumber).count >= 10 { return }
+            if current.filter { $0.isNumber }.count >= 10 { return }
             if current == "0" { a.removeLast() }
             a += k
         }
