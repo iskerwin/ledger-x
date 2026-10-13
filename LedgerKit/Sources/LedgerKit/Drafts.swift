@@ -118,6 +118,8 @@ public struct Draft: Equatable {
     public var shares: [Share] = []
     /// the parts were typed by hand: don't even them out again when the amount changes
     public var sharesEdited = false
+    /// 凭证类型 of a reimbursable expense (发票 / 收据 / 无), written as `voucher:`
+    public var voucher = ""
     /// who the personal receivable is with, when it is the category or paying account
     /// (someone paid for you: the paying account is Assets:Receivable:Personal)
     public var person = ""
@@ -246,6 +248,9 @@ func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
     var cat = TxPosting(account: catAccount, amount: sgn * amt, currency: d.currency)
     // an advance keeps the category it would have had, for the expense claim (支出类型)
     if d.kind == .expense && d.reimb && d.account.hasPrefix("Expenses:") { cat.meta = [(categoryMeta, d.account)] }
+    if d.kind == .expense && d.reimb && !d.voucher.trimmingCharacters(in: .whitespaces).isEmpty {
+        cat.meta.append((voucherMeta, d.voucher.trimmingCharacters(in: .whitespaces)))
+    }
     if fc != d.currency, let paid = evalAmount(d.paid), paid > 0 {
         // a per-unit price rounded to 5 places can miss the paid total by more than the tolerance on
         // large amounts (9999.99 USD → 0.03 CNY off); then write the exact total instead
@@ -639,7 +644,7 @@ public func isComplex(_ t: Entry) -> Bool {
     if t.postings.count > 2 { return true }
     // `person:` on the receivable: the split form keeps it per row; an advance's `category:` the simple form keeps
     if t.postings.contains(where: { p in p.cost != nil || (p.price != nil && t.postings.count > 2) || p.flag != nil
-        || p.meta.items.contains { kv in kv.0 != categoryMeta } }) { return true }
+        || p.meta.items.contains { kv in kv.0 != categoryMeta && kv.0 != voucherMeta } }) { return true }
     if t.flag != "*" { return true }
     return t.postings.count != real.count && t.postings.count > 1 && !t.tags.contains("transfer")
         && !t.postings.contains(where: { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") })
@@ -695,6 +700,7 @@ public func draftFromTxn(_ t: Entry, kind: DraftKind? = nil, _ L: Ledger, _ D: D
         if cat.account.hasPrefix("Assets:Receivable") {
             d.reimb = true
             d.account = advanceCategory(cat) ?? D.rankAccounts(["Expenses:"]).first ?? ""
+            d.voucher = cat.meta[voucherMeta].map { $0.stringValue ?? $0.display } ?? ""
             // paid from petty cash like the original while it lasts, else from the petty cash in hand (as when
             // 可报销 is switched on); a paid reimbursement's link is never reused
             let open = D.floats.filter { $0.left > 0.005 }

@@ -410,25 +410,7 @@ struct FloatSheet: View {
     private func save(_ p: [Unclaimed]) async {
         saving = true
         defer { saving = false }
-        var ops: [Op] = []
-        var done = Set<ObjectIdentifier>()
-        for i in selected.sorted() where p.indices.contains(i) {
-            let e = p[i].t
-            guard done.insert(ObjectIdentifier(e)).inserted else { continue }
-            guard let file = try? await store.fileText(e.file) else { store.show(LS("无法读取 %@", e.file)); return }
-            let lines = file.components(separatedBy: "\n")
-            guard e.startLine < lines.count else { continue }
-            var op = Op(kind: .link, path: e.file)
-            op.headerLine = e.startLine + 1
-            op.header = lines[e.startLine]
-            op.add = (e.tags.contains("reimbursed") ? "" : " #reimbursed") + " ^" + link
-            op.link = link
-            op.silent = !ops.isEmpty
-            if ops.isEmpty { op.label = LS("备用金冲抵：^%@ %@ 笔", link, selected.count) }
-            ops.append(op)
-        }
-        guard !ops.isEmpty, let checked = await store.review(ops) else { return }
-        dismiss()
-        await store.commit(checked, word: LS("已冲抵"), checked: true)
+        let es = selected.sorted().compactMap { p.indices.contains($0) ? p[$0].t : nil }
+        if await store.linkAdvances(es, link: link, label: LS("备用金冲抵：^%@ %@ 笔", link, es.count)) { dismiss() }
     }
 }
