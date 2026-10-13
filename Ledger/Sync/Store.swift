@@ -336,6 +336,10 @@ final class Store: ObservableObject {
             draft.payee = t.payee; draft.narration = t.narration; draft.account = t.account; draft.funding = t.funding
             draft.amount = t.fixed.map { jsNumberString($0) } ?? "23.5"
         }
+        if env["LEDGER_COMBO"] != nil, let other = result.1.rankAccounts(["Assets:", "Liabilities:"]).first(where: { $0 != draft.funding && !$0.hasPrefix("Assets:Receivable") && (result.1.acctCcy[$0] ?? draft.currency) == draft.currency }) {
+            draft.extraFunds = [ExtraFund(account: other, amount: "1000")]
+            draft.discount = "50"
+        }
         if env["LEDGER_TAB"] == "add" {
             openAdd(full: env["LEDGER_EDIT_TEXT"] != nil || env["LEDGER_ADD_FULL"] != nil ? true : nil)
         } else if let t = env["LEDGER_TAB"], let tab = Tab(rawValue: t) { self.tab = tab }

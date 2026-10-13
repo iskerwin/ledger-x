@@ -86,8 +86,15 @@ public struct BalanceSheet {
     public var netWorth: Double { assets.total + liabilities.total }
 }
 
-public func balanceSheet(_ L: Ledger, at date: String?) -> BalanceSheet {
-    let b = periodBalances(L, to: date)
+/// `account` is one of `list` or under one of them
+public func isExcluded(_ account: String, _ list: [String]) -> Bool {
+    list.contains { account == $0 || account.hasPrefix($0 + ":") }
+}
+
+/// `exclude`: asset and liability accounts left out (and so out of the totals; the sheet no longer balances by them)
+public func balanceSheet(_ L: Ledger, at date: String?, exclude: [String] = []) -> BalanceSheet {
+    var b = periodBalances(L, to: date)
+    if !exclude.isEmpty { b = b.filter { !isExcluded($0.key, exclude) } }
     let inc = accountTree(b, root: "Income", L, at: date), exp = accountTree(b, root: "Expenses", L, at: date)
     return BalanceSheet(assets: accountTree(b, root: "Assets", L, at: date),
                         liabilities: accountTree(b, root: "Liabilities", L, at: date),
@@ -103,7 +110,18 @@ public struct NetWorthPoint: Identifiable {
     public var netWorth: Double { assets + liabilities }
 }
 
-public func netWorthSeries(_ L: Ledger, today: String = Day.today()) -> [NetWorthPoint] {
+/// assets and liabilities now, in the operating currency, without the accounts in `exclude`
+public func netWorthNow(_ L: Ledger, exclude: [String] = []) -> (assets: Double, liabilities: Double) {
+    var a = 0.0, l = 0.0
+    for (acct, cs) in L.final where !isExcluded(acct, exclude) {
+        let isA = acct.hasPrefix("Assets:"), isL = acct.hasPrefix("Liabilities:")
+        guard isA || isL else { continue }
+        for (c, n) in cs { let v = toCNY(L, n, c) ?? 0; if isA { a += v } else { l += v } }
+    }
+    return (a, l)
+}
+
+public func netWorthSeries(_ L: Ledger, today: String = Day.today(), exclude: [String] = []) -> [NetWorthPoint] {
     guard let first = L.txns.first(where: { !$0.synthetic })?.date else { return [] }
     var out: [NetWorthPoint] = []
     var bal: [String: [String: Double]] = ["Assets": [:], "Liabilities": [:]]
@@ -116,7 +134,7 @@ public func netWorthSeries(_ L: Ledger, today: String = Day.today()) -> [NetWort
             for p in L.txns[i].postings {
                 guard let u = p.units, let c = p.currency else { continue }
                 let root = p.account.components(separatedBy: ":")[0]
-                if root == "Assets" || root == "Liabilities" { bal[root]![c, default: 0] += u }
+                if (root == "Assets" || root == "Liabilities") && !isExcluded(p.account, exclude) { bal[root]![c, default: 0] += u }
             }
             i += 1
         }

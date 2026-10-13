@@ -80,6 +80,17 @@ public struct Share: Equatable, Identifiable {
     public init(person: String, amount: String = "") { self.person = person; self.amount = amount }
 }
 
+/// 组合付款: another account paying part of an expense (the main paying account pays the rest)
+public struct ExtraFund: Equatable, Identifiable {
+    public var id = UUID()
+    public var account: String
+    public var amount: String
+    public init(account: String, amount: String = "") { self.account = account; self.amount = amount }
+}
+
+/// where a discount (优惠 / 立减 / 红包抵扣) is recorded unless another income account is picked
+public let defaultDiscountAccount = "Income:Rewards"
+
 public struct RefundOf: Equatable {
     public var path: String
     public var line: Int
@@ -123,7 +134,82 @@ public struct Draft: Equatable {
     /// who the personal receivable is with, when it is the category or paying account
     /// (someone paid for you: the paying account is Assets:Receivable:Personal)
     public var person = ""
+    /// 组合付款: other accounts paying part of an expense
+    public var extraFunds: [ExtraFund] = []
+    /// 优惠: the part of an expense's price not paid (recorded as income), as typed
+    public var discount = ""
+    public var discountAccount = defaultDiscountAccount
     public init() {}
+}
+
+/// a discount applies to a plain expense; a reimbursed or shared one is entered at what was actually paid
+public func discountAllowed(_ d: Draft) -> Bool { d.kind == .expense && !d.reimb && !d.split }
+
+/// The paying side of an expense with 组合付款 or 优惠: the main account (what is left), the other accounts' parts,
+/// then the discount. nil when something doesn't add up, or an account is in another currency.
+func payingPostings(_ d: Draft, total amt: Double, _ D: Derived) -> [TxPosting]? {
+    var disc = 0.0
+    if discountAllowed(d) && !d.discount.trimmingCharacters(in: .whitespaces).isEmpty {
+        // a discount has to leave something to pay
+        guard let v = evalAmount(d.discount), v >= 0, v < amt - 0.004 else { return nil }
+        disc = v
+    }
+    var out: [TxPosting] = []
+    var rest = amt - disc
+    for x in d.extraFunds {
+        let a = x.account.trimmingCharacters(in: .whitespaces)
+        if a.isEmpty && x.amount.trimmingCharacters(in: .whitespaces).isEmpty { continue }
+        guard !a.isEmpty, a != d.funding, let v = evalAmount(x.amount), v > 0, (D.acctCcy[a] ?? d.currency) == d.currency else { return nil }
+        rest -= v
+        out.append(TxPosting(account: a, amount: -v, currency: d.currency))
+    }
+    rest = roundTo(rest, 2)
+    guard rest > -0.004, (D.acctCcy[d.funding] ?? d.currency) == d.currency else { return nil }
+    if rest > 0.004 { out.insert(TxPosting(account: d.funding, amount: -rest, currency: d.currency), at: 0) }
+    if disc > 0.004 {
+        let acct = d.discountAccount.trimmingCharacters(in: .whitespaces)
+        guard acct.hasPrefix("Income:") else { return nil }
+        out.append(TxPosting(account: acct, amount: -roundTo(disc, 2), currency: d.currency))
+    }
+    return out
+}
+
+/// What the main paying account is left to pay with 组合付款 / 优惠 (nil when the amount isn't filled in yet).
+public func comboRest(_ d: Draft) -> Double? {
+    guard let amt = evalAmount(d.amount), amt > 0 else { return nil }
+    var rest = amt
+    if discountAllowed(d) { rest -= evalAmount(d.discount) ?? 0 }
+    for x in d.extraFunds { rest -= evalAmount(x.amount) ?? 0 }
+    return roundTo(rest, 2)
+}
+
+/// Why 组合付款 / 优惠 can't be written as it stands, in words for the form; nil when it can.
+public func comboIssue(_ d: Draft, _ D: Derived) -> String? {
+    guard hasCombo(d) else { return nil }
+    for x in d.extraFunds {
+        let a = x.account.trimmingCharacters(in: .whitespaces), v = x.amount.trimmingCharacters(in: .whitespaces)
+        if a.isEmpty && v.isEmpty { continue }
+        if a.isEmpty { return tr("有一行没选付款账户", "A row has no account") }
+        if a == d.funding { return tr("其他付款账户不能和主账户相同", "Another account can't be the main one") }
+        guard let n = evalAmount(v), n > 0 else { return tr("%@ 的金额要大于 0", "Enter an amount for %@").replacingOccurrences(of: "%@", with: leaf(a)) }
+        if let c = D.acctCcy[a], c != d.currency { return tr("组合付款的账户要与支出同币种", "Accounts in a combination must be in the expense's currency") }
+    }
+    if let c = D.acctCcy[d.funding], c != d.currency { return tr("组合付款的账户要与支出同币种", "Accounts in a combination must be in the expense's currency") }
+    if discountAllowed(d), !d.discount.trimmingCharacters(in: .whitespaces).isEmpty {
+        guard (evalAmount(d.discount) ?? -1) >= 0 else { return tr("优惠金额不正确", "The discount isn't a number") }
+        if !d.discountAccount.hasPrefix("Income:") { return tr("优惠要记到收入科目", "A discount goes to an income account") }
+    }
+    if let r = comboRest(d), r < -0.004 { return tr("其他账户和优惠加起来超过了总额", "The other accounts and the discount come to more than the total") }
+    if let r = comboRest(d), r < 0.004, discountAllowed(d), (evalAmount(d.discount) ?? 0) > 0, d.extraFunds.allSatisfy({ $0.account.isEmpty }) {
+        return tr("优惠不能等于总额", "The discount can't be the whole price")
+    }
+    return nil
+}
+
+/// the form uses 组合付款 or 优惠
+public func hasCombo(_ d: Draft) -> Bool {
+    d.kind == .expense && (d.extraFunds.contains { !$0.account.isEmpty || !$0.amount.isEmpty }
+        || (discountAllowed(d) && !d.discount.trimmingCharacters(in: .whitespaces).isEmpty))
 }
 
 public func parseTagsLinks(_ s: String) -> (tags: [String], links: [String]) {
@@ -241,8 +327,10 @@ func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
         }
         let mine = roundTo(amt - sum, 2)
         guard mine > -0.004 else { return nil }
-        tx.postings = (mine > 0.004 ? [TxPosting(account: catAccount, amount: mine, currency: d.currency)] : []) + theirs
-            + [TxPosting(account: d.funding, amount: -amt, currency: d.currency)]
+        let paying: [TxPosting]
+        if hasCombo(d) { guard let p = payingPostings(d, total: amt, D) else { return nil }; paying = p }
+        else { paying = [TxPosting(account: d.funding, amount: -amt, currency: d.currency)] }
+        tx.postings = (mine > 0.004 ? [TxPosting(account: catAccount, amount: mine, currency: d.currency)] : []) + theirs + paying
         return tx
     }
     var cat = TxPosting(account: catAccount, amount: sgn * amt, currency: d.currency)
@@ -251,7 +339,10 @@ func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
     if d.kind == .expense && d.reimb && !d.voucher.trimmingCharacters(in: .whitespaces).isEmpty {
         cat.meta.append((voucherMeta, d.voucher.trimmingCharacters(in: .whitespaces)))
     }
-    if fc != d.currency, let paid = evalAmount(d.paid), paid > 0 {
+    if hasCombo(d) {
+        guard let paying = payingPostings(d, total: amt, D) else { return nil }
+        tx.postings = [cat] + paying
+    } else if fc != d.currency, let paid = evalAmount(d.paid), paid > 0 {
         // a per-unit price rounded to 5 places can miss the paid total by more than the tolerance on
         // large amounts (9999.99 USD → 0.03 CNY off); then write the exact total instead
         let unit = toFixed(paid / amt, 5)
@@ -392,12 +483,19 @@ public struct LedgerXConfig: Codable, Equatable {
     public var slugs: [String: String] = [:]
     /// payslip templates, one per employer
     public var payslips: [PayslipTemplate]?
+    /// accounts (and their sub-accounts) left out of 净资产 and its trend
+    public var netWorthExclude: [String]?
+    /// accounts (and their sub-accounts) left out of 资产负债表
+    public var balanceExclude: [String]?
 
     public init(files: [String: String] = [:], rules: [LayoutRule] = [], receivable: String? = nil, slugs: [String: String] = [:]) {
         self.files = files; self.rules = rules; self.receivable = receivable; self.slugs = slugs
     }
 
-    enum CodingKeys: String, CodingKey { case files, rules, receivable, slugs, payslips }
+    enum CodingKeys: String, CodingKey {
+        case files, rules, receivable, slugs, payslips
+        case netWorthExclude = "networth_exclude", balanceExclude = "balance_exclude"
+    }
 
     /// every key is optional, so a hand-written file with only some of them still loads
     public init(from decoder: Decoder) throws {
@@ -407,6 +505,23 @@ public struct LedgerXConfig: Codable, Equatable {
         receivable = try c.decodeIfPresent(String.self, forKey: .receivable)
         slugs = try c.decodeIfPresent([String: String].self, forKey: .slugs) ?? [:]
         payslips = try? c.decodeIfPresent([PayslipTemplate].self, forKey: .payslips)
+        netWorthExclude = try? c.decodeIfPresent([String].self, forKey: .netWorthExclude)
+        balanceExclude = try? c.decodeIfPresent([String].self, forKey: .balanceExclude)
+    }
+
+    /// the same settings with an account renamed (its sub-accounts too); nil when nothing refers to it
+    public func renamingAccount(_ from: String, to: String) -> LedgerXConfig? {
+        func move(_ a: String) -> String {
+            a == from ? to : a.hasPrefix(from + ":") ? to + String(a.dropFirst(from.count)) : a
+        }
+        var c = self
+        for i in c.rules.indices { c.rules[i].account = move(c.rules[i].account) }
+        if let r = c.receivable { c.receivable = move(r) }
+        // a merge can leave the same name twice
+        func dedup(_ xs: [String]?) -> [String]? { xs.map { l in l.map(move).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } } } }
+        c.netWorthExclude = dedup(c.netWorthExclude)
+        c.balanceExclude = dedup(c.balanceExclude)
+        return c == self ? nil : c
     }
 
     public func file(_ k: LayoutKind) -> String? {
@@ -427,6 +542,8 @@ public struct LedgerXConfig: Codable, Equatable {
         c.rules = rules.filter { !$0.account.trimmingCharacters(in: .whitespaces).isEmpty && !$0.file.trimmingCharacters(in: .whitespaces).isEmpty }
         if c.receivable?.trimmingCharacters(in: .whitespaces).isEmpty ?? false { c.receivable = nil }
         if c.payslips?.isEmpty ?? false { c.payslips = nil }
+        if c.netWorthExclude?.isEmpty ?? false { c.netWorthExclude = nil }
+        if c.balanceExclude?.isEmpty ?? false { c.balanceExclude = nil }
         return (String(data: (try? e.encode(c)) ?? Data(), encoding: .utf8) ?? "{}") + "\n"
     }
 }
@@ -639,8 +756,33 @@ public func commitMessage(_ ops: [Op], path: String) -> String {
 
 // MARK: - from an existing transaction back to a form
 
+/// An expense as the simple form writes 组合付款 / 优惠: one category (or advance) line, every other line paying
+/// in the same currency (assets and liabilities), and at most one income line for a discount.
+public func isComboPayment(_ t: Entry) -> Bool {
+    guard t.flag == "*", t.postings.count > 2 else { return false }
+    let pos = t.postings.filter { ($0.units ?? 0) > 0 }
+    guard pos.count == 1, let cat = pos.first, let ccy = cat.currency,
+          cat.account.hasPrefix("Expenses:") || (cat.account.hasPrefix("Assets:Receivable") && !isPersonal(cat.account)) else { return false }
+    var funds = 0, discounts = 0
+    for p in t.postings {
+        guard p.cost == nil, p.price == nil, p.flag == nil, p.currency == ccy else { return false }
+        if p === cat {
+            if p.meta.items.contains(where: { $0.0 != categoryMeta && $0.0 != voucherMeta }) { return false }
+            continue
+        }
+        guard p.meta.items.isEmpty, (p.units ?? 0) < 0 else { return false }
+        if p.account.hasPrefix("Income:") { discounts += 1 }
+        else if (p.account.hasPrefix("Assets:") || p.account.hasPrefix("Liabilities:")) && !isPersonal(p.account) { funds += 1 }
+        else { return false }
+    }
+    // a discount only on an expense (an advance is entered at what was paid)
+    if discounts > 0 && !cat.account.hasPrefix("Expenses:") { return false }
+    return funds >= 1 && discounts <= 1 && (funds >= 2 || discounts == 1)
+}
+
 public func isComplex(_ t: Entry) -> Bool {
     let real = t.postings.filter { !$0.interpolated }
+    if isComboPayment(t) { return false }
     if t.postings.count > 2 { return true }
     // `person:` on the receivable: the split form keeps it per row; an advance's `category:` the simple form keeps
     if t.postings.contains(where: { p in p.cost != nil || (p.price != nil && t.postings.count > 2) || p.flag != nil
@@ -687,7 +829,9 @@ public func draftFromTxn(_ t: Entry, kind: DraftKind? = nil, _ L: Ledger, _ D: D
     var d = newDraft(kind ?? .expense, D, defaultFunding: defaultFunding)
     d.kind = kind ?? (advance ? .expense : c.kind == .refund ? .refund : c.kind == .income ? .income : c.kind == .transfer ? .transfer : .expense)
     d.payee = t.payee; d.narration = t.narration
-    let cat = t.postings.first { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") } ?? t.postings.first { $0.account.hasPrefix("Assets:Receivable") }
+    let combo = isComboPayment(t)
+    let cat = combo ? t.postings.first { ($0.units ?? 0) > 0 }
+        : t.postings.first { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") } ?? t.postings.first { $0.account.hasPrefix("Assets:Receivable") }
     let fund = t.postings.first { $0 !== cat && ($0.account.hasPrefix("Assets:") || $0.account.hasPrefix("Liabilities:")) }
     if d.kind == .transfer {
         let from = t.postings.first { ($0.units ?? 0) < 0 }, to = t.postings.first { ($0.units ?? 0) > 0 }
@@ -707,7 +851,16 @@ public func draftFromTxn(_ t: Entry, kind: DraftKind? = nil, _ L: Ledger, _ D: D
             d.link = t.links.first { l in open.contains { $0.link == l } } ?? open.last?.link ?? ""
         } else { d.account = cat.account }
         d.amount = jsNumberString(abs(cat.units ?? 0)); d.currency = cat.currency ?? "CNY"
-        if let fund = fund {
+        if combo {
+            // the first paying line is the main account, the others its 组合付款 parts, an income line the discount
+            let pay = t.postings.filter { $0 !== cat && !$0.account.hasPrefix("Income:") }
+            d.funding = pay.first?.account ?? d.funding
+            d.extraFunds = pay.dropFirst().map { ExtraFund(account: $0.account, amount: jsNumberString(abs($0.units ?? 0))) }
+            if let disc = t.postings.first(where: { $0.account.hasPrefix("Income:") }) {
+                d.discount = jsNumberString(abs(disc.units ?? 0))
+                d.discountAccount = disc.account
+            }
+        } else if let fund = fund {
             d.funding = fund.account
             if fund.currency != cat.currency { d.paid = jsNumberString(abs(fund.units ?? 0)) }
         }

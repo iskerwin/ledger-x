@@ -93,10 +93,8 @@ struct OverviewView: View {
         var avg = 0.0
         for m in months.prefix(11) { avg += D.monthExp[m] ?? 0 }
         avg /= 11
-        var nw = 0.0
-        for (a, cs) in L.final where a.hasPrefix("Assets:") || a.hasPrefix("Liabilities:") {
-            for (c, n) in cs { nw += toCNY(L, n, c) ?? 0 }
-        }
+        let w = netWorthNow(L, exclude: store.netWorthExclude)
+        let nw = w.assets + w.liabilities
         return Summary(yearMode: yearMode, key: key, label: yearMode ? LS("%@年", key) : Day.monthLabel(month), months: months,
                        exp: sum(D.monthExp, key), inc: sum(D.monthInc, key), prev: prev, prevLabel: prevLabel, avg: avg, nw: nw)
     }

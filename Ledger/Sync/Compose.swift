@@ -114,7 +114,10 @@ extension Store {
         }
         // an expense category left over from the previous form would turn income into a negative expense
         if !Store.fits(k, d.account) { d.account = "" }
-        if k != .expense { d.reimb = false; d.split = false; d.shares = []; if isFloatLink(d.link.trimmed) { d.link = "" } }
+        if k != .expense {
+            d.reimb = false; d.split = false; d.shares = []; d.extraFunds = []; d.discount = ""
+            if isFloatLink(d.link.trimmed) { d.link = "" }
+        }
         draft = d
     }
 

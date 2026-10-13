@@ -14,6 +14,8 @@ struct AddForm: View {
     @State private var showOverwrite = false
     @State private var managingTemplates = false
     @State private var editingText = false
+    /// 组合付款与优惠
+    @State private var splittingPay = false
 
     /// a save in progress (the pre-commit check takes a moment): ignore further taps
     @State private var saving = false
@@ -109,6 +111,7 @@ struct AddForm: View {
             Text(confirmOverwrite.map { "\($0.date) \($0.account ?? "")" }.joined(separator: "\n"))
         }
         .sheet(isPresented: $managingTemplates) { TemplateManager() }
+        .sheet(isPresented: $splittingPay) { PaySplitSheet() }
         .sheet(isPresented: $editingText) {
             TextEditSheet(title: LS("编辑源文本"), initial: text, validate: { t in validateText(t, L, single: draftIsSingle(store.draft, L)) }) { new in
                 store.draft.edited = new
@@ -340,7 +343,16 @@ struct AddForm: View {
             if isPersonal(d.account) || isPersonal(d.funding) {
                 PersonField(value: field(\.person))
             }
-            if let fc = ctx.fc, fc != d.currency {
+            if d.kind == .expense, let L = store.L, let D = store.D {
+                Button { splittingPay = true } label: {
+                    LabeledContent(LS("组合付款与优惠")) {
+                        Text(comboIssue(d, D) ?? comboSummary(d, L) ?? LS("未使用"))
+                            .foregroundStyle(comboIssue(d, D) != nil ? Color.orange : Color.secondary).lineLimit(2)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            if let fc = ctx.fc, fc != d.currency, !hasCombo(d) {
                 LabeledContent(LS("实付 ") + fc) {
                     TextField(LS("账户实际扣款"), text: field(\.paid))
                         .keyboardType(.decimalPad)

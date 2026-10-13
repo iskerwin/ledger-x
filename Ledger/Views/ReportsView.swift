@@ -527,10 +527,11 @@ struct BalanceSheetView: View {
 
     private func content(_ L: Ledger) -> some View {
         let date = asOf.date(today: Day.today(), custom: custom)
-        let bs = balanceSheet(L, at: date)
+        // each left out by its own list: the sheet by 资产负债表's, the trend by 净资产's
+        let bs = balanceSheet(L, at: date, exclude: store.balanceExclude)
         let assets = bs.assets.total
         let liab = -bs.liabilities.total
-        let series = Array(netWorthSeries(L, today: Day.today()).suffix(nwRange == 0 ? 10_000 : nwRange))
+        let series = Array(netWorthSeries(L, today: Day.today(), exclude: store.netWorthExclude).suffix(nwRange == 0 ? 10_000 : nwRange))
         return List {
             Section {
                 ChipRow {
@@ -598,6 +599,17 @@ struct BalanceSheetView: View {
                 SectionTotal(title: LS("权益"), value: -bs.equity.total - bs.earnings)
             } footer: {
                 Text(LS("未结转损益为期初至截止日的收入减支出（Fava 中的 Equity:Earnings:Current）。资产 = 负债 + 权益；外币按截止日汇率折算为 %@。", L.base))
+            }
+            if !store.balanceExclude.isEmpty || !store.netWorthExclude.isEmpty {
+                Section {
+                    NavigationLink { NetWorthSettingsView(which: store.balanceExclude.isEmpty ? .netWorth : .balance) } label: {
+                        VStack(alignment: .leading, spacing: 3) {
+                            if !store.balanceExclude.isEmpty { Text(LS("资产负债表不列 %@ 个账户，合计不含它们，资产 ≠ 负债 + 权益", store.balanceExclude.count)) }
+                            if !store.netWorthExclude.isEmpty { Text(LS("净资产走势不计入 %@ 个账户", store.netWorthExclude.count)) }
+                        }
+                        .font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
             }
         }
         .listSectionSpacing(.compact)

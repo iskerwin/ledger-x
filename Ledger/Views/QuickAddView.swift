@@ -56,6 +56,8 @@ struct QuickAddView: View {
     @State private var managingTemplates = false
     @State private var importing = false
     @State private var saving = false
+    /// 组合付款与优惠
+    @State private var splittingPay = false
     /// the category / paying account were picked here: a payee picked afterwards doesn't change them
     @State private var pickedCategory = false
     @State private var pickedFunding = false
@@ -69,6 +71,7 @@ struct QuickAddView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task { if store.demoEnv["LEDGER_IMPORT"] != nil { importing = true } }
         .task { if store.demoEnv["LEDGER_CATS"] != nil { managingCats = true } }
+        .task { if store.demoEnv["LEDGER_COMBO_SHEET"] != nil { try? await Task.sleep(nanoseconds: 600_000_000); splittingPay = true } }
         .task { if store.demoEnv["LEDGER_NOTE"] != nil { try? await Task.sleep(nanoseconds: 900_000_000); field = .narration } }
     }
 
@@ -139,6 +142,7 @@ struct QuickAddView: View {
         .sheet(item: $styling) { CategoryStyleSheet(target: $0) }
         .sheet(isPresented: $managingCats) { CategoryManager(root: Store.categoryRoot(store.draft.kind)) }
         .sheet(isPresented: $managingTemplates) { TemplateManager() }
+        .sheet(isPresented: $splittingPay) { PaySplitSheet() }
         .sheet(isPresented: $importing) { ImportView() }
         .sheet(isPresented: $editingText) {
             TextEditSheet(title: LS("编辑源文本"), initial: draftText(store.draft, L, D, explicit: store.explicitAmounts),
@@ -388,6 +392,13 @@ struct QuickAddView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 if d.kind != .transfer { fundingMenu(d, L, D) }
+                if discountAllowed(d) {
+                    let v = evalAmount(d.discount) ?? 0
+                    Button { splittingPay = true } label: {
+                        pill(v > 0 ? LS("优惠 %@", money(v, d.currency)) : LS("优惠"), icon: "tag", on: v > 0)
+                    }
+                    .buttonStyle(.plain)
+                }
                 if d.kind == .expense { reimbChip(d, D) }
                 if d.kind == .expense && !d.reimb {
                     Button {
@@ -405,7 +416,9 @@ struct QuickAddView: View {
 
     private func fundingMenu(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
         let funds = Array(D.rankAccounts(["Assets:", "Liabilities:"]).filter { !$0.hasPrefix("Assets:Receivable") }.prefix(8))
-        let title = d.funding.isEmpty ? (d.kind == .income ? LS("收款账户") : LS("付款账户")) : accountTitle(L, d.funding)
+        let others = d.kind == .expense ? d.extraFunds.filter { !$0.account.isEmpty }.count : 0
+        let title = (d.funding.isEmpty ? (d.kind == .income ? LS("收款账户") : LS("付款账户")) : accountTitle(L, d.funding))
+            + (others > 0 ? " + \(others)" : "")
         return Menu {
             ForEach(funds, id: \.self) { a in
                 Button {
@@ -416,6 +429,9 @@ struct QuickAddView: View {
             }
             Divider()
             Button(LS("更多账户…")) { picking = .funding }
+            if d.kind == .expense {
+                Button { splittingPay = true } label: { Label(LS("组合付款…"), systemImage: "square.split.2x1") }
+            }
         } label: {
             pill(title, icon: "creditcard", on: !d.funding.isEmpty)
         }
@@ -528,6 +544,12 @@ struct QuickAddView: View {
                 if isExpression(d.amount) {
                     Text("= " + (evalAmount(d.amount).map { fmtNum($0) } ?? "?")).font(.callout.monospacedDigit()).foregroundStyle(.secondary)
                 }
+            }
+            if field == nil, let s = comboSummary(d, L) {
+                Label(comboIssue(d, D) ?? s, systemImage: comboIssue(d, D) == nil ? "square.split.2x1" : "exclamationmark.triangle")
+                    .font(.footnote).foregroundStyle(comboIssue(d, D) == nil ? Color.secondary : Color.orange)
+                    .lineLimit(2)
+                    .onTapGesture { splittingPay = true }
             }
             Divider()
             if field == nil { dateRow() }
