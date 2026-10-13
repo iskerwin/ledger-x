@@ -41,7 +41,8 @@ public struct TxQuery {
         return nil
     }
 
-    public func matches(_ t: Entry) -> Bool { conds.allSatisfy { TxQuery.test($0, t) } }
+    /// `L` lets an account be found by its `name:` too (招商银行 for Liabilities:CreditCard:CMB)
+    public func matches(_ t: Entry, _ L: Ledger? = nil) -> Bool { conds.allSatisfy { TxQuery.test($0, t, L) } }
 
     // MARK: parsing
 
@@ -148,7 +149,7 @@ public struct TxQuery {
 
     // MARK: matching
 
-    static func test(_ c: Cond, _ t: Entry) -> Bool {
+    static func test(_ c: Cond, _ t: Entry, _ L: Ledger?) -> Bool {
         switch c {
         case .flag: return t.flag == "!"
         case .tag(let x): return t.tags.contains { $0.contains(x) }
@@ -160,10 +161,12 @@ public struct TxQuery {
             return t.postings.contains { abs(abs($0.units ?? 0) - n) < 0.005 } || t.date.contains(raw)
         case .amountRange(let a, let b): return t.postings.contains { let v = abs($0.units ?? 0); return v >= a - 0.005 && v <= b + 0.005 }
         case .dates(let a, let b): return t.date >= a && t.date <= b
-        case .not(let x): return !test(x, t)
+        case .not(let x): return !test(x, t, L)
         case .text(let x, let f):
             let lw = x.lowercased()
-            let acct = { t.postings.contains { $0.account.lowercased().contains(lw) || acctDisplay($0.account).contains(x) } }
+            let acct = { t.postings.contains { p in
+                p.account.lowercased().contains(lw) || acctDisplay(p.account).contains(x)
+                    || (L.map { accountTitle($0, p.account).lowercased().contains(lw) } ?? false) } }
             let person = { t.postings.contains { postingPerson($0)?.lowercased().contains(lw) ?? false } }
             switch f {
             case .payee: return t.payee.lowercased().contains(lw)

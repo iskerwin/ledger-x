@@ -6,6 +6,7 @@ final class SearchTests: XCTestCase {
     private let L: Ledger = loadLedger(root: "main.bean") { _ in """
     option "operating_currency" "CNY"
     2026-01-01 open Assets:Bank:CMB CNY
+      name: "招商银行"
     2026-01-01 open Assets:Receivable:Personal
     2026-01-01 open Expenses:Food:Dining
     2026-01-01 open Expenses:Transit:Taxi
@@ -50,6 +51,8 @@ final class SearchTests: XCTestCase {
         XCTAssertEqual(hits("2026-08 餐饮"), ["2026-08-02"])
         XCTAssertEqual(hits("科目:Dining"), ["2026-06-30", "2026-08-02"])
         XCTAssertEqual(hits("账户：CMB 2026-09"), ["2026-09-20"])
+        // by the account's name: too, when the ledger is given
+        XCTAssertEqual(L.txns.filter { TxQuery("账户:招商 2026-09").matches($0, L) }.map { $0.date }, ["2026-09-20"])
         // fields keep to their part: "饭" is in the payee and in a note
         XCTAssertEqual(hits("payee:饭店"), ["2026-06-30", "2026-08-02"])
         XCTAssertEqual(hits("备注:午饭"), ["2026-08-02"])
