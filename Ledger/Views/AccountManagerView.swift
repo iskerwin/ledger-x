@@ -30,6 +30,7 @@ struct AccountManagerView: View {
             if let L = store.L { list(L) } else { ProgressView() }
         }
         .navigationTitle(only == nil ? LS("管理账户") : LS("科目管理"))
+        .task { if let g = store.demoEnv["LEDGER_MANAGE_OPEN"] { openGroups.insert(g) } }
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $q, prompt: LS("搜索账户"))
         .textInputAutocapitalization(.never)
@@ -68,12 +69,12 @@ struct AccountManagerView: View {
                         ForEach(groups(rows), id: \.0) { g in
                             // a group of its own account alone (Expenses:Travel) is just that row
                             if g.1.count == 1 && g.1[0].name == g.0 {
-                                NavigationLink(value: AccountEditDest(name: g.1[0].name)) { row(g.1[0], today) }
+                                NavigationLink(value: AccountEditDest(name: g.1[0].name)) { row(g.1[0], today, icon: groupIcon(g.0)) }
                             } else {
                                 groupRow(g.0, g.1.count, open: !t.isEmpty || openGroups.contains(g.0))
                                 if !t.isEmpty || openGroups.contains(g.0) {
                                     ForEach(g.1, id: \.name) { a in
-                                        NavigationLink(value: AccountEditDest(name: a.name)) { row(a, today) }
+                                        NavigationLink(value: AccountEditDest(name: a.name)) { row(a, today, icon: nil) }
                                     }
                                 }
                             }
@@ -98,18 +99,27 @@ struct AccountManagerView: View {
         return order.map { ($0, by[$0]!) }
     }
 
-    /// a group's header row: tap to open or fold it
+    /// a group's icon: the account kind's (Bank, CreditCard…) for assets and liabilities, the 记一笔 grid's for categories
+    private func groupIcon(_ g: String) -> (String, Color) {
+        if g.hasPrefix("Expenses") || g.hasPrefix("Income") { return (store.catIcon(g), .jade) }
+        let k = AccountKind.of(g)
+        return (k.symbol, k.color)
+    }
+
+    /// a group's header row: the group's icon and name, how many, and a chevron; tap to open or fold it
     private func groupRow(_ g: String, _ n: Int, open: Bool) -> some View {
-        Button {
+        let icon = groupIcon(g)
+        return Button {
             withAnimation(.easeInOut(duration: 0.2)) { if open { openGroups.remove(g) } else { openGroups.insert(g) } }
         } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.tertiary)
-                    .rotationEffect(.degrees(open ? 90 : 0)).frame(width: 28)
+            HStack(spacing: 12) {
+                IconBadge(symbol: icon.0, color: icon.1, size: 28)
                 Text(leaf(g)).foregroundStyle(.primary)
                 if let z = acctZH(g) { Text(z).foregroundStyle(.secondary) }
                 Spacer()
                 Text(LS("%@ 个", n)).font(.subheadline).foregroundStyle(.secondary)
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                    .rotationEffect(.degrees(open ? 90 : 0))
             }
             .contentShape(Rectangle())
         }
@@ -117,14 +127,20 @@ struct AccountManagerView: View {
         .disabled(!q.trimmingCharacters(in: .whitespaces).isEmpty)
     }
 
-    private func row(_ a: Account, _ today: String) -> some View {
+    /// an account; inside an open group it has no icon of its own and lines up under the group's name
+    private func row(_ a: Account, _ today: String, icon: (String, Color)?) -> some View {
         let closed = a.close.map { $0 <= today } ?? false
-        let k = AccountKind.of(a.name)
         return HStack(spacing: 12) {
-            IconBadge(symbol: k.symbol, color: closed ? .gray : k.color, size: 28)
+            if let i = icon {
+                IconBadge(symbol: i.0, color: closed ? .gray : i.1, size: 28)
+            } else {
+                Color.clear.frame(width: 28, height: 1)
+            }
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(acctLabel(a.name)).foregroundStyle(closed ? Color.secondary : Color.primary).lineLimit(1)
+                    // under its group only the rest of the name ("Dining" in Food)
+                    Text(icon == nil && a.name.count > catOf(a.name).count ? String(a.name.dropFirst(catOf(a.name).count + 1)) : acctLabel(a.name))
+                        .foregroundStyle(closed ? Color.secondary : Color.primary).lineLimit(1)
                     if closed { Tag(text: LS("已关闭")) }
                     if a.implicit { Tag(text: LS("未开户"), warn: true) }
                 }

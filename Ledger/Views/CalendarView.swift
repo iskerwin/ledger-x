@@ -174,31 +174,25 @@ struct JournalCalendar: View {
         let picked = day == d
         let future = d > Day.today()
         return Button { day = picked ? nil : d } label: {
-            VStack(alignment: .leading, spacing: 0) {
-                // the date: top left, plain; today in a theme-coloured circle
+            // everything centred in the column: the date on top (today in a theme-coloured circle), the amounts under it
+            VStack(spacing: 2) {
                 Text(String(Int(d.suffix(2)) ?? 0))
-                    .font(.system(size: 11, weight: today ? .bold : .medium))
-                    .foregroundStyle(today ? Color.onJade : future ? Color.secondary.opacity(0.5) : Color.primary)
-                    .frame(minWidth: 17, minHeight: 17)
+                    .font(.system(size: 13, weight: today ? .bold : .medium).monospacedDigit())
+                    .foregroundStyle(today ? Color.onJade : future ? Color.secondary.opacity(0.45) : Color.primary)
+                    .frame(width: 22, height: 22)
                     .background(today ? Color.jade : Color.clear, in: Circle())
-                Spacer(minLength: 0)
-                // the amounts: bottom right, spending first
-                VStack(alignment: .trailing, spacing: 0) {
-                    if out > 0.005 {
-                        Text(short(out)).font(.system(size: 11, weight: .bold).monospacedDigit()).foregroundStyle(Self.spend)
-                    }
-                    if inn > 0.005 {
-                        Text("+" + short(inn)).font(.system(size: 9.5, weight: .semibold).monospacedDigit()).foregroundStyle(Self.earn)
-                    }
+                Group {
+                    Text(out > 0.005 ? short(out) : " ")
+                        .font(.system(size: 10.5, weight: .bold).monospacedDigit()).foregroundStyle(Self.spend)
+                    Text(inn > 0.005 ? "+" + short(inn) : " ")
+                        .font(.system(size: 9.5, weight: .semibold).monospacedDigit()).foregroundStyle(Self.earn)
                 }
                 .lineLimit(1).minimumScaleFactor(0.7)
                 .sensitive()
-                .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .padding(.horizontal, 4).padding(.vertical, 3)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(Self.spend.opacity(shade), in: RoundedRectangle(cornerRadius: 7))
-            .overlay(RoundedRectangle(cornerRadius: 7).stroke(picked ? Color.jade : .clear, lineWidth: 2))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Self.spend.opacity(shade), in: RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(picked ? Color.jade : .clear, lineWidth: 2))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Day.dayLabel(d) + (out > 0.005 ? " " + LS("支出 ") + money(out) : "") + (inn > 0.005 ? " " + LS("收入 ") + money(inn) : ""))
