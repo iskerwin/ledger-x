@@ -63,7 +63,8 @@ struct PaySplitSheet: View {
                 }
                 Button { picking = .discount } label: {
                     LabeledContent(LS("记到")) {
-                        Text(accountTitle(L, d.discountAccount) + " · " + acctLabel(d.discountAccount)).foregroundStyle(.primary).lineLimit(1)
+                        let t = accountTitle(L, d.discountAccount), l = acctLabel(d.discountAccount)
+                        Text(t == l ? t : t + " · " + l).foregroundStyle(.primary).lineLimit(1)
                     }
                 }
                 .buttonStyle(.plain)
