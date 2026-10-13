@@ -203,7 +203,7 @@ struct GuideView: View {
            a: tr("不是。外币和证券按今天的价格折算，和记账时的汇率不同，就会出现这个差额。",
                  "No. Foreign currencies and securities are converted at today's prices, which differ from those when they were recorded.")),
         QA(q: tr("换手机后设置还在吗？", "Do my settings survive a new phone?"),
-           a: tr("写在仓库 ledger-x.json 里的（文件规则、工资条模板、统计范围等）所有设备共用；主题、语言、宫格图标、提醒只存在这台手机，需要重新设。",
-                 "What's in ledger-x.json in the repository (file rules, payslip templates, what's counted…) is shared; theme, language, grid icons and reminders stay on each phone.")),
+           a: tr("跟账本有关的都在仓库的 ledger-x.json 里，所有设备共用：主文件、文件规则、记账偏好（默认付款账户、币种）、统计范围、大额支出、已核对和已忽略的提示、常用交易置顶与隐藏、工资条模板、商户拼音；保存的查询在 queries/ 里。主题、语言、宫格图标、提醒、面容 ID 只存在这台手机。设置 → 仓库结构与共用设置可以一页看全。",
+                 "Everything about the ledger is in ledger-x.json in the repository and shared by every device: main file, file rules, entry defaults, what's counted, the large-expense threshold, checked and ignored notices, pinned and hidden frequent entries, payslip templates and payee spellings; saved queries are in queries/. Theme, language, grid icons, reminders and Face ID stay on each phone. Settings → Repository & shared settings shows it all.")),
     ] }
 }

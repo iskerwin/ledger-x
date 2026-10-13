@@ -46,7 +46,7 @@ extension Store {
 
     var subCandidates: [SubCandidate] {
         guard let L = L else { return [] }
-        let ignored = Set(Prefs.get(pk("sub.ignored"), [String]()))
+        let ignored = Set(ignoredSubIDs)
         if let c = Store.candCache, c.0 == version { return c.1.filter { !ignored.contains($0.id) } }
         let s = subscriptionCandidates(L, subs: subs)
         Store.candCache = (version, s)
@@ -55,11 +55,10 @@ extension Store {
     static var candCache: (Int, [SubCandidate])?
 
     func ignoreCandidate(_ c: SubCandidate) {
-        var x = Prefs.get(pk("sub.ignored"), [String]())
+        var x = ignoredSubIDs
         x.append(c.id)
-        Prefs.set(pk("sub.ignored"), x)
-        Store.candCache = nil
-        objectWillChange.send()
+        let l = x
+        Task { await setIgnoredSubs(l, label: LS("不再提示订阅：%@", c.payee)) }
     }
 
     /// write the charge as a transaction carrying the subscription's link

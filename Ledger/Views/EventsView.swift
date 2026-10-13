@@ -521,7 +521,7 @@ struct AlertsView: View {
                 }
             }
             Section {
-                Picker(LS("大额支出"), selection: Binding(get: { AppSettings.shared.largeExpense }, set: { AppSettings.shared.largeExpense = $0 })) {
+                Picker(LS("大额支出"), selection: Binding(get: { store.largeExpense }, set: { v in Task { await store.setLargeExpense(v) } })) {
                     Text(LS("不提醒")).tag(0.0)
                     ForEach([500.0, 1000, 2000, 5000, 10000], id: \.self) { Text(money($0, "CNY", 0)).tag($0) }
                 }

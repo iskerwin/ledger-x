@@ -20,20 +20,19 @@ extension Store {
     }
     static var linkCache: (Int, [LinkIssue])?
 
-    var ignoredLinkIssues: Set<String> { Set(Prefs.get(pk("link.ignored"), [String]())) }
+    var ignoredLinkIssues: Set<String> { Set(ignoredLinkIDs) }
 
     func linkProblems(for t: Entry) -> [LinkIssue] { linkProblems.filter { $0.txn === t } }
 
     func ignoreLinkIssue(_ i: LinkIssue) {
-        var x = Prefs.get(pk("link.ignored"), [String]())
+        var x = ignoredLinkIDs
         x.append(i.key)
-        Prefs.set(pk("link.ignored"), x)
-        objectWillChange.send()
+        let l = x
+        Task { await setIgnoredLinks(l, label: LS("忽略链接问题")) }
     }
 
     func clearIgnoredLinkIssues() {
-        Prefs.set(pk("link.ignored"), [String]())
-        objectWillChange.send()
+        Task { await setIgnoredLinks([], label: LS("恢复已忽略的链接问题")) }
     }
 
     /// add or remove `^link` on a transaction

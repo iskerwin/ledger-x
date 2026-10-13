@@ -132,5 +132,20 @@ final class ComboTests: XCTestCase {
         // read and written under their own keys
         XCTAssertTrue(c.json().contains("\"networth_exclude\""))
         XCTAssertEqual(LedgerXConfig.parse(c.json())?.balanceExclude, ["Liabilities:CreditCard"])
+
+        // the shared settings: read back under their own keys; empty lists and blanks aren't written
+        var d = LedgerXConfig()
+        d.main = "ledger.bean"; d.defaultFunding = "Assets:Bank"; d.defaultCurrency = "CNY"; d.largeExpense = 1000
+        d.alertsConfirmed = ["b", "a", "a"]; d.linksIgnored = []; d.templatesPinned = ["x"]
+        let j = d.json()
+        XCTAssertTrue(j.contains("\"default_funding\"") && j.contains("\"large_expense\"") && !j.contains("links_ignored"), j)
+        let back = LedgerXConfig.parse(j)!
+        XCTAssertEqual(back.main, "ledger.bean")
+        XCTAssertEqual(back.alertsConfirmed, ["a", "b"])
+        XCTAssertEqual(back.templatesPinned, ["x"])
+        XCTAssertEqual(back.largeExpense, 1000)
+        XCTAssertEqual(d.renamingAccount("Assets:Bank", to: "Assets:Cash")?.defaultFunding, "Assets:Cash")
+        // {root_lower} in a file pattern
+        XCTAssertEqual(RepoLayout.expand("accounts/{root_lower}.bean", date: "2026-01-01", account: "Expenses:Food"), "accounts/expenses.bean")
     }
 }
