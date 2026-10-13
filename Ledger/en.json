@@ -1041,7 +1041,7 @@
  "权限不足（403）：%@": "Permission denied (403): %@",
  "来源": "Source",
  "来自账本（修改后可另存）": "From ledger (save a copy to keep changes)",
- "某个账户里大于 100 的": "Over 100 in one account",
+ "某个账户里大于 100 的（账户名或显示名称都行）": "Over 100 in one account (by its name or display name)",
  "查找": "Find",
  "查看 %@ 明细": "View %@ Journal",
  "查看明细": "Journal",
