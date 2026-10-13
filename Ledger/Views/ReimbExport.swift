@@ -16,6 +16,7 @@ struct ReimbExportSheet: View {
     let target: ReimbExportTarget
     @State private var withDocs = true
     @State private var withCSV = true
+    @State private var withXLSX = true
     @State private var working = false
     @State private var progress = ""
     @State private var files: [URL] = []
@@ -51,6 +52,7 @@ struct ReimbExportSheet: View {
             }
             Section {
                 Toggle(LS("附上附件（%@ 个）", docs), isOn: $withDocs).tint(.jade).disabled(docs == 0)
+                Toggle(LS("报销模板表格（xlsx，含数据透视）"), isOn: $withXLSX).tint(.jade)
                 Toggle(LS("同时导出 CSV 表格"), isOn: $withCSV).tint(.jade)
             } footer: {
                 Text(missing > 0 ? LS("PDF 第一页是明细表，之后按顺序附上每笔的附件（图片一页一张，PDF 原样并入）；有 %@ 笔没有附件，表中标「无」。附件要从仓库下载，需要联网。", missing)
@@ -103,6 +105,7 @@ struct ReimbExportSheet: View {
             }
             .onChange(of: withDocs) { _, _ in files = [] }
             .onChange(of: withCSV) { _, _ in files = [] }
+            .onChange(of: withXLSX) { _, _ in files = [] }
         }
     }
 
@@ -134,6 +137,10 @@ struct ReimbExportSheet: View {
         let pdf = ReimbPDF(report: r, receipts: receipts, docNames: docNames).render()
         let pu = dir.appendingPathComponent(name + ".pdf")
         if (try? pdf.write(to: pu)) != nil { out.append(pu) }
+        if withXLSX {
+            let xu = dir.appendingPathComponent(name + ".xlsx")
+            if (try? reimbXLSX(r).write(to: xu)) != nil { out.append(xu) }
+        }
         if withCSV {
             let cu = dir.appendingPathComponent(name + ".csv")
             if (try? reimbCSV(r, docs: docNames).data(using: .utf8)?.write(to: cu)) != nil { out.append(cu) }
