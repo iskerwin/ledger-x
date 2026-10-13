@@ -31,10 +31,12 @@ struct AccountsView: View {
             .navigationDestination(for: AccountManagerDest.self) { _ in AccountManagerView() }
             .navigationDestination(for: AccountEditDest.self) { AccountEditView(name: $0.name) }
             .navigationDestination(for: CounterpartyDest.self) { _ in CounterpartyView().privacyToolbar() }
+            .navigationDestination(for: NetWorthSettingsDest.self) { _ in NetWorthSettingsView() }
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .task {
             if store.demoEnv["LEDGER_MANAGE"] != nil, path.isEmpty { path.append(AccountManagerDest()) }
+            if store.demoEnv["LEDGER_NW"] != nil, path.isEmpty { path.append(NetWorthSettingsDest()) }
             if let a = store.demoEnv["LEDGER_EDIT_ACCOUNT"], path.isEmpty { path.append(AccountEditDest(name: a)) }
             if let a = store.demoEnv["LEDGER_OPEN_ACCOUNT"], path.isEmpty { path.append(AccountDest(name: a)) }
             if store.demoEnv["LEDGER_OPEN_HOLDINGS"] != nil, path.isEmpty { path.append(HoldingsDest()) }
@@ -108,6 +110,11 @@ struct AccountsView: View {
                         Figure(label: LS("资产负债率"), value: assets > 0 && liab < -0.005 ? String(format: "%.1f%%", -liab / assets * 100) : "—", alignment: .trailing)
                     }
                     RatioBar(parts: [(max(0, assets + liab), Color.jade), (-liab, Color.loss)])
+                    if !store.netWorthExclude.isEmpty {
+                        NavigationLink(value: NetWorthSettingsDest()) {
+                            Text(LS("不计入 %@ 个账户", store.netWorthExclude.count)).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
                 }
             }
             .cardRow()
@@ -171,8 +178,9 @@ struct AccountsView: View {
         let today = Day.today()
         let ag = groups(L, "Assets", today)
         let lg = groups(L, "Liabilities", today)
-        let assets = ag.reduce(0.0) { $0 + cnyTotal(L, $1.1) }
-        let liab = lg.reduce(0.0) { $0 + cnyTotal(L, $1.1) }
+        // the hero is 净资产: without the accounts left out of it (the group totals below are every account's)
+        let w = netWorthNow(L, exclude: store.netWorthExclude)
+        let assets = w.assets, liab = w.liabilities
         return List {
             heroSection(L, assets: assets, liab: liab)
             Section {
@@ -241,6 +249,7 @@ struct AccountRow: View {
                     Text(name).foregroundStyle(closed ? Color.secondary : Color.primary).lineLimit(1)
                     if failing { Tag(text: LS("断言不符"), warn: true) }
                     if closed { Tag(text: LS("已关闭")) }
+                    if isExcluded(account, store.netWorthExclude) { Tag(text: LS("不计入净资产")) }
                 }
                 Text(balances.count > 1 ? balances.map { $0.0 }.joined(separator: " · ") : (store.displayName(account) ?? account))
                     .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
@@ -307,6 +316,7 @@ struct RegisterView: View {
         let total = built.0.count
         return List {
             header(L, built.1)
+            if account.hasPrefix("Assets:") || account.hasPrefix("Liabilities:") { countsSection() }
             if let c = cardCycles(L).first(where: { $0.account == account }) { CardBillSection(cycle: c) }
             Section(total > 300 ? LS("最近 300 条") : LS("共 %@ 条", total)) {
                 ForEach(Array(items.enumerated()), id: \.offset) { pair in
@@ -315,6 +325,23 @@ struct RegisterView: View {
                 if items.isEmpty { Text(LS("暂无记录")).foregroundStyle(.secondary) }
             }
         }
+    }
+
+    /// whether this account counts in 净资产 and in 资产负债表 (saved to ledger-x.json at once)
+    private func countsSection() -> some View {
+        let nwParent = store.netWorthExclude.first { account.hasPrefix($0 + ":") }
+        let bsParent = store.balanceExclude.first { account.hasPrefix($0 + ":") }
+        return Section {
+            Toggle(LS("计入净资产"), isOn: Binding(get: { !isExcluded(account, store.netWorthExclude) },
+                                                set: { on in Task { await store.setExcluded(account, netWorth: !on) } }))
+                .disabled(nwParent != nil)
+            Toggle(LS("显示在资产负债表"), isOn: Binding(get: { !isExcluded(account, store.balanceExclude) },
+                                                  set: { on in Task { await store.setExcluded(account, balance: !on) } }))
+                .disabled(bsParent != nil)
+        } footer: {
+            if let p = nwParent ?? bsParent { Text(LS("随 %@ 一起排除，在 %@ 里修改。", p, LedgerXConfig.path)) }
+        }
+        .tint(.jade)
     }
 
     private func header(_ L: Ledger, _ bal: [(String, Double)]) -> some View {

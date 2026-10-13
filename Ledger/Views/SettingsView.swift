@@ -86,6 +86,10 @@ struct SettingsView: View {
                     NavigationLink { RepoLayoutView() } label: {
                         LabeledContent(LS("文件规则"), value: store.repoConfig == nil ? LS("自动识别") : LedgerXConfig.path)
                     }
+                    NavigationLink { NetWorthSettingsView() } label: {
+                        LabeledContent(LS("净资产与资产负债表"),
+                                       value: store.netWorthExclude.isEmpty && store.balanceExclude.isEmpty ? LS("全部计入") : LS("已排除 %@ 个", Set(store.netWorthExclude + store.balanceExclude).count))
+                    }
                     Button { Task { await store.rebuild() } } label: { Label(LS("应用并重新加载"), systemImage: "arrow.clockwise") }
                 } header: {
                     Text(LS("仓库结构"))
