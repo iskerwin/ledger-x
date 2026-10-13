@@ -15,12 +15,10 @@ struct JournalCalendar: View {
 
     struct DayTotal { var out = 0.0; var inn = 0.0; var n = 0 }
 
-    /// spending in a deep red, income in a deep green: readable on the tinted cells, not as loud as the system
-    /// red and green; lighter in dark mode
-    static let spend = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark
-        ? UIColor(red: 1.00, green: 0.45, blue: 0.43, alpha: 1) : UIColor(red: 0.76, green: 0.16, blue: 0.16, alpha: 1) })
-    static let earn = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark
-        ? UIColor(red: 0.36, green: 0.78, blue: 0.53, alpha: 1) : UIColor(red: 0.09, green: 0.47, blue: 0.24, alpha: 1) })
+    /// spending in the theme colour (the cell's wash too, deeper on bigger days); income in the app's gain colour with a
+    /// plus sign; the day number plain, so the three never look alike
+    static var spend: Color { Color.jade }
+    static var earn: Color { Color.gain }
 
     private var byDay: [String: DayTotal] {
         var m: [String: DayTotal] = [:]
@@ -102,9 +100,9 @@ struct JournalCalendar: View {
                     .disabled(month >= Day.ym(Day.today()))
             }
             HStack {
-                Figure(label: LS("收入"), value: money(inn, L.base, 0), color: Self.earn)
-                Spacer()
                 Figure(label: LS("支出"), value: money(out, L.base, 0), color: Self.spend)
+                Spacer()
+                Figure(label: LS("收入"), value: money(inn, L.base, 0), color: Self.earn)
                 Spacer()
                 Figure(label: LS("结余"), value: money(inn - out, L.base, 0), color: inn - out < 0 ? Color.loss : Color.primary, alignment: .trailing)
             }
@@ -129,7 +127,7 @@ struct JournalCalendar: View {
         return VStack(spacing: 4) {
             HStack(spacing: 4) {
                 ForEach(Array(weekdays.enumerated()), id: \.offset) { _, w in
-                    Text(w).font(.caption2).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+                    Text(w).font(.caption2.weight(.medium)).foregroundStyle(.secondary).frame(maxWidth: .infinity)
                 }
             }
             // weeks as plain rows of fixed height: a lazy grid inside a List row can be measured too short and
@@ -145,29 +143,62 @@ struct JournalCalendar: View {
                         }
                     }
                 }
-                .frame(height: 50)
+                .frame(height: 56)
             }
+            legend
         }
+    }
+
+    /// what the colours mean, under the grid
+    private var legend: some View {
+        HStack(spacing: 14) {
+            HStack(spacing: 4) {
+                RoundedRectangle(cornerRadius: 3).fill(Self.spend.opacity(0.35)).frame(width: 12, height: 12)
+                Text(LS("支出（越深越多）"))
+            }
+            HStack(spacing: 4) {
+                Text("+").fontWeight(.bold).foregroundStyle(Self.earn)
+                Text(LS("收入"))
+            }
+            Spacer()
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .padding(.top, 4)
     }
 
     private func cell(_ d: String, _ x: DayTotal?, top: Double, today: Bool) -> some View {
         let out = x?.out ?? 0, inn = x?.inn ?? 0
-        // a light red wash, deeper on the bigger days, that never drowns the numbers
-        let shade = out > 0.005 ? 0.05 + 0.17 * min(1, out / top) : 0
+        // a wash of the theme colour, deeper on the bigger days, light enough for the numbers on it
+        let shade = out > 0.005 ? 0.08 + 0.22 * min(1, out / top) : 0
         let picked = day == d
         let future = d > Day.today()
         return Button { day = picked ? nil : d } label: {
-            // the day is a small grey label; the amounts are what stands out: spending bold, income green
-            VStack(spacing: 1) {
-                Text(String(Int(d.suffix(2)) ?? 0)).font(.system(size: 10, weight: today ? .bold : .regular))
-                    .foregroundStyle(today ? Color.jade : future ? Color.secondary.opacity(0.5) : Color.secondary)
-                Text(out > 0.005 ? short(out) : " ").font(.system(size: 11, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(Self.spend).sensitive()
-                Text(inn > 0.005 ? "+" + short(inn) : " ").font(.system(size: 9.5, weight: .semibold).monospacedDigit()).foregroundStyle(Self.earn).sensitive()
+            VStack(alignment: .leading, spacing: 0) {
+                // the date: top left, plain; today in a theme-coloured circle
+                Text(String(Int(d.suffix(2)) ?? 0))
+                    .font(.system(size: 11, weight: today ? .bold : .medium))
+                    .foregroundStyle(today ? Color.onJade : future ? Color.secondary.opacity(0.5) : Color.primary)
+                    .frame(minWidth: 17, minHeight: 17)
+                    .background(today ? Color.jade : Color.clear, in: Circle())
+                Spacer(minLength: 0)
+                // the amounts: bottom right, spending first
+                VStack(alignment: .trailing, spacing: 0) {
+                    if out > 0.005 {
+                        Text(short(out)).font(.system(size: 11, weight: .bold).monospacedDigit()).foregroundStyle(Self.spend)
+                    }
+                    if inn > 0.005 {
+                        Text("+" + short(inn)).font(.system(size: 9.5, weight: .semibold).monospacedDigit()).foregroundStyle(Self.earn)
+                    }
+                }
+                .lineLimit(1).minimumScaleFactor(0.7)
+                .sensitive()
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal, 4).padding(.vertical, 3)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(Self.spend.opacity(shade), in: RoundedRectangle(cornerRadius: 7))
-            .overlay(RoundedRectangle(cornerRadius: 7).stroke(picked ? Color.jade : today ? Color.secondary.opacity(0.5) : .clear, lineWidth: picked ? 2 : 1))
+            .overlay(RoundedRectangle(cornerRadius: 7).stroke(picked ? Color.jade : .clear, lineWidth: 2))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Day.dayLabel(d) + (out > 0.005 ? " " + LS("支出 ") + money(out) : "") + (inn > 0.005 ? " " + LS("收入 ") + money(inn) : ""))

@@ -14,6 +14,7 @@ struct CategoryManager: View {
     @Environment(\.dismiss) private var dismiss
     @State var root: String
     @State private var styling: StyleTarget?
+    @State private var editMode: EditMode = .inactive
 
     var body: some View {
         NavigationStack {
@@ -56,7 +57,7 @@ struct CategoryManager: View {
                             store.catStyle.order[root] = ids
                         }
                     } footer: {
-                        Text(LS("拖动右侧把手调整宫格顺序，点按更换图标、改名或隐藏。这些设置只存在本机，不改动账本；隐藏的分类仍可在完整表单里选择。"))
+                        Text(LS("点「排序」后拖动调整宫格顺序；点按一项更换图标、改名或隐藏。这些设置只存在本机，不改动账本；隐藏的分类仍可在完整表单里选择。"))
                     }
                     Section {
                         Button(LS("恢复默认图标与名称")) {
@@ -75,10 +76,16 @@ struct CategoryManager: View {
                     }
                 }
             }
-            .environment(\.editMode, .constant(.active))
+            // sorting is its own mode: with the handles always out, a tap on a row may not reach its button
+            .environment(\.editMode, $editMode)
             .navigationTitle(LS("分类图标与排序"))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(LS("完成")) { dismiss() }.fontWeight(.semibold) } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(editMode.isEditing ? LS("排好了") : LS("排序")) { withAnimation { editMode = editMode.isEditing ? .inactive : .active } }
+                }
+                ToolbarItem(placement: .confirmationAction) { Button(LS("完成")) { dismiss() }.fontWeight(.semibold) }
+            }
             .sheet(item: $styling) { CategoryStyleSheet(target: $0) }
         }
     }

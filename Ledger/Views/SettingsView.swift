@@ -79,16 +79,22 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    NavigationLink { NetWorthSettingsView() } label: {
+                        LabeledContent(LS("净资产与资产负债表"), value: exclusionSummary)
+                    }
+                } header: {
+                    Text(LS("统计范围"))
+                } footer: {
+                    Text(LS("选择哪些资产、负债账户计入净资产，哪些列入资产负债表。账户页「管理账户」里也能进入。"))
+                }
+
+                Section {
                     LabeledContent(LS("主文件")) {
                         TextField("main.bean", text: $store.mainFile)
                             .multilineTextAlignment(.trailing).textInputAutocapitalization(.never).autocorrectionDisabled()
                     }
                     NavigationLink { RepoLayoutView() } label: {
                         LabeledContent(LS("文件规则"), value: store.repoConfig == nil ? LS("自动识别") : LedgerXConfig.path)
-                    }
-                    NavigationLink { NetWorthSettingsView() } label: {
-                        LabeledContent(LS("净资产与资产负债表"),
-                                       value: store.netWorthExclude.isEmpty && store.balanceExclude.isEmpty ? LS("全部计入") : LS("已排除 %@ 个", Set(store.netWorthExclude + store.balanceExclude).count))
                     }
                     Button { Task { await store.rebuild() } } label: { Label(LS("应用并重新加载"), systemImage: "arrow.clockwise") }
                 } header: {
@@ -183,6 +189,11 @@ struct PrivacyToggle: View {
 }
 
 extension SettingsView {
+    private var exclusionSummary: String {
+        let n = Set(store.netWorthExclude + store.balanceExclude).count
+        return n == 0 ? LS("全部计入") : LS("已排除 %@ 个", n)
+    }
+
     var appearanceSection: some View {
         Section {
             ThemePicker()
