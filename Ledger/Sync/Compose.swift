@@ -1,0 +1,266 @@
+import SwiftUI
+import LedgerKit
+
+/// how the 记一笔 category grid looks: kept on this phone (Prefs "catStyle"), never written to the ledger
+struct CatStyle: Codable, Equatable {
+    /// SF Symbol per group or account (a group of one is keyed by its account)
+    var icons: [String: String] = [:]
+    /// a name of one's own for a group
+    var titles: [String: String] = [:]
+    /// per root ("Expenses:", "Income:"): the groups in the order shown, fixed once the grid is first seen
+    var order: [String: [String]] = [:]
+    /// groups left out of the grid (still in 完整表单 and the account picker)
+    var hidden: [String] = []
+}
+
+/// whether iOS has a symbol of this name (a typo or an older iOS draws nothing)
+@MainActor enum Symbols {
+    private static var known: [String: Bool] = [:]
+    static func valid(_ s: String) -> Bool {
+        if let k = known[s] { return k }
+        let v = UIImage(systemName: s) != nil
+        known[s] = v
+        return v
+    }
+}
+
+extension Store {
+    // MARK: - the card
+
+    /// Open the 记一笔 card with whatever is in the form. `full` picks the page; by default the full form for what the
+    /// quick one can't show (分录, 文本, 退款, AA).
+    func openAdd(full: Bool? = nil) {
+        var d = draft
+        // an untouched form left from another day starts on today
+        if d.amount.trimmed.isEmpty && d.payee.trimmed.isEmpty && d.edited == nil && d.raw.trimmed.isEmpty
+            && d.refundOf == nil && d.date != Day.today() {
+            d.date = Day.today()
+            if !d.eventsTouched { d.events = autoEvents(on: d.date) }
+            draft = d
+        }
+        addFull = full ?? needsFullForm(d)
+        addToken += 1
+        adding = true
+    }
+
+    /// what only the full form can edit
+    func needsFullForm(_ d: Draft) -> Bool {
+        [.refund, .multi, .raw].contains(d.kind) || d.split
+    }
+
+    // MARK: - the category grid
+
+    /// the root of the categories for a kind of entry
+    static func categoryRoot(_ k: DraftKind) -> String { k == .income ? "Income:" : "Expenses:" }
+
+    /// the groups under `root` as the grid shows them: in the saved order, hidden ones left out
+    func gridGroups(_ root: String, _ D: Derived) -> [CategoryGroup] {
+        let hidden = Set(catStyle.hidden)
+        return orderedGroups(categoryGroups(D, root: root), saved: catStyle.order[root] ?? []).filter { !hidden.contains($0.id) }
+    }
+
+    /// every group under `root` (hidden ones too), in the saved order
+    func allGroups(_ root: String, _ D: Derived) -> [CategoryGroup] {
+        orderedGroups(categoryGroups(D, root: root), saved: catStyle.order[root] ?? [])
+    }
+
+    /// fix the order the first time the grid is seen (the most used first), so cells don't move about later
+    func freezeGridOrder(_ root: String, _ D: Derived) {
+        let all = allGroups(root, D).map { $0.id }
+        let saved = catStyle.order[root] ?? []
+        if saved.isEmpty || all.contains(where: { !saved.contains($0) }) {
+            var s = catStyle
+            s.order[root] = all
+            catStyle = s
+        }
+    }
+
+    /// what a cell's icon is kept under: a group of one by its account, a bigger group by itself
+    static func cellKey(_ g: CategoryGroup) -> String { g.single ? g.accounts[0] : g.id }
+
+    /// a group's or account's symbol: the one picked, else the built-in guess from its English name
+    func catIcon(_ key: String) -> String {
+        if let s = catStyle.icons[key], Symbols.valid(s) { return s }
+        let d = defaultCategoryIcon(key)
+        return Symbols.valid(d) ? d : "square.grid.2x2"
+    }
+
+    /// the cell's name: one's own, the account's name for a group of one, else the group's (餐饮美食)
+    func catTitle(_ g: CategoryGroup, _ L: Ledger) -> String {
+        if let t = catStyle.titles[g.id]?.trimmed, !t.isEmpty { return t }
+        if g.single, let a = g.accounts.first { return accountTitle(L, a) }
+        return acctZH(g.id) ?? leaf(g.id)
+    }
+
+    // MARK: - the form (shared by the quick card and 完整表单)
+
+    func setKind(_ k: DraftKind) {
+        guard let D = D else { return }
+        var d = draft
+        d.kind = k
+        d.edited = nil
+        if k == .transfer { d.currency = D.acctCcy[d.funding] ?? d.currency }
+        else if k != .multi, let c = defaultCurrency { d.currency = c }
+        if k == .multi && !d.rows.contains(where: { !$0.account.isEmpty }) {
+            d.rows = [DraftRow(), DraftRow(account: d.funding, currency: D.acctCcy[d.funding] ?? "CNY")]
+        }
+        // an expense category left over from the previous form would turn income into a negative expense
+        if !Store.fits(k, d.account) { d.account = "" }
+        if k != .expense { d.reimb = false; d.split = false; d.shares = []; if isFloatLink(d.link.trimmed) { d.link = "" } }
+        draft = d
+    }
+
+    /// whether a category suits the kind of entry (income needs Income:, an expense Expenses:)
+    static func fits(_ k: DraftKind, _ account: String) -> Bool {
+        switch k {
+        case .income: return account.isEmpty || account.hasPrefix("Income:")
+        case .expense: return account.isEmpty || account.hasPrefix("Expenses:")
+        default: return true
+        }
+    }
+
+    /// a known payee fills in the category and paying account of its last entry
+    func applyPayee(_ name: String) {
+        guard let D = D else { return }
+        var d = draft
+        d.payee = name
+        d.edited = nil
+        if let p = D.payee(name) {
+            let t = p.last
+            if d.kind == .multi {
+                if !d.rows.contains(where: { !$0.amount.trimmed.isEmpty }) { d.rows = rowsFromTxn(t, withAmounts: false) }
+            } else {
+                let cat = t.postings.first { $0.account.hasPrefix(d.kind == .income ? "Income:" : "Expenses:") }
+                    ?? (d.kind == .expense ? t.postings.first { advanceCategory($0) != nil } : nil)
+                let fund = t.postings.first { $0.account.hasPrefix("Assets:") || $0.account.hasPrefix("Liabilities:") }
+                if let cat = cat {
+                    d.account = cat.account.hasPrefix("Expenses:") || cat.account.hasPrefix("Income:") ? cat.account : advanceCategory(cat) ?? d.account
+                    if let c = cat.currency, cat.account == d.account { d.currency = c }
+                } else if !Store.fits(d.kind, d.account) { d.account = "" }
+                if let fund = fund, !fund.account.hasPrefix("Assets:Receivable") { d.funding = fund.account }
+            }
+        }
+        draft = d
+    }
+
+    /// Check and save the form (not 文本, which asks about replacing balance assertions first). True once it is
+    /// queued; the form is then ready for the next entry, keeping the kind, paying account and date.
+    @discardableResult
+    func saveDraft() async -> Bool {
+        guard let L = L, let D = D else { return false }
+        let d = draft
+        let text = draftText(d, L, D, explicit: explicitAmounts).trimmed
+        let v = validateText(text, L, single: draftIsSingle(d, L))
+        guard v.ok else {
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            show(v.msg ?? LS("内容校验未通过"))
+            return false
+        }
+        if d.kind == .multi {
+            guard let ops0 = makeOps(text, single: true), let ops = await review(ops0) else { return false }
+            var nd = newDraftFor(.multi)
+            nd.date = d.date
+            nd.rows = d.rows.map { r in var x = r; x.amount = ""; x.id = UUID(); return x }
+            draft = nd
+            return await commit(ops, checked: true)
+        }
+        guard var ops = makeOps(text, single: draftIsSingle(d, L)) else { return false }
+        // the original purchase gets the refund link that is actually in the saved text (it may have been edited)
+        if let o = d.refundOf, let lk = refundLink(in: text, preferred: o.link) {
+            var link = Op(kind: .link, path: o.path)
+            link.headerLine = o.line; link.header = o.header; link.link = lk; link.add = " ^" + lk; link.silent = true
+            ops.append(link)
+        }
+        guard let checked = await review(ops) else { return false }
+        var nd = newDraftFor(d.kind == .refund ? .expense : d.kind)
+        nd.funding = d.funding
+        nd.date = d.date
+        nd.currency = entryCurrency(nd.kind, funding: d.funding)
+        // the events follow the kept date, unless they were picked by hand
+        if nd.kind != .transfer {
+            nd.events = d.eventsTouched ? d.events : autoEvents(on: nd.date)
+            nd.eventsTouched = d.eventsTouched
+        }
+        draft = nd
+        return await commit(checked, checked: true)
+    }
+
+    // MARK: - 常用交易
+
+    /// put a frequent entry in the form (the amount too when it is always the same)
+    func fillTemplate(_ x: Template) {
+        var d = newDraftFor(x.kind == .income ? .income : .expense)
+        d.payee = x.payee; d.narration = x.narration; d.account = x.account; d.funding = x.funding; d.currency = x.currency
+        d.amount = x.fixed.map { jsNumberString($0) } ?? ""
+        draft = d
+    }
+
+    /// a frequent entry with a fixed amount, saved for today in one tap (with 撤销 on the toast)
+    func saveTemplateNow(_ x: Template) async {
+        guard let L = L, let D = D else { return }
+        var d = newDraftFor(x.kind == .income ? .income : .expense)
+        d.payee = x.payee; d.narration = x.narration; d.account = x.account; d.funding = x.funding; d.currency = x.currency
+        d.amount = x.fixed.map { jsNumberString($0) } ?? ""
+        d.date = Day.today()
+        let text = draftText(d, L, D)
+        guard let ops = makeOps(text, single: true), let ins = ops.first(where: { $0.kind == .insert }) else { return }
+        let label = LS("已入账：%@ %@", x.label, money(x.fixed ?? 0, x.currency))
+        await commit(ops, word: label, undo: { @MainActor [weak self] in
+            guard let self = self else { return }
+            if self.pending.contains(where: { $0.id == ins.id }) {
+                await self.dropPending(ins)
+                self.show(LS("已撤销"))
+                return
+            }
+            var rm = Op(kind: .remove, path: ins.path)
+            rm.old = ins.text
+            rm.label = LS("撤销：%@ %@", ins.date ?? "", ins.summary ?? "")
+            await self.commit([rm], word: LS("已撤销"))
+        })
+    }
+}
+
+/// a frequent entry as a chip: tap to fill the form, 入账 to save it at once when its amount is fixed
+struct TemplateChip: View {
+    @EnvironmentObject var store: Store
+    let x: Template
+    @Binding var saving: Bool
+    /// after the form was filled (focus the amount, say)
+    var filled: (Template) -> Void = { _ in }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Button {
+                store.fillTemplate(x)
+                filled(x)
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        if x.pinned { Image(systemName: "pin.fill").font(.caption2).foregroundStyle(Color.jade) }
+                        Text(x.label).font(.subheadline.weight(.medium)).lineLimit(1)
+                        if !x.payee.isEmpty && !x.narration.isEmpty { Text(x.narration).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
+                    }
+                    HStack(spacing: 4) {
+                        Text(x.fixed.map { money($0, x.currency) } ?? LS("金额待填")).font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
+                        if x.due { Text(LS("本月未入账")).font(.caption2.weight(.semibold)).foregroundStyle(.orange) }
+                    }
+                }
+                .padding(.horizontal, 12).padding(.vertical, 7)
+            }
+            .buttonStyle(.plain)
+            if x.fixed != nil {
+                Divider().frame(height: 28)
+                Button {
+                    guard !saving else { return }
+                    saving = true
+                    Task { await store.saveTemplateNow(x); saving = false }
+                } label: {
+                    Text(LS("入账")).font(.subheadline.weight(.semibold)).foregroundStyle(Color.jade).padding(.horizontal, 12).padding(.vertical, 7)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(LS("直接入账：%@", x.label))
+            }
+        }
+        .background(x.due ? Color.orange.opacity(0.12) : Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 12))
+    }
+}

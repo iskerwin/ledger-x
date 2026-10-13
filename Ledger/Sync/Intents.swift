@@ -81,8 +81,7 @@ extension Store {
         guard let x: IntentDraft = Prefs.get(IntentPrefs.draftKey, IntentDraft?.none) else { return }
         Prefs.set(IntentPrefs.draftKey, IntentDraft?.none)
         draft = draftFrom(x)
-        popToken += 1
-        tab = .add
+        openAdd()
     }
 
     /// keep the draft and post a notification that opens it
@@ -170,8 +169,7 @@ struct OpenRecordIntent: AppIntent {
             Prefs.set(IntentPrefs.draftKey, x)
             store.applyIntentDraft()
         } else {
-            store.popToken += 1
-            store.tab = .add
+            store.openAdd()
         }
         return .result()
     }

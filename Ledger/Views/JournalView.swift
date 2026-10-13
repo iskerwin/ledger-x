@@ -492,11 +492,11 @@ struct TxDetailView: View {
         handOff(refundDraft(t, L, D, defaultFunding: store.defaultFunding), LS("已生成退款草稿，请核对金额后保存"))
     }
 
-    /// hand a filled form to 记一笔: close any open detail pages and switch tabs
+    /// hand a filled form to 记一笔: close any open detail pages and open the card on it
     private func handOff(_ d: Draft, _ msg: String) {
         store.draft = d
         store.popToken += 1
-        store.tab = .add
+        store.openAdd()
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         store.show(msg)
     }

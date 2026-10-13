@@ -3,17 +3,18 @@ import LedgerKit
 
 enum AddField: Hashable { case amount, toAmount, paid, payee, narration, link, tags, row(UUID) }
 
-struct AddView: View {
+/// 完整表单: every kind of entry (分录, 文本, 退款, AA, 事件, 源文本), opened from the 记一笔 card
+struct AddForm: View {
     @EnvironmentObject var store: Store
     @EnvironmentObject private var dm: DraftModel
+    /// after a save: the card closes
+    var onSaved: () -> Void = {}
     @FocusState private var focus: AddField?
     @State private var confirmOverwrite: [Entry] = []
     @State private var showOverwrite = false
     @State private var managingTemplates = false
     @State private var editingText = false
 
-    @State private var path = NavigationPath()
-    @State private var importing = false
     /// a save in progress (the pre-commit check takes a moment): ignore further taps
     @State private var saving = false
     /// AA: a name typed for someone not in the ledger yet
@@ -21,25 +22,11 @@ struct AddView: View {
     @State private var newPerson = ""
 
     var body: some View {
-        NavigationStack(path: $path) {
-            Group {
-                if let L = store.L, let D = store.D { content(L, D) } else { ProgressView() }
-            }
-            .navigationTitle(LS("记账"))
-            .toolbar {
-                StandardToolbar()
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { importing = true } label: { Image(systemName: "square.and.arrow.down.on.square") }
-                        .accessibilityLabel(LS("导入账单"))
-                }
-            }
-            .sheet(isPresented: $importing) { ImportView() }
-            .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
-            .subscriptionDestinations()
-            .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
+        Group {
+            if let L = store.L, let D = store.D { content(L, D) } else { ProgressView() }
         }
-        .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
-        .task { if store.demoEnv["LEDGER_IMPORT"] != nil { importing = true } }
+        .navigationTitle(LS("完整表单"))
+        .navigationBarTitleDisplayMode(.inline)
         .task { if store.demoEnv["LEDGER_EDIT_TEXT"] != nil { try? await Task.sleep(nanoseconds: 800_000_000); editingText = true } }
     }
 
@@ -62,7 +49,7 @@ struct AddView: View {
                 refundBanner(d)
             } else {
                 Section {
-                    Picker(LS("类型"), selection: Binding(get: { store.draft.kind }, set: { setKind($0, D) })) {
+                    Picker(LS("类型"), selection: Binding(get: { store.draft.kind }, set: { store.setKind($0) })) {
                         ForEach(DraftKind.allCases.filter { $0 != .refund }) { k in Text(k.label).tag(k) }
                     }
                     .pickerStyle(.segmented)
@@ -193,48 +180,6 @@ struct AddView: View {
 
     // MARK: kind & payee
 
-    private func setKind(_ k: DraftKind, _ D: Derived) {
-        var d = store.draft
-        d.kind = k
-        d.edited = nil
-        if k == .transfer { d.currency = D.acctCcy[d.funding] ?? d.currency }
-        else if k != .multi, let c = store.defaultCurrency { d.currency = c }
-        if k == .multi && !d.rows.contains(where: { !$0.account.isEmpty }) {
-            d.rows = [DraftRow(), DraftRow(account: d.funding, currency: D.acctCcy[d.funding] ?? "CNY")]
-        }
-        // an expense category left over from the previous form would turn income into a negative expense
-        if !Self.fits(k, d.account) { d.account = "" }
-        store.draft = d
-    }
-
-    /// whether a category suits the kind of entry (income needs Income:, an expense Expenses:)
-    static func fits(_ k: DraftKind, _ account: String) -> Bool {
-        switch k {
-        case .income: return account.isEmpty || account.hasPrefix("Income:")
-        case .expense: return account.isEmpty || account.hasPrefix("Expenses:")
-        default: return true
-        }
-    }
-
-    private func applyPayee(_ name: String, _ D: Derived) {
-        var d = store.draft
-        d.payee = name
-        d.edited = nil
-        if let p = D.payee(name) {
-            let t = p.last
-            if d.kind == .multi {
-                if !d.rows.contains(where: { !$0.amount.trimmed.isEmpty }) { d.rows = rowsFromTxn(t, withAmounts: false) }
-            } else {
-                let cat = t.postings.first { $0.account.hasPrefix(d.kind == .income ? "Income:" : "Expenses:") }
-                let fund = t.postings.first { $0.account.hasPrefix("Assets:") || $0.account.hasPrefix("Liabilities:") }
-                if let cat = cat { d.account = cat.account; d.currency = cat.currency ?? d.currency }
-                else if !Self.fits(d.kind, d.account) { d.account = "" }
-                if let fund = fund, !fund.account.hasPrefix("Assets:Receivable") { d.funding = fund.account }
-            }
-        }
-        store.draft = d
-    }
-
     // MARK: 常用
 
     @ViewBuilder
@@ -244,7 +189,7 @@ struct AddView: View {
             Section {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ForEach(list) { x in templateChip(x, L, D) }
+                        ForEach(list) { x in TemplateChip(x: x, saving: $saving) { x in if x.fixed == nil { focus = .amount } } }
                     }
                     .padding(.vertical, 4)
                 }
@@ -257,66 +202,6 @@ struct AddView: View {
                 }
             }
         }
-    }
-
-    private func templateChip(_ x: Template, _ L: Ledger, _ D: Derived) -> some View {
-        HStack(spacing: 0) {
-            Button {
-                var d = store.newDraftFor(x.kind == .income ? .income : .expense)
-                d.payee = x.payee; d.narration = x.narration; d.account = x.account; d.funding = x.funding; d.currency = x.currency
-                d.amount = x.fixed.map { jsNumberString($0) } ?? ""
-                store.draft = d
-                if x.fixed == nil { focus = .amount }
-            } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) {
-                        if x.pinned { Image(systemName: "pin.fill").font(.caption2).foregroundStyle(Color.jade) }
-                        Text(x.label).font(.subheadline.weight(.medium)).lineLimit(1)
-                        if !x.payee.isEmpty && !x.narration.isEmpty { Text(x.narration).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
-                    }
-                    HStack(spacing: 4) {
-                        Text(x.fixed.map { money($0, x.currency) } ?? LS("金额待填")).font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
-                        if x.due { Text(LS("本月未入账")).font(.caption2.weight(.semibold)).foregroundStyle(.orange) }
-                    }
-                }
-                .padding(.horizontal, 12).padding(.vertical, 7)
-            }
-            .buttonStyle(.plain)
-            if x.fixed != nil {
-                Divider().frame(height: 28)
-                Button {
-                    guard !saving else { return }
-                    saving = true
-                    Task { await saveTemplateNow(x, L, D); saving = false }
-                } label: {
-                    Text(LS("入账")).font(.subheadline.weight(.semibold)).foregroundStyle(Color.jade).padding(.horizontal, 12).padding(.vertical, 7)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(LS("直接入账：%@", x.label))
-            }
-        }
-        .background(x.due ? Color.orange.opacity(0.12) : Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 12))
-    }
-
-    private func saveTemplateNow(_ x: Template, _ L: Ledger, _ D: Derived) async {
-        var d = store.newDraftFor(x.kind == .income ? .income : .expense)
-        d.payee = x.payee; d.narration = x.narration; d.account = x.account; d.funding = x.funding; d.currency = x.currency
-        d.amount = x.fixed.map { jsNumberString($0) } ?? ""
-        d.date = Day.today()
-        let text = draftText(d, L, D)
-        guard let ops = store.makeOps(text, single: true), let ins = ops.first(where: { $0.kind == .insert }) else { return }
-        let label = LS("已入账：%@ %@", x.label, money(x.fixed ?? 0, x.currency))
-        await store.commit(ops, word: label, undo: { @MainActor in
-            if store.pending.contains(where: { $0.id == ins.id }) {
-                await store.dropPending(ins)
-                store.show(LS("已撤销"))
-                return
-            }
-            var rm = Op(kind: .remove, path: ins.path)
-            rm.old = ins.text
-            rm.label = LS("撤销：%@ %@", ins.date ?? "", ins.summary ?? "")
-            await store.commit([rm], word: LS("已撤销"))
-        })
     }
 
     // MARK: simple form
@@ -424,7 +309,7 @@ struct AddView: View {
                     .focused($focus, equals: .payee)
                     .submitLabel(.next)
                     .onSubmit {
-                        applyPayee(store.draft.payee.trimmed, D)
+                        store.applyPayee(store.draft.payee.trimmed)
                         focus = .narration
                     }
                 if focus == .payee { payeeSuggestions(d.payee, D) }
@@ -643,7 +528,7 @@ struct AddView: View {
         if !(items.count == 1 && items.first?.name == t) && !items.isEmpty {
             ChipRow {
                 ForEach(Array(items), id: \.name) { p in
-                    Chip(label: p.name) { applyPayee(p.name, D); focus = .narration }
+                    Chip(label: p.name) { store.applyPayee(p.name); focus = .narration }
                 }
             }
         }
@@ -655,7 +540,7 @@ struct AddView: View {
     private func multiSection(_ L: Ledger, _ D: Derived) -> some View {
         Section {
             DateField(value: field(\.date))
-            TextField(LS("商户"), text: field(\.payee)).focused($focus, equals: .payee).onSubmit { applyPayee(store.draft.payee.trimmed, D) }
+            TextField(LS("商户"), text: field(\.payee)).focused($focus, equals: .payee).onSubmit { store.applyPayee(store.draft.payee.trimmed) }
             if focus == .payee { payeeSuggestions(store.draft.payee, D) }
             TextField(LS("说明"), text: field(\.narration))
             TextField(LS("#标签 ^链接"), text: field(\.tagsText)).textInputAutocapitalization(.never).autocorrectionDisabled()
@@ -766,36 +651,9 @@ struct AddView: View {
     // MARK: save
 
     private func save(_ L: Ledger, _ D: Derived) async {
-        let d = store.draft
-        let text = draftText(d, L, D, explicit: store.explicitAmounts).trimmed
-        let v = validateText(text, L, single: draftIsSingle(d, L))
-        guard v.ok else { store.show(v.msg ?? LS("内容校验未通过")); return }
         focus = nil
-        if d.kind == .raw { await saveRaw(L, overwriteOK: false); return }
-        if d.kind == .multi {
-            guard let ops0 = store.makeOps(text, single: true), let ops = await store.review(ops0) else { return }
-            var nd = store.newDraftFor(.multi)
-            nd.date = d.date
-            nd.rows = d.rows.map { r in var x = r; x.amount = ""; x.id = UUID(); return x }
-            store.draft = nd
-            await store.commit(ops, checked: true)
-            return
-        }
-        guard var ops = store.makeOps(text, single: draftIsSingle(d, L)) else { return }
-        // the original purchase gets the refund link that is actually in the saved text (it may have been edited)
-        if let o = d.refundOf, let lk = store.refundLink(in: text, preferred: o.link) {
-            var link = Op(kind: .link, path: o.path)
-            link.headerLine = o.line; link.header = o.header; link.link = lk; link.add = " ^" + lk; link.silent = true
-            ops.append(link)
-        }
-        guard let checked = await store.review(ops) else { return }
-        ops = checked
-        var nd = store.newDraftFor(d.kind == .refund ? .expense : d.kind)
-        nd.funding = d.funding
-        nd.date = d.date
-        nd.currency = store.entryCurrency(nd.kind, funding: d.funding)
-        store.draft = nd
-        await store.commit(ops, checked: true)
+        if store.draft.kind == .raw { await saveRaw(L, overwriteOK: false); return }
+        if await store.saveDraft() { onSaved() }
     }
 
     private func saveRaw(_ L: Ledger, overwriteOK: Bool) async {
@@ -810,7 +668,7 @@ struct AddView: View {
         var nd = store.newDraftFor(.raw)
         nd.date = store.draft.date
         store.draft = nd
-        await store.commit(ops, checked: true)
+        if await store.commit(ops, checked: true) { onSaved() }
     }
 }
 
