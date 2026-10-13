@@ -76,11 +76,14 @@ struct QuickAddView: View {
     }
 
     private static let kinds: [DraftKind] = [.expense, .income, .transfer]
+    /// the amount of an expense: a deep red (lighter in dark mode), so it reads as money going out
+    static let spendRed = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark
+        ? UIColor(red: 1.00, green: 0.45, blue: 0.43, alpha: 1) : UIColor(red: 0.76, green: 0.16, blue: 0.16, alpha: 1) })
 
     private var kindColor: Color {
         switch store.draft.kind {
-        case .expense: return JournalCalendar.spend
-        case .income: return JournalCalendar.earn
+        case .expense: return Self.spendRed
+        case .income: return Color.gain
         default: return Color.primary
         }
     }

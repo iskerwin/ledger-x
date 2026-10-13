@@ -49,6 +49,14 @@ struct AccountManagerView: View {
             .filter { showClosed || ($0.close.map { $0 > today } ?? true) }
             .filter { t.isEmpty || $0.name.lowercased().contains(t) || (store.displayName($0.name)?.lowercased().contains(t) ?? false) }
         return List {
+            if t.isEmpty {
+                Section {
+                    NavigationLink(value: NetWorthSettingsDest()) {
+                        LabeledContent(LS("净资产与资产负债表"), value: Set(store.netWorthExclude + store.balanceExclude).isEmpty
+                                       ? LS("全部计入") : LS("已排除 %@ 个", Set(store.netWorthExclude + store.balanceExclude).count))
+                    }
+                }
+            }
             ForEach(Self.roots, id: \.self) { root in
                 let rows = all.filter { $0.name == root || $0.name.hasPrefix(root + ":") }.sorted { $0.name < $1.name }
                 if !rows.isEmpty {
