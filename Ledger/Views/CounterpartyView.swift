@@ -25,10 +25,8 @@ struct SettleTarget: Identifiable {
 /// 往来: what people, the company and the reimbursement desk owe you, and what you owe them
 struct CounterpartyView: View {
     @EnvironmentObject var store: Store
-    @State private var reimb: ReimbTarget?
     @State private var loan: LoanTarget?
     @State private var settle: SettleTarget?
-    @State private var float: FloatTarget?
     @State private var showSettled = false
 
     var body: some View {
@@ -51,10 +49,8 @@ struct CounterpartyView: View {
             }
         }
         .navigationDestination(for: PersonDest.self) { PersonView(name: $0.name).privacyToolbar() }
-        .sheet(item: $reimb) { ReimbSheet(target: $0) }
         .sheet(item: $loan) { LoanSheet(target: $0) }
         .sheet(item: $settle) { SettleSheet(target: $0) }
-        .sheet(item: $float) { FloatSheet(link: $0.link) }
     }
 
     private func reimbBalance(_ L: Ledger, _ D: Derived) -> Double {
@@ -73,50 +69,16 @@ struct CounterpartyView: View {
         }
     }
 
+    /// reimbursements live on their own page (报表 → 报销); here only what is owed, one tap away
     @ViewBuilder
     private func reimbSection(_ L: Ledger, _ D: Derived) -> some View {
-        let open = D.openLinks.filter { abs($0.amount) > 0.005 }
         let bal = reimbBalance(L, D)
-        if !D.unclaimed.isEmpty || !open.isEmpty || !D.floats.isEmpty || abs(bal) > 0.005 {
+        let open = reimbBatches(L).filter { !$0.settled }.count
+        if !D.unclaimed.isEmpty || open > 0 || abs(bal) > 0.005 {
             Section {
-                ForEach(D.floats) { f in
-                    // petty cash: tap to offset advances against it, swipe to hand back what is left
-                    Button { float = FloatTarget(link: f.link) } label: {
-                        row("^" + f.link, f.left > 0 ? LS("备用金 %@ · 剩余 %@ · 点按冲抵，左滑退回", f.date, money(f.left, f.currency))
-                                               : LS("备用金 %@ · 已超支 %@，报销时一并登记", f.date, money(-f.left, f.currency)),
-                            -f.left, f.currency)
-                    }
-                    .buttonStyle(.plain)
-                    .swipeActions {
-                        if f.left > 0.005 {
-                            Button(LS("退回剩余")) {
-                                let banks = Array(D.rankAccounts(["Assets:"]).filter { !$0.hasPrefix("Assets:Receivable") }.prefix(4))
-                                let payee = L.txns.first { $0.links.contains(f.link) }?.payee ?? LS("公司")
-                                settle = SettleTarget(title: LS("退回备用金"), payee: payee, link: f.link,
-                                                      items: [SettleItem(account: D.receivable, currency: f.currency, amount: -f.left)], to: banks)
-                            }
-                            .tint(.jade)
-                        }
-                    }
+                NavigationLink(value: ReimbursementsDest()) {
+                    BatchRowLabel(title: LS("报销"), caption: reimbCaption(D, open), amount: bal, currency: "CNY")
                 }
-                if !D.unclaimed.isEmpty {
-                    Button { reimb = ReimbTarget(link: nil) } label: {
-                        row(LS("待报销垫款"), LS("%@ 笔 · 最早 %@ · 点按登记回款", D.unclaimed.count, D.unclaimed[0].t.date),
-                            D.unclaimed.reduce(0.0) { $0 + $1.amount }, "CNY")
-                    }
-                    .buttonStyle(.plain)
-                }
-                ForEach(open, id: \.link) { x in
-                    Button { reimb = ReimbTarget(link: x.link) } label: {
-                        row("^" + x.link, LS("%@ 笔垫款 · 点按登记回款", x.n), x.amount, x.currency)
-                    }
-                    .buttonStyle(.plain)
-                }
-                NavigationLink(value: AccountDest(name: D.receivable)) { Text(LS("报销应收明细")) }
-            } header: {
-                HStack { Text(LS("报销")); Spacer(); Text(money(bal)).monospacedDigit().sensitive() }
-            } footer: {
-                if !D.floats.isEmpty { Text(LS("备用金为负：是公司预付、还在你手上的钱。用它支付的垫付冲抵后，剩余的退回公司。")) }
             }
         }
     }
@@ -204,6 +166,14 @@ func personTitle(_ name: String) -> String { name.isEmpty ? LS("未注明对方"
 struct FloatTarget: Identifiable {
     let link: String
     var id: String { link }
+}
+
+/// "3 笔待报销 · 2 张单子进行中"
+func reimbCaption(_ D: Derived, _ open: Int) -> String {
+    var parts: [String] = []
+    if !D.unclaimed.isEmpty { parts.append(LS("%@ 笔待报销", D.unclaimed.count)) }
+    if open > 0 { parts.append(LS("%@ 张进行中", open)) }
+    return parts.isEmpty ? LS("报销应收余额") : parts.joined(separator: " · ")
 }
 
 func personCaption(_ p: Person) -> String {

@@ -492,6 +492,11 @@ struct AddView: View {
                         Chip(label: LS("自己垫付"), selected: !onFloat) { if onFloat { pick("") } }
                     }
                 }
+                Picker(LS("凭证类型"), selection: field(\.voucher)) {
+                    Text(LS("不填")).tag("")
+                    ForEach(voucherKinds, id: \.self) { Text($0).tag($0) }
+                }
+                .pickerStyle(.segmented)
                 if !onFloat {
                     TextField(hint, text: field(\.link))
                         .textInputAutocapitalization(.never)

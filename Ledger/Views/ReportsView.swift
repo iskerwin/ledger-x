@@ -33,6 +33,9 @@ struct ReportsView: View {
                     NavigationLink(value: SubscriptionsDest()) {
                         ReportRow(symbol: "repeat", color: .indigo, title: LS("订阅管理"), detail: LS("周期扣费、到期提醒与一键入账"))
                     }
+                    NavigationLink(value: ReimbursementsDest()) {
+                        ReportRow(symbol: "doc.text", color: .mint, title: LS("报销"), detail: LS("待报销、备用金、报销单与历史明细，导出报销单"))
+                    }
                     NavigationLink(value: SalaryDest()) {
                         ReportRow(symbol: "banknote", color: .green, title: LS("工资"), detail: LS("按工资条逐项记工资，每年税前收入与扣款"))
                     }

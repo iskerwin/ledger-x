@@ -12,7 +12,6 @@ struct OverviewView: View {
     @State private var selLiab: String?
     @State private var picked: String?
     @State private var reimb: ReimbTarget?
-    @State private var float: FloatTarget?
     @AppStorage(OverviewChart.styleKey) private var chartStyle = "list"
     @AppStorage(OverviewChart.trendKey) private var trend = "exp"
     @AppStorage("ledger.overview.payeeSort") private var payeeSort = "amount"
@@ -50,7 +49,6 @@ struct OverviewView: View {
             path.append(ErrorsDest())
         }
         .sheet(item: $reimb) { ReimbSheet(target: $0) }
-        .sheet(item: $float) { FloatSheet(link: $0.link) }
         .task {
             if store.demoEnv["LEDGER_REIMB"] != nil { reimb = ReimbTarget(link: nil) }
             if store.demo {
@@ -487,65 +485,23 @@ struct OverviewView: View {
         }
     }
 
+    /// 往来: one line into 报销 (its own page in 报表), one into people and the company
     @ViewBuilder
     private func reimbSection(_ L: Ledger, _ D: Derived) -> some View {
-        let open = D.openLinks.filter { $0.amount > 0.005 }
+        let open = reimbBatches(L).filter { !$0.settled }.count
         let others = !people(L).filter { !$0.settled }.isEmpty || !employerOpen(L).open.isEmpty
-        if !D.unclaimed.isEmpty || !open.isEmpty || !D.floats.isEmpty || others {
-            let recv = (L.final[D.receivable] ?? [:]).reduce(0.0) { $0 + (toCNY(L, $1.value, $1.key) ?? 0) }
+        let recv = (L.final[D.receivable] ?? [:]).reduce(0.0) { $0 + (toCNY(L, $1.value, $1.key) ?? 0) }
+        let hasReimb = !D.unclaimed.isEmpty || open > 0 || abs(recv) > 0.005
+        if hasReimb || others {
             Section {
-                if !D.unclaimed.isEmpty {
-                    Button { reimb = ReimbTarget(link: nil) } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(LS("待报销垫款"))
-                                Text(LS("%@ 笔 · 最早 %@ · 点按选择报销明细", D.unclaimed.count, D.unclaimed[0].t.date)).font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Amount(n: D.unclaimed.reduce(0.0) { $0 + $1.amount })
-                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
-                        }
-                        .contentShape(Rectangle())
+                if hasReimb {
+                    NavigationLink(value: ReimbursementsDest()) {
+                        BatchRowLabel(title: LS("报销"), caption: reimbCaption(D, open), amount: recv, currency: "CNY")
                     }
-                    .buttonStyle(.plain)
-                }
-                ForEach(D.floats) { f in
-                    Button { float = FloatTarget(link: f.link) } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(LS("备用金 ^%@", f.link)).font(.subheadline).lineLimit(1)
-                                Text(f.left > 0 ? LS("剩余 · 点按冲抵或核对") : LS("已超支 · 报销时一并登记")).font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Amount(n: f.left, c: f.currency)
-                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-                ForEach(open, id: \.link) { x in
-                    Button { reimb = ReimbTarget(link: x.link) } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("^" + x.link).font(.subheadline)
-                                Text(LS("%@ 笔垫款 · 点按登记回款", x.n)).font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Amount(n: x.amount, c: x.currency)
-                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
                 }
                 CounterpartyOverviewRow(L: L)
             } header: {
-                HStack {
-                    Text(LS("往来"))
-                    Spacer()
-                    if abs(recv) > 0.005 { Text(LS("报销应收 ") + money(recv)).monospacedDigit().sensitive() }
-                }
+                Text(LS("往来"))
             }
         }
     }
