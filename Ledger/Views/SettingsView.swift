@@ -9,6 +9,7 @@ struct SettingsView: View {
     @State private var confirmReset = false
     @State private var editingLedger: RepoConfig?
     @State private var demoLayout = false
+    @State private var demoGuide = false
     @AppStorage(AppAppearance.key) private var appearance = AppAppearance.system.rawValue
     @AppStorage(OverviewChart.styleKey) private var chartStyle = "list"
     @AppStorage(AppLock.enabledKey) private var lockOn = false
@@ -36,6 +37,9 @@ struct SettingsView: View {
                 Section {
                     NavigationLink { ShortcutsSettingsView() } label: {
                         Label(LS("快捷指令与 Apple Pay"), systemImage: "bolt.horizontal.circle")
+                    }
+                    NavigationLink { GuideView() } label: {
+                        Label(LS("使用指南与常见问题"), systemImage: "questionmark.circle")
                     }
                 }
             }
@@ -165,6 +169,8 @@ struct SettingsView: View {
         .keyboardDone()
         .navigationDestination(item: $editingLedger) { s in LedgerEditView(initial: s) }
         .navigationDestination(isPresented: $demoLayout) { RepoLayoutView() }
+        .navigationDestination(isPresented: $demoGuide) { GuideView() }
+        .task { if store.demoEnv["LEDGER_GUIDE"] != nil { try? await Task.sleep(nanoseconds: 500_000_000); demoGuide = true } }
         .task { if store.demoEnv["LEDGER_LAYOUT"] != nil { try? await Task.sleep(nanoseconds: 500_000_000); demoLayout = true } }
         .navigationTitle(first ? "" : LS("设置"))
         .onAppear { cfg = store.cfg }
