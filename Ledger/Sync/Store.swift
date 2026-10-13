@@ -340,6 +340,8 @@ final class Store: ObservableObject {
         AppSettings.shared.theme = env["LEDGER_THEME"] ?? "jade"
         AppSettings.shared.language = env["LEDGER_LANG"] ?? "zh"
         if let a = env["LEDGER_ACCOUNT"] { journalAccount = a }
+        // the journal as a calendar (the setting is remembered between launches, so it is set either way)
+        UserDefaults.standard.set(env["LEDGER_CALENDAR"] != nil, forKey: "ledger.journal.calendar")
         lastSync = Date()
     }
 
