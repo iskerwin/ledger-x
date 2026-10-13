@@ -88,8 +88,16 @@ extension Store {
     /// the cell's name: one's own, the account's name for a group of one, else the group's (餐饮美食)
     func catTitle(_ g: CategoryGroup, _ L: Ledger) -> String {
         if let t = catStyle.titles[g.id]?.trimmed, !t.isEmpty { return t }
-        if g.single, let a = g.accounts.first { return accountTitle(L, a) }
-        return acctZH(g.id) ?? leaf(g.id)
+        return defaultCatTitle(g, L)
+    }
+
+    /// the name a cell has without one of one's own
+    func defaultCatTitle(_ g: CategoryGroup, _ L: Ledger) -> String {
+        // a group of one: its account's name: if it has one, else the group's (交通出行 for a lone Transit:Metro)
+        if g.single, let a = g.accounts.first, let v = L.accounts[a]?.meta["name"], !(v.stringValue ?? v.display).isEmpty {
+            return accountTitle(L, a)
+        }
+        return acctZH(g.id) ?? leaf(g.single ? g.accounts[0] : g.id)
     }
 
     // MARK: - the form (shared by the quick card and 完整表单)

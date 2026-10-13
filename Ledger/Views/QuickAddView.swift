@@ -513,12 +513,14 @@ struct QuickAddView: View {
                     Text(SYM[d.currency] ?? d.currency).font(.system(size: 26, weight: .semibold, design: .rounded))
                         .foregroundStyle(kindColor)
                 }
+                .fixedSize()
                 Text(d.amount.isEmpty ? "0.00" : d.amount)
                     .font(.system(size: 38, weight: .semibold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(d.amount.isEmpty ? Color.secondary.opacity(0.5) : kindColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.45)
+                    .layoutPriority(1)
                     .accessibilityLabel(LS("金额"))
                     .accessibilityValue(d.amount.isEmpty ? "0" : d.amount)
                 Spacer(minLength: 4)
@@ -567,7 +569,7 @@ struct QuickAddView: View {
 
     private func noteLine(_ d: Draft) -> String {
         let p = d.payee.trimmed, n = d.narration.trimmed
-        if p.isEmpty && n.isEmpty { return LS("点击填写收付款方和备注") }
+        if p.isEmpty && n.isEmpty { return LS("收付款方 · 备注") }
         return [p, n].filter { !$0.isEmpty }.joined(separator: " · ")
     }
 

@@ -78,7 +78,11 @@ struct RootView: View {
         .environment(\.locale, AppLanguage.current.locale)
         .overlay(alignment: .bottom) { ToastView().animation(.spring(duration: 0.3), value: store.toast) }
         .sheet(isPresented: $store.adding) {
-            AddCard().presentationDragIndicator(.visible)
+            // a sheet doesn't inherit what is set on the view it hangs from: the theme and language again
+            AddCard()
+                .tint(AppTheme.current.color)
+                .environment(\.locale, AppLanguage.current.locale)
+                .presentationDragIndicator(.visible)
         }
         // while the card is open it shows these itself (a sheet can't open under another)
         .sheet(item: store.adding ? .constant(nil) : $store.subSuggestion) { c in SubEditSheet(draft: SubDraft(c)) }
