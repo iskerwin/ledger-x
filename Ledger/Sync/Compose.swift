@@ -75,6 +75,17 @@ extension Store {
         }
     }
 
+    /// an account renamed or merged: its icon, name, place and hidden state in the grid go along (its sub-accounts too)
+    func renameInGrid(_ from: String, to: String) {
+        func move(_ a: String) -> String { a == from ? to : a.hasPrefix(from + ":") ? to + String(a.dropFirst(from.count)) : a }
+        var s = catStyle
+        s.icons = Dictionary(s.icons.map { (move($0.key), $0.value) }, uniquingKeysWith: { a, _ in a })
+        s.titles = Dictionary(s.titles.map { (move($0.key), $0.value) }, uniquingKeysWith: { a, _ in a })
+        s.order = s.order.mapValues { l in l.map(move).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } } }
+        s.hidden = s.hidden.map(move).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+        if s != catStyle { catStyle = s }
+    }
+
     /// what a cell's icon is kept under: a group of one by its account, a bigger group by itself
     static func cellKey(_ g: CategoryGroup) -> String { g.single ? g.accounts[0] : g.id }
 

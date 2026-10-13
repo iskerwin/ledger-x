@@ -13,11 +13,15 @@ extension Store {
     }
 }
 
-/// 管理账户: every account in the ledger, grouped by root
+/// 管理账户: every account in the ledger, by root, then by group (Food, Bank…) folded away until opened
 struct AccountManagerView: View {
     @EnvironmentObject var store: Store
+    /// just one root ("Expenses" or "Income" as 科目管理 from the 记一笔 grid)
+    var only: String? = nil
     @State private var q = ""
     @AppStorage("ledger.manager.closed") private var showClosed = true
+    /// groups opened ("Expenses:Food"); while searching every group is open
+    @State private var openGroups: Set<String> = []
 
     static let roots = ["Assets", "Liabilities", "Income", "Expenses", "Equity"]
 
@@ -25,7 +29,7 @@ struct AccountManagerView: View {
         Group {
             if let L = store.L { list(L) } else { ProgressView() }
         }
-        .navigationTitle(LS("管理账户"))
+        .navigationTitle(only == nil ? LS("管理账户") : LS("科目管理"))
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $q, prompt: LS("搜索账户"))
         .textInputAutocapitalization(.never)
@@ -49,7 +53,7 @@ struct AccountManagerView: View {
             .filter { showClosed || ($0.close.map { $0 > today } ?? true) }
             .filter { t.isEmpty || $0.name.lowercased().contains(t) || (store.displayName($0.name)?.lowercased().contains(t) ?? false) }
         return List {
-            if t.isEmpty {
+            if t.isEmpty && only == nil {
                 Section {
                     NavigationLink(value: NetWorthSettingsDest()) {
                         LabeledContent(LS("净资产与资产负债表"), value: Set(store.netWorthExclude + store.balanceExclude).isEmpty
@@ -57,12 +61,22 @@ struct AccountManagerView: View {
                     }
                 }
             }
-            ForEach(Self.roots, id: \.self) { root in
+            ForEach(only.map { [$0] } ?? Self.roots, id: \.self) { root in
                 let rows = all.filter { $0.name == root || $0.name.hasPrefix(root + ":") }.sorted { $0.name < $1.name }
                 if !rows.isEmpty {
                     Section {
-                        ForEach(rows, id: \.name) { a in
-                            NavigationLink(value: AccountEditDest(name: a.name)) { row(a, today) }
+                        ForEach(groups(rows), id: \.0) { g in
+                            // a group of its own account alone (Expenses:Travel) is just that row
+                            if g.1.count == 1 && g.1[0].name == g.0 {
+                                NavigationLink(value: AccountEditDest(name: g.1[0].name)) { row(g.1[0], today) }
+                            } else {
+                                groupRow(g.0, g.1.count, open: !t.isEmpty || openGroups.contains(g.0))
+                                if !t.isEmpty || openGroups.contains(g.0) {
+                                    ForEach(g.1, id: \.name) { a in
+                                        NavigationLink(value: AccountEditDest(name: a.name)) { row(a, today) }
+                                    }
+                                }
+                            }
                         }
                     } header: {
                         Text(groupName(root) + " · \(rows.count)")
@@ -71,6 +85,36 @@ struct AccountManagerView: View {
             }
         }
         .listSectionSpacing(.compact)
+    }
+
+    /// accounts by their second level ("Expenses:Food"), in name order
+    private func groups(_ rows: [Account]) -> [(String, [Account])] {
+        var by: [String: [Account]] = [:], order: [String] = []
+        for a in rows {
+            let g = catOf(a.name)
+            if by[g] == nil { order.append(g) }
+            by[g, default: []].append(a)
+        }
+        return order.map { ($0, by[$0]!) }
+    }
+
+    /// a group's header row: tap to open or fold it
+    private func groupRow(_ g: String, _ n: Int, open: Bool) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) { if open { openGroups.remove(g) } else { openGroups.insert(g) } }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.tertiary)
+                    .rotationEffect(.degrees(open ? 90 : 0)).frame(width: 28)
+                Text(leaf(g)).foregroundStyle(.primary)
+                if let z = acctZH(g) { Text(z).foregroundStyle(.secondary) }
+                Spacer()
+                Text(LS("%@ 个", n)).font(.subheadline).foregroundStyle(.secondary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!q.trimmingCharacters(in: .whitespaces).isEmpty)
     }
 
     private func row(_ a: Account, _ today: String) -> some View {
@@ -451,6 +495,7 @@ struct AccountEditView: View {
             ops.append(op)
         }
         if await store.commit(ops, word: merge ? LS("已合并账户") : LS("已重命名账户"), closing: { dismiss() }) {
+            store.renameInGrid(from, to: to)
             store.popToken += 1
         }
     }

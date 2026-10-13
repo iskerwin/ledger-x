@@ -131,53 +131,6 @@ struct Tag: View {
     }
 }
 
-/// a parsed search box: every word must match
-struct TxQuery {
-    enum Word { case flag, tag(String), link(String), gt(Double), lt(Double), amount(Double, String), date(String), text(String) }
-    let words: [Word]
-
-    init(_ q: String) {
-        words = q.split(whereSeparator: { $0 == " " || $0 == "\u{3000}" }).map { w0 -> Word in
-            let w = String(w0)
-            if w == "!" { return .flag }
-            if w.hasPrefix("#") { return .tag(String(w.dropFirst())) }
-            if w.hasPrefix("^") { return .link(String(w.dropFirst())) }
-            if w.range(of: #"^[<>]?\d+(\.\d+)?$"#, options: .regularExpression) != nil {
-                let n = Double(w.trimmingCharacters(in: CharacterSet(charactersIn: "<>"))) ?? 0
-                if w.hasPrefix(">") { return .gt(n) }
-                if w.hasPrefix("<") { return .lt(n) }
-                return .amount(n, w)
-            }
-            if w.range(of: #"^\d{4}-\d{2}(-\d{2})?$"#, options: .regularExpression) != nil { return .date(w) }
-            return .text(w)
-        }
-    }
-
-    var isEmpty: Bool { words.isEmpty }
-
-    func matches(_ t: Entry) -> Bool {
-        for w in words {
-            switch w {
-            case .flag: if t.flag != "!" { return false }
-            case .tag(let x): if !t.tags.contains(where: { $0.contains(x) }) { return false }
-            case .link(let x): if !t.links.contains(where: { $0.contains(x) }) { return false }
-            case .gt(let n): if !t.postings.contains(where: { abs($0.units ?? 0) > n }) { return false }
-            case .lt(let n): if !t.postings.allSatisfy({ abs($0.units ?? 0) < n }) { return false }
-            case .amount(let n, let raw):
-                if !(t.postings.contains(where: { abs(abs($0.units ?? 0) - n) < 0.005 }) || t.date.contains(raw)) { return false }
-            case .date(let d): if !t.date.hasPrefix(d) { return false }
-            case .text(let x):
-                let lw = x.lowercased()
-                // person: on a personal receivable counts too (an AA dinner is found by the friend's name)
-                if !((t.payee + " " + t.narration).lowercased().contains(lw)
-                     || t.postings.contains(where: { $0.account.lowercased().contains(lw) || acctDisplay($0.account).contains(x)
-                         || (postingPerson($0)?.lowercased().contains(lw) ?? false) })) { return false }
-            }
-        }
-        return true
-    }
-}
-
 struct JournalView: View {
     @EnvironmentObject var store: Store
     @State private var path = NavigationPath()
@@ -216,6 +169,7 @@ struct JournalView: View {
                 BatchEditSheet(entries: selectedEntries, mode: m) { selecting = false; selected = [] }
             }
             .searchable(text: $q, placement: .navigationBarDrawer(displayMode: .always), prompt: LS("收付款方、摘要、科目、对方、#标签、金额、2026-09"))
+            .searchSuggestions { if q.isEmpty { searchHelp } }
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .onChange(of: q) { _, _ in limit = 150 }
@@ -310,6 +264,27 @@ struct JournalView: View {
             if matches.isEmpty { Text(LS("无匹配交易")).foregroundStyle(.secondary) }
         }
         .listStyle(.insetGrouped)
+    }
+
+    /// how to search, while the box is empty: tap an example to start from it
+    @ViewBuilder private var searchHelp: some View {
+        let month = Day.ym(Day.today()), prev = Day.addMonth(Day.ym(Day.today()), -1)
+        let examples: [(String, String)] = [
+            ("\(prev) \(month)", LS("两个月份之间（也可写 %@）", prev + "~" + month)),
+            ("\(month) 科目:餐饮", LS("这个月、某个科目：几个条件用空格隔开，要同时满足")),
+            ("账户:招行 >100", LS("某个账户里大于 100 的")),
+            ("payee:滴滴 -加班", LS("收付款方是滴滴，排除备注里有「加班」的")),
+            ("\(Day.today().prefix(4))-Q3", LS("一个季度；也可只写年份 %@", String(Day.today().prefix(4)))),
+            ("对方:王五", LS("和某人的往来")),
+            ("#trip", LS("带某个标签；^ 开头找链接，! 找待确认")),
+        ]
+        ForEach(examples, id: \.0) { e in
+            VStack(alignment: .leading, spacing: 2) {
+                Text(e.0).font(.body.monospaced())
+                Text(e.1).font(.caption).foregroundStyle(.secondary)
+            }
+            .searchCompletion(e.0 + " ")
+        }
     }
 
     private func search(_ L: Ledger) -> [Entry] {
