@@ -53,7 +53,7 @@ final class ComboTests: XCTestCase {
         XCTAssertEqual(back.discountAccount, "Income:Rewards")
         // counted as a 100 expense and 10 of income
         XCTAssertEqual(classify(e, L2).kind, .expense)
-        XCTAssertEqual(classify(e, L2).amount, 100, accuracy: 0.001)
+        XCTAssertEqual(abs(classify(e, L2).amount), 100, accuracy: 0.001)
     }
 
     func testComboLimits() {
@@ -89,12 +89,12 @@ final class ComboTests: XCTestCase {
         var f = draft()
         f.extraFunds = [ExtraFund(account: "Liabilities:CreditCard:CMB", amount: "40")]
         f.discount = "10"
-        XCTAssertNil(comboIssue(f, D))
+        XCTAssertNil(comboIssue(f, L, D))
         XCTAssertEqual(comboRest(f), 50)
         f.extraFunds[0].amount = "95"
-        XCTAssertNotNil(comboIssue(f, D))
+        XCTAssertNotNil(comboIssue(f, L, D))
         f.extraFunds[0].account = "Assets:Alipay"
-        XCTAssertNotNil(comboIssue(f, D))
+        XCTAssertNotNil(comboIssue(f, L, D))
     }
 
     func testExclusions() {

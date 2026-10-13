@@ -147,7 +147,12 @@ public func discountAllowed(_ d: Draft) -> Bool { d.kind == .expense && !d.reimb
 
 /// The paying side of an expense with 组合付款 or 优惠: the main account (what is left), the other accounts' parts,
 /// then the discount. nil when something doesn't add up, or an account is in another currency.
-func payingPostings(_ d: Draft, total amt: Double, _ D: Derived) -> [TxPosting]? {
+/// the currency an account is used in: what it has been used with, else the one its open line allows (when just one)
+func accountCurrency(_ a: String, _ L: Ledger, _ D: Derived) -> String? {
+    D.acctCcy[a] ?? L.accounts[a].flatMap { $0.currencies.count == 1 ? $0.currencies[0] : nil }
+}
+
+func payingPostings(_ d: Draft, total amt: Double, _ L: Ledger, _ D: Derived) -> [TxPosting]? {
     var disc = 0.0
     if discountAllowed(d) && !d.discount.trimmingCharacters(in: .whitespaces).isEmpty {
         // a discount has to leave something to pay
@@ -159,12 +164,12 @@ func payingPostings(_ d: Draft, total amt: Double, _ D: Derived) -> [TxPosting]?
     for x in d.extraFunds {
         let a = x.account.trimmingCharacters(in: .whitespaces)
         if a.isEmpty && x.amount.trimmingCharacters(in: .whitespaces).isEmpty { continue }
-        guard !a.isEmpty, a != d.funding, let v = evalAmount(x.amount), v > 0, (D.acctCcy[a] ?? d.currency) == d.currency else { return nil }
+        guard !a.isEmpty, a != d.funding, let v = evalAmount(x.amount), v > 0, (accountCurrency(a, L, D) ?? d.currency) == d.currency else { return nil }
         rest -= v
         out.append(TxPosting(account: a, amount: -v, currency: d.currency))
     }
     rest = roundTo(rest, 2)
-    guard rest > -0.004, (D.acctCcy[d.funding] ?? d.currency) == d.currency else { return nil }
+    guard rest > -0.004, (accountCurrency(d.funding, L, D) ?? d.currency) == d.currency else { return nil }
     if rest > 0.004 { out.insert(TxPosting(account: d.funding, amount: -rest, currency: d.currency), at: 0) }
     if disc > 0.004 {
         let acct = d.discountAccount.trimmingCharacters(in: .whitespaces)
@@ -184,7 +189,7 @@ public func comboRest(_ d: Draft) -> Double? {
 }
 
 /// Why 组合付款 / 优惠 can't be written as it stands, in words for the form; nil when it can.
-public func comboIssue(_ d: Draft, _ D: Derived) -> String? {
+public func comboIssue(_ d: Draft, _ L: Ledger, _ D: Derived) -> String? {
     guard hasCombo(d) else { return nil }
     for x in d.extraFunds {
         let a = x.account.trimmingCharacters(in: .whitespaces), v = x.amount.trimmingCharacters(in: .whitespaces)
@@ -192,9 +197,9 @@ public func comboIssue(_ d: Draft, _ D: Derived) -> String? {
         if a.isEmpty { return tr("有一行没选付款账户", "A row has no account") }
         if a == d.funding { return tr("其他付款账户不能和主账户相同", "Another account can't be the main one") }
         guard let n = evalAmount(v), n > 0 else { return tr("%@ 的金额要大于 0", "Enter an amount for %@").replacingOccurrences(of: "%@", with: leaf(a)) }
-        if let c = D.acctCcy[a], c != d.currency { return tr("组合付款的账户要与支出同币种", "Accounts in a combination must be in the expense's currency") }
+        if let c = accountCurrency(a, L, D), c != d.currency { return tr("组合付款的账户要与支出同币种", "Accounts in a combination must be in the expense's currency") }
     }
-    if let c = D.acctCcy[d.funding], c != d.currency { return tr("组合付款的账户要与支出同币种", "Accounts in a combination must be in the expense's currency") }
+    if let c = accountCurrency(d.funding, L, D), c != d.currency { return tr("组合付款的账户要与支出同币种", "Accounts in a combination must be in the expense's currency") }
     if discountAllowed(d), !d.discount.trimmingCharacters(in: .whitespaces).isEmpty {
         guard (evalAmount(d.discount) ?? -1) >= 0 else { return tr("优惠金额不正确", "The discount isn't a number") }
         if !d.discountAccount.hasPrefix("Income:") { return tr("优惠要记到收入科目", "A discount goes to an income account") }
@@ -328,7 +333,7 @@ func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
         let mine = roundTo(amt - sum, 2)
         guard mine > -0.004 else { return nil }
         let paying: [TxPosting]
-        if hasCombo(d) { guard let p = payingPostings(d, total: amt, D) else { return nil }; paying = p }
+        if hasCombo(d) { guard let p = payingPostings(d, total: amt, L, D) else { return nil }; paying = p }
         else { paying = [TxPosting(account: d.funding, amount: -amt, currency: d.currency)] }
         tx.postings = (mine > 0.004 ? [TxPosting(account: catAccount, amount: mine, currency: d.currency)] : []) + theirs + paying
         return tx
@@ -340,7 +345,7 @@ func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
         cat.meta.append((voucherMeta, d.voucher.trimmingCharacters(in: .whitespaces)))
     }
     if hasCombo(d) {
-        guard let paying = payingPostings(d, total: amt, D) else { return nil }
+        guard let paying = payingPostings(d, total: amt, L, D) else { return nil }
         tx.postings = [cat] + paying
     } else if fc != d.currency, let paid = evalAmount(d.paid), paid > 0 {
         // a per-unit price rounded to 5 places can miss the paid total by more than the tolerance on

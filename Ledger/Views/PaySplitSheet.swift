@@ -78,7 +78,7 @@ struct PaySplitSheet: View {
                 Text(LS("可报销或 AA 的支出不单列优惠，金额请直接填实付。"))
             }
         }
-        if let issue = comboIssue(d, D) {
+        if let issue = comboIssue(d, L, D) {
             Section { Label(issue, systemImage: "exclamationmark.triangle").foregroundStyle(Color.orange).font(.footnote) }
         }
     }
