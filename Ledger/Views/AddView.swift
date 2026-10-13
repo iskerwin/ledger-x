@@ -346,8 +346,8 @@ struct AddForm: View {
             if d.kind == .expense, let L = store.L, let D = store.D {
                 Button { splittingPay = true } label: {
                     LabeledContent(LS("组合付款与优惠")) {
-                        Text(comboIssue(d, D) ?? comboSummary(d, L) ?? LS("未使用"))
-                            .foregroundStyle(comboIssue(d, D) != nil ? Color.orange : Color.secondary).lineLimit(2)
+                        Text(comboIssue(d, L, D) ?? comboSummary(d, L) ?? LS("未使用"))
+                            .foregroundStyle(comboIssue(d, L, D) != nil ? Color.orange : Color.secondary).lineLimit(2)
                     }
                 }
                 .buttonStyle(.plain)

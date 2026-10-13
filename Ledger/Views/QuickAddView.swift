@@ -546,8 +546,8 @@ struct QuickAddView: View {
                 }
             }
             if field == nil, let s = comboSummary(d, L) {
-                Label(comboIssue(d, D) ?? s, systemImage: comboIssue(d, D) == nil ? "square.split.2x1" : "exclamationmark.triangle")
-                    .font(.footnote).foregroundStyle(comboIssue(d, D) == nil ? Color.secondary : Color.orange)
+                Label(comboIssue(d, L, D) ?? s, systemImage: comboIssue(d, L, D) == nil ? "square.split.2x1" : "exclamationmark.triangle")
+                    .font(.footnote).foregroundStyle(comboIssue(d, L, D) == nil ? Color.secondary : Color.orange)
                     .lineLimit(2)
                     .onTapGesture { splittingPay = true }
             }
