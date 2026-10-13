@@ -155,9 +155,7 @@ struct CategoryStyleSheet: View {
     }
 
     private func defaultTitle(_ L: Ledger) -> String {
-        let g = target.group
-        if g.single, let a = g.accounts.first { return accountTitle(L, a) }
-        return acctZH(g.id) ?? leaf(g.id)
+        store.defaultCatTitle(target.group, L)
     }
 
     private func save() {
