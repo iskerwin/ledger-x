@@ -41,6 +41,8 @@ public struct DraftRow: Equatable, Identifiable {
     public var flag = ""
     /// who a personal receivable row is with (`person:`)
     public var person = ""
+    /// the line's other metadata (`category:` on an advance…), written back as it was
+    public var meta: [String: String] = [:]
     public var ccyTouched = false
     public init(account: String = "", currency: String = "CNY") { self.account = account; self.currency = currency }
 }
@@ -58,6 +60,16 @@ public enum DraftKind: String, CaseIterable, Identifiable {
         case .raw: return tr("文本", "Text")
         }
     }
+}
+
+/// posting metadata on an advance (报销应收): the expense category it would have been
+public let categoryMeta = "category"
+
+/// the category written on an advance
+public func advanceCategory(_ p: Posting) -> String? {
+    guard let v = p.meta[categoryMeta] else { return nil }
+    let s = (v.stringValue ?? v.display).trimmingCharacters(in: .whitespaces)
+    return s.hasPrefix("Expenses:") ? s : nil
 }
 
 /// someone's part of an expense you paid (AA): it goes to the personal receivable, `person:` naming them
@@ -166,9 +178,9 @@ func multiTx(_ d: Draft, _ L: Ledger) -> TxDraft? {
         var p = TxPosting(account: r.account.trimmingCharacters(in: .whitespaces), units: units, currency: units != nil ? r.currency : nil,
                           flag: r.flag.isEmpty ? nil : r.flag, cost: r.cost.trimmingCharacters(in: .whitespaces).isEmpty ? nil : r.cost.trimmingCharacters(in: .whitespaces),
                           price: pr.isEmpty ? nil : (pr.hasPrefix("@") ? pr : "@ " + pr))
-        p.meta = []
+        p.meta = r.meta.keys.sorted().map { ($0, r.meta[$0]!) }
         let who = r.person.trimmingCharacters(in: .whitespaces)
-        if isPersonal(p.account) && !who.isEmpty { p.meta = [(personMeta, who)] }
+        if isPersonal(p.account) && !who.isEmpty { p.meta.insert((personMeta, who), at: 0) }
         return p
     }
     return tx
@@ -232,6 +244,8 @@ func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
         return tx
     }
     var cat = TxPosting(account: catAccount, amount: sgn * amt, currency: d.currency)
+    // an advance keeps the category it would have had, for the expense claim (支出类型)
+    if d.kind == .expense && d.reimb && d.account.hasPrefix("Expenses:") { cat.meta = [(categoryMeta, d.account)] }
     if fc != d.currency, let paid = evalAmount(d.paid), paid > 0 {
         // a per-unit price rounded to 5 places can miss the paid total by more than the tolerance on
         // large amounts (9999.99 USD → 0.03 CNY off); then write the exact total instead
@@ -623,8 +637,9 @@ public func commitMessage(_ ops: [Op], path: String) -> String {
 public func isComplex(_ t: Entry) -> Bool {
     let real = t.postings.filter { !$0.interpolated }
     if t.postings.count > 2 { return true }
-    // `person:` on the receivable: the split form keeps it per row
-    if t.postings.contains(where: { $0.cost != nil || ($0.price != nil && t.postings.count > 2) || $0.flag != nil || !$0.meta.isEmpty }) { return true }
+    // `person:` on the receivable: the split form keeps it per row; an advance's `category:` the simple form keeps
+    if t.postings.contains(where: { p in p.cost != nil || (p.price != nil && t.postings.count > 2) || p.flag != nil
+        || p.meta.items.contains { kv in kv.0 != categoryMeta } }) { return true }
     if t.flag != "*" { return true }
     return t.postings.count != real.count && t.postings.count > 1 && !t.tags.contains("transfer")
         && !t.postings.contains(where: { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") })
@@ -644,6 +659,7 @@ public func rowsFromTxn(_ t: Entry, withAmounts: Bool = true) -> [DraftRow] {
         }
         r.flag = p.flag ?? ""
         r.person = postingPerson(p) ?? ""
+        for (k, v) in p.meta.items where k != personMeta { r.meta[k] = v.stringValue ?? v.display }
         rows.append(r)
     }
     return rows.isEmpty ? [DraftRow(), DraftRow()] : rows
@@ -678,7 +694,7 @@ public func draftFromTxn(_ t: Entry, kind: DraftKind? = nil, _ L: Ledger, _ D: D
     } else if let cat = cat {
         if cat.account.hasPrefix("Assets:Receivable") {
             d.reimb = true
-            d.account = D.rankAccounts(["Expenses:"]).first ?? ""
+            d.account = advanceCategory(cat) ?? D.rankAccounts(["Expenses:"]).first ?? ""
             // paid from petty cash like the original while it lasts, else from the petty cash in hand (as when
             // 可报销 is switched on); a paid reimbursement's link is never reused
             let open = D.floats.filter { $0.left > 0.005 }
