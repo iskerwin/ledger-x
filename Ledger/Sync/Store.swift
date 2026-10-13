@@ -6,7 +6,7 @@ enum Tab: String, CaseIterable, Hashable {
     case add, overview, journal, accounts, reports
     var title: String {
         switch self {
-        case .add: return LS("记账")
+        case .add: return LS("记一笔")
         case .overview: return LS("概览")
         case .journal: return LS("明细")
         case .accounts: return LS("账户")
@@ -15,7 +15,7 @@ enum Tab: String, CaseIterable, Hashable {
     }
     var symbol: String {
         switch self {
-        case .add: return "square.and.pencil"
+        case .add: return "plus.circle.fill"
         case .overview: return "chart.bar.xaxis"
         case .journal: return "list.bullet.rectangle.portrait"
         case .accounts: return "building.columns"
@@ -71,7 +71,15 @@ final class Store: ObservableObject {
         get { drafts.draft }
         set { drafts.draft = newValue }
     }
-    @Published var tab: Tab = .add
+    @Published var tab: Tab = .overview
+    /// the 记一笔 card is open (it opens over any tab: the + tab, ledgerx://add, Shortcuts, 再记一笔…)
+    @Published var adding = false
+    /// the card opens on the full form (分录, 文本, 退款, AA…) instead of the quick one
+    var addFull = false
+    /// bumped by every request to open the card, so an open card goes back to the page asked for
+    @Published var addToken = 0
+    /// icons, names, order and hidden groups of the 记一笔 category grid (kept on this phone, not in the ledger)
+    @Published var catStyle: CatStyle { didSet { Prefs.set("catStyle", catStyle) } }
     @Published var showSettings = false
     /// the card bill being repaid: the sheet lives at the root, so a List section can't present it twice
     @Published var repaying: CardCycle?
@@ -181,6 +189,7 @@ final class Store: ObservableObject {
         receivableAccount = Prefs.get(Store.key("receivable", id), "")
         subsFile = Prefs.get(Store.key("subsFile", id), "")
         myQueries = Prefs.get("queries", [SavedQuery]())
+        catStyle = Prefs.get("catStyle", CatStyle())
     }
 
     var backend: LedgerBackend { makeBackend(cfg) }
@@ -327,7 +336,9 @@ final class Store: ObservableObject {
             draft.payee = t.payee; draft.narration = t.narration; draft.account = t.account; draft.funding = t.funding
             draft.amount = t.fixed.map { jsNumberString($0) } ?? "23.5"
         }
-        if let t = env["LEDGER_TAB"], let tab = Tab(rawValue: t) { self.tab = tab }
+        if env["LEDGER_TAB"] == "add" {
+            openAdd(full: env["LEDGER_EDIT_TEXT"] != nil || env["LEDGER_ADD_FULL"] != nil ? true : nil)
+        } else if let t = env["LEDGER_TAB"], let tab = Tab(rawValue: t) { self.tab = tab }
         if env["LEDGER_TAB"] == "settings" { tab = .overview; showSettings = true }
         var qs: [SavedQuery] = []
         if let names = try? FileManager.default.subpathsOfDirectory(atPath: dir) {

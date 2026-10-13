@@ -1,0 +1,191 @@
+import SwiftUI
+import LedgerKit
+
+/// a grid cell whose look is being changed
+struct StyleTarget: Identifiable {
+    let group: CategoryGroup
+    var id: String { group.id }
+}
+
+/// 分类图标与排序: the 记一笔 grid's cells in order (drag to move), tap one for its icon, name and whether it shows.
+/// Kept on this phone; the ledger is not changed.
+struct CategoryManager: View {
+    @EnvironmentObject var store: Store
+    @Environment(\.dismiss) private var dismiss
+    @State var root: String
+    @State private var styling: StyleTarget?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if let L = store.L, let D = store.D {
+                    Section {
+                        Picker(LS("类型"), selection: $root) {
+                            Text(LS("支出")).tag("Expenses:")
+                            Text(LS("收入")).tag("Income:")
+                        }
+                        .pickerStyle(.segmented)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets())
+                    }
+                    let groups = store.allGroups(root, D)
+                    let hidden = Set(store.catStyle.hidden)
+                    Section {
+                        ForEach(groups) { g in
+                            Button { styling = StyleTarget(group: g) } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: store.catIcon(Store.cellKey(g)))
+                                        .font(.system(size: 17))
+                                        .frame(width: 36, height: 36)
+                                        .background(Color(.tertiarySystemFill), in: Circle())
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(store.catTitle(g, L)).foregroundStyle(hidden.contains(g.id) ? Color.secondary : Color.primary)
+                                        Text(g.single ? acctLabel(g.accounts[0]) : LS("%@ 个科目", g.accounts.count))
+                                            .font(.caption).foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    if hidden.contains(g.id) { Text(LS("已隐藏")).font(.caption).foregroundStyle(.secondary) }
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .onMove { from, to in
+                            var ids = groups.map { $0.id }
+                            ids.move(fromOffsets: from, toOffset: to)
+                            store.catStyle.order[root] = ids
+                        }
+                    } footer: {
+                        Text(LS("拖动右侧把手调整宫格顺序，点按更换图标、改名或隐藏。这些设置只存在本机，不改动账本；隐藏的分类仍可在完整表单里选择。"))
+                    }
+                    Section {
+                        Button(LS("恢复默认图标与名称")) {
+                            var s = store.catStyle
+                            for g in groups {
+                                s.icons[g.id] = nil
+                                for a in g.accounts { s.icons[a] = nil }
+                                s.titles[g.id] = nil
+                            }
+                            s.hidden.removeAll { id in groups.contains { $0.id == id } }
+                            store.catStyle = s
+                        }
+                        Button(LS("按使用次数重新排序")) {
+                            store.catStyle.order[root] = categoryGroups(D, root: root).map { $0.id }
+                        }
+                    }
+                }
+            }
+            .environment(\.editMode, .constant(.active))
+            .navigationTitle(LS("分类图标与排序"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(LS("完成")) { dismiss() }.fontWeight(.semibold) } }
+            .sheet(item: $styling) { CategoryStyleSheet(target: $0) }
+        }
+    }
+}
+
+/// one cell: its icon (from a set of symbols), its name and whether the grid shows it
+struct CategoryStyleSheet: View {
+    @EnvironmentObject var store: Store
+    @Environment(\.dismiss) private var dismiss
+    let target: StyleTarget
+    @State private var title = ""
+    @State private var icon = ""
+    @State private var hidden = false
+
+    private var key: String { Store.cellKey(target.group) }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if let L = store.L {
+                    Section {
+                        HStack {
+                            Spacer()
+                            VStack(spacing: 8) {
+                                Image(systemName: icon.isEmpty ? store.catIcon(key) : icon)
+                                    .font(.system(size: 26))
+                                    .frame(width: 64, height: 64)
+                                    .foregroundStyle(Color.onJade)
+                                    .background(Color.jade, in: Circle())
+                                Text(title.trimmed.isEmpty ? defaultTitle(L) : title).font(.subheadline)
+                            }
+                            Spacer()
+                        }
+                        .listRowBackground(Color.clear)
+                    }
+                    Section {
+                        TextField(defaultTitle(L), text: $title)
+                        Toggle(LS("在宫格中显示"), isOn: Binding(get: { !hidden }, set: { hidden = !$0 })).tint(.jade)
+                    } footer: {
+                        Text(target.group.accounts.map { acctLabel($0) }.joined(separator: "、"))
+                    }
+                    Section(LS("图标")) {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 6), spacing: 12) {
+                            ForEach(Self.symbols.filter { Symbols.valid($0) }, id: \.self) { s in
+                                let on = (icon.isEmpty ? store.catIcon(key) : icon) == s
+                                Button { icon = s } label: {
+                                    Image(systemName: s)
+                                        .font(.system(size: 18))
+                                        .frame(width: 42, height: 42)
+                                        .foregroundStyle(on ? Color.onJade : Color.primary)
+                                        .background(on ? Color.jade : Color(.tertiarySystemFill), in: Circle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(s)
+                            }
+                        }
+                        .padding(.vertical, 6)
+                        Button(LS("恢复默认图标")) { icon = Symbols.valid(defaultCategoryIcon(key)) ? defaultCategoryIcon(key) : "square.grid.2x2" }
+                    }
+                }
+            }
+            .navigationTitle(LS("分类样式"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button(LS("保存")) { save(); dismiss() }.fontWeight(.semibold) }
+            }
+            .onAppear {
+                title = store.catStyle.titles[target.group.id] ?? ""
+                icon = store.catStyle.icons[key] ?? ""
+                hidden = store.catStyle.hidden.contains(target.group.id)
+            }
+        }
+    }
+
+    private func defaultTitle(_ L: Ledger) -> String {
+        let g = target.group
+        if g.single, let a = g.accounts.first { return accountTitle(L, a) }
+        return acctZH(g.id) ?? leaf(g.id)
+    }
+
+    private func save() {
+        var s = store.catStyle
+        let t = title.trimmed
+        s.titles[target.group.id] = t.isEmpty ? nil : t
+        // the built-in guess isn't stored, so a better guess in a later version still reaches it
+        s.icons[key] = icon.isEmpty || icon == defaultCategoryIcon(key) ? nil : icon
+        s.hidden.removeAll { $0 == target.group.id }
+        if hidden { s.hidden.append(target.group.id) }
+        store.catStyle = s
+    }
+
+    /// symbols to choose from (any this iOS lacks is left out when shown)
+    static let symbols: [String] = [
+        "fork.knife", "cup.and.saucer", "takeoutbag.and.cup.and.straw", "wineglass", "birthday.cake", "carrot",
+        "cart", "basket", "bag", "tshirt", "handbag", "eyeglasses",
+        "house", "key", "bolt", "drop", "flame", "sofa",
+        "lightbulb", "hammer", "wrench.and.screwdriver", "paintbrush", "washer", "bed.double",
+        "car", "fuelpump", "bus", "tram", "airplane", "bicycle",
+        "road.lanes", "parkingsign", "shippingbox", "suitcase", "map", "ferry",
+        "iphone", "desktopcomputer", "laptopcomputer", "headphones", "gamecontroller", "tv",
+        "app.badge", "icloud", "antenna.radiowaves.left.and.right", "wifi", "music.note", "film",
+        "book", "graduationcap", "pencil.and.ruler", "figure.run", "dumbbell", "sportscourt",
+        "cross.case", "pills", "stethoscope", "heart", "hands.sparkles", "comb",
+        "gift", "envelope", "person.2", "figure.2.and.child.holdinghands", "pawprint", "leaf",
+        "creditcard", "banknote", "percent", "chart.line.uptrend.xyaxis", "chart.pie", "building.columns",
+        "briefcase", "star", "ticket", "giftcard", "yensign.circle", "dollarsign.circle",
+        "shield", "doc.text", "scissors", "sparkles", "smoke", "ellipsis.circle",
+    ]
+}

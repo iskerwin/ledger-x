@@ -105,6 +105,8 @@ struct StandardToolbar: ToolbarContent {
 
 struct ToastView: View {
     @EnvironmentObject var store: Store
+    /// at the top of a card whose bottom is taken by a keypad
+    var top = false
     var body: some View {
         if let t = store.toast {
             HStack(spacing: 14) {
@@ -122,8 +124,8 @@ struct ToastView: View {
             .padding(.horizontal, 18).padding(.vertical, 12)
             .background(.regularMaterial, in: Capsule())
             .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
-            .padding(.bottom, 64)
-            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .padding(.bottom, top ? 0 : 64)
+            .transition(.move(edge: top ? .top : .bottom).combined(with: .opacity))
             .id(t.id)
             .task(id: t.id) {
                 try? await Task.sleep(nanoseconds: UInt64((t.action != nil ? 6 : 2.2) * 1_000_000_000))
