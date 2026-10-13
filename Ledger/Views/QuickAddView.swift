@@ -604,6 +604,7 @@ struct QuickAddView: View {
                      ? LS("写成 日期 * \"收付款方\" \"备注\"。转账不填时自动写 \"Transfer\" 和 \"转出 -> 转入\"。")
                      : LS("写成 日期 * \"收付款方\" \"备注\"。收付款方不填就省略，只留 \"备注\"；备注不填写成 \"\"。不用自己加引号。"))
                     .font(.caption2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .foregroundStyle(.secondary)
         }
