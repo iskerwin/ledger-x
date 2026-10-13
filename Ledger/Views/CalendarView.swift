@@ -15,6 +15,13 @@ struct JournalCalendar: View {
 
     struct DayTotal { var out = 0.0; var inn = 0.0; var n = 0 }
 
+    /// spending in a deep red, income in a deep green: readable on the tinted cells, not as loud as the system
+    /// red and green; lighter in dark mode
+    static let spend = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark
+        ? UIColor(red: 1.00, green: 0.45, blue: 0.43, alpha: 1) : UIColor(red: 0.76, green: 0.16, blue: 0.16, alpha: 1) })
+    static let earn = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark
+        ? UIColor(red: 0.36, green: 0.78, blue: 0.53, alpha: 1) : UIColor(red: 0.09, green: 0.47, blue: 0.24, alpha: 1) })
+
     private var byDay: [String: DayTotal] {
         var m: [String: DayTotal] = [:]
         let prefix = month
@@ -95,9 +102,9 @@ struct JournalCalendar: View {
                     .disabled(month >= Day.ym(Day.today()))
             }
             HStack {
-                Figure(label: LS("收入"), value: money(inn, L.base, 0), color: .gain)
+                Figure(label: LS("收入"), value: money(inn, L.base, 0), color: Self.earn)
                 Spacer()
-                Figure(label: LS("支出"), value: money(out, L.base, 0))
+                Figure(label: LS("支出"), value: money(out, L.base, 0), color: Self.spend)
                 Spacer()
                 Figure(label: LS("结余"), value: money(inn - out, L.base, 0), color: inn - out < 0 ? Color.loss : Color.primary, alignment: .trailing)
             }
@@ -145,7 +152,8 @@ struct JournalCalendar: View {
 
     private func cell(_ d: String, _ x: DayTotal?, top: Double, today: Bool) -> some View {
         let out = x?.out ?? 0, inn = x?.inn ?? 0
-        let shade = out > 0.005 ? 0.10 + 0.45 * min(1, out / top) : 0
+        // a light red wash, deeper on the bigger days, that never drowns the numbers
+        let shade = out > 0.005 ? 0.05 + 0.17 * min(1, out / top) : 0
         let picked = day == d
         let future = d > Day.today()
         return Button { day = picked ? nil : d } label: {
@@ -153,12 +161,12 @@ struct JournalCalendar: View {
             VStack(spacing: 1) {
                 Text(String(Int(d.suffix(2)) ?? 0)).font(.system(size: 10, weight: today ? .bold : .regular))
                     .foregroundStyle(today ? Color.jade : future ? Color.secondary.opacity(0.5) : Color.secondary)
-                Text(out > 0.005 ? short(out) : " ").font(.system(size: 10.5, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(Color.primary).sensitive()
-                Text(inn > 0.005 ? "+" + short(inn) : " ").font(.system(size: 9, weight: .medium).monospacedDigit()).foregroundStyle(Color.gain).sensitive()
+                Text(out > 0.005 ? short(out) : " ").font(.system(size: 11, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(Self.spend).sensitive()
+                Text(inn > 0.005 ? "+" + short(inn) : " ").font(.system(size: 9.5, weight: .semibold).monospacedDigit()).foregroundStyle(Self.earn).sensitive()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.jade.opacity(shade), in: RoundedRectangle(cornerRadius: 7))
+            .background(Self.spend.opacity(shade), in: RoundedRectangle(cornerRadius: 7))
             .overlay(RoundedRectangle(cornerRadius: 7).stroke(picked ? Color.jade : today ? Color.secondary.opacity(0.5) : .clear, lineWidth: picked ? 2 : 1))
         }
         .buttonStyle(.plain)
