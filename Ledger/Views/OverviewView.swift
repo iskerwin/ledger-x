@@ -558,7 +558,7 @@ struct OverviewView: View {
                 ForEach(rows, id: \.id) { x in
                     NavigationLink(value: AccountDest(name: x.a)) {
                         HStack(spacing: 12) {
-                            IconBadge(symbol: AccountKind.of(x.a).symbol, color: AccountKind.of(x.a).color, size: 28)
+                            IconBadge(symbol: store.groupIcon(x.a).symbol, color: store.groupIcon(x.a).color, size: 28)
                             Text(acctLabel(x.a))
                             Spacer()
                             Amount(n: x.n, c: x.c)

@@ -79,7 +79,7 @@ struct AccountsView: View {
     }
 
     private func groupSection(_ L: Ledger, _ root: String, _ g: String, _ rs: [Row]) -> some View {
-        let kind = AccountKind(g)
+        let kind = store.groupIcon(root + ":" + g)
         let failing = Set(L.balanceResults.filter { !$0.ok }.compactMap { $0.entry.account })
         let key = root + ":" + g
         let shut = collapsed.contains(key)
@@ -232,6 +232,7 @@ struct AccountKind {
     static let order = ["Bank", "EWallet", "Cash", "Brokerage", "Crypto", "Receivable", "CreditCard", "Loan"]
     let symbol: String
     let color: Color
+    init(symbol: String, color: Color) { self.symbol = symbol; self.color = color }
     init(_ group: String) {
         switch group {
         case "Bank": symbol = "building.columns.fill"; color = .blue
@@ -262,7 +263,7 @@ struct AccountRow: View {
     var body: some View {
         let p = account.components(separatedBy: ":")
         let name = p.count > 2 ? p[2...].joined(separator: ":") : (p.count > 1 ? p[1] : account)
-        let k = kind ?? AccountKind.of(account)
+        let k = kind ?? store.groupIcon(account)
         HStack(spacing: 12) {
             IconBadge(symbol: k.symbol, color: closed ? .gray : k.color)
             VStack(alignment: .leading, spacing: 2) {
@@ -466,7 +467,7 @@ struct RegisterView: View {
         let bs = bal.filter { abs($0.1) > 0.0049 }
         let closedNote = L.accounts[account]?.close.map { LS(" · 已于 %@ 关闭", $0) } ?? ""
         let check = canCheck(L)
-        let k = AccountKind.of(account)
+        let k = store.groupIcon(account)
         let isIEIcon = account.hasPrefix("Income") ? ("arrow.down.circle.fill", Color.green) : ("arrow.up.circle.fill", Color.gray)
         return Section {
             Card {

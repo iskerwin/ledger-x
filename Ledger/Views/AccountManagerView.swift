@@ -22,6 +22,7 @@ struct AccountManagerView: View {
     @AppStorage("ledger.manager.closed") private var showClosed = true
     /// groups opened ("Expenses:Food"); while searching every group is open
     @State private var openGroups: Set<String> = []
+    @State private var iconFor: IconTarget?
 
     static let roots = ["Assets", "Liabilities", "Income", "Expenses", "Equity"]
 
@@ -31,6 +32,7 @@ struct AccountManagerView: View {
         }
         .navigationTitle(only == nil ? LS("管理账户") : LS("科目管理"))
         .task { if let g = store.demoEnv["LEDGER_MANAGE_OPEN"] { openGroups.insert(g) } }
+        .sheet(item: $iconFor) { GroupIconSheet(group: $0.group) }
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $q, prompt: LS("搜索账户"))
         .textInputAutocapitalization(.never)
@@ -70,6 +72,7 @@ struct AccountManagerView: View {
                             // a group of its own account alone (Expenses:Travel) is just that row
                             if g.1.count == 1 && g.1[0].name == g.0 {
                                 NavigationLink(value: AccountEditDest(name: g.1[0].name)) { row(g.1[0], today, icon: groupIcon(g.0)) }
+                                    .contextMenu { Button { iconFor = IconTarget(group: g.0) } label: { Label(LS("更换图标"), systemImage: "photo") } }
                             } else {
                                 groupRow(g.0, g.1.count, open: !t.isEmpty || openGroups.contains(g.0))
                                 if !t.isEmpty || openGroups.contains(g.0) {
@@ -101,8 +104,7 @@ struct AccountManagerView: View {
 
     /// a group's icon: the account kind's (Bank, CreditCard…) for assets and liabilities, the 记一笔 grid's for categories
     private func groupIcon(_ g: String) -> (String, Color) {
-        if g.hasPrefix("Expenses") || g.hasPrefix("Income") { return (store.catIcon(g), .jade) }
-        let k = AccountKind.of(g)
+        let k = store.groupIcon(g)
         return (k.symbol, k.color)
     }
 
@@ -125,6 +127,9 @@ struct AccountManagerView: View {
         }
         .buttonStyle(.plain)
         .disabled(!q.trimmingCharacters(in: .whitespaces).isEmpty)
+        .contextMenu {
+            Button { iconFor = IconTarget(group: g) } label: { Label(LS("更换图标"), systemImage: "photo") }
+        }
     }
 
     /// an account; inside an open group it has no icon of its own and lines up under the group's name

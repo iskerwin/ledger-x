@@ -190,7 +190,7 @@ final class Store: ObservableObject {
         receivableAccount = Prefs.get(Store.key("receivable", id), "")
         subsFile = Prefs.get(Store.key("subsFile", id), "")
         myQueries = Prefs.get("queries", [SavedQuery]())
-        catStyle = Prefs.get("catStyle", CatStyle())
+        catStyle = Prefs.get("catStyle", CatStyle()).normalized()
     }
 
     var backend: LedgerBackend { makeBackend(cfg) }

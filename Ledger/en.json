@@ -1439,6 +1439,7 @@
  "还没有订阅。点右上角 +，或在交易详情里选择「加入订阅管理」。": "No subscriptions yet. Tap + or choose “Add to Subscriptions” on a transaction.",
  "还没有预算。点右上角 + 为支出分类设置每月或每年的额度。": "No budgets yet. Tap + to set a monthly or yearly limit for a category.",
  "这一天没有交易": "No transactions on this day",
+ "这个大类在记一笔、管理账户、账户页和报表里都用这个图标；只存在这台手机。": "This group uses this icon on the Add card, Manage accounts, the Accounts page and in reports; kept on this phone.",
  "这个月、某个科目：几个条件用空格隔开，要同时满足": "This month in one category: separate conditions with spaces; all must hold",
  "这个标签已经有事件了": "This tag already has an event",
  "这个标签还没有写成事件。写成事件后可以设置名称和日期，进行中时新记录自动带上标签。": "This tag isn't an event yet. As an event it gets a name and dates, and new entries get the tag while it goes on.",
