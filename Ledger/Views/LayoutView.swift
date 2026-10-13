@@ -103,15 +103,30 @@ struct RepoLayoutView: View {
         .onAppear { if !loaded { c = store.effectiveConfig; loaded = true } }
     }
 
-    private func kindRow(_ k: LayoutKind, _ u: (file: String, count: Int, files: Int)?) -> some View {
-        let placeholder: String = {
-            switch k {
-            case .transactions: return store.journalPattern.trimmed.isEmpty ? store.detectedLayout.journal : store.journalPattern.trimmed
-            case .subscriptions: return store.subsFile.trimmed.isEmpty ? "subscriptions.bean" : store.subsFile.trimmed
-            case .accounts: return LS("自动（按科目大类）")
-            default: return u?.file ?? LS("自动")
+    /// where a kind goes when it isn't set: what the app actually does now
+    private func automatic(_ k: LayoutKind, _ u: (file: String, count: Int, files: Int)?) -> String {
+        switch k {
+        case .transactions: return store.journalPattern.trimmed.isEmpty ? store.detectedLayout.journal : store.journalPattern.trimmed
+        case .subscriptions: return store.subsFile.trimmed.isEmpty ? "subscriptions.bean" : store.subsFile.trimmed
+        case .budget: return u?.file ?? store.main
+        case .accounts:
+            // open / close go to the file already holding most of that root's accounts
+            guard let L = store.L else { return LS("按科目大类") }
+            var by: [String: [String: Int]] = [:]
+            for e in L.entries where (e.type == .open || e.type == .close) && !e.file.isEmpty {
+                let r = (e.account ?? "").components(separatedBy: ":")[0]
+                by[r, default: [:]][e.file, default: 0] += 1
             }
-        }()
+            let files = Set(by.values.compactMap { m in m.max { $0.value < $1.value }?.key })
+            return files.count == 1 ? files.first! : LS("按科目大类：%@", files.sorted().joined(separator: "、"))
+        default:
+            return u?.file ?? LS("交易文件（%@）", store.journalPattern.trimmed.isEmpty ? store.detectedLayout.journal : store.journalPattern.trimmed)
+        }
+    }
+
+    private func kindRow(_ k: LayoutKind, _ u: (file: String, count: Int, files: Int)?) -> some View {
+        let auto = automatic(k, u)
+        let set = !(c.files[k.rawValue] ?? "").trimmed.isEmpty
         let now: String = {
             guard let u = u else { return LS("暂无记录") }
             return u.files > 1 ? LS("%@ 条，主要在 %@（共 %@ 个文件）", u.count, u.file, u.files) : LS("%@ 条，在 %@", u.count, u.file)
@@ -120,9 +135,13 @@ struct RepoLayoutView: View {
             HStack {
                 Text(k.title)
                 Spacer()
-                TextField(placeholder, text: Binding(get: { c.files[k.rawValue] ?? "" }, set: { c.files[k.rawValue] = $0 }))
+                TextField(LS("自动"), text: Binding(get: { c.files[k.rawValue] ?? "" }, set: { c.files[k.rawValue] = $0 }))
                     .multilineTextAlignment(.trailing).textInputAutocapitalization(.never).autocorrectionDisabled()
                     .font(.callout.monospaced())
+            }
+            // what happens when it is left empty, spelled out (a placeholder alone was easy to miss)
+            if !set {
+                Label(LS("未设置，自动写入 %@", auto), systemImage: "wand.and.stars").font(.caption).foregroundStyle(Color.jade).lineLimit(2)
             }
             Text(now).font(.caption).foregroundStyle(.secondary).lineLimit(2)
         }
