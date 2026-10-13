@@ -3,6 +3,16 @@ import LedgerKit
 
 /// how the 记一笔 category grid looks: kept on this phone (Prefs "catStyle"), never written to the ledger
 struct CatStyle: Codable, Equatable {
+    /// icons used to be kept under a lone account (Expenses:Foo:Bar for a group of one): now under its group
+    func normalized() -> CatStyle {
+        var s = self
+        for (k, v) in icons where k.components(separatedBy: ":").count > 2 {
+            s.icons[k] = nil
+            if s.icons[catOf(k)] == nil { s.icons[catOf(k)] = v }
+        }
+        return s
+    }
+
     /// SF Symbol per group or account (a group of one is keyed by its account)
     var icons: [String: String] = [:]
     /// a name of one's own for a group
@@ -86,8 +96,19 @@ extension Store {
         if s != catStyle { catStyle = s }
     }
 
-    /// what a cell's icon is kept under: a group of one by its account, a bigger group by itself
-    static func cellKey(_ g: CategoryGroup) -> String { g.single ? g.accounts[0] : g.id }
+    /// a group's icon everywhere (the grid, 管理账户, the account list, reports): the one picked, else the built-in one —
+    /// the account kind's for assets and liabilities, the category guess for income and expenses
+    func groupIcon(_ account: String) -> AccountKind {
+        let g = catOf(account)
+        let base = AccountKind.of(g)
+        let category = g.hasPrefix("Expenses") || g.hasPrefix("Income")
+        let color: Color = category ? .jade : base.color
+        if let s = catStyle.icons[g], Symbols.valid(s) { return AccountKind(symbol: s, color: color) }
+        return category ? AccountKind(symbol: catIcon(g), color: color) : base
+    }
+
+    /// what a cell's icon is kept under: its group (Expenses:Food, Assets:Bank)
+    static func cellKey(_ g: CategoryGroup) -> String { g.id }
 
     /// a group's or account's symbol: the one picked, else the built-in guess from its English name
     func catIcon(_ key: String) -> String {

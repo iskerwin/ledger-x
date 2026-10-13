@@ -223,6 +223,7 @@ func rangeLabel(_ r: (String?, String?)) -> String {
 
 /// an expandable account tree inside a List section
 struct AccountTreeRows: View {
+    @EnvironmentObject var store: Store
     let root: AccountNode
     /// 1 for debit-normal roots (Assets, Expenses), -1 for credit-normal (Income, Liabilities, Equity)
     let sign: Double
@@ -256,9 +257,16 @@ struct AccountTreeRows: View {
                     } else {
                         Color.clear.frame(width: 18, height: 1)
                     }
+                    // the same group icon as 管理账户 and the 记一笔 grid; sub-accounts line up under the name
+                    if depth == 0 {
+                        let k = store.groupIcon(node.name)
+                        IconBadge(symbol: k.symbol, color: k.color, size: 26)
+                    } else {
+                        Color.clear.frame(width: 26, height: 1)
+                    }
                     VStack(alignment: .leading, spacing: 1) {
                         Text(node.label).lineLimit(1)
-                        if depth == 0, AppLanguage.current != .en, let zh = ZH[node.label] { Text(zh).font(.caption2).foregroundStyle(.secondary) }
+                        if depth == 0, AppLanguage.current != .en, let zh = acctZH(node.name) ?? ZH[node.label] { Text(zh).font(.caption2).foregroundStyle(.secondary) }
                     }
                     Spacer(minLength: 8)
                     VStack(alignment: .trailing, spacing: 1) {

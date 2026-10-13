@@ -209,3 +209,80 @@ struct CategoryStyleSheet: View {
         "shield", "doc.text", "scissors", "sparkles", "smoke", "ellipsis.circle",
     ]
 }
+
+/// a group of accounts (Assets:Bank, Expenses:Food) whose icon is being changed from 管理账户
+struct IconTarget: Identifiable { let group: String; var id: String { group } }
+
+/// the icon of any account group, used wherever the group shows (grid, 管理账户, accounts, reports); kept on this phone
+struct GroupIconSheet: View {
+    @EnvironmentObject var store: Store
+    @Environment(\.dismiss) private var dismiss
+    let group: String
+    @State private var icon = ""
+
+    /// the built-in one, without what was picked
+    private var builtIn: String {
+        group.hasPrefix("Expenses") || group.hasPrefix("Income") ? defaultCategoryIcon(group) : AccountKind.of(group).symbol
+    }
+
+    static let accountSymbols = [
+        "building.columns.fill", "creditcard.fill", "wallet.pass.fill", "banknote.fill", "chart.line.uptrend.xyaxis",
+        "bitcoinsign", "tray.and.arrow.down.fill", "percent", "house.fill", "car.fill", "shield.fill", "person.2.fill",
+        "yensign.circle.fill", "dollarsign.circle.fill", "lock.fill", "gift.fill", "briefcase.fill", "heart.fill",
+    ]
+
+    var body: some View {
+        let color = store.groupIcon(group).color
+        let current = icon.isEmpty ? store.groupIcon(group).symbol : icon
+        let choices = (group.hasPrefix("Assets") || group.hasPrefix("Liabilities") ? Self.accountSymbols + CategoryStyleSheet.symbols
+                       : CategoryStyleSheet.symbols + Self.accountSymbols)
+            .filter { Symbols.valid($0) }.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+        NavigationStack {
+            Form {
+                Section {
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 8) {
+                            IconBadge(symbol: current, color: color, size: 56)
+                            Text(leaf(group) + (acctZH(group).map { " · " + $0 } ?? "")).font(.subheadline)
+                        }
+                        Spacer()
+                    }
+                    .listRowBackground(Color.clear)
+                }
+                Section {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 6), spacing: 12) {
+                        ForEach(choices, id: \.self) { s in
+                            Button { icon = s } label: {
+                                Image(systemName: s).font(.system(size: 18)).frame(width: 42, height: 42)
+                                    .foregroundStyle(current == s ? Color.white : Color.primary)
+                                    .background(current == s ? color : Color(.tertiarySystemFill), in: Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(s)
+                        }
+                    }
+                    .padding(.vertical, 6)
+                    Button(LS("恢复默认图标")) { icon = builtIn }
+                } footer: {
+                    Text(LS("这个大类在记一笔、管理账户、账户页和报表里都用这个图标；只存在这台手机。"))
+                }
+            }
+            .navigationTitle(LS("更换图标"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(LS("保存")) {
+                        var s = store.catStyle
+                        s.icons[group] = icon.isEmpty || icon == builtIn ? nil : icon
+                        store.catStyle = s
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+            .onAppear { icon = store.catStyle.icons[group] ?? "" }
+        }
+    }
+}

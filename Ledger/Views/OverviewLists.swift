@@ -110,6 +110,7 @@ struct PayeeRankRow: View {
 
 /// a liability with how much of its limit is used and, for a card with a billing cycle, the bill
 struct LiabilityRow: View {
+    @EnvironmentObject var store: Store
     let L: Ledger
     let account: String
     let n: Double
@@ -121,7 +122,7 @@ struct LiabilityRow: View {
         let today = Day.today()
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 12) {
-                IconBadge(symbol: AccountKind.of(account).symbol, color: AccountKind.of(account).color, size: 28)
+                IconBadge(symbol: store.groupIcon(account).symbol, color: store.groupIcon(account).color, size: 28)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(acctLabel(account)).lineLimit(1)
                     if let c = cycle {
