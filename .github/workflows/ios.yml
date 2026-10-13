@@ -235,6 +235,8 @@ jobs:
           shot 06-overview SIMCTL_CHILD_LEDGER_TAB=overview
           shot 07-journal SIMCTL_CHILD_LEDGER_TAB=journal
           shot 07b-calendar SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_CALENDAR=1
+          shot 22b-reimb SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=reimb
+          shot 22c-reimb-batch SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=reimb-batch
           shot 08-search SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_QUERY="#fx"
           shot 09-detail SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_OPEN_TX=1
           shot 10-accounts SIMCTL_CHILD_LEDGER_TAB=accounts
