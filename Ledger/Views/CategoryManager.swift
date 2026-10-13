@@ -1,6 +1,9 @@
 import SwiftUI
 import LedgerKit
 
+/// 科目管理 from the grid: the account manager for one root
+struct CategoryAccountsDest: Hashable { let root: String }
+
 /// a grid cell whose look is being changed
 struct StyleTarget: Identifiable {
     let group: CategoryGroup
@@ -28,6 +31,16 @@ struct CategoryManager: View {
                         .pickerStyle(.segmented)
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets())
+                    }
+                    Section {
+                        NavigationLink(value: CategoryAccountsDest(root: root == "Income:" ? "Income" : "Expenses")) {
+                            Label {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(LS("科目管理"))
+                                    Text(LS("新建、改名、合并、关闭%@科目", root == "Income:" ? LS("收入") : LS("支出"))).font(.caption).foregroundStyle(.secondary)
+                                }
+                            } icon: { Image(systemName: "folder") }
+                        }
                     }
                     let groups = store.allGroups(root, D)
                     let hidden = Set(store.catStyle.hidden)
@@ -87,6 +100,8 @@ struct CategoryManager: View {
                 ToolbarItem(placement: .confirmationAction) { Button(LS("完成")) { dismiss() }.fontWeight(.semibold) }
             }
             .sheet(item: $styling) { CategoryStyleSheet(target: $0) }
+            .navigationDestination(for: CategoryAccountsDest.self) { AccountManagerView(only: $0.root) }
+            .navigationDestination(for: AccountEditDest.self) { AccountEditView(name: $0.name) }
         }
     }
 }

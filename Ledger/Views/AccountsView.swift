@@ -5,6 +5,9 @@ struct AccountsView: View {
     @EnvironmentObject var store: Store
     @State private var path = NavigationPath()
     @AppStorage("ledger.showClosed") private var showClosed = false
+    /// account groups folded away on this page ("Assets:Bank", …)
+    @AppStorage("ledger.accounts.collapsed") private var collapsedRaw = ""
+    private var collapsed: Set<String> { Set(collapsedRaw.split(separator: ",").map(String.init)) }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -78,19 +81,37 @@ struct AccountsView: View {
     private func groupSection(_ L: Ledger, _ root: String, _ g: String, _ rs: [Row]) -> some View {
         let kind = AccountKind(g)
         let failing = Set(L.balanceResults.filter { !$0.ok }.compactMap { $0.entry.account })
+        let key = root + ":" + g
+        let shut = collapsed.contains(key)
         return Section {
-            ForEach(rs, id: \.0) { row in
-                NavigationLink(value: AccountDest(name: row.0)) {
-                    AccountRow(account: row.0, balances: row.1, closed: row.2, failing: failing.contains(row.0), kind: kind)
+            if !shut {
+                ForEach(rs, id: \.0) { row in
+                    NavigationLink(value: AccountDest(name: row.0)) {
+                        AccountRow(account: row.0, balances: row.1, closed: row.2, failing: failing.contains(row.0), kind: kind)
+                    }
                 }
             }
         } header: {
-            HStack(spacing: 6) {
-                Text(groupName(g))
-                if AppLanguage.current != .en { Text(g).foregroundStyle(.tertiary).textCase(nil) }
-                Spacer()
-                Text(money(cnyTotal(L, rs))).monospacedDigit().sensitive().textCase(nil)
+            // tap to fold the group away (remembered on this device); its total stays in sight
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    var s = collapsed
+                    if shut { s.remove(key) } else { s.insert(key) }
+                    collapsedRaw = s.sorted().joined(separator: ",")
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.right").font(.caption2.weight(.bold)).rotationEffect(.degrees(shut ? 0 : 90))
+                    Text(groupName(g))
+                    if AppLanguage.current != .en { Text(g).foregroundStyle(.tertiary).textCase(nil) }
+                    if shut { Text(LS("%@ 个", rs.count)).foregroundStyle(.tertiary).textCase(nil) }
+                    Spacer()
+                    Text(money(cnyTotal(L, rs))).monospacedDigit().sensitive().textCase(nil)
+                }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
         }
     }
 
@@ -273,6 +294,8 @@ struct RegisterView: View {
     @EnvironmentObject var store: Store
     let account: String
     @State private var checking: CheckPreset?
+    /// months opened or closed by hand (the rest follow `open`)
+    @State private var opened: [String: Bool] = [:]
     @State private var reimb: ReimbTarget?
     @State private var deleting: Entry?
 
@@ -312,19 +335,113 @@ struct RegisterView: View {
 
     private func page(_ L: Ledger) -> some View {
         let built = build(L)
-        let items = Array(built.0.suffix(300).reversed())
-        let total = built.0.count
+        let (months, c) = monthGroups(built.0, L)
+        let check = canCheck(L)
+        let first = months.first?.ym
         return List {
             header(L, built.1)
             if account.hasPrefix("Assets:") || account.hasPrefix("Liabilities:") { countsSection() }
             if let c = cardCycles(L).first(where: { $0.account == account }) { CardBillSection(cycle: c) }
-            Section(total > 300 ? LS("最近 300 条") : LS("共 %@ 条", total)) {
-                ForEach(Array(items.enumerated()), id: \.offset) { pair in
-                    itemRow(pair.element, canCheck(L))
+            if months.isEmpty { Section { Text(LS("暂无记录")).foregroundStyle(.secondary) } }
+            // a month to a section: its totals on top, its entries (newest first) once opened
+            ForEach(months) { m in
+                Section {
+                    monthRow(m, c, first: first)
+                    if open(m, first: first) {
+                        ForEach(Array(m.items.reversed().enumerated()), id: \.offset) { pair in itemRow(pair.element, check) }
+                    }
                 }
-                if items.isEmpty { Text(LS("暂无记录")).foregroundStyle(.secondary) }
             }
         }
+        .listSectionSpacing(.compact)
+    }
+
+    /// one month of the register
+    struct Month: Identifiable {
+        let ym: String
+        var items: [Item] = []
+        /// money in and out of the account (or, for a category, its total), in `currency`
+        var inflow = 0.0
+        var outflow = 0.0
+        var count = 0
+        /// the running balance after the month's last entry
+        var closing = ""
+        var id: String { ym }
+    }
+
+    /// The register by month, newest first. Amounts are in the account's own currency when it has one, else
+    /// converted to the operating currency on each day.
+    private func monthGroups(_ items: [Item], _ L: Ledger) -> ([Month], String) {
+        let pre = account + ":"
+        let own = Set(L.txns.lazy.flatMap { $0.postings }.filter { $0.account == account || $0.account.hasPrefix(pre) }.compactMap { $0.currency })
+        let single = own.count == 1 ? own.first : nil
+        var by: [String: Month] = [:]
+        for it in items {
+            let date: String
+            switch it {
+            case .txn(let t, _): date = t.date
+            case .balance(let r): date = r.entry.date
+            case .document(let e): date = e.date
+            }
+            let ym = Day.ym(date)
+            var m = by[ym] ?? Month(ym: ym)
+            m.items.append(it)
+            if case .txn(let t, let b) = it {
+                m.count += 1
+                m.closing = b
+                for p in t.postings where p.account == account || p.account.hasPrefix(pre) {
+                    guard let u = p.units, let c = p.currency else { continue }
+                    let v = single != nil ? u : (toCNY(L, u, c, t.date) ?? 0)
+                    if v > 0 { m.inflow += v } else { m.outflow -= v }
+                }
+            }
+            by[ym] = m
+        }
+        return (by.values.sorted { $0.ym > $1.ym }, single ?? L.base)
+    }
+
+    /// the latest month with entries starts open
+    private func open(_ m: Month, first: String?) -> Bool {
+        opened[m.ym] ?? (m.ym == first)
+    }
+
+    private func monthRow(_ m: Month, _ c: String, first: String?) -> some View {
+        let isIE = account.hasPrefix("Expenses") || account.hasPrefix("Income")
+        let on = open(m, first: first)
+        return Button {
+            withAnimation(.easeInOut(duration: 0.2)) { opened[m.ym] = !on }
+        } label: {
+            HStack(alignment: .center, spacing: 10) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(Day.monthLabel(m.ym)).font(.headline)
+                    Text(LS("%@ 笔", m.count)).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                VStack(alignment: .trailing, spacing: 2) {
+                    if isIE {
+                        // a category: what it came to (spending positive, income positive)
+                        let total = account.hasPrefix("Income") ? m.outflow - m.inflow : m.inflow - m.outflow
+                        Text(money(total, c)).font(.subheadline.weight(.semibold).monospacedDigit()).sensitive()
+                    } else {
+                        if m.outflow > 0.004 {
+                            Text(LS("流出 %@", money(m.outflow, c))).font(.caption.weight(.medium).monospacedDigit()).foregroundStyle(Color.loss).sensitive()
+                        }
+                        if m.inflow > 0.004 {
+                            Text(LS("流入 %@", money(m.inflow, c))).font(.caption.weight(.medium).monospacedDigit()).foregroundStyle(Color.gain).sensitive()
+                        }
+                        if !m.closing.isEmpty {
+                            Text(LS("月末 %@", m.closing)).font(.caption2.monospacedDigit()).foregroundStyle(.secondary).sensitive()
+                        }
+                    }
+                }
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                    .rotationEffect(.degrees(on ? 90 : 0))
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(on ? LS("收起") : LS("展开"))
     }
 
     /// whether this account counts in 净资产 and in 资产负债表 (saved to ledger-x.json at once)
