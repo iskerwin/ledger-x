@@ -143,11 +143,13 @@ struct JournalCalendar: View {
         let picked = day == d
         let future = d > Day.today()
         return Button { day = picked ? nil : d } label: {
+            // the day is a small grey label; the amounts are what stands out: spending bold, income green
             VStack(spacing: 1) {
-                Text(String(Int(d.suffix(2)) ?? 0)).font(.caption.weight(today ? .bold : .regular))
-                    .foregroundStyle(future ? Color.secondary : Color.primary)
-                Text(out > 0.005 ? short(out) : " ").font(.system(size: 9.5).monospacedDigit()).foregroundStyle(.primary).sensitive()
-                Text(inn > 0.005 ? "+" + short(inn) : " ").font(.system(size: 9).monospacedDigit()).foregroundStyle(Color.gain).sensitive()
+                Text(String(Int(d.suffix(2)) ?? 0)).font(.system(size: 10, weight: today ? .bold : .regular))
+                    .foregroundStyle(today ? Color.jade : future ? Color.secondary.opacity(0.5) : Color.secondary)
+                Text(out > 0.005 ? short(out) : " ").font(.system(size: 10.5, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(Color.primary).sensitive()
+                Text(inn > 0.005 ? "+" + short(inn) : " ").font(.system(size: 9, weight: .medium).monospacedDigit()).foregroundStyle(Color.gain).sensitive()
             }
             .frame(maxWidth: .infinity, minHeight: 46)
             .background(Color.jade.opacity(shade), in: RoundedRectangle(cornerRadius: 7))

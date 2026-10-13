@@ -64,27 +64,43 @@ struct ReimbExportSheet: View {
                 }
             }
             Section {
+                // the same shape as 记一笔: icon and text centred between flexible spacers, the row itself borderless
                 if files.isEmpty {
                     Button {
                         Task { await make(r) }
                     } label: {
-                        HStack {
-                            Spacer()
-                            if working { ProgressView(); Text(progress).font(.footnote) } else { Label(LS("生成"), systemImage: "doc.richtext").fontWeight(.semibold) }
-                            Spacer()
+                        HStack(spacing: 6) {
+                            Spacer(minLength: 0)
+                            if working {
+                                ProgressView()
+                                Text(progress).font(.footnote)
+                            } else {
+                                Image(systemName: "doc.richtext")
+                                Text(LS("生成"))
+                            }
+                            Spacer(minLength: 0)
                         }
+                        .fontWeight(.semibold)
                     }
                     .buttonStyle(.borderedProminent).tint(.jade).controlSize(.large)
                     .disabled(working || r.lines.isEmpty)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
                 } else {
                     ShareLink(items: files) {
-                        HStack { Spacer(); Label(LS("分享 %@ 个文件", files.count), systemImage: "square.and.arrow.up").fontWeight(.semibold); Spacer() }
+                        HStack(spacing: 6) {
+                            Spacer(minLength: 0)
+                            Image(systemName: "square.and.arrow.up")
+                            Text(LS("分享 %@ 个文件", files.count))
+                            Spacer(minLength: 0)
+                        }
+                        .fontWeight(.semibold)
                     }
                     .buttonStyle(.borderedProminent).tint(.jade).controlSize(.large)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
                 }
             }
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets())
             .onChange(of: withDocs) { _, _ in files = [] }
             .onChange(of: withCSV) { _, _ in files = [] }
         }
