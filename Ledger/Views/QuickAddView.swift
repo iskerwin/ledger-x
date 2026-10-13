@@ -69,6 +69,7 @@ struct QuickAddView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task { if store.demoEnv["LEDGER_IMPORT"] != nil { importing = true } }
         .task { if store.demoEnv["LEDGER_CATS"] != nil { managingCats = true } }
+        .task { if store.demoEnv["LEDGER_NOTE"] != nil { try? await Task.sleep(nanoseconds: 900_000_000); field = .narration } }
     }
 
     private static let kinds: [DraftKind] = [.expense, .income, .transfer]
@@ -529,56 +530,46 @@ struct QuickAddView: View {
                 }
             }
             Divider()
-            if field != nil {
-                textFields(d, narrs, D)
-            } else {
-                noteRow(d)
-            }
+            if field == nil { dateRow() }
+            textFields(d, narrs, text, D)
             if showSource && field == nil { source(d, text, v) }
         }
         .padding(14)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
     }
 
-    /// the date, payee and note, and the source text behind the chevron
-    private func noteRow(_ d: Draft) -> some View {
+    /// the date, and the source text behind the chevron
+    private func dateRow() -> some View {
         HStack(spacing: 10) {
             DatePicker(LS("日期"), selection: Binding(get: { Day.date(store.draft.date) ?? Date() },
                                                     set: { store.draft.date = Day.string($0); store.draft.edited = nil }),
                        displayedComponents: .date)
                 .labelsHidden()
                 .fixedSize()
-            Button { field = .payee } label: {
-                Text(noteLine(d))
-                    .foregroundStyle(d.payee.isEmpty && d.narration.isEmpty ? Color.secondary.opacity(0.6) : Color.primary)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
+            Spacer(minLength: 0)
             Button { withAnimation { showSource.toggle() } } label: {
-                Image(systemName: showSource ? "chevron.down" : "chevron.up")
-                    .font(.footnote.weight(.semibold))
-                    .frame(width: 30, height: 30)
-                    .background(Color(.tertiarySystemFill), in: Circle())
+                HStack(spacing: 4) {
+                    Text(LS("源文本")).font(.footnote)
+                    Image(systemName: showSource ? "chevron.down" : "chevron.up").font(.caption2.weight(.semibold))
+                }
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .background(Color(.tertiarySystemFill), in: Capsule())
             }
             .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
             .accessibilityLabel(showSource ? LS("收起源文本") : LS("查看源文本"))
         }
     }
 
-    private func noteLine(_ d: Draft) -> String {
-        let p = d.payee.trimmed, n = d.narration.trimmed
-        if p.isEmpty && n.isEmpty { return LS("收付款方 · 备注") }
-        return [p, n].filter { !$0.isEmpty }.joined(separator: " · ")
-    }
-
+    /// 收付款方 and 备注 on rows of their own, always editable; while typing, the header line they make
     @ViewBuilder
-    private func textFields(_ d: Draft, _ narrs: [String], _ D: Derived) -> some View {
-        TextField(LS("收付款方（如 便利店、淘宝）"), text: Binding(get: { store.draft.payee }, set: { store.draft.payee = $0; store.draft.edited = nil }))
-            .focused($field, equals: .payee)
-            .submitLabel(.next)
-            .onSubmit { applyPayee(store.draft.payee.trimmed, onlyBlanks: false); field = .narration }
+    private func textFields(_ d: Draft, _ narrs: [String], _ text: String, _ D: Derived) -> some View {
+        labeled(LS("收付款方")) {
+            TextField(LS("如 便利店、淘宝，可不填"), text: Binding(get: { store.draft.payee }, set: { store.draft.payee = $0; store.draft.edited = nil }))
+                .focused($field, equals: .payee)
+                .submitLabel(.next)
+                .onSubmit { applyPayee(store.draft.payee.trimmed, onlyBlanks: false); field = .narration }
+        }
         if field == .payee {
             let q = d.payee.trimmed
             let items = Array(D.payees.filter { q.isEmpty || fuzzy(q, $0.name) > 0 }.prefix(8))
@@ -590,10 +581,13 @@ struct QuickAddView: View {
                 }
             }
         }
-        TextField(narrs.first ?? LS("备注"), text: Binding(get: { store.draft.narration }, set: { store.draft.narration = $0; store.draft.edited = nil }))
-            .focused($field, equals: .narration)
-            .submitLabel(.done)
-            .onSubmit { field = nil }
+        labeled(LS("备注")) {
+            TextField(narrs.first.map { LS("如 %@，可不填", $0) } ?? LS("买了什么、做什么用，可不填"),
+                      text: Binding(get: { store.draft.narration }, set: { store.draft.narration = $0; store.draft.edited = nil }))
+                .focused($field, equals: .narration)
+                .submitLabel(.done)
+                .onSubmit { field = nil }
+        }
         if field == .narration && !narrs.isEmpty {
             ChipRow {
                 ForEach(narrs, id: \.self) { n in
@@ -601,6 +595,26 @@ struct QuickAddView: View {
                 }
             }
         }
+        if field != nil {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(text.components(separatedBy: "\n").first(where: { !$0.trimmed.isEmpty }) ?? "")
+                    .font(.system(size: 12, design: .monospaced))
+                    .lineLimit(1).truncationMode(.tail)
+                Text(d.kind == .transfer
+                     ? LS("写成 日期 * \"收付款方\" \"备注\"。转账不填时自动写 \"Transfer\" 和 \"转出 -> 转入\"。")
+                     : LS("写成 日期 * \"收付款方\" \"备注\"。收付款方不填就省略，只留 \"备注\"；备注不填写成 \"\"。不用自己加引号。"))
+                    .font(.caption2)
+            }
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    private func labeled<F: View>(_ label: String, @ViewBuilder _ f: () -> F) -> some View {
+        HStack(spacing: 12) {
+            Text(label).font(.subheadline).foregroundStyle(.secondary).frame(width: 64, alignment: .leading)
+            f()
+        }
+        .padding(.vertical, 2)
     }
 
     /// a payee picked by hand (or typed and left) fills in its usual category and account; ones picked here stay
