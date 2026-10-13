@@ -618,7 +618,7 @@
      }
     ]
    },
-   "2026-10-08 * \"Didi\" \"打车\" #reimbursed ^reimburse-work-202610\n  Assets:Receivable:Reimbursement                     56.00 CNY\n  Assets:EWallet:Alipay                              -56.00 CNY"
+   "2026-10-08 * \"Didi\" \"打车\" #reimbursed ^reimburse-work-202610\n  Assets:Receivable:Reimbursement                     56.00 CNY\n    category: \"Expenses:Transit:Metro\"\n  Assets:EWallet:Alipay                              -56.00 CNY"
   ],
   [
    {

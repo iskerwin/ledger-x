@@ -38,6 +38,14 @@ func crc32(_ d: Data) -> UInt32 {
     return c ^ 0xFFFF_FFFF
 }
 
+/// a number as Excel writes it: up to two decimals, no trailing zeros ("4950", "9.59")
+func xnum(_ v: Double) -> String {
+    var s = String(format: "%.2f", roundTo(v, 2))
+    while s.contains("."), s.hasSuffix("0") { s.removeLast() }
+    if s.hasSuffix(".") { s.removeLast() }
+    return s == "-0" ? "0" : s
+}
+
 /// text for an XML element or attribute
 func xmlEscape(_ s: String) -> String {
     var o = ""
@@ -114,10 +122,10 @@ public func reimbXLSX(_ r: ReimbReport) -> Data {
     }
     func num(_ ref: String, _ v: Double?, _ style: Int) -> String {
         guard let v = v else { return "<c r=\"\(ref)\" s=\"\(style)\"/>" }
-        return "<c r=\"\(ref)\" s=\"\(style)\"><v>\(numText(roundTo(v, 2)))</v></c>"
+        return "<c r=\"\(ref)\" s=\"\(style)\"><v>\(xnum(v))</v></c>"
     }
     func fml(_ ref: String, _ f: String, _ v: Double, _ style: Int) -> String {
-        "<c r=\"\(ref)\" s=\"\(style)\"><f>\(xmlEscape(f))</f><v>\(numText(roundTo(v, 2)))</v></c>"
+        "<c r=\"\(ref)\" s=\"\(style)\"><f>\(xmlEscape(f))</f><v>\(xnum(v))</v></c>"
     }
     let heads = ["序号", "日期", "收入", "支出", "余额", "备注/详见报销清单", "支出类型", "凭证类型"]
     for (i, h) in heads.enumerated() { put(1, str(colName(i) + "1", h, 1)) }
@@ -192,7 +200,7 @@ public func reimbXLSX(_ r: ReimbReport) -> Data {
         var a = xs.count < vs.count ? " containsString=\"0\" containsBlank=\"1\"" : " containsSemiMixedTypes=\"0\" containsString=\"0\""
         a += " containsNumber=\"1\""
         if xs.allSatisfy({ $0 == $0.rounded() }) { a += " containsInteger=\"1\"" }
-        return "<sharedItems\(a) minValue=\"\(numText(lo))\" maxValue=\"\(numText(hi))\"/>"
+        return "<sharedItems\(a) minValue=\"\(xnum(lo))\" maxValue=\"\(xnum(hi))\"/>"
     }
     var bal = 0.0
     var balances: [Double] = []
@@ -223,8 +231,8 @@ public func reimbXLSX(_ r: ReimbReport) -> Data {
     var records = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<pivotCacheRecords xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" count=\"\(n)\">"
     for (i, l) in rows.enumerated() {
         records += "<r><n v=\"\(i + 1)\"/><d v=\"\(l.date)T00:00:00\"/>"
-        records += l.income ? "<n v=\"\(numText(l.amount))\"/><m/>" : "<m/><n v=\"\(numText(l.amount))\"/>"
-        records += "<n v=\"\(numText(balances[i]))\"/>"
+        records += l.income ? "<n v=\"\(xnum(l.amount))\"/><m/>" : "<m/><n v=\"\(xnum(l.amount))\"/>"
+        records += "<n v=\"\(xnum(balances[i]))\"/>"
         records += remarks[i].isEmpty ? "<m/>" : "<s v=\"\(xmlEscape(remarks[i]))\"/>"
         records += "<x v=\"\(typeItems.firstIndex(of: l.income ? "" : l.category)!)\"/>"
         records += "<x v=\"\(voucherItems.firstIndex(of: l.income ? "" : l.voucher)!)\"/></r>"
