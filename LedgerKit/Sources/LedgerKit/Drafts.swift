@@ -492,6 +492,21 @@ public struct LedgerXConfig: Codable, Equatable {
     public var netWorthExclude: [String]?
     /// accounts (and their sub-accounts) left out of 资产负债表
     public var balanceExclude: [String]?
+    /// the file the ledger starts from (main.bean when not given)
+    public var main: String?
+    /// 记账偏好: the paying account and currency of a new entry
+    public var defaultFunding: String?
+    public var defaultCurrency: String?
+    /// a single expense this large is unusual (值得留意) and left out of the forecast's daily average; 0 = never
+    public var largeExpense: Double?
+    /// 值得留意 items checked and found fine
+    public var alertsConfirmed: [String]?
+    /// link problems and subscription suggestions set aside
+    public var linksIgnored: [String]?
+    public var subsIgnored: [String]?
+    /// 常用交易 pinned to the front, and the ones not offered
+    public var templatesPinned: [String]?
+    public var templatesHidden: [String]?
 
     public init(files: [String: String] = [:], rules: [LayoutRule] = [], receivable: String? = nil, slugs: [String: String] = [:]) {
         self.files = files; self.rules = rules; self.receivable = receivable; self.slugs = slugs
@@ -500,6 +515,9 @@ public struct LedgerXConfig: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case files, rules, receivable, slugs, payslips
         case netWorthExclude = "networth_exclude", balanceExclude = "balance_exclude"
+        case main, defaultFunding = "default_funding", defaultCurrency = "default_currency", largeExpense = "large_expense"
+        case alertsConfirmed = "alerts_confirmed", linksIgnored = "links_ignored", subsIgnored = "subs_ignored"
+        case templatesPinned = "templates_pinned", templatesHidden = "templates_hidden"
     }
 
     /// every key is optional, so a hand-written file with only some of them still loads
@@ -512,6 +530,15 @@ public struct LedgerXConfig: Codable, Equatable {
         payslips = try? c.decodeIfPresent([PayslipTemplate].self, forKey: .payslips)
         netWorthExclude = try? c.decodeIfPresent([String].self, forKey: .netWorthExclude)
         balanceExclude = try? c.decodeIfPresent([String].self, forKey: .balanceExclude)
+        main = try? c.decodeIfPresent(String.self, forKey: .main)
+        defaultFunding = try? c.decodeIfPresent(String.self, forKey: .defaultFunding)
+        defaultCurrency = try? c.decodeIfPresent(String.self, forKey: .defaultCurrency)
+        largeExpense = try? c.decodeIfPresent(Double.self, forKey: .largeExpense)
+        alertsConfirmed = try? c.decodeIfPresent([String].self, forKey: .alertsConfirmed)
+        linksIgnored = try? c.decodeIfPresent([String].self, forKey: .linksIgnored)
+        subsIgnored = try? c.decodeIfPresent([String].self, forKey: .subsIgnored)
+        templatesPinned = try? c.decodeIfPresent([String].self, forKey: .templatesPinned)
+        templatesHidden = try? c.decodeIfPresent([String].self, forKey: .templatesHidden)
     }
 
     /// the same settings with an account renamed (its sub-accounts too); nil when nothing refers to it
@@ -524,6 +551,7 @@ public struct LedgerXConfig: Codable, Equatable {
         if let r = c.receivable { c.receivable = move(r) }
         // a merge can leave the same name twice
         func dedup(_ xs: [String]?) -> [String]? { xs.map { l in l.map(move).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } } } }
+        if let f = c.defaultFunding { c.defaultFunding = move(f) }
         c.netWorthExclude = dedup(c.netWorthExclude)
         c.balanceExclude = dedup(c.balanceExclude)
         return c == self ? nil : c
@@ -549,6 +577,13 @@ public struct LedgerXConfig: Codable, Equatable {
         if c.payslips?.isEmpty ?? false { c.payslips = nil }
         if c.netWorthExclude?.isEmpty ?? false { c.netWorthExclude = nil }
         if c.balanceExclude?.isEmpty ?? false { c.balanceExclude = nil }
+        func blank(_ s: String?) -> Bool { (s ?? "").trimmingCharacters(in: .whitespaces).isEmpty }
+        if blank(c.main) { c.main = nil }
+        if blank(c.defaultFunding) { c.defaultFunding = nil }
+        if blank(c.defaultCurrency) { c.defaultCurrency = nil }
+        for k in [\LedgerXConfig.alertsConfirmed, \.linksIgnored, \.subsIgnored, \.templatesPinned, \.templatesHidden] {
+            if let l = c[keyPath: k] { c[keyPath: k] = l.isEmpty ? nil : Array(Set(l)).sorted() }
+        }
         return (String(data: (try? e.encode(c)) ?? Data(), encoding: .utf8) ?? "{}") + "\n"
     }
 }
@@ -584,11 +619,14 @@ public struct RepoLayout: Equatable, Codable {
         return "include \"\(rel)\""
     }
 
-    /// a file pattern filled in: {year}, {month} from the date, {root} from the account (Assets, Expenses, …)
+    /// a file pattern filled in: {year}, {month} from the date, {root} from the account (Assets, Expenses, …),
+    /// {root_lower} the same in small letters (assets, expenses, …)
     public static func expand(_ pattern: String, date: String, account: String? = nil) -> String {
         var p = pattern.replacingOccurrences(of: "{year}", with: String(date.prefix(4)))
         if p.contains("{month}") { p = p.replacingOccurrences(of: "{month}", with: String(date.dropFirst(5).prefix(2))) }
-        if p.contains("{root}") { p = p.replacingOccurrences(of: "{root}", with: (account ?? "").components(separatedBy: ":")[0]) }
+        let root = (account ?? "").components(separatedBy: ":")[0]
+        if p.contains("{root_lower}") { p = p.replacingOccurrences(of: "{root_lower}", with: root.lowercased()) }
+        if p.contains("{root}") { p = p.replacingOccurrences(of: "{root}", with: root) }
         return p
     }
 

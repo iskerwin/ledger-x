@@ -96,11 +96,12 @@ final class Store: ObservableObject {
     /// a regular payment offered as a subscription after saving it
     @Published var subSuggestion: SubCandidate?
 
-    @Published var tplPinned: [String] { didSet { Prefs.set("tplPinned", tplPinned); tplCache = nil } }
-    @Published var tplHidden: [String] { didSet { Prefs.set("tplHidden", tplHidden); tplCache = nil } }
-    @Published var defaultFunding: String? { didSet { Prefs.set("defaultFunding", defaultFunding) } }
-    /// currency of new expenses / income / refunds; nil = the paying account's own currency
-    @Published var defaultCurrency: String? { didSet { Prefs.set("defaultCurrency", defaultCurrency) } }
+    // 常用交易 pinned / hidden, 记账偏好 defaults: in ledger-x.json (see Shared.swift); these are the values kept on
+    // this phone before, read until they are moved there
+    var localTplPinned: [String] { Prefs.get("tplPinned", [String]()) }
+    var localTplHidden: [String] { Prefs.get("tplHidden", [String]()) }
+    var localDefaultFunding: String? { Prefs.get("defaultFunding", String?.none) }
+    var localDefaultCurrency: String? { Prefs.get("defaultCurrency", String?.none) }
     /// changes made from this device, newest first, so they can be taken back
     @Published private(set) var history: [ChangeRecord] = []
     @Published var explicitAmounts: Bool { didSet { Prefs.set("explicit", explicitAmounts) } }
@@ -117,7 +118,11 @@ final class Store: ObservableObject {
     /// BQL: queries saved on this phone, and the ones in the ledger (query directives, *.bql files)
     @Published var myQueries: [SavedQuery] { didSet { Prefs.set("queries", myQueries) } }
     @Published private(set) var ledgerQueries: [SavedQuery] = []
-    var main: String { mainFile.trimmed.isEmpty ? "main.bean" : mainFile.trimmed }
+    /// ledger-x.json's, else the one set on this phone when connecting, else main.bean
+    var main: String {
+        if let m = repoConfig?.main?.trimmed, !m.isEmpty { return m }
+        return mainFile.trimmed.isEmpty ? "main.bean" : mainFile.trimmed
+    }
     var receivable: String {
         if let r = repoConfig?.receivable?.trimmed, !r.isEmpty { return r }
         return receivableAccount.trimmed.isEmpty ? "Assets:Receivable:Reimbursement" : receivableAccount.trimmed
@@ -178,10 +183,6 @@ final class Store: ObservableObject {
         tree = Prefs.get(Store.key("tree", id), RepoTree?.none)
         lastSync = Prefs.get(Store.key("lastSync", id), Date?.none)
         ci = Prefs.get(Store.key("ci", id), GitHub.CI?.none)
-        tplPinned = Prefs.get("tplPinned", [String]())
-        tplHidden = Prefs.get("tplHidden", [String]())
-        defaultFunding = Prefs.get("defaultFunding", String?.none)
-        defaultCurrency = Prefs.get("defaultCurrency", String?.none)
         history = Prefs.get(Store.key("history", id), [ChangeRecord]())
         explicitAmounts = Prefs.get("explicit", true)
         mainFile = Prefs.get(Store.key("mainFile", id), "")
@@ -264,7 +265,7 @@ final class Store: ObservableObject {
         Keychain.save("", account: id == "default" ? "token" : "token." + id)
         // everything kept per ledger on this phone (see pk(_:))
         for k in ["pending", "tree", "lastSync", "ci", "history", "mainFile", "journalPattern", "receivable", "subsFile",
-                  "sub.ignored", "link.ignored", "remind.cards", "alerts.dismissed", "alerts.seen", "backup.last"] {
+                  "sub.ignored", "link.ignored", "remind.cards", "alerts.dismissed", "alerts.seen", "backup.last", "config.migrated"] {
             UserDefaults.standard.removeObject(forKey: "ledger." + Store.key(k, id))
         }
         UserDefaults.standard.removeObject(forKey: PriceFetch.lastKey + "@" + id)
@@ -456,8 +457,9 @@ final class Store: ObservableObject {
         guard gen == rebuildGen else { return }
         let files = tree.files
         let ops = pending
-        let main = self.main
+        // ledger-x.json first: it may name the main file
         repoConfig = Self.readConfig(files: files, ops: ops)
+        let main = self.main
         let receivable = self.receivable
         let result: (Ledger, Derived)? = await Task.detached(priority: .userInitiated) {
             let L = Store.loadWith(files: files, main: main, ops: ops)
@@ -481,6 +483,7 @@ final class Store: ObservableObject {
             loadError = nil
             version += 1
             afterLoad()
+            if !demo { Task { await migrateLocalSettings() } }
             if draft.funding.isEmpty { draft = newDraft(.expense, r.1, defaultFunding: defaultFunding, defaultCurrency: defaultCurrency) }
         } else {
             loadError = LS("无法读取 %@", main)
@@ -855,8 +858,8 @@ final class Store: ObservableObject {
     // MARK: - events and unusual spending
 
     static let autoEventsKey = "ledger.events.auto"
-    /// a single expense this large (base currency) is flagged; 0 = never
-    var largeExpense: Double { AppSettings.shared.largeExpense }
+    /// a single expense this large (base currency) is flagged; 0 = never (ledger-x.json)
+    var largeExpense: Double { repoConfig?.largeExpense ?? (settingsMigrated ? 2000 : AppSettings.shared.largeExpense) }
     /// new entries get the tags of the events going on that day
     var autoEventTags: Bool { UserDefaults.standard.object(forKey: Store.autoEventsKey) as? Bool ?? true }
     private var anomalyCache: (version: Int, large: Double, day: String, list: [Anomaly])?
@@ -864,7 +867,10 @@ final class Store: ObservableObject {
     @Published private(set) var alertsVersion = 0
 
     /// alerts checked and found fine
-    var confirmedAlertIDs: Set<String> { Prefs.get(pk("alerts.dismissed"), Set<String>()) }
+    var confirmedAlertIDs: Set<String> {
+        if let l = repoConfig?.alertsConfirmed { return Set(l) }
+        return settingsMigrated ? [] : Prefs.get(pk("alerts.dismissed"), Set<String>())
+    }
 
     /// what looks unusual in the last month, not checked yet
     var anomalyList: [Anomaly] {
@@ -897,8 +903,9 @@ final class Store: ObservableObject {
         // only the ones that can still come up are worth keeping
         let live = Set(anomalyCache?.list.map { $0.id } ?? [])
         if s.count > 500 { s = s.filter { live.contains($0) } }
-        Prefs.set(pk("alerts.dismissed"), s)
+        let keep = s
         alertsVersion += 1
+        Task { await updateConfig(LS("核对无误：%@ 项", keep.count)) { $0.alertsConfirmed = Array(keep) } }
     }
 
     /// alerts shown in the app aren't sent as a notification any more
@@ -916,8 +923,9 @@ final class Store: ObservableObject {
     func unconfirmAlert(_ id: String) {
         var s = confirmedAlertIDs
         s.remove(id)
-        Prefs.set(pk("alerts.dismissed"), s)
+        let keep = s
         alertsVersion += 1
+        Task { await updateConfig(LS("放回待核对")) { $0.alertsConfirmed = Array(keep) } }
     }
 
     /// the tags a new entry dated `date` gets on its own

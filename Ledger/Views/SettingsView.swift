@@ -93,18 +93,14 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    LabeledContent(LS("主文件")) {
-                        TextField("main.bean", text: $store.mainFile)
-                            .multilineTextAlignment(.trailing).textInputAutocapitalization(.never).autocorrectionDisabled()
-                    }
                     NavigationLink { RepoLayoutView() } label: {
-                        LabeledContent(LS("文件规则"), value: store.repoConfig == nil ? LS("自动识别") : LedgerXConfig.path)
+                        LabeledContent(LS("仓库结构与共用设置"), value: store.main)
                     }
                     Button { Task { await store.rebuild() } } label: { Label(LS("应用并重新加载"), systemImage: "arrow.clockwise") }
                 } header: {
                     Text(LS("仓库结构"))
                 } footer: {
-                    Text(LS("主文件保存在本机；交易、开户、余额断言等各类记录写入哪个文件、按科目分流的规则和报销应收科目，保存在仓库的 ledger-x.json 中，所有设备共用。修改主文件后，请点按「应用并重新加载」。"))
+                    Text(LS("主文件、各类记录写入哪个文件、记账偏好、统计范围等跟账本有关的设置都保存在仓库的 ledger-x.json，所有设备共用；主题、语言、提醒等只存在这台手机。"))
                 }
 
                 Section {
