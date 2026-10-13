@@ -686,7 +686,7 @@ struct QuickAddView: View {
             a += current.isEmpty ? "0." : "."
         default:
             if let dot = current.firstIndex(of: "."), current[dot...].count > 2 { return }
-            if current.filter { $0.isNumber }.count >= 10 { return }
+            if current.filter({ $0.isNumber }).count >= 10 { return }
             if current == "0" { a.removeLast() }
             a += k
         }
