@@ -125,14 +125,20 @@ struct JournalCalendar: View {
                     Text(w).font(.caption2).foregroundStyle(.secondary).frame(maxWidth: .infinity)
                 }
             }
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 7), spacing: 4) {
-                ForEach(Array(cells.enumerated()), id: \.offset) { _, d in
-                    if let d = d {
-                        cell(d, totals[d], top: top, today: d == today)
-                    } else {
-                        Color.clear.frame(height: 46)
+            // weeks as plain rows of fixed height: a lazy grid inside a List row can be measured too short and
+            // clip everything under the day number
+            let weeks = stride(from: 0, to: cells.count, by: 7).map { Array(cells[$0..<min($0 + 7, cells.count)]) }
+            ForEach(weeks.indices, id: \.self) { w in
+                HStack(spacing: 4) {
+                    ForEach(0..<7, id: \.self) { i in
+                        if i < weeks[w].count, let d = weeks[w][i] {
+                            cell(d, totals[d], top: top, today: d == today)
+                        } else {
+                            Color.clear.frame(maxWidth: .infinity)
+                        }
                     }
                 }
+                .frame(height: 50)
             }
         }
     }
@@ -151,7 +157,7 @@ struct JournalCalendar: View {
                     .foregroundStyle(Color.primary).sensitive()
                 Text(inn > 0.005 ? "+" + short(inn) : " ").font(.system(size: 9, weight: .medium).monospacedDigit()).foregroundStyle(Color.gain).sensitive()
             }
-            .frame(maxWidth: .infinity, minHeight: 46)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.jade.opacity(shade), in: RoundedRectangle(cornerRadius: 7))
             .overlay(RoundedRectangle(cornerRadius: 7).stroke(picked ? Color.jade : today ? Color.secondary.opacity(0.5) : .clear, lineWidth: picked ? 2 : 1))
         }
@@ -159,10 +165,10 @@ struct JournalCalendar: View {
         .accessibilityLabel(Day.dayLabel(d) + (out > 0.005 ? " " + LS("支出 ") + money(out) : "") + (inn > 0.005 ? " " + LS("收入 ") + money(inn) : ""))
     }
 
-    /// 86, 1.2k, 12k
+    /// 86, 1.2k, 12k (hidden like every amount when 隐藏金额 is on)
     private func short(_ v: Double) -> String {
-        if v < 1000 { return String(Int(v.rounded())) }
-        if v < 10000 { return String(format: "%.1fk", v / 1000) }
-        return String(format: "%.0fk", v / 1000)
+        if v < 1000 { return masked(String(Int(v.rounded()))) }
+        if v < 10000 { return masked(String(format: "%.1fk", v / 1000)) }
+        return masked(String(format: "%.0fk", v / 1000))
     }
 }

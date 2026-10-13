@@ -234,6 +234,7 @@ jobs:
           shot 05-raw SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_KIND=raw
           shot 06-overview SIMCTL_CHILD_LEDGER_TAB=overview
           shot 07-journal SIMCTL_CHILD_LEDGER_TAB=journal
+          shot 07b-calendar SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_CALENDAR=1
           shot 08-search SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_QUERY="#fx"
           shot 09-detail SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_OPEN_TX=1
           shot 10-accounts SIMCTL_CHILD_LEDGER_TAB=accounts
