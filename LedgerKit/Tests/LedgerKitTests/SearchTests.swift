@@ -17,7 +17,7 @@ final class SearchTests: XCTestCase {
     2026-07-15 * "滴滴" "打车" #trip
       Expenses:Transit:Taxi  35.00 CNY
       Assets:Bank:CMB
-    2026-08-02 * "饭店" "午饭"
+    2026-08-02 * "饭店" "午饭" #work
       Expenses:Food:Dining  50.00 CNY
       Assets:Receivable:Personal  50.00 CNY
         person: "王五"
@@ -68,7 +68,31 @@ final class SearchTests: XCTestCase {
         XCTAssertEqual(hits("35"), ["2026-07-15"])
         XCTAssertEqual(hits("! 滴滴"), ["2026-09-20"])
         XCTAssertEqual(hits("#trip"), ["2026-07-15"])
+        // either of: tags, fields, dates; the first word's # or field carries over
+        XCTAssertEqual(hits("#trip|#work"), ["2026-07-15", "2026-08-02"])
+        XCTAssertEqual(hits("#trip|work"), ["2026-07-15", "2026-08-02"])
+        XCTAssertEqual(hits("#trip #work"), [])
+        XCTAssertEqual(hits("科目:Taxi|Dining 2026-07~2026-08"), ["2026-07-15", "2026-08-02"])
+        XCTAssertEqual(hits("2026-06|2026-09"), ["2026-06-30", "2026-09-20"])
+        XCTAssertEqual(hits("-#trip|#work"), ["2026-06-30", "2026-09-20"])
+        XCTAssertEqual(hits("滴滴｜饭店 >100"), ["2026-06-30", "2026-09-20"])
         XCTAssertTrue(TxQuery("  ").isEmpty)
         XCTAssertTrue(TxQuery("-").isEmpty)
+    }
+
+    /// 本月, 上月, 近30天 … from today (a saved search keeps meaning the current month)
+    func testRelativeDates() {
+        let saved = TxQuery.today
+        TxQuery.today = { "2026-09-25" }
+        defer { TxQuery.today = saved }
+        XCTAssertEqual(hits("本月"), ["2026-09-20"])
+        XCTAssertEqual(hits("上月"), ["2026-08-02"])
+        XCTAssertEqual(hits("近3月"), ["2026-07-15", "2026-08-02", "2026-09-20"])
+        XCTAssertEqual(hits("近10天"), ["2026-09-20"])
+        XCTAssertEqual(hits("今年 滴滴"), ["2026-07-15", "2026-09-20"])
+        XCTAssertEqual(hits("上月 本月"), ["2026-08-02", "2026-09-20"])
+        XCTAssertEqual(hits("本周"), [])                      // 2026-09-21 … 2026-09-27
+        XCTAssertEqual(TxQuery("上周").dateSpan?.0, "2026-09-14")
+        XCTAssertEqual(TxQuery("本月|上月").dateSpan?.0, "2026-08-01")
     }
 }
