@@ -49,6 +49,11 @@
   Expenses:Subscription:Cloud                         25.00 CNY
   Liabilities:CreditCard:CMB
 
+2026-09-22 * "Apple" "iCloud+ 补差" ^sub-icloud
+  topup: TRUE
+  Expenses:Subscription:Cloud                          3.00 CNY
+  Liabilities:CreditCard:CMB
+
 2026-06-08 * "网易云音乐" "黑胶 VIP"
   Expenses:Subscription:Music                         15.00 CNY
   Assets:EWallet:Alipay
