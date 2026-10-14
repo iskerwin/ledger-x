@@ -57,7 +57,7 @@ struct ScanRecordIntent: AppIntent {
     static var description = IntentDescription("识别付款截图里的文字（在本机识别，截图不保存、不上传），在 App 中显示识别结果。可加到分享菜单，或配合「截屏」动作用轻点背面触发。")
     static var openAppWhenRun = true
 
-    @Parameter(title: "截图", supportedContentTypes: [.image]) var image: IntentFile
+    @Parameter(title: "截图") var image: IntentFile
 
     static var parameterSummary: some ParameterSummary { Summary("识别 \(\.$image) 并记账") }
 
