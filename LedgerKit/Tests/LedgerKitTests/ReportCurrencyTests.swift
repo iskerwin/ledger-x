@@ -61,6 +61,35 @@ final class ReportCurrencyTests: XCTestCase {
         XCTAssertTrue(conversions(L, to: "2026-02-01").byCurrency(base: "CNY").isEmpty)
     }
 
+    /// Fava's conversion menu: at cost, at market value, converted to one currency
+    func testModes() {
+        let L = ledger(text)
+        // at cost: the share is 80 USD, and buying it leaves nothing in the conversions
+        let cost = balanceSheet(L, at: "2026-03-31", mode: .cost)
+        XCTAssertNil(cost.assets.shown.amounts["AAPL"])
+        XCTAssertEqual(cost.assets.shown.amounts["USD"] ?? 0, 20 + 80, accuracy: 1e-6)
+        XCTAssertEqual(cost.conversions.amounts["USD"] ?? 0, -(100 + 15), accuracy: 1e-6)
+        XCTAssertNil(cost.conversions.amounts["AAPL"])
+        // units are kept beside it, and so are the operating-currency totals
+        XCTAssertEqual(cost.assets.balance.amounts["AAPL"] ?? 0, 1, accuracy: 1e-9)
+        XCTAssertEqual(cost.netWorth, balanceSheet(L, at: "2026-03-31").netWorth, accuracy: 1e-6)
+        // at market value: 90 USD; the 10 USD gain shows in the conversions
+        let mv = balanceSheet(L, at: "2026-03-31", mode: .market)
+        XCTAssertEqual(mv.assets.shown.amounts["USD"] ?? 0, 20 + 90, accuracy: 1e-6)
+        XCTAssertEqual(mv.conversions.amounts["USD"] ?? 0, -(100 + 15) - 10, accuracy: 1e-6)
+        // converted to USD at 7.2: everything in one currency, each side still balances with the conversions
+        let usd = balanceSheet(L, at: "2026-03-31", mode: .convert("USD"))
+        XCTAssertEqual(usd.assets.shown.byCurrency(base: "CNY").map { $0.currency }, ["USD"])
+        let all = usd.assets.shown + usd.liabilities.shown + usd.equityByCurrency
+        for (c, v) in all.amounts { XCTAssertEqual(v, 0, accuracy: 0.0001, c) }
+        // the income statement too
+        let inc = incomeStatement(L, from: "2026-01-01", to: "2026-03-31", mode: .convert("CNY"))
+        XCTAssertEqual(inc.expenses.shown.amounts["CNY"] ?? 0, 30 + 15 * 7.2, accuracy: 1e-6)
+        XCTAssertEqual(ReportMode(raw: "to:HKD"), .convert("HKD"))
+        XCTAssertEqual(ReportMode(raw: ReportMode.market.raw), .market)
+        XCTAssertEqual(ReportMode(raw: "x"), .units)
+    }
+
     func testInventoryHelpers() {
         var a = Inventory(); a.add(1, "USD"); a.add(2, "CNY"); a.add(0.001, "EUR")
         var b = Inventory(); b.add(-1, "USD"); b.add(3, "HKD")

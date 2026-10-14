@@ -9,6 +9,8 @@ public final class AccountNode: Identifiable {
     public var balance = Inventory()
     /// balance converted to the operating currency
     public var total = 0.0
+    /// the balance as the report shows it (see `ReportMode`): units, at cost, at market value or converted
+    public var shown = Inventory()
     public var id: String { name }
     public var label: String { leaf(name) }
     public var depth: Int { name.components(separatedBy: ":").count - 1 }
@@ -30,7 +32,9 @@ public func periodBalances(_ L: Ledger, from: String? = nil, to: String? = nil) 
 }
 
 /// build the account tree under `root` ("Assets", "Income", …); totals converted at `date`
-public func accountTree(_ balances: [String: Inventory], root: String, _ L: Ledger, at date: String? = nil) -> AccountNode {
+/// `shown`: the same balances valued for display (`valuedBalances`); the units themselves when nil
+public func accountTree(_ balances: [String: Inventory], root: String, _ L: Ledger, at date: String? = nil,
+                        shown: [String: Inventory]? = nil) -> AccountNode {
     let top = AccountNode(root)
     var index: [String: AccountNode] = [root: top]
     for (acct, inv) in balances where acct == root || acct.hasPrefix(root + ":") {
@@ -50,7 +54,10 @@ public func accountTree(_ balances: [String: Inventory], root: String, _ L: Ledg
         // add to this node and every ancestor
         var cur = acct
         while true {
-            if let n = index[cur] { for (c, x) in inv.nonZero { n.balance.add(x, c) } }
+            if let n = index[cur] {
+                for (c, x) in inv.nonZero { n.balance.add(x, c) }
+                for (c, x) in (shown?[acct] ?? inv).nonZero { n.shown.add(x, c) }
+            }
             guard let r = cur.range(of: ":", options: .backwards) else { break }
             cur = String(cur[..<r.lowerBound])
         }
@@ -95,19 +102,94 @@ extension Inventory {
     }
 }
 
-/// Equity:Conversions as Fava shows it: what makes every currency balance by itself. A transaction balances at
-/// its price (100 USD @ 7.1 CNY), so its units don't net to zero per currency; this is the negated sum of all
-/// units up to `date`.
-public func conversions(_ L: Ledger, to date: String?) -> Inventory {
-    var sum = Inventory()
-    for t in L.txns {
-        if let e = date, t.date > e { break }
-        for p in t.postings { if let u = p.units, let c = p.currency { sum.add(u, c) } }
+/// How the statements value each balance, as Fava's conversion menu:
+/// - units: as booked, each currency on its own (shares as a number of shares)
+/// - cost: what is held at cost at that cost, in the cost currency (10 AAPL {80 USD} → 800 USD); the rest as units
+/// - market: what is held at cost at its price on the date, in the cost currency; the rest as units
+/// - convert: everything in one currency at the date's rates (what has no rate stays as it is)
+public enum ReportMode: Hashable {
+    case units, cost, market
+    case convert(String)
+
+    public init(raw: String) {
+        switch raw {
+        case "cost": self = .cost
+        case "market": self = .market
+        default:
+            if raw.hasPrefix("to:"), raw.count > 3 { self = .convert(String(raw.dropFirst(3))) } else { self = .units }
+        }
     }
-    var out = Inventory()
-    for c in sum.order { let v = roundTo(sum.amounts[c] ?? 0, 6); if abs(v) >= 0.000_001 { out.add(-v, c) } }
+
+    public var raw: String {
+        switch self {
+        case .units: return "units"
+        case .cost: return "cost"
+        case .market: return "market"
+        case .convert(let c): return "to:" + c
+        }
+    }
+
+    public var converted: String? { if case .convert(let c) = self { return c }; return nil }
+}
+
+/// the commodities held at cost and the currency of that cost (AAPL → USD), from the latest such posting
+func costCurrencies(_ L: Ledger) -> [String: String] {
+    var out: [String: String] = [:]
+    for t in L.txns {
+        for p in t.postings { if let c = p.currency, let cc = p.cost?.currency, cc != c { out[c] = cc } }
+    }
     return out
 }
+
+/// `periodBalances` valued for the report (see `ReportMode`), at `to` (the latest prices when nil)
+public func valuedBalances(_ L: Ledger, from: String? = nil, to: String? = nil, mode: ReportMode) -> [String: Inventory] {
+    switch mode {
+    case .units:
+        return periodBalances(L, from: from, to: to)
+    case .cost:
+        var out: [String: Inventory] = [:]
+        for t in L.txns {
+            if let f = from, t.date < f { continue }
+            if let e = to, t.date > e { break }
+            for p in t.postings {
+                guard let u = p.units, let c = p.currency else { continue }
+                if let n = p.cost?.number, let cc = p.cost?.currency { out[p.account, default: Inventory()].add(u * n, cc) }
+                else { out[p.account, default: Inventory()].add(u, c) }
+            }
+        }
+        return out
+    case .market:
+        let quote = costCurrencies(L)
+        return periodBalances(L, from: from, to: to).mapValues { inv in
+            var x = Inventory()
+            for (c, n) in inv.nonZero {
+                if let q = quote[c], let v = convert(L, n, c, q, to ?? Day.today()) { x.add(v, q) } else { x.add(n, c) }
+            }
+            return x
+        }
+    case .convert(let target):
+        return periodBalances(L, from: from, to: to).mapValues { inv in
+            var x = Inventory()
+            for (c, n) in inv.nonZero {
+                if let v = convert(L, n, c, target, to ?? Day.today()) { x.add(v, target) } else { x.add(n, c) }
+            }
+            return x
+        }
+    }
+}
+
+/// Equity:Conversions as Fava shows it: what makes every currency balance by itself. A transaction balances at
+/// its price (100 USD @ 7.1 CNY), so its units don't net to zero per currency; this is the negated sum of every
+/// account's balance. Valued at market or converted, it also holds the change in prices and rates since booking.
+public func conversions(of balances: [String: Inventory]) -> Inventory {
+    var sum = Inventory()
+    for inv in balances.values { for (c, n) in inv.nonZero { sum.add(n, c) } }
+    var out = Inventory()
+    for c in sum.order.sorted() { let v = roundTo(sum.amounts[c] ?? 0, 6); if abs(v) >= 0.000_001 { out.add(-v, c) } }
+    return out
+}
+
+public func conversions(_ L: Ledger, to date: String?) -> Inventory { conversions(of: periodBalances(L, to: date)) }
 
 public struct IncomeStatement {
     public let income: AccountNode
@@ -116,9 +198,11 @@ public struct IncomeStatement {
     public var net: Double { -(income.total + expenses.total) }
 }
 
-public func incomeStatement(_ L: Ledger, from: String?, to: String?) -> IncomeStatement {
+public func incomeStatement(_ L: Ledger, from: String?, to: String?, mode: ReportMode = .units) -> IncomeStatement {
     let b = periodBalances(L, from: from, to: to)
-    return IncomeStatement(income: accountTree(b, root: "Income", L, at: to), expenses: accountTree(b, root: "Expenses", L, at: to))
+    let v = mode == .units ? nil : valuedBalances(L, from: from, to: to, mode: mode)
+    return IncomeStatement(income: accountTree(b, root: "Income", L, at: to, shown: v),
+                           expenses: accountTree(b, root: "Expenses", L, at: to, shown: v))
 }
 
 public struct BalanceSheet {
@@ -131,8 +215,8 @@ public struct BalanceSheet {
     public var earningsByCurrency = Inventory()
     /// Equity:Conversions, by currency (see `conversions`)
     public var conversions = Inventory()
-    /// what the equity section comes to, by currency, as entered (credit negative): equity + earnings + conversions
-    public var equityByCurrency: Inventory { equity.balance + earningsByCurrency + conversions }
+    /// what the equity section comes to, by currency, as shown (credit negative): equity + earnings + conversions
+    public var equityByCurrency: Inventory { equity.shown + earningsByCurrency + conversions }
     public var netWorth: Double { assets.total + liabilities.total }
 }
 
@@ -142,16 +226,23 @@ public func isExcluded(_ account: String, _ list: [String]) -> Bool {
 }
 
 /// `exclude`: asset and liability accounts left out (and so out of the totals; the sheet no longer balances by them)
-public func balanceSheet(_ L: Ledger, at date: String?, exclude: [String] = []) -> BalanceSheet {
+/// `mode`: how the accounts are shown (their `shown`); totals in the operating currency stay as they are.
+/// The conversions come from every account, left out or not.
+public func balanceSheet(_ L: Ledger, at date: String?, exclude: [String] = [], mode: ReportMode = .units) -> BalanceSheet {
     var b = periodBalances(L, to: date)
-    if !exclude.isEmpty { b = b.filter { !isExcluded($0.key, exclude) } }
-    let inc = accountTree(b, root: "Income", L, at: date), exp = accountTree(b, root: "Expenses", L, at: date)
-    var s = BalanceSheet(assets: accountTree(b, root: "Assets", L, at: date),
-                         liabilities: accountTree(b, root: "Liabilities", L, at: date),
-                         equity: accountTree(b, root: "Equity", L, at: date),
+    let all = mode == .units ? b : valuedBalances(L, to: date, mode: mode)
+    var v = all
+    if !exclude.isEmpty {
+        b = b.filter { !isExcluded($0.key, exclude) }
+        v = v.filter { !isExcluded($0.key, exclude) }
+    }
+    let inc = accountTree(b, root: "Income", L, at: date, shown: v), exp = accountTree(b, root: "Expenses", L, at: date, shown: v)
+    var s = BalanceSheet(assets: accountTree(b, root: "Assets", L, at: date, shown: v),
+                         liabilities: accountTree(b, root: "Liabilities", L, at: date, shown: v),
+                         equity: accountTree(b, root: "Equity", L, at: date, shown: v),
                          earnings: inc.total + exp.total)
-    s.earningsByCurrency = inc.balance + exp.balance
-    s.conversions = conversions(L, to: date)
+    s.earningsByCurrency = inc.shown + exp.shown
+    s.conversions = conversions(of: all)
     return s
 }
 
@@ -197,4 +288,9 @@ public func netWorthSeries(_ L: Ledger, today: String = Day.today(), exclude: [S
         m = Day.addMonth(m, 1)
     }
     return out
+}
+
+/// `n` of one currency in another at `date`'s rates (through the operating currency); nil without a rate
+public func convertAmount(_ L: Ledger, _ n: Double, from: String, to: String, date: String) -> Double? {
+    convert(L, n, from, to, date)
 }
