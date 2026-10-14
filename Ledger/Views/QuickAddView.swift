@@ -58,6 +58,8 @@ struct QuickAddView: View {
     @State private var saving = false
     /// 组合付款与优惠
     @State private var splittingPay = false
+    /// the currency and rate sheet
+    @State private var rating = false
     /// the category / paying account were picked here: a payee picked afterwards doesn't change them
     @State private var pickedCategory = false
     @State private var pickedFunding = false
@@ -147,6 +149,7 @@ struct QuickAddView: View {
         .sheet(isPresented: $managingCats) { CategoryManager(root: Store.categoryRoot(store.draft.kind)) }
         .sheet(isPresented: $managingTemplates) { TemplateManager() }
         .sheet(isPresented: $splittingPay) { PaySplitSheet() }
+        .sheet(isPresented: $rating) { RateSheet(L: L, D: D) }
         .sheet(isPresented: $importing) { ImportView() }
         .sheet(isPresented: $editingText) {
             TextEditSheet(title: LS("编辑源文本"), initial: draftText(store.draft, L, D, explicit: store.explicitAmounts),
@@ -485,8 +488,12 @@ struct QuickAddView: View {
             .buttonStyle(.plain)
         }
         if cross {
-            Button { openFull() } label: { pill(LS("实付或汇率…"), icon: "arrow.left.arrow.right", on: false) }
-                .buttonStyle(.plain)
+            // the rate as the draft has it ("1 USD = 6.70408 CNY"); the sheet fills it in
+            let r = draftRate(d), other = (d.kind == .transfer ? tc : fc) ?? ""
+            Button { rating = true } label: {
+                pill(r.map { "1 \(d.currency) = \(rateString($0)) \(other)" } ?? LS("填汇率…"), icon: "arrow.left.arrow.right", on: r != nil)
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -542,15 +549,15 @@ struct QuickAddView: View {
         let narrs = Array((D.payee(d.payee.trimmed)?.narrations ?? []).prefix(6))
         return VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Menu {
-                    Picker(LS("币种"), selection: Binding(get: { store.draft.currency }, set: { store.draft.currency = $0; store.draft.edited = nil })) {
-                        ForEach(D.currencies, id: \.self) { c in Text(c).tag(c) }
-                    }
-                } label: {
+                // the currency, and the rate when the account is in another one
+                Button { rating = true } label: {
                     Text(SYM[d.currency] ?? d.currency).font(.system(size: 26, weight: .semibold, design: .rounded))
                         .foregroundStyle(kindColor)
                 }
+                .buttonStyle(.plain)
                 .fixedSize()
+                .accessibilityLabel(LS("币种与汇率"))
+                .accessibilityValue(d.currency)
                 // smaller as the expression grows (a fixed size each step, so it doesn't wobble while typing)
                 Text(d.amount.isEmpty ? "0.00" : d.amount)
                     .font(.system(size: d.amount.count <= 9 ? 38 : d.amount.count <= 14 ? 30 : 22, weight: .semibold, design: .rounded))

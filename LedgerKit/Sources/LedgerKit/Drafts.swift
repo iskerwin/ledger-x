@@ -111,6 +111,19 @@ public struct Replacing: Equatable {
     }
 }
 
+/// `exchange_rate: "1 USD = 7.80000 HKD"` as written, kept while the amounts are `amount` → `toAmount`
+public struct KeptRate: Equatable {
+    public var text: String
+    public var amount: Double
+    public var toAmount: Double
+    public init(text: String, amount: Double, toAmount: Double) { self.text = text; self.amount = amount; self.toAmount = toAmount }
+    /// the currency quoted per one unit ("USD" in "1 USD = 7.80000 HKD")
+    var base: String? {
+        let w = text.split(separator: " ")
+        return w.count >= 2 && w[0] == "1" ? String(w[1]) : nil
+    }
+}
+
 public struct KeptMeta: Equatable {
     public var key: String
     public var value: String
@@ -167,6 +180,8 @@ public struct Draft: Equatable {
     /// what the form doesn't show, kept as it was: the other links and the transaction's metadata
     public var keepLinks: [String] = []
     public var keepMeta: [KeptMeta] = []
+    /// an exchange being edited: its `exchange_rate:` as the bank wrote it, and the amounts it went with
+    public var fxRate: KeptRate? = nil
     public var discountAccount = defaultDiscountAccount
     public init() {}
 }
@@ -360,7 +375,14 @@ func draftTx0(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
             tx.tags.removeAll { $0 == (exchange ? "transfer" : "fx") }
             if !tx.tags.contains(tag) { tx.tags.insert(tag, at: 0) }
             if exchange, let ta = evalAmount(d.toAmount) {
-                tx.meta.append(("exchange_rate", "1 \(fc) = \(toFixed(ta / amt, 5)) \(tc)"))
+                // as the bank wrote it while the amounts stay; else worked out, quoted the same way round
+                if let k = d.fxRate, abs(k.amount - amt) < 0.005, abs(k.toAmount - ta) < 0.005 {
+                    tx.meta.append(("exchange_rate", k.text))
+                } else if d.fxRate?.base == tc {
+                    tx.meta.append(("exchange_rate", "1 \(tc) = \(toFixed(amt / ta, 5)) \(fc)"))
+                } else {
+                    tx.meta.append(("exchange_rate", "1 \(fc) = \(toFixed(ta / amt, 5)) \(tc)"))
+                }
                 var toP = TxPosting(account: d.to, amount: ta, currency: tc)
                 toP.priceTotal = amt; toP.priceCcy = fc
                 tx.postings = [TxPosting(account: d.funding, amount: -amt, currency: fc), toP]
@@ -1087,4 +1109,56 @@ public func refundDraft(_ t: Entry, _ L: Ledger, _ D: Derived, defaultFunding: S
         d.refundOf = RefundOf(path: t.file, line: t.line, header: header, link: base)
     }
     return d
+}
+
+// MARK: - 汇率: 账单金额 × 汇率 = 换算金额
+
+/// the three numbers of a payment in another currency; any two give the third
+public enum RatePart: String, CaseIterable, Hashable { case amount, rate, converted }
+
+/// the part not filled in, from the other two: an amount to the cent, a rate as it comes
+public func solveRate(_ missing: RatePart, amount: Double?, rate: Double?, converted: Double?) -> Double? {
+    switch missing {
+    case .converted:
+        guard let a = amount, let r = rate, r > 0 else { return nil }
+        return roundTo(a * r, 2)
+    case .rate:
+        guard let a = amount, a > 0, let c = converted, c > 0 else { return nil }
+        return c / a
+    case .amount:
+        guard let r = rate, r > 0, let c = converted, c > 0 else { return nil }
+        return roundTo(c / r, 2)
+    }
+}
+
+/// a rate for showing: up to 5 places, no trailing zeros (6.70408, 7.8)
+public func rateString(_ r: Double) -> String {
+    var s = toFixed(r, 5)
+    while s.contains("."), s.hasSuffix("0") { s.removeLast() }
+    if s.hasSuffix(".") { s.removeLast() }
+    return s
+}
+
+/// how many of the account's currency one unit of the draft's comes to, as the draft has it: the rate typed in,
+/// or what the amount charged (入账金额 for a transfer) works out to; nil when neither is filled in
+public func draftRate(_ d: Draft) -> Double? {
+    guard let a = evalAmount(d.amount), a > 0 else { return nil }
+    if d.kind == .transfer { return evalAmount(d.toAmount).flatMap { $0 > 0 ? $0 / a : nil } }
+    if d.byRate { return Double(d.rate.trimmingCharacters(in: .whitespaces)).flatMap { $0 > 0 ? $0 : nil } }
+    return evalAmount(d.paid).flatMap { $0 > 0 ? $0 / a : nil }
+}
+
+/// the draft with the conversion filled in. A rate typed in (and the amount charged worked out from it) is
+/// written as it is (`@ 1.17912 HKD`); otherwise the amount charged is (`@@`, or the per-unit price it
+/// comes to). A transfer takes the amount received.
+public func setConversion(_ d: inout Draft, amount: String, rate: String, converted: String, computed: RatePart) {
+    d.amount = amount
+    if d.kind == .transfer {
+        d.toAmount = converted
+    } else if computed == .converted {
+        d.byRate = true; d.rate = rate; d.paid = ""
+    } else {
+        d.byRate = false; d.paid = converted; d.rate = ""
+    }
+    d.edited = nil
 }

@@ -34,12 +34,16 @@ public func editDraft(_ t: Entry, _ L: Ledger, _ D: Derived) -> Draft? {
                 : d.kind == .transfer ? "" : (t.links.first { $0.hasPrefix("sub-") } ?? "")
             let shown = d.link.trimmingCharacters(in: .whitespaces)
             d.keepLinks = t.links.filter { $0 != shown }
+            if exchange, let r = t.meta["exchange_rate"].map({ $0.stringValue ?? $0.display }),
+               let a = evalAmount(d.amount), let ta = evalAmount(d.toAmount) {
+                d.fxRate = KeptRate(text: r, amount: a, toAmount: ta)
+            }
         }
         let regenerated: Set<String> = Set(["filename", "lineno"] + (d.kind != .multi ? [subTopupMeta] : []) + (exchange ? ["exchange_rate"] : []))
         d.keepMeta = t.meta.items.filter { !regenerated.contains($0.0) }.map { KeptMeta(key: $0.0, value: $0.1.stringValue ?? $0.1.display) }
         let text = draftText(d, L, D)
         guard !text.isEmpty, let back = checkText(text, L).entries.first(where: { $0.type == .txn }),
-              sameTxn(t, back, ignoring: exchange ? ["exchange_rate"] : []) else { continue }
+              sameTxn(t, back) else { continue }
         return d
     }
     return nil
