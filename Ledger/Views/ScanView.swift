@@ -25,9 +25,15 @@ struct ScanResultView: View {
                         .textSelection(.enabled)
                     }
                 } header: {
-                    Text(LS("识别出 %@ 行", String(ocrRows(result.boxes).count))).textCase(nil)
+                    VStack(alignment: .leading, spacing: 6) {
+                        if let p = result.problem {
+                            Label(p, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(Color.warn)
+                        }
+                        Text(LS("识别出 %@ 行", String(ocrRows(result.boxes).count)))
+                    }
+                    .textCase(nil)
                 } footer: {
-                    Text(LS("在本机识别，截图读完即丢弃，没有保存或上传。这一版先显示识别出的文字；复制后发给开发者，用来完善自动填写。"))
+                    Text(LS("在本机识别，截图读完即丢弃，没有保存或上传。认不出的版式可以复制这些文字发给开发者，用来完善自动填写。"))
                 }
             }
             .navigationTitle(LS("识别结果"))
@@ -43,4 +49,63 @@ struct ScanResultView: View {
             }
         }
     }
+}
+
+/// on the 记一笔 card filled in from a screenshot: what to check, a payment that may already be recorded, the
+/// purchase a refund goes back to, and the text that was read
+struct ScanBanner: View {
+    @EnvironmentObject var store: Store
+    let info: ScanInfo
+    @State private var showText = false
+
+    private func name(_ c: ScanCheck) -> String {
+        switch c {
+        case .date: return LS("日期（截图上没有，按今天）")
+        case .funding: return LS("付款账户")
+        case .category: return LS("科目")
+        case .charged: return LS("扣款金额（汇率暂按账本）")
+        case .refundCategory: return LS("退回的科目（没找到原交易）")
+        case .person: return LS("给个人的转账：支出还是借出")
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label(LS("来自截图"), systemImage: "text.viewfinder").font(.subheadline.weight(.semibold))
+                Spacer()
+                Button(LS("识别文字")) { showText = true }.font(.footnote)
+            }
+            if !info.checks.isEmpty {
+                Text(LS("请核对：%@", info.checks.map(name).joined(separator: LS("、"))))
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+            if let t = info.duplicate {
+                Label(LS("账本里可能已有：%@ %@ %@", t.date, t.payee.isEmpty ? t.narration : t.payee, txAmountText(t)),
+                      systemImage: "exclamationmark.triangle")
+                    .font(.footnote).foregroundStyle(Color.warn)
+            }
+            if store.draft.kind == .refund && info.refundOf.count > 1 {
+                Menu {
+                    ForEach(info.refundOf.prefix(8), id: \.id) { t in
+                        Button(LS("%@ %@ %@", t.date, t.payee.isEmpty ? t.narration : t.payee, txAmountText(t))) { store.scanRefund(of: t) }
+                    }
+                } label: {
+                    Label(store.draft.refundOf == nil ? LS("选择原交易（%@ 笔可能）", String(info.refundOf.count)) : LS("改选原交易"),
+                          systemImage: "arrow.uturn.backward").font(.footnote)
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+        .sheet(isPresented: $showText) { ScanResultView(result: ScanResult(boxes: info.boxes)) }
+    }
+}
+
+/// what a transaction spent, for one line ("¥4.00")
+func txAmountText(_ t: Entry) -> String {
+    if let p = t.postings.first(where: { $0.account.hasPrefix("Expenses:") }), let u = p.units { return money(abs(u), p.currency ?? "CNY") }
+    if let p = t.postings.first(where: { ($0.units ?? 0) > 0 }), let u = p.units { return money(u, p.currency ?? "CNY") }
+    return ""
 }

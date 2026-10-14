@@ -607,6 +607,8 @@ public struct LedgerXConfig: Codable, Equatable {
     public var templatesHidden: [String]?
     /// 快速搜索 on 明细: a name and what goes in the search box ("出差和旅行": "#出差|#旅行"), in order
     public var searches: [QuickSearch]?
+    /// 截图记账: a card's last four digits (or a method as written, "零钱通") → the account it is
+    public var scanCards: [String: String]?
 
     public init(files: [String: String] = [:], rules: [LayoutRule] = [], receivable: String? = nil, slugs: [String: String] = [:]) {
         self.files = files; self.rules = rules; self.receivable = receivable; self.slugs = slugs
@@ -619,6 +621,7 @@ public struct LedgerXConfig: Codable, Equatable {
         case alertsConfirmed = "alerts_confirmed", linksIgnored = "links_ignored", subsIgnored = "subs_ignored"
         case templatesPinned = "templates_pinned", templatesHidden = "templates_hidden"
         case searches
+        case scanCards = "scan_cards"
     }
 
     /// every key is optional, so a hand-written file with only some of them still loads
@@ -641,6 +644,7 @@ public struct LedgerXConfig: Codable, Equatable {
         templatesPinned = try? c.decodeIfPresent([String].self, forKey: .templatesPinned)
         templatesHidden = try? c.decodeIfPresent([String].self, forKey: .templatesHidden)
         searches = try? c.decodeIfPresent([QuickSearch].self, forKey: .searches)
+        scanCards = try? c.decodeIfPresent([String: String].self, forKey: .scanCards)
     }
 
     /// the same settings with an account renamed (its sub-accounts too); nil when nothing refers to it
@@ -654,6 +658,7 @@ public struct LedgerXConfig: Codable, Equatable {
         // a merge can leave the same name twice
         func dedup(_ xs: [String]?) -> [String]? { xs.map { l in l.map(move).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } } } }
         if let f = c.defaultFunding { c.defaultFunding = move(f) }
+        if let m = c.scanCards { c.scanCards = m.mapValues(move) }
         c.netWorthExclude = dedup(c.netWorthExclude)
         c.balanceExclude = dedup(c.balanceExclude)
         return c == self ? nil : c
@@ -679,6 +684,7 @@ public struct LedgerXConfig: Codable, Equatable {
         if c.payslips?.isEmpty ?? false { c.payslips = nil }
         c.searches = c.searches?.filter { !$0.query.trimmingCharacters(in: .whitespaces).isEmpty }
         if c.searches?.isEmpty ?? false { c.searches = nil }
+        if c.scanCards?.isEmpty ?? false { c.scanCards = nil }
         if c.netWorthExclude?.isEmpty ?? false { c.netWorthExclude = nil }
         if c.balanceExclude?.isEmpty ?? false { c.balanceExclude = nil }
         func blank(_ s: String?) -> Bool { (s ?? "").trimmingCharacters(in: .whitespaces).isEmpty }

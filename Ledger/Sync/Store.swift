@@ -76,6 +76,8 @@ final class Store: ObservableObject {
     @Published var adding = false
     /// 截图记账: what was just read off a screenshot (shown until closed)
     @Published var scanResult: ScanResult?
+    /// 截图记账: the card was filled in from a screenshot; what to check, and what to remember on saving
+    @Published var scanInfo: ScanInfo?
     /// the card opens on the full form (分录, 文本, 退款, AA…) instead of the quick one
     var addFull = false
     /// bumped by every request to open the card, so an open card goes back to the page asked for

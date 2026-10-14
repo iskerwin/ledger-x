@@ -101,7 +101,9 @@ struct QuickAddView: View {
                         fullBanner(d)
                     } else {
                         // editing an entry: which one, instead of the templates (picking one would replace it)
-                        if let r = d.replacing { editingBanner(r) } else { templatesRow(d.kind) }
+                        if let r = d.replacing { editingBanner(r) }
+                        else if let s = store.scanInfo { ScanBanner(info: s) }
+                        else { templatesRow(d.kind) }
                         if d.kind == .transfer { transferPanel(d, L, D) } else { grid(d, L, D) }
                     }
                 }

@@ -73,6 +73,7 @@ extension Store {
 
     /// the card closed while editing: back to a new entry
     func endEdit() {
+        scanInfo = nil
         guard draft.replacing != nil else { return }
         draft = newDraftFor(.expense)
     }
@@ -237,7 +238,13 @@ extension Store {
     /// Check and save the form (not 文本, which asks about replacing balance assertions first). True once it is
     /// queued; the form is then ready for the next entry, keeping the kind, paying account and date.
     @discardableResult
+    /// save the form (a screenshot's card remembers which account it is, see saveScanned)
     func saveDraft() async -> Bool {
+        guard scanInfo != nil else { return await saveForm() }
+        return await saveScanned()
+    }
+
+    func saveForm() async -> Bool {
         guard let L = L, let D = D else { return false }
         let d = draft
         let text = draftText(d, L, D, explicit: explicitAmounts).trimmed

@@ -7,11 +7,23 @@ import LedgerKit
 // the app shows what was read. The image is only held in memory while it is read and is then dropped: it is
 // never written to disk, attached, or uploaded.
 
-/// what was read off one screenshot
+/// what was read off one screenshot (and, when it couldn't be filled in, why)
 struct ScanResult: Identifiable, Equatable {
     let id = UUID()
     var boxes: [OCRBox]
+    var problem: String? = nil
     var text: String { ocrText(boxes) }
+}
+
+/// a card filled in from a screenshot: what to check before saving
+struct ScanInfo {
+    var boxes: [OCRBox]
+    var checks: [ScanCheck]
+    var duplicate: Entry?
+    var refundOf: [Entry]
+    /// the card as remembered ("4321"), and the account it was taken to be
+    var cardKey: String?
+    var funding: String
 }
 
 enum ScanError: LocalizedError {
@@ -39,16 +51,59 @@ func recognizeText(_ data: Data) async throws -> [OCRBox] {
 
 @MainActor
 extension Store {
-    /// read a screenshot and show what was read
+    /// read a screenshot and open the 记一笔 card filled in from it; what was read is shown instead when it
+    /// isn't one payment (or no amount was found)
     func scan(_ data: Data) async {
-        do {
-            let boxes = try await recognizeText(data)
-            if boxes.isEmpty { show(LS("截图里没有识别出文字")); return }
+        let boxes: [OCRBox]
+        do { boxes = try await recognizeText(data) } catch { show(error.localizedDescription); return }
+        if boxes.isEmpty { show(LS("截图里没有识别出文字")); return }
+        await ensureLoaded()
+        guard let L = L, let D = D else { scanResult = ScanResult(boxes: boxes, problem: LS("账本尚未加载")); return }
+        let plan = scanPlan(parseScan(ocrText(boxes)), L, D, cards: repoConfig?.scanCards ?? [:], defaultFunding: defaultFunding)
+        guard var d = plan.draft else {
             adding = false
-            scanResult = ScanResult(boxes: boxes)
-        } catch {
-            show(error.localizedDescription)
+            scanResult = ScanResult(boxes: boxes, problem: plan.problem)
+            return
         }
+        if d.kind != .transfer && d.events.isEmpty && !d.eventsTouched { d.events = autoEvents(on: d.date) }
+        if d.flag.isEmpty { d.flag = "*" }
+        scanResult = nil
+        adding = false
+        draft = d
+        scanInfo = ScanInfo(boxes: boxes, checks: plan.checks, duplicate: plan.duplicate, refundOf: plan.refundOf,
+                            cardKey: plan.cardKey, funding: d.funding)
+        openAdd(full: needsFullForm(d))
+    }
+
+    /// a refund screenshot's purchase picked by hand: the refund drawn up against it, keeping what was read
+    func scanRefund(of t: Entry) {
+        guard let L = L, let D = D else { return }
+        let was = draft
+        var d = refundDraft(t, L, D, defaultFunding: defaultFunding)
+        d.date = was.date
+        d.amount = was.amount
+        if !was.funding.isEmpty { d.funding = was.funding }
+        draft = d
+    }
+
+    /// save a card filled in from a screenshot; the paying account it was saved with is remembered for that card
+    /// (in ledger-x.json, all devices) when it isn't already
+    func saveScanned() async -> Bool {
+        let info = scanInfo
+        let funding = draft.funding
+        guard await saveForm() else { return false }
+        scanInfo = nil
+        // found by its digits and kept: nothing to remember
+        let found = info.map { !$0.checks.contains(.funding) && $0.funding == funding } ?? true
+        if !found, let k = info?.cardKey, !funding.isEmpty, repoConfig?.scanCards?[k] != funding,
+           funding.hasPrefix("Assets:") || funding.hasPrefix("Liabilities:") {
+            await updateConfig(LS("截图记账：%@ 记为 %@", k, acctLabel(funding)), word: LS("已记住付款方式")) {
+                var m = $0.scanCards ?? [:]
+                m[k] = funding
+                $0.scanCards = m
+            }
+        }
+        return true
     }
 }
 

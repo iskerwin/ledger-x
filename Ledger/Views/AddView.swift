@@ -47,6 +47,9 @@ struct AddForm: View {
         let text = draftText(d, L, D, explicit: store.explicitAmounts)
         let v: Validation? = text.trimmed.isEmpty ? nil : validateText(text, L, single: draftIsSingle(d, L))
         Form {
+            if let s = store.scanInfo {
+                Section { ScanBanner(info: s).listRowInsets(EdgeInsets()).listRowBackground(Color.clear) }
+            }
             if d.kind == .refund {
                 refundBanner(d)
             } else {
@@ -59,7 +62,7 @@ struct AddForm: View {
                     .listRowInsets(EdgeInsets())
                 }
             }
-            if d.kind == .expense || d.kind == .income { templateSection(d.kind, L, D) }
+            if (d.kind == .expense || d.kind == .income) && store.scanInfo == nil && d.replacing == nil { templateSection(d.kind, L, D) }
             switch d.kind {
             case .multi: multiSection(L, D)
             case .raw: EmptyView()
