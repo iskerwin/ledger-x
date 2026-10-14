@@ -1,7 +1,7 @@
 import SwiftUI
 import LedgerKit
 
-enum AddField: Hashable { case amount, toAmount, paid, payee, narration, link, tags, row(UUID) }
+enum AddField: Hashable { case amount, toAmount, paid, rate, payee, narration, link, tags, row(UUID) }
 
 /// 完整表单: every kind of entry (分录, 文本, 退款, AA, 事件, 源文本), opened from the 记一笔 card
 struct AddForm: View {
@@ -230,7 +230,7 @@ struct AddForm: View {
         let catPrefix = d.kind == .income ? ["Income:"] : ["Expenses:"]
         let cats = Array(D.rankAccounts(catPrefix, boost: boost).prefix(8))
         let funds = Array(D.rankAccounts(["Assets:", "Liabilities:"], boost: boost).filter { !$0.hasPrefix("Assets:Receivable") }.prefix(6))
-        return FormContext(payeeStat: stat, catPrefix: catPrefix, cats: cats, funds: funds, fc: D.acctCcy[d.funding], tc: D.acctCcy[d.to])
+        return FormContext(payeeStat: stat, catPrefix: catPrefix, cats: cats, funds: funds, fc: accountCurrency(d.funding, L, D), tc: accountCurrency(d.to, L, D))
     }
 
     @ViewBuilder
@@ -365,11 +365,35 @@ struct AddForm: View {
                 .buttonStyle(.plain)
             }
             if let fc = ctx.fc, fc != d.currency, !hasCombo(d) {
-                LabeledContent(LS("实付 ") + fc) {
-                    TextField(LS("账户实际扣款"), text: field(\.paid))
-                        .keyboardType(.decimalPad)
-                        .focused($focus, equals: .paid)
-                        .multilineTextAlignment(.trailing)
+                // as the receipt has it: the amount charged, or the rate ("1CNY=1.17912HKD")
+                Picker(LS("换算"), selection: Binding(get: { store.draft.byRate }, set: { store.draft.byRate = $0; store.draft.edited = nil })) {
+                    Text(LS("填实付金额")).tag(false)
+                    Text(LS("填汇率")).tag(true)
+                }
+                .pickerStyle(.segmented)
+                if d.byRate {
+                    LabeledContent("1 \(d.currency) =") {
+                        HStack(spacing: 6) {
+                            TextField("1.17912", text: field(\.rate))
+                                .keyboardType(.decimalPad)
+                                .focused($focus, equals: .rate)
+                                .multilineTextAlignment(.trailing)
+                            Text(fc).foregroundStyle(.secondary)
+                        }
+                    }
+                    if let r = Double(d.rate.trimmed), let a = evalAmount(d.amount) {
+                        LabeledContent(LS("实付 ") + fc, value: money(roundTo(a * r, 2), fc))
+                    }
+                } else {
+                    LabeledContent(LS("实付 ") + fc) {
+                        TextField(LS("账户实际扣款"), text: field(\.paid))
+                            .keyboardType(.decimalPad)
+                            .focused($focus, equals: .paid)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    if let p = evalAmount(d.paid), let a = evalAmount(d.amount), a > 0 {
+                        LabeledContent(LS("汇率"), value: "1 \(d.currency) = \(toFixed(p / a, 5)) \(fc)")
+                    }
                 }
             }
         }

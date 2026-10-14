@@ -114,7 +114,7 @@ public func eventSummary(_ L: Ledger, _ tag: String, reimbursement: String = "As
 public func eventCandidates(_ L: Ledger, _ ev: LedgerEvent, today: String = Day.today()) -> [Entry] {
     let end = ev.end ?? today
     return L.txns.filter { t in
-        t.date >= ev.start && t.date <= end && !t.tags.contains(ev.tag) && !t.tags.contains("transfer")
+        t.date >= ev.start && t.date <= end && !t.tags.contains(ev.tag) && !isTransferTag(t)
             && t.postings.contains { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Assets:Receivable") || $0.account.hasPrefix("Income:") }
     }
 }

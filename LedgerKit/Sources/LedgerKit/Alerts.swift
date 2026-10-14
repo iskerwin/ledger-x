@@ -41,7 +41,7 @@ public func anomalies(_ L: Ledger, today: String = Day.today(), settings s: Anom
 
     // 1. the same charge recorded (or made) twice
     var groups: [String: [Entry]] = [:], order: [String] = []
-    for t in recent where !t.tags.contains("transfer") {
+    for t in recent where !isTransferTag(t) {
         let k = entrySignature(t)
         if groups[k] == nil { order.append(k) }
         groups[k, default: []].append(t)
