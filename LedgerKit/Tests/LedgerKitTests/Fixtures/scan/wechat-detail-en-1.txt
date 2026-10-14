@@ -1,0 +1,21 @@
+01:01円	：！！分40
+Transactions All transactions
+收
+金牌烧鹅示例店
+-4.00
+Current	Payment successful
+Status
+Payment	2026/10/13 12:21:13
+Time
+Products	金牌烧鹅示例店
+Merchant	商户_王小明
+Acquirer	北京海科融通支付服务有限公司
+Payment	BOC Depit Card （4321）
+Method
+支付说明	优先支付方式零钱余额不足，已自动更
+换支付方式完成支付
+Transaction 4200000001202610130000000011
+Order No.
+Merchant	You can get refund by scanning bar-
+Order No.	code at supporting merchant
+1000000000000077
