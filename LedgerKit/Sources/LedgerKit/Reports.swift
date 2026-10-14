@@ -244,6 +244,9 @@ public struct NetWorthPoint: Identifiable {
     public let assets: Double
     public let liabilities: Double
     public var netWorth: Double { assets + liabilities }
+    public init(month: String, assets: Double, liabilities: Double) {
+        self.month = month; self.assets = assets; self.liabilities = liabilities
+    }
 }
 
 /// assets and liabilities now, in the operating currency, without the accounts in `exclude`

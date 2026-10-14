@@ -239,6 +239,7 @@ jobs:
           shot 04-multi SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_KIND=multi
           shot 05-raw SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_KIND=raw
           shot 06-overview SIMCTL_CHILD_LEDGER_TAB=overview
+          shot 06b-overview-units SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_CURRENCY_MODE=units
           shot 07-journal SIMCTL_CHILD_LEDGER_TAB=journal
           shot 07b-calendar SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_CALENDAR=1
           shot 22b-reimb SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=reimb
@@ -246,6 +247,8 @@ jobs:
           shot 08-search SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_QUERY="#fx"
           shot 09-detail SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_OPEN_TX=1
           shot 10-accounts SIMCTL_CHILD_LEDGER_TAB=accounts
+          shot 10b-accounts-units SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_CURRENCY_MODE=units
+          shot 10c-accounts-hkd SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_CURRENCIES=HKD
           shot 11-register SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_OPEN_ACCOUNT=Assets:Bank:CGB
           shot 12-check SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_OPEN_ACCOUNT=Assets:Bank:CGB SIMCTL_CHILD_LEDGER_CHECK=180000
           shot 13-settings SIMCTL_CHILD_LEDGER_TAB=settings

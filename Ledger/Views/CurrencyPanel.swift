@@ -12,6 +12,16 @@ extension Store {
     var conly: Set<String>? { L.flatMap { cview.only($0) } }
 }
 
+/// the currency summary figures are in (the overview's, when several currencies are chosen as booked)
+private struct DisplayCurrencyKey: EnvironmentKey { static let defaultValue = "CNY" }
+
+extension EnvironmentValues {
+    var displayCurrency: String {
+        get { self[DisplayCurrencyKey.self] }
+        set { self[DisplayCurrencyKey.self] = newValue }
+    }
+}
+
 /// a fixed colour for each currency, the same in the switches and the charts
 func currencyColor(_ c: String) -> Color {
     switch c {

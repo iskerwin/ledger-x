@@ -34,6 +34,7 @@ struct DonutChart: View {
     let slices: [DonutSlice]
     let title: String
     @Binding var selected: String?
+    @Environment(\.displayCurrency) private var cur
 
     private var total: Double { slices.reduce(0) { $0 + $1.value } }
 
@@ -83,7 +84,7 @@ struct DonutChart: View {
         let v = s?.value ?? total
         return VStack(spacing: 2) {
             Text(s?.label ?? title).font(.caption2).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7)
-            Text(money(v, "CNY", 0)).font(.subheadline.weight(.semibold)).monospacedDigit()
+            Text(money(v, cur, 0)).font(.subheadline.weight(.semibold)).monospacedDigit()
                 .lineLimit(1).minimumScaleFactor(0.5).sensitive()
             if s != nil, total > 0 {
                 Text(String(format: "%.0f%%", v / total * 100)).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)

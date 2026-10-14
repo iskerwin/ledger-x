@@ -32,6 +32,7 @@ struct ShareBar: View {
 struct DeltaText: View {
     let now: Double
     let before: Double
+    @Environment(\.displayCurrency) private var cur
     var body: some View {
         let d = now - before
         let big = before > 0 ? abs(d) / before >= 0.2 && abs(d) >= 1 : now > 0
@@ -41,7 +42,7 @@ struct DeltaText: View {
             } else if abs(d) < 0.5 {
                 Text(LS("持平"))
             } else {
-                Text((d > 0 ? "↑ " : "↓ ") + money(abs(d), "CNY", 0))
+                Text((d > 0 ? "↑ " : "↓ ") + money(abs(d), cur, 0))
             }
         }
         .font(.caption2.weight(big ? .semibold : .regular).monospacedDigit())
@@ -58,13 +59,14 @@ struct CategoryListRow: View {
     let share: Int?
     let before: Double?
     let expanded: Bool
+    @Environment(\.displayCurrency) private var cur
     var body: some View {
         HStack(spacing: 10) {
             Circle().fill(color).frame(width: 10, height: 10)
             Text(name).lineLimit(1)
             Spacer(minLength: 6)
             VStack(alignment: .trailing, spacing: 1) {
-                Text(money(value)).monospacedDigit().sensitive()
+                Text(money(value, cur)).monospacedDigit().sensitive()
                 if let b = before { DeltaText(now: value, before: b) }
             }
             Text(share.map { "\($0)%" } ?? "").font(.caption).foregroundStyle(.secondary).frame(minWidth: 32, alignment: .trailing)
@@ -81,6 +83,7 @@ struct PayeeRankRow: View {
     let count: Int
     let frac: Double
     let expanded: Bool
+    @Environment(\.displayCurrency) private var cur
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
             Text("\(rank)").font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(rank <= 3 ? Color.jade : Color.secondary)
@@ -89,7 +92,7 @@ struct PayeeRankRow: View {
                 HStack {
                     Text(name).lineLimit(1)
                     Spacer()
-                    Text(money(value)).monospacedDigit().sensitive()
+                    Text(money(value, cur)).monospacedDigit().sensitive()
                 }
                 HStack(spacing: 8) {
                     GeometryReader { g in
@@ -97,7 +100,7 @@ struct PayeeRankRow: View {
                             .frame(maxHeight: .infinity)
                     }
                     .frame(height: 10)
-                    Text(LS("%@ 次 · 均 %@", count, money(value / Double(max(count, 1)), "CNY", 0)))
+                    Text(LS("%@ 次 · 均 %@", count, money(value / Double(max(count, 1)), cur, 0)))
                         .font(.caption2.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
                         .frame(width: 104, alignment: .trailing).sensitive()
                 }
