@@ -466,7 +466,7 @@ struct QuickAddView: View {
     /// what only the full form can fill in: who a personal receivable is with, the amount in the account's currency
     @ViewBuilder
     private func moreChips(_ d: Draft, _ D: Derived) -> some View {
-        let fc = D.acctCcy[d.funding], tc = D.acctCcy[d.to]
+        let fc = store.L.flatMap { accountCurrency(d.funding, $0, D) }, tc = store.L.flatMap { accountCurrency(d.to, $0, D) }
         let cross = d.kind == .transfer ? (!d.to.isEmpty && tc != nil && tc != d.currency) : (fc != nil && fc != d.currency)
         if d.kind != .transfer && (isPersonal(d.account) || isPersonal(d.funding)) {
             Button { openFull() } label: {
@@ -475,7 +475,7 @@ struct QuickAddView: View {
             .buttonStyle(.plain)
         }
         if cross {
-            Button { openFull() } label: { pill(LS("实付金额…"), icon: "arrow.left.arrow.right", on: false) }
+            Button { openFull() } label: { pill(LS("实付或汇率…"), icon: "arrow.left.arrow.right", on: false) }
                 .buttonStyle(.plain)
         }
     }

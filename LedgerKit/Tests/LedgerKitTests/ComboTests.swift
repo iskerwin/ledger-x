@@ -97,6 +97,38 @@ final class ComboTests: XCTestCase {
         XCTAssertNotNil(comboIssue(f, L, D))
     }
 
+    /// paid from a HKD card: the receipt's rate kept as it is; an exchange between accounts is #fx
+    func testRateAndExchange() {
+        let L = ledger(base + """
+        2026-01-01 open Assets:Bank:HSBC HKD
+        2026-01-01 open Assets:Bank:ZABank:Cash HKD
+
+        """)
+        let D = Derived(L, today: "2026-10-13")
+        var d = draft()
+        d.funding = "Assets:Bank:HSBC"; d.amount = "23"; d.byRate = true; d.rate = "1.17912"
+        let t = draftText(d, L, D)
+        XCTAssertTrue(t.contains("23.00 CNY @ 1.17912 HKD") && t.contains("-27.12 HKD"), t)
+        XCTAssertTrue(validateText(t, L).ok, validateText(t, L).msg ?? "")
+        let L2 = ledger(base + "2026-01-01 open Assets:Bank:HSBC HKD\n" + t + "\n")
+        let back = draftFromTxn(L2.txns.last!, L2, Derived(L2, today: "2026-10-13"), defaultFunding: nil)
+        XCTAssertTrue(back.byRate)
+        XCTAssertEqual(back.rate, "1.17912")
+        XCTAssertEqual(back.paid, "27.12")
+
+        // an exchange: #fx, the receiving institution as payee; a plain transfer stays #transfer
+        var x = Draft()
+        x.kind = .transfer; x.date = "2026-10-13"; x.funding = "Assets:Bank"; x.to = "Assets:Bank:ZABank:Cash"
+        x.amount = "500"; x.currency = "CNY"; x.toAmount = "585.42"
+        let fx = draftText(x, L, D)
+        XCTAssertTrue(fx.contains("\"ZABank\"") && fx.contains("#fx") && !fx.contains("#transfer"), fx)
+        XCTAssertTrue(validateText(fx, L).ok)
+        x.to = "Assets:Alipay"; x.toAmount = ""
+        let tr = draftText(x, L, D)
+        XCTAssertTrue(tr.contains("#transfer") && tr.contains("\"Transfer\""), tr)
+        XCTAssertEqual(institution("Assets:Bank:HSBC"), "HSBC")
+    }
+
     func testExclusions() {
         let L = ledger(base + """
         2026-09-01 * "工资"

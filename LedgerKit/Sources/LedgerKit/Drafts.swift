@@ -140,6 +140,10 @@ public struct Draft: Equatable {
     public var discount = ""
     /// 本期补差: a subscription charge paid on top of the previous one (`topup: TRUE`), not a new period
     public var topup = false
+    /// paid from an account in another currency: the receipt's rate (1 expense currency = `rate` account
+    /// currency, "1CNY=1.17912HKD") instead of the amount charged; written as it is (23.00 CNY @ 1.17912 HKD)
+    public var byRate = false
+    public var rate = ""
     public var discountAccount = defaultDiscountAccount
     public init() {}
 }
@@ -150,7 +154,7 @@ public func discountAllowed(_ d: Draft) -> Bool { d.kind == .expense && !d.reimb
 /// The paying side of an expense with 组合付款 or 优惠: the main account (what is left), the other accounts' parts,
 /// then the discount. nil when something doesn't add up, or an account is in another currency.
 /// the currency an account is used in: what it has been used with, else the one its open line allows (when just one)
-func accountCurrency(_ a: String, _ L: Ledger, _ D: Derived) -> String? {
+public func accountCurrency(_ a: String, _ L: Ledger, _ D: Derived) -> String? {
     D.acctCcy[a] ?? L.accounts[a].flatMap { $0.currencies.count == 1 ? $0.currencies[0] : nil }
 }
 
@@ -281,6 +285,15 @@ func multiTx(_ d: Draft, _ L: Ledger) -> TxDraft? {
     return tx
 }
 
+/// the institution an account is at: its third part (Assets:Bank:ZABank:Cash → ZABank, Assets:Bank:HSBC → HSBC)
+public func institution(_ account: String) -> String {
+    let p = account.components(separatedBy: ":")
+    return p.count > 2 ? p[2] : p.last ?? account
+}
+
+/// moving money between your own accounts: a transfer, or an exchange from one currency to another
+public func isTransferTag(_ t: Entry) -> Bool { t.tags.contains("transfer") || t.tags.contains("fx") }
+
 func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
     guard !d.date.isEmpty, let amt = evalAmount(d.amount), amt > 0 else { return nil }
     var tx = TxDraft(date: d.date)
@@ -291,16 +304,20 @@ func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
     tx.links = lk.isEmpty ? [] : [lk.hasPrefix("^") ? String(lk.dropFirst()) : lk]
     if d.kind == .transfer {
         guard !d.funding.isEmpty, !d.to.isEmpty else { return nil }
-        let fc = d.currency, tc = D.acctCcy[d.to] ?? fc
+        let fc = d.currency, tc = accountCurrency(d.to, L, D) ?? fc
         if d.to.hasPrefix("Liabilities:CreditCard") {
             if tx.payee.isEmpty { tx.payee = "\(leaf(d.to)) Credit Card" }
             if tx.narration.isEmpty { tx.narration = "Repayment" }
             tx.postings = [TxPosting(account: d.to, amount: amt, currency: fc), TxPosting(account: d.funding, amount: -amt, currency: fc)]
         } else {
-            if tx.payee.isEmpty { tx.payee = "Transfer" }
+            let exchange = tc != fc && (evalAmount(d.toAmount) ?? 0) > 0
+            // a currency exchange is #fx with the institution that received it as payee; else a plain #transfer
+            if tx.payee.isEmpty { tx.payee = exchange ? institution(d.to) : "Transfer" }
             if tx.narration.isEmpty { tx.narration = "\(D.shortName(d.funding)) -> \(D.shortName(d.to))" }
-            if !tx.tags.contains("transfer") { tx.tags.insert("transfer", at: 0) }
-            if tc != fc, let ta = evalAmount(d.toAmount), ta > 0 {
+            let tag = exchange ? "fx" : "transfer"
+            tx.tags.removeAll { $0 == (exchange ? "transfer" : "fx") }
+            if !tx.tags.contains(tag) { tx.tags.insert(tag, at: 0) }
+            if exchange, let ta = evalAmount(d.toAmount) {
                 tx.meta.append(("exchange_rate", "1 \(fc) = \(toFixed(ta / amt, 5)) \(tc)"))
                 var toP = TxPosting(account: d.to, amount: ta, currency: tc)
                 toP.priceTotal = amt; toP.priceCcy = fc
@@ -314,7 +331,7 @@ func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
     guard !d.account.isEmpty, !d.funding.isEmpty else { return nil }
     for e in d.events where !tx.tags.contains(e) { tx.tags.append(e) }
     let sgn: Double = d.kind == .expense ? 1 : -1 // income & refund reduce the category
-    let fc = D.acctCcy[d.funding] ?? d.currency
+    let fc = accountCurrency(d.funding, L, D) ?? d.currency
     var catAccount = d.account
     if d.kind == .expense && d.reimb {
         catAccount = D.receivable
@@ -323,7 +340,7 @@ func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
     if d.kind == .refund && !tx.tags.contains("refund") { tx.tags.append("refund") }
     if d.kind == .expense && !d.reimb && d.split && !d.shares.isEmpty {
         // AA: your part to the category, theirs to their receivables; paying in another currency isn't supported
-        guard fc == d.currency || evalAmount(d.paid) == nil else { return nil }
+        guard fc == d.currency || (evalAmount(d.paid) == nil && !(d.byRate && evalAmount(d.rate) != nil)) else { return nil }
         var theirs: [TxPosting] = []
         var sum = 0.0
         for x in d.shares {
@@ -350,6 +367,10 @@ func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
     if hasCombo(d) {
         guard let paying = payingPostings(d, total: amt, L, D) else { return nil }
         tx.postings = [cat] + paying
+    } else if fc != d.currency, d.byRate, let r = Double(d.rate.trimmingCharacters(in: .whitespaces)), r > 0 {
+        // the receipt's rate as it is; the account is charged what it comes to, to the cent
+        cat.suffix = "@ \(d.rate.trimmingCharacters(in: .whitespaces)) \(fc)"
+        tx.postings = [cat, TxPosting(account: d.funding, amount: -sgn * roundTo(amt * r, 2), currency: fc)]
     } else if fc != d.currency, let paid = evalAmount(d.paid), paid > 0 {
         // a per-unit price rounded to 5 places can miss the paid total by more than the tolerance on
         // large amounts (9999.99 USD → 0.03 CNY off); then write the exact total instead
@@ -836,7 +857,7 @@ public func isComplex(_ t: Entry) -> Bool {
     if t.postings.contains(where: { p in p.cost != nil || (p.price != nil && t.postings.count > 2) || p.flag != nil
         || p.meta.items.contains { kv in kv.0 != categoryMeta && kv.0 != voucherMeta } }) { return true }
     if t.flag != "*" { return true }
-    return t.postings.count != real.count && t.postings.count > 1 && !t.tags.contains("transfer")
+    return t.postings.count != real.count && t.postings.count > 1 && !t.tags.contains("transfer") && !t.tags.contains("fx")
         && !t.postings.contains(where: { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") })
 }
 
@@ -910,7 +931,11 @@ public func draftFromTxn(_ t: Entry, kind: DraftKind? = nil, _ L: Ledger, _ D: D
             }
         } else if let fund = fund {
             d.funding = fund.account
-            if fund.currency != cat.currency { d.paid = jsNumberString(abs(fund.units ?? 0)) }
+            if fund.currency != cat.currency {
+                d.paid = jsNumberString(abs(fund.units ?? 0))
+                // a per-unit price on the category line is the receipt's rate: keep it
+                if let pr = cat.price, !pr.total, let n = pr.number, pr.currency == fund.currency { d.byRate = true; d.rate = jsNumberString(n) }
+            }
         }
     }
     return d

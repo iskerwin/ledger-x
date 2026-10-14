@@ -60,7 +60,7 @@ struct TxRow: View {
                         if !t.payee.isEmpty && !t.narration.isEmpty { Text(t.narration).foregroundStyle(.secondary).lineLimit(1) }
                         if t.flag == "!" { Tag(text: LS("待确认"), warn: true) }
                         if t.synthetic { Tag(text: "pad") }
-                        ForEach(t.tags.filter { $0 != "transfer" }, id: \.self) { Tag(text: "#" + $0) }
+                        ForEach(t.tags.filter { $0 != "transfer" && $0 != "fx" }, id: \.self) { Tag(text: "#" + $0) }
                     }
                     .font(.body)
                     Text((showDate ? t.date + "  " : "") + (cat.map { acctDisplay($0.account) } ?? t.postings.map { D.shortName($0.account) }.joined(separator: " → "))

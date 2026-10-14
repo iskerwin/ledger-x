@@ -253,7 +253,7 @@ public final class Derived: @unchecked Sendable {
                 if !t.narration.isEmpty { s.narr[t.narration, default: 0] += 1 }
                 pmap[t.payee] = s
             }
-            if t.tags.contains("transfer"), let r = t.narration.range(of: " -> ") ?? t.narration.range(of: "->") {
+            if isTransferTag(t), let r = t.narration.range(of: " -> ") ?? t.narration.range(of: "->") {
                 let a = t.narration[..<r.lowerBound].trimmingCharacters(in: .whitespaces)
                 let b = t.narration[r.upperBound...].trimmingCharacters(in: .whitespaces)
                 if let from = t.postings.first(where: { ($0.units ?? 0) < 0 }), let to = t.postings.first(where: { ($0.units ?? 0) > 0 }), !a.isEmpty, !b.isEmpty {
