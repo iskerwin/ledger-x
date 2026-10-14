@@ -226,6 +226,8 @@ public struct Op: Codable, Identifiable, Equatable {
     public var heldGroup: UUID?
     /// held groups this change makes valid again: released and pushed together with it
     public var releases: [UUID]?
+    /// an insert that is an entry moved by an edit (a new date): the text of the entry it takes the place of
+    public var moves: String?
 
     public init(kind: Kind, path: String) { self.kind = kind; self.path = path }
 }

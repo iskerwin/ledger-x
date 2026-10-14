@@ -30,14 +30,12 @@ extension Store {
 
     /// old text → new text of transactions changed in place, so open pages keep showing them
     static var movedKeys: [String: String] = [:]
-    static func normKey(_ k: String) -> String {
-        k.components(separatedBy: "\n").map { $0.replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression) }
-            .joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-    }
+    static func normKey(_ k: String) -> String { normEntryText(k) }
+    /// before `ops` are applied (the ledger as it is): every transaction they rewrite or move
     func noteMoved(_ ops: [Op]) {
-        for o in ops where o.kind == .replace {
-            guard let d = o.date, let old = o.old, let new = o.text else { continue }
-            Store.movedKeys[Store.normKey(d + "\u{1}" + old)] = d + "\u{1}" + new
+        guard let L = L else { return }
+        for m in movedEntries(ops, L) {
+            Store.movedKeys[Store.normKey(m.oldDate + "\u{1}" + m.old)] = m.newDate + "\u{1}" + m.new
         }
     }
 }
