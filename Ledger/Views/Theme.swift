@@ -72,6 +72,10 @@ final class AppSettings {
     var largeExpense: Double = UserDefaults.standard.object(forKey: "ledger.alerts.large") as? Double ?? 2000 {
         didSet { UserDefaults.standard.set(largeExpense, forKey: "ledger.alerts.large") }
     }
+    /// 代码配色 (CodeTheme)
+    var codeTheme: String = UserDefaults.standard.string(forKey: CodeTheme.key) ?? CodeTheme.system.rawValue {
+        didSet { UserDefaults.standard.set(codeTheme, forKey: CodeTheme.key) }
+    }
     var privacy: Bool = UserDefaults.standard.bool(forKey: "ledger.privacy") {
         didSet {
             UserDefaults.standard.set(privacy, forKey: "ledger.privacy")

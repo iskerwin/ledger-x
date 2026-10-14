@@ -397,15 +397,22 @@ func compactText(_ t: String) -> String {
 struct MonoText: View {
     let text: String
     var body: some View {
+        let theme = CodeTheme.current
         ScrollView(.horizontal, showsIndicators: false) {
-            Text(highlighted(compactText(text), .beancount))
+            Text(highlighted(compactText(text), .beancount, theme: theme))
                 .font(.system(size: 12, design: .monospaced))
                 .textSelection(.enabled)
                 .fixedSize(horizontal: true, vertical: false)
                 .padding(.vertical, 4)
+                .padding(.horizontal, theme == .system ? 0 : 8)
         }
+        // a chosen theme: its own background, as a code block
+        .padding(.vertical, theme == .system ? 0 : 4)
+        .background(theme.background.map { Color(uiColor: $0) } ?? .clear, in: RoundedRectangle(cornerRadius: 8))
+        .environment(\.colorScheme, theme.forcesDark ? .dark : colorScheme)
         .sensitive()
     }
+    @Environment(\.colorScheme) private var colorScheme
 }
 
 

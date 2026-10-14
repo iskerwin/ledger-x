@@ -203,6 +203,11 @@ extension SettingsView {
             Picker(LS("显示模式"), selection: $appearance) {
                 ForEach(AppAppearance.allCases) { Text($0.name).tag($0.rawValue) }
             }
+            NavigationLink {
+                CodeThemePicker()
+            } label: {
+                LabeledContent(LS("代码配色"), value: CodeTheme.current.name)
+            }
             Picker(LS("概览图表"), selection: $chartStyle) {
                 Text(LS("排行列表")).tag("list")
                 Text(LS("环形图")).tag("donut")
