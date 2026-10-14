@@ -57,6 +57,13 @@ jobs:
           set -o pipefail
           SAMPLE_OUT="$GITHUB_WORKSPACE/samples" swift test 2>&1 | tee ../test.log
 
+      - name: Reports against Beancount
+        id: reports
+        continue-on-error: true
+        run: |
+          python3 -m pip install --quiet --break-system-packages beancount 2>/dev/null || python3 -m pip install --quiet beancount
+          python3 tools/check_reports.py LedgerKit/Tests/LedgerKitTests/Fixtures/realistic/main.bean samples/reports.json 2>&1 | tee reports-check.log
+
       - name: Build
         id: build
         env:
@@ -98,6 +105,12 @@ jobs:
           unzip -tq Ledger.ipa && unzip -l Ledger.ipa | grep -q "Payload/Ledger.app/_CodeSignature/CodeResources" \
             || { echo "::error::Ledger.ipa 不完整"; exit 1; }
           ls -la Ledger.ipa
+
+      - name: Stop if the reports differ from Beancount
+        if: steps.reports.outcome == 'failure'
+        run: |
+          grep -E "LedgerKit|differences|Error" reports-check.log | head -30 | while IFS= read -r l; do echo "::error::${l:0:400}"; done
+          exit 1
 
       - name: Stop if the tests failed
         if: steps.tests.outcome == 'failure'
