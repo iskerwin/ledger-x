@@ -430,7 +430,9 @@ func buildRates(_ L: Ledger) {
     for p in L.prices { pairs.append(Pair(date: p.date, base: p.currency ?? "", quote: p.quote ?? "", rate: p.number)) }
     for t in L.txns {
         for p in t.postings {
-            if let pr = p.price, let n = pr.number, n != 0, let c = p.currency, let pc = pr.currency, c != pc {
+            // a per-unit price, or a total one (@@) over the units
+            if let pr = p.price, let c = p.currency, let pc = pr.currency, c != pc,
+               let n = pr.number ?? (pr.total ? pr.raw.flatMap { r in p.units.flatMap { u in u != 0 ? abs(r) / abs(u) : nil } } : nil), n != 0 {
                 pairs.append(Pair(date: t.date, base: c, quote: pc, rate: n))
             }
             if let cost = p.cost, let n = cost.number, n != 0, let c = p.currency, let cc = cost.currency, c != cc {
@@ -464,9 +466,12 @@ func buildRates(_ L: Ledger) {
         while i < pairs.count && pairs[i].date == d {
             let p = pairs[i]; i += 1
             if p.rate != 0 {
-                let k = p.base + ">" + p.quote
+                // one rate per pair of currencies, whichever way it was written: the latest wins
+                // (CNY @ 1.09 HKD after a price HKD 0.926 CNY means 1 HKD = 0.914 CNY from then on, as in Beancount)
+                let (a, b, r) = p.base < p.quote ? (p.base, p.quote, p.rate) : (p.quote, p.base, 1 / p.rate)
+                let k = a + ">" + b
                 if latest[k] == nil { latestKeys.append(k) }
-                latest[k] = p.rate
+                latest[k] = r
             }
         }
         for (c, x) in solve() { series[c, default: []].append(RatePoint(date: d, v: x)) }
