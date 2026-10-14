@@ -33,8 +33,14 @@ struct PrivacyButton: View {
 
 extension View {
     /// the show / hide amounts button on a pushed page (the root pages have it in their toolbar)
-    func privacyToolbar() -> some View {
-        toolbar { ToolbarItem(placement: .topBarTrailing) { PrivacyButton() } }
+    /// `currency`: also the 币种与换算 button (pages that follow it)
+    func privacyToolbar(currency: Bool = false) -> some View {
+        toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                if currency { CurrencyButton() }
+                PrivacyButton()
+            }
+        }
     }
 }
 
@@ -92,8 +98,11 @@ struct SettingsButton: View {
 }
 
 struct StandardToolbar: ToolbarContent {
+    /// the page follows 币种与换算 (overview, accounts)
+    var currency = false
     var body: some ToolbarContent {
         ToolbarItemGroup(placement: .topBarTrailing) {
+            if currency { CurrencyButton() }
             PrivacyButton()
             SyncBadge()
             SettingsButton()

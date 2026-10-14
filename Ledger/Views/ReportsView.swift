@@ -104,7 +104,7 @@ struct ReportsView: View {
                     case .trial: TrialBalanceView()
                     }
                 }
-                .privacyToolbar()
+                .privacyToolbar(currency: true)
             }
             .navigationDestination(for: BudgetsDest.self) { _ in BudgetsView().privacyToolbar() }
             .navigationDestination(for: SubscriptionsDest.self) { _ in SubscriptionsView().privacyToolbar() }
@@ -227,7 +227,7 @@ struct AccountTreeRows: View {
     let root: AccountNode
     /// 1 for debit-normal roots (Assets, Expenses), -1 for credit-normal (Income, Liabilities, Equity)
     let sign: Double
-    /// percentages of this total (in the operating currency) beside the first level, when everything is in one currency
+    /// percentages of this total beside the first level (when the section is in one currency)
     var share: Double? = nil
     var base = "CNY"
     @State private var expanded: Set<String> = []
@@ -280,8 +280,8 @@ struct AccountTreeRows: View {
                                 .foregroundStyle(x.amount * sign < -0.005 ? Color.loss : Color.primary)
                                 .sensitive()
                         }
-                        if let s = share, s > 0.005, depth == 0 {
-                            Text(String(format: "%.1f%%", node.total * sign / s * 100)).font(.caption2).foregroundStyle(.secondary)
+                        if let s = share, s > 0.005, depth == 0, let x = node.shown.single(base: base) {
+                            Text(String(format: "%.1f%%", x.amount * sign / s * 100)).font(.caption2).foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -330,26 +330,6 @@ func unitText(_ v: Double, _ c: String) -> String {
     return money(v, c, whole ? 0 : cents ? 2 : 4)
 }
 
-/// 显示方式, one setting for the three statements, as Fava's conversion menu: 原币 (by default), 按成本,
-/// 按市值, or everything converted to one currency
-struct ReportModeMenu: View {
-    @Binding var raw: String
-    let L: Ledger
-    var body: some View {
-        Picker(LS("显示方式"), selection: $raw) {
-            Section {
-                Text(LS("原币")).tag(ReportMode.units.raw)
-                Text(LS("按成本")).tag(ReportMode.cost.raw)
-                Text(LS("按市值")).tag(ReportMode.market.raw)
-            }
-            Section(LS("折算为")) {
-                ForEach(reportCurrencies(L), id: \.self) { c in Text(c).tag(ReportMode.convert(c).raw) }
-            }
-        }
-        .pickerStyle(.menu)
-    }
-}
-
 /// what 折算为 offers: the operating currencies, then the other currencies that have a rate (not shares)
 func reportCurrencies(_ L: Ledger) -> [String] {
     var out: [String] = [L.base]
@@ -370,16 +350,6 @@ extension ReportMode {
         case .market: return LS("货币兑换与未实现损益")
         case .convert: return LS("折算差额")
         }
-    }
-
-    /// the currency of the summary at the top: the one converted to, else the operating currency
-    func headCurrency(_ L: Ledger) -> String { converted ?? L.base }
-
-    /// an operating-currency figure in the summary's currency
-    func head(_ v: Double, _ L: Ledger, _ date: String?) -> String {
-        let c = headCurrency(L)
-        guard c != L.base, let x = convertAmount(L, v, from: L.base, to: c, date: date ?? Day.today()) else { return money(v, L.base) }
-        return money(x, c)
     }
 
     /// how the accounts are shown, for a footer
@@ -414,7 +384,6 @@ struct CurrencyLinesRow: View {
 struct IncomeStatementView: View {
     @EnvironmentObject var store: Store
     @AppStorage("ledger.report.period") private var period = ReportPeriod.thisYear
-    @AppStorage("ledger.report.mode") private var modeRaw = ReportMode.units.raw
     @State private var from = Day.addMonth(Day.ym(Day.today()), -2) + "-01"
     @State private var to = Day.today()
     @State private var picked: String?
@@ -440,10 +409,14 @@ struct IncomeStatementView: View {
 
     private func content(_ L: Ledger, _ D: Derived) -> some View {
         let r = period.range(today: Day.today(), from: from, to: to)
-        let mode = ReportMode(raw: modeRaw)
-        let s = incomeStatement(L, from: r.0, to: r.1, mode: mode)
-        let inc = -s.income.total
-        let exp = s.expenses.total
+        let mode = store.cmode, only = store.conly
+        let s = incomeStatement(L, from: r.0, to: r.1, mode: mode, only: only)
+        let inc = -s.income.shown, exp = s.expenses.shown
+        let net = inc + (-exp)
+        // one currency: a figure each, the savings rate and the bar; several: a line per currency
+        let one = [inc, exp, net].allSatisfy { $0.single(base: L.base) != nil }
+            && Set([inc, exp].compactMap { $0.single(base: L.base) }.filter { abs($0.amount) > 0.005 }.map { $0.currency }).count <= 1
+        let i1 = inc.single(base: L.base)?.amount ?? 0, e1 = exp.single(base: L.base)?.amount ?? 0
         let ms = months(r, D)
         return List {
             Section {
@@ -452,7 +425,7 @@ struct IncomeStatementView: View {
                     DatePicker(LS("开始"), selection: dateBinding($from), displayedComponents: .date)
                     DatePicker(LS("结束"), selection: dateBinding($to), displayedComponents: .date)
                 }
-                ReportModeMenu(raw: $modeRaw, L: L)
+                CurrencyBanner()
             }
             Section {
                 Card {
@@ -460,18 +433,17 @@ struct IncomeStatementView: View {
                         Text(rangeLabel(r)).font(.caption).foregroundStyle(.secondary)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(LS("净收益")).font(.subheadline).foregroundStyle(.secondary)
-                            Text(mode.head(s.net, L, r.1)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
-                                .foregroundStyle(s.net < 0 ? Color.loss : Color.primary).sensitive()
+                            InventoryHeadline(inv: net, base: L.base)
                         }
                         HStack(alignment: .top) {
-                            Figure(label: LS("收入"), value: mode.head(inc, L, r.1), color: .gain)
+                            InventoryFigure(label: LS("收入"), inv: inc, base: L.base, color: .gain)
                             Spacer()
-                            Figure(label: LS("支出"), value: mode.head(exp, L, r.1))
+                            InventoryFigure(label: LS("支出"), inv: exp, base: L.base)
                             Spacer()
-                            Figure(label: LS("储蓄率"), value: inc > 0 ? String(format: "%.1f%%", s.net / inc * 100) : "—", alignment: .trailing)
+                            Figure(label: LS("储蓄率"), value: one && i1 > 0 ? String(format: "%.1f%%", (i1 - e1) / i1 * 100) : "—", alignment: .trailing)
                         }
-                        if inc > 0 || exp > 0 {
-                            RatioBar(parts: [(inc, Color.gain), (exp, Color.jade)])
+                        if one && (i1 > 0 || e1 > 0) {
+                            RatioBar(parts: [(i1, Color.gain), (e1, Color.jade)])
                         }
                     }
                 }
@@ -479,28 +451,22 @@ struct IncomeStatementView: View {
             }
             if ms.count > 1 {
                 Section {
-                    IncomeExpenseChart(months: ms, D: D, picked: $picked)
+                    FlowCharts(months: ms, flows: monthlyFlows(L, months: ms, mode: mode, only: only), base: L.base, picked: $picked)
                 } header: {
                     Text(LS("月度收支"))
                 }
             }
             Section {
-                AccountTreeRows(root: s.income, sign: -1, share: mode.converted != nil ? inc : nil, base: L.base)
+                AccountTreeRows(root: s.income, sign: -1, share: one ? i1 : nil, base: L.base)
             } header: {
-                SectionTotal(title: LS("收入"), value: inc, amounts: (-s.income.shown).byCurrency(base: L.base))
+                SectionTotal(title: LS("收入"), value: 0, amounts: inc.byCurrency(base: L.base))
             }
             Section {
-                AccountTreeRows(root: s.expenses, sign: 1, share: mode.converted != nil ? exp : nil, base: L.base)
+                AccountTreeRows(root: s.expenses, sign: 1, share: one ? e1 : nil, base: L.base)
             } header: {
-                SectionTotal(title: LS("支出"), value: exp, amounts: s.expenses.shown.byCurrency(base: L.base))
+                SectionTotal(title: LS("支出"), value: 0, amounts: exp.byCurrency(base: L.base))
             } footer: {
-                let net = (-(s.income.shown + s.expenses.shown)).byCurrency(base: L.base)
-                VStack(alignment: .leading, spacing: 4) {
-                    if net.count > 1 {
-                        Text(LS("净收益按币种：%@", net.map { unitText($0.amount, $0.currency) }.joined(separator: LS("，"))))
-                    }
-                    Text(mode.explain(L) + LS("顶部汇总按期末汇率折算为 %@。收入以正数列示。", mode.headCurrency(L)))
-                }
+                Text(mode.explain(L) + LS("收入以正数列示。"))
             }
         }
         .listSectionSpacing(.compact)
@@ -544,7 +510,12 @@ struct RatioBar: View {
 
 struct IncomeExpenseChart: View {
     let months: [String]
-    let D: Derived
+    /// income (positive) and expenses of each month, in `currency`
+    let inc: [String: Double]
+    let exp: [String: Double]
+    var currency = "CNY"
+    /// a small chart among several (one per currency): shorter, no tapping
+    var compact = false
     @Binding var picked: String?
 
     /// the months that get a label: a step that keeps them apart, on months that divide by it (Jan, Apr, Jul, Oct…)
@@ -558,12 +529,12 @@ struct IncomeExpenseChart: View {
         VStack(alignment: .leading, spacing: 6) {
             Chart {
                 ForEach(months, id: \.self) { m in
-                    BarMark(x: .value("月份", m), y: .value("金额", D.monthInc[m] ?? 0))
+                    BarMark(x: .value("月份", m), y: .value("金额", inc[m] ?? 0))
                         .foregroundStyle(by: .value("类别", LS("收入")))
                         .position(by: .value("类别", LS("收入")))
                         .cornerRadius(3)
                         .opacity(picked == nil || picked == m ? 1 : 0.35)
-                    BarMark(x: .value("月份", m), y: .value("金额", D.monthExp[m] ?? 0))
+                    BarMark(x: .value("月份", m), y: .value("金额", exp[m] ?? 0))
                         .foregroundStyle(by: .value("类别", LS("支出")))
                         .position(by: .value("类别", LS("支出")))
                         .cornerRadius(3)
@@ -571,6 +542,7 @@ struct IncomeExpenseChart: View {
                 }
             }
             .chartForegroundStyleScale([LS("收入"): Color.gain, LS("支出"): Color.jade])
+            .chartLegend(compact ? .hidden : .visible)
             .chartLegend(position: .top, alignment: .leading)
             .chartYAxis { AxisMarks(position: .trailing) }
             .chartXAxis {
@@ -593,23 +565,214 @@ struct IncomeExpenseChart: View {
                         }
                 }
             }
-            .frame(height: 190)
+            .frame(height: compact ? 130 : 190)
             .sensitive()
             if let m = picked {
-                let i = D.monthInc[m] ?? 0, e = D.monthExp[m] ?? 0
+                let i = inc[m] ?? 0, e = exp[m] ?? 0
                 HStack(spacing: 14) {
                     Text(Day.monthLabel(m)).fontWeight(.medium)
-                    Text(LS("收入 ") + money(i)).foregroundStyle(Color.gain)
-                    Text(LS("支出 ") + money(e))
+                    Text(LS("收入 ") + money(i, currency)).foregroundStyle(Color.gain)
+                    Text(LS("支出 ") + money(e, currency))
                     Spacer()
-                    Text(LS("结余 ") + money(i - e)).foregroundStyle(i - e < 0 ? Color.loss : Color.secondary)
+                    Text(LS("结余 ") + money(i - e, currency)).foregroundStyle(i - e < 0 ? Color.loss : Color.secondary)
                 }
                 .font(.caption.monospacedDigit())
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .sensitive()
-            } else {
+            } else if !compact {
                 Text(LS("点按柱形查看当月明细")).font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 6)
+    }
+}
+
+/// 月度收支 for the chosen currencies: one chart when it all comes to one currency, else one small chart each
+/// (their sizes differ too much to share an axis)
+struct FlowCharts: View {
+    let months: [String]
+    let flows: [String: MonthFlow]
+    let base: String
+    @Binding var picked: String?
+
+    private var currencies: [String] {
+        var all = Inventory()
+        for f in flows.values {
+            for (c, n) in f.income.nonZero { all.add(abs(n), c) }
+            for (c, n) in f.expenses.nonZero { all.add(abs(n), c) }
+        }
+        return all.byCurrency(base: base).map { $0.currency }
+    }
+
+    private func series(_ c: String) -> ([String: Double], [String: Double]) {
+        var i: [String: Double] = [:], e: [String: Double] = [:]
+        for (m, f) in flows { i[m] = f.income.amounts[c] ?? 0; e[m] = f.expenses.amounts[c] ?? 0 }
+        return (i, e)
+    }
+
+    var body: some View {
+        let cs = currencies
+        if cs.count <= 1 {
+            let c = cs.first ?? base
+            let x = series(c)
+            IncomeExpenseChart(months: months, inc: x.0, exp: x.1, currency: c, picked: $picked)
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 12) {
+                    Label(LS("收入"), systemImage: "circle.fill").foregroundStyle(Color.gain)
+                    Label(LS("支出"), systemImage: "circle.fill").foregroundStyle(Color.jade)
+                }
+                .font(.caption).labelStyle(DotLabel())
+                ForEach(cs, id: \.self) { c in
+                    let x = series(c)
+                    VStack(alignment: .leading, spacing: 2) {
+                        CurrencyTitle(code: c)
+                        IncomeExpenseChart(months: months, inc: x.0, exp: x.1, currency: c, compact: true, picked: $picked)
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+}
+
+/// a currency's name above its chart: its colour and code
+struct CurrencyTitle: View {
+    let code: String
+    var trailing: String? = nil
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle().fill(currencyColor(code)).frame(width: 8, height: 8)
+            Text(code).font(.caption.weight(.semibold))
+            Spacer()
+            if let t = trailing { Text(t).font(.caption.weight(.semibold)).monospacedDigit().sensitive() }
+        }
+    }
+}
+
+struct DotLabel: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 4) { configuration.icon.font(.system(size: 7)); configuration.title.foregroundStyle(.secondary) }
+    }
+}
+
+/// 净资产走势 for the chosen currencies.
+/// - converted, several currencies held: stacked areas, one per currency held, with the total as a line
+/// - one currency in the end: a single area
+/// - as booked / at cost / at market in several currencies: one small chart each, on its own scale
+struct WorthCharts: View {
+    let slices: [WorthSlice]
+    let base: String
+    let mode: ReportMode
+    @Binding var picked: Date?
+
+    private func date(_ m: String) -> Date { Day.date(m + "-01") ?? Date() }
+
+    /// the currencies the values end up in
+    private var shown: [String] {
+        var all = Inventory()
+        for s in slices { for (c, n) in s.total.nonZero { all.add(abs(n), c) } }
+        return all.byCurrency(base: base).map { $0.currency }
+    }
+
+    /// the currencies held, largest first
+    private var sources: [String] {
+        var size: [String: Double] = [:]
+        for s in slices { for (c, inv) in s.bySource { size[c] = max(size[c] ?? 0, inv.nonZero.reduce(0) { $0 + abs($1.1) }) } }
+        return size.filter { $0.value > 0.005 }.sorted { $0.value > $1.value }.map { $0.key }
+    }
+
+    var body: some View {
+        let out = shown
+        if out.count <= 1 {
+            let c = out.first ?? base
+            let pts = slices.map { NetWorthPoint(month: $0.month, assets: $0.total.amounts[c] ?? 0, liabilities: 0) }
+            if mode.converted != nil && sources.count > 1 {
+                stacked(c, pts)
+            } else {
+                NetWorthChart(series: pts, currency: c, picked: $picked)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(out, id: \.self) { c in
+                    let pts = slices.map { NetWorthPoint(month: $0.month, assets: $0.total.amounts[c] ?? 0, liabilities: 0) }
+                    VStack(alignment: .leading, spacing: 2) {
+                        CurrencyTitle(code: c, trailing: pts.last.map { unitText($0.netWorth, c) })
+                        NetWorthChart(series: pts, currency: c, compact: true, picked: $picked)
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    /// stacked areas by currency held, all in `c`; tap a month for its parts
+    private func stacked(_ c: String, _ total: [NetWorthPoint]) -> some View {
+        let srcs = sources
+        let sel = picked.flatMap { p in slices.min { abs(date($0.month).timeIntervalSince(p)) < abs(date($1.month).timeIntervalSince(p)) } }
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                if let s = sel {
+                    Text(Day.monthLabel(s.month) + LS("末")).foregroundStyle(.secondary)
+                    Spacer()
+                    Text(unitText(s.total.amounts[c] ?? 0, c)).fontWeight(.semibold).monospacedDigit().sensitive()
+                } else if let last = total.last, let first = total.first {
+                    Text(LS("区间变动")).foregroundStyle(.secondary)
+                    Spacer()
+                    Text((last.netWorth >= first.netWorth ? "+" : "") + unitText(last.netWorth - first.netWorth, c)).fontWeight(.semibold).monospacedDigit()
+                        .foregroundStyle(last.netWorth >= first.netWorth ? Color.gain : Color.loss).sensitive()
+                }
+            }
+            .font(.subheadline)
+            Chart {
+                ForEach(srcs, id: \.self) { src in
+                    ForEach(slices) { s in
+                        AreaMark(x: .value("月份", date(s.month), unit: .month), y: .value("金额", s.bySource[src]?.amounts[c] ?? 0))
+                            .foregroundStyle(by: .value("币种", src))
+                            .interpolationMethod(.monotone)
+                    }
+                }
+                ForEach(total) { p in
+                    LineMark(x: .value("月份", date(p.month), unit: .month), y: .value("合计", p.netWorth), series: .value("s", "total"))
+                        .foregroundStyle(Color.primary.opacity(0.75))
+                        .lineStyle(StrokeStyle(lineWidth: 1.6, lineCap: .round))
+                        .interpolationMethod(.monotone)
+                }
+                if let s = sel {
+                    RuleMark(x: .value("月份", date(s.month), unit: .month))
+                        .foregroundStyle(Color.secondary.opacity(0.5))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                }
+            }
+            .chartForegroundStyleScale(domain: srcs, range: srcs.map { currencyColor($0).opacity(0.75) })
+            .chartLegend(position: .top, alignment: .leading)
+            .chartYAxis { AxisMarks(position: .trailing) }
+            .chartOverlay { proxy in
+                GeometryReader { geo in
+                    Rectangle().fill(Color.clear).contentShape(Rectangle())
+                        .onTapGesture { location in
+                            guard let plot = proxy.plotFrame else { return }
+                            guard let d: Date = proxy.value(atX: location.x - geo[plot].origin.x) else { return }
+                            withAnimation(.easeOut(duration: 0.15)) {
+                                if let p = picked, abs(p.timeIntervalSince(d)) < 86400 * 15 { picked = nil } else { picked = d }
+                            }
+                        }
+                }
+            }
+            .frame(height: 200)
+            .sensitive()
+            if let s = sel {
+                // the parts of that month
+                WrapLayout(spacing: 10) {
+                    ForEach(srcs, id: \.self) { src in
+                        HStack(spacing: 4) {
+                            Circle().fill(currencyColor(src)).frame(width: 7, height: 7)
+                            Text(src + " " + unitText(s.bySource[src]?.amounts[c] ?? 0, c)).monospacedDigit().sensitive()
+                        }
+                    }
+                }
+                .font(.caption)
             }
         }
         .padding(.vertical, 6)
@@ -644,7 +807,6 @@ struct BalanceSheetView: View {
     @State private var asOf = AsOf.today
     @State private var custom = Day.today()
     @AppStorage("ledger.report.nwRange") private var nwRange = 24
-    @AppStorage("ledger.report.mode") private var modeRaw = ReportMode.units.raw
     @State private var pickedMonth: Date?
 
     var body: some View {
@@ -658,12 +820,17 @@ struct BalanceSheetView: View {
     private func content(_ L: Ledger) -> some View {
         let date = asOf.date(today: Day.today(), custom: custom)
         // each left out by its own list: the sheet by 资产负债表's, the trend by 净资产's
-        let mode = ReportMode(raw: modeRaw)
-        let bs = balanceSheet(L, at: date, exclude: store.balanceExclude, mode: mode)
-        let assets = bs.assets.total
-        let liab = -bs.liabilities.total
-        let series = Array(netWorthSeries(L, today: Day.today(), exclude: store.netWorthExclude).suffix(nwRange == 0 ? 10_000 : nwRange))
-        return List {
+        let mode = store.cmode, only = store.conly
+        let bs = balanceSheet(L, at: date, exclude: store.balanceExclude, mode: mode, only: only)
+        let assets = bs.assets.shown, liab = -bs.liabilities.shown
+        let a1 = assets.single(base: L.base), l1 = liab.single(base: L.base)
+        // the ratio only means something in one currency
+        let ratio: String = {
+            guard let a = a1, let l = l1, a.currency == l.currency || abs(l.amount) < 0.005, a.amount > 0, l.amount > 0.005 else { return "—" }
+            return String(format: "%.1f%%", l.amount / a.amount * 100)
+        }()
+        let series = Array(worthSeries(L, today: Day.today(), exclude: store.netWorthExclude, mode: mode, only: only).suffix(nwRange == 0 ? 10_000 : nwRange))
+        return ScrollViewReader { proxy in List {
             Section {
                 ChipRow {
                     ForEach(AsOf.allCases) { a in
@@ -674,7 +841,7 @@ struct BalanceSheetView: View {
                 if asOf == .custom {
                     DatePicker(LS("截至日期"), selection: dateBinding($custom), displayedComponents: .date)
                 }
-                ReportModeMenu(raw: $modeRaw, L: L)
+                CurrencyBanner()
             }
             Section {
                 Card {
@@ -682,23 +849,27 @@ struct BalanceSheetView: View {
                         Text(LS("截至 %@", date)).font(.caption).foregroundStyle(.secondary)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(LS("净资产")).font(.subheadline).foregroundStyle(.secondary)
-                            Text(mode.head(bs.netWorth, L, date)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit().sensitive()
+                            InventoryHeadline(inv: bs.netWorthShown, base: L.base)
                         }
                         HStack(alignment: .top) {
-                            Figure(label: LS("资产总额"), value: mode.head(assets, L, date))
+                            InventoryFigure(label: LS("资产总额"), inv: assets, base: L.base)
                             Spacer()
-                            Figure(label: LS("负债总额"), value: mode.head(liab, L, date), color: liab > 0.005 ? Color.loss : Color.primary)
+                            InventoryFigure(label: LS("负债总额"), inv: liab, base: L.base)
                             Spacer()
-                            Figure(label: LS("资产负债率"), value: assets > 0 && liab > 0.005 ? String(format: "%.1f%%", liab / assets * 100) : "—", alignment: .trailing)
+                            Figure(label: LS("资产负债率"), value: ratio, alignment: .trailing)
                         }
-                        RatioBar(parts: [(max(0, assets - liab), Color.jade), (liab, Color.loss)])
+                        if let a = a1, ratio != "—" || (l1?.amount ?? 0) < 0.005 {
+                            let l = max(0, l1?.amount ?? 0)
+                            RatioBar(parts: [(max(0, a.amount - l), Color.jade), (l, Color.loss)])
+                        }
                     }
                 }
                 .cardRow()
             }
             if series.count > 1 {
                 Section {
-                    NetWorthChart(series: series, picked: $pickedMonth)
+                    WorthCharts(slices: series, base: L.base, mode: mode, picked: $pickedMonth)
+                        .id("trend")
                     Picker(LS("区间"), selection: $nwRange) {
                         Text(LS("1 年")).tag(12)
                         Text(LS("2 年")).tag(24)
@@ -713,12 +884,12 @@ struct BalanceSheetView: View {
             Section {
                 AccountTreeRows(root: bs.assets, sign: 1, base: L.base)
             } header: {
-                SectionTotal(title: LS("资产"), value: assets, amounts: bs.assets.shown.byCurrency(base: L.base))
+                SectionTotal(title: LS("资产"), value: 0, amounts: assets.byCurrency(base: L.base))
             }
             Section {
                 AccountTreeRows(root: bs.liabilities, sign: -1, base: L.base)
             } header: {
-                SectionTotal(title: LS("负债"), value: liab, amounts: (-bs.liabilities.shown).byCurrency(base: L.base))
+                SectionTotal(title: LS("负债"), value: 0, amounts: liab.byCurrency(base: L.base))
             }
             Section {
                 AccountTreeRows(root: bs.equity, sign: -1, base: L.base)
@@ -728,7 +899,7 @@ struct BalanceSheetView: View {
             } header: {
                 SectionTotal(title: LS("权益"), value: -bs.equity.total - bs.earnings, amounts: (-bs.equityByCurrency).byCurrency(base: L.base))
             } footer: {
-                Text(mode.explain(L) + LS("每种货币各自平衡：资产 = 负债 + 权益。未结转损益是期初至截止日的收入减支出（Fava 的 Equity:Earnings）；%@（Fava 的 Equity:Conversions）补上换汇、外币消费、买卖证券以及价格和汇率变化在各币种之间留下的差额。顶部汇总按截止日汇率折算为 %@。", mode.conversionsTitle, mode.headCurrency(L)))
+                Text(mode.explain(L) + LS("每种货币各自平衡：资产 = 负债 + 权益。未结转损益是期初至截止日的收入减支出（Fava 的 Equity:Earnings）；%@（Fava 的 Equity:Conversions）补上换汇、外币消费、买卖证券以及价格和汇率变化在各币种之间留下的差额。", mode.conversionsTitle))
             }
             if !store.balanceExclude.isEmpty || !store.netWorthExclude.isEmpty {
                 Section {
@@ -743,12 +914,24 @@ struct BalanceSheetView: View {
             }
         }
         .listSectionSpacing(.compact)
+        .task {
+            // screenshots: the trend in view
+            guard store.demoEnv["LEDGER_SCROLL"] == "trend" else { return }
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            proxy.scrollTo("trend", anchor: .top)
+        }
+        }
     }
 }
 
 struct NetWorthChart: View {
     let series: [NetWorthPoint]
+    var currency = "CNY"
+    /// a small chart among several: no heading line, shorter
+    var compact = false
     @Binding var picked: Date?
+    /// the theme colour on its own; a currency's colour among several
+    private var tint: Color { compact ? currencyColor(currency) : Color.jade }
 
     private func date(_ m: String) -> Date { Day.date(m + "-01") ?? Date() }
 
@@ -762,26 +945,26 @@ struct NetWorthChart: View {
                 if let s = sel {
                     Text(Day.monthLabel(s.month) + LS("末")).foregroundStyle(.secondary)
                     Spacer()
-                    Text(money(s.netWorth)).fontWeight(.semibold).monospacedDigit().sensitive()
-                } else if let last = series.last, let first = series.first {
+                    Text(unitText(s.netWorth, currency)).fontWeight(.semibold).monospacedDigit().sensitive()
+                } else if let last = series.last, let first = series.first, !compact {
                     Text(LS("区间变动")).foregroundStyle(.secondary)
                     Spacer()
-                    Text(signedMoney(last.netWorth - first.netWorth)).fontWeight(.semibold).monospacedDigit()
+                    Text((last.netWorth >= first.netWorth && !KitPrivacy.masked ? "+" : "") + unitText(last.netWorth - first.netWorth, currency)).fontWeight(.semibold).monospacedDigit()
                         .foregroundStyle(last.netWorth >= first.netWorth ? Color.gain : Color.loss).sensitive()
                 }
             }
-            .font(.subheadline)
+            .font(compact ? .caption : .subheadline)
             Chart(series) { p in
                 AreaMark(x: .value("月份", date(p.month), unit: .month), yStart: .value("下限", lo - pad), yEnd: .value("净资产", p.netWorth))
-                    .foregroundStyle(LinearGradient(colors: [Color.jade.opacity(0.32), Color.jade.opacity(0.02)], startPoint: .top, endPoint: .bottom))
+                    .foregroundStyle(LinearGradient(colors: [tint.opacity(0.32), tint.opacity(0.02)], startPoint: .top, endPoint: .bottom))
                     .interpolationMethod(.monotone)
                 LineMark(x: .value("月份", date(p.month), unit: .month), y: .value("净资产", p.netWorth))
-                    .foregroundStyle(Color.jade)
+                    .foregroundStyle(tint)
                     .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round))
                     .interpolationMethod(.monotone)
                 if let s = sel, s.month == p.month {
                     PointMark(x: .value("月份", date(p.month), unit: .month), y: .value("净资产", p.netWorth))
-                        .foregroundStyle(Color.jade)
+                        .foregroundStyle(tint)
                         .symbolSize(70)
                     RuleMark(x: .value("月份", date(p.month), unit: .month))
                         .foregroundStyle(Color.secondary.opacity(0.4))
@@ -802,10 +985,10 @@ struct NetWorthChart: View {
                         }
                 }
             }
-            .frame(height: 180)
+            .frame(height: compact ? 110 : 180)
             .sensitive()
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, compact ? 0 : 6)
     }
 }
 
@@ -813,7 +996,6 @@ struct NetWorthChart: View {
 
 struct TrialBalanceView: View {
     @EnvironmentObject var store: Store
-    @AppStorage("ledger.report.mode") private var modeRaw = ReportMode.units.raw
 
     var body: some View {
         Group {
@@ -825,15 +1007,15 @@ struct TrialBalanceView: View {
 
     private func content(_ L: Ledger) -> some View {
         let today = Day.today()
-        let mode = ReportMode(raw: modeRaw)
-        let b = periodBalances(L, to: today)
-        let v = mode == .units ? b : valuedBalances(L, to: today, mode: mode)
+        let mode = store.cmode, only = store.conly
+        let b = periodBalances(L, to: today, only: only)
+        let v = mode == .units ? b : valuedBalances(L, to: today, mode: mode, only: only)
         let roots = ["Assets", "Liabilities", "Equity", "Income", "Expenses"].map { accountTree(b, root: $0, L, at: today, shown: v) }
         // what makes each currency balance: conversions, and with market values or rates the change since booking
         let conv = conversions(of: v)
         return List {
-            Section {
-                ReportModeMenu(raw: $modeRaw, L: L)
+            if !store.cview.isDefault {
+                Section { CurrencyBanner() }
             }
             Section {
                 Card { totalsCard(roots, conv, L, today, mode) }.cardRow()

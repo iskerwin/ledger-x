@@ -80,6 +80,8 @@ final class Store: ObservableObject {
     @Published var addToken = 0
     /// icons, names, order and hidden groups of the 记一笔 category grid (kept on this phone, not in the ledger)
     @Published var catStyle: CatStyle { didSet { Prefs.set("catStyle", catStyle) } }
+    /// 币种与换算: which currencies the reports, overview and accounts show, and how they are valued (this phone)
+    @Published var cview: CurrencyView { didSet { Prefs.set("currencyView", cview) } }
     @Published var showSettings = false
     /// the card bill being repaid: the sheet lives at the root, so a List section can't present it twice
     @Published var repaying: CardCycle?
@@ -191,6 +193,7 @@ final class Store: ObservableObject {
         subsFile = Prefs.get(Store.key("subsFile", id), "")
         myQueries = Prefs.get("queries", [SavedQuery]())
         catStyle = Prefs.get("catStyle", CatStyle()).normalized()
+        cview = Prefs.get("currencyView", CurrencyView())
     }
 
     var backend: LedgerBackend { makeBackend(cfg) }
@@ -357,8 +360,14 @@ final class Store: ObservableObject {
         AppSettings.shared.theme = env["LEDGER_THEME"] ?? "jade"
         AppSettings.shared.language = env["LEDGER_LANG"] ?? "zh"
         if let a = env["LEDGER_ACCOUNT"] { journalAccount = a }
-        // the statements' 显示方式 (remembered between launches, so set either way)
-        UserDefaults.standard.set(env["LEDGER_REPORT_MODE"] ?? "units", forKey: "ledger.report.mode")
+        // 币种与换算 for the screenshots
+        var cv = CurrencyView()
+        cv.modeRaw = env["LEDGER_CURRENCY_MODE"]
+        if let only = env["LEDGER_CURRENCIES"]?.split(separator: ",").map(String.init) {
+            cv.off = Set(ledgerCurrencies(result.0)).subtracting(only)
+            cv.on = Set(only)
+        }
+        cview = cv
         // the journal as a calendar (the setting is remembered between launches, so it is set either way)
         UserDefaults.standard.set(env["LEDGER_CALENDAR"] != nil, forKey: "ledger.journal.calendar")
         lastSync = Date()
