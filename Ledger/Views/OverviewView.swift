@@ -26,7 +26,7 @@ struct OverviewView: View {
                 if let L = store.L, let D = store.D { content(L, D) } else { ProgressView() }
             }
             .navigationTitle(LS("概览"))
-            .toolbar { StandardToolbar() }
+            .toolbar { StandardToolbar(currency: true) }
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name).privacyToolbar() }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
             .subscriptionDestinations()
@@ -146,7 +146,7 @@ struct OverviewView: View {
                     if F.currencies.count > 1 {
                         ChipRow {
                             ForEach(F.currencies, id: \.self) { c in
-                                Button { ovCur = c } label: { CurrencyChip(code: c, on: c == F.cur, held: true) }.buttonStyle(.plain)
+                                Button { ovCur = c } label: { CurrencyChip(code: c, on: c == F.cur, held: true, picker: true) }.buttonStyle(.plain)
                             }
                         }
                     }
