@@ -162,7 +162,7 @@ struct JournalView: View {
                     }
                 }
             }
-            .safeAreaInset(edge: .top, spacing: 0) { if !selecting { QuickSearchBar(q: $q) } }
+            .topBar { if !selecting { QuickSearchBar(q: $q) } }
             .safeAreaInset(edge: .bottom) { if selecting { batchBar } }
             .sheet(item: $batch) { m in
                 BatchEditSheet(entries: selectedEntries, mode: m) { selecting = false; selected = [] }
@@ -279,6 +279,9 @@ struct JournalView: View {
             ("#出差|#旅行", LS("用 | 表示任一：带其中一个标签就算；科目:餐饮|交通 也行")),
             ("本月 科目:餐饮", LS("本月、上月、本周、今年、近30天按今天计算，适合存成快速搜索")),
         ]
+        if store.quickSearches.isEmpty {
+            Label(LS("搜索后点「保存」，即可加为快速搜索"), systemImage: "bookmark").font(.footnote).foregroundStyle(.secondary)
+        }
         ForEach(examples, id: \.0) { e in
             VStack(alignment: .leading, spacing: 2) {
                 Text(e.0).font(.body.monospaced())
@@ -542,11 +545,8 @@ struct EditTxView: View {
                 let aligned = alignText(text)
                 let v = validateText(aligned, L, single: true)
                 Section {
-                    TextEditor(text: $text)
-                        .font(.system(size: 12.5, design: .monospaced))
+                    CodeTextView(text: $text, language: .beancount, fontSize: 12.5, fitsContent: true)
                         .frame(minHeight: 200)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
                     if v.ok { Label(LS("校验通过"), systemImage: "checkmark.circle").font(.footnote).foregroundStyle(Color.gain) }
                     else if let m = v.msg { Label(m, systemImage: "xmark.octagon").font(.footnote).foregroundStyle(Color.loss) }
                 } header: {

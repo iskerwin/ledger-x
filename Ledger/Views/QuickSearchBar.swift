@@ -11,6 +11,11 @@ struct QuickSearchBar: View {
     var body: some View {
         let list = store.quickSearches
         let now = q.trimmed
+        // nothing saved and nothing typed: no row (the hint is among the search examples)
+        if !(list.isEmpty && now.isEmpty) { row(list, now) }
+    }
+
+    private func row(_ list: [QuickSearch], _ now: String) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(Array(list.enumerated()), id: \.element.id) { i, s in
@@ -39,13 +44,10 @@ struct QuickSearchBar: View {
                             .foregroundStyle(Color.jade)
                     }
                     .buttonStyle(.plain)
-                } else if list.isEmpty {
-                    Text(LS("搜索后点「保存」，即可加为快速搜索")).font(.caption).foregroundStyle(.secondary)
                 }
             }
             .padding(.horizontal, 16).padding(.vertical, 6)
         }
-        .background(.bar)
         .sheet(item: $editing) { e in QuickSearchSheet(edit: e) }
     }
 

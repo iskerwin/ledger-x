@@ -20,7 +20,7 @@ struct QueryEditorView: View {
     @State private var newName = ""
     @State private var showRef = false
     @State private var loaded = false
-    @FocusState private var editing: Bool
+    @State private var editing = false
 
     /// saved in a .bql file of the ledger (or, from before, on this phone): can be saved over, renamed, deleted
     private var isMine: Bool { store.isEditableQuery(q) }
@@ -30,13 +30,8 @@ struct QueryEditorView: View {
     var body: some View {
         List {
             Section {
-                TextEditor(text: $text)
-                    .font(.system(size: 14, design: .monospaced))
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .focused($editing)
+                CodeTextView(text: $text, language: .bql, fontSize: 14, fitsContent: true, focused: $editing)
                     .frame(minHeight: 132)
-                    .scrollContentBackground(.hidden)
                     .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
                 ChipRow {
                     ForEach(snippets, id: \.self) { s in

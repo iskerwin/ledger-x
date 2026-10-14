@@ -59,7 +59,7 @@ struct SourceFileView: View {
             } else if original == nil {
                 ProgressView()
             } else {
-                CodeTextView(text: $text, editable: editing, find: find)
+                CodeTextView(text: $text, language: .beancount, editable: editing, find: find)
                     .ignoresSafeArea(.container, edges: .bottom)
             }
         }
@@ -117,49 +117,3 @@ struct SourceFileView: View {
     }
 }
 
-/// a plain-text view for long files: monospaced, no autocorrection, read-only until editing
-struct CodeTextView: UIViewRepresentable {
-    @Binding var text: String
-    var editable: Bool
-    /// bumped to open the find bar
-    var find = 0
-
-    func makeUIView(context: Context) -> UITextView {
-        let v = UITextView()
-        v.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
-        v.autocorrectionType = .no
-        v.autocapitalizationType = .none
-        v.smartQuotesType = .no
-        v.smartDashesType = .no
-        v.smartInsertDeleteType = .no
-        v.spellCheckingType = .no
-        v.alwaysBounceVertical = true
-        v.keyboardDismissMode = .interactive
-        v.textContainerInset = UIEdgeInsets(top: 12, left: 10, bottom: 40, right: 10)
-        v.isFindInteractionEnabled = true
-        v.delegate = context.coordinator
-        v.text = text
-        return v
-    }
-
-    func updateUIView(_ v: UITextView, context: Context) {
-        if v.text != text { v.text = text }
-        if context.coordinator.find != find {
-            context.coordinator.find = find
-            v.findInteraction?.presentFindNavigator(showingReplace: editable)
-        }
-        if v.isEditable != editable {
-            v.isEditable = editable
-            if editable { v.becomeFirstResponder() } else { v.resignFirstResponder() }
-        }
-    }
-
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-
-    final class Coordinator: NSObject, UITextViewDelegate {
-        let parent: CodeTextView
-        var find = 0
-        init(_ p: CodeTextView) { parent = p }
-        func textViewDidChange(_ v: UITextView) { parent.text = v.text }
-    }
-}

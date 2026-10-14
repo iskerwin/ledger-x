@@ -624,16 +624,13 @@ struct AddForm: View {
         }()
         Section {
             if d.kind == .raw {
-                TextEditor(text: Binding(get: { text }, set: { nv in store.draft.raw = nv }))
-                    .font(.system(size: 12.5, design: .monospaced))
+                CodeTextView(text: Binding(get: { text }, set: { nv in store.draft.raw = nv }), language: .beancount,
+                             fontSize: 12.5, fitsContent: true)
                     .frame(minHeight: 220)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .focused($focus, equals: .tags)
                     .overlay(alignment: .topLeading) {
                         if text.isEmpty {
                             Text(LS("直接输入 Beancount 指令，可一次输入多条，例如：\n2026-10-08 price USD 7.10 CNY\n2026-10-09 balance Assets:Cash 400.00 CNY"))
-                                .font(.system(size: 12.5, design: .monospaced)).foregroundStyle(.tertiary).padding(.top, 8).padding(.leading, 4).allowsHitTesting(false)
+                                .font(.system(size: 12.5, design: .monospaced)).foregroundStyle(.tertiary).padding(.top, 6).allowsHitTesting(false)
                         }
                     }
             } else if text.isEmpty {

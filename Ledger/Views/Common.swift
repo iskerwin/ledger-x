@@ -398,7 +398,7 @@ struct MonoText: View {
     let text: String
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            Text(verbatim: compactText(text))
+            Text(highlighted(compactText(text), .beancount))
                 .font(.system(size: 12, design: .monospaced))
                 .textSelection(.enabled)
                 .fixedSize(horizontal: true, vertical: false)
@@ -417,15 +417,12 @@ struct TextEditSheet: View {
     var validate: (String) -> Validation? = { _ in nil }
     let done: (String) -> Void
     @State private var text = ""
+    @State private var focused = true
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                TextEditor(text: $text)
-                    .font(.system(size: 13, design: .monospaced))
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .padding(.horizontal, 8)
+                CodeTextView(text: $text, language: .beancount, focused: $focused)
                 if let v = validate(text) {
                     HStack {
                         if v.ok { Label(LS("校验通过"), systemImage: "checkmark.circle").foregroundStyle(Color.gain) }
@@ -466,6 +463,18 @@ struct PersonField: View {
             if value.trimmed.isEmpty {
                 Text(LS("个人往来的每一笔都要写明是谁")).font(.caption).foregroundStyle(Color.warn)
             }
+        }
+    }
+}
+
+extension View {
+    /// a row under the navigation bar that the list scrolls beneath: on iOS 26 it shares the bar's soft edge
+    /// (no background of its own); before that a bar material of its own height
+    @ViewBuilder func topBar<C: View>(@ViewBuilder _ content: () -> C) -> some View {
+        if #available(iOS 26.0, *) {
+            safeAreaBar(edge: .top, spacing: 0, content: content)
+        } else {
+            safeAreaInset(edge: .top, spacing: 0) { content().background(.bar, ignoresSafeAreaEdges: []) }
         }
     }
 }
