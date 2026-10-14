@@ -48,10 +48,16 @@ final class EditingTests: XCTestCase {
           Assets:EWallet:WeChatPay                           -35.00 CNY
         """, kind: .expense)
         assertRoundTrip("""
-        2026-10-12 ! "公司" "奖金"
+        2026-10-12 * "公司" "奖金"
           Assets:Bank:BOC                                   500.00 CNY
           Income:Salary                                    -500.00 CNY
         """, kind: .income)
+        // flagged: the split form, which shows the flag
+        assertRoundTrip("""
+        2026-10-12 ! "公司" "奖金"
+          Assets:Bank:BOC                                   500.00 CNY
+          Income:Salary                                    -500.00 CNY
+        """, kind: .multi)
     }
 
     func testComboAndRate() {
@@ -92,12 +98,18 @@ final class EditingTests: XCTestCase {
           Liabilities:CreditCard:CMB                        1000.00 CNY
           Assets:Bank:BOC                                  -1000.00 CNY
         """, kind: .transfer)
-        assertRoundTrip("""
+        let fx = """
         2026-10-03 * "HSBC" "HKD -> USD" #fx
           exchange_rate: "1 USD = 7.80000 HKD"
           Assets:Bank:HSBC:USD                               100.00 USD @@ 780.00 HKD
           Assets:Bank:HSBC                                  -780.00 HKD
-        """, kind: .transfer)
+        """
+        assertRoundTrip(fx, kind: .transfer)
+        // other amounts: the rate worked out again, quoted the bank's way round
+        let (d0, _, L, D) = open(fx)
+        var d = try! XCTUnwrap(d0)
+        d.toAmount = "101"
+        XCTAssertTrue(draftText(d, L, D).contains("exchange_rate: \"1 USD = 7.72277 HKD\""), draftText(d, L, D))
     }
 
     func testMulti() {
@@ -117,12 +129,12 @@ final class EditingTests: XCTestCase {
           Expenses:Food:Dining                                35.00 CNY
           Assets:EWallet:WeChatPay                           -35.00 CNY
         """).0)
-        // a lot at cost
-        XCTAssertNil(open("""
+        // a lot at cost: the split form keeps it
+        assertRoundTrip("""
         2026-10-06 * "券商" "买入"
           Assets:Invest:Stock                                  1 VOO {3500.00 CNY}
           Assets:Bank:BOC                                  -3500.00 CNY
-        """).0)
+        """, kind: .multi)
     }
 
     func testChangeKeepsTheRest() {
