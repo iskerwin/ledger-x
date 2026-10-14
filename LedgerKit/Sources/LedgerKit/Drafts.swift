@@ -504,6 +504,14 @@ public struct LayoutRule: Codable, Equatable, Hashable {
     }
 }
 
+/// a saved search on 明细
+public struct QuickSearch: Codable, Equatable, Identifiable, Hashable {
+    public var name: String
+    public var query: String
+    public var id: String { name + "|" + query }
+    public init(name: String, query: String) { self.name = name; self.query = query }
+}
+
 /// ledger-x.json in the repository root: where each kind of directive is written, shared by every device
 public struct LedgerXConfig: Codable, Equatable {
     public static let path = "ledger-x.json"
@@ -533,6 +541,8 @@ public struct LedgerXConfig: Codable, Equatable {
     /// 常用交易 pinned to the front, and the ones not offered
     public var templatesPinned: [String]?
     public var templatesHidden: [String]?
+    /// 快速搜索 on 明细: a name and what goes in the search box ("出差和旅行": "#出差|#旅行"), in order
+    public var searches: [QuickSearch]?
 
     public init(files: [String: String] = [:], rules: [LayoutRule] = [], receivable: String? = nil, slugs: [String: String] = [:]) {
         self.files = files; self.rules = rules; self.receivable = receivable; self.slugs = slugs
@@ -544,6 +554,7 @@ public struct LedgerXConfig: Codable, Equatable {
         case main, defaultFunding = "default_funding", defaultCurrency = "default_currency", largeExpense = "large_expense"
         case alertsConfirmed = "alerts_confirmed", linksIgnored = "links_ignored", subsIgnored = "subs_ignored"
         case templatesPinned = "templates_pinned", templatesHidden = "templates_hidden"
+        case searches
     }
 
     /// every key is optional, so a hand-written file with only some of them still loads
@@ -565,6 +576,7 @@ public struct LedgerXConfig: Codable, Equatable {
         subsIgnored = try? c.decodeIfPresent([String].self, forKey: .subsIgnored)
         templatesPinned = try? c.decodeIfPresent([String].self, forKey: .templatesPinned)
         templatesHidden = try? c.decodeIfPresent([String].self, forKey: .templatesHidden)
+        searches = try? c.decodeIfPresent([QuickSearch].self, forKey: .searches)
     }
 
     /// the same settings with an account renamed (its sub-accounts too); nil when nothing refers to it
@@ -601,6 +613,8 @@ public struct LedgerXConfig: Codable, Equatable {
         c.rules = rules.filter { !$0.account.trimmingCharacters(in: .whitespaces).isEmpty && !$0.file.trimmingCharacters(in: .whitespaces).isEmpty }
         if c.receivable?.trimmingCharacters(in: .whitespaces).isEmpty ?? false { c.receivable = nil }
         if c.payslips?.isEmpty ?? false { c.payslips = nil }
+        c.searches = c.searches?.filter { !$0.query.trimmingCharacters(in: .whitespaces).isEmpty }
+        if c.searches?.isEmpty ?? false { c.searches = nil }
         if c.netWorthExclude?.isEmpty ?? false { c.netWorthExclude = nil }
         if c.balanceExclude?.isEmpty ?? false { c.balanceExclude = nil }
         func blank(_ s: String?) -> Bool { (s ?? "").trimmingCharacters(in: .whitespaces).isEmpty }

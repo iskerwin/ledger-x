@@ -164,6 +164,7 @@ struct JournalView: View {
                     }
                 }
             }
+            .safeAreaInset(edge: .top, spacing: 0) { if !selecting { QuickSearchBar(q: $q) } }
             .safeAreaInset(edge: .bottom) { if selecting { batchBar } }
             .sheet(item: $batch) { m in
                 BatchEditSheet(entries: selectedEntries, mode: m) { selecting = false; selected = [] }
@@ -277,6 +278,8 @@ struct JournalView: View {
             ("\(Day.today().prefix(4))-Q3", LS("一个季度；也可只写年份 %@", String(Day.today().prefix(4)))),
             ("对方:王五", LS("和某人的往来")),
             ("#trip", LS("带某个标签；^ 开头找链接，! 找待确认")),
+            ("#出差|#旅行", LS("用 | 表示任一：带其中一个标签就算；科目:餐饮|交通 也行")),
+            ("本月 科目:餐饮", LS("本月、上月、本周、今年、近30天按今天计算，适合存成快速搜索")),
         ]
         ForEach(examples, id: \.0) { e in
             VStack(alignment: .leading, spacing: 2) {

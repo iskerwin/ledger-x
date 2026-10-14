@@ -111,3 +111,14 @@ extension Store {
         Prefs.set(pk("config.migrated"), true)
     }
 }
+
+// MARK: 快速搜索 (明细)
+
+extension Store {
+    /// searches saved for 明细, in order
+    var quickSearches: [QuickSearch] { repoConfig?.searches ?? [] }
+
+    func setQuickSearches(_ l: [QuickSearch], label: String) async {
+        await updateConfig(label, word: LS("已更新快速搜索")) { $0.searches = l }
+    }
+}
