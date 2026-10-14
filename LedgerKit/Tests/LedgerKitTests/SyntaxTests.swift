@@ -25,7 +25,7 @@ final class SyntaxTests: XCTestCase {
     func testIncludeWildcards() {
         let files: [String: String] = [
             "main.bean": "include \"accounts.bean\"\ninclude \"journals/*.bean\"\ninclude \"more/**/*.bean\"\n",
-            "accounts.bean": "2026-01-01 open Assets:Bank CNY\n2026-01-01 open Expenses:Food\n",
+            "accounts.bean": "2025-01-01 open Assets:Bank CNY\n2025-01-01 open Expenses:Food\n",
             "journals/2025.bean": "2025-05-01 * \"a\"\n  Expenses:Food  1.00 CNY\n  Assets:Bank\n",
             "journals/2026.bean": "2026-05-01 * \"b\"\n  Expenses:Food  2.00 CNY\n  Assets:Bank\n",
             "journals/notes.txt": "not a ledger",
