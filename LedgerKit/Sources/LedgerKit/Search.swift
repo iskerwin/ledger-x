@@ -178,7 +178,7 @@ public struct TxQuery {
             }
             return cs.isEmpty ? nil : cs.count == 1 ? cs[0] : .any(cs)
         }
-        if let d = relativeSpan(w) { return .dates(d.0, d.1) }
+        if isDateWord(w), let d = dateSpan(w) { return .dates(d.0, d.1) }
         if w == "!" { return .flag }
         // a range dash left on its own
         if w == "-" || w == "~" || w == ".." { return nil }
