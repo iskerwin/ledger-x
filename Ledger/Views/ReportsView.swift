@@ -707,6 +707,18 @@ struct WorthCharts: View {
         }
     }
 
+    /// from the lowest the negative layers reach to the highest the positive ones do (not a symmetric guess)
+    private func stackRange(_ c: String, _ srcs: [String]) -> ClosedRange<Double> {
+        var lo = 0.0, hi = 0.0
+        for s in slices {
+            var neg = 0.0, pos = 0.0
+            for src in srcs { let v = s.bySource[src]?.amounts[c] ?? 0; if v < 0 { neg += v } else { pos += v } }
+            lo = min(lo, neg); hi = max(hi, pos)
+        }
+        let pad = max((hi - lo) * 0.05, 1)
+        return (lo < 0 ? lo - pad : 0)...(hi + pad)
+    }
+
     /// stacked areas by currency held, all in `c`; tap a month for its parts
     private func stacked(_ c: String, _ total: [NetWorthPoint]) -> some View {
         let srcs = sources
@@ -746,6 +758,7 @@ struct WorthCharts: View {
                 }
             }
             .chartForegroundStyleScale(domain: srcs, range: srcs.map { currencyColor($0).opacity(0.75) })
+            .chartYScale(domain: stackRange(c, srcs))
             .chartLegend(position: .top, alignment: .leading)
             .chartYAxis { AxisMarks(position: .trailing) }
             .chartOverlay { proxy in

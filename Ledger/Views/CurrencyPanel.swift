@@ -156,15 +156,18 @@ struct CurrencyChip: View {
     let code: String
     let on: Bool
     let held: Bool
+    /// choosing one of several (the overview's currency): the chosen one outlined, none struck through
+    var picker = false
     var body: some View {
         HStack(spacing: 6) {
-            Circle().fill(on ? currencyColor(code) : Color(.systemGray3)).frame(width: 10, height: 10)
-            Text(code).font(.subheadline.weight(.medium)).strikethrough(!on)
+            Circle().fill(on || picker ? currencyColor(code) : Color(.systemGray3)).frame(width: 10, height: 10)
+            Text(code).font(.subheadline.weight(.medium)).strikethrough(!on && !picker)
                 .foregroundStyle(on ? Color.primary : Color.secondary)
             if !held { Text(LS("未持有")).font(.caption2).foregroundStyle(.secondary) }
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
         .background(Color(.tertiarySystemFill), in: Capsule())
+        .overlay(Capsule().stroke(picker && on ? currencyColor(code) : Color.clear, lineWidth: 1.5))
         .contentShape(Capsule())
     }
 }
