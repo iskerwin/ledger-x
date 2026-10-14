@@ -95,6 +95,9 @@ extension Store {
             op.amountText = ins[0].amountText
             first = [op]
             ins = []
+        } else if let i = ins.firstIndex(where: { $0.kind == .insert }) {
+            // moved to another day: the page showing it follows it there
+            ins[i].moves = old
         }
         return await review(first + ins + pairedLinkOps(oldText: old, newText: newText))
     }
