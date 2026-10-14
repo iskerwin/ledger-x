@@ -196,8 +196,9 @@ func applyInventory(_ t: Entry, _ inv: inout [String: [Lot]]) {
 
 // MARK: - loading
 
-/// readFile(path) returns the text of a repo file (paths relative to the repo root)
-public func loadLedger(root: String = "main.bean", readFile: @escaping (String) throws -> String) -> Ledger {
+/// readFile(path) returns the text of a repo file (paths relative to the repo root); `listFiles` gives every file in
+/// the repository, for includes with wildcards (`include "journals/*.bean"`)
+public func loadLedger(root: String = "main.bean", listFiles: (() -> [String])? = nil, readFile: @escaping (String) throws -> String) -> Ledger {
     var entries: [Entry] = []
     var files: [String] = []
     var options: [String: [String?]] = [:]
@@ -223,12 +224,60 @@ public func loadLedger(root: String = "main.bean", readFile: @escaping (String) 
         plugins.append(contentsOf: r.plugins)
         for (k, v) in r.options { options[k, default: []].append(contentsOf: v) }
         for inc in r.includes {
-            if inc.contains("*") || inc.contains("?") { continue } // globs are not resolvable over the API
-            visit(normalizePath(inc.hasPrefix("/") ? String(inc.dropFirst()) : dirOf(path) + inc))
+            let target = normalizePath(inc.hasPrefix("/") ? String(inc.dropFirst()) : dirOf(path) + inc)
+            if inc.contains("*") || inc.contains("?") || inc.contains("[") {
+                // a wildcard: the matching files in name order, as Beancount does
+                guard let all = listFiles?() else {
+                    errors.append(softError(path, tr("无法展开 include \"\(inc)\"", "Cannot expand include \"\(inc)\"")))
+                    continue
+                }
+                let hits = all.filter { globMatch(target, $0) }.sorted()
+                if hits.isEmpty { errors.append(softError(path, tr("include \"\(inc)\" 没有匹配的文件", "include \"\(inc)\" matches no file"))) }
+                for h in hits { visit(h) }
+                continue
+            }
+            visit(target)
         }
     }
     visit(root)
     return build(entries, files: files, options: options, plugins: plugins, errors: errors)
+}
+
+private func softError(_ file: String, _ msg: String) -> LedgerError {
+    var e = LedgerError(file: file, line: 0, msg: msg)
+    e.soft = true
+    return e
+}
+
+/// a shell wildcard against a repo path: `*` and `?` stay within one folder, `**` crosses folders, `[abc]` a set
+public func globMatch(_ pattern: String, _ path: String) -> Bool {
+    var re = "^"
+    let cs = Array(pattern)
+    var i = 0
+    while i < cs.count {
+        let c = cs[i]
+        if c == "*" {
+            if i + 1 < cs.count && cs[i + 1] == "*" {
+                // "**/" also matches no folder at all
+                if i + 2 < cs.count && cs[i + 2] == "/" { re += "(?:.*/)?"; i += 3; continue }
+                re += ".*"; i += 2; continue
+            }
+            re += "[^/]*"
+        } else if c == "?" {
+            re += "[^/]"
+        } else if c == "[" , let end = cs[i...].firstIndex(of: "]") {
+            var set = String(cs[(i + 1)..<end]).replacingOccurrences(of: "\\", with: "\\\\")
+            if set.hasPrefix("!") { set = "^" + set.dropFirst() }
+            re += "[" + set + "]"
+            i = end + 1
+            continue
+        } else {
+            re += NSRegularExpression.escapedPattern(for: String(c))
+        }
+        i += 1
+    }
+    re += "$"
+    return path.range(of: re, options: .regularExpression) != nil
 }
 
 public func normalizePath(_ p: String) -> String {
