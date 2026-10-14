@@ -1,0 +1,13 @@
+01:00円	40
+Weixin Pay
+Tuesday 12:21
+收	金牌烧鹅示例店
+Paid by BOC Debit Card （4321）
+¥4.00
+Transaction Details >
+Yesterday 12:20
+收	金牌烧鹅示例店
+Paid by BOC Debit Card （4321）
+¥16.00
+Transaction Details>
+Transactions	Payment Servic...	Coupon
