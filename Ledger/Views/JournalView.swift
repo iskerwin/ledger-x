@@ -369,6 +369,9 @@ struct TxDetailView: View {
     @State private var subDraft: SubDraft?
     @State private var subPick: Entry?
     @State private var ordering: Entry?
+    /// the form can't hold all of this entry: edit its source
+    @State private var visualUnavailable = false
+    @State private var goSource = false
     /// the subscription form to open once the picker has gone
     @State private var nextSub: SubDraft?
     @State private var linkPick: LinkPick?
@@ -420,7 +423,11 @@ struct TxDetailView: View {
                     if t.synthetic {
                         Text(LS("此交易由 pad 指令自动生成，如需调整请修改对应的 pad 或余额断言。")).font(.footnote).foregroundStyle(.secondary)
                     } else {
-                        NavigationLink(value: EditDest(t)) { Label(LS("编辑"), systemImage: "pencil") }
+                        // in the 记一笔 form when it can hold all of the entry; its source either way
+                        Button {
+                            Task { if await !store.beginEdit(t) { visualUnavailable = true } }
+                        } label: { Label(LS("编辑"), systemImage: "pencil") }
+                        NavigationLink(value: EditDest(t)) { Label(LS("编辑源文本"), systemImage: "chevron.left.forwardslash.chevron.right") }
                         if L.txns.filter({ $0.date == t.date && $0.file == t.file && !$0.synthetic }).count > 1 {
                             Button { ordering = t } label: { Label(LS("调整当天顺序"), systemImage: "arrow.up.arrow.down") }
                         }
@@ -450,6 +457,15 @@ struct TxDetailView: View {
             .sheet(item: $ordering) { DayOrderSheet(date: $0.date, file: $0.file) }
             .sheet(item: $linkPick) { LinkPickSheet(pick: $0) }
             .linkRemovalDialog($linkRemoval, store: store)
+            .navigationDestination(isPresented: $goSource) {
+                if let t = store.txn(dest.id, key: dest.key) { EditTxView(dest: EditDest(t)) }
+            }
+            .alert(LS("这笔请编辑源文本"), isPresented: $visualUnavailable) {
+                Button(LS("编辑源文本")) { goSource = true }
+                Button(LS("取消"), role: .cancel) {}
+            } message: {
+                Text(LS("这笔交易有表单表达不了的内容（注释、成本批次、多个价格等），用表单保存会改掉它们，请直接编辑源文本。"))
+            }
             .sheet(item: $subPick, onDismiss: {
                 if let d = nextSub { nextSub = nil; subDraft = d }
             }) { e in
@@ -578,26 +594,9 @@ struct EditTxView: View {
     }
 
     private func save(_ old: String, _ L: Ledger) async {
-        var rm = Op(kind: .remove, path: path)
-        rm.old = old
-        rm.label = LS("修改：%@ %@", date, summary)
-        let newText = alignText(text)
-        guard var ins = store.makeOps(newText, extra: OpExtra(silent: true), single: true) else { return }
-        var first = [rm]
         // same date, same file: changed where it is, so it keeps its place among that day's entries;
         // a new date moves it to the end of that day (in that year's file)
-        if ins.count == 1, ins[0].kind == .insert, ins[0].path == path, ins[0].date == date {
-            var op = Op(kind: .replace, path: path)
-            op.old = old
-            op.text = ins[0].text
-            op.date = date
-            op.label = rm.label
-            op.summary = ins[0].summary
-            op.amountText = ins[0].amountText
-            first = [op]
-            ins = []
-        }
-        guard let ops = await store.review(first + ins + store.pairedLinkOps(oldText: old, newText: newText)) else { return }
+        guard let ops = await store.replaceOps(old: old, path: path, date: date, summary: summary, newText: alignText(text)) else { return }
         store.popToken += 1
         await store.commit(ops, word: LS("已更新"), checked: true)
     }

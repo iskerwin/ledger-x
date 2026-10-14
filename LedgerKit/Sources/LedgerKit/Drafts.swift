@@ -98,6 +98,24 @@ public struct RefundOf: Equatable {
     public var link: String
 }
 
+/// the entry being edited: where it is and its text as it stands in the file
+public struct Replacing: Equatable {
+    public var path: String
+    public var old: String
+    public var date: String
+    public var summary: String
+    /// the text the form made of it before any change (saving that again changes nothing)
+    public var baseline: String
+    public init(path: String, old: String, date: String, summary: String, baseline: String) {
+        self.path = path; self.old = old; self.date = date; self.summary = summary; self.baseline = baseline
+    }
+}
+
+public struct KeptMeta: Equatable {
+    public var key: String
+    public var value: String
+}
+
 public struct Draft: Equatable {
     public var kind: DraftKind = .expense
     public var date = Day.today()
@@ -144,6 +162,11 @@ public struct Draft: Equatable {
     /// currency, "1CNY=1.17912HKD") instead of the amount charged; written as it is (23.00 CNY @ 1.17912 HKD)
     public var byRate = false
     public var rate = ""
+    /// editing an entry already in the ledger (instead of adding one)
+    public var replacing: Replacing? = nil
+    /// what the form doesn't show, kept as it was: the other links and the transaction's metadata
+    public var keepLinks: [String] = []
+    public var keepMeta: [KeptMeta] = []
     public var discountAccount = defaultDiscountAccount
     public init() {}
 }
@@ -245,6 +268,12 @@ public func newDraft(_ kind: DraftKind = .expense, _ D: Derived, defaultFunding:
 }
 
 func multiTx(_ d: Draft, _ L: Ledger) -> TxDraft? {
+    guard var tx = multiTx0(d, L) else { return nil }
+    keepParts(&tx, d)
+    return tx
+}
+
+func multiTx0(_ d: Draft, _ L: Ledger) -> TxDraft? {
     let tl = parseTagsLinks(d.tagsText)
     let rows = d.rows.filter { !$0.account.trimmingCharacters(in: .whitespaces).isEmpty }
     guard !d.date.isEmpty, !rows.isEmpty else { return nil }
@@ -295,6 +324,19 @@ public func institution(_ account: String) -> String {
 public func isTransferTag(_ t: Entry) -> Bool { t.tags.contains("transfer") || t.tags.contains("fx") }
 
 func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
+    guard var tx = draftTx0(d, L, D) else { return nil }
+    if d.kind != .multi && !d.flag.isEmpty { tx.flag = d.flag }
+    keepParts(&tx, d)
+    return tx
+}
+
+/// what the form doesn't show, carried over when an entry is edited: its other links and its metadata
+func keepParts(_ tx: inout TxDraft, _ d: Draft) {
+    for l in d.keepLinks where !tx.links.contains(l) { tx.links.append(l) }
+    for m in d.keepMeta where !tx.meta.contains(where: { $0.0 == m.key }) { tx.meta.append((m.key, m.value)) }
+}
+
+func draftTx0(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
     guard !d.date.isEmpty, let amt = evalAmount(d.amount), amt > 0 else { return nil }
     var tx = TxDraft(date: d.date)
     tx.payee = d.payee.trimmingCharacters(in: .whitespaces)

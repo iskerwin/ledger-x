@@ -98,7 +98,8 @@ struct QuickAddView: View {
                     if !quick {
                         fullBanner(d)
                     } else {
-                        templatesRow(d.kind)
+                        // editing an entry: which one, instead of the templates (picking one would replace it)
+                        if let r = d.replacing { editingBanner(r) } else { templatesRow(d.kind) }
                         if d.kind == .transfer { transferPanel(d, L, D) } else { grid(d, L, D) }
                     }
                 }
@@ -170,8 +171,10 @@ struct QuickAddView: View {
             Button { openFull() } label: { Label(LS("完整表单"), systemImage: "list.bullet.rectangle") }
             Button { store.setKind(.multi); openFull() } label: { Label(LS("分录（多行）"), systemImage: "list.number") }
             Button { store.setKind(.raw); openFull() } label: { Label(LS("文本（Beancount 指令）"), systemImage: "text.alignleft") }
-            Divider()
-            Button { importing = true } label: { Label(LS("导入账单"), systemImage: "square.and.arrow.down.on.square") }
+            if store.draft.replacing == nil {
+                Divider()
+                Button { importing = true } label: { Label(LS("导入账单"), systemImage: "square.and.arrow.down.on.square") }
+            }
             Divider()
             Button { managingCats = true } label: { Label(LS("分类图标与排序"), systemImage: "square.grid.3x3") }
             Button { managingTemplates = true } label: { Label(LS("常用交易"), systemImage: "star") }
@@ -179,6 +182,13 @@ struct QuickAddView: View {
             Image(systemName: "ellipsis.circle")
         }
         .accessibilityLabel(LS("更多"))
+    }
+
+    private func editingBanner(_ r: Replacing) -> some View {
+        Label(LS("修改：%@ %@", r.date, r.summary), systemImage: "pencil")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
     }
 
     /// 分录 / 文本 / 退款 / AA are edited on the full form
@@ -701,7 +711,12 @@ struct QuickAddView: View {
             GridRow {
                 digit(".")
                 digit("0")
-                KeyCap(text: LS("保存再记"), font: .system(size: 16, weight: .semibold), tap: { submit(close: false) })
+                if d.replacing != nil {
+                    // editing: there is no next one; its text instead
+                    KeyCap(text: LS("源文本"), font: .system(size: 16, weight: .semibold), tap: { editingText = true })
+                } else {
+                    KeyCap(text: LS("保存再记"), font: .system(size: 16, weight: .semibold), tap: { submit(close: false) })
+                }
                 KeyCap(text: expr ? "=" : LS("完成"), font: .system(size: expr ? 24 : 17, weight: .semibold), filled: true,
                        tap: { expr ? equals() : submit(close: true) })
                     .opacity(saving ? 0.5 : 1)
