@@ -228,6 +228,9 @@ struct AccountTreeRows: View {
     /// 1 for debit-normal roots (Assets, Expenses), -1 for credit-normal (Income, Liabilities, Equity)
     let sign: Double
     var share: Double? = nil
+    /// each currency as booked (securities as units) instead of one converted total
+    var byCurrency = false
+    var base = "CNY"
     @State private var expanded: Set<String> = []
 
     var body: some View {
@@ -270,11 +273,21 @@ struct AccountTreeRows: View {
                     }
                     Spacer(minLength: 8)
                     VStack(alignment: .trailing, spacing: 1) {
-                        Text(money(node.total * sign, "CNY")).monospacedDigit()
-                            .font(depth == 0 ? .body : .subheadline)
-                            .foregroundStyle(node.total * sign < -0.005 ? Color.loss : Color.primary)
-                            .sensitive()
-                        if let s = share, s > 0.005, depth == 0 {
+                        if byCurrency {
+                            let xs = node.balance.byCurrency(base: base)
+                            ForEach(xs.isEmpty ? [CurrencyAmount(base, 0)] : xs) { x in
+                                Text(unitText(x.amount * sign, x.currency)).monospacedDigit()
+                                    .font(depth == 0 ? .body : .subheadline)
+                                    .foregroundStyle(x.amount * sign < -0.005 ? Color.loss : Color.primary)
+                                    .sensitive()
+                            }
+                        } else {
+                            Text(money(node.total * sign, "CNY")).monospacedDigit()
+                                .font(depth == 0 ? .body : .subheadline)
+                                .foregroundStyle(node.total * sign < -0.005 ? Color.loss : Color.primary)
+                                .sensitive()
+                        }
+                        if !byCurrency, let s = share, s > 0.005, depth == 0 {
                             Text(String(format: "%.1f%%", node.total * sign / s * 100)).font(.caption2).foregroundStyle(.secondary)
                         }
                     }
@@ -297,11 +310,58 @@ struct AccountTreeRows: View {
 struct SectionTotal: View {
     let title: String
     let value: Double
+    /// by currency instead (one line each)
+    var amounts: [CurrencyAmount]? = nil
     var body: some View {
-        HStack {
+        HStack(alignment: .top) {
             Text(title)
             Spacer()
-            Text(money(value)).monospacedDigit().sensitive()
+            if let xs = amounts {
+                VStack(alignment: .trailing, spacing: 1) {
+                    if xs.isEmpty { Text(money(0)).monospacedDigit().sensitive() }
+                    ForEach(xs) { x in Text(unitText(x.amount, x.currency)).monospacedDigit().sensitive() }
+                }
+            } else {
+                Text(money(value)).monospacedDigit().sensitive()
+            }
+        }
+    }
+}
+
+/// an amount as booked: money for a currency, a plain quantity for shares and other commodities
+func unitText(_ v: Double, _ c: String) -> String {
+    let currency = SYM[c] != nil || (c.count == 3 && c.allSatisfy { $0.isLetter })
+    if currency { return money(v, c) }
+    let cents = abs(v * 100 - (v * 100).rounded()) < 1e-6
+    let whole = abs(v - v.rounded()) < 1e-9
+    return money(v, c, whole ? 0 : cents ? 2 : 4)
+}
+
+/// 按币种 / 折算为 CNY, one setting for the three statements (按币种 by default, as Fava does)
+struct CurrencyModePicker: View {
+    @Binding var byCurrency: Bool
+    let base: String
+    var body: some View {
+        Picker(LS("显示方式"), selection: $byCurrency) {
+            Text(LS("按币种")).tag(true)
+            Text(LS("折算为 %@", base)).tag(false)
+        }
+        .pickerStyle(.segmented)
+    }
+}
+
+/// one row of the equity section by currency (未结转损益, 货币兑换)
+struct CurrencyLinesRow: View {
+    let title: String
+    let amounts: [CurrencyAmount]
+    var body: some View {
+        HStack(alignment: .top) {
+            Text(title).foregroundStyle(.secondary)
+            Spacer()
+            VStack(alignment: .trailing, spacing: 1) {
+                if amounts.isEmpty { Text(money(0)).monospacedDigit().sensitive() }
+                ForEach(amounts) { x in Text(unitText(x.amount, x.currency)).monospacedDigit().sensitive() }
+            }
         }
     }
 }
@@ -311,6 +371,7 @@ struct SectionTotal: View {
 struct IncomeStatementView: View {
     @EnvironmentObject var store: Store
     @AppStorage("ledger.report.period") private var period = ReportPeriod.thisYear
+    @AppStorage("ledger.report.byCurrency") private var byCurrency = true
     @State private var from = Day.addMonth(Day.ym(Day.today()), -2) + "-01"
     @State private var to = Day.today()
     @State private var picked: String?
@@ -347,6 +408,7 @@ struct IncomeStatementView: View {
                     DatePicker(LS("开始"), selection: dateBinding($from), displayedComponents: .date)
                     DatePicker(LS("结束"), selection: dateBinding($to), displayedComponents: .date)
                 }
+                CurrencyModePicker(byCurrency: $byCurrency, base: L.base)
             }
             Section {
                 Card {
@@ -379,16 +441,26 @@ struct IncomeStatementView: View {
                 }
             }
             Section {
-                AccountTreeRows(root: s.income, sign: -1, share: inc)
+                AccountTreeRows(root: s.income, sign: -1, share: inc, byCurrency: byCurrency, base: L.base)
             } header: {
-                SectionTotal(title: LS("收入"), value: inc)
+                SectionTotal(title: LS("收入"), value: inc, amounts: byCurrency ? (-s.income.balance).byCurrency(base: L.base) : nil)
             }
             Section {
-                AccountTreeRows(root: s.expenses, sign: 1, share: exp)
+                AccountTreeRows(root: s.expenses, sign: 1, share: exp, byCurrency: byCurrency, base: L.base)
             } header: {
-                SectionTotal(title: LS("支出"), value: exp)
+                SectionTotal(title: LS("支出"), value: exp, amounts: byCurrency ? s.expenses.balance.byCurrency(base: L.base) : nil)
             } footer: {
-                Text(LS("金额按期末汇率折算为 %@。收入以正数列示。", L.base))
+                if byCurrency {
+                    let net = (-(s.income.balance + s.expenses.balance)).byCurrency(base: L.base)
+                    VStack(alignment: .leading, spacing: 4) {
+                        if net.count > 1 {
+                            Text(LS("净收益按币种：%@", net.map { unitText($0.amount, $0.currency) }.joined(separator: LS("，"))))
+                        }
+                        Text(LS("各科目按记账币种列示，不折算；顶部汇总按期末汇率折算为 %@。收入以正数列示。", L.base))
+                    }
+                } else {
+                    Text(LS("金额按期末汇率折算为 %@。收入以正数列示。", L.base))
+                }
             }
         }
         .listSectionSpacing(.compact)
@@ -523,6 +595,7 @@ struct BalanceSheetView: View {
     @State private var asOf = AsOf.today
     @State private var custom = Day.today()
     @AppStorage("ledger.report.nwRange") private var nwRange = 24
+    @AppStorage("ledger.report.byCurrency") private var byCurrency = true
     @State private var pickedMonth: Date?
 
     var body: some View {
@@ -551,6 +624,7 @@ struct BalanceSheetView: View {
                 if asOf == .custom {
                     DatePicker(LS("截至日期"), selection: dateBinding($custom), displayedComponents: .date)
                 }
+                CurrencyModePicker(byCurrency: $byCurrency, base: L.base)
             }
             Section {
                 Card {
@@ -587,26 +661,37 @@ struct BalanceSheetView: View {
                 }
             }
             Section {
-                AccountTreeRows(root: bs.assets, sign: 1)
+                AccountTreeRows(root: bs.assets, sign: 1, byCurrency: byCurrency, base: L.base)
             } header: {
-                SectionTotal(title: LS("资产"), value: assets)
+                SectionTotal(title: LS("资产"), value: assets, amounts: byCurrency ? bs.assets.balance.byCurrency(base: L.base) : nil)
             }
             Section {
-                AccountTreeRows(root: bs.liabilities, sign: -1)
+                AccountTreeRows(root: bs.liabilities, sign: -1, byCurrency: byCurrency, base: L.base)
             } header: {
-                SectionTotal(title: LS("负债"), value: liab)
+                SectionTotal(title: LS("负债"), value: liab, amounts: byCurrency ? (-bs.liabilities.balance).byCurrency(base: L.base) : nil)
             }
             Section {
-                AccountTreeRows(root: bs.equity, sign: -1)
-                HStack {
-                    Text(LS("未结转损益")).foregroundStyle(.secondary)
-                    Spacer()
-                    Text(money(-bs.earnings)).monospacedDigit().sensitive()
+                AccountTreeRows(root: bs.equity, sign: -1, byCurrency: byCurrency, base: L.base)
+                if byCurrency {
+                    CurrencyLinesRow(title: LS("未结转损益"), amounts: (-bs.earningsByCurrency).byCurrency(base: L.base))
+                    let conv = (-bs.conversions).byCurrency(base: L.base)
+                    if !conv.isEmpty { CurrencyLinesRow(title: LS("货币兑换"), amounts: conv) }
+                } else {
+                    HStack {
+                        Text(LS("未结转损益")).foregroundStyle(.secondary)
+                        Spacer()
+                        Text(money(-bs.earnings)).monospacedDigit().sensitive()
+                    }
                 }
             } header: {
-                SectionTotal(title: LS("权益"), value: -bs.equity.total - bs.earnings)
+                SectionTotal(title: LS("权益"), value: -bs.equity.total - bs.earnings,
+                             amounts: byCurrency ? (-bs.equityByCurrency).byCurrency(base: L.base) : nil)
             } footer: {
-                Text(LS("未结转损益为期初至截止日的收入减支出（Fava 中的 Equity:Earnings:Current）。资产 = 负债 + 权益；外币按截止日汇率折算为 %@。", L.base))
+                if byCurrency {
+                    Text(LS("按记账币种列示，证券按数量；每种货币各自平衡：资产 = 负债 + 权益。货币兑换（Fava 中的 Equity:Conversions）是换汇、外币消费和按成本买入证券时两种货币之间的差额。顶部净资产按截止日汇率折算为 %@。", L.base))
+                } else {
+                    Text(LS("未结转损益为期初至截止日的收入减支出（Fava 中的 Equity:Earnings:Current）。资产 = 负债 + 权益；外币按截止日汇率折算为 %@。", L.base))
+                }
             }
             if !store.balanceExclude.isEmpty || !store.netWorthExclude.isEmpty {
                 Section {
@@ -691,6 +776,7 @@ struct NetWorthChart: View {
 
 struct TrialBalanceView: View {
     @EnvironmentObject var store: Store
+    @AppStorage("ledger.report.byCurrency") private var byCurrency = true
 
     var body: some View {
         Group {
@@ -714,7 +800,16 @@ struct TrialBalanceView: View {
         for t in L.txns where t.date <= today { for p in t.postings { if let u = p.units, let c = p.currency { net[c, default: 0] += u } } }
         let unpriced = net.filter { abs($0.value) > 0.005 && toCNY(L, $0.value, $0.key) == nil }.keys.sorted()
         let ok = unpriced.isEmpty
+        let conv = conversions(L, to: today)
         return List {
+            Section {
+                CurrencyModePicker(byCurrency: $byCurrency, base: L.base)
+            }
+            if byCurrency {
+                Section {
+                    Card { byCurrencyCard(roots, conv, L, today) }.cardRow()
+                }
+            } else {
             Section {
                 Card {
                     VStack(alignment: .leading, spacing: 12) {
@@ -738,14 +833,56 @@ struct TrialBalanceView: View {
                 }
                 .cardRow()
             }
+            }
             ForEach(roots, id: \.name) { r in
                 Section {
-                    AccountTreeRows(root: r, sign: 1)
+                    AccountTreeRows(root: r, sign: 1, byCurrency: byCurrency, base: L.base)
+                    if byCurrency && r.name == "Equity" {
+                        let xs = conv.byCurrency(base: L.base)
+                        if !xs.isEmpty { CurrencyLinesRow(title: LS("货币兑换"), amounts: xs) }
+                    }
                 } header: {
-                    SectionTotal(title: AppLanguage.current == .en ? r.name : r.name + " · " + (ZH[r.name] ?? ""), value: r.total)
+                    SectionTotal(title: AppLanguage.current == .en ? r.name : r.name + " · " + (ZH[r.name] ?? ""), value: r.total,
+                                 amounts: byCurrency ? (r.name == "Equity" ? r.balance + conv : r.balance).byCurrency(base: L.base) : nil)
                 }
             }
         }
         .listSectionSpacing(.compact)
+    }
+
+    /// 按币种: debits and credits of each currency, equal once 货币兑换 is counted
+    private func byCurrencyCard(_ roots: [AccountNode], _ conv: Inventory, _ L: Ledger, _ today: String) -> some View {
+        var debit: [String: Double] = [:], credit: [String: Double] = [:]
+        for x in roots.map({ $0.balance }) + [conv] {
+            for (c, v) in x.amounts { if v > 0 { debit[c, default: 0] += v } else { credit[c, default: 0] -= v } }
+        }
+        let all = roots.reduce(conv) { $0 + $1.balance }
+        let ccys = Set(debit.keys).union(credit.keys).sorted { a, b in a == L.base ? b != L.base : b == L.base ? false : a < b }
+            .filter { (debit[$0] ?? 0) > 0.005 || (credit[$0] ?? 0) > 0.005 }
+        let ok = all.byCurrency(base: L.base).isEmpty
+        return VStack(alignment: .leading, spacing: 10) {
+            Text(LS("截至 %@ · 原始符号（借方为正，贷方为负）", today)).font(.caption).foregroundStyle(.secondary)
+            Grid(alignment: .trailing, horizontalSpacing: 12, verticalSpacing: 6) {
+                GridRow {
+                    Text(LS("币种")).gridColumnAlignment(.leading)
+                    Text(LS("借方合计"))
+                    Text(LS("贷方合计"))
+                }
+                .font(.caption).foregroundStyle(.secondary)
+                ForEach(ccys, id: \.self) { c in
+                    GridRow {
+                        Text(c).font(.subheadline.weight(.medium)).gridColumnAlignment(.leading)
+                        Text(unitText(debit[c] ?? 0, c)).monospacedDigit().sensitive()
+                        Text(unitText(credit[c] ?? 0, c)).monospacedDigit().sensitive()
+                    }
+                    .font(.subheadline)
+                }
+            }
+            Label(ok ? LS("每种货币借贷平衡") : LS("借贷不平衡"), systemImage: ok ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(ok ? Color.gain : Color.warn)
+            Text(LS("按记账币种列示，不折算，所以没有折算差额。换汇、外币消费和买入证券在两种货币之间留下的差额记在「货币兑换」（Fava 中的 Equity:Conversions）。"))
+                .font(.caption).foregroundStyle(.secondary)
+        }
     }
 }

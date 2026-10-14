@@ -402,6 +402,13 @@ struct QuickAddView: View {
                     }
                     .buttonStyle(.plain)
                 }
+                if d.kind == .expense && store.ownedSubLinks.contains(d.link.trimmed) {
+                    // a subscription's charge: paid on top of this period's, or a new period
+                    Button { store.draft.topup.toggle(); store.draft.edited = nil } label: {
+                        pill(LS("本期补差"), icon: "plus.forwardslash.minus", on: d.topup)
+                    }
+                    .buttonStyle(.plain)
+                }
                 if d.kind == .expense { reimbChip(d, D) }
                 if d.kind == .expense && !d.reimb {
                     Button {

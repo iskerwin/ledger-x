@@ -396,7 +396,7 @@ struct SubscriptionsView: View {
             if let u = s.until, u >= today { tail = LS("可用至 %@", u) }
             when = s.period.name + " · " + s.status.name + " · " + tail
         }
-        let count = s.charges.filter { !$0.refund }.count
+        let count = s.periodCharges.count
         let countLine = LS("已扣 %@ 期 · 累计 %@", count, money(s.totalPaid, s.currency, 0))
         let icon = s.status == .active ? "repeat" : s.status == .paused ? "pause" : "xmark"
         let tint: Color = s.status == .active ? .purple : .gray
@@ -503,7 +503,7 @@ struct SubscriptionDetailView: View {
                             Spacer()
                             Figure(label: LS("今年"), value: money(s.paid(in: String(today.prefix(4))), s.currency, 0))
                             Spacer()
-                            Figure(label: LS("扣费次数"), value: "\(s.charges.filter { !$0.refund }.count)", alignment: .trailing)
+                            Figure(label: LS("扣费次数"), value: "\(s.periodCharges.count)", alignment: .trailing)
                         }
                         Text([s.manual ? LS("手动续费") : LS("自动扣费"), s.variable ? LS("金额不固定") : nil].compactMap { $0 }.joined(separator: " · "))
                             .font(.caption).foregroundStyle(.secondary)
@@ -524,6 +524,7 @@ struct SubscriptionDetailView: View {
                 if s.status == .active {
                     Button { store.recordSubscription(s) } label: { Label(s.manual ? LS("记一笔续费") : LS("记一笔扣费"), systemImage: "plus.circle") }
                     Button { editing = SubDraft(s, mode: .change) } label: { Label(LS("调价或更改"), systemImage: "slider.horizontal.3") }
+                    Button { editing = SubDraft(dueOf: s) } label: { Label(LS("调整到期日"), systemImage: "calendar.badge.clock") }
                     Button { skip(s, next) } label: { Label(LS("跳过下一期（%@）", next), systemImage: "forward.end") }
                     Button { stateChange = .paused } label: { Label(LS("暂停"), systemImage: "pause.circle") }
                     Button(role: .destructive) { stateChange = .cancelled } label: { Label(LS("取消订阅"), systemImage: "xmark.circle") }
@@ -560,8 +561,21 @@ struct SubscriptionDetailView: View {
             Section {
                 if s.charges.isEmpty { Text(LS("还没有关联的扣费交易")).foregroundStyle(.secondary) }
                 ForEach(s.charges.reversed()) { c in
-                    NavigationLink(value: TxDest(c.txn)) { TxRow(t: c.txn, showDate: true) }
+                    NavigationLink(value: TxDest(c.txn)) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            TxRow(t: c.txn, showDate: true)
+                            if let note = chargeNote(c, s) {
+                                Text(note).font(.caption).foregroundStyle(.secondary).monospacedDigit().sensitive()
+                            }
+                        }
+                    }
                         .swipeActions {
+                            // a top-up of the period before, or a period of its own (refunds and the first charge aside)
+                            if c.topup {
+                                Button(LS("改为单独一期")) { setTopup(c, false, s) }.tint(.purple)
+                            } else if !c.refund, s.charges.contains(where: { !$0.refund && !$0.topup && ($0.date < c.date || ($0.date == c.date && $0.id < c.id)) }) {
+                                Button(LS("并入上一期（补差）")) { setTopup(c, true, s) }.tint(.purple)
+                            }
                             if c.txn.links.contains(s.link) {
                                 Button(LS("取消关联")) {
                                     if let op = store.unlinkOp(c.txn, link: s.link) { Task { await store.commit([op], word: LS("已取消关联")) } }
@@ -573,7 +587,7 @@ struct SubscriptionDetailView: View {
             } header: {
                 Text(LS("扣费记录（%@）", s.charges.count))
             } footer: {
-                Text(LS("扣费交易带有链接 ^%@，在 Fava 中点链接即可查看全部扣费。", s.link))
+                Text(LS("扣费交易带有链接 ^%@，在 Fava 中点链接即可查看全部扣费。左滑一笔扣费可「并入上一期（补差）」：计入累计已付，不算新的一期。", s.link))
             }
             Section {
                 Button { editing = SubDraft(s, mode: .correct) } label: { Label(LS("修正记录"), systemImage: "pencil") }
@@ -657,6 +671,30 @@ struct SubscriptionDetailView: View {
         op.label = LS("撤销订阅记录：%@ %@ %@", s.name, item.from, item.title)
         undoing = nil
         Task { await store.commit([op], word: LS("已撤销")) }
+    }
+
+    /// "¥122.00 + 补差 ¥20.00 = ¥142.00" under a period's charge; "补差，并入 2023-08-07 这一期" under a top-up
+    private func chargeNote(_ c: SubCharge, _ s: Subscription) -> String? {
+        if c.topup {
+            return s.period(of: c).map { LS("补差，并入 %@ 这一期", $0.date) } ?? LS("补差")
+        }
+        let ups = s.topups(of: c)
+        guard !c.refund, !ups.isEmpty else { return nil }
+        let sum = c.amount + ups.reduce(0) { $0 + $1.amount }
+        return ([money(c.amount, s.currency)] + ups.map { LS("补差 %@", money($0.amount, s.currency)) }).joined(separator: " + ")
+            + " = " + money(sum, s.currency)
+    }
+
+    /// mark a charge as a top-up of the period before (`topup: TRUE`), or take the mark off
+    private func setTopup(_ c: SubCharge, _ on: Bool, _ s: Subscription) {
+        let e = c.txn
+        let text = setTxnMeta(e.src, key: subTopupMeta, value: on ? "TRUE" : nil)
+        guard text != e.src else { return }
+        var op = Op(kind: .replace, path: e.file)
+        op.old = e.src; op.text = text; op.date = e.date
+        op.label = on ? LS("订阅补差：%@ %@ %@", s.name, e.date, money(c.amount, s.currency))
+            : LS("订阅单独一期：%@ %@ %@", s.name, e.date, money(c.amount, s.currency))
+        Task { await store.commit([op], word: on ? LS("已并入上一期") : LS("已改为单独一期")) }
     }
 
     private func skip(_ s: Subscription, _ due: String) {
@@ -765,6 +803,8 @@ struct SubDraft: Identifiable {
     enum Mode { case new, change, correct }
     let id = UUID()
     var mode = Mode.new
+    /// only the next charge date changes (调整到期日)
+    var dueOnly = false
     var name = ""
     var amount = ""
     var currency = "CNY"
@@ -804,6 +844,14 @@ struct SubDraft: Identifiable {
         status = s.status; link = s.link; original = s
         manual = s.manual; variable = s.variable
         date = Day.today()
+    }
+
+    /// 调整到期日: a dated change that only moves the next charge
+    init(dueOf s: Subscription) {
+        self.init(s, mode: .change)
+        dueOnly = true
+        extended = true
+        next = s.nextCharge(onOrAfter: Day.today())
     }
 
     init(_ c: SubCandidate) {
@@ -873,7 +921,7 @@ struct SubDraft: Identifiable {
         if s.variable != o.variable { parts.append(s.variable ? LS("金额不固定") : LS("金额固定")) }
         if s.name != o.name { parts.append(LS("改名为 %@", s.name)) }
         if s.trialEnd != o.trialEnd { parts.append(LS("试用期")) }
-        if s.next != o.next { parts.append(LS("下次扣费日")) }
+        if s.next != o.next { parts.append(s.next.map { LS("下次扣费日改为 %@", $0) } ?? LS("下次扣费日")) }
         let what = parts.isEmpty ? LS("更新") : parts.joined(separator: LS("，"))
         return mode == .change ? LS("%@：%@（%@ 起）", s.name, what, date) : LS("%@：%@", s.name, what)
     }
@@ -890,6 +938,7 @@ struct SubEditSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                if draft.dueOnly { dueSections } else {
                 if draft.mode == .change {
                     Section {
                         DatePicker(LS("生效日期"), selection: dateBinding($draft.date), displayedComponents: .date)
@@ -994,15 +1043,17 @@ struct SubEditSheet: View {
                 if let t = draft.text {
                     Section(LS("将写入")) { MonoText(text: t) }
                 }
+                }
             }
             .keyboardDone()
-            .navigationTitle(draft.mode == .new ? LS("添加订阅") : draft.mode == .correct ? LS("修正记录")
+            .navigationTitle(draft.dueOnly ? LS("调整到期日") : draft.mode == .new ? LS("添加订阅") : draft.mode == .correct ? LS("修正记录")
                              : draft.original?.status != .active ? LS("恢复订阅") : LS("调价或更改"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(LS("保存")) { save() }.fontWeight(.semibold).disabled(draft.sub == nil || nameTaken)
+                    Button(LS("保存")) { save() }.fontWeight(.semibold)
+                        .disabled(draft.sub == nil || nameTaken || (draft.dueOnly && (draft.next <= draft.date || draft.next == current)))
                 }
             }
             .sheet(item: $picking) { p in
@@ -1013,6 +1064,46 @@ struct SubEditSheet: View {
                 }
             }
         }
+    }
+
+    /// the next charge as it is now
+    private var current: String? { draft.original.map { $0.nextCharge(onOrAfter: Day.today()) } }
+
+    /// 调整到期日: when the paid period really ends (the provider gave extra time, or moved the renewal)
+    @ViewBuilder
+    private var dueSections: some View {
+        Section {
+            if let c = current { LabeledContent(LS("当前下次扣费"), value: c) }
+            DatePicker(LS("调整为"), selection: dateBinding($draft.next), displayedComponents: .date)
+        } footer: {
+            Text(LS("本期实际用到的日期与周期不一致时（服务商延长、补偿或改了续费日），把下次扣费日改到实际日期，之后按原周期（%@）继续计算。", draft.period.name))
+        }
+        Section {
+            DatePicker(LS("记录日期"), selection: dateBinding($draft.date), displayedComponents: .date)
+        } footer: {
+            if draft.next <= draft.date { Text(LS("下次扣费日要晚于记录日期")).foregroundStyle(Color.warn) }
+            else { Text(LS("新增一条带日期的记录，价格和历史不变；在「历史」里左滑可撤销。")) }
+        }
+        if draft.next > draft.date, let t = draft.text {
+            Section(LS("将写入")) { MonoText(text: t) }
+        }
+    }
+
+    /// a second change on one day: the new line, plus the old line's settings it doesn't mention
+    /// (next charge and status are always the new line's)
+    private func mergedChange(_ text: String, into old: String) -> String {
+        func key(_ l: String) -> String? {
+            let t = l.trimmingCharacters(in: .whitespaces)
+            guard l.hasPrefix(" "), let c = t.firstIndex(of: ":") else { return nil }
+            return String(t[..<c])
+        }
+        let lines = text.components(separatedBy: "\n")
+        let have = Set(lines.compactMap(key))
+        let keep = old.components(separatedBy: "\n").dropFirst().filter { l in
+            guard let k = key(l) else { return false }
+            return !have.contains(k) && k != "next" && k != "status"
+        }
+        return ([lines[0]] + keep + lines.dropFirst()).joined(separator: "\n")
     }
 
     /// another subscription already uses this name
@@ -1057,7 +1148,8 @@ struct SubEditSheet: View {
                 // a second change on the same day replaces that day's line
                 if let o = draft.original, let e = o.entry, e.date == draft.date, o.entries.count > 1 {
                     var op = Op(kind: .replace, path: e.file)
-                    op.old = e.src; op.text = text; op.date = e.date; op.label = label
+                    // what that line changed stays (the new text only has what differs from it)
+                    op.old = e.src; op.text = mergedChange(text, into: e.src); op.date = e.date; op.label = label
                     ops = [op]
                 } else {
                     guard let x = store.makeOps(text, extra: OpExtra(label: label), single: false) else { return }

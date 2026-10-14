@@ -65,6 +65,50 @@ public func accountTree(_ balances: [String: Inventory], root: String, _ L: Ledg
     return top
 }
 
+// MARK: - by currency (Fava's default): amounts as booked, each currency balancing on its own
+
+public struct CurrencyAmount: Identifiable, Equatable {
+    public let currency: String
+    public let amount: Double
+    public var id: String { currency }
+    public init(_ currency: String, _ amount: Double) { self.currency = currency; self.amount = amount }
+}
+
+extension Inventory {
+    /// the operating currency first, then the others by name; amounts that round to nothing left out
+    public func byCurrency(base: String, digits: Double = 0.005) -> [CurrencyAmount] {
+        amounts.filter { abs($0.value) >= digits }
+            .sorted { a, b in a.key == base ? b.key != base : b.key == base ? false : a.key < b.key }
+            .map { CurrencyAmount($0.key, $0.value) }
+    }
+
+    public static func + (a: Inventory, b: Inventory) -> Inventory {
+        var x = a
+        for c in b.order { x.add(b.amounts[c] ?? 0, c) }
+        return x
+    }
+
+    public static prefix func - (a: Inventory) -> Inventory {
+        var x = Inventory()
+        for c in a.order { x.add(-(a.amounts[c] ?? 0), c) }
+        return x
+    }
+}
+
+/// Equity:Conversions as Fava shows it: what makes every currency balance by itself. A transaction balances at
+/// its price (100 USD @ 7.1 CNY), so its units don't net to zero per currency; this is the negated sum of all
+/// units up to `date`.
+public func conversions(_ L: Ledger, to date: String?) -> Inventory {
+    var sum = Inventory()
+    for t in L.txns {
+        if let e = date, t.date > e { break }
+        for p in t.postings { if let u = p.units, let c = p.currency { sum.add(u, c) } }
+    }
+    var out = Inventory()
+    for c in sum.order { let v = roundTo(sum.amounts[c] ?? 0, 6); if abs(v) >= 0.000_001 { out.add(-v, c) } }
+    return out
+}
+
 public struct IncomeStatement {
     public let income: AccountNode
     public let expenses: AccountNode
@@ -83,6 +127,12 @@ public struct BalanceSheet {
     public let equity: AccountNode
     /// income and expenses not yet closed into equity (Fava shows this as Equity:Earnings)
     public let earnings: Double
+    /// the same, by currency (raw signs: a profit is negative)
+    public var earningsByCurrency = Inventory()
+    /// Equity:Conversions, by currency (see `conversions`)
+    public var conversions = Inventory()
+    /// what the equity section comes to, by currency, as entered (credit negative): equity + earnings + conversions
+    public var equityByCurrency: Inventory { equity.balance + earningsByCurrency + conversions }
     public var netWorth: Double { assets.total + liabilities.total }
 }
 
@@ -96,10 +146,13 @@ public func balanceSheet(_ L: Ledger, at date: String?, exclude: [String] = []) 
     var b = periodBalances(L, to: date)
     if !exclude.isEmpty { b = b.filter { !isExcluded($0.key, exclude) } }
     let inc = accountTree(b, root: "Income", L, at: date), exp = accountTree(b, root: "Expenses", L, at: date)
-    return BalanceSheet(assets: accountTree(b, root: "Assets", L, at: date),
-                        liabilities: accountTree(b, root: "Liabilities", L, at: date),
-                        equity: accountTree(b, root: "Equity", L, at: date),
-                        earnings: inc.total + exp.total)
+    var s = BalanceSheet(assets: accountTree(b, root: "Assets", L, at: date),
+                         liabilities: accountTree(b, root: "Liabilities", L, at: date),
+                         equity: accountTree(b, root: "Equity", L, at: date),
+                         earnings: inc.total + exp.total)
+    s.earningsByCurrency = inc.balance + exp.balance
+    s.conversions = conversions(L, to: date)
+    return s
 }
 
 public struct NetWorthPoint: Identifiable {

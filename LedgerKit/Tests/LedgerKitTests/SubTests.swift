@@ -19,6 +19,100 @@ final class SubTests: XCTestCase {
         "\(date) * \"\(payee)\" \"iCloud+\"\(link.map { " ^" + $0 } ?? "")\n  \(account)  \(amount) CNY\n  Liabilities:CreditCard:CMB\n"
     }
 
+    /// a top-up paid after a charge (`topup: TRUE`) counts as paid but is not a new period; an extension moves the due date
+    func testTopupAndExtension() throws {
+        let enet = base + """
+        2023-08-07 custom "subscription" "ENet" "yearly" 122.00 CNY
+          account: "Expenses:Subscription"
+          funding: "Liabilities:CreditCard:CMB"
+          link: "sub-enet"
+        2023-08-07 * "ENet" "年费" ^sub-enet
+          Expenses:Subscription  122.00 CNY
+          Liabilities:CreditCard:CMB
+        2023-08-07 * "ENet" "补差" ^sub-enet
+          topup: TRUE
+          Expenses:Subscription  20.00 CNY
+          Liabilities:CreditCard:CMB
+        2024-08-07 custom "subscription" "ENet" "yearly" 142.00 CNY
+        2024-08-07 * "ENet" "年费" ^sub-enet
+          Expenses:Subscription  142.00 CNY
+          Liabilities:CreditCard:CMB
+        2025-12-20 custom "subscription" "ENet" "yearly" 196.50 CNY
+        2026-01-02 * "ENet" "年费" ^sub-enet
+          Expenses:Subscription  196.50 CNY
+          Liabilities:CreditCard:CMB
+        2026-01-20 * "ENet" "补差" ^sub-enet
+          topup: TRUE
+          Expenses:Subscription  10.00 CNY
+          Liabilities:CreditCard:CMB
+
+        """
+        let s = try XCTUnwrap(subscriptions(ledger(enet)).first)
+        XCTAssertEqual(s.charges.count, 5)
+        XCTAssertEqual(s.periodCharges.map { $0.date }, ["2023-08-07", "2024-08-07", "2026-01-02"])
+        XCTAssertEqual(s.lastCharge?.date, "2026-01-02")
+        XCTAssertEqual(s.totalPaid, 122 + 20 + 142 + 196.5 + 10, accuracy: 0.001)
+        XCTAssertEqual(s.topups(of: s.periodCharges[0]).map { $0.amount }, [20])
+        XCTAssertEqual(s.topups(of: s.periodCharges[2]).map { $0.amount }, [10])
+        XCTAssertEqual(s.period(of: s.charges[1])?.amount, 122)
+        // the top-up neither moves the cycle nor reads as a new price
+        XCTAssertEqual(s.nextCharge(onOrAfter: "2026-10-14"), "2027-01-02")
+        XCTAssertTrue(subscriptionAlerts(s, today: "2026-10-14").isEmpty)
+        let tl = subscriptionTimeline(s)
+        XCTAssertTrue(tl.contains { $0.title.contains("补差") || $0.title.contains("Top-up") })
+        XCTAssertTrue(tl.contains { $0.kind == .run && $0.from == "2023-08-07" && $0.detail.contains("142") })
+
+        // the provider gave extra time: a change line moves the next charge, and the cycle continues from it
+        let moved = enet + """
+        2026-10-14 custom "subscription" "ENet" "yearly" 196.50 CNY
+          next: 2027-03-20
+
+        """
+        let m = try XCTUnwrap(subscriptions(ledger(moved)).first)
+        XCTAssertEqual(m.nextCharge(onOrAfter: "2026-10-14"), "2027-03-20")
+        XCTAssertEqual(m.nextCharge(onOrAfter: "2027-03-21"), "2028-03-20")
+        let change = try XCTUnwrap(m.events.last)
+        XCTAssertTrue(subscriptionChangeTitle(change, currency: "CNY").contains("2027-03-20"))
+
+        // a top-up with no charge before it is a charge of its own
+        let lone = base + """
+        2026-01-01 custom "subscription" "X" "monthly" 10.00 CNY
+          link: "sub-x"
+        2026-01-01 * "X" "" ^sub-x
+          topup: TRUE
+          Expenses:Subscription  10.00 CNY
+          Liabilities:CreditCard:CMB
+
+        """
+        let x = try XCTUnwrap(subscriptions(ledger(lone)).first)
+        XCTAssertEqual(x.periodCharges.count, 1)
+    }
+
+    func testTopupMetaEditing() {
+        let src = "2023-08-07 * \"ENet\" \"补差\" ^sub-enet\n  note: \"x\"\n  Expenses:Subscription  20.00 CNY\n  Liabilities:CreditCard:CMB"
+        let on = setTxnMeta(src, key: subTopupMeta, value: "TRUE")
+        XCTAssertEqual(on, "2023-08-07 * \"ENet\" \"补差\" ^sub-enet\n  note: \"x\"\n  topup: TRUE\n  Expenses:Subscription  20.00 CNY\n  Liabilities:CreditCard:CMB")
+        XCTAssertEqual(setTxnMeta(on, key: subTopupMeta, value: nil), src)
+        // no metadata yet: right under the header
+        let bare = "2023-08-07 * \"ENet\" \"\"\n  Expenses:Subscription  20.00 CNY\n  Liabilities:CreditCard:CMB"
+        XCTAssertTrue(setTxnMeta(bare, key: "topup", value: "TRUE").hasPrefix("2023-08-07 * \"ENet\" \"\"\n  topup: TRUE\n  Expenses"))
+        // a posting's own metadata is left alone
+        let pm = "2023-08-07 * \"ENet\" \"\"\n  Expenses:Subscription  20.00 CNY\n    topup: TRUE\n  Liabilities:CreditCard:CMB"
+        XCTAssertEqual(setTxnMeta(pm, key: "topup", value: nil), pm)
+
+        // 本期补差 from the form: only on a linked expense
+        let L = ledger(base)
+        let D = Derived(L, today: "2026-10-14")
+        var d = Draft()
+        d.kind = .expense; d.date = "2026-10-14"; d.payee = "ENet"; d.account = "Expenses:Subscription"
+        d.funding = "Liabilities:CreditCard:CMB"; d.amount = "20"; d.currency = "CNY"; d.topup = true
+        XCTAssertFalse(draftText(d, L, D).contains("topup"))
+        d.link = "sub-enet"
+        let t = draftText(d, L, D)
+        XCTAssertTrue(t.contains("  topup: TRUE"), t)
+        XCTAssertTrue(validateText(t, L).ok)
+    }
+
     func testLinkName() {
         XCTAssertEqual(subscriptionLink("iCloud+"), "sub-icloud")
         XCTAssertEqual(subscriptionLink("Apple Music"), "sub-apple-music")
