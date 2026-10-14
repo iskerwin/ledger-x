@@ -18,13 +18,14 @@ public final class AccountNode: Identifiable {
 }
 
 /// postings summed per account for dates in [from, to] (either end open)
-public func periodBalances(_ L: Ledger, from: String? = nil, to: String? = nil) -> [String: Inventory] {
+/// `only`: just these currencies (every one when nil)
+public func periodBalances(_ L: Ledger, from: String? = nil, to: String? = nil, only: Set<String>? = nil) -> [String: Inventory] {
     var out: [String: Inventory] = [:]
     for t in L.txns {
         if let f = from, t.date < f { continue }
         if let e = to, t.date > e { break }
         for p in t.postings {
-            guard let u = p.units, let c = p.currency else { continue }
+            guard let u = p.units, let c = p.currency, only?.contains(c) ?? true else { continue }
             out[p.account, default: Inventory()].add(u, c)
         }
     }
@@ -134,6 +135,10 @@ public enum ReportMode: Hashable {
 
 /// the commodities held at cost and the currency of that cost (AAPL → USD), from the latest such posting
 func costCurrencies(_ L: Ledger) -> [String: String] {
+    L.memoized("costCurrencies") { findCostCurrencies(L) }
+}
+
+func findCostCurrencies(_ L: Ledger) -> [String: String] {
     var out: [String: String] = [:]
     for t in L.txns {
         for p in t.postings { if let c = p.currency, let cc = p.cost?.currency, cc != c { out[c] = cc } }
@@ -142,40 +147,24 @@ func costCurrencies(_ L: Ledger) -> [String: String] {
 }
 
 /// `periodBalances` valued for the report (see `ReportMode`), at `to` (the latest prices when nil)
-public func valuedBalances(_ L: Ledger, from: String? = nil, to: String? = nil, mode: ReportMode) -> [String: Inventory] {
-    switch mode {
-    case .units:
-        return periodBalances(L, from: from, to: to)
-    case .cost:
-        var out: [String: Inventory] = [:]
+public func valuedBalances(_ L: Ledger, from: String? = nil, to: String? = nil, mode: ReportMode, only: Set<String>? = nil) -> [String: Inventory] {
+    var raw: [String: Inventory]
+    if mode == .cost {
+        raw = [:]
         for t in L.txns {
             if let f = from, t.date < f { continue }
             if let e = to, t.date > e { break }
             for p in t.postings {
-                guard let u = p.units, let c = p.currency else { continue }
-                if let n = p.cost?.number, let cc = p.cost?.currency { out[p.account, default: Inventory()].add(u * n, cc) }
-                else { out[p.account, default: Inventory()].add(u, c) }
+                guard let c = p.currency, only?.contains(c) ?? true, let a = postingAmount(p, mode) else { continue }
+                raw[p.account, default: Inventory()].add(a.0, a.1)
             }
         }
-        return out
-    case .market:
-        let quote = costCurrencies(L)
-        return periodBalances(L, from: from, to: to).mapValues { inv in
-            var x = Inventory()
-            for (c, n) in inv.nonZero {
-                if let q = quote[c], let v = convert(L, n, c, q, to ?? Day.today()) { x.add(v, q) } else { x.add(n, c) }
-            }
-            return x
-        }
-    case .convert(let target):
-        return periodBalances(L, from: from, to: to).mapValues { inv in
-            var x = Inventory()
-            for (c, n) in inv.nonZero {
-                if let v = convert(L, n, c, target, to ?? Day.today()) { x.add(v, target) } else { x.add(n, c) }
-            }
-            return x
-        }
+        return raw
     }
+    raw = periodBalances(L, from: from, to: to, only: only)
+    if mode == .units { return raw }
+    let at = to ?? Day.today()
+    return raw.mapValues { valueInventory($0, mode, L, at: at) }
 }
 
 /// Equity:Conversions as Fava shows it: what makes every currency balance by itself. A transaction balances at
@@ -198,9 +187,9 @@ public struct IncomeStatement {
     public var net: Double { -(income.total + expenses.total) }
 }
 
-public func incomeStatement(_ L: Ledger, from: String?, to: String?, mode: ReportMode = .units) -> IncomeStatement {
-    let b = periodBalances(L, from: from, to: to)
-    let v = mode == .units ? nil : valuedBalances(L, from: from, to: to, mode: mode)
+public func incomeStatement(_ L: Ledger, from: String?, to: String?, mode: ReportMode = .units, only: Set<String>? = nil) -> IncomeStatement {
+    let b = periodBalances(L, from: from, to: to, only: only)
+    let v = mode == .units ? nil : valuedBalances(L, from: from, to: to, mode: mode, only: only)
     return IncomeStatement(income: accountTree(b, root: "Income", L, at: to, shown: v),
                            expenses: accountTree(b, root: "Expenses", L, at: to, shown: v))
 }
@@ -218,6 +207,8 @@ public struct BalanceSheet {
     /// what the equity section comes to, by currency, as shown (credit negative): equity + earnings + conversions
     public var equityByCurrency: Inventory { equity.shown + earningsByCurrency + conversions }
     public var netWorth: Double { assets.total + liabilities.total }
+    /// net worth as shown (by the report's mode), by currency
+    public var netWorthShown: Inventory { assets.shown + liabilities.shown }
 }
 
 /// `account` is one of `list` or under one of them
@@ -228,9 +219,10 @@ public func isExcluded(_ account: String, _ list: [String]) -> Bool {
 /// `exclude`: asset and liability accounts left out (and so out of the totals; the sheet no longer balances by them)
 /// `mode`: how the accounts are shown (their `shown`); totals in the operating currency stay as they are.
 /// The conversions come from every account, left out or not.
-public func balanceSheet(_ L: Ledger, at date: String?, exclude: [String] = [], mode: ReportMode = .units) -> BalanceSheet {
-    var b = periodBalances(L, to: date)
-    let all = mode == .units ? b : valuedBalances(L, to: date, mode: mode)
+public func balanceSheet(_ L: Ledger, at date: String?, exclude: [String] = [], mode: ReportMode = .units,
+                         only: Set<String>? = nil) -> BalanceSheet {
+    var b = periodBalances(L, to: date, only: only)
+    let all = mode == .units ? b : valuedBalances(L, to: date, mode: mode, only: only)
     var v = all
     if !exclude.isEmpty {
         b = b.filter { !isExcluded($0.key, exclude) }

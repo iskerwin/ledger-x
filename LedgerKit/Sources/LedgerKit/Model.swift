@@ -249,8 +249,20 @@ public final class Ledger: @unchecked Sendable {
     public var final: [String: [String: Double]] = [:]
     public var inventory: [String: [Lot]] = [:]
     public var rates: [String: [RatePoint]] = [:]
+    /// figures worked out from the ledger once and kept with it (it doesn't change once loaded)
+    private var memo: [String: Any] = [:]
+    private let memoLock = NSLock()
 
     public init() {}
+
+    func memoized<T>(_ key: String, _ make: () -> T) -> T {
+        memoLock.lock()
+        if let v = memo[key] as? T { memoLock.unlock(); return v }
+        memoLock.unlock()
+        let v = make()
+        memoLock.lock(); memo[key] = v; memoLock.unlock()
+        return v
+    }
 }
 
 // MARK: - JS number helpers
