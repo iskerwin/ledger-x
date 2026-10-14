@@ -216,3 +216,72 @@ public func monthlyFlows(_ L: Ledger, months: [String], mode: ReportMode, only: 
     }
     return out
 }
+
+// MARK: - the overview in one currency
+
+/// income, expenses and categories by month, the way `Derived` keeps them, but for the chosen currencies,
+/// valued by the mode at each entry's date and taken in one display currency
+public struct ViewFlows {
+    public var currency: String
+    public var monthExp: [String: Double] = [:]
+    public var monthInc: [String: Double] = [:]
+    /// month → expense account → amount
+    public var monthCat: [String: [String: Double]] = [:]
+    /// transaction id → what it spent (its expense lines), for ranking payees
+    public var txnExp: [Int: Double] = [:]
+}
+
+public func viewFlows(_ L: Ledger, mode: ReportMode, only: Set<String>?, currency: String) -> ViewFlows {
+    let key = "flows|" + mode.raw + "|" + (only.map { $0.sorted().joined(separator: ",") } ?? "*") + "|" + currency
+    return L.memoized(key) {
+        var f = ViewFlows(currency: currency)
+        for t in L.txns {
+            let m = Day.ym(t.date)
+            for p in t.postings {
+                let inc = p.account.hasPrefix("Income:"), exp = p.account.hasPrefix("Expenses:")
+                guard inc || exp, let c = p.currency, only?.contains(c) ?? true, let a = postingAmount(p, mode) else { continue }
+                var one = Inventory(); one.add(a.0, a.1)
+                guard let v = valueInventory(one, mode, L, at: t.date).amounts[currency], abs(v) > 1e-9 else { continue }
+                if exp {
+                    f.monthExp[m, default: 0] += v
+                    f.monthCat[m, default: [:]][p.account, default: 0] += v
+                    if !t.synthetic { f.txnExp[t.id, default: 0] += v }
+                } else {
+                    f.monthInc[m, default: 0] -= v
+                }
+            }
+        }
+        return f
+    }
+}
+
+/// the currencies amounts end up in for this view (income, expenses and holdings), the operating currency first
+public func viewCurrencies(_ L: Ledger, mode: ReportMode, only: Set<String>?) -> [String] {
+    if let c = mode.converted { return [c] }
+    let key = "viewCurrencies|" + mode.raw + "|" + (only.map { $0.sorted().joined(separator: ",") } ?? "*")
+    return L.memoized(key) {
+        var size = Inventory()
+        for t in L.txns {
+            for p in t.postings {
+                guard let c = p.currency, only?.contains(c) ?? true, let a = postingAmount(p, mode) else { continue }
+                if mode == .market, let q = costCurrencies(L)[c] { size.add(abs(a.0), q) } else { size.add(abs(a.0), a.1) }
+            }
+        }
+        let out = size.byCurrency(base: L.base).map { $0.currency }
+        return out.isEmpty ? [L.base] : out
+    }
+}
+
+/// net worth now for this view (assets and liabilities less `exclude`), by currency
+public func netWorthValued(_ L: Ledger, exclude: [String] = [], mode: ReportMode, only: Set<String>?) -> Inventory {
+    var inv = Inventory()
+    if mode == .cost {
+        for (a, x) in valuedBalances(L, mode: .cost, only: only)
+            where (a.hasPrefix("Assets:") || a.hasPrefix("Liabilities:")) && !isExcluded(a, exclude) { inv = inv + x }
+        return inv
+    }
+    for (a, cs) in L.final where (a.hasPrefix("Assets:") || a.hasPrefix("Liabilities:")) && !isExcluded(a, exclude) {
+        for (c, n) in cs where only?.contains(c) ?? true { inv.add(n, c) }
+    }
+    return valueInventory(inv, mode, L, at: Day.today())
+}

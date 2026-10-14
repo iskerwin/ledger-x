@@ -16,7 +16,7 @@ struct AccountsView: View {
             }
             .navigationTitle(LS("账户"))
             .toolbar {
-                StandardToolbar()
+                StandardToolbar(currency: true)
                 ToolbarItemGroup(placement: .topBarLeading) {
                     NavigationLink(value: AccountManagerDest()) { Image(systemName: "slider.horizontal.3") }
                         .accessibilityLabel(LS("管理账户"))
@@ -46,30 +46,48 @@ struct AccountsView: View {
         }
     }
 
-    typealias Row = (String, [(String, Double)], Bool)
+    /// an account: its balances in the chosen currencies as booked, the same valued as chosen, closed or not
+    struct Row {
+        let account: String
+        let balances: [(String, Double)]
+        let shown: Inventory
+        let closed: Bool
+    }
 
-    private func rows(_ L: Ledger, _ g: String, _ today: String) -> [Row] {
+    /// what each account holds, valued as chosen (币种与换算); at cost needs the postings, the rest the balances
+    private func valued(_ L: Ledger) -> (only: Set<String>?, at: (String, Inventory) -> Inventory) {
+        let mode = store.cmode, only = store.conly
+        if mode == .cost {
+            let cost = valuedBalances(L, mode: .cost, only: only)
+            return (only, { a, _ in cost[a] ?? Inventory() })
+        }
+        let today = Day.today()
+        return (only, { _, inv in valueInventory(inv, mode, L, at: today) })
+    }
+
+    private func rows(_ L: Ledger, _ g: String, _ today: String, _ v: (only: Set<String>?, at: (String, Inventory) -> Inventory)) -> [Row] {
         var out: [Row] = []
         for a in L.accounts.keys.filter({ $0.hasPrefix(g + ":") }).sorted() {
-            let cs = (L.final[a] ?? [:]).filter { abs($0.value) > 0.0049 }.sorted { $0.key < $1.key }.map { ($0.key, $0.value) }
+            let cs = (L.final[a] ?? [:]).filter { abs($0.value) > 0.0049 && (v.only?.contains($0.key) ?? true) }
+                .sorted { $0.key < $1.key }.map { ($0.key, $0.value) }
             let closed = (L.accounts[a]?.close).map { $0 <= today } ?? false
             if !showClosed && (closed || cs.isEmpty) { continue }
-            out.append((a, cs, closed))
+            // an account with only other currencies is left out while they are switched off
+            if v.only != nil && cs.isEmpty && !(L.final[a] ?? [:]).filter({ abs($0.value) > 0.0049 }).isEmpty { continue }
+            var inv = Inventory()
+            for (c, n) in cs { inv.add(n, c) }
+            out.append(Row(account: a, balances: cs, shown: v.at(a, inv), closed: closed))
         }
         return out
     }
 
-    private func cnyTotal(_ L: Ledger, _ rs: [Row]) -> Double {
-        var t = 0.0
-        for r in rs { for (c, n) in r.1 { t += toCNY(L, n, c) ?? 0 } }
-        return t
-    }
+    private func total(_ rs: [Row]) -> Inventory { rs.reduce(Inventory()) { $0 + $1.shown } }
 
     /// accounts under a root, grouped by their second level ("Bank", "CreditCard", …)
-    private func groups(_ L: Ledger, _ root: String, _ today: String) -> [(String, [Row])] {
+    private func groups(_ L: Ledger, _ root: String, _ today: String, _ v: (only: Set<String>?, at: (String, Inventory) -> Inventory)) -> [(String, [Row])] {
         var by: [String: [Row]] = [:]
-        for r in rows(L, root, today) {
-            let p = r.0.components(separatedBy: ":")
+        for r in rows(L, root, today, v) {
+            let p = r.account.components(separatedBy: ":")
             by[p.count > 1 ? p[1] : root, default: []].append(r)
         }
         return by.sorted { a, b in
@@ -85,9 +103,10 @@ struct AccountsView: View {
         let shut = collapsed.contains(key)
         return Section {
             if !shut {
-                ForEach(rs, id: \.0) { row in
-                    NavigationLink(value: AccountDest(name: row.0)) {
-                        AccountRow(account: row.0, balances: row.1, closed: row.2, failing: failing.contains(row.0), kind: kind)
+                ForEach(rs, id: \.account) { row in
+                    NavigationLink(value: AccountDest(name: row.account)) {
+                        AccountRow(account: row.account, balances: row.balances, closed: row.closed, failing: failing.contains(row.account),
+                                   kind: kind, shown: row.shown)
                     }
                 }
             }
@@ -106,7 +125,8 @@ struct AccountsView: View {
                     if AppLanguage.current != .en { Text(g).foregroundStyle(.tertiary).textCase(nil) }
                     if shut { Text(LS("%@ 个", rs.count)).foregroundStyle(.tertiary).textCase(nil) }
                     Spacer()
-                    Text(money(cnyTotal(L, rs))).monospacedDigit().sensitive().textCase(nil)
+                    Text(total(rs).byCurrency(base: L.base).map { unitText($0.amount, $0.currency) }.joined(separator: " · "))
+                        .monospacedDigit().lineLimit(1).minimumScaleFactor(0.7).sensitive().textCase(nil)
                 }
                 .contentShape(Rectangle())
             }
@@ -115,22 +135,27 @@ struct AccountsView: View {
         }
     }
 
-    private func heroSection(_ L: Ledger, assets: Double, liab: Double) -> some View {
-        Section {
+    /// 净资产 as chosen: one figure, or a line per currency
+    private func heroSection(_ L: Ledger, assets: Inventory, liab: Inventory) -> some View {
+        let a1 = assets.single(base: L.base), l1 = (-liab).single(base: L.base)
+        let one = a1 != nil && l1 != nil && (a1!.currency == l1!.currency || abs(l1!.amount) < 0.005)
+        return Section {
             Card {
                 VStack(alignment: .leading, spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(LS("净资产")).font(.subheadline).foregroundStyle(.secondary)
-                        Text(money(assets + liab)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit().sensitive()
+                        InventoryHeadline(inv: assets + liab, base: L.base)
                     }
                     HStack(alignment: .top) {
-                        Figure(label: LS("资产"), value: money(assets))
+                        InventoryFigure(label: LS("资产"), inv: assets, base: L.base)
                         Spacer()
-                        Figure(label: LS("负债"), value: money(-liab), color: liab < -0.005 ? Color.loss : Color.primary)
+                        InventoryFigure(label: LS("负债"), inv: -liab, base: L.base)
                         Spacer()
-                        Figure(label: LS("资产负债率"), value: assets > 0 && liab < -0.005 ? String(format: "%.1f%%", -liab / assets * 100) : "—", alignment: .trailing)
+                        Figure(label: LS("资产负债率"), value: one && a1!.amount > 0 && l1!.amount > 0.005 ? String(format: "%.1f%%", l1!.amount / a1!.amount * 100) : "—", alignment: .trailing)
                     }
-                    RatioBar(parts: [(max(0, assets + liab), Color.jade), (-liab, Color.loss)])
+                    if one, let a = a1?.amount, let l = l1?.amount {
+                        RatioBar(parts: [(max(0, a - max(0, l)), Color.jade), (max(0, l), Color.loss)])
+                    }
                     if !store.netWorthExclude.isEmpty {
                         NavigationLink(value: NetWorthSettingsDest()) {
                             Text(LS("不计入 %@ 个账户", store.netWorthExclude.count)).font(.caption).foregroundStyle(.secondary)
@@ -197,12 +222,14 @@ struct AccountsView: View {
 
     private func list(_ L: Ledger) -> some View {
         let today = Day.today()
-        let ag = groups(L, "Assets", today)
-        let lg = groups(L, "Liabilities", today)
+        let v = valued(L)
+        let ag = groups(L, "Assets", today, v)
+        let lg = groups(L, "Liabilities", today, v)
         // the hero is 净资产: without the accounts left out of it (the group totals below are every account's)
-        let w = netWorthNow(L, exclude: store.netWorthExclude)
-        let assets = w.assets, liab = w.liabilities
+        let counted = { (gs: [(String, [Row])]) in gs.flatMap { $0.1 }.filter { !isExcluded($0.account, store.netWorthExclude) } }
+        let assets = total(counted(ag)), liab = total(counted(lg))
         return List {
+            if !store.cview.isDefault { Section { CurrencyBanner() } }
             heroSection(L, assets: assets, liab: liab)
             Section {
                 NavigationLink(value: CounterpartyDest()) { Label(LS("往来"), systemImage: "person.2") }
@@ -259,6 +286,8 @@ struct AccountRow: View {
     let closed: Bool
     let failing: Bool
     var kind: AccountKind? = nil
+    /// the balance valued as chosen (币种与换算), shown first when it differs from the balances as booked
+    var shown: Inventory? = nil
 
     var body: some View {
         let p = account.components(separatedBy: ":")
@@ -279,9 +308,21 @@ struct AccountRow: View {
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 2) {
                 if balances.isEmpty { Text("0.00").foregroundStyle(.secondary).monospacedDigit() }
-                ForEach(balances, id: \.0) { b in
-                    Amount(n: b.1, c: b.0, d: abs(b.1) < 1 && b.0.count > 3 ? 4 : 2)
-                        .font(balances.count > 1 ? .subheadline : .body)
+                let base = store.L?.base ?? "CNY"
+                let valued = shown?.byCurrency(base: base) ?? []
+                let same = shown == nil || Set(valued.map { $0.currency }) == Set(balances.map { $0.0 })
+                if same {
+                    ForEach(balances, id: \.0) { b in
+                        Amount(n: b.1, c: b.0, d: abs(b.1) < 1 && b.0.count > 3 ? 4 : 2)
+                            .font(balances.count > 1 ? .subheadline : .body)
+                    }
+                } else {
+                    // valued (converted, at cost or market) first, what the account holds under it
+                    ForEach(valued) { x in
+                        Text(unitText(x.amount, x.currency)).monospacedDigit().sensitive()
+                    }
+                    Text(balances.map { unitText($0.1, $0.0) }.joined(separator: " · "))
+                        .font(.caption2.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7).sensitive()
                 }
             }
         }
