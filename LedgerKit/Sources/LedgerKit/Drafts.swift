@@ -126,6 +126,7 @@ public struct KeptRate: Equatable {
 
 public struct KeptMeta: Equatable {
     public var key: String
+    /// as written in Beancount: a string in quotes, anything else as it is
     public var value: String
 }
 

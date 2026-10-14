@@ -60,6 +60,16 @@ final class EditingTests: XCTestCase {
         """, kind: .multi)
     }
 
+    func testNumberLikeTextStaysText() {
+        // an imported order number: text that looks like a number keeps its quotes
+        assertRoundTrip("""
+        2026-10-13 * "喜市多" "早餐"
+          order: "4200000001202610130000000022"
+          Expenses:Food:Dining                                 7.20 CNY
+          Assets:EWallet:WeChatPay                            -7.20 CNY
+        """, kind: .expense)
+    }
+
     func testComboAndRate() {
         assertRoundTrip("""
         2026-10-13 * "超市" "日用品"

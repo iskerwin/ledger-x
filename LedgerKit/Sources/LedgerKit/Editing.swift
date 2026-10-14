@@ -40,7 +40,7 @@ public func editDraft(_ t: Entry, _ L: Ledger, _ D: Derived) -> Draft? {
             }
         }
         let regenerated: Set<String> = Set(["filename", "lineno"] + (d.kind != .multi ? [subTopupMeta] : []) + (exchange ? ["exchange_rate"] : []))
-        d.keepMeta = t.meta.items.filter { !regenerated.contains($0.0) }.map { KeptMeta(key: $0.0, value: $0.1.stringValue ?? $0.1.display) }
+        d.keepMeta = t.meta.items.filter { !regenerated.contains($0.0) }.map { KeptMeta(key: $0.0, value: $0.1.stringValue.map(quoted) ?? $0.1.display) }
         let text = draftText(d, L, D)
         guard !text.isEmpty, let back = checkText(text, L).entries.first(where: { $0.type == .txn }),
               sameTxn(t, back) else { continue }

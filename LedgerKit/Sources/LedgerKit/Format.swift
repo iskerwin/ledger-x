@@ -37,7 +37,10 @@ public func quoted(_ s: String?) -> String {
 
 private let plainMetaRE = try! NSRegularExpression(pattern: #"^(\d{4}-\d{2}-\d{2}|TRUE|FALSE|-?[\d.]+(\s+[A-Z][A-Z0-9'._-]*)?)$"#)
 
+/// a metadata line; `v` is plain text (quoted unless it reads as a number, date, amount or TRUE / FALSE), or
+/// already a quoted string ("\"4200…\"", for text that only looks like a number and must stay text)
 func metaLine(_ indent: String, _ k: String, _ v: String) -> String {
+    if v.count >= 2, v.hasPrefix("\""), v.hasSuffix("\"") { return "\(indent)\(k): \(v)" }
     let plain = plainMetaRE.firstMatch(in: v, range: NSRange(v.startIndex..., in: v)) != nil
     return "\(indent)\(k): \(plain ? v : quoted(v))"
 }

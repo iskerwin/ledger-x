@@ -218,7 +218,8 @@ public func scanPlan(_ f: ScanFields, _ L: Ledger, _ D: Derived, cards: [String:
         d.amount = jsNumberString(roundTo(f.listPrice ?? amount + x, 2))
         d.discount = jsNumberString(x)
     }
-    if let o = f.orderNo { d.keepMeta = [KeptMeta(key: "order", value: o)] }
+    // quoted: a long number as text, kept exact
+    if let o = f.orderNo { d.keepMeta = [KeptMeta(key: "order", value: quoted(o))] }
     d.edited = nil
     plan.draft = d
     return plan
