@@ -61,22 +61,25 @@ extension Store {
         Task { await setIgnoredSubs(l, label: LS("不再提示订阅：%@", c.payee)) }
     }
 
-    /// write the charge as a transaction carrying the subscription's link
-    func recordSubscription(_ s: Subscription, date: String) async {
+    /// 记一笔 for a subscription: the 记一笔 card filled in from it (payee, category, paying account, amount, its
+    /// ^sub- link), dated today like any new entry; the date and amount can be changed before saving
+    func recordSubscription(_ s: Subscription) {
         guard !s.account.isEmpty, !s.paymentAccount.isEmpty else {
             show(LS("请先为「%@」设置支出科目和付款账户", s.name))
             return
         }
-        let q = quoted
-        let payee = s.payee.isEmpty ? s.name : s.payee
-        let narration = s.payee.isEmpty || s.payee == s.name ? "" : s.name
-        let text = """
-        \(date) * \(q(payee)) \(q(narration)) ^\(s.link)
-          \(s.account)  \(toFixed(s.amount, 2)) \(s.currency)
-          \(s.paymentAccount)
-        """
-        guard let ops = makeOps(alignText(text), extra: OpExtra(label: LS("订阅扣费：%@ %@", s.name, money(s.amount, s.currency))), single: true) else { return }
-        await commit(ops, word: LS("已记录 %@", s.name))
+        var d = newDraftFor(.expense)
+        d.date = Day.today()
+        d.payee = s.payee.isEmpty ? s.name : s.payee
+        d.narration = s.payee.isEmpty || s.payee == s.name ? "" : s.name
+        d.account = s.account
+        d.funding = s.paymentAccount
+        d.amount = jsNumberString(roundTo(s.amount, 2))
+        d.currency = s.currency
+        d.link = s.link
+        draft = d
+        openAdd(full: false)
+        show(LS("已按订阅「%@」填好，核对日期和金额后保存", s.name))
     }
 
     /// links that belong to an existing subscription (any other ^sub-… is left over from a deleted one)
@@ -264,7 +267,7 @@ struct SubDueRow: View {
             Text(money(due.sub.amount, due.sub.currency)).monospacedDigit().sensitive()
             Button {
                 busy = true
-                Task { await store.recordSubscription(due.sub, date: due.date); busy = false }
+                store.recordSubscription(due.sub); busy = false
             } label: {
                 Text(LS("记一笔")).font(.subheadline.weight(.semibold))
             }
@@ -420,7 +423,7 @@ struct SubscriptionsView: View {
         }
         .swipeActions(edge: .leading) {
             if s.status == .active {
-                Button(LS("记一笔")) { Task { await store.recordSubscription(s, date: s.due(onOrBefore: today) ?? today) } }.tint(Color.jade)
+                Button(LS("记一笔")) { store.recordSubscription(s) }.tint(Color.jade)
             }
         }
     }
@@ -519,7 +522,7 @@ struct SubscriptionDetailView: View {
             }
             Section {
                 if s.status == .active {
-                    Button { Task { await store.recordSubscription(s, date: s.due(onOrBefore: today) ?? today) } } label: { Label(s.manual ? LS("记一笔续费") : LS("记一笔扣费"), systemImage: "plus.circle") }
+                    Button { store.recordSubscription(s) } label: { Label(s.manual ? LS("记一笔续费") : LS("记一笔扣费"), systemImage: "plus.circle") }
                     Button { editing = SubDraft(s, mode: .change) } label: { Label(LS("调价或更改"), systemImage: "slider.horizontal.3") }
                     Button { skip(s, next) } label: { Label(LS("跳过下一期（%@）", next), systemImage: "forward.end") }
                     Button { stateChange = .paused } label: { Label(LS("暂停"), systemImage: "pause.circle") }
@@ -619,7 +622,7 @@ struct SubscriptionDetailView: View {
                         }
                     }
                 case .silent:
-                    Button(LS("补记一笔续费")) { Task { await store.recordSubscription(s, date: s.due(onOrBefore: Day.today()) ?? Day.today()) } }
+                    Button(LS("补记一笔续费")) { store.recordSubscription(s) }
                     Button(LS("标记为暂停")) { stateChange = .paused }
                     Button(LS("标记为取消")) { stateChange = .cancelled }
                 case .chargedWhileInactive:
