@@ -43,6 +43,26 @@ def as_dict(inv):
     return {c: v for c, v in out.items() if abs(v) > 1e-9}
 
 
+BASE = options["operating_currency"][0]
+
+
+def convert_to(inv, target):
+    """Beancount converts with a direct price only (or through the cost currency); LedgerKit also goes through
+    the operating currency (HKD → CNY → USD). Do the same here: what is left after the direct conversion is
+    converted to the operating currency and from there to the target."""
+    x = inv.reduce(convert.convert_position, target, price_map, D)
+    if target == BASE:
+        return x
+    out = inventory.Inventory()
+    for pos in x:
+        if pos.units.currency == target:
+            out.add_position(pos)
+            continue
+        via = convert.convert_position(pos, BASE, price_map, D)
+        out.add_amount(convert.convert_amount(via, target, price_map, D) if via.currency == BASE else pos.units)
+    return out
+
+
 def valued(mode):
     out = {}
     for a, inv in by_acct.items():
@@ -53,8 +73,7 @@ def valued(mode):
         elif mode == "market":
             x = inv.reduce(convert.get_value, price_map, D)
         else:
-            target = mode.split("_")[1]
-            x = inv.reduce(convert.convert_position, target, price_map, D)
+            x = convert_to(inv, mode.split("_")[1])
         d = as_dict(x)
         if d:
             out[a] = d
@@ -140,7 +159,7 @@ for a, inv in by_acct.items():
         for pos in inv:
             if pos.units.currency == "HKD":
                 hk.add_position(pos)
-compare("[HKD only, in CNY]", got["hkd_in_cny"], as_dict(hk.reduce(convert.convert_position, "CNY", price_map, D)))
+compare("[HKD only, in CNY]", got["hkd_in_cny"], as_dict(convert_to(hk, "CNY")))
 
 if problems:
     print(f"{len(problems)} differences from Beancount:")
