@@ -296,7 +296,8 @@ final class Store: ObservableObject {
         let base = URL(fileURLWithPath: dir)
         let result: (Ledger, Derived) = await Task.detached {
             let extra = env["LEDGER_EXTRA"]
-            let L = loadLedger(root: "main.bean") { path in
+            let list = { (try? FileManager.default.subpathsOfDirectory(atPath: base.path)) ?? [] }
+            let L = loadLedger(root: "main.bean", listFiles: list) { path in
                 if path == "__extra.bean", let x = extra { return try String(contentsOf: URL(fileURLWithPath: x), encoding: .utf8) }
                 let t = try String(contentsOf: base.appendingPathComponent(path), encoding: .utf8)
                 return path == "main.bean" && extra != nil ? t + "\ninclude \"__extra.bean\"\n" : t
@@ -500,7 +501,9 @@ final class Store: ObservableObject {
     }
 
     nonisolated static func loadWith(files: [String: String], main: String, ops: [Op]) -> Ledger {
-        loadLedger(root: main) { path in
+        // every file in the repository, new ones from the queue too, for include "…/*.bean"
+        let all = { Array(Set(files.keys).union(ops.filter { $0.kind == .insert || $0.kind == .write }.map { $0.path })) }
+        return loadLedger(root: main, listFiles: all) { path in
             var text = ""
             if let sha = files[path] {
                 guard let t = BlobCache.get(sha) else { throw GitHubError(status: 0, message: LS("离线状态：%@ 尚未下载", path)) }

@@ -251,6 +251,18 @@ public func parseFile(_ text: String, file: String) -> ParseResult {
             continue
         }
         if c.type != .txn { err(ln, tr("这里只能写 key: value 元数据", "Only key: value metadata is allowed here")); continue }
+        // a line of only #tags and ^links under the header belongs to the transaction (Beancount allows it)
+        do {
+            let sc = Scan(line)
+            var tags: [String] = [], links: [String] = []
+            while let t = sc.tagOrLink() { if t.isTag { tags.append(t.value) } else { links.append(t.value) } }
+            sc.ws()
+            if sc.eof() && !(tags.isEmpty && links.isEmpty) {
+                for t in tags where !c.tags.contains(t) { c.tags.append(t) }
+                for l in links where !c.links.contains(l) { c.links.append(l) }
+                continue
+            }
+        }
         guard let p = parsePosting(line) else {
             c.bad.append(str(line).trimmingCharacters(in: .whitespaces))
             continue
