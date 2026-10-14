@@ -222,6 +222,34 @@ public func employerOpen(_ L: Ledger) -> (total: [String: Double], open: [OpenDi
     return (total, open)
 }
 
+/// how an open difference with the company is closed when the money really moves: the company as payee, the
+/// account the salary went to, and a description ("2026-08 工资补发" / "2026-08 退回多发工资")
+public struct EmployerSettlement: Equatable {
+    public let payee: String
+    /// where the salary of that month was paid (nil when no salary entry is linked)
+    public let account: String?
+    public let narration: String
+}
+
+public func employerSettlement(_ L: Ledger, _ x: OpenDifference) -> EmployerSettlement {
+    // the salary entry of that month (else the latest one): who paid and into which account
+    let salary: (Entry) -> Bool = { t in t.postings.contains { $0.account.hasPrefix("Income:Salary") } }
+    let t = x.link.flatMap { l in L.txns.last { $0.links.contains(l) && salary($0) } }
+        ?? L.txns.last { t in salary(t) && t.links.contains(where: isSalaryLink) }
+    let account = t?.postings.first { p in
+        (p.units ?? 0) > 0 && (p.account.hasPrefix("Assets:") || p.account.hasPrefix("Liabilities:"))
+            && !isSalaryClearing(p.account) && !p.account.hasPrefix("Assets:Receivable")
+    }?.account
+    // the month from the link's last part (YYYYMM)
+    var month = ""
+    if let l = x.link, let last = l.split(separator: "-").last, last.count == 6, Int(last) != nil {
+        month = last.prefix(4) + "-" + last.suffix(2)
+    }
+    let what = x.amount > 0 ? tr("工资补发", "back pay") : tr("退回多发工资", "overpaid salary returned")
+    return EmployerSettlement(payee: t?.payee.isEmpty == false ? t!.payee : "", account: account,
+                              narration: month.isEmpty ? what : month + " " + what)
+}
+
 // MARK: - entries
 
 public enum LoanKind: String, CaseIterable, Identifiable {

@@ -20,6 +20,9 @@ struct SettleTarget: Identifiable {
     let items: [SettleItem]
     /// accounts offered for what is left, the first chosen
     let to: [String]
+    /// the company's difference: by default the money really comes in (or goes back) through a bank account;
+    /// writing it off to `to` is the other choice
+    var receive: EmployerSettlement? = nil
 }
 
 /// 往来: what people, the company and the reimbursement desk owe you, and what you owe them
@@ -90,12 +93,13 @@ struct CounterpartyView: View {
             Section {
                 ForEach(emp.open) { x in
                     Button {
-                        settle = SettleTarget(title: LS("结清公司往来"), payee: metaName(L, acct) ?? LS("公司"), link: x.link,
+                        let r = employerSettlement(L, x)
+                        settle = SettleTarget(title: LS("公司往来"), payee: r.payee.isEmpty ? (metaName(L, acct) ?? LS("公司")) : r.payee, link: x.link,
                                               items: [SettleItem(account: x.account, currency: x.currency, amount: x.amount)],
-                                              to: ["Income:Salary:Other", "Income:Salary"])
+                                              to: ["Income:Salary:Other", "Income:Salary"], receive: r)
                     } label: {
                         row(x.link.map { "^" + $0 } ?? LS("未关联的差额"),
-                            (x.amount > 0 ? LS("公司少发，待补") : LS("公司多发，待退")) + (x.date.isEmpty ? "" : " · " + x.date) + LS(" · 点按结清"),
+                            (x.amount > 0 ? LS("公司少发，待补") : LS("公司多发，待退")) + (x.date.isEmpty ? "" : " · " + x.date) + LS(" · 点按处理"),
                             x.amount, x.currency)
                     }
                     .buttonStyle(.plain)
@@ -104,7 +108,7 @@ struct CounterpartyView: View {
             } header: {
                 Text(metaName(L, acct) ?? LS("公司往来"))
             } footer: {
-                Text(LS("正数是公司少发、还会补；负数是公司多发、还要退。不会再补或退的差额点按结清，默认记入 Income:Salary:Other。"))
+                Text(LS("正数是公司少发、还会补；负数是公司多发、还要退。补发到账或退回公司时点按记一笔银行收付；确定不会再补或退的，点按后选「核销」，记入 Income:Salary:Other。"))
             }
         }
     }
@@ -439,6 +443,8 @@ struct SettleSheet: View {
     @State private var narration = ""
     @State private var ready = false
     @State private var saving = false
+    /// the company's difference: write it off instead of receiving / returning the money
+    @State private var writeOff = false
 
     var body: some View {
         NavigationStack {
@@ -452,8 +458,14 @@ struct SettleSheet: View {
         }
     }
 
+    /// receiving the company's back pay or returning what it overpaid
+    private var moving: EmployerSettlement? { writeOff ? nil : target.receive }
+
+    private var owedToMe: Bool { target.items.reduce(0) { $0 + $1.amount } > 0 }
+
     private func form(_ L: Ledger) -> some View {
-        let text = settleText(L, date: date, payee: target.payee, narration: narration.trimmed.isEmpty ? LS("结清") : narration.trimmed,
+        let fallback = moving?.narration ?? LS("结清")
+        let text = settleText(L, date: date, payee: target.payee, narration: narration.trimmed.isEmpty ? fallback : narration.trimmed,
                               link: target.link, items: target.items, to: to)
         let v = text.isEmpty ? nil : validateText(text, L, single: false)
         return Form {
@@ -463,12 +475,33 @@ struct SettleSheet: View {
                     LabeledContent(acctLabel(i.account) + (i.person.map { " · " + personTitle($0) } ?? "")) { Amount(n: i.amount, c: i.currency) }
                 }
             } footer: {
-                Text(LS("这些余额会清零，差额记入下面的账户。只在确定不会再补、再退时结清；还会变的留着不动即可（挂账）。"))
+                if target.receive == nil {
+                    Text(LS("这些余额会清零，差额记入下面的账户。只在确定不会再补、再退时结清；还会变的留着不动即可（挂账）。"))
+                }
+            }
+            if let r = target.receive {
+                Section {
+                    Picker(LS("处理方式"), selection: $writeOff) {
+                        Text(owedToMe ? LS("收到补发") : LS("退回公司")).tag(false)
+                        Text(LS("核销")).tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                    .onChange(of: writeOff) { _, off in to = off ? (target.to.first ?? "") : (r.account ?? "") }
+                } footer: {
+                    Text(writeOff ? LS("公司不会再补或退了：差额记入工资科目（默认 Income:Salary:Other），不经过银行。")
+                         : owedToMe ? LS("公司把少发的钱补到账了：记一笔银行收款，冲掉这笔差额。不要先核销再另记收款，那样收入会算两次。")
+                         : LS("把公司多发的钱退回去：记一笔银行付款，冲掉这笔差额。"))
+                }
             }
             Section {
                 DateField(value: $date)
-                AccountField(label: LS("差额记入"), prefixes: ["Income:", "Expenses:", "Equity:", "Assets:"], chips: target.to, value: $to)
-                TextField(LS("说明（默认「结清」）"), text: $narration)
+                if moving != nil {
+                    AccountField(label: owedToMe ? LS("收款账户") : LS("付款账户"), prefixes: ["Assets:", "Liabilities:"],
+                                 chips: [target.receive?.account].compactMap { $0 }, value: $to)
+                } else {
+                    AccountField(label: LS("差额记入"), prefixes: ["Income:", "Expenses:", "Equity:", "Assets:"], chips: target.to, value: $to)
+                }
+                TextField(LS("说明（默认「%@」）", fallback), text: $narration)
             }
             Section(LS("将写入")) {
                 if text.isEmpty { Text(LS("选择差额账户后生成")).font(.footnote).foregroundStyle(.secondary) }
@@ -481,7 +514,7 @@ struct SettleSheet: View {
                 Button {
                     Task { await save(text) }
                 } label: {
-                    HStack { Spacer(); if saving { ProgressView() } else { Text(LS("结清")).fontWeight(.semibold) }; Spacer() }
+                    HStack { Spacer(); if saving { ProgressView() } else { Text(moving == nil ? LS("结清") : LS("保存")).fontWeight(.semibold) }; Spacer() }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.jade)
@@ -494,7 +527,7 @@ struct SettleSheet: View {
         .onAppear {
             guard !ready else { return }
             ready = true
-            to = target.to.first ?? ""
+            to = target.receive.map { $0.account ?? "" } ?? target.to.first ?? ""
         }
     }
 

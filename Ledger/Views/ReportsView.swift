@@ -507,6 +507,13 @@ struct IncomeExpenseChart: View {
     let D: Derived
     @Binding var picked: String?
 
+    /// the months that get a label: a step that keeps them apart, on months that divide by it (Jan, Apr, Jul, Oct…)
+    private var labelled: [String] {
+        let n = months.count
+        let step = n <= 8 ? 1 : n <= 14 ? 2 : n <= 26 ? 3 : 6
+        return months.filter { m in ((Int(m.suffix(2)) ?? 1) - 1) % step == 0 }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Chart {
@@ -527,7 +534,9 @@ struct IncomeExpenseChart: View {
             .chartLegend(position: .top, alignment: .leading)
             .chartYAxis { AxisMarks(position: .trailing) }
             .chartXAxis {
-                AxisMarks { v in
+                // at most about 8 labels: every month, every 2nd, every quarter or every half year; January shows the year
+                AxisMarks(values: labelled) { v in
+                    AxisGridLine()
                     AxisValueLabel {
                         if let s = v.as(String.self) { Text(s.hasSuffix("-01") ? String(s.prefix(4)) : String(Int(s.suffix(2)) ?? 0)) }
                     }
