@@ -87,6 +87,27 @@ final class CounterpartyTests: XCTestCase {
         XCTAssertEqual(e.open.map { $0.amount }, [-50, 30])
     }
 
+    /// closing a difference when the money moves: through the account the salary went to, not to income
+    func testEmployerSettlement() {
+        let L = ledger(base)
+        let e = employerOpen(L)
+        let aug = e.open[0]
+        let r = employerSettlement(L, aug)
+        XCTAssertEqual(r.payee, "公司")
+        XCTAssertEqual(r.account, "Assets:Bank")
+        XCTAssertTrue(r.narration.hasPrefix("2026-08 "), r.narration)
+        // overpaid 50: returning it is a payment from the bank, closing the difference
+        let t = settleText(L, date: "2026-10-14", payee: r.payee, narration: r.narration, link: aug.link,
+                           items: [SettleItem(account: aug.account, currency: aug.currency, amount: aug.amount)], to: r.account!)
+        XCTAssertTrue(t.contains("Assets:Bank") && t.contains("-50.00 CNY") && !t.contains("Income:"), t)
+        XCTAssertTrue(validateText(t, L).ok)
+        XCTAssertFalse(employerOpen(ledger(base + t + "\n")).open.contains { $0.link == "salary-co-202608" })
+        // the unlinked difference: the latest salary's payee and account, no month
+        let rest = employerSettlement(L, e.open[1])
+        XCTAssertEqual(rest.account, "Assets:Bank")
+        XCTAssertFalse(rest.narration.hasPrefix("20"))
+    }
+
     func testEmployerSeveralMonthsAtOnce() {
         // a payslip netted against a reimbursement carries both links; one entry settles two months
         let L = ledger(base + """
