@@ -158,6 +158,9 @@ final class ScanParseTests: XCTestCase {
         let t = draftText(d, L, D)
         XCTAssertTrue(t.contains("90.23 CNY @ 1.17972 HKD") && t.contains("-106.45 HKD") && t.contains("order: \"4500000001202609300000000044\""), t)
         XCTAssertFalse(plan.checks.contains(.funding))
+        // a payee not in the ledger: the category by what the screen says it was (打车 → Transit)
+        XCTAssertEqual(d.account, "Expenses:Transit:Taxi")
+        XCTAssertTrue(plan.checks.contains(.category))
     }
 
     func testDraftCardByLastDigits() {

@@ -410,7 +410,8 @@ public func guessFunding(_ method: String, source: ImportSource, _ L: Ledger, _ 
 }
 
 private let CATEGORY_GROUPS: [(String, [String])] = [
-    ("餐饮", ["Food"]), ("美食", ["Food"]), ("外卖", ["Food"]), ("交通", ["Transit", "Transport"]), ("出行", ["Transit", "Transport"]),
+    ("餐饮", ["Food"]), ("美食", ["Food"]), ("外卖", ["Food"]), ("交通", ["Transit", "Transport"]), ("出行", ["Transit", "Transport"]), ("打车", ["Transit", "Transport"]),
+    ("乘车", ["Transit", "Transport"]),
     ("购物", ["Shopping"]), ("日用", ["Shopping"]), ("服饰", ["Shopping"]), ("数码", ["Shopping"]), ("超市", ["Food", "Shopping"]),
     ("住房", ["Housing"]), ("物业", ["Housing"]), ("水电", ["Housing"]), ("充值缴费", ["Subscription", "Housing"]), ("通讯", ["Subscription"]),
     ("医疗", ["Healthcare", "Health"]), ("健康", ["Healthcare", "Health"]), ("酒店", ["Travel"]), ("旅行", ["Travel"]), ("机票", ["Travel"]),
