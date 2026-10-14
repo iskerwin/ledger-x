@@ -81,8 +81,9 @@ struct LockScreen: View {
     @EnvironmentObject var lock: AppLock
     var body: some View {
         let b = AppLock.biometry
+        // the logo high up: the system's Face ID panel shows in the middle of the screen
         VStack(spacing: 18) {
-            Spacer()
+            Spacer().frame(height: 96)
             Image("Logo").resizable().frame(width: 76, height: 76)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             Text(LS("Ledger 已锁定")).font(.title3.weight(.semibold))
