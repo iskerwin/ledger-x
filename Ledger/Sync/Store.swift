@@ -74,6 +74,8 @@ final class Store: ObservableObject {
     @Published var tab: Tab = .overview
     /// the 记一笔 card is open (it opens over any tab: the + tab, ledgerx://add, Shortcuts, 再记一笔…)
     @Published var adding = false
+    /// 截图记账: what was just read off a screenshot (shown until closed)
+    @Published var scanResult: ScanResult?
     /// the card opens on the full form (分录, 文本, 退款, AA…) instead of the quick one
     var addFull = false
     /// bumped by every request to open the card, so an open card goes back to the page asked for

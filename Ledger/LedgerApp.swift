@@ -77,6 +77,11 @@ struct RootView: View {
         .tint(AppTheme.current.color)
         .environment(\.locale, AppLanguage.current.locale)
         .overlay(alignment: .bottom) { ToastView().animation(.spring(duration: 0.3), value: store.toast) }
+        .sheet(item: $store.scanResult) { r in
+            ScanResultView(result: r)
+                .tint(AppTheme.current.color)
+                .environment(\.locale, AppLanguage.current.locale)
+        }
         .sheet(isPresented: $store.adding, onDismiss: { store.endEdit() }) {
             // a sheet doesn't inherit what is set on the view it hangs from: the theme and language again
             AddCard()

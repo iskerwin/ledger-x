@@ -22,6 +22,16 @@ struct ShortcutsSettingsView: View {
             }
 
             Section {
+                step(1, LS("在「快捷指令」App 新建快捷指令，添加「截屏」，再添加「截图记账」（Ledger），截图选「截屏」的结果。"))
+                step(2, LS("设置 → 辅助功能 → 触控 → 轻点背面，选这个快捷指令：付款完成页面上轻点两下手机背面即可。"))
+                step(3, LS("也可以在快捷指令的详细信息里打开「在共享表单中显示」，在相册里选截图后从分享菜单运行。"))
+            } header: {
+                Text(LS("截图记账"))
+            } footer: {
+                Text(LS("在本机识别截图里的文字，截图读完即丢弃，不保存、不上传。"))
+            }
+
+            Section {
                 ForEach(allCards, id: \.self) { c in
                     CardMappingRow(card: c, account: Binding(get: { cards[c] ?? "" }, set: { cards[c] = $0.isEmpty ? nil : $0; save() }))
                 }
@@ -47,6 +57,7 @@ struct ShortcutsSettingsView: View {
             Section {
                 row("square.and.pencil", LS("记一笔（在 App 中确认）"), LS("打开记账页并预填，核对后保存"))
                 row("bolt.fill", LS("快速记一笔"), LS("直接入账，适合自动化"))
+                row("text.viewfinder", LS("截图记账"), LS("识别付款截图，在 App 中确认"))
                 row("chart.bar.xaxis", LS("本月支出"), LS("「嘿 Siri，Ledger 本月支出」"))
                 row("calendar.badge.clock", LS("待付款项"), LS("订阅、信用卡还款与资金预测"))
             } header: {
