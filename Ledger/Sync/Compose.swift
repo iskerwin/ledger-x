@@ -54,6 +54,51 @@ extension Store {
     }
 
     /// what only the full form can edit
+    // MARK: - 可视化编辑
+
+    /// open an entry of the ledger in the 记一笔 form; false when the form can't hold all of it (edit its source)
+    func beginEdit(_ t: Entry) async -> Bool {
+        guard let L = L, let D = D, var d = editDraft(t, L, D) else { return false }
+        guard let file = try? await fileText(t.file) else { return false }
+        let lines = file.components(separatedBy: "\n")
+        guard t.endLine < lines.count else { return false }
+        let old = lines[t.startLine...t.endLine].joined(separator: "\n")
+        let summary = [t.payee, t.narration].filter { !$0.isEmpty }.joined(separator: " ")
+        d.replacing = Replacing(path: t.file, old: old, date: t.date, summary: summary,
+                                baseline: draftText(d, L, D, explicit: explicitAmounts).trimmed)
+        draft = d
+        openAdd(full: needsFullForm(d))
+        return true
+    }
+
+    /// the card closed while editing: back to a new entry
+    func endEdit() {
+        guard draft.replacing != nil else { return }
+        draft = newDraftFor(.expense)
+    }
+
+    /// the entry `old` (at `path`) replaced by `newText`: in place when the date and file stay, else moved to
+    /// the end of its new day; links paired with it follow
+    func replaceOps(old: String, path: String, date: String, summary: String, newText: String) async -> [Op]? {
+        var rm = Op(kind: .remove, path: path)
+        rm.old = old
+        rm.label = LS("修改：%@ %@", date, summary)
+        guard var ins = makeOps(newText, extra: OpExtra(silent: true), single: true) else { return nil }
+        var first = [rm]
+        if ins.count == 1, ins[0].kind == .insert, ins[0].path == path, ins[0].date == date {
+            var op = Op(kind: .replace, path: path)
+            op.old = old
+            op.text = ins[0].text
+            op.date = date
+            op.label = rm.label
+            op.summary = ins[0].summary
+            op.amountText = ins[0].amountText
+            first = [op]
+            ins = []
+        }
+        return await review(first + ins + pairedLinkOps(oldText: old, newText: newText))
+    }
+
     func needsFullForm(_ d: Draft) -> Bool {
         [.refund, .multi, .raw].contains(d.kind) || d.split
     }
@@ -198,6 +243,14 @@ extension Store {
             UINotificationFeedbackGenerator().notificationOccurred(.error)
             show(v.msg ?? LS("内容校验未通过"))
             return false
+        }
+        if let r = d.replacing {
+            // editing: nothing changed, nothing written
+            if text == r.baseline { draft = newDraftFor(.expense); return true }
+            guard let ops = await replaceOps(old: r.old, path: r.path, date: r.date, summary: r.summary, newText: text) else { return false }
+            draft = newDraftFor(.expense)
+            popToken += 1
+            return await commit(ops, word: LS("已更新"), checked: true)
         }
         if d.kind == .multi {
             guard let ops0 = makeOps(text, single: true), let ops = await review(ops0) else { return false }

@@ -27,7 +27,7 @@ struct AddForm: View {
         Group {
             if let L = store.L, let D = store.D { content(L, D) } else { ProgressView() }
         }
-        .navigationTitle(LS("完整表单"))
+        .navigationTitle(store.draft.replacing != nil ? LS("编辑交易") : LS("完整表单"))
         .navigationBarTitleDisplayMode(.inline)
         .task { if store.demoEnv["LEDGER_EDIT_TEXT"] != nil { try? await Task.sleep(nanoseconds: 800_000_000); editingText = true } }
     }
@@ -76,7 +76,7 @@ struct AddForm: View {
                     HStack(spacing: 6) {
                         Spacer(minLength: 0)
                         Image(systemName: "square.and.pencil")
-                        Text(LS("记一笔"))
+                        Text(store.draft.replacing != nil ? LS("保存修改") : LS("记一笔"))
                         Spacer(minLength: 0)
                     }
                     .fontWeight(.semibold)
