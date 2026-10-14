@@ -20,7 +20,7 @@ final class MovesTests: XCTestCase {
     """
     private func ledger() -> Ledger { loadLedger(root: "main.bean") { _ in self.text } }
 
-    func testLinkAdded() {
+    func testLinkAdded() throws {
         let L = ledger()
         let e = L.txns.first { $0.payee == "Apple" }!
         var op = Op(kind: .link, path: e.file)
@@ -32,18 +32,18 @@ final class MovesTests: XCTestCase {
         XCTAssertEqual(m.first?.old, e.src)
         XCTAssertTrue(m.first!.new.hasPrefix("2026-10-01 * \"Apple\" \"iCloud+\" ^sub-apple\n"), m.first!.new)
         // the same as the file gets
-        let file = applyOps(text, path: e.file, ops: [op])
+        let file = try applyOps(text, path: e.file, ops: [op])
         XCTAssertTrue(file.contains(m.first!.new))
     }
 
-    func testRenames() {
+    func testRenames() throws {
         let L = ledger()
         var p = Op(kind: .renamePayee, path: "main.bean"); p.old = "饭店"; p.text = "餐厅"
         var a = Op(kind: .rename, path: "main.bean"); a.old = "Expenses:Food"; a.text = "Expenses:Dining"
         let m = movedEntries([p, a], L)
         XCTAssertEqual(m.count, 1)
         XCTAssertTrue(m[0].new.contains("\"餐厅\"") && m[0].new.contains("Expenses:Dining"), m[0].new)
-        XCTAssertTrue(applyOps(text, path: "main.bean", ops: [p, a]).contains(m[0].new))
+        XCTAssertTrue(try applyOps(text, path: "main.bean", ops: [p, a]).contains(m[0].new))
     }
 
     func testEditedAndMoved() {
