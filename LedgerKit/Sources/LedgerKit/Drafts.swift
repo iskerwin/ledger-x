@@ -138,6 +138,8 @@ public struct Draft: Equatable {
     public var extraFunds: [ExtraFund] = []
     /// 优惠: the part of an expense's price not paid (recorded as income), as typed
     public var discount = ""
+    /// 本期补差: a subscription charge paid on top of the previous one (`topup: TRUE`), not a new period
+    public var topup = false
     public var discountAccount = defaultDiscountAccount
     public init() {}
 }
@@ -336,6 +338,7 @@ func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
         if hasCombo(d) { guard let p = payingPostings(d, total: amt, L, D) else { return nil }; paying = p }
         else { paying = [TxPosting(account: d.funding, amount: -amt, currency: d.currency)] }
         tx.postings = (mine > 0.004 ? [TxPosting(account: catAccount, amount: mine, currency: d.currency)] : []) + theirs + paying
+        if d.topup && !tx.links.isEmpty { tx.meta.append((subTopupMeta, "TRUE")) }
         return tx
     }
     var cat = TxPosting(account: catAccount, amount: sgn * amt, currency: d.currency)
@@ -360,6 +363,8 @@ func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
     if !who.isEmpty {
         for i in tx.postings.indices where isPersonal(tx.postings[i].account) { tx.postings[i].meta = [(personMeta, who)] }
     }
+    // 本期补差 only means something on a subscription's charge
+    if d.topup && d.kind == .expense && !tx.links.isEmpty { tx.meta.append((subTopupMeta, "TRUE")) }
     return tx
 }
 

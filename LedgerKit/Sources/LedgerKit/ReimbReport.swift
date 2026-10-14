@@ -190,6 +190,33 @@ public func setPostingMeta(_ src: String, account: String, positive: Bool = true
     return lines.joined(separator: "\n")
 }
 
+/// The transaction text with `key: value` set in the transaction's own metadata (the indented `key:` lines
+/// before the first posting), or removed when `value` is nil; every other line stays as it is.
+public func setTxnMeta(_ src: String, key: String, value: String?) -> String {
+    var lines = src.components(separatedBy: "\n")
+    guard !lines.isEmpty else { return src }
+    func indent(_ l: String) -> Int { l.prefix { $0 == " " || $0 == "\t" }.count }
+    // metadata, tag lines and comments come first; the first posting ends them
+    var j = 1, at: Int?, pad = "  "
+    while j < lines.count {
+        let t = lines[j].trimmingCharacters(in: .whitespaces)
+        guard indent(lines[j]) > 0, !t.isEmpty else { break }
+        if t.hasPrefix(";") || t.hasPrefix("#") || t.hasPrefix("^") { j += 1; continue }
+        guard let c = t.firstIndex(of: ":"), let f = t.first, f.isLowercase,
+              t[..<c].allSatisfy({ $0.isLetter || $0.isNumber || $0 == "_" || $0 == "-" }) else { break }
+        pad = String(lines[j].prefix(indent(lines[j])))
+        if t[..<c] == key { at = j }
+        j += 1
+    }
+    let v = value?.trimmingCharacters(in: .whitespaces) ?? ""
+    if let a = at {
+        if v.isEmpty { lines.remove(at: a) } else { lines[a] = metaLine(pad, key, v) }
+    } else if !v.isEmpty {
+        lines.insert(metaLine(pad, key, v), at: j)
+    }
+    return lines.joined(separator: "\n")
+}
+
 /// 凭证类型 written on an advance
 public let voucherMeta = "voucher"
 /// the usual kinds of 凭证

@@ -242,6 +242,7 @@ struct AddForm: View {
         } else {
             payeeSection(d, D, ctx)
             accountSection(d, ctx)
+            if d.kind == .expense && store.ownedSubLinks.contains(d.link.trimmed) { topupSection(d) }
             if d.kind == .expense { reimbSection(d, D) }
             if d.kind == .expense && !d.reimb { aaSection(d, L) }
             if d.kind == .refund {
@@ -249,6 +250,17 @@ struct AddForm: View {
                     TextField(LS("^refund-… 可留空"), text: field(\.link)).textInputAutocapitalization(.never).autocorrectionDisabled()
                 }
             }
+        }
+    }
+
+    /// a subscription's charge paid on top of this period's (written as `topup: TRUE`)
+    private func topupSection(_ d: Draft) -> some View {
+        let name = store.subs.first { $0.link == d.link.trimmed }?.name ?? d.link
+        return Section {
+            Toggle(LS("本期补差"), isOn: Binding(get: { store.draft.topup }, set: { store.draft.topup = $0; store.draft.edited = nil }))
+        } footer: {
+            Text(d.topup ? LS("补交「%@」这一期的差价：计入累计已付，不算新的一期，不改变下次扣费日。", name)
+                 : LS("这是「%@」的一期扣费。补交上一期差价时打开「本期补差」。", name))
         }
     }
 

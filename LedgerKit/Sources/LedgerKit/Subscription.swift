@@ -131,8 +131,13 @@ public struct SubCharge: Identifiable {
     public let txn: Entry
     /// what the transaction itself says, when it was in another currency
     public var original: (Double, String)?
+    /// paid on top of the previous charge (`topup: TRUE`): counted as paid, but not a new period
+    public var topup = false
     public var refund: Bool { amount < 0 }
 }
+
+/// the metadata marking a charge as a top-up of the previous period
+public let subTopupMeta = "topup"
 
 /// a line in the subscription's history
 public struct SubEvent: Identifiable {
@@ -146,6 +151,9 @@ public struct SubEvent: Identifiable {
     /// for a change: what it was before
     public var previousAmount: Double?
     public var previousPeriod: SubPeriod?
+    /// the next charge the line sets (a gift or an extension), and the one before it
+    public var next: String?
+    public var previousNext: String?
     public weak var entry: Entry?
 }
 
@@ -191,8 +199,27 @@ public struct Subscription: Identifiable {
         self.link = link ?? subscriptionLink(name); self.trialEnd = trialEnd
     }
 
-    /// the latest real charge (refunds aside)
-    public var lastCharge: SubCharge? { charges.last { !$0.refund } }
+    /// the latest real charge (refunds and top-ups aside)
+    public var lastCharge: SubCharge? { charges.last { !$0.refund && !$0.topup } }
+
+    /// the charges that start a period (refunds and top-ups aside), oldest first
+    public var periodCharges: [SubCharge] { charges.filter { !$0.refund && !$0.topup } }
+
+    /// the top-ups paid for the period started by `c`: after it and before the next period's charge
+    public func topups(of c: SubCharge) -> [SubCharge] {
+        guard let i = charges.firstIndex(where: { $0.id == c.id }) else { return [] }
+        var out: [SubCharge] = []
+        for x in charges[(i + 1)...] {
+            if x.topup { out.append(x) } else if !x.refund { break }
+        }
+        return out
+    }
+
+    /// the period charge a top-up belongs to
+    public func period(of topup: SubCharge) -> SubCharge? {
+        guard let i = charges.firstIndex(where: { $0.id == topup.id }) else { return nil }
+        return charges[..<i].last { !$0.refund && !$0.topup }
+    }
 
     /// the account the next charge is expected from: the latest charge's, else the one on the plan
     /// (cards change; the transactions are what counts)
@@ -325,7 +352,7 @@ public func subscriptions(_ L: Ledger) -> [Subscription] {
                 if var x = s {
                     let resumed = x.status != .active && state == .active
                     x.events.append(SubEvent(date: e.date, kind: resumed ? .resume : .change, amount: m.0, currency: m.1, period: p,
-                                             previousAmount: x.amount, previousPeriod: x.period, entry: e))
+                                             previousAmount: x.amount, previousPeriod: x.period, next: next, previousNext: x.next, entry: e))
                     x.amount = m.0; x.currency = m.1; x.period = p
                     if resumed { x.since = e.date }
                     if x.status != state { x.statusDate = e.date }
@@ -384,10 +411,17 @@ public func subscriptions(_ L: Ledger) -> [Subscription] {
         let v = c.1 == cur ? c.0 : (convert(L, c.0, c.1, cur, t.date) ?? c.0)
         var ch = SubCharge(date: t.date, amount: roundTo(v, 2), currency: cur, funding: c.2, txn: t)
         if c.1 != cur { ch.original = (c.0, c.1) }
+        ch.topup = metaTrue(t.meta[subTopupMeta]) && v > 0
         out[k].charges.append(ch)
     }
     for k in out.indices {
-        out[k].charges.sort { $0.date < $1.date }
+        out[k].charges.sort { $0.date != $1.date ? $0.date < $1.date : $0.id < $1.id }
+        // a top-up needs a charge before it to belong to; the first one is a charge of its own
+        var seen = false
+        for i in out[k].charges.indices {
+            if out[k].charges[i].topup && !seen { out[k].charges[i].topup = false }
+            if !out[k].charges[i].refund && !out[k].charges[i].topup { seen = true }
+        }
         // a cancelled plan stays usable until the end of the last paid period
         if out[k].status == .cancelled, out[k].until == nil, let c = out[k].lastCharge {
             let end = Day.shift(out[k].period.add(c.date, 1), -1)
@@ -443,7 +477,7 @@ public func subscriptionPaid(_ s: Subscription, due date: String, _ L: Ledger) -
     // from a few days early, but never back into the previous period (daily / weekly charges)
     let from = max(Day.shift(date, -5), Day.shift(s.period.add(date, -1), 1))
     let to = Day.shift(s.period.add(date, 1), -1)
-    if s.charges.contains(where: { !$0.refund && $0.date >= from && $0.date <= to }) { return true }
+    if s.charges.contains(where: { !$0.refund && !$0.topup && $0.date >= from && $0.date <= to }) { return true }
     for t in L.txns where t.date >= from && t.date <= to && !t.synthetic {
         if let m = t.meta["subscription"] {
             if (m.stringValue ?? m.display) == s.name { return true }
@@ -503,7 +537,11 @@ public func subscriptionTimeline(_ s: Subscription) -> [SubTimelineItem] {
         items.append(SubTimelineItem(kind: .event, from: c.date, title: tr("退款 \(money(-c.amount, s.currency))", "Refund \(money(-c.amount, s.currency))"),
                                      eventKind: nil))
     }
-    let cs = s.charges.filter { !$0.refund }
+    for c in s.charges where c.topup {
+        items.append(SubTimelineItem(kind: .event, from: c.date, title: tr("补差 \(money(c.amount, s.currency))", "Top-up \(money(c.amount, s.currency))"),
+                                     eventKind: nil))
+    }
+    let cs = s.periodCharges
     // renewing a few days late is not a gap; only a whole skipped period is
     let longGap = s.skipDays
     var i = 0
@@ -521,7 +559,11 @@ public func subscriptionTimeline(_ s: Subscription) -> [SubTimelineItem] {
         let first = i == 0 && n == 1 && cs.count > 1 && abs(cs[1].amount - cs[0].amount) > max(0.01, cs[0].amount * 0.01)
         let title = first ? tr("首期 \(money(cs[i].amount, s.currency))", "First charge \(money(cs[i].amount, s.currency))")
             : tr("\(money(cs[i].amount, s.currency)) × \(n) 期", "\(money(cs[i].amount, s.currency)) × \(n)")
-        var detail = tr("合计 \(money(cs[i].amount * Double(n), s.currency))", "Total \(money(cs[i].amount * Double(n), s.currency))")
+        // the top-ups paid within the run count towards its total
+        let extra = (i...j).reduce(0.0) { $0 + s.topups(of: cs[$1]).reduce(0) { $0 + $1.amount } }
+        let sum = cs[i].amount * Double(n) + extra
+        var detail = tr("合计 \(money(sum, s.currency))", "Total \(money(sum, s.currency))")
+        if extra > 0.005 { detail += tr("（含补差 \(money(extra, s.currency))）", " (incl. top-ups \(money(extra, s.currency)))") }
         if late > 0 { detail += tr(" · \(late) 次延后续费", " · \(late) renewed late") }
         items.append(SubTimelineItem(kind: .run, from: cs[i].date, to: n > 1 ? cs[j].date : nil, title: title, detail: detail))
         if j + 1 < cs.count {
@@ -545,6 +587,7 @@ public func subscriptionChangeTitle(_ e: SubEvent, currency: String) -> String {
         parts.append(tr("调价 \(money(b, currency)) → \(money(a, currency))", "Price \(money(b, currency)) → \(money(a, currency))"))
     }
     if let p = e.period, let q = e.previousPeriod, p != q { parts.append(q.name + " → " + p.name) }
+    if let n = e.next, n != e.previousNext { parts.append(tr("下次扣费改为 \(n)", "Next charge moved to \(n)")) }
     return parts.isEmpty ? tr("变更", "Changed") : parts.joined(separator: tr("，", ", "))
 }
 
@@ -570,7 +613,7 @@ public func subscriptionAlerts(_ s: Subscription, today: String = Day.today()) -
                                         "Last charge was \(money(c.amount, c.currency)); the plan says \(money(s.amount, s.currency))"),
                             amount: c.amount, date: c.date))
     }
-    if s.status != .active, let c = s.charges.last(where: { !$0.refund && $0.date > s.statusDate }) {
+    if s.status != .active, let c = s.charges.last(where: { !$0.refund && !$0.topup && $0.date > s.statusDate }) {
         out.append(SubAlert(kind: .chargedWhileInactive,
                             message: tr("\(s.status.name)后仍有扣费：\(c.date) \(money(c.amount, c.currency))，请确认是否已退订",
                                         "Charged after it was \(s.status.name.lowercased()): \(c.date) \(money(c.amount, c.currency)). Check the cancellation"),
