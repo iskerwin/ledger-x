@@ -707,7 +707,7 @@ struct AddForm: View {
     private func saveRaw(_ L: Ledger, overwriteOK: Bool) async {
         let text = store.draft.raw.trimmed
         let v = validateText(text, L, single: false)
-        guard v.ok else { store.show(v.msg ?? LS("内容校验未通过")); return }
+        guard v.ok else { store.show(text.isEmpty ? LS("请输入 Beancount 文本") : (v.msg.flatMap { $0.isEmpty ? nil : $0 } ?? LS("内容校验未通过"))); return }
         if !overwriteOK {
             let dups = duplicateBalances(v.entries, L)
             if !dups.isEmpty { confirmOverwrite = dups; showOverwrite = true; return }

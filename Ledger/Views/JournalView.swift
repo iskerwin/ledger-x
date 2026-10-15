@@ -136,6 +136,8 @@ struct JournalView: View {
     @State private var limit = 150
     @State private var selecting = false
     @State private var selected: Set<String> = []
+    /// swiped to delete, waiting for the confirmation
+    @State private var deleting: Entry?
     @State private var batch: BatchMode?
     /// list or month calendar (remembered on this device)
     @AppStorage("ledger.journal.calendar") private var showCalendar = false
@@ -166,6 +168,13 @@ struct JournalView: View {
             .safeAreaInset(edge: .bottom) { if selecting { batchBar } }
             .sheet(item: $batch) { m in
                 BatchEditSheet(entries: selectedEntries, mode: m) { selecting = false; selected = [] }
+            }
+            .confirmationDialog(deleting.map { LS("删除 %@ %@？", $0.date, [$0.payee, $0.narration].filter { !$0.isEmpty }.joined(separator: " ")) } ?? "",
+                                isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
+                                titleVisibility: .visible, presenting: deleting) { t in
+                Button(LS("删除"), role: .destructive) { Task { await store.deleteEntry(t) } }
+            } message: { _ in
+                Text(LS("删除后可在「最近改动」里撤回。"))
             }
             .searchable(text: $q, placement: .navigationBarDrawer(displayMode: .always), prompt: LS("收付款方、摘要、科目、对方、#标签、金额、2026-09"))
             .searchSuggestions { if q.isEmpty { searchHelp } }
@@ -341,6 +350,11 @@ struct JournalView: View {
                     .disabled(t.synthetic)
                 } else {
                     NavigationLink(value: TxDest(t)) { TxRow(t: t, account: account) }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            if !t.synthetic {
+                                Button(role: .destructive) { deleting = t } label: { Label(LS("删除"), systemImage: "trash") }
+                            }
+                        }
                 }
             }
         } header: {
@@ -377,6 +391,7 @@ struct TxDetailView: View {
     @State private var nextSub: SubDraft?
     @State private var linkPick: LinkPick?
     @State private var linkRemoval: LinkPick?
+    @State private var confirmDelete = false
 
     var body: some View {
         if let L = store.L, let D = store.D, let t = store.txn(dest.id, key: dest.key) {
@@ -451,6 +466,17 @@ struct TxDetailView: View {
                     } label: { Label(LS("复制源文本"), systemImage: "doc.on.doc") }
                     if let u = store.githubURL(t.file, line: t.line) { Link(destination: u) { Label(LS("在网页中打开"), systemImage: "arrow.up.right.square") } }
                 }
+                if !t.synthetic {
+                    Section {
+                        Button(role: .destructive) { confirmDelete = true } label: { Label(LS("删除交易"), systemImage: "trash") }
+                    }
+                }
+            }
+            .confirmationDialog(LS("删除 %@ %@？", t.date, [t.payee, t.narration].filter { !$0.isEmpty }.joined(separator: " ")),
+                                isPresented: $confirmDelete, titleVisibility: .visible) {
+                Button(LS("删除"), role: .destructive) { Task { await store.deleteEntry(t) } }
+            } message: {
+                Text(LS("删除后可在「最近改动」里撤回。"))
             }
             .navigationTitle(t.date)
             .navigationBarTitleDisplayMode(.inline)
@@ -579,16 +605,13 @@ struct EditTxView: View {
         path = t.file
         date = t.date
         summary = [t.payee, t.narration].filter { !$0.isEmpty }.joined(separator: " ")
-        do {
-            let file = try await store.fileText(t.file)
-            let lines = file.components(separatedBy: "\n")
-            guard t.endLine < lines.count else { return }
-            let o = lines[t.startLine...t.endLine].joined(separator: "\n")
-            old = o
-            text = compactText(o)
-        } catch {
-            store.show(error.localizedDescription)
+        guard let o = await store.entryText(t) else {
+            // the file changed under it: say so instead of spinning forever
+            store.show(LS("这笔交易所在的文件已经变了，请刷新后再试"))
+            return
         }
+        old = o
+        text = compactText(o)
     }
 
     private func save(_ old: String, _ L: Ledger) async {
@@ -601,12 +624,7 @@ struct EditTxView: View {
 
     private func delete() async {
         guard let old = old else { return }
-        var rm = Op(kind: .remove, path: path)
-        rm.old = old
-        rm.label = LS("删除：%@ %@", date, summary)
-        guard let ops = await store.review([rm] + store.pairedLinkOps(oldText: old, newText: nil)) else { return }
-        store.popToken += 1
-        await store.commit(ops, word: LS("已删除"), checked: true)
+        await store.deleteEntry(path: path, old: old, date: date, summary: summary)
     }
 }
 

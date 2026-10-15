@@ -60,12 +60,38 @@ extension Store {
     // MARK: - 可视化编辑
 
     /// open an entry of the ledger in the 记一笔 form; false when the form can't hold all of it (edit its source)
+    /// the entry's text as it is in its file now (pending edits applied); nil when the file changed under it
+    func entryText(_ t: Entry) async -> String? {
+        guard let file = try? await fileText(t.file) else { return nil }
+        let lines = file.components(separatedBy: "\n")
+        guard t.startLine >= 0, t.startLine <= t.endLine, t.endLine < lines.count else { return nil }
+        return lines[t.startLine...t.endLine].joined(separator: "\n")
+    }
+
+    /// delete one entry (with the links paired with it), after the change review; true when committed
+    @discardableResult
+    func deleteEntry(path: String, old: String, date: String, summary: String) async -> Bool {
+        var rm = Op(kind: .remove, path: path)
+        rm.old = old
+        rm.label = LS("删除：%@ %@", date, summary)
+        guard let ops = await review([rm] + pairedLinkOps(oldText: old, newText: nil)) else { return false }
+        popToken += 1
+        return await commit(ops, word: LS("已删除"), checked: true)
+    }
+
+    @discardableResult
+    func deleteEntry(_ t: Entry) async -> Bool {
+        guard let old = await entryText(t) else {
+            show(LS("这笔交易所在的文件已经变了，请刷新后再试"))
+            return false
+        }
+        let summary = [t.payee, t.narration].filter { !$0.isEmpty }.joined(separator: " ")
+        return await deleteEntry(path: t.file, old: old, date: t.date, summary: summary)
+    }
+
     func beginEdit(_ t: Entry) async -> Bool {
         guard let L = L, let D = D, var d = editDraft(t, L, D) else { return false }
-        guard let file = try? await fileText(t.file) else { return false }
-        let lines = file.components(separatedBy: "\n")
-        guard t.endLine < lines.count else { return false }
-        let old = lines[t.startLine...t.endLine].joined(separator: "\n")
+        guard let old = await entryText(t) else { return false }
         let summary = [t.payee, t.narration].filter { !$0.isEmpty }.joined(separator: " ")
         d.replacing = Replacing(path: t.file, old: old, date: t.date, summary: summary,
                                 baseline: draftText(d, L, D, explicit: explicitAmounts).trimmed)
@@ -254,7 +280,9 @@ extension Store {
         let v = validateText(text, L, single: draftIsSingle(d, L))
         guard v.ok else {
             UINotificationFeedbackGenerator().notificationOccurred(.error)
-            show(v.msg ?? LS("内容校验未通过"))
+            // an empty text means the form isn't complete yet: say what is missing
+            let why = text.isEmpty ? draftMissing(d, L, D) : v.msg
+            show(why.flatMap { $0.isEmpty ? nil : $0 } ?? (text.isEmpty ? LS("还没填完整") : LS("内容校验未通过")))
             return false
         }
         if let r = d.replacing {

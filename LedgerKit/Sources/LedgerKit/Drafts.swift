@@ -454,6 +454,72 @@ func draftTx0(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
     return tx
 }
 
+/// What still has to be filled in before the form makes a transaction (shown when 完成 is tapped too early);
+/// the same conditions `draftTx` / `multiTx` need, said in words. nil when nothing is missing.
+public func draftMissing(_ d: Draft, _ L: Ledger, _ D: Derived) -> String? {
+    func blank(_ s: String) -> Bool { s.trimmingCharacters(in: .whitespaces).isEmpty }
+    switch d.kind {
+    case .raw:
+        return blank(d.raw) ? tr("请输入 Beancount 文本", "Enter the Beancount text") : nil
+    case .multi:
+        if d.date.isEmpty { return tr("请选择日期", "Choose a date") }
+        if d.rows.filter({ !blank($0.account) }).count < 2 { return tr("至少要填两行分录", "Fill in at least two postings") }
+        return nil
+    default: break
+    }
+    if d.date.isEmpty { return tr("请选择日期", "Choose a date") }
+    guard let amt = evalAmount(d.amount) else { return tr("请输入金额", "Enter an amount") }
+    guard amt > 0 else { return tr("金额要大于 0", "The amount must be more than 0") }
+    if d.kind == .transfer {
+        if d.funding.isEmpty { return tr("请选择转出账户", "Choose the account to transfer from") }
+        if d.to.isEmpty { return tr("请选择转入账户", "Choose the account to transfer to") }
+        return nil
+    }
+    if d.account.isEmpty {
+        return d.kind == .income ? tr("请选择收入科目", "Choose an income category") : tr("请选择支出科目", "Choose an expense category")
+    }
+    if d.funding.isEmpty {
+        switch d.kind {
+        case .income: return tr("请选择收款账户", "Choose the receiving account")
+        case .refund: return tr("请选择退回的账户", "Choose the account refunded to")
+        default: return tr("请选择付款账户", "Choose the paying account")
+        }
+    }
+    let fc = accountCurrency(d.funding, L, D) ?? d.currency
+    if d.kind == .expense && !d.reimb && d.split && !d.shares.isEmpty {
+        if !(fc == d.currency || (evalAmount(d.paid) == nil && !(d.byRate && evalAmount(d.rate) != nil))) {
+            return tr("AA 分摊暂不支持用另一种货币付款", "Splitting isn't supported when paying in another currency")
+        }
+        var sum = 0.0
+        for x in d.shares {
+            guard let v = evalAmount(x.amount), v > 0, !blank(x.person) else {
+                return tr("AA 分摊：每一位都要填名字和金额", "Split: give each person a name and an amount")
+            }
+            sum += v
+        }
+        if roundTo(amt - sum, 2) <= -0.004 { return tr("AA 分摊的金额加起来超过了总额", "The split parts add up to more than the total") }
+    }
+    if hasCombo(d) {
+        if discountAllowed(d) && !blank(d.discount) {
+            guard let v = evalAmount(d.discount), v >= 0, v < amt - 0.004 else { return tr("优惠金额要小于总额", "The discount must be less than the total") }
+            if !d.discountAccount.trimmingCharacters(in: .whitespaces).hasPrefix("Income:") {
+                return tr("优惠要记到一个收入科目", "Choose an income category for the discount")
+            }
+        }
+        for x in d.extraFunds where !(blank(x.account) && blank(x.amount)) {
+            let a = x.account.trimmingCharacters(in: .whitespaces)
+            guard !a.isEmpty, let v = evalAmount(x.amount), v > 0 else { return tr("组合付款：每个账户都要填金额", "Combined payment: give each account an amount") }
+            if a == d.funding { return tr("组合付款里的账户不能和主付款账户相同", "A combined payment account can't be the main paying account") }
+            if (accountCurrency(a, L, D) ?? d.currency) != d.currency {
+                return tr("组合付款的账户要与账单同一币种", "Combined payment accounts must be in the bill's currency")
+            }
+        }
+        if fc != d.currency { return tr("组合付款时，付款账户要与账单同一币种", "With a combined payment the paying account must be in the bill's currency") }
+        if payingPostings(d, total: amt, L, D) == nil { return tr("组合付款的金额加起来超过了总额", "The combined payment adds up to more than the total") }
+    }
+    return nil
+}
+
 /// The Beancount text for the form as it is now.
 public func draftText(_ d: Draft, _ L: Ledger, _ D: Derived, explicit: Bool = true) -> String {
     if d.kind == .raw { return d.raw }

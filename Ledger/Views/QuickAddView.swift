@@ -64,6 +64,8 @@ struct QuickAddView: View {
     @State private var managingTemplates = false
     @State private var importing = false
     @State private var saving = false
+    /// editing an entry: 删除这笔交易 asked, waiting for the confirmation
+    @State private var confirmDelete = false
     /// 组合付款与优惠
     @State private var splittingPay = false
     /// the currency and rate sheet
@@ -173,6 +175,21 @@ struct QuickAddView: View {
         .sheet(isPresented: $rating) { RateSheet(L: L, D: D) }
         .sheet(isPresented: $marking) { MarkSheet(L: L).presentationDetents([.medium, .large]) }
         .sheet(isPresented: $importing) { ImportView() }
+        .confirmationDialog(store.draft.replacing.map { LS("删除 %@ %@？", $0.date, $0.summary) } ?? "",
+                            isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button(LS("删除"), role: .destructive) {
+                guard let r = store.draft.replacing else { return }
+                Task {
+                    // the entry as it was when the card opened; the card closes once it is gone
+                    if await store.deleteEntry(path: r.path, old: r.old, date: r.date, summary: r.summary) {
+                        store.endEdit()
+                        store.adding = false
+                    }
+                }
+            }
+        } message: {
+            Text(LS("删除后可在「最近改动」里撤回。"))
+        }
         .sheet(isPresented: $editingText) {
             TextEditSheet(title: LS("编辑源文本"), initial: draftText(store.draft, L, D, explicit: store.explicitAmounts),
                           validate: { t in validateText(t, L, single: draftIsSingle(store.draft, L)) }) { new in
@@ -250,6 +267,10 @@ struct QuickAddView: View {
             Button { managingCats = true } label: { Label(LS("分类图标与排序"), systemImage: "square.grid.3x3") }
             Button { managingTemplates = true } label: { Label(LS("常用交易"), systemImage: "star") }
             if store.draft.replacing == nil { ledgerItems }
+            if store.draft.replacing != nil {
+                Divider()
+                Button(role: .destructive) { confirmDelete = true } label: { Label(LS("删除这笔交易"), systemImage: "trash") }
+            }
         } label: {
             Image(systemName: "ellipsis")
         }

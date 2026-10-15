@@ -5,6 +5,8 @@ import XCTest
 /// a queue built up offline, a retry after another push landed in between.
 final class PushPlanTests: XCTestCase {
     let path = "journals/2026.bean"
+    /// a file that isn't on the server
+    let absent: String? = nil
     let lunch = """
     2026-10-01 * "食堂" "午饭"
       Expenses:Food                                       20.00 CNY
@@ -50,7 +52,7 @@ final class PushPlanTests: XCTestCase {
         let mine = lunch.replacingOccurrences(of: "午饭", with: "工作餐")
         let r = replace(lunch, mine)
         let other = insert(coffee, "2026-10-02", path: "journals/other.bean")
-        let plan = planPush([r, other], bases: [path: theirs + "\n", "journals/other.bean": .some(nil)])
+        let plan = planPush([r, other], bases: [path: theirs + "\n", "journals/other.bean": absent])
         XCTAssertNotNil(plan.failed[r.id])
         XCTAssertEqual(plan.included, [other.id], "the other file still goes")
         XCTAssertEqual(plan.changes.map { $0.path }, ["journals/other.bean"])
@@ -83,7 +85,7 @@ final class PushPlanTests: XCTestCase {
         XCTAssertNotNil(plan.failed[del.id])
         XCTAssertTrue(plan.changes.isEmpty)
         // already gone: nothing to do, the op leaves the queue
-        plan = planPush([del], bases: [path: .some(nil)])
+        plan = planPush([del], bases: [path: absent])
         XCTAssertEqual(plan.included, [del.id])
         XCTAssertTrue(plan.changes.isEmpty)
     }
@@ -129,7 +131,7 @@ final class PushPlanTests: XCTestCase {
         var held = insert(coffee, "2026-10-02"); held.held = "余额不足"
         var failed = insert(dinner, "2026-10-03"); failed.failed = "x"
         let ok = insert(lunch, "2026-10-01")
-        let plan = planPush([held, failed, ok], bases: [path: .some(nil)])
+        let plan = planPush([held, failed, ok], bases: [path: absent])
         XCTAssertEqual(plan.included, [ok.id])
         XCTAssertEqual(plan.changes.first?.text?.contains("瑞幸"), false)
     }
@@ -137,10 +139,10 @@ final class PushPlanTests: XCTestCase {
     func testRetryAfterAPartialWriteDoesNotRepeatEdits() {
         // file A was written before file B failed: A's edits left the queue, so only B's are planned again
         let a = insert(lunch, "2026-10-01", path: "a.bean"), b = insert(dinner, "2026-10-03", path: "b.bean")
-        let first = planPush([a, b], bases: ["a.bean": .some(nil), "b.bean": .some(nil)])
+        let first = planPush([a, b], bases: ["a.bean": absent, "b.bean": absent])
         XCTAssertEqual(first.changes.map { $0.path }, ["a.bean", "b.bean"])
         let serverA = first.changes[0].text!
-        let retry = planPush([b], bases: ["a.bean": serverA, "b.bean": .some(nil)])
+        let retry = planPush([b], bases: ["a.bean": serverA, "b.bean": absent])
         XCTAssertEqual(retry.changes.map { $0.path }, ["b.bean"])
     }
 }
