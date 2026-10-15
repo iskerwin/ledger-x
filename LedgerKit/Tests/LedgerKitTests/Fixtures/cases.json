@@ -216,7 +216,7 @@
      }
     ]
    },
-   "2026-10-01 ! \"Transfer\" \"CGB -> BOCHK\" #transfer ^abc\n  exchange_rate: \"1 CNY = 1.08000 HKD\"\n  Assets:Bank:CGB                                  -2000.00 CNY\n  Assets:Bank:BOCHK                                 2160.00 HKD @@ 2000.00 CNY"
+   "2026-10-01 ! \"Transfer\" \"CGB -> BOCHK\" #transfer ^abc\n  exchange_rate: \"1 CNY = 1.08000 HKD\"\n  Assets:Bank:BOCHK                                 2160.00 HKD @@ 2000.00 CNY\n  Assets:Bank:CGB                                  -2000.00 CNY"
   ],
   [
    {
@@ -744,7 +744,7 @@
      }
     ]
    },
-   "2026-10-08 * \"BOCHK\" \"CGB -> BOCHK\" #fx\n  exchange_rate: \"1 CNY = 1.09525 HKD\"\n  Assets:Bank:CGB                                  -2000.00 CNY\n  Assets:Bank:BOCHK                                 2190.50 HKD @@ 2000.00 CNY"
+   "2026-10-08 * \"BOCHK\" \"CGB -> BOCHK\" #fx\n  exchange_rate: \"1 CNY = 1.09525 HKD\"\n  Assets:Bank:BOCHK                                 2190.50 HKD @@ 2000.00 CNY\n  Assets:Bank:CGB                                  -2000.00 CNY"
   ],
   [
    {
@@ -828,7 +828,7 @@
      }
     ]
    },
-   "2026-10-08 * \"Transfer\" \"CGB -> Alipay\" #transfer\n  Assets:Bank:CGB                                   -300.00 CNY\n  Assets:EWallet:Alipay                              300.00 CNY"
+   "2026-10-08 * \"Transfer\" \"CGB -> Alipay\" #transfer\n  Assets:EWallet:Alipay                              300.00 CNY\n  Assets:Bank:CGB                                   -300.00 CNY"
   ],
   [
    {
