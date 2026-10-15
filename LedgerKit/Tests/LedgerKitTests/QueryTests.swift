@@ -86,6 +86,33 @@ final class QueryTests: XCTestCase {
         XCTAssertEqual(arith.rows.first?.map { $0.text }, ["7", "Expenses:Food", "C"])
     }
 
+    func testHavingFiltersGroups() throws {
+        let all = try q("SELECT payee, COUNT(*) AS n WHERE account ~ '^Expenses:' GROUP BY payee ORDER BY payee")
+        let many = all.rows.filter { ($0[1].sortNumber ?? 0) > 20 }.map { $0[0].text }
+        XCTAssertFalse(many.isEmpty)
+        XCTAssertLessThan(many.count, all.rows.count)
+        // an aggregate in HAVING, and the same condition through the target's alias
+        let byCount = try q("SELECT payee, COUNT(*) AS n WHERE account ~ '^Expenses:' GROUP BY payee HAVING COUNT(*) > 20 ORDER BY payee")
+        XCTAssertEqual(byCount.rows.map { $0[0].text }, many)
+        let byAlias = try q("SELECT payee, COUNT(*) AS n WHERE account ~ '^Expenses:' GROUP BY payee HAVING n > 20 ORDER BY payee")
+        XCTAssertEqual(byAlias.rows.map { $0[0].text }, many)
+        // a condition on the group key, combined with an aggregate
+        let first = many[0]
+        let both = try q("SELECT payee, COUNT(*) AS n WHERE account ~ '^Expenses:' GROUP BY payee HAVING payee = '\(first)' AND COUNT(*) > 20")
+        XCTAssertEqual(both.rows.map { $0[0].text }, [first])
+        let none = try q("SELECT payee, COUNT(*) WHERE account ~ '^Expenses:' GROUP BY payee HAVING COUNT(*) < 0")
+        XCTAssertTrue(none.rows.isEmpty)
+    }
+
+    func testPeriodClausesAreRefused() {
+        // OPEN / CLOSE / CLEAR would change the figures; not carried out, so they are refused rather than skipped
+        for s in ["SELECT account, SUM(position) FROM OPEN ON 2026-01-01 GROUP BY account",
+                  "SELECT account, SUM(position) FROM year = 2026 CLOSE ON 2026-06-30 GROUP BY account",
+                  "SELECT account, SUM(position) FROM CLEAR GROUP BY account"] {
+            XCTAssertThrowsError(try q(s), s)
+        }
+    }
+
     func testStatements() {
         let inc = incomeStatement(L, from: "2026-01-01", to: "2026-12-31")
         let year = D.monthExp.filter { $0.key.hasPrefix("2026") }.values.reduce(0, +)

@@ -218,6 +218,8 @@ struct QStatement {
     var from: QExpr?
     var whereExpr: QExpr?
     var groupBy: [QExpr]?
+    /// filters the groups, after aggregation
+    var having: QExpr?
     var orderBy: [QOrder] = []
     var limit: Int?
 }
@@ -276,9 +278,16 @@ final class QParser {
             } while eatOp(",")
         }
         if eatKw("FROM") {
-            // "FROM year = 2026" filters whole transactions; OPEN/CLOSE/CLEAR are accepted and ignored
+            // "FROM year = 2026" filters whole transactions. OPEN / CLOSE / CLEAR summarize the periods before and
+            // after and clear the income statement; leaving them out would give other figures without saying so
+            func periodClause() throws {
+                if kw("OPEN") || kw("CLOSE") || kw("CLEAR") {
+                    throw QueryError(tr("暂不支持 FROM 里的 OPEN / CLOSE / CLEAR", "OPEN / CLOSE / CLEAR in FROM are not supported"))
+                }
+            }
+            try periodClause()
             if !kw("WHERE") && !kw("GROUP") && !kw("ORDER") && !kw("LIMIT") && cur != .end { st.from = try expr() }
-            while eatKw("OPEN") || eatKw("CLOSE") || eatKw("CLEAR") || eatKw("ON") { if case .date = cur { i += 1 } }
+            try periodClause()
         }
         if eatKw("WHERE") { st.whereExpr = try expr() }
         if eatKw("GROUP") {
@@ -286,7 +295,7 @@ final class QParser {
             var g: [QExpr] = []
             repeat { g.append(try expr()) } while eatOp(",")
             st.groupBy = g
-            if eatKw("HAVING") { _ = try expr() }
+            if eatKw("HAVING") { st.having = try expr() }
         }
         if eatKw("ORDER") {
             try expectKw("BY")
@@ -774,6 +783,8 @@ public func runQuery(_ text: String, _ L: Ledger) throws -> QueryResult {
         if keys.isEmpty && order.isEmpty { order = [""]; groups[""] = [] }
         for k in order {
             let g = groups[k]!
+            // HAVING: aggregates are taken over the group, aliases name the target
+            if let h = st.having, !(try ev.evalGroup(h, g).truthy) { continue }
             out.append(try st.targets.map { try ev.evalGroup($0.expr, g) })
             sortKeys.append(try orders.map { try ev.evalGroup($0.expr, g) })
         }
