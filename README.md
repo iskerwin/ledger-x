@@ -16,7 +16,7 @@
   <img src="https://img.shields.io/badge/%E8%AF%AD%E8%A8%80-%E4%B8%AD%E6%96%87%20%7C%20English-blue">
 </p>
 
-> **当前版本 0.0.6（预览版）。** 功能已经可以日常使用，仍在打磨；每个版本的新功能和修复见 [CHANGELOG](CHANGELOG.md)。
+> **当前版本 0.0.8（预览版）。** 功能已经可以日常使用，仍在打磨；每个版本的新功能和修复见 [CHANGELOG](CHANGELOG.md)。
 
 ---
 
