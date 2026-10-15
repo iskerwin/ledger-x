@@ -49,6 +49,9 @@ extension Store {
             draft = d
         }
         addFull = full ?? needsFullForm(d)
+        // already open (再记一笔, a shortcut): only the page may change
+        if adding { addToken += 1; return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
         addToken += 1
         adding = true
     }

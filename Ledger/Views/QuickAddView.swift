@@ -28,12 +28,19 @@ struct AddCard: View {
         .onChange(of: path.count) { _, n in if n < base { base = n } }
     }
 
-    /// the page asked for: the quick one, or the full form on top of it
+    /// the page asked for: the quick one, or the full form on top of it — set as the card opens, without a push
+    /// animation (and left alone when it is already that page, so opening doesn't redraw the stack)
     private func route() {
+        let want = store.addFull ? 1 : 0
+        guard path.count != want || base != want else { return }
         var p = NavigationPath()
         if store.addFull { p.append(AddRoute.full) }
-        base = p.count
-        path = p
+        var t = Transaction()
+        t.disablesAnimations = true
+        withTransaction(t) {
+            base = p.count
+            path = p
+        }
     }
 }
 
@@ -241,7 +248,7 @@ struct QuickAddView: View {
             Button { managingTemplates = true } label: { Label(LS("常用交易"), systemImage: "star") }
             if store.draft.replacing == nil { ledgerItems }
         } label: {
-            Image(systemName: "gearshape")
+            Image(systemName: "ellipsis")
         }
         .accessibilityLabel(LS("更多"))
     }

@@ -173,7 +173,8 @@ struct JournalCalendar: View {
         let picked = day == d
         let future = d > Day.today()
         return Button { day = picked ? nil : d } label: {
-            // everything centred in the column: the date on top (today in a theme-coloured circle), the amounts under it
+            // as in the iOS calendar: the day at the top of the cell, centred in its column (today in a theme-coloured
+            // circle), the amounts under it; every cell lays out the same, so the numbers line up across a week
             VStack(spacing: 1) {
                 Text(String(Int(d.suffix(2)) ?? 0))
                     .font(.system(size: 12.5, weight: today ? .bold : .medium).monospacedDigit())
@@ -189,7 +190,8 @@ struct JournalCalendar: View {
                 .lineLimit(1).minimumScaleFactor(0.7)
                 .sensitive()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.top, 4)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .aspectRatio(1, contentMode: .fit)
             .background(Self.spend.opacity(shade), in: RoundedRectangle(cornerRadius: 8))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(picked ? Color.jade : .clear, lineWidth: 2))
