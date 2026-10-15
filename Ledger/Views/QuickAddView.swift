@@ -340,7 +340,7 @@ struct QuickAddView: View {
                 // the picked group again: its sub-categories
                 if id == picked && !g.single { subPicking = id } else { pick(g, L) }
             }, menu: { id in
-                guard let g = groups.first(where: { $0.id == id }) else { return }
+                guard let g = groups.first(where: { $0.id == id }) else { return AnyView(EmptyView()) }
                 return AnyView(Group {
                     if !g.single { Button { pick(g, L); subPicking = id } label: { Label(LS("选择子类"), systemImage: "list.bullet") } }
                     Button { styling = StyleTarget(group: g) } label: { Label(LS("更换图标"), systemImage: "photo") }
