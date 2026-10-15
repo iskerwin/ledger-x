@@ -163,6 +163,48 @@ final class ScanParseTests: XCTestCase {
         XCTAssertTrue(plan.checks.contains(.category))
     }
 
+    func testForeignCardPickedOnTheCard() {
+        // the card isn't remembered yet: the plan guesses a CNY account, so no rate goes on at first
+        let (L, D) = ledger()
+        let f = sample("wechat-detail-fx-1")
+        let plan = scanPlan(f, L, D, defaultFunding: "Assets:Bank:BOC", today: "2026-10-15")
+        var d = try! XCTUnwrap(plan.draft)
+        XCTAssertEqual(d.funding, "Assets:Bank:BOC")
+        XCTAssertFalse(d.byRate)
+        XCTAssertTrue(plan.checks.contains(.funding))
+        // the foreign card picked on the card: the receipt's rate and the HKD charged follow
+        d.funding = "Assets:Bank:HSBC"
+        XCTAssertFalse(applyScanCurrency(&d, f, L, D))
+        XCTAssertTrue(d.byRate); XCTAssertEqual(d.rate, "1.17972")
+        var t = draftText(d, L, D)
+        XCTAssertTrue(t.contains("90.23 CNY @ 1.17972 HKD") && t.contains("-106.45 HKD"), t)
+        // and back to a CNY account: no rate left over
+        d.funding = "Assets:Bank:BOC"
+        applyScanCurrency(&d, f, L, D)
+        XCTAssertFalse(d.byRate); XCTAssertEqual(d.rate, "")
+        t = draftText(d, L, D)
+        XCTAssertTrue(t.contains("-90.23 CNY") && !t.contains("@"), t)
+    }
+
+    func testDiscountFollowsTheAccount() {
+        let (L, D) = ledger()
+        let f = sample("alipay-visa-discount-zh-1")
+        var d = try! XCTUnwrap(scanPlan(f, L, D, cards: ["2468": "Assets:Bank:HSBC"], defaultFunding: nil).draft)
+        XCTAssertTrue(d.narration.contains("立减 0.86"))
+        // a CNY account instead: the discount becomes its own line against the price before it
+        d.funding = "Assets:Bank:BOC"
+        applyScanCurrency(&d, f, L, D)
+        XCTAssertFalse(d.narration.contains("立减"))
+        XCTAssertEqual(d.discount, "0.86")
+        XCTAssertEqual(d.amount, "195")
+        // back to the foreign card: noted again, once
+        d.funding = "Assets:Bank:HSBC"
+        XCTAssertTrue(applyScanCurrency(&d, f, L, D), "no rate or amount charged on this screen: to be checked")
+        XCTAssertEqual(d.narration.components(separatedBy: "立减 0.86").count, 2)
+        XCTAssertEqual(d.discount, "")
+        XCTAssertEqual(d.amount, "194.14")
+    }
+
     func testDraftCardByLastDigits() {
         let (L, D) = ledger()
         let plan = scanPlan(sample("wechat-detail-en-2"), L, D, defaultFunding: nil, today: "2026-10-15")

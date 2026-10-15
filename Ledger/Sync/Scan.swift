@@ -24,6 +24,8 @@ struct ScanInfo {
     /// the card as remembered ("4321"), and the account it was taken to be
     var cardKey: String?
     var funding: String
+    /// what was read: its currency details are applied again when the paying account changes
+    var fields: ScanFields
 }
 
 enum ScanError: LocalizedError {
@@ -71,8 +73,20 @@ extension Store {
         adding = false
         draft = d
         scanInfo = ScanInfo(boxes: boxes, checks: plan.checks, duplicate: plan.duplicate, refundOf: plan.refundOf,
-                            cardKey: plan.cardKey, funding: d.funding)
+                            cardKey: plan.cardKey, funding: d.funding, fields: plan.fields)
         openAdd(full: needsFullForm(d))
+    }
+
+    /// the paying account changed on a card filled in from a screenshot: the rate / amount charged / discount
+    /// put on for that account, and the 金额已核对 check kept in step
+    func scanFundingChanged() {
+        guard var info = scanInfo, let L = L, let D = D, draft.replacing == nil else { return }
+        var d = draft
+        let check = applyScanCurrency(&d, info.fields, L, D)
+        info.checks.removeAll { $0 == .charged }
+        if check { info.checks.append(.charged) }
+        scanInfo = info
+        if d != draft { draft = d }
     }
 
     /// a refund screenshot's purchase picked by hand: the refund drawn up against it, keeping what was read
@@ -91,8 +105,9 @@ extension Store {
     func saveScanned() async -> Bool {
         let info = scanInfo
         let funding = draft.funding
-        guard await saveForm() else { return false }
+        // off before saving: the card then starts a new entry, which is not the screenshot's
         scanInfo = nil
+        guard await saveForm() else { scanInfo = info; return false }
         // found by its digits and kept: nothing to remember
         let found = info.map { !$0.checks.contains(.funding) && $0.funding == funding } ?? true
         if !found, let k = info?.cardKey, !funding.isEmpty, repoConfig?.scanCards?[k] != funding,

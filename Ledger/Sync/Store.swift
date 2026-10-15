@@ -45,7 +45,11 @@ enum Prefs {
 
 @MainActor
 final class DraftModel: ObservableObject {
-    @Published var draft = Draft()
+    @Published var draft = Draft() {
+        // a card filled in from a screenshot follows the paying account: its rate and amount charged go on
+        // when a foreign card is picked, and come off again for an account in the bill's currency
+        didSet { if draft.funding != oldValue.funding { scanFundingChanged() } }
+    }
 }
 
 @MainActor

@@ -199,28 +199,57 @@ public func scanPlan(_ f: ScanFields, _ L: Ledger, _ D: Derived, cards: [String:
     if cat == nil || !who.known || f.platform != nil { plan.checks.append(.category) }
     if f.kind == .transfer { plan.checks.append(.person) }
 
-    // another currency on the card: the receipt's rate, the amount charged, or the ledger's rate to check later
-    if let fc = fc, fc != f.currency {
-        if let r = f.rate, f.rateBase == f.currency, f.rateQuote == fc {
-            d.byRate = true; d.rate = r
-        } else if let c = f.charged, f.chargedCurrency == fc {
-            d.paid = jsNumberString(c)
-        } else if let r = convertAmount(L, 1, from: f.currency, to: fc, date: date) {
-            d.byRate = true; d.rate = rateString(r)
-            plan.checks.append(.charged)
-        } else {
-            plan.checks.append(.charged)
-        }
-        // a discount can't be listed on its own when the card is in another currency: noted instead
-        if let x = f.discount { d.narration = [d.narration, tr("立减 \(toFixed(x, 2))", "discount \(toFixed(x, 2))")].filter { !$0.isEmpty }.joined(separator: " ") }
-    } else if let x = f.discount, x > 0 {
-        // the price before the discount, the discount as income (优惠)
-        d.amount = jsNumberString(roundMoney(f.listPrice ?? amount + x, 2))
-        d.discount = jsNumberString(x)
-    }
+    if applyScanCurrency(&d, f, L, D) { plan.checks.append(.charged) }
     // quoted: a long number as text, kept exact
     if let o = f.orderNo { d.keepMeta = [KeptMeta(key: "order", value: quoted(o))] }
     d.edited = nil
     plan.draft = d
     return plan
+}
+
+/// The screenshot's currency details put on the draft for the paying account it has now — at first, and again
+/// whenever the account is changed on the card (a card not remembered yet is guessed from the payee's history,
+/// usually an account in the bill's currency, and only then changed to the foreign card):
+/// - the account in another currency: the receipt's rate (as printed), else the amount the card was charged,
+///   else the ledger's rate (true is returned: the amount charged is to be checked); a same-currency discount
+///   can't be its own line then and is noted in the description;
+/// - the account in the bill's currency: no rate; a discount as its own line (优惠) against the price before it.
+/// The amount is only changed while it is still the one read off the screen.
+@discardableResult
+public func applyScanCurrency(_ d: inout Draft, _ f: ScanFields, _ L: Ledger, _ D: Derived) -> Bool {
+    guard let amt = f.amount, d.kind == .expense else { return false }
+    let fc = d.funding.isEmpty ? nil : accountCurrency(d.funding, L, D)
+    let readAmount = jsNumberString(amt)
+    let listed = f.discount.map { jsNumberString(roundMoney(f.listPrice ?? amt + $0, 2)) }
+    let amountUntouched = d.amount == readAmount || (listed != nil && d.amount == listed)
+    let note = f.discount.map { tr("立减 \(moneyText($0, 2))", "discount \(moneyText($0, 2))") }
+    func dropNote() {
+        guard let n = note else { return }
+        d.narration = d.narration.replacingOccurrences(of: " " + n, with: "").replacingOccurrences(of: n, with: "")
+    }
+    // start from the screenshot's own figures
+    d.byRate = false; d.rate = ""; d.paid = ""
+    dropNote()
+    if d.discount == f.discount.map(jsNumberString) { d.discount = "" }
+    if amountUntouched { d.amount = readAmount }
+
+    var check = false
+    if let fc = fc, fc != f.currency {
+        if let r = f.rate, f.rateBase == f.currency, f.rateQuote == fc {
+            d.byRate = true; d.rate = r
+        } else if let c = f.charged, f.chargedCurrency == fc {
+            d.paid = jsNumberString(c)
+        } else if let r = convertAmount(L, 1, from: f.currency, to: fc, date: d.date) {
+            d.byRate = true; d.rate = rateString(r)
+            check = true
+        } else {
+            check = true
+        }
+        if let n = note { d.narration = [d.narration, n].filter { !$0.isEmpty }.joined(separator: " ") }
+    } else if let x = f.discount, x > 0 {
+        // the price before the discount, the discount as income (优惠)
+        if amountUntouched, let l = listed { d.amount = l }
+        d.discount = jsNumberString(x)
+    }
+    return check
 }
