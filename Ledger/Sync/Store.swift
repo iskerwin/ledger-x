@@ -46,10 +46,10 @@ enum Prefs {
 @MainActor
 final class DraftModel: ObservableObject {
     @Published var draft = Draft() {
-        // a card filled in from a screenshot follows the paying account: its rate and amount charged go on
-        // when a foreign card is picked, and come off again for an account in the bill's currency
-        didSet { if draft.funding != oldValue.funding { scanFundingChanged() } }
+        didSet { if draft.funding != oldValue.funding { fundingChanged?() } }
     }
+    /// told when the paying account changes, however it is changed (pickers bind to the draft directly)
+    var fundingChanged: (() -> Void)?
 }
 
 @MainActor
@@ -177,6 +177,9 @@ final class Store: ObservableObject {
     static let shared = Store()
 
     init() {
+        // a card filled in from a screenshot follows the paying account: its rate and amount charged go on
+        // when a foreign card is picked, and come off again for an account in the bill's currency
+        defer { drafts.fundingChanged = { [weak self] in self?.scanFundingChanged() } }
         var list: [RepoConfig] = Prefs.get("sources", [RepoConfig]())
         if list.isEmpty {
             let old: RepoConfig = Prefs.get("cfg", RepoConfig())
