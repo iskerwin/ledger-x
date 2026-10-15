@@ -923,7 +923,9 @@ struct MarkSheet: View {
     var body: some View {
         let d = store.draft
         let evs = d.kind == .transfer ? [] : ledgerEvents(L, today: d.date).filter { ($0.entry != nil && $0.covers(d.date)) || d.events.contains($0.tag) }
-        let known = Array(Set(L.txns.suffix(2000).flatMap { $0.tags })).filter { !["transfer", "fx", "reimbursed", "refund", "reimbursement"].contains($0) && !d.tags.contains($0) && !evs.contains(where: { e in e.tag == $0 }) }.sorted().prefix(12)
+        let eventTags = Set(evs.map { $0.tag })
+        let skip: Set<String> = ["transfer", "fx", "reimbursed", "refund", "reimbursement"]
+        let known = Array(Set(L.txns.suffix(2000).flatMap { $0.tags })).filter { t in !skip.contains(t) && !d.tags.contains(t) && !eventTags.contains(t) }.sorted().prefix(12)
         NavigationStack {
             List {
                 if !evs.isEmpty {
