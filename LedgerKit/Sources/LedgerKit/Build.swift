@@ -530,8 +530,11 @@ public func checkText(_ text: String, _ L: Ledger?) -> CheckResult {
     let r = parseFile(text, file: "draft")
     var errors = r.errors
     if !r.includes.isEmpty || !r.options.isEmpty || !r.plugins.isEmpty { errors.append(LedgerError(file: nil, line: nil, msg: tr("include / option / plugin 请直接改 main.bean", "Edit include / option / plugin directly in main.bean"))) }
+    // the lots of the accounts these entries post to (a copy: booking takes from them); the others aren't touched
     var inv: [String: [Lot]] = [:]
-    for (a, lots) in L?.inventory ?? [:] { inv[a] = lots.map { $0.clone() } }
+    for a in Set(r.entries.flatMap { $0.postings.map { $0.account } }) {
+        if let lots = L?.inventory[a] { inv[a] = lots.map { $0.clone() } }
+    }
     let defaultBooking = ((L?.options["booking_method"]?.first ?? nil) ?? "STRICT")
     func methodOf(_ a: String) -> String { (L?.accounts[a]?.booking ?? defaultBooking).uppercased() }
     func opened(_ a: String) -> Bool { r.entries.contains { $0.type == .open && $0.account == a } }

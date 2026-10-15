@@ -42,6 +42,11 @@ public func orderedGroups(_ groups: [CategoryGroup], saved: [String]) -> [Catego
 /// The account each group under `root` was last used with (in the newest transaction that has one), for picking a
 /// group with one tap.
 public func lastUsedInGroups(_ L: Ledger, root: String) -> [String: String] {
+    // once per ledger: the 记一笔 card asks on every tap
+    L.memoized("lastUsedInGroups:" + root) { lastUsed(L, root: root) }
+}
+
+private func lastUsed(_ L: Ledger, root: String) -> [String: String] {
     var out: [String: String] = [:]
     for t in L.txns.reversed() where !t.synthetic {
         for p in t.postings where p.account.hasPrefix(root) {
