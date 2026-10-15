@@ -1,0 +1,80 @@
+; edge cases for the money API tests (expected values: tools/money_expected.py, worked out by Beancount)
+option "title" "Money edge cases"
+option "operating_currency" "CNY"
+option "booking_method" "FIFO"
+
+2024-01-01 open Assets:Bank:CN                 CNY
+2024-01-01 open Assets:Bank:HK                 HKD
+2024-01-01 open Assets:Broker:Cash             USD,HKD
+2024-01-01 open Assets:Broker:Stock            VOO,TSLA,HSBC "FIFO"
+2024-01-01 open Assets:Wallet                  CNY
+2024-01-01 open Liabilities:Card               CNY
+2024-01-01 open Equity:Opening
+2024-01-01 open Income:Gains
+2024-01-01 open Income:Salary                  CNY
+2024-01-01 open Expenses:Food                  CNY,HKD
+2024-01-01 open Expenses:Fees
+
+2024-01-01 * "开账"
+  Assets:Bank:CN                               100000.00 CNY
+  Assets:Broker:Cash                            20000.00 USD
+  Assets:Bank:HK                                50000.00 HKD
+  Equity:Opening
+
+2024-01-10 * "IBKR" "Buy VOO"
+  Expenses:Fees                                     1.00 USD
+  Assets:Broker:Stock                                  3 VOO {430.10 USD}
+  Assets:Broker:Cash
+
+2024-02-10 * "IBKR" "Buy VOO"
+  Assets:Broker:Stock                                  2 VOO {441.25 USD}
+  Assets:Broker:Cash                             -882.50 USD
+
+2024-03-10 * "IBKR" "Buy VOO"
+  Assets:Broker:Stock                                4.5 VOO {{2003.40 USD}}
+  Assets:Broker:Cash                            -2003.40 USD
+
+2024-04-10 * "IBKR" "Sell VOO, FIFO across two lots"
+  Assets:Broker:Cash                             2300.00 USD
+  Assets:Broker:Stock                                 -4 VOO {} @ 460.00 USD
+  Income:Gains
+
+2024-05-02 * "IBKR" "Buy TSLA"
+  Assets:Broker:Stock                                 10 TSLA {175.333 USD, 2024-05-01}
+  Assets:Broker:Cash                            -1753.33 USD
+
+2024-05-03 * "HSBC" "Buy HSBC shares in HKD"
+  Assets:Broker:Stock                                400 HSBC {62.35 HKD}
+  Assets:Bank:HK                               -24940.00 HKD
+
+2024-06-01 * "饭店" "晚饭"
+  Expenses:Food                                   188.80 CNY
+  Liabilities:Card                               -188.80 CNY
+
+2024-06-03 * "茶餐厅" "午饭"
+  Expenses:Food                                    58.00 HKD @ 0.92 CNY
+  Liabilities:Card                                -53.36 CNY
+
+2024-06-15 pad Assets:Wallet Equity:Opening
+2024-06-16 balance Assets:Wallet                 321.45 CNY
+
+2024-06-25 * "公司" "工资"
+  Income:Salary                               -23456.78 CNY
+  Assets:Bank:CN                               23456.78 CNY
+
+2024-06-30 * "IBKR" "Sell the rest of a lot"
+  Assets:Broker:Cash
+  Assets:Broker:Stock                                 -1 VOO {441.25 USD} @ 470.00 USD
+  Income:Gains                                    -28.75 USD
+
+2024-07-01 * "后来的一笔" "不在 6 月 30 日的余额里"
+  Expenses:Food                                    10.00 CNY
+  Assets:Wallet                                   -10.00 CNY
+
+2024-03-01 price USD                              7.1000 CNY
+2024-06-30 price USD                              7.2500 CNY
+2024-06-30 price USD                              7.2600 CNY
+2024-06-30 price VOO                              470.00 USD
+2024-05-31 price TSLA                             178.08 USD
+2024-06-28 price HSBC                              67.10 HKD
+2024-06-28 price HKD                               0.928 CNY
