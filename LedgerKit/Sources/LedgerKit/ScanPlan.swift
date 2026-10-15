@@ -215,7 +215,7 @@ public func scanPlan(_ f: ScanFields, _ L: Ledger, _ D: Derived, cards: [String:
         if let x = f.discount { d.narration = [d.narration, tr("立减 \(toFixed(x, 2))", "discount \(toFixed(x, 2))")].filter { !$0.isEmpty }.joined(separator: " ") }
     } else if let x = f.discount, x > 0 {
         // the price before the discount, the discount as income (优惠)
-        d.amount = jsNumberString(roundTo(f.listPrice ?? amount + x, 2))
+        d.amount = jsNumberString(roundMoney(f.listPrice ?? amount + x, 2))
         d.discount = jsNumberString(x)
     }
     // quoted: a long number as text, kept exact

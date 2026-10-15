@@ -14,6 +14,17 @@ public func weight(_ p: Posting) -> Weight? {
     return Weight(n: units, c: currency)
 }
 
+/// the same weight on the decimal numbers as written (for amounts that are filled in and shown)
+func decimalWeight(_ p: Posting) -> (n: Decimal, c: String)? {
+    guard let units = p.units, let currency = p.currency else { return nil }
+    if let cost = p.cost, let num = cost.number, let cc = cost.currency { return (decimalOf(units) * decimalOf(num), cc) }
+    if let pr = p.price, let pc = pr.currency, pr.number != nil || (pr.total && pr.raw != nil) {
+        if pr.total { return ((units < 0 ? -1 : 1) * decimalOf(abs(pr.raw!)), pc) }
+        return (decimalOf(units) * decimalOf(pr.number!), pc)
+    }
+    return (decimalOf(units), currency)
+}
+
 /// per-currency tolerance inferred from the precision of the numbers in the txn
 func tolerances(_ t: Entry) -> [String: Double] {
     var tol: [String: Double] = [:]
@@ -49,12 +60,19 @@ func interpolate(_ t: Entry, _ errors: inout [LedgerError]) {
     if unknown.isEmpty { return }
     var resOrder: [String] = []
     var res: [String: Double] = [:]
+    // the residual again on the decimal numbers: a filled-in amount is rounded from it, half to even, as Beancount
+    // does (10.00 - 2.675 leaves 7.325, filled in as 7.32)
+    var resD: [String: Decimal] = [:]
     var dig: [String: Int] = [:]
     for p in t.postings {
         guard let w = weight(p) else { continue }
         if res[w.c] == nil { resOrder.append(w.c) }
         res[w.c, default: 0] += w.n
+        if let wd = decimalWeight(p) { resD[wd.c, default: 0] += wd.n }
         if let d = p.digits, p.currency == w.c { dig[w.c] = max(dig[w.c] ?? 0, d) }
+    }
+    func filled(_ c: String) -> Double {
+        doubleOf(rounded(-(resD[c] ?? decimalOf(res[c] ?? 0)), min(dig[c] ?? 2, 8), .halfEven))
     }
     let spread = unknown.filter { $0.what == .units && $0.p.currency == nil }
     let fixed = unknown.filter { !($0.what == .units && $0.p.currency == nil) }
@@ -70,7 +88,7 @@ func interpolate(_ t: Entry, _ errors: inout [LedgerError]) {
         switch u.what {
         case .units:
             if p.cost != nil || p.price != nil { errors.append(LedgerError(entry: t, msg: tr("缺数量的分录不能带成本或价格", "A posting without units cannot have a cost or price"))); continue }
-            p.units = roundTo(-r, min(dig[c] ?? 2, 8)); p.interpolated = true; p.digits = dig[c] ?? 2
+            p.units = filled(c); p.interpolated = true; p.digits = dig[c] ?? 2
         case .cost:
             p.cost!.number = abs(-r / p.units!); p.cost!.interpolated = true
         case .price:
@@ -80,13 +98,14 @@ func interpolate(_ t: Entry, _ errors: inout [LedgerError]) {
         }
         if res[c] == nil { resOrder.append(c) }
         res[c] = 0
+        resD[c] = 0
     }
     if spread.count > 1 { errors.append(LedgerError(entry: t, msg: tr("只能有一条分录省略金额", "Only one posting may omit its amount"))) }
     if let m = spread.first?.p, let idx = t.postings.firstIndex(where: { $0 === m }) {
         let ccys = resOrder.filter { abs(res[$0] ?? 0) > EPS }
         let fill: [Posting] = ccys.map { c in
             let x = m.shallowCopy()
-            x.units = roundTo(-(res[c] ?? 0), min(dig[c] ?? 2, 8))
+            x.units = filled(c)
             x.currency = c
             x.digits = dig[c] ?? 2
             x.interpolated = true

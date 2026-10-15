@@ -20,7 +20,7 @@ public func evalExpr(_ input: String) -> Double? {
 public func evalAmount(_ input: String) -> Double? {
     guard let v = evalExpr(input) else { return nil }
     let plain = input.trimmingCharacters(in: .whitespaces).range(of: #"^\d*\.?\d+$"#, options: .regularExpression) != nil
-    return plain ? v : roundTo(v, 2)
+    return plain ? v : roundMoney(v, 2)
 }
 
 public func isExpression(_ s: String) -> Bool {
@@ -213,13 +213,13 @@ func payingPostings(_ d: Draft, total amt: Double, _ L: Ledger, _ D: Derived) ->
         rest -= v
         out.append(TxPosting(account: a, amount: -v, currency: d.currency))
     }
-    rest = roundTo(rest, 2)
+    rest = roundMoney(rest, 2)
     guard rest > -0.004, (accountCurrency(d.funding, L, D) ?? d.currency) == d.currency else { return nil }
     if rest > 0.004 { out.insert(TxPosting(account: d.funding, amount: -rest, currency: d.currency), at: 0) }
     if disc > 0.004 {
         let acct = d.discountAccount.trimmingCharacters(in: .whitespaces)
         guard acct.hasPrefix("Income:") else { return nil }
-        out.append(TxPosting(account: acct, amount: -roundTo(disc, 2), currency: d.currency))
+        out.append(TxPosting(account: acct, amount: -roundMoney(disc, 2), currency: d.currency))
     }
     return out
 }
@@ -230,7 +230,7 @@ public func comboRest(_ d: Draft) -> Double? {
     var rest = amt
     if discountAllowed(d) { rest -= evalAmount(d.discount) ?? 0 }
     for x in d.extraFunds { rest -= evalAmount(x.amount) ?? 0 }
-    return roundTo(rest, 2)
+    return roundMoney(rest, 2)
 }
 
 /// Why 组合付款 / 优惠 can't be written as it stands, in words for the form; nil when it can.
@@ -380,9 +380,9 @@ func draftTx0(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
                 if let k = d.fxRate, abs(k.amount - amt) < 0.005, abs(k.toAmount - ta) < 0.005 {
                     tx.meta.append(("exchange_rate", k.text))
                 } else if d.fxRate?.base == tc {
-                    tx.meta.append(("exchange_rate", "1 \(tc) = \(toFixed(amt / ta, 5)) \(fc)"))
+                    tx.meta.append(("exchange_rate", "1 \(tc) = \(moneyText(decimalOf(amt) / decimalOf(ta), 5)) \(fc)"))
                 } else {
-                    tx.meta.append(("exchange_rate", "1 \(fc) = \(toFixed(ta / amt, 5)) \(tc)"))
+                    tx.meta.append(("exchange_rate", "1 \(fc) = \(moneyText(decimalOf(ta) / decimalOf(amt), 5)) \(tc)"))
                 }
                 var toP = TxPosting(account: d.to, amount: ta, currency: tc)
                 toP.priceTotal = amt; toP.priceCcy = fc
@@ -414,7 +414,7 @@ func draftTx0(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
             sum += v
             theirs.append(personalPosting(who, amount: v, currency: d.currency))
         }
-        let mine = roundTo(amt - sum, 2)
+        let mine = roundMoney(amt - sum, 2)
         guard mine > -0.004 else { return nil }
         let paying: [TxPosting]
         if hasCombo(d) { guard let p = payingPostings(d, total: amt, L, D) else { return nil }; paying = p }
@@ -435,12 +435,13 @@ func draftTx0(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
     } else if fc != d.currency, d.byRate, let r = Double(d.rate.trimmingCharacters(in: .whitespaces)), r > 0 {
         // the receipt's rate as it is; the account is charged what it comes to, to the cent
         cat.suffix = "@ \(d.rate.trimmingCharacters(in: .whitespaces)) \(fc)"
-        tx.postings = [cat, TxPosting(account: d.funding, amount: -sgn * roundTo(amt * r, 2), currency: fc)]
+        tx.postings = [cat, TxPosting(account: d.funding, amount: -sgn * mulMoney(amt, r, 2), currency: fc)]
     } else if fc != d.currency, let paid = evalAmount(d.paid), paid > 0 {
         // a per-unit price rounded to 5 places can miss the paid total by more than the tolerance on
         // large amounts (9999.99 USD → 0.03 CNY off); then write the exact total instead
-        let unit = toFixed(paid / amt, 5)
-        cat.suffix = abs((Double(unit) ?? 0) * amt - paid) > 0.004 ? "@@ \(toFixed(paid, 2)) \(fc)" : "@ \(unit) \(fc)"
+        let unit = moneyText(decimalOf(paid) / decimalOf(amt), 5)
+        let back = rounded(decimalOf(Double(unit) ?? 0) * decimalOf(amt), 2)
+        cat.suffix = back != rounded(decimalOf(paid), 2) ? "@@ \(moneyText(paid, 2)) \(fc)" : "@ \(unit) \(fc)"
         tx.postings = [cat, TxPosting(account: d.funding, amount: -sgn * paid, currency: fc)]
     } else {
         tx.postings = [cat, TxPosting(account: d.funding, amount: -sgn * amt, currency: d.currency)]
@@ -497,7 +498,7 @@ public func draftMissing(_ d: Draft, _ L: Ledger, _ D: Derived) -> String? {
             }
             sum += v
         }
-        if roundTo(amt - sum, 2) <= -0.004 { return tr("AA 分摊的金额加起来超过了总额", "The split parts add up to more than the total") }
+        if roundMoney(amt - sum, 2) <= -0.004 { return tr("AA 分摊的金额加起来超过了总额", "The split parts add up to more than the total") }
     }
     if hasCombo(d) {
         if discountAllowed(d) && !blank(d.discount) {
@@ -1194,19 +1195,19 @@ public func solveRate(_ missing: RatePart, amount: Double?, rate: Double?, conve
     switch missing {
     case .converted:
         guard let a = amount, let r = rate, r > 0 else { return nil }
-        return roundTo(a * r, 2)
+        return mulMoney(a, r, 2)
     case .rate:
         guard let a = amount, a > 0, let c = converted, c > 0 else { return nil }
         return c / a
     case .amount:
         guard let r = rate, r > 0, let c = converted, c > 0 else { return nil }
-        return roundTo(c / r, 2)
+        return divMoney(c, r, 2)
     }
 }
 
 /// a rate for showing: up to 5 places, no trailing zeros (6.70408, 7.8)
 public func rateString(_ r: Double) -> String {
-    var s = toFixed(r, 5)
+    var s = moneyText(r, 5)
     while s.contains("."), s.hasSuffix("0") { s.removeLast() }
     if s.hasSuffix(".") { s.removeLast() }
     return s

@@ -155,11 +155,12 @@ final class Scan {
         return r
     }
 
-    // arithmetic expression: + - * / ( ) unary, numbers with optional thousands commas
+    // arithmetic expression: + - * / ( ) unary, numbers with optional thousands commas. Worked out in decimal,
+    // as Beancount does: 1.115 × 3 is 3.345 exactly, not 3.3449999…
     private var nDigits = 0
     private var nOK = true
 
-    private func lit() -> Double {
+    private func lit() -> Decimal {
         ws()
         var j = i
         var t = String.UnicodeScalarView()
@@ -183,11 +184,11 @@ final class Scan {
         i = j
         var ts = String(t)
         if ts.hasSuffix(".") { ts += "0" }
-        guard let v = Double(ts) else { nOK = false; return 0 }
+        guard let v = decimalLiteral(ts) else { nOK = false; return 0 }
         return v
     }
 
-    private func factor() -> Double {
+    private func factor() -> Decimal {
         ws()
         guard i < s.count else { nOK = false; return 0 }
         let c = s[i]
@@ -203,7 +204,7 @@ final class Scan {
         return lit()
     }
 
-    private func term() -> Double {
+    private func term() -> Decimal {
         var v = factor()
         while true {
             let j = i
@@ -212,6 +213,7 @@ final class Scan {
                 let op = s[i]
                 i += 1
                 let r = factor()
+                if op == "/" && r.isZero { nOK = false; return 0 }
                 v = op == "*" ? v * r : v / r
             } else {
                 i = j
@@ -220,7 +222,7 @@ final class Scan {
         }
     }
 
-    private func expr() -> Double {
+    private func expr() -> Decimal {
         var v = term()
         while true {
             let j = i
@@ -251,8 +253,8 @@ final class Scan {
         let c0 = s[i]
         guard c0 == "-" || c0 == "+" || c0 == "(" || c0 == "." || isDigit(c0) else { return nil }
         let v = expr()
-        if !nOK || !v.isFinite { i = save; return nil }
-        return (v, nDigits)
+        guard nOK, !v.isNaN, let d = Double(v.description), d.isFinite else { i = save; return nil }
+        return (d, nDigits)
     }
 }
 

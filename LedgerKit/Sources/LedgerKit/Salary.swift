@@ -75,13 +75,13 @@ public struct PayslipDraft: Equatable {
 
     public func value(_ item: PayslipItem) -> Double { evalAmount(values[item.name] ?? "") ?? 0 }
     /// 应发
-    public var gross: Double { roundTo(template.items.filter { !$0.deduct }.reduce(0) { $0 + value($1) }, 2) }
-    public var deductions: Double { roundTo(template.items.filter { $0.deduct }.reduce(0) { $0 + value($1) }, 2) }
+    public var gross: Double { roundMoney(template.items.filter { !$0.deduct }.reduce(0) { $0 + value($1) }, 2) }
+    public var deductions: Double { roundMoney(template.items.filter { $0.deduct }.reduce(0) { $0 + value($1) }, 2) }
     /// 实发
-    public var net: Double { roundTo(gross - deductions, 2) }
+    public var net: Double { roundMoney(gross - deductions, 2) }
     public var receivedAmount: Double { evalAmount(received) ?? net }
     /// still owed by the company (negative: paid over)
-    public var pending: Double { roundTo(net - receivedAmount, 2) }
+    public var pending: Double { roundMoney(net - receivedAmount, 2) }
     public var link: String { "salary-\(template.linkSlug)-\(month.replacingOccurrences(of: "-", with: ""))" }
 }
 
@@ -96,7 +96,7 @@ public func payslipText(_ d: PayslipDraft, _ L: Ledger, currency: String = "CNY"
     // the payslip line by line, when items share an account (several allowances, say)
     let used = d.template.items.filter { abs(d.value($0)) > 0.004 }
     if Set(used.map { $0.account }).count < used.count {
-        tx.meta.append(("payslip_items", used.map { "\($0.name) \(toFixed(d.value($0), 2))" }.joined(separator: "; ")))
+        tx.meta.append(("payslip_items", used.map { "\($0.name) \(moneyText(d.value($0), 2))" }.joined(separator: "; ")))
     }
     // one posting per account (two deductions may share one)
     var sums: [String: Double] = [:], order: [String] = []
@@ -106,9 +106,9 @@ public func payslipText(_ d: PayslipDraft, _ L: Ledger, currency: String = "CNY"
         if sums[i.account] == nil { order.append(i.account) }
         sums[i.account, default: 0] += i.deduct ? v : -v
     }
-    for a in order where abs(sums[a]!) > 0.004 { tx.postings.append(TxPosting(account: a, amount: roundTo(sums[a]!, 2), currency: currency)) }
+    for a in order where abs(sums[a]!) > 0.004 { tx.postings.append(TxPosting(account: a, amount: roundMoney(sums[a]!, 2), currency: currency)) }
     if abs(d.pending) > 0.004 { tx.postings.append(TxPosting(account: receivable, amount: d.pending, currency: currency)) }
-    if d.receivedAmount > 0.004 { tx.postings.append(TxPosting(account: d.account, amount: roundTo(d.receivedAmount, 2), currency: currency)) }
+    if d.receivedAmount > 0.004 { tx.postings.append(TxPosting(account: d.account, amount: roundMoney(d.receivedAmount, 2), currency: currency)) }
     var seen = Set<String>()
     let opens = tx.postings.map { $0.account }.filter { a in (L.accounts[a] == nil || L.accounts[a]!.implicit) && seen.insert(a).inserted }
         .map { openLine($0, date: d.date, name: salaryAccountNames[$0]) }

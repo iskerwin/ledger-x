@@ -364,13 +364,13 @@ public func settleText(_ L: Ledger, date: String, payee: String, narration: Stri
     if let l = link, !l.isEmpty { tx.links = [l] }
     var back: [String: Double] = [:], order: [String] = []
     for i in items {
-        var p = TxPosting(account: i.account, amount: -roundTo(i.amount, 2), currency: i.currency)
+        var p = TxPosting(account: i.account, amount: -roundMoney(i.amount, 2), currency: i.currency)
         if let who = i.person, !who.isEmpty { p.meta = [(personMeta, who)] }
         tx.postings.append(p)
         if back[i.currency] == nil { order.append(i.currency) }
         back[i.currency, default: 0] += i.amount
     }
-    for c in order { tx.postings.append(TxPosting(account: to, amount: roundTo(back[c]!, 2), currency: c)) }
+    for c in order { tx.postings.append(TxPosting(account: to, amount: roundMoney(back[c]!, 2), currency: c)) }
     parts.append(formatTxn(tx))
     return parts.joined(separator: "\n\n")
 }
