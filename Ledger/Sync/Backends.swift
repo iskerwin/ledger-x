@@ -33,13 +33,33 @@ struct FileChange {
     let version: String?
 }
 
+/// some files of a change were written before one failed (hosts that write one file at a time): what got
+/// written must leave the queue, or the next push would apply the same edits on top of them again
+struct PartialWriteError: Error, LocalizedError {
+    /// path → new version; a deleted path maps to nil
+    let written: [String: String?]
+    let underlying: Error
+    var errorDescription: String? { underlying.localizedDescription }
+}
+
 extension LedgerBackend {
     /// one file at a time (hosts without multi-file commits, or a plain folder)
     func writeSequentially(_ changes: [FileChange], message: String) async throws -> [String: String] {
         var out: [String: String] = [:]
+        var done: [String: String?] = [:]
         for c in changes {
-            if let t = c.text { out[c.path] = try await write(c.path, text: t, version: c.version, message: message) }
-            else if let v = c.version { try await delete(c.path, version: v, message: message) }
+            do {
+                if let t = c.text {
+                    let v = try await write(c.path, text: t, version: c.version, message: message)
+                    out[c.path] = v; done[c.path] = .some(v)
+                } else if let v = c.version {
+                    try await delete(c.path, version: v, message: message)
+                    done[c.path] = .some(nil)
+                }
+            } catch {
+                if done.isEmpty { throw error }
+                throw PartialWriteError(written: done, underlying: error)
+            }
         }
         return out
     }
@@ -141,19 +161,39 @@ struct GitLab: LedgerBackend {
         return String(decoding: d, as: UTF8.self)
     }
 
-    private func current(_ path: String) async throws -> String? {
+    /// the file on the branch now: its blob (our version token) and the last commit that changed it, which
+    /// GitLab checks again when it is passed back as last_commit_id (so a push in between is refused there)
+    private func current(_ path: String) async throws -> (blob: String, commit: String?)? {
         do {
             let (d, _) = try await request("/repository/files/\(GitHub.enc(path).replacingOccurrences(of: "/", with: "%2F"))?ref=\(ref)")
-            return (try JSONSerialization.jsonObject(with: d) as? [String: Any])?["blob_id"] as? String
+            let o = (try JSONSerialization.jsonObject(with: d) as? [String: Any]) ?? [:]
+            guard let b = o["blob_id"] as? String else { return nil }
+            return (b, o["last_commit_id"] as? String)
         } catch let e as GitHubError where e.status == 404 { return nil }
+    }
+
+    /// GitLab answers a stale last_commit_id (or a file created meanwhile) with 400: a conflict when the
+    /// files really moved on, the error itself otherwise
+    private func conflictOr(_ e: GitHubError, _ changes: [FileChange]) async -> GitHubError {
+        guard e.status == 400 else { return e }
+        for c in changes {
+            let now = try? await current(c.path)
+            if now?.blob != c.version { return GitHubError(status: 409, message: c.path) }
+        }
+        return e
     }
 
     func write(_ path: String, text: String, version: String?, message: String) async throws -> String {
         let now = try await current(path)
-        if now != version { throw GitHubError(status: 409, message: path) }
+        if now?.blob != version { throw GitHubError(status: 409, message: path) }
         let file = "/repository/files/" + GitHub.enc(path).replacingOccurrences(of: "/", with: "%2F")
-        _ = try await request(file, method: version == nil ? "POST" : "PUT",
-                              body: ["branch": cfg.branch, "content": text, "commit_message": message, "encoding": "text"])
+        var body: [String: Any] = ["branch": cfg.branch, "content": text, "commit_message": message, "encoding": "text"]
+        if let lc = now?.commit { body["last_commit_id"] = lc }
+        do {
+            _ = try await request(file, method: version == nil ? "POST" : "PUT", body: body)
+        } catch let e as GitHubError {
+            throw await conflictOr(e, [FileChange(path: path, text: text, version: version)])
+        }
         return gitBlobSHA(text)
     }
 
@@ -163,15 +203,22 @@ struct GitLab: LedgerBackend {
         var actions: [[String: Any]] = []
         for c in changes {
             let now = try await current(c.path)
-            if now != c.version { throw GitHubError(status: 409, message: c.path) }
+            if now?.blob != c.version { throw GitHubError(status: 409, message: c.path) }
+            var a: [String: Any]
             if let t = c.text {
-                actions.append(["action": now == nil ? "create" : "update", "file_path": c.path, "content": t, "encoding": "text"])
+                a = ["action": now == nil ? "create" : "update", "file_path": c.path, "content": t, "encoding": "text"]
             } else if now != nil {
-                actions.append(["action": "delete", "file_path": c.path])
-            }
+                a = ["action": "delete", "file_path": c.path]
+            } else { continue }
+            if let lc = now?.commit { a["last_commit_id"] = lc }
+            actions.append(a)
         }
         if actions.isEmpty { return [:] }
-        _ = try await request("/repository/commits", method: "POST", body: ["branch": cfg.branch, "commit_message": message, "actions": actions])
+        do {
+            _ = try await request("/repository/commits", method: "POST", body: ["branch": cfg.branch, "commit_message": message, "actions": actions])
+        } catch let e as GitHubError {
+            throw await conflictOr(e, changes)
+        }
         var out: [String: String] = [:]
         for c in changes { if let t = c.text { out[c.path] = gitBlobSHA(t) } }
         return out
@@ -180,9 +227,15 @@ struct GitLab: LedgerBackend {
     func delete(_ path: String, version: String, message: String) async throws {
         // like write: never delete a file that changed on the server since we read it
         guard let now = try await current(path) else { return }
-        if now != version { throw GitHubError(status: 409, message: path) }
+        if now.blob != version { throw GitHubError(status: 409, message: path) }
         let file = "/repository/files/" + GitHub.enc(path).replacingOccurrences(of: "/", with: "%2F")
-        _ = try await request(file, method: "DELETE", body: ["branch": cfg.branch, "commit_message": message])
+        var body: [String: Any] = ["branch": cfg.branch, "commit_message": message]
+        if let lc = now.commit { body["last_commit_id"] = lc }
+        do {
+            _ = try await request(file, method: "DELETE", body: body)
+        } catch let e as GitHubError {
+            throw await conflictOr(e, [FileChange(path: path, text: nil, version: version)])
+        }
     }
 
     func readData(_ path: String) async throws -> Data {
@@ -437,9 +490,11 @@ struct WebDAV: LedgerBackend {
 
     private func url(_ path: String) -> URL? { base.flatMap { URL(string: GitHub.encPath(path), relativeTo: $0)?.absoluteURL } }
 
-    private func send(_ u: URL, method: String, depth: String? = nil, body: Data? = nil, type: String? = nil) async throws -> (Data, HTTPURLResponse) {
+    private func send(_ u: URL, method: String, depth: String? = nil, body: Data? = nil, type: String? = nil,
+                      headers: [String: String] = [:]) async throws -> (Data, HTTPURLResponse) {
         var r = URLRequest(url: u)
         r.httpMethod = method
+        for (k, v) in headers { r.setValue(v, forHTTPHeaderField: k) }
         if !cfg.username.isEmpty || !cfg.token.isEmpty {
             r.setValue("Basic " + Data("\(cfg.username):\(cfg.token)".utf8).base64EncodedString(), forHTTPHeaderField: "Authorization")
         }
@@ -456,7 +511,9 @@ struct WebDAV: LedgerBackend {
     <?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/><d:getetag/><d:getlastmodified/><d:getcontentlength/></d:prop></d:propfind>
     """.utf8)
 
-    struct Item { var href: String; var dir: Bool; var etag: String }
+    /// `etag` identifies the version (quotes taken off; modification time and size when the server sends none);
+    /// `strong` is the ETag as sent, when it is a strong one the server can check in If-Match
+    struct Item { var href: String; var dir: Bool; var etag: String; var strong: String? = nil }
 
     private func list(_ u: URL, depth: String) async throws -> [Item] {
         let (d, _) = try await send(u, method: "PROPFIND", depth: depth, body: WebDAV.propfind, type: "application/xml; charset=utf-8")
@@ -502,17 +559,27 @@ struct WebDAV: LedgerBackend {
         return String(decoding: d, as: UTF8.self)
     }
 
-    private func currentEtag(_ path: String) async throws -> String? {
+    private func currentItem(_ path: String) async throws -> Item? {
         guard let u = url(path) else { return nil }
-        do { return try await list(u, depth: "0").first?.etag } catch let e as GitHubError where e.status == 404 { return nil }
+        do { return try await list(u, depth: "0").first } catch let e as GitHubError where e.status == 404 { return nil }
+    }
+    private func currentEtag(_ path: String) async throws -> String? { try await currentItem(path)?.etag }
+
+    /// the server refuses the write if the file changed after we looked (If-Match), or appeared (If-None-Match)
+    private func guardHeaders(_ now: Item?) -> [String: String] {
+        guard let now = now else { return ["If-None-Match": "*"] }
+        return now.strong.map { ["If-Match": $0] } ?? [:]
     }
 
     func write(_ path: String, text: String, version: String?, message: String) async throws -> String {
         guard let u = url(path) else { throw GitHubError(status: 0, message: path) }
-        let now = try await currentEtag(path).map { self.version(path, $0) }
-        if now != version { throw GitHubError(status: 409, message: path) }
+        let item = try await currentItem(path)
+        if item.map({ self.version(path, $0.etag) }) != version { throw GitHubError(status: 409, message: path) }
+        let cond = guardHeaders(item)
         do {
-            _ = try await send(u, method: "PUT", body: Data(text.utf8), type: "text/plain; charset=utf-8")
+            _ = try await send(u, method: "PUT", body: Data(text.utf8), type: "text/plain; charset=utf-8", headers: cond)
+        } catch let e as GitHubError where e.status == 412 {
+            throw GitHubError(status: 409, message: path)
         } catch let e as GitHubError where e.status == 409 || e.status == 404 {
             // parent folder missing: create it, then retry
             var dir = ""
@@ -520,7 +587,7 @@ struct WebDAV: LedgerBackend {
                 dir += part + "/"
                 if let du = url(dir) { _ = try? await send(du, method: "MKCOL") }
             }
-            _ = try await send(u, method: "PUT", body: Data(text.utf8), type: "text/plain; charset=utf-8")
+            _ = try await send(u, method: "PUT", body: Data(text.utf8), type: "text/plain; charset=utf-8", headers: cond)
         }
         let et = try await currentEtag(path) ?? gitBlobSHA(text)
         let v = self.version(path, et)
@@ -530,9 +597,13 @@ struct WebDAV: LedgerBackend {
 
     func delete(_ path: String, version: String, message: String) async throws {
         guard let u = url(path) else { return }
-        guard let et = try await currentEtag(path) else { return }
-        if self.version(path, et) != version { throw GitHubError(status: 409, message: path) }
-        _ = try await send(u, method: "DELETE")
+        guard let item = try await currentItem(path) else { return }
+        if self.version(path, item.etag) != version { throw GitHubError(status: 409, message: path) }
+        do {
+            _ = try await send(u, method: "DELETE", headers: guardHeaders(item))
+        } catch let e as GitHubError where e.status == 412 {
+            throw GitHubError(status: 409, message: path)
+        }
     }
 
     func readData(_ path: String) async throws -> Data {
@@ -581,7 +652,10 @@ final class DAVParser: NSObject, XMLParserDelegate {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         switch name {
         case "href": cur?.href = t
-        case "getetag": cur?.etag = t.replacingOccurrences(of: "\"", with: "")
+        case "getetag":
+            cur?.etag = t.replacingOccurrences(of: "\"", with: "")
+            // weak tags (W/"…") never pass If-Match's strong comparison; quote a bare one as a header needs
+            if !t.isEmpty && !t.hasPrefix("W/") { cur?.strong = t.hasPrefix("\"") ? t : "\"" + t + "\"" }
         case "getlastmodified": lastmod = t
         case "getcontentlength": length = t
         case "response":

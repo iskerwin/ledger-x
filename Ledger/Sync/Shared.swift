@@ -20,8 +20,7 @@ extension Store {
         var c = before
         change(&c)
         guard c != before || repoConfig == nil else { return true }
-        var op = Op(kind: .write, path: LedgerXConfig.path)
-        op.text = c.json()
+        var op = await fileWriteOp(LedgerXConfig.path, text: c.json())
         op.label = label
         return await commit([op], word: word ?? LS("已保存到 %@", LedgerXConfig.path), checked: true)
     }
@@ -102,8 +101,7 @@ extension Store {
         if c.templatesPinned == nil, !localTplPinned.isEmpty { c.templatesPinned = localTplPinned }
         if c.templatesHidden == nil, !localTplHidden.isEmpty { c.templatesHidden = localTplHidden }
         if c != before || (repoConfig == nil && c != LedgerXConfig()) {
-            var op = Op(kind: .write, path: LedgerXConfig.path)
-            op.text = c.json()
+            var op = await fileWriteOp(LedgerXConfig.path, text: c.json())
             op.label = LS("把本机的设置移入 %@", LedgerXConfig.path)
             guard await commit([op], word: LS("设置已移入 %@，各设备共用", LedgerXConfig.path), checked: true) else { return }
         }

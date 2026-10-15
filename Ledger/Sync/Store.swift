@@ -155,8 +155,7 @@ final class Store: ObservableObject {
 
     /// write ledger-x.json (one commit), then reload with it
     func saveRepoConfig(_ c: LedgerXConfig) async -> Bool {
-        var op = Op(kind: .write, path: LedgerXConfig.path)
-        op.text = c.json()
+        var op = await fileWriteOp(LedgerXConfig.path, text: c.json())
         op.label = LS("更新仓库结构（%@）", LedgerXConfig.path)
         return await commit([op], word: LS("已保存到 %@", LedgerXConfig.path), checked: true)
     }
@@ -456,6 +455,15 @@ final class Store: ObservableObject {
         }
     }
 
+    /// an op writing the whole of `path`, remembering the text it replaces: if another device changes the file
+    /// before this one is pushed, the push merges (ledger-x.json) or parks it instead of overwriting their change
+    func fileWriteOp(_ path: String, text: String) async -> Op {
+        var op = Op(kind: .write, path: path)
+        op.text = text
+        op.old = try? await fileText(path)
+        return op
+    }
+
     /// file text with the pending queue applied
     func fileText(_ path: String) async throws -> String {
         var base = ""
@@ -700,59 +708,51 @@ final class Store: ObservableObject {
         for _ in 0..<3 {   // repeat for ops queued while pushing
             let ops = pending.filter { $0.failed == nil && $0.held == nil }
             if ops.isEmpty { return }
-            var paths: [String] = []
-            for o in ops where !paths.contains(o.path) { paths.append(o.path) }
-            var changes: [FileChange] = []
-            var texts: [String: String] = [:]
-            var included: [Op] = []
-            for path in paths {
-                let sha = tree?.files[path]
-                let dels = ops.filter { $0.path == path && $0.kind == .deleteFile }
-                if !dels.isEmpty {
-                    changes.append(FileChange(path: path, text: nil, version: sha))
-                    included += dels
-                    continue
-                }
-                var base = ""
-                if let sha = sha { base = try await blobText(path, sha) }
-                // an edit/delete whose original text is gone (changed elsewhere) is parked, not pushed
-                let mine = pending.filter { $0.path == path }
-                for (k, o) in mine.enumerated() where (o.kind == .remove || o.kind == .replace) && o.failed == nil && o.held == nil {
-                    // only what will actually be written: earlier failed or held ops are skipped by the push
-                    let skipped = Set(pending.filter { $0.failed != nil || $0.held != nil }.map { $0.id })
-                    let prior = mine[..<k].filter { !skipped.contains($0.id) }
-                    if applyRemove((try? applyOps(base, path: path, ops: prior)) ?? base, o) == nil {
-                        let why = LS("原交易已在 GitHub 上被修改，本次%@未提交", (o.label ?? "").hasPrefix(LS("删除")) ? LS("删除") : LS("修改"))
-                        markFailed(o.id, why)
-                        if k + 1 < mine.count, (mine[k + 1].kind == .insert || mine[k + 1].kind == .balance), mine[k + 1].silent == true { markFailed(mine[k + 1].id, why) }
-                    }
-                }
-                savePending()
-                let fileOps = pending.filter { $0.path == path && $0.failed == nil && $0.held == nil }
-                if fileOps.isEmpty { continue }
-                do {
-                    let text = try applyOps(base, path: path, ops: fileOps, strict: true)
-                    texts[path] = text
-                    changes.append(FileChange(path: path, text: text, version: sha))
-                    included += fileOps
-                } catch let e as ConflictError {
-                    // park this file's ops instead of blocking every other file in the queue
-                    for o in fileOps { markFailed(o.id, e.localizedDescription) }
-                    savePending()
-                }
+            // every touched file as it is on the server now (nil: not there)
+            var bases: [String: String?] = [:]
+            for o in ops where bases[o.path] == nil {
+                if let sha = tree?.files[o.path] { bases[o.path] = .some(try await blobText(o.path, sha)) }
+                else { bases[o.path] = .some(nil) }
             }
-            if changes.isEmpty { return }
+            let plan = planPush(ops, bases: bases)
+            for (id, why) in plan.failed { markFailed(id, why) }
+            savePending()
+            if plan.changes.isEmpty {
+                // nothing left to write: the edits that were no-ops leave the queue
+                let ids = Set(plan.included)
+                pending.removeAll { ids.contains($0.id) }
+                savePending()
+                return
+            }
+            let included = pending.filter { plan.included.contains($0.id) }
+            let paths = plan.changes.map { $0.path }
             let message = commitMessage(included, path: paths.count == 1 ? paths[0] : LS("%@ 个文件", paths.count))
-            let versions = try await backend.writeMany(changes, message: message)
-            for c in changes {
-                if let t = texts[c.path], let v = versions[c.path] {
+            let changes = plan.changes.map { FileChange(path: $0.path, text: $0.text, version: tree?.files[$0.path]) }
+            let versions: [String: String]
+            do {
+                versions = try await backend.writeMany(changes, message: message)
+            } catch let e as PartialWriteError {
+                // the files already written take their edits out of the queue; the rest stay and are retried
+                for (path, v) in e.written {
+                    if let v = v, let t = plan.changes.first(where: { $0.path == path })?.text { BlobCache.set(v, t) }
+                    tree?.files[path] = v
+                }
+                let done = Set(e.written.keys)
+                let ids = Set(included.filter { done.contains($0.path) }.map { $0.id })
+                pending.removeAll { ids.contains($0.id) }
+                savePending()
+                saveTree()
+                throw e.underlying
+            }
+            for c in plan.changes {
+                if let t = c.text, let v = versions[c.path] {
                     BlobCache.set(v, t)
                     tree?.files[c.path] = v
                 } else if c.text == nil {
                     tree?.files[c.path] = nil
                 }
             }
-            let ids = Set(included.map { $0.id })
+            let ids = Set(plan.included)
             pending.removeAll { ids.contains($0.id) }
             savePending()
             tree = try await backend.fetchTree()
@@ -826,8 +826,7 @@ final class Store: ObservableObject {
     }
 
     private func writeBQL(_ path: String, _ qs: [SavedQuery], label: String, word: String) async -> Bool {
-        var op = Op(kind: .write, path: path)
-        op.text = serializeBQL(qs)
+        var op = await fileWriteOp(path, text: serializeBQL(qs))
         op.label = label
         return await commit([op], word: word, checked: true)
     }

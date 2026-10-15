@@ -283,8 +283,7 @@ struct PayeeRenameSheet: View {
                 }
             }
             if changed {
-                var op = Op(kind: .write, path: LedgerXConfig.path)
-                op.text = c.json()
+                var op = await store.fileWriteOp(LedgerXConfig.path, text: c.json())
                 op.silent = true
                 ops.append(op)
             }
