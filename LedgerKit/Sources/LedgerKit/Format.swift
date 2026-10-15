@@ -86,7 +86,7 @@ public func formatTxn(_ tx: TxDraft) -> String {
     for l in tx.links { head.append("^" + l) }
     var lines = [head.joined(separator: " ")]
     for (k, v) in tx.meta { lines.append(metaLine("  ", k, v)) }
-    for p in tx.postings {
+    for p in orderedPostings(tx.postings) {
         var sfx: [String] = []
         if let c = p.cost, !c.isEmpty { sfx.append(c.hasPrefix("{") ? c : "{\(c)}") }
         if let pr = p.price, !pr.isEmpty { sfx.append(pr.hasPrefix("@") ? pr : "@ \(pr)") }
@@ -96,6 +96,79 @@ public func formatTxn(_ tx: TxDraft) -> String {
         for (k, v) in p.meta { lines.append(metaLine("    ", k, v)) }
     }
     return lines.joined(separator: "\n")
+}
+
+// MARK: - posting order
+
+/// The order every transaction is written in: Expenses / Income / Equity lines first (as given), then the
+/// Assets / Liabilities lines that receive money (amount ≥ 0), then those that pay (amount < 0). A posting left
+/// without an amount takes the sign Beancount will fill it with. When a sign can't be told (an expression, two
+/// blank amounts, mixed currencies around a blank one) the postings are left as given.
+public func orderedPostings(_ ps: [TxPosting]) -> [TxPosting] {
+    guard ps.count > 1 else { return ps }
+    func isBalanceSheet(_ a: String) -> Bool { a.hasPrefix("Assets:") || a.hasPrefix("Liabilities:") }
+    var signs: [Double?] = ps.map { postingNumber($0.units) }
+    let blank = ps.indices.filter { (ps[$0].units ?? "").trimmingCharacters(in: .whitespaces).isEmpty }
+    if blank.count > 1 { return ps }
+    if let b = blank.first {
+        if isBalanceSheet(ps[b].account) {
+            guard let w = weightOfOthers(ps, except: b) else { return ps }
+            signs[b] = -w
+        } else {
+            signs[b] = 0
+        }
+    }
+    for i in ps.indices where isBalanceSheet(ps[i].account) && signs[i] == nil { return ps }
+    let cats = ps.indices.filter { !isBalanceSheet(ps[$0].account) }
+    let recv = ps.indices.filter { isBalanceSheet(ps[$0].account) && signs[$0]! >= 0 }
+    let pay = ps.indices.filter { isBalanceSheet(ps[$0].account) && signs[$0]! < 0 }
+    return (cats + recv + pay).map { ps[$0] }
+}
+
+/// a plain number ("-1,234.50"), or nil for a blank or an expression
+private func postingNumber(_ s: String?) -> Double? {
+    guard let t = s?.trimmingCharacters(in: .whitespaces), !t.isEmpty else { return nil }
+    let c = t.replacingOccurrences(of: ",", with: "")
+    guard c.range(of: #"^[+-]?(\d+\.?\d*|\.\d+)$"#, options: .regularExpression) != nil else { return nil }
+    return Double(c)
+}
+
+/// "335.5 USD", "{335.5 USD}", "{{671 USD}}", "@ 1.19 HKD", "@@ 20.00 CNY" → (number, currency)
+private func amountIn(_ s: String) -> (Double, String)? {
+    let parts = s.split(whereSeparator: { "{}@ ".contains($0) }).map(String.init)
+    guard parts.count == 2, let n = postingNumber(parts[0]) else { return nil }
+    return (n, parts[1])
+}
+
+/// what the other postings weigh together (at cost or price), when they all weigh in one currency
+private func weightOfOthers(_ ps: [TxPosting], except b: Int) -> Double? {
+    var total = 0.0
+    var curs = Set<String>()
+    for (i, p) in ps.enumerated() where i != b {
+        guard let n = postingNumber(p.units) else { return nil }
+        let sign: Double = n < 0 ? -1 : 1
+        let cost = p.cost?.trimmingCharacters(in: .whitespaces) ?? ""
+        // a price is either `price` ("1.19 HKD" / "@ 1.19 HKD" / "@@ …") or an @ written as the suffix
+        let given = p.price?.trimmingCharacters(in: .whitespaces) ?? ""
+        let tail = p.suffix?.trimmingCharacters(in: .whitespaces) ?? ""
+        let price = !given.isEmpty ? given : (tail.hasPrefix("@") ? tail : "")
+        if !cost.isEmpty {
+            guard let (v, c) = amountIn(cost) else { return nil }
+            total += cost.hasPrefix("{{") ? sign * abs(v) : n * v
+            curs.insert(c)
+        } else if let pt = p.priceTotal {
+            total += sign * abs(pt)
+            curs.insert(p.priceCcy ?? "")
+        } else if !price.isEmpty {
+            guard let (v, c) = amountIn(price) else { return nil }
+            total += price.hasPrefix("@@") ? sign * abs(v) : n * v
+            curs.insert(c)
+        } else {
+            total += n
+            curs.insert(p.currency ?? "")
+        }
+    }
+    return curs.count == 1 ? total : nil
 }
 
 private func leadingDate(_ l: String) -> String? {
