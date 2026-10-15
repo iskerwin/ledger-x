@@ -186,6 +186,31 @@ final class ScanParseTests: XCTestCase {
         XCTAssertTrue(t.contains("-90.23 CNY") && !t.contains("@"), t)
     }
 
+    func testCardRememberedWhenSaved() {
+        let (L, D) = ledger()
+        // not known yet: guessed, then the foreign card picked → remembered under its digits
+        var d = try! XCTUnwrap(scanPlan(sample("wechat-detail-fx-1"), L, D, defaultFunding: "Assets:Bank:BOC").draft)
+        XCTAssertEqual(d.scan?.cardKey, "2468")
+        XCTAssertFalse(d.scan?.sure ?? true)
+        d.funding = "Assets:Bank:HSBC"
+        XCTAssertEqual(scanCardToRemember(d, cards: [:])?.key, "2468")
+        XCTAssertEqual(scanCardToRemember(d, cards: [:])?.account, "Assets:Bank:HSBC")
+        // the guess kept as it was: remembered too (next time it is certain)
+        d.funding = "Assets:Bank:BOC"
+        XCTAssertEqual(scanCardToRemember(d, cards: [:])?.account, "Assets:Bank:BOC")
+        // remembered already: nothing to write
+        d.funding = "Assets:Bank:HSBC"
+        XCTAssertNil(scanCardToRemember(d, cards: ["2468": "Assets:Bank:HSBC"]))
+        // found by the digits in the account's name and kept: nothing to write; changed: the new one is
+        var e = try! XCTUnwrap(scanPlan(sample("wechat-detail-en-2"), L, D, defaultFunding: nil).draft)
+        XCTAssertTrue(e.scan?.sure ?? false)
+        XCTAssertNil(scanCardToRemember(e, cards: [:]))
+        e.funding = "Liabilities:CreditCard:SPDB"
+        XCTAssertEqual(scanCardToRemember(e, cards: [:])?.account, "Liabilities:CreditCard:SPDB")
+        // an entry not from a screenshot
+        XCTAssertNil(scanCardToRemember(Draft(), cards: [:]))
+    }
+
     func testDiscountFollowsTheAccount() {
         let (L, D) = ledger()
         let f = sample("alipay-visa-discount-zh-1")

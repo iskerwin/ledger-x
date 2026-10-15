@@ -115,7 +115,41 @@ func platformCategory(_ payee: String, item: String, _ L: Ledger) -> String? {
     return best?.1
 }
 
+/// What a draft filled in from a screenshot keeps of it, on the draft itself (so it lasts until the entry is
+/// saved, whatever happens to the card in between): what was read, how the card is known, and the paying
+/// account the plan chose for it.
+public struct ScanMemo: Equatable {
+    public var fields: ScanFields
+    /// the card's last four digits, else the method as written
+    public var cardKey: String?
+    /// the account the plan chose, and whether it was certain (remembered, or the digits in one account's name)
+    public var funding: String
+    public var sure: Bool
+    public init(fields: ScanFields, cardKey: String?, funding: String, sure: Bool) {
+        self.fields = fields; self.cardKey = cardKey; self.funding = funding; self.sure = sure
+    }
+}
+
+/// The card to remember (ledger-x.json `scan_cards`) when a screenshot's entry is saved: its key and the paying
+/// account it was saved with — unless the account came from the card itself and was kept, or is remembered already.
+public func scanCardToRemember(_ d: Draft, cards: [String: String]) -> (key: String, account: String)? {
+    guard let m = d.scan, let k = m.cardKey, !k.isEmpty else { return nil }
+    let a = d.funding
+    guard a.hasPrefix("Assets:") || a.hasPrefix("Liabilities:") else { return nil }
+    if m.sure && m.funding == a { return nil }
+    if cards[k] == a { return nil }
+    return (k, a)
+}
+
 public func scanPlan(_ f: ScanFields, _ L: Ledger, _ D: Derived, cards: [String: String] = [:], defaultFunding: String?, today: String = Day.today()) -> ScanPlan {
+    var plan = scanPlan0(f, L, D, cards: cards, defaultFunding: defaultFunding, today: today)
+    if plan.draft != nil {
+        plan.draft!.scan = ScanMemo(fields: f, cardKey: plan.cardKey, funding: plan.draft!.funding, sure: !plan.checks.contains(.funding))
+    }
+    return plan
+}
+
+private func scanPlan0(_ f: ScanFields, _ L: Ledger, _ D: Derived, cards: [String: String], defaultFunding: String?, today: String) -> ScanPlan {
     var plan = ScanPlan(fields: f)
     if case .several(let n) = f.kind {
         plan.problem = tr("这张截图里有 \(n) 笔，请改用其中一笔的账单详情截图", "This screenshot shows \(n) payments; use the details screen of one of them")

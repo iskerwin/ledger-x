@@ -267,10 +267,11 @@ extension Store {
     /// Check and save the form (not 文本, which asks about replacing balance assertions first). True once it is
     /// queued; the form is then ready for the next entry, keeping the kind, paying account and date.
     @discardableResult
-    /// save the form (a screenshot's card remembers which account it is, see saveScanned)
+    /// save the form (a screenshot's card is remembered with the entry, see saveForm)
     func saveDraft() async -> Bool {
-        guard scanInfo != nil else { return await saveForm() }
-        return await saveScanned()
+        guard await saveForm() else { return false }
+        scanInfo = nil
+        return true
     }
 
     func saveForm() async -> Bool {
@@ -308,6 +309,20 @@ extension Store {
             link.headerLine = o.line; link.header = o.header; link.link = lk; link.add = " ^" + lk; link.silent = true
             ops.append(link)
         }
+        // a screenshot's card saved with an account it wasn't known by: remembered in ledger-x.json (all devices),
+        // in the same commit as the entry
+        var word = LS("已入账")
+        if let (key, account) = scanCardToRemember(d, cards: effectiveConfig.scanCards ?? [:]) {
+            var c = effectiveConfig
+            var m = c.scanCards ?? [:]
+            m[key] = account
+            c.scanCards = m
+            var op = await fileWriteOp(LedgerXConfig.path, text: c.json())
+            op.label = LS("截图记账：%@ 记为 %@", key, acctLabel(account))
+            op.silent = true
+            ops.append(op)
+            word = LS("已入账，并记住了这张卡")
+        }
         guard let checked = await review(ops) else { return false }
         var nd = newDraftFor(d.kind == .refund ? .expense : d.kind)
         nd.funding = d.funding
@@ -319,7 +334,7 @@ extension Store {
             nd.eventsTouched = d.eventsTouched
         }
         draft = nd
-        return await commit(checked, checked: true)
+        return await commit(checked, word: word, checked: true)
     }
 
     // MARK: - 常用交易

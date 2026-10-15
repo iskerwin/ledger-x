@@ -641,6 +641,7 @@
  "已修改账户": "Account updated",
  "已停用预算": "Budget stopped",
  "已入账": "Recorded",
+ "已入账，并记住了这张卡": "Saved, and the card is remembered",
  "已入账：%@ %@": "Recorded: %@ %@",
  "已关联": "Linked",
  "已关联 %@ 笔": "Linked %@",

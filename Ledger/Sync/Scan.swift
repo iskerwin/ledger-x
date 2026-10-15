@@ -21,11 +21,6 @@ struct ScanInfo {
     var checks: [ScanCheck]
     var duplicate: Entry?
     var refundOf: [Entry]
-    /// the card as remembered ("4321"), and the account it was taken to be
-    var cardKey: String?
-    var funding: String
-    /// what was read: its currency details are applied again when the paying account changes
-    var fields: ScanFields
 }
 
 enum ScanError: LocalizedError {
@@ -70,22 +65,24 @@ extension Store {
         if d.kind != .transfer && d.events.isEmpty && !d.eventsTouched { d.events = autoEvents(on: d.date) }
         if d.flag.isEmpty { d.flag = "*" }
         scanResult = nil
-        adding = false
+        // the card may be open already: it stays open with the new entry (closing and opening it again in one go
+        // let the closing finish afterwards and take the screenshot's details with it)
         draft = d
-        scanInfo = ScanInfo(boxes: boxes, checks: plan.checks, duplicate: plan.duplicate, refundOf: plan.refundOf,
-                            cardKey: plan.cardKey, funding: d.funding, fields: plan.fields)
+        scanInfo = ScanInfo(boxes: boxes, checks: plan.checks, duplicate: plan.duplicate, refundOf: plan.refundOf)
         openAdd(full: needsFullForm(d))
     }
 
     /// the paying account changed on a card filled in from a screenshot: the rate / amount charged / discount
     /// put on for that account, and the 金额已核对 check kept in step
     func scanFundingChanged() {
-        guard var info = scanInfo, let L = L, let D = D, draft.replacing == nil else { return }
+        guard let memo = draft.scan, let L = L, let D = D, draft.replacing == nil else { return }
         var d = draft
-        let check = applyScanCurrency(&d, info.fields, L, D)
-        info.checks.removeAll { $0 == .charged }
-        if check { info.checks.append(.charged) }
-        scanInfo = info
+        let check = applyScanCurrency(&d, memo.fields, L, D)
+        if var info = scanInfo {
+            info.checks.removeAll { $0 == .charged }
+            if check { info.checks.append(.charged) }
+            scanInfo = info
+        }
         if d != draft { draft = d }
     }
 
@@ -96,29 +93,9 @@ extension Store {
         var d = refundDraft(t, L, D, defaultFunding: defaultFunding)
         d.date = was.date
         d.amount = was.amount
+        d.scan = was.scan
         if !was.funding.isEmpty { d.funding = was.funding }
         draft = d
-    }
-
-    /// save a card filled in from a screenshot; the paying account it was saved with is remembered for that card
-    /// (in ledger-x.json, all devices) when it isn't already
-    func saveScanned() async -> Bool {
-        let info = scanInfo
-        let funding = draft.funding
-        // off before saving: the card then starts a new entry, which is not the screenshot's
-        scanInfo = nil
-        guard await saveForm() else { scanInfo = info; return false }
-        // found by its digits and kept: nothing to remember
-        let found = info.map { !$0.checks.contains(.funding) && $0.funding == funding } ?? true
-        if !found, let k = info?.cardKey, !funding.isEmpty, repoConfig?.scanCards?[k] != funding,
-           funding.hasPrefix("Assets:") || funding.hasPrefix("Liabilities:") {
-            await updateConfig(LS("截图记账：%@ 记为 %@", k, acctLabel(funding)), word: LS("已记住付款方式")) {
-                var m = $0.scanCards ?? [:]
-                m[k] = funding
-                $0.scanCards = m
-            }
-        }
-        return true
     }
 }
 

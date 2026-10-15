@@ -184,6 +184,8 @@ public struct Draft: Equatable {
     /// an exchange being edited: its `exchange_rate:` as the bank wrote it, and the amounts it went with
     public var fxRate: KeptRate? = nil
     public var discountAccount = defaultDiscountAccount
+    /// filled in from a screenshot: what it keeps of it (the card to remember, the rate to apply again)
+    public var scan: ScanMemo? = nil
     public init() {}
 }
 
