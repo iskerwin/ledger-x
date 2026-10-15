@@ -471,3 +471,13 @@ public func holdings(_ L: Ledger) -> [Holding] {
     }
     return rows.sorted { ($0.value ?? $0.cost) > ($1.value ?? $1.cost) }
 }
+
+/// the accounts of a transaction in the way the money goes: those it leaves first (amount below zero), then
+/// those it goes to — whatever order the lines are written in ("BOC → CEB" for a card repayment written with
+/// the card's line first). Each account once.
+public func moneyRoute(_ t: Entry) -> [String] {
+    var out: [String] = []
+    let lines = t.postings.filter { ($0.units ?? 0) < 0 } + t.postings.filter { ($0.units ?? 0) >= 0 }
+    for p in lines where !out.contains(p.account) { out.append(p.account) }
+    return out
+}

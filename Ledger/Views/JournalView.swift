@@ -61,7 +61,7 @@ struct TxRow: View {
                         ForEach(t.tags.filter { $0 != "transfer" && $0 != "fx" }, id: \.self) { Tag(text: "#" + $0) }
                     }
                     .font(.body)
-                    Text((showDate ? t.date + "  " : "") + (cat.map { acctDisplay($0.account) } ?? t.postings.map { D.shortName($0.account) }.joined(separator: " → "))
+                    Text((showDate ? t.date + "  " : "") + (cat.map { acctDisplay($0.account) } ?? moneyRoute(t).map { D.shortName($0) }.joined(separator: " → "))
                          + withWhom(t))
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
