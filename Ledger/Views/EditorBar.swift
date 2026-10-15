@@ -63,7 +63,7 @@ final class EditorBar: UIInputView {
     }
 
     /// a key: an SF Symbol over a short caption, or a short text alone
-    private func key(_ caption: String, symbol: String? = nil, label: String? = nil, menu: UIMenu? = nil, _ act: @escaping () -> Void) -> UIButton {
+    private func key(_ caption: String, symbol: String? = nil, label: String? = nil, menu: UIMenu? = nil, menuOnTap: Bool = false, _ act: @escaping () -> Void) -> UIButton {
         var cfg = UIButton.Configuration.plain()
         cfg.baseForegroundColor = .label
         cfg.contentInsets = NSDirectionalEdgeInsets(top: 2, leading: 8, bottom: 2, trailing: 8)
@@ -79,7 +79,7 @@ final class EditorBar: UIInputView {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             act()
         })
-        if let m = menu { b.menu = m; b.showsMenuAsPrimaryAction = false }
+        if let m = menu { b.menu = m; b.showsMenuAsPrimaryAction = menuOnTap }
         b.accessibilityLabel = label ?? caption
         b.widthAnchor.constraint(greaterThanOrEqualToConstant: symbol == nil ? 36 : 44).isActive = true
         return b
@@ -97,7 +97,7 @@ final class EditorBar: UIInputView {
     private func beancountItems() -> [UIView] {
         [
             key(LS("日期"), symbol: "calendar", label: LS("插入今天的日期，长按选其他日子"), menu: dateMenu()) { [weak self] in self?.insertWord(Day.today()) },
-            key(LS("新交易"), symbol: "plus.rectangle.on.rectangle") { [weak self] in self?.newTransaction() },
+            key(LS("新交易"), symbol: "plus.rectangle.on.rectangle", label: LS("新交易：空白或常用交易"), menu: newMenu(), menuOnTap: true) {},
             key(LS("账户"), symbol: "creditcard") { [weak self] in self?.pickAccount() },
             divider(),
             key("*", label: LS("标记为已确认（*）")) { [weak self] in self?.flag("*") },
@@ -123,6 +123,21 @@ final class EditorBar: UIInputView {
             key(LS("账户"), symbol: "creditcard") { [weak self] in self?.pickAccount() },
             key(LS("日期"), symbol: "calendar", menu: dateMenu()) { [weak self] in self?.insertWord(Day.today()) },
         ]
+    }
+
+    /// 新交易: a blank one, or one of the frequent entries filled in (dated today)
+    private func newMenu() -> UIMenu {
+        var items: [UIMenuElement] = [
+            UIAction(title: LS("空白交易"), image: UIImage(systemName: "doc")) { [weak self] _ in self?.newTransaction(nil) },
+        ]
+        let list = Array(Store.shared.templateList.prefix(12))
+        if !list.isEmpty {
+            items.append(UIMenu(title: LS("常用交易"), options: .displayInline, children: list.map { x in
+                UIAction(title: x.label + (x.fixed.map { "  " + money($0, x.currency) } ?? ""),
+                         subtitle: x.payee.isEmpty || x.narration.isEmpty ? nil : x.narration) { [weak self] _ in self?.newTransaction(x) }
+            }))
+        }
+        return UIMenu(children: items)
     }
 
     /// long press on 日期: the last week's days
@@ -191,10 +206,28 @@ final class EditorBar: UIInputView {
         replace(a.range, a.with, caret: a.range.location + (a.with as NSString).length - (a.with.hasSuffix("\n") ? 1 : 0))
     }
 
-    /// a new transaction after the entry the cursor is in (a blank line between), the cursor in its payee
-    private func newTransaction() {
+    /// a frequent entry as text, dated today (its usual amount when it has no fixed one); the cursor goes after
+    /// the first posting's amount, to change it
+    private func templateText(_ x: Template) -> (text: String, cursor: Int)? {
+        let store = Store.shared
+        guard let L = store.L, let D = store.D else { return nil }
+        var d = store.newDraftFor(x.kind == .income ? .income : .expense)
+        d.date = Day.today()
+        d.payee = x.payee; d.narration = x.narration; d.account = x.account; d.funding = x.funding; d.currency = x.currency
+        guard let a = x.fixed ?? x.amounts.last, a > 0 else { return nil }
+        d.amount = jsNumberString(a)
+        let t = draftText(d, L, D, explicit: true)
+        guard !t.isEmpty else { return nil }
+        let lines = t.components(separatedBy: "\n")
+        let cursor = lines.count > 1 ? (lines[0] as NSString).length + 1 + (lines[1] as NSString).length : (t as NSString).length
+        return (t + "\n", cursor)
+    }
+
+    /// a new transaction after the entry the cursor is in (a blank line between): blank (the cursor in its payee)
+    /// or a frequent entry's
+    private func newTransaction(_ x: Template?) {
         let ns = text as NSString
-        let t = transactionTemplate(date: Day.today())
+        let t = x.flatMap(templateText) ?? transactionTemplate(date: Day.today())
         var at = cursor
         var lead = ""
         if let e = entryRange(text, at: cursor) {

@@ -124,6 +124,8 @@ struct JournalCalendar: View {
         let lead = (wd - Calendar.current.firstWeekday + 7) % 7
         let cells: [String?] = Array(repeating: nil, count: lead) + (1...count).map { month + String(format: "-%02d", $0) }
         let today = Day.today()
+        // a line for income only in a month that has some, so the spending sits right under the day
+        let hasIncome = cells.contains { d in d.map { (totals[$0]?.inn ?? 0) > 0.005 } ?? false }
         return VStack(spacing: 4) {
             HStack(spacing: 4) {
                 ForEach(Array(weekdays.enumerated()), id: \.offset) { _, w in
@@ -137,7 +139,7 @@ struct JournalCalendar: View {
                 HStack(spacing: 4) {
                     ForEach(0..<7, id: \.self) { i in
                         if i < weeks[w].count, let d = weeks[w][i] {
-                            cell(d, totals[d], top: top, today: d == today)
+                            cell(d, totals[d], top: top, today: d == today, incomeRow: hasIncome)
                         } else {
                             Color.clear.frame(maxWidth: .infinity).aspectRatio(1, contentMode: .fit)
                         }
@@ -166,16 +168,16 @@ struct JournalCalendar: View {
         .padding(.top, 4)
     }
 
-    private func cell(_ d: String, _ x: DayTotal?, top: Double, today: Bool) -> some View {
+    private func cell(_ d: String, _ x: DayTotal?, top: Double, today: Bool, incomeRow: Bool) -> some View {
         let out = x?.out ?? 0, inn = x?.inn ?? 0
         // a wash of the theme colour, deeper on the bigger days, light enough for the numbers on it
         let shade = out > 0.005 ? 0.08 + 0.22 * min(1, out / top) : 0
         let picked = day == d
         let future = d > Day.today()
         return Button { day = picked ? nil : d } label: {
-            // as in the iOS calendar: the day at the top of the cell, centred in its column (today in a theme-coloured
-            // circle), the amounts under it; every cell lays out the same, so the numbers line up across a week
-            VStack(spacing: 1) {
+            // the day and its amounts as one block in the middle of the cell (today's day in a theme-coloured circle);
+            // every cell has the same lines, so the days line up across a week and the amounts across a row
+            VStack(spacing: 0) {
                 Text(String(Int(d.suffix(2)) ?? 0))
                     .font(.system(size: 12.5, weight: today ? .bold : .medium).monospacedDigit())
                     .foregroundStyle(today ? Color.onJade : future ? Color.secondary.opacity(0.45) : Color.primary)
@@ -184,14 +186,15 @@ struct JournalCalendar: View {
                 Group {
                     Text(out > 0.005 ? short(out) : " ")
                         .font(.system(size: 10, weight: .bold).monospacedDigit()).foregroundStyle(Self.spend)
-                    Text(inn > 0.005 ? "+" + short(inn) : " ")
-                        .font(.system(size: 9, weight: .semibold).monospacedDigit()).foregroundStyle(Self.earn)
+                    if incomeRow {
+                        Text(inn > 0.005 ? "+" + short(inn) : " ")
+                            .font(.system(size: 9, weight: .semibold).monospacedDigit()).foregroundStyle(Self.earn)
+                    }
                 }
                 .lineLimit(1).minimumScaleFactor(0.7)
                 .sensitive()
             }
-            .padding(.top, 4)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .aspectRatio(1, contentMode: .fit)
             .background(Self.spend.opacity(shade), in: RoundedRectangle(cornerRadius: 8))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(picked ? Color.jade : .clear, lineWidth: 2))

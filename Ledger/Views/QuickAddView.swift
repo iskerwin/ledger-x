@@ -193,10 +193,8 @@ struct QuickAddView: View {
 
     // MARK: top
 
-    /// the ledgers set up on this phone, to switch to (in the ⚙︎ menu)
-    @ViewBuilder
+    /// the ledgers set up on this phone, to switch to (in the ⋯ menu), and where they are managed
     private var ledgerItems: some View {
-        if store.sources.count > 1 {
             Menu {
                 ForEach(store.sources) { s in
                     Button {
@@ -210,10 +208,15 @@ struct QuickAddView: View {
                         if s.id == store.cfg.id { Label(s.title, systemImage: "checkmark") } else { Text(s.title) }
                     }
                 }
+                Divider()
+                Button {
+                    // settings open over the app, not over the card
+                    store.adding = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { store.showSettings = true }
+                } label: { Label(LS("管理账本…"), systemImage: "gearshape") }
             } label: {
                 Label(LS("切换账本（%@）", store.cfg.title), systemImage: "books.vertical")
             }
-        }
     }
 
     /// above the grid: which entry is being edited, what a screenshot gave, or the frequent entries
