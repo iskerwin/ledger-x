@@ -65,6 +65,10 @@ struct QuickAddView: View {
     @State private var marking = false
     /// the date's calendar
     @State private var dating = false
+    /// typing the payee and description: the fields replace the keypad (focus follows once they are on screen)
+    @State private var writing = false
+    /// the Beancount text under the note line
+    @State private var showSource = false
     /// a category group whose sub-categories are shown
     @State private var subPicking: String?
     /// the category / paying account were picked here: a payee picked afterwards doesn't change them
@@ -81,7 +85,7 @@ struct QuickAddView: View {
         .task { if store.demoEnv["LEDGER_IMPORT"] != nil { importing = true } }
         .task { if store.demoEnv["LEDGER_CATS"] != nil { managingCats = true } }
         .task { if store.demoEnv["LEDGER_COMBO_SHEET"] != nil { try? await Task.sleep(nanoseconds: 600_000_000); splittingPay = true } }
-        .task { if store.demoEnv["LEDGER_NOTE"] != nil { try? await Task.sleep(nanoseconds: 900_000_000); field = .narration } }
+        .task { if store.demoEnv["LEDGER_NOTE"] != nil { try? await Task.sleep(nanoseconds: 900_000_000); startWriting(.narration) } }
         .task { if store.demoEnv["LEDGER_MARK"] != nil { try? await Task.sleep(nanoseconds: 600_000_000); marking = true } }
         .task { if store.demoEnv["LEDGER_SUBCAT"] != nil { try? await Task.sleep(nanoseconds: 600_000_000); subPicking = catOf(store.draft.account) } }
     }
@@ -134,10 +138,9 @@ struct QuickAddView: View {
                 .frame(width: 186)
                 .disabled(!quick)
             }
-            ToolbarItem(placement: .primaryAction) { ledgerMenu }
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
-                Button(LS("完成")) { field = nil }.fontWeight(.semibold)
+                Button(LS("完成")) { field = nil; writing = false }.fontWeight(.semibold)
             }
         }
         .onAppear {
@@ -149,6 +152,7 @@ struct QuickAddView: View {
             if !store.draft.eventsTouched && store.draft.kind != .transfer { store.draft.events = store.autoEvents(on: day); store.draft.edited = nil }
         }
         .onChange(of: field) { old, new in
+            if new == nil && old != nil { DispatchQueue.main.async { if field == nil { writing = false } } }
             // leaving the payee: a known one fills in what isn't picked yet
             if old == .payee && new != .payee { applyPayee(store.draft.payee.trimmed, onlyBlanks: true) }
         }
@@ -180,10 +184,9 @@ struct QuickAddView: View {
 
     // MARK: top
 
-    /// the ledger this goes into; with more than one set up, tap to switch
+    /// the ledgers set up on this phone, to switch to (in the ⚙︎ menu)
     @ViewBuilder
-    private var ledgerMenu: some View {
-        let name = store.cfg.title
+    private var ledgerItems: some View {
         if store.sources.count > 1 {
             Menu {
                 ForEach(store.sources) { s in
@@ -199,11 +202,8 @@ struct QuickAddView: View {
                     }
                 }
             } label: {
-                Text(name).font(.subheadline.weight(.semibold)).lineLimit(1).frame(maxWidth: 96)
+                Label(LS("切换账本（%@）", store.cfg.title), systemImage: "books.vertical")
             }
-            .accessibilityLabel(LS("切换账本"))
-        } else {
-            Text(name).font(.subheadline.weight(.semibold)).foregroundStyle(Color.jade).lineLimit(1).frame(maxWidth: 96)
         }
     }
 
@@ -237,6 +237,7 @@ struct QuickAddView: View {
             Divider()
             Button { managingCats = true } label: { Label(LS("分类图标与排序"), systemImage: "square.grid.3x3") }
             Button { managingTemplates = true } label: { Label(LS("常用交易"), systemImage: "star") }
+            if store.draft.replacing == nil { ledgerItems }
         } label: {
             Image(systemName: "gearshape")
                 .font(.system(size: 17))
@@ -441,9 +442,9 @@ struct QuickAddView: View {
 
     private func bottomPanel(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
         VStack(spacing: 10) {
-            if field == nil { chips(d, L, D) }
+            if !writing { chips(d, L, D) }
             amountCard(d, L, D)
-            if field == nil { keypad(d) }
+            if !writing { keypad(d) }
         }
         .padding(.horizontal, 12)
         .padding(.top, 8)
@@ -613,7 +614,7 @@ struct QuickAddView: View {
                 }
                 .buttonStyle(.plain)
             }
-            if field == nil, let s = comboSummary(d, L) {
+            if !writing, let s = comboSummary(d, L) {
                 let issue = comboIssue(d, L, D)
                 Label(issue ?? s, systemImage: issue == nil ? "square.split.2x1" : "exclamationmark.triangle")
                     .font(.footnote).foregroundStyle(issue == nil ? Color.secondary : Color.orange)
@@ -621,10 +622,11 @@ struct QuickAddView: View {
                     .onTapGesture { splittingPay = true }
             }
             Divider()
-            if field == nil {
-                noteRow(d)
-            } else {
+            if writing {
                 textFields(d, D)
+            } else {
+                noteRow(d)
+                if showSource { source(d, L, D) }
             }
         }
         .padding(14)
@@ -642,8 +644,11 @@ struct QuickAddView: View {
                     .background(Color(.tertiarySystemFill), in: Capsule())
             }
             .buttonStyle(.plain)
-            .popover(isPresented: $dating) { DayPopover(date: Binding(get: { store.draft.date }, set: { store.draft.date = $0; store.draft.edited = nil })) { dating = false } }
-            Button { field = d.payee.trimmed.isEmpty ? .payee : .narration } label: {
+            .sheet(isPresented: $dating) {
+                DaySheet(date: Binding(get: { store.draft.date }, set: { store.draft.date = $0; store.draft.edited = nil })) { dating = false }
+                    .presentationDetents([.height(500)])
+            }
+            Button { startWriting(d.payee.trimmed.isEmpty ? .payee : .narration) } label: {
                 Text(summary.isEmpty ? LS("点击填写收付款方、备注") : summary)
                     .font(.subheadline)
                     .foregroundStyle(summary.isEmpty ? Color.secondary : Color.primary)
@@ -653,6 +658,54 @@ struct QuickAddView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(LS("收付款方与备注"))
+            Button { withAnimation(.easeInOut(duration: 0.15)) { showSource.toggle() } } label: {
+                Image(systemName: showSource ? "chevron.down" : "chevron.up")
+                    .font(.caption.weight(.semibold))
+                    .frame(width: 30, height: 30)
+                    .background(Color(.tertiarySystemFill), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .accessibilityLabel(showSource ? LS("收起源文本") : LS("查看源文本"))
+        }
+    }
+
+    /// show the payee and description fields, then put the cursor in one (a field can only be focused once it exists)
+    private func startWriting(_ f: Field) {
+        writing = true
+        DispatchQueue.main.async { field = f }
+    }
+
+    /// the Beancount text the card makes, and whether it checks out
+    @ViewBuilder
+    private func source(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
+        let text = draftText(d, L, D, explicit: store.explicitAmounts)
+        let v: Validation? = text.trimmed.isEmpty ? nil : validateText(text, L, single: draftIsSingle(d, L))
+        VStack(alignment: .leading, spacing: 6) {
+            if text.trimmed.isEmpty {
+                Text(LS("填写金额与账户后将在此生成分录")).font(.footnote).foregroundStyle(.tertiary)
+            } else {
+                MonoText(text: text)
+                HStack {
+                    Button { editingText = true } label: {
+                        Label(d.edited != nil ? LS("已手动编辑 · 点按继续编辑") : LS("点按编辑源文本"), systemImage: "pencil").font(.footnote)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.jade)
+                    Spacer()
+                    if d.edited != nil {
+                        Button(LS("恢复自动生成")) { store.draft.edited = nil }.font(.footnote).buttonStyle(.plain).foregroundStyle(Color.jade)
+                    }
+                }
+            }
+            if let v = v {
+                if v.ok {
+                    Label(v.warnings.isEmpty ? LS("校验通过") : v.warnings[0].msg, systemImage: v.warnings.isEmpty ? "checkmark.circle" : "exclamationmark.triangle")
+                        .font(.footnote).foregroundStyle(v.warnings.isEmpty ? Color.gain : Color.orange)
+                } else if let m = v.msg {
+                    Label(m, systemImage: "xmark.octagon").font(.footnote).foregroundStyle(Color.loss)
+                }
+            }
         }
     }
 
@@ -691,7 +744,7 @@ struct QuickAddView: View {
                       text: Binding(get: { store.draft.narration }, set: { store.draft.narration = $0; store.draft.edited = nil }))
                 .focused($field, equals: .narration)
                 .submitLabel(.done)
-                .onSubmit { field = nil }
+                .onSubmit { field = nil; writing = false }
         }
         if field == .narration && !narrs.isEmpty {
             ChipRow {
@@ -793,6 +846,7 @@ struct QuickAddView: View {
             return
         }
         field = nil
+        writing = false
         saving = true
         Task {
             let ok = await store.saveDraft()
@@ -889,26 +943,41 @@ struct SubCategorySheet: View {
     }
 }
 
-/// the entry's day: a calendar, with 今天 and 昨天 one tap away
-struct DayPopover: View {
+/// the entry's day: 今天, 昨天, 前天 one tap away, any other on the calendar
+struct DaySheet: View {
     @Binding var date: String
     let done: () -> Void
 
     var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                Button(LS("今天")) { date = Day.today(); done() }.buttonStyle(.bordered)
-                Button(LS("昨天")) { date = Day.shift(Day.today(), -1); done() }.buttonStyle(.bordered)
-                Spacer()
+        let today = Day.today()
+        let quick = [(LS("今天"), today), (LS("昨天"), Day.shift(today, -1)), (LS("前天"), Day.shift(today, -2))]
+        NavigationStack {
+            VStack(spacing: 12) {
+                HStack(spacing: 8) {
+                    ForEach(quick, id: \.1) { q in
+                        Button { date = q.1; done() } label: {
+                            Text(q.0)
+                                .font(.subheadline.weight(.medium))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 9)
+                                .foregroundStyle(date == q.1 ? Color.onJade : Color.primary)
+                                .background(date == q.1 ? Color.jade : Color(.tertiarySystemFill), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                DatePicker(LS("日期"), selection: Binding(get: { Day.date(date) ?? Date() }, set: { date = Day.string($0) }),
+                           displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .labelsHidden()
+                Spacer(minLength: 0)
             }
-            DatePicker(LS("日期"), selection: Binding(get: { Day.date(date) ?? Date() }, set: { date = Day.string($0); done() }),
-                       displayedComponents: .date)
-                .datePickerStyle(.graphical)
-                .labelsHidden()
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .navigationTitle(LS("日期"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(LS("完成"), action: done).fontWeight(.semibold) } }
         }
-        .padding(12)
-        .frame(width: 330)
-        .presentationCompactAdaptation(.popover)
     }
 }
 
