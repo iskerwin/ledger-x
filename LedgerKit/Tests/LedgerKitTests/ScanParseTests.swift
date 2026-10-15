@@ -35,7 +35,7 @@ final class ScanParseTests: XCTestCase {
         XCTAssertEqual(f.note, "高德打车订单")
         XCTAssertEqual(f.date, "2026-09-30")
         XCTAssertEqual(f.last4, "2468")
-        XCTAssertEqual(f.orderNo, "4500000001202609300000000044")
+        XCTAssertEqual(f.orderNo, "4500000001202609300000000046")
 
         f = sample("wechat-detail-fx-2")
         XCTAssertEqual(f.payee, "丽娜超市")
@@ -49,7 +49,7 @@ final class ScanParseTests: XCTestCase {
         XCTAssertEqual(f.payee, "明亮眼镜店")
         XCTAssertEqual(f.method, "零钱通"); XCTAssertNil(f.last4)
         XCTAssertEqual(f.date, "2024-10-15")
-        XCTAssertEqual(f.orderNo, "10000000012024101500000000000055")
+        XCTAssertEqual(f.orderNo, "10000000012024101500000000000059")
 
         f = sample("wechat-success-zh-1")
         XCTAssertEqual(f.amount, 6200)
@@ -156,7 +156,7 @@ final class ScanParseTests: XCTestCase {
         XCTAssertEqual(d.funding, "Assets:Bank:HSBC")
         XCTAssertTrue(d.byRate); XCTAssertEqual(d.rate, "1.17972")
         let t = draftText(d, L, D)
-        XCTAssertTrue(t.contains("90.23 CNY @ 1.17972 HKD") && t.contains("-106.45 HKD") && t.contains("order: \"4500000001202609300000000044\""), t)
+        XCTAssertTrue(t.contains("90.23 CNY @ 1.17972 HKD") && t.contains("-106.45 HKD") && t.contains("order: \"4500000001202609300000000046\""), t)
         XCTAssertFalse(plan.checks.contains(.funding))
         // a payee not in the ledger: the category by what the screen says it was (打车 → Transit)
         XCTAssertEqual(d.account, "Expenses:Transit:Taxi")
