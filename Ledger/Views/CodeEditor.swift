@@ -214,7 +214,8 @@ struct CodeTextView: UIViewRepresentable {
         }
         style(v)
         v.isEditable = editable
-        v.inputAccessoryView = Self.doneBar(v)
+        // the shortcut bar for Beancount and BQL; plain text gets 完成 alone
+        v.inputAccessoryView = language == .plain ? Self.doneBar(v) : EditorBar(textView: v, language: language)
         v.delegate = context.coordinator
         v.text = text
         return v
