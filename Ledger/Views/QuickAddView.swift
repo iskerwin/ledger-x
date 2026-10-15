@@ -138,6 +138,8 @@ struct QuickAddView: View {
                 .frame(width: 186)
                 .disabled(!quick)
             }
+            // ⚙︎ on the right, as wide as ✕ on the left: the kind switch stays centred and doesn't move as the card opens
+            ToolbarItem(placement: .primaryAction) { moreMenu }
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button(LS("完成")) { field = nil; writing = false }.fontWeight(.semibold)
@@ -240,9 +242,6 @@ struct QuickAddView: View {
             if store.draft.replacing == nil { ledgerItems }
         } label: {
             Image(systemName: "gearshape")
-                .font(.system(size: 17))
-                .frame(width: 36, height: 34)
-                .foregroundStyle(Color.secondary)
         }
         .accessibilityLabel(LS("更多"))
     }
@@ -491,7 +490,6 @@ struct QuickAddView: View {
                 }
                 .padding(.horizontal, 2)
             }
-            moreMenu
         }
     }
 

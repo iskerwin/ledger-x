@@ -130,8 +130,8 @@ struct JournalCalendar: View {
                     Text(w).font(.caption2.weight(.medium)).foregroundStyle(.secondary).frame(maxWidth: .infinity)
                 }
             }
-            // weeks as plain rows of fixed height: a lazy grid inside a List row can be measured too short and
-            // clip everything under the day number
+            // weeks as plain rows of square cells (a lazy grid inside a List row can be measured too short and
+            // clip everything under the day number): as short as the width allows, leaving room for the list below
             let weeks = stride(from: 0, to: cells.count, by: 7).map { Array(cells[$0..<min($0 + 7, cells.count)]) }
             ForEach(weeks.indices, id: \.self) { w in
                 HStack(spacing: 4) {
@@ -139,11 +139,10 @@ struct JournalCalendar: View {
                         if i < weeks[w].count, let d = weeks[w][i] {
                             cell(d, totals[d], top: top, today: d == today)
                         } else {
-                            Color.clear.frame(maxWidth: .infinity)
+                            Color.clear.frame(maxWidth: .infinity).aspectRatio(1, contentMode: .fit)
                         }
                     }
                 }
-                .frame(height: 56)
             }
             legend
         }
@@ -175,22 +174,23 @@ struct JournalCalendar: View {
         let future = d > Day.today()
         return Button { day = picked ? nil : d } label: {
             // everything centred in the column: the date on top (today in a theme-coloured circle), the amounts under it
-            VStack(spacing: 2) {
+            VStack(spacing: 1) {
                 Text(String(Int(d.suffix(2)) ?? 0))
-                    .font(.system(size: 13, weight: today ? .bold : .medium).monospacedDigit())
+                    .font(.system(size: 12.5, weight: today ? .bold : .medium).monospacedDigit())
                     .foregroundStyle(today ? Color.onJade : future ? Color.secondary.opacity(0.45) : Color.primary)
-                    .frame(width: 22, height: 22)
+                    .frame(width: 20, height: 20)
                     .background(today ? Color.jade : Color.clear, in: Circle())
                 Group {
                     Text(out > 0.005 ? short(out) : " ")
-                        .font(.system(size: 10.5, weight: .bold).monospacedDigit()).foregroundStyle(Self.spend)
+                        .font(.system(size: 10, weight: .bold).monospacedDigit()).foregroundStyle(Self.spend)
                     Text(inn > 0.005 ? "+" + short(inn) : " ")
-                        .font(.system(size: 9.5, weight: .semibold).monospacedDigit()).foregroundStyle(Self.earn)
+                        .font(.system(size: 9, weight: .semibold).monospacedDigit()).foregroundStyle(Self.earn)
                 }
                 .lineLimit(1).minimumScaleFactor(0.7)
                 .sensitive()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .aspectRatio(1, contentMode: .fit)
             .background(Self.spend.opacity(shade), in: RoundedRectangle(cornerRadius: 8))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(picked ? Color.jade : .clear, lineWidth: 2))
         }
