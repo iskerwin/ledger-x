@@ -106,16 +106,18 @@ struct TxRow: View {
         }
     }
 
-    /// per currency, in the order they first appear
-    private func sums(_ ps: [Posting], negate: Bool) -> [(String, Double)] {
-        var order: [String] = [], m: [String: Double] = [:]
-        for p in ps {
-            guard let u = p.units, let c = p.currency else { continue }
-            if m[c] == nil { order.append(c) }
-            m[c, default: 0] += negate ? -u : u
-        }
-        return order.compactMap { c in abs(m[c]!) > 0.004 ? (c, roundTo(m[c]!, 2)) : nil }
+    private func sums(_ ps: [Posting], negate: Bool) -> [(String, Double)] { postingSums(ps, negate: negate) }
+}
+
+/// per currency, in the order they first appear (amounts too small to show left out)
+func postingSums(_ ps: [Posting], negate: Bool) -> [(String, Double)] {
+    var order: [String] = [], m: [String: Double] = [:]
+    for p in ps {
+        guard let u = p.units, let c = p.currency else { continue }
+        if m[c] == nil { order.append(c) }
+        m[c, default: 0] += negate ? -u : u
     }
+    return order.compactMap { c in abs(m[c]!) > 0.004 ? (c, roundTo(m[c]!, 2)) : nil }
 }
 
 struct Tag: View {
@@ -141,6 +143,45 @@ struct JournalView: View {
     @State private var batch: BatchMode?
     /// list or month calendar (remembered on this device)
     @AppStorage("ledger.journal.calendar") private var showCalendar = false
+    /// the quick filters on (本月, 大额, 待确认, 报销), added to what is typed
+    @State private var quick: [QuickFilter] = []
+    /// saving the filters as a quick search
+    @State private var savingFilter: QuickSearchEdit?
+
+    enum QuickFilter: String, CaseIterable, Identifiable {
+        case month, large, pending, reimb
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .month: return LS("本月")
+            case .large: return LS("大额")
+            case .pending: return LS("待确认")
+            case .reimb: return LS("报销")
+            }
+        }
+        var icon: String {
+            switch self {
+            case .month: return "calendar"
+            case .large: return "arrow.up.circle"
+            case .pending: return "exclamationmark.circle"
+            case .reimb: return "doc.text"
+            }
+        }
+        /// the same in the search box's own words
+        func query(_ store: Store) -> String {
+            switch self {
+            case .month: return "本月"
+            case .large: return ">" + jsNumberString(store.largeExpense)
+            case .pending: return "!"
+            case .reimb: return "账户:" + store.receivable
+            }
+        }
+    }
+
+    /// what is searched: the box and the quick filters together
+    private var fullQuery: String {
+        ([q.trimmed] + quick.map { $0.query(store) }).filter { !$0.isEmpty }.joined(separator: " ")
+    }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -166,6 +207,7 @@ struct JournalView: View {
             }
             .topBar { if !selecting { QuickSearchBar(q: $q) } }
             .safeAreaInset(edge: .bottom) { if selecting { batchBar } }
+            .sheet(item: $savingFilter) { e in QuickSearchSheet(edit: e) }
             .sheet(item: $batch) { m in
                 BatchEditSheet(entries: selectedEntries, mode: m) { selecting = false; selected = [] }
             }
@@ -181,6 +223,7 @@ struct JournalView: View {
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .onChange(of: q) { _, _ in limit = 150 }
+            .onChange(of: quick) { _, _ in limit = 150 }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
             .subscriptionDestinations()
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
@@ -189,6 +232,7 @@ struct JournalView: View {
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .task {
             if let q = store.demoEnv["LEDGER_QUERY"] { self.q = q }
+            if let f = store.demoEnv["LEDGER_FILTERS"] { quick = f.split(separator: ",").compactMap { QuickFilter(rawValue: String($0)) } }
             if store.demoEnv["LEDGER_SELECT"] != nil, let L = store.L {
                 selecting = true
                 selected = Set(search(L).prefix(4).map { TxDest.key($0) })
@@ -244,24 +288,55 @@ struct JournalView: View {
         let shown = Array(matches.prefix(limit))
         let sums = totals(matches, L)
         let days = groupByDay(shown)
+        let filtered = !quick.isEmpty || account != nil || !q.trimmed.isEmpty
         List {
             Section {
-                ChipRow {
-                    if let a = account { Chip(label: acctDisplay(a) + " ✕", selected: true) { account = nil } }
-                    ForEach(["#reimbursed", "#refund", "#transfer", "#fx", "!"], id: \.self) { x in
-                        Chip(label: x == "!" ? LS("! 待确认") : x, selected: q == x) { q = q == x ? "" : x }
+                // the quick filters, then the tags people look for
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(QuickFilter.allCases) { f in
+                            let on = quick.contains(f)
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.15)) { if on { quick.removeAll { $0 == f } } else { quick.append(f) } }
+                            } label: {
+                                Label(f.title, systemImage: f.icon)
+                                    .font(.subheadline.weight(on ? .semibold : .regular))
+                                    .padding(.horizontal, 12).padding(.vertical, 7)
+                                    .foregroundStyle(on ? Color.onJade : Color.primary)
+                                    .background(on ? Color.jade : Color(.tertiarySystemFill), in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        ForEach(["#refund", "#transfer", "#fx", "#reimbursed"], id: \.self) { x in
+                            Chip(label: x, selected: q.trimmed == x) { q = q.trimmed == x ? "" : x }
+                        }
                     }
                 }
-                HStack {
-                    Text(LS("%@ 笔", matches.count)).foregroundStyle(.secondary)
-                    Spacer()
-                    Group {
-                        if sums.0 != 0 { Text(LS("支出 ") + money(sums.0)) }
-                        if sums.1 != 0 { Text(LS("收入 ") + money(sums.1)) }
+                if filtered {
+                    // what is on, each with its ✕, and 清除 for all of it
+                    HStack(alignment: .top) {
+                        FlowChips(items: conditionChips())
+                        Spacer(minLength: 4)
+                        Button(LS("清除")) { withAnimation { quick = []; account = nil; q = "" } }
+                            .font(.subheadline.weight(.medium)).foregroundStyle(Color.jade).buttonStyle(.plain)
                     }
-                    .font(.footnote.monospacedDigit()).foregroundStyle(.secondary).sensitive()
                 }
-                .font(.footnote)
+            }
+            if filtered {
+                resultCard(matches, sums)
+            } else {
+                Section {
+                    HStack {
+                        Text(LS("%@ 笔", matches.count)).foregroundStyle(.secondary)
+                        Spacer()
+                        Group {
+                            if sums.0 != 0 { Text(LS("支出 ") + money(sums.0)) }
+                            if sums.1 != 0 { Text(LS("收入 ") + money(sums.1)) }
+                        }
+                        .font(.footnote.monospacedDigit()).foregroundStyle(.secondary).sensitive()
+                    }
+                    .font(.footnote)
+                }
             }
             ForEach(days, id: \.0) { group in
                 daySection(group.0, group.1, L)
@@ -303,12 +378,57 @@ struct JournalView: View {
     private func search(_ L: Ledger) -> [Entry] {
         var out: [Entry] = []
         let a = account
-        let query = TxQuery(q.trimmed)
+        let query = TxQuery(fullQuery)
         for t in L.txns.reversed() {
             if let a = a, !t.postings.contains(where: { $0.account == a || $0.account.hasPrefix(a + ":") }) { continue }
             if query.matches(t, L) { out.append(t) }
         }
         return out
+    }
+
+    /// the conditions on, to take off one by one
+    private func conditionChips() -> [(String, () -> Void)] {
+        var out: [(String, () -> Void)] = []
+        if let a = account { out.append((acctDisplay(a), { account = nil })) }
+        for f in quick { out.append((f == .large ? LS("超过 %@", money(store.largeExpense, store.L?.base ?? "CNY", 0)) : f.title, { quick.removeAll { $0 == f } })) }
+        if !q.trimmed.isEmpty { out.append(("“\(q.trimmed)”", { q = "" })) }
+        return out
+    }
+
+    /// 筛选结果: how many, spent and received, over which days; saved as a quick search from here
+    private func resultCard(_ matches: [Entry], _ sums: (Double, Double)) -> some View {
+        let first = matches.last?.date, last = matches.first?.date
+        return Section {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text(LS("筛选结果 · %@ 笔", matches.count)).font(.headline)
+                    Spacer()
+                    if account == nil, !fullQuery.isEmpty, !store.quickSearches.contains(where: { $0.query.trimmed == fullQuery }) {
+                        Button(LS("保存为常用筛选")) { savingFilter = QuickSearchEdit(index: nil, name: "", query: fullQuery) }
+                            .font(.subheadline).foregroundStyle(Color.jade).buttonStyle(.plain)
+                    }
+                }
+                HStack(alignment: .top, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(LS("支出合计")).font(.caption).foregroundStyle(.secondary)
+                        Text(money(sums.0)).font(.title3.weight(.bold).monospacedDigit()).foregroundStyle(Color.jade)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Divider().frame(height: 36)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(LS("收入合计")).font(.caption).foregroundStyle(.secondary)
+                        Text(money(sums.1)).font(.title3.weight(.bold).monospacedDigit())
+                    }
+                    .padding(.leading, 14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .sensitive()
+                if let f = first, let l = last {
+                    Text(f == l ? Day.dayLabel(f) : Day.dayLabel(f) + " — " + Day.dayLabel(l)).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .padding(.vertical, 4)
+        }
     }
 
     private func totals(_ ts: [Entry], _ L: Ledger) -> (Double, Double) {
@@ -392,85 +512,61 @@ struct TxDetailView: View {
     @State private var linkPick: LinkPick?
     @State private var linkRemoval: LinkPick?
     @State private var confirmDelete = false
+    /// a subscription opened from the ⋯ menu
+    @State private var subOpen: String?
+
+    /// the postings' categories and accounts, folded away under the summary
+    @State private var showPostings = false
+    @State private var showSource = false
 
     var body: some View {
         if let L = store.L, let D = store.D, let t = store.txn(dest.id, key: dest.key) {
             List {
-                Section {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(t.payee.isEmpty ? (t.narration.isEmpty ? LS("交易") : t.narration) : t.payee).font(.title2.weight(.semibold))
-                        Text(t.date + (!t.payee.isEmpty && !t.narration.isEmpty ? " · " + t.narration : "")).foregroundStyle(.secondary)
-                        if !t.tags.isEmpty {
-                            HStack { ForEach(t.tags, id: \.self) { Tag(text: "#" + $0) } }
-                        }
-                    }
-                    .padding(.vertical, 4)
+                hero(t, L)
+                infoSection(t, L, D)
+                if !t.links.isEmpty {
                     // links: open one to see everything it ties together
-                    ForEach(t.links, id: \.self) { l in
-                        let n = (D.byLink[l] ?? []).filter { !$0.synthetic }.count
-                        NavigationLink(value: LinkDest(link: l)) {
-                            HStack {
-                                Label("^" + l, systemImage: "link").lineLimit(1)
-                                Spacer()
-                                Text(LinkRole.of(l).title + " · " + LS("%@ 笔", n)).font(.caption).foregroundStyle(.secondary)
+                    Section(LS("关联记录")) {
+                        ForEach(t.links, id: \.self) { l in
+                            let n = (D.byLink[l] ?? []).filter { !$0.synthetic }.count
+                            NavigationLink(value: LinkDest(link: l)) {
+                                HStack {
+                                    Label(LinkRole.of(l).title, systemImage: "link")
+                                    Spacer()
+                                    Text("^" + l + " · " + LS("%@ 笔", n)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                }
                             }
                         }
                     }
                 }
                 LinkIssueSection(t: t, pick: $linkPick, subPick: $subPick, removing: $linkRemoval)
-                Section(LS("分录")) {
-                    ForEach(Array(t.postings.enumerated()), id: \.offset) { pair in
-                        PostingRow(p: pair.element)
-                    }
-                }
-                if !t.meta.isEmpty {
-                    Section(LS("元数据")) {
-                        ForEach(t.meta.items, id: \.0) { item in LabeledContent(item.0, value: item.1.display) }
-                    }
-                }
                 LinkGroupsSection(t: t, L: L, D: D)
                 if !t.synthetic { AttachmentsSection(t: t) }
                 Section {
-                    MonoText(text: t.src)
-                } header: {
-                    Text(LS("Beancount 源文本 · %@:%@", t.file, t.line)).textCase(nil)
-                }
-                Section {
-                    if t.synthetic {
-                        Text(LS("此交易由 pad 指令自动生成，如需调整请修改对应的 pad 或余额断言。")).font(.footnote).foregroundStyle(.secondary)
-                    } else {
-                        // in the 记一笔 form when it can hold all of the entry; its source either way
-                        Button {
-                            Task { if await !store.beginEdit(t) { visualUnavailable = true } }
-                        } label: { Label(LS("编辑"), systemImage: "pencil") }
-                        NavigationLink(value: EditDest(t)) { Label(LS("编辑源文本"), systemImage: "chevron.left.forwardslash.chevron.right") }
-                        if L.txns.filter({ $0.date == t.date && $0.file == t.file && !$0.synthetic }).count > 1 {
-                            Button { ordering = t } label: { Label(LS("调整当天顺序"), systemImage: "arrow.up.arrow.down") }
-                        }
-                        Button { again(t, L, D, kind: nil) } label: { Label(LS("复制为新交易"), systemImage: "arrow.uturn.forward") }
-                        if classify(t, L).kind == .expense {
-                            Button { refund(t, L, D) } label: { Label(LS("登记退款"), systemImage: "arrow.uturn.backward") }
-                            if let s = store.subs.first(where: { s in s.charges.contains { $0.txn.id == t.id } }) {
-                                NavigationLink(value: SubDetailDest(name: s.name)) {
-                                    Label(LS("订阅：%@", s.name), systemImage: "repeat")
-                                }
-                            } else {
-                                Button { subPick = t } label: { Label(LS("加入订阅管理"), systemImage: "repeat") }
-                            }
-                        }
+                    DisclosureGroup(isExpanded: $showPostings) {
+                        ForEach(Array(t.postings.enumerated()), id: \.offset) { pair in PostingRow(p: pair.element) }
+                        ForEach(t.meta.items, id: \.0) { item in LabeledContent(item.0, value: item.1.display).font(.subheadline) }
+                    } label: {
+                        Label(LS("分录详情"), systemImage: "list.bullet.rectangle")
                     }
-                    Button {
-                        UIPasteboard.general.string = t.src
-                        UINotificationFeedbackGenerator().notificationOccurred(.success)
-                        store.show(LS("已复制到剪贴板"))
-                    } label: { Label(LS("复制源文本"), systemImage: "doc.on.doc") }
-                    if let u = store.githubURL(t.file, line: t.line) { Link(destination: u) { Label(LS("在网页中打开"), systemImage: "arrow.up.right.square") } }
+                    DisclosureGroup(isExpanded: $showSource) {
+                        MonoText(text: t.src)
+                        Text("\(t.file):\(t.line)").font(.caption.monospaced()).foregroundStyle(.secondary)
+                    } label: {
+                        Label(LS("Beancount 源文本"), systemImage: "doc.plaintext")
+                    }
                 }
-                if !t.synthetic {
+                if t.synthetic {
                     Section {
-                        Button(role: .destructive) { confirmDelete = true } label: { Label(LS("删除交易"), systemImage: "trash") }
+                        Text(LS("此交易由 pad 指令自动生成，如需调整请修改对应的 pad 或余额断言。")).font(.footnote).foregroundStyle(.secondary)
                     }
                 }
+            }
+            .listSectionSpacing(.compact)
+            .safeAreaInset(edge: .bottom) { if !t.synthetic { actionBar(t, L, D) } }
+            .toolbar(.hidden, for: .tabBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) { moreMenu(t, L) }
             }
             .confirmationDialog(LS("删除 %@ %@？", t.date, [t.payee, t.narration].filter { !$0.isEmpty }.joined(separator: " ")),
                                 isPresented: $confirmDelete, titleVisibility: .visible) {
@@ -478,10 +574,11 @@ struct TxDetailView: View {
             } message: {
                 Text(LS("删除后可在「最近改动」里撤回。"))
             }
-            .navigationTitle(t.date)
+            .navigationTitle(LS("交易详情"))
             .navigationBarTitleDisplayMode(.inline)
             .sheet(item: $subDraft) { SubEditSheet(draft: $0) }
             .sheet(item: $ordering) { DayOrderSheet(date: $0.date, file: $0.file) }
+            .navigationDestination(item: Binding(get: { subOpen.map { SubDetailDest(name: $0) } }, set: { subOpen = $0?.name })) { SubscriptionDetailView(name: $0.name) }
             .sheet(item: $linkPick) { LinkPickSheet(pick: $0) }
             .linkRemovalDialog($linkRemoval, store: store)
             .navigationDestination(isPresented: $goSource) {
@@ -501,6 +598,160 @@ struct TxDetailView: View {
         } else {
             Text(LS("该交易已不存在")).foregroundStyle(.secondary)
         }
+    }
+
+    /// the category's icon, who, how much, the kind and the day, the category
+    private func hero(_ t: Entry, _ L: Ledger) -> some View {
+        let c = classify(t, L)
+        let cat = t.postings.first { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") }?.account
+        let own = postingSums(t.postings.filter { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") }, negate: true)
+        let paid = postingSums(t.postings.filter { !$0.account.hasPrefix("Expenses:") && !$0.account.hasPrefix("Income:") && !$0.account.hasPrefix("Equity:") }, negate: false)
+            .filter { p in !own.contains { $0.0 == p.0 } }
+        let kindLabel: String = {
+            switch c.kind {
+            case .expense: return LS("支出")
+            case .refund: return LS("退款")
+            case .income: return LS("收入")
+            case .transfer: return LS("转账")
+            }
+        }()
+        let icon = cat.map { store.catIcon(catOf($0)) } ?? "arrow.left.arrow.right"
+        return Section {
+            VStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 26))
+                    .foregroundStyle(Color.jade)
+                    .frame(width: 60, height: 60)
+                    .background(Color.jade.opacity(0.13), in: Circle())
+                Text(t.payee.isEmpty ? (t.narration.isEmpty ? LS("交易") : t.narration) : t.payee)
+                    .font(.title3.weight(.semibold)).multilineTextAlignment(.center)
+                Group {
+                    if c.kind == .transfer {
+                        Text(money(c.amount, c.currency ?? L.base))
+                    } else {
+                        ForEach(own, id: \.0) { x in Text(signedMoney(x.1, x.0)).foregroundStyle(x.1 >= 0 ? Color.gain : Color.primary) }
+                    }
+                }
+                .font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+                .lineLimit(1).minimumScaleFactor(0.6)
+                .sensitive()
+                ForEach(paid, id: \.0) { x in
+                    Text(LS("实付 %@", money(x.1, x.0))).font(.footnote.monospacedDigit()).foregroundStyle(.secondary).sensitive()
+                }
+                HStack(spacing: 6) {
+                    Text(kindLabel + " · " + t.date)
+                    if t.flag == "!" { Tag(text: LS("待确认"), warn: true) }
+                }
+                .font(.subheadline).foregroundStyle(.secondary)
+                if let a = cat {
+                    Label(acctDisplay(a), systemImage: icon)
+                        .font(.footnote.weight(.medium))
+                        .padding(.horizontal, 12).padding(.vertical, 6)
+                        .foregroundStyle(Color.jade)
+                        .background(Color.jade.opacity(0.12), in: Capsule())
+                }
+                if !t.tags.isEmpty {
+                    HStack { ForEach(t.tags, id: \.self) { Tag(text: "#" + $0) } }
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 18)
+            .padding(.horizontal, 16)
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .cardRow()
+        }
+    }
+
+    /// 付款账户 / 收款账户, 分类, 日期, 备注
+    @ViewBuilder
+    private func infoSection(_ t: Entry, _ L: Ledger, _ D: Derived) -> some View {
+        let c = classify(t, L)
+        let accounts = moneyRoute(t).filter { !$0.hasPrefix("Expenses:") && !$0.hasPrefix("Income:") && !$0.hasPrefix("Equity:") }
+        let cats = t.postings.map { $0.account }.filter { $0.hasPrefix("Expenses:") || $0.hasPrefix("Income:") }
+        Section {
+            ForEach(Array(accounts.enumerated()), id: \.offset) { i, a in
+                let label = c.kind == .transfer ? (i == 0 ? LS("转出账户") : LS("转入账户"))
+                    : c.kind == .expense ? LS("付款账户") : LS("收款账户")
+                NavigationLink(value: AccountDest(name: a)) {
+                    LabeledContent(label) {
+                        VStack(alignment: .trailing, spacing: 1) {
+                            Text(store.displayName(a) ?? D.shortName(a)).foregroundStyle(.primary)
+                            if let tail = store.repoConfig?.scanCards?.first(where: { $0.value == a && $0.key.count == 4 && $0.key.allSatisfy(\.isNumber) })?.key {
+                                Text(LS("尾号 %@", tail)).font(.caption)
+                            }
+                        }
+                    }
+                }
+            }
+            ForEach(Array(Set(cats)).sorted(), id: \.self) { a in
+                NavigationLink(value: AccountDest(name: a)) {
+                    LabeledContent(LS("分类"), value: acctDisplay(a))
+                }
+            }
+            LabeledContent(LS("日期"), value: t.date)
+            if !t.payee.isEmpty && !t.narration.isEmpty { LabeledContent(LS("备注"), value: t.narration) }
+        }
+    }
+
+    /// 编辑, 复制, 退款 (退款 for spending only)
+    private func actionBar(_ t: Entry, _ L: Ledger, _ D: Derived) -> some View {
+        HStack(spacing: 10) {
+            Button {
+                Task { if await !store.beginEdit(t) { visualUnavailable = true } }
+            } label: {
+                Label(LS("编辑"), systemImage: "pencil").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent).tint(.jade)
+            Button { again(t, L, D, kind: nil) } label: {
+                Label(LS("复制"), systemImage: "doc.on.doc").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            if classify(t, L).kind == .expense {
+                Button { refund(t, L, D) } label: {
+                    Label(LS("退款"), systemImage: "arrow.uturn.backward").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .controlSize(.large)
+        .tint(.jade)
+        .fontWeight(.semibold)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+        .background(.bar)
+    }
+
+    /// everything else: the source, the day's order, subscriptions, copying and opening the text, deleting
+    private func moreMenu(_ t: Entry, _ L: Ledger) -> some View {
+        Menu {
+            if !t.synthetic {
+                Button { goSource = true } label: { Label(LS("编辑源文本"), systemImage: "chevron.left.forwardslash.chevron.right") }
+                if L.txns.filter({ $0.date == t.date && $0.file == t.file && !$0.synthetic }).count > 1 {
+                    Button { ordering = t } label: { Label(LS("调整当天顺序"), systemImage: "arrow.up.arrow.down") }
+                }
+                if classify(t, L).kind == .expense {
+                    if let s = store.subs.first(where: { s in s.charges.contains { $0.txn.id == t.id } }) {
+                        Button { subOpen = s.name } label: { Label(LS("订阅：%@", s.name), systemImage: "repeat") }
+                    } else {
+                        Button { subPick = t } label: { Label(LS("加入订阅管理"), systemImage: "repeat") }
+                    }
+                }
+            }
+            Button {
+                UIPasteboard.general.string = t.src
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                store.show(LS("已复制到剪贴板"))
+            } label: { Label(LS("复制源文本"), systemImage: "doc.on.clipboard") }
+            if let u = store.githubURL(t.file, line: t.line) { Link(destination: u) { Label(LS("在网页中打开"), systemImage: "arrow.up.right.square") } }
+            if !t.synthetic {
+                Divider()
+                Button(role: .destructive) { confirmDelete = true } label: { Label(LS("删除交易"), systemImage: "trash") }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+        }
+        .accessibilityLabel(LS("更多"))
     }
 
     private func again(_ t: Entry, _ L: Ledger, _ D: Derived, kind: DraftKind?) {
@@ -684,5 +935,54 @@ struct DayOrderSheet: View {
         guard let ops = await store.review([op]) else { return }
         dismiss()
         await store.commit(ops, word: LS("已调整顺序"), checked: true)
+    }
+}
+
+/// small chips that wrap onto more lines, each with its ✕
+struct FlowChips: View {
+    let items: [(String, () -> Void)]
+    var body: some View {
+        FlowLayout(spacing: 6) {
+            ForEach(Array(items.enumerated()), id: \.offset) { _, it in
+                Button(action: it.1) {
+                    HStack(spacing: 4) {
+                        Text(it.0).lineLimit(1)
+                        Image(systemName: "xmark").font(.caption2.weight(.bold))
+                    }
+                    .font(.footnote.weight(.medium))
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .foregroundStyle(Color.jade)
+                    .background(Color.jade.opacity(0.12), in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+/// lays its children out in rows, wrapping when a row is full
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 6
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, row: CGFloat = 0, widest: CGFloat = 0
+        for v in subviews {
+            let s = v.sizeThatFits(.unspecified)
+            if x > 0 && x + s.width > width { y += row + spacing; x = 0; row = 0 }
+            x += s.width + spacing
+            row = max(row, s.height)
+            widest = max(widest, x - spacing)
+        }
+        return CGSize(width: min(widest, width), height: y + row)
+    }
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX, y = bounds.minY, row: CGFloat = 0
+        for v in subviews {
+            let s = v.sizeThatFits(.unspecified)
+            if x > bounds.minX && x + s.width > bounds.maxX { y += row + spacing; x = bounds.minX; row = 0 }
+            v.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(s))
+            x += s.width + spacing
+            row = max(row, s.height)
+        }
     }
 }

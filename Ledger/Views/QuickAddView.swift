@@ -101,14 +101,10 @@ struct QuickAddView: View {
 
     private static let kinds: [DraftKind] = [.expense, .income, .transfer]
 
-    /// the amount and 完成 in the kind's colour: spending red, income green (the app's usual pair), else the theme's
-    private var kindColor: Color {
-        switch store.draft.kind {
-        case .expense: return Color.loss
-        case .income: return Color.gain
-        default: return Color.jade
-        }
-    }
+    /// the amount in the text colour; the kind shows in its label (支出金额 / 收入金额 / 转账金额)
+    private var kindColor: Color { Color.primary }
+
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     @ViewBuilder
     private func content(_ L: Ledger, _ D: Derived) -> some View {
@@ -119,10 +115,12 @@ struct QuickAddView: View {
                 ScrollView { fullBanner(d).padding(16) }
             } else {
                 topStrip(d)
-                // the grid keeps its own area and scrolls in it: what is below never moves
+                // the grid, sub-categories and the details scroll in their own area: the amount, the choices and
+                // the keypad below never move
                 ScrollView {
-                    Group {
-                        if d.kind == .transfer { transferPanel(d, L, D) } else { grid(d, L, D) }
+                    VStack(spacing: 12) {
+                        if d.kind == .transfer { transferPanel(d, L, D) } else { grid(d, L, D); subCategories(d, L, D) }
+                        detailsCard(d, L, D)
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
@@ -366,7 +364,7 @@ struct QuickAddView: View {
             Text(LS("账本里还没有%@科目，可在「账户」里新建。", d.kind == .income ? LS("收入") : LS("支出")))
                 .font(.footnote).foregroundStyle(.secondary)
         } else {
-            CategoryGridView(cells: cells, picked: picked, tap: { id in
+            CategoryGridView(cells: cells, picked: picked, large: typeSize.isAccessibilitySize, tap: { id in
                 guard let g = groups.first(where: { $0.id == id }) else { return }
                 // the picked group again: its sub-categories
                 if id == picked && !g.single { subPicking = id } else { pick(g, L) }
@@ -471,15 +469,132 @@ struct QuickAddView: View {
     // MARK: the bottom: choices, amount, keypad (or the text fields while typing)
 
     private func bottomPanel(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
-        VStack(spacing: 10) {
-            if !writing { chips(d, L, D) }
+        VStack(spacing: 8) {
             amountCard(d, L, D)
-            if !writing { keypad(d) }
+            if !writing {
+                chips(d, L, D)
+                saveToMenu
+                keypad(d)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.top, 8)
         .padding(.bottom, 4)
         .background(Color(.systemGroupedBackground))
+        // the part that never moves keeps its size with the largest text; the scrolling part above follows it all the way
+        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+    }
+
+    /// 保存至 <ledger> when there is more than one on this phone
+    @ViewBuilder
+    private var saveToMenu: some View {
+        if store.sources.count > 1 && store.draft.replacing == nil {
+            Menu {
+                ForEach(store.sources) { s in
+                    Button {
+                        guard s.id != store.cfg.id else { return }
+                        Task {
+                            await store.switchLedger(s.id)
+                            store.draft = store.newDraftFor(Self.kinds.contains(store.draft.kind) ? store.draft.kind : .expense)
+                        }
+                    } label: {
+                        if s.id == store.cfg.id { Label(s.title, systemImage: "checkmark") } else { Text(s.title) }
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(LS("保存至 %@", store.cfg.title))
+                    Image(systemName: "chevron.down").font(.caption2.weight(.semibold))
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: details: who, what for, the paying account
+
+    /// 收款方, 备注 (once there is one), the paying account (its card's last digits when the ledger knows them),
+    /// and the Beancount text it makes
+    @ViewBuilder
+    private func detailsCard(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
+        VStack(spacing: 0) {
+            detailRow(icon: "storefront", label: d.kind == .income ? LS("付款方") : d.kind == .transfer ? LS("对方") : LS("收款方"),
+                      value: d.payee.trimmed, placeholder: LS("可选")) { startWriting(.payee) }
+            if !d.narration.trimmed.isEmpty {
+                Divider().padding(.leading, 46)
+                detailRow(icon: "pencil", label: LS("备注"), value: d.narration.trimmed, placeholder: "") { startWriting(.narration) }
+            }
+        }
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+        if d.kind != .transfer {
+            fundingMenu(d, L, D)
+        }
+        VStack(alignment: .leading, spacing: 8) {
+            Button { withAnimation(.easeInOut(duration: 0.15)) { showSource.toggle() } } label: {
+                HStack {
+                    Label(LS("Beancount 源文本"), systemImage: "chevron.left.forwardslash.chevron.right").font(.footnote)
+                    Spacer()
+                    Image(systemName: showSource ? "chevron.up" : "chevron.down").font(.caption2.weight(.semibold))
+                }
+                .foregroundStyle(.secondary)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(showSource ? LS("收起源文本") : LS("查看源文本"))
+            if showSource { source(d, L, D) }
+        }
+        .padding(.horizontal, 4)
+    }
+
+    private func detailRow(icon: String, label: String, value: String, placeholder: String, tap: @escaping () -> Void) -> some View {
+        Button(action: tap) {
+            HStack(spacing: 12) {
+                Image(systemName: icon).font(.body).foregroundStyle(.secondary).frame(width: 22)
+                Text(label).font(.subheadline).foregroundStyle(.secondary).fixedSize()
+                Text(value.isEmpty ? placeholder : value)
+                    .font(.body)
+                    .foregroundStyle(value.isEmpty ? Color.secondary.opacity(0.7) : Color.primary)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, 8)
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 13)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// the picked group's other accounts, one tap each (the grid's second tap still opens the full list)
+    @ViewBuilder
+    private func subCategories(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
+        let root = Store.categoryRoot(d.kind)
+        if d.account.hasPrefix(root), let g = store.gridGroups(root, D).first(where: { $0.id == catOf(d.account) }), !g.single {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(g.accounts, id: \.self) { a in
+                        Chip(label: leafTitle(L, a), selected: a == d.account) {
+                            store.draft.account = a
+                            store.draft.edited = nil
+                            pickedCategory = true
+                            UISelectionFeedbackGenerator().selectionChanged()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// a sub-category's own name: its display name, or the last part of the account
+    private func leafTitle(_ L: Ledger, _ a: String) -> String {
+        if let n = store.displayName(a), !n.isEmpty { return n }
+        return a.components(separatedBy: ":").last ?? a
+    }
+
+    /// the last four digits a card is known by (ledger-x.json scan_cards), for the paying account's line
+    private func cardTail(_ a: String) -> String? {
+        store.repoConfig?.scanCards?.first { $0.value == a && $0.key.count == 4 && $0.key.allSatisfy(\.isNumber) }?.key
     }
 
     // MARK: chips
@@ -488,7 +603,12 @@ struct QuickAddView: View {
         HStack(spacing: 4) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    if d.kind != .transfer { fundingMenu(d, L, D) }
+                    Button { dating = true } label: { pill(dayChip(d.date), icon: "calendar", on: false) }
+                        .buttonStyle(.plain)
+                        .sheet(isPresented: $dating) {
+                            DaySheet(date: Binding(get: { store.draft.date }, set: { store.draft.date = $0; store.draft.edited = nil })) { dating = false }
+                                .presentationDetents([.height(500)])
+                        }
                     if d.kind == .expense { reimbChip(d, D) }
                     if discountAllowed(d) {
                         let v = evalAmount(d.discount) ?? 0
@@ -498,6 +618,9 @@ struct QuickAddView: View {
                         .buttonStyle(.plain)
                     }
                     markChip(d, L)
+                    if d.narration.trimmed.isEmpty {
+                        Button { startWriting(.narration) } label: { pill(LS("备注"), icon: "pencil", on: false) }.buttonStyle(.plain)
+                    }
                     if d.kind == .expense && store.ownedSubLinks.contains(d.link.trimmed) {
                         // a subscription's charge: paid on top of this period's, or a new period
                         Button { store.draft.topup.toggle(); store.draft.edited = nil } label: {
@@ -543,8 +666,24 @@ struct QuickAddView: View {
                 Button { splittingPay = true } label: { Label(LS("组合付款…"), systemImage: "square.split.2x1") }
             }
         } label: {
-            pill(title, icon: d.funding.isEmpty ? "creditcard" : store.groupIcon(d.funding).symbol, on: !d.funding.isEmpty)
+            HStack(spacing: 12) {
+                Image(systemName: d.funding.isEmpty ? "creditcard" : store.groupIcon(d.funding).symbol)
+                    .font(.body).foregroundStyle(Color.jade).frame(width: 22)
+                Text(d.kind == .income ? LS("收款账户") : LS("付款账户")).font(.subheadline).foregroundStyle(.secondary).fixedSize()
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(d.funding.isEmpty ? LS("选择") : title).font(.body)
+                        .foregroundStyle(d.funding.isEmpty ? Color.secondary : Color.primary).lineLimit(1)
+                    if let t = cardTail(d.funding) { Text(LS("尾号 %@", t)).font(.caption).foregroundStyle(.secondary) }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 8)
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 12)
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
     }
 
     /// 标记: the entry's tags, its events and 待确认 (!) in one place; the chip says what is set
@@ -609,30 +748,37 @@ struct QuickAddView: View {
         let fc = accountCurrency(d.funding, L, D), tc = accountCurrency(d.to, L, D)
         let other = d.kind == .transfer ? (d.to.isEmpty ? nil : tc) : fc
         let cross = other != nil && other != d.currency && !(d.kind != .transfer && hasCombo(d))
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(d.kind == .income ? LS("收入金额") : d.kind == .transfer ? LS("转账金额") : LS("支出金额"))
+                .font(.caption).foregroundStyle(.secondary)
+            HStack(alignment: .center, spacing: 6) {
+                Text(SYM[d.currency] ?? "").font(.system(size: 22, weight: .semibold, design: .rounded))
+                // smaller as the expression grows (a fixed size each step, so it doesn't wobble while typing)
+                Text(d.amount.isEmpty ? "0.00" : d.amount)
+                    .font(.system(size: d.amount.count <= 10 ? 38 : d.amount.count <= 15 ? 28 : 21, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(d.amount.isEmpty ? Color.secondary.opacity(0.5) : kindColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .accessibilityLabel(LS("金额"))
+                    .accessibilityValue(d.amount.isEmpty ? "0" : d.amount)
+                if isExpression(d.amount) {
+                    Text("= " + (evalAmount(d.amount).map { fmtNum($0) } ?? "?")).font(.callout.monospacedDigit()).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 4)
                 // the currency, and the rate when the account is in another one
                 Button { rating = true } label: {
-                    Text(SYM[d.currency] ?? d.currency).font(.system(size: 20, weight: .semibold, design: .rounded))
-                        .foregroundStyle(kindColor)
+                    HStack(spacing: 4) {
+                        Text(d.currency).font(.subheadline.weight(.semibold))
+                        Image(systemName: "chevron.down").font(.caption2.weight(.bold))
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 7)
+                    .background(Color(.tertiarySystemFill), in: Capsule())
                 }
                 .buttonStyle(.plain)
                 .fixedSize()
                 .accessibilityLabel(LS("币种与汇率"))
                 .accessibilityValue(d.currency)
-                // smaller as the expression grows (a fixed size each step, so it doesn't wobble while typing)
-                Text(d.amount.isEmpty ? "0.00" : d.amount)
-                    .font(.system(size: d.amount.count <= 10 ? 30 : d.amount.count <= 15 ? 24 : 19, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(d.amount.isEmpty ? Color.secondary.opacity(0.5) : kindColor)
-                    .lineLimit(1)
-                    .fixedSize()
-                    .accessibilityLabel(LS("金额"))
-                    .accessibilityValue(d.amount.isEmpty ? "0" : d.amount)
-                Spacer(minLength: 4)
-                if isExpression(d.amount) {
-                    Text("= " + (evalAmount(d.amount).map { fmtNum($0) } ?? "?")).font(.callout.monospacedDigit()).foregroundStyle(.secondary)
-                }
             }
             if cross, let o = other {
                 // the rate as the draft has it ("1 USD = 6.70408 CNY"); the sheet fills it in
@@ -650,53 +796,22 @@ struct QuickAddView: View {
                     .lineLimit(2)
                     .onTapGesture { splittingPay = true }
             }
-            Divider()
             if writing {
+                Divider()
                 textFields(d, D)
-            } else {
-                noteRow(d)
-                if showSource { source(d, L, D) }
             }
         }
         .padding(14)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
     }
 
-    /// the date, and who / what for in one line ("Landlord · 房租"); tap the line to type them
-    private func noteRow(_ d: Draft) -> some View {
-        let summary = [d.payee.trimmed, d.narration.trimmed].filter { !$0.isEmpty }.joined(separator: " · ")
-        return HStack(spacing: 10) {
-            Button { dating = true } label: {
-                Label(dayLabel(d.date), systemImage: "calendar")
-                    .font(.subheadline)
-                    .padding(.horizontal, 10).padding(.vertical, 6)
-                    .background(Color(.tertiarySystemFill), in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .sheet(isPresented: $dating) {
-                DaySheet(date: Binding(get: { store.draft.date }, set: { store.draft.date = $0; store.draft.edited = nil })) { dating = false }
-                    .presentationDetents([.height(500)])
-            }
-            Button { startWriting(d.payee.trimmed.isEmpty ? .payee : .narration) } label: {
-                Text(summary.isEmpty ? LS("点击填写收付款方、备注") : summary)
-                    .font(.subheadline)
-                    .foregroundStyle(summary.isEmpty ? Color.secondary : Color.primary)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(LS("收付款方与备注"))
-            Button { withAnimation(.easeInOut(duration: 0.15)) { showSource.toggle() } } label: {
-                Image(systemName: showSource ? "chevron.down" : "chevron.up")
-                    .font(.caption.weight(.semibold))
-                    .frame(width: 30, height: 30)
-                    .background(Color(.tertiarySystemFill), in: Circle())
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .accessibilityLabel(showSource ? LS("收起源文本") : LS("查看源文本"))
-        }
+    /// the day on its chip: 今天 · 10月16日, 昨天 · …, or the day
+    private func dayChip(_ day: String) -> String {
+        let label = dayLabel(day)
+        let today = Day.today()
+        guard day == today || day == Day.shift(today, -1) else { return label }
+        let m = Int(day.dropFirst(5).prefix(2)) ?? 0, dd = Int(day.suffix(2)) ?? 0
+        return label + " · " + LS("%@月%@日", String(m), String(dd))
     }
 
     /// show the payee and description fields, then put the cursor in one (a field can only be focused once it exists)
@@ -817,9 +932,9 @@ struct QuickAddView: View {
                     // editing: there is no next one; its text instead
                     KeyCap(text: LS("源文本"), font: .system(size: 16, weight: .semibold), tap: { editingText = true })
                 } else {
-                    KeyCap(text: LS("保存再记"), font: .system(size: 16, weight: .semibold), tap: { submit(close: false) })
+                    KeyCap(text: LS("保存再记"), font: .system(size: 16, weight: .semibold), soft: true, tap: { submit(close: false) })
                 }
-                KeyCap(text: expr ? "=" : LS("完成"), font: .system(size: expr ? 24 : 17, weight: .semibold), filled: true, tint: kindColor,
+                KeyCap(text: expr ? "=" : LS("保存"), font: .system(size: expr ? 24 : 17, weight: .semibold), filled: true,
                        tap: { expr ? equals() : submit(close: true) })
                     .opacity(saving ? 0.5 : 1)
             }
@@ -898,17 +1013,19 @@ struct GridCell: Equatable {
     let single: Bool
 }
 
-/// the category grid: five to a row. Equatable, so typing an amount (which changes nothing here) doesn't redraw it
+/// the category grid: four to a row (three with the largest text). Equatable, so typing an amount (which changes
+/// nothing here) doesn't redraw it
 struct CategoryGridView: View, Equatable {
     let cells: [GridCell]
     let picked: String?
+    var large = false
     let tap: (String) -> Void
     let menu: (String) -> AnyView
 
-    static func == (a: CategoryGridView, b: CategoryGridView) -> Bool { a.cells == b.cells && a.picked == b.picked }
+    static func == (a: CategoryGridView, b: CategoryGridView) -> Bool { a.cells == b.cells && a.picked == b.picked && a.large == b.large }
 
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 5), spacing: 14) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: large ? 3 : 4), spacing: 14) {
             ForEach(cells, id: \.id) { c in cell(c, selected: c.id == picked) }
         }
     }
@@ -918,8 +1035,8 @@ struct CategoryGridView: View, Equatable {
             VStack(spacing: 5) {
                 ZStack(alignment: .bottomTrailing) {
                     Image(systemName: c.icon)
-                        .font(.system(size: 20, weight: .regular))
-                        .frame(width: 48, height: 48)
+                        .font(.system(size: 22, weight: .regular))
+                        .frame(width: 54, height: 54)
                         .foregroundStyle(selected ? Color.onJade : Color.primary)
                         .background(selected ? Color.jade : Color(.secondarySystemGroupedBackground), in: Circle())
                     if !c.single {
@@ -933,8 +1050,8 @@ struct CategoryGridView: View, Equatable {
                     }
                 }
                 Text(c.title)
-                    .font(.caption)
-                    .foregroundStyle(selected ? Color.primary : Color.secondary)
+                    .font(.footnote.weight(selected ? .semibold : .regular))
+                    .foregroundStyle(selected ? Color.jade : Color.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
@@ -1103,6 +1220,8 @@ struct KeyCap: View {
     var filled = false
     /// the filled key's colour (the theme's by default)
     var tint: Color? = nil
+    /// a light key in the theme's colour (保存再记)
+    var soft = false
     let tap: () -> Void
     var hold: (() -> Void)? = nil
 
@@ -1113,8 +1232,9 @@ struct KeyCap: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: 50)
-        .foregroundStyle(filled ? (tint == nil ? Color.onJade : Color.white) : Color.primary)
-        .background(filled ? (tint ?? Color.jade) : Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+        .foregroundStyle(filled ? (tint == nil ? Color.onJade : Color.white) : soft ? Color.jade : Color.primary)
+        .background(filled ? (tint ?? Color.jade) : soft ? Color.jade.opacity(0.14) : Color(.secondarySystemGroupedBackground),
+                    in: RoundedRectangle(cornerRadius: 12))
         .contentShape(RoundedRectangle(cornerRadius: 12))
         .onTapGesture(perform: tap)
         .onLongPressGesture(minimumDuration: 0.45) {

@@ -79,7 +79,7 @@ struct AddForm: View {
                     HStack(spacing: 6) {
                         Spacer(minLength: 0)
                         Image(systemName: "square.and.pencil")
-                        Text(store.draft.replacing != nil ? LS("保存修改") : LS("记一笔"))
+                        Text(store.draft.replacing != nil ? LS("保存修改") : LS("保存"))
                         Spacer(minLength: 0)
                     }
                     .fontWeight(.semibold)

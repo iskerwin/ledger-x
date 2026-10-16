@@ -244,6 +244,12 @@ jobs:
           shot 01-add SIMCTL_CHILD_LEDGER_TAB=add
           shot 02-add-filled SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1
           shot 02b-add-full SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_ADD_FULL=1
+          # 记一笔 with large text: the largest standard size, then an accessibility size
+          limit 20 xcrun simctl ui "$UDID" content_size extra-extra-extra-large || true
+          shot 02j-add-xxxl SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1
+          limit 20 xcrun simctl ui "$UDID" content_size accessibility-large || true
+          shot 02k-add-ax SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1
+          limit 20 xcrun simctl ui "$UDID" content_size large || true
           shot 02c-add-cats SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_CATS=1
           shot 02e-add-note SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_NOTE=1
           shot 02f-add-combo SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_COMBO=1
@@ -261,6 +267,8 @@ jobs:
           shot 22b-reimb SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=reimb
           shot 22c-reimb-batch SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=reimb-batch
           shot 08-search SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_QUERY="#fx"
+          shot 08b-filters SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_FILTERS=month
+          shot 09b-detail-hero SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_OPEN_LINK=refund-20260902-ab12 SIMCTL_CHILD_LEDGER_EXTRA="$GITHUB_WORKSPACE/LedgerKit/Tests/LedgerKitTests/Fixtures/import/links.bean"
           shot 09-detail SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_OPEN_TX=1
           shot 10-accounts SIMCTL_CHILD_LEDGER_TAB=accounts
           shot 10b-accounts-units SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_CURRENCY_MODE=units
@@ -269,6 +277,7 @@ jobs:
           shot 12-check SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_OPEN_ACCOUNT=Assets:Bank:CGB SIMCTL_CHILD_LEDGER_CHECK=180000
           shot 13-settings SIMCTL_CHILD_LEDGER_TAB=settings
           shot 17-holdings SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_OPEN_HOLDINGS=1
+          shot 17b-holdings-open SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_OPEN_HOLDINGS=1 SIMCTL_CHILD_LEDGER_HOLDING_OPEN=1
           shot 18-reimb SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_REIMB=1
           shot 19-edit-text SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_EDIT_TEXT=1
           shot 20-refund SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_KIND=refund

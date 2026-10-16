@@ -4,12 +4,18 @@ import LedgerKit
 
 struct HoldingsDest: Hashable {}
 
-/// 持仓: everything held at cost (stocks, funds), valued at the latest price
+/// 持仓: everything held at cost (stocks, funds), valued at the latest price. A summary on top, the holdings
+/// filtered by the currency they are priced in and sorted, each a card that opens on its lots, K 线 and register.
 struct HoldingsView: View {
     @EnvironmentObject var store: Store
     @State private var open: Set<String> = []
     @State private var pricing = false
     @State private var chart: ChartTarget?
+    /// the quote currency shown (nil: all)
+    @State private var market: String?
+    @AppStorage("ledger.holdings.sort") private var sort = "value"
+    /// the register opened from a card (a link of its own would take the whole card)
+    @State private var register: AccountDest?
 
     var body: some View {
         Group {
@@ -19,45 +25,86 @@ struct HoldingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button { pricing = true } label: { Label(LS("更新价格"), systemImage: "tag") }
+                Button { pricing = true } label: { Label(LS("更新价格"), systemImage: "arrow.clockwise") }
             }
         }
         .sheet(isPresented: $pricing) { PriceUpdateSheet() }
+        .navigationDestination(item: $register) { RegisterView(account: $0.name).privacyToolbar() }
         .sheet(item: $chart) { t in if let L = store.L { KLineSheet(rows: holdings(L), selected: t.id) } }
-        .task { if store.demoEnv["LEDGER_PRICES"] != nil { pricing = true } }
+        .task {
+            if store.demoEnv["LEDGER_PRICES"] != nil { pricing = true }
+            if store.demoEnv["LEDGER_HOLDING_OPEN"] != nil, let L = store.L, let first = sorted(holdings(L), L).first { open.insert(first.id) }
+        }
     }
 
     private func cny(_ L: Ledger, _ n: Double, _ c: String) -> Double { toCNY(L, n, c) ?? 0 }
 
+    /// a market by the currency its prices are in
+    static func marketName(_ q: String) -> String {
+        switch q {
+        case "USD": return LS("美元")
+        case "HKD": return LS("港元")
+        case "CNY": return LS("人民币")
+        default: return q
+        }
+    }
+
+    private func sorted(_ rows: [Holding], _ L: Ledger) -> [Holding] {
+        switch sort {
+        case "pnl": return rows.sorted { pct($0) > pct($1) }
+        case "name": return rows.sorted { $0.c != $1.c ? $0.c < $1.c : $0.acct < $1.acct }
+        default: return rows.sorted { cny(L, $0.value ?? $0.cost, $0.q) > cny(L, $1.value ?? $1.cost, $1.q) }
+        }
+    }
+
+    private func pct(_ r: Holding) -> Double { r.cost != 0 ? (r.pnl ?? 0) / r.cost : 0 }
+
     private func page(_ L: Ledger) -> some View {
-        let rows = holdings(L)
-        let value = rows.reduce(0.0) { $0 + cny(L, $1.value ?? $1.cost, $1.q) }
-        let cost = rows.reduce(0.0) { $0 + cny(L, $1.cost, $1.q) }
-        let pxDate = rows.compactMap { $0.px?.date }.max()
+        let all = holdings(L)
+        let markets = Array(Set(all.map { $0.q })).sorted { a, b in
+            let order = ["USD", "HKD", "CNY"]
+            return (order.firstIndex(of: a) ?? 9, a) < (order.firstIndex(of: b) ?? 9, b)
+        }
+        let rows = sorted(all.filter { market == nil || $0.q == market }, L)
         return List {
-            Section {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(LS("市值合计（折合%@）", L.base)).font(.subheadline).foregroundStyle(.secondary)
-                    Text(money(value, L.base)).font(.system(size: 36, weight: .bold, design: .rounded)).monospacedDigit().sensitive()
-                    HStack(spacing: 14) {
-                        Text(LS("成本 ") + money(cost, L.base))
-                        Text(LS("浮动盈亏 ") + signedMoney(value - cost, L.base) + (cost != 0 ? String(format: LS("（%@%.1f%%）"), value >= cost ? "+" : "", (value - cost) / cost * 100) : ""))
-                            .foregroundStyle(value >= cost ? Color.gain : Color.loss)
+            summary(L, all)
+            if markets.count > 1 || all.count > 1 {
+                Section {
+                    HStack(spacing: 8) {
+                        if markets.count > 1 {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    Chip(label: LS("全部"), selected: market == nil) { market = nil }
+                                    ForEach(markets, id: \.self) { m in Chip(label: Self.marketName(m), selected: market == m) { market = market == m ? nil : m } }
+                                }
+                            }
+                        } else { Spacer() }
+                        Menu {
+                            Picker(LS("排序"), selection: $sort) {
+                                Text(LS("市值")).tag("value")
+                                Text(LS("盈亏")).tag("pnl")
+                                Text(LS("名称")).tag("name")
+                            }
+                        } label: {
+                            HStack(spacing: 3) {
+                                Text(sort == "pnl" ? LS("盈亏") : sort == "name" ? LS("名称") : LS("市值"))
+                                Image(systemName: sort == "name" ? "arrow.up" : "arrow.down")
+                            }
+                            .font(.subheadline)
+                        }
                     }
-                    .font(.caption.monospacedDigit())
-                    .sensitive()
-                    let income = investIncome(L, String(Day.today().prefix(4))).reduce(0.0) { $0 + $1.2 }
-                    if abs(income) > 0.005 {
-                        Text(LS("累计收益 %@（浮动盈亏 + 已实现收益、股息、利息）", signedMoney(value - cost + income, L.base)))
-                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
-                    }
-                    if let d = pxDate { Text(LS("价格日期 ") + d).font(.caption).foregroundStyle(.secondary) }
                 }
-                .padding(.vertical, 4)
+                .cardRow()
             }
-            Section(LS("持仓明细")) {
-                if rows.isEmpty { Text(LS("暂无以成本计价的持仓")).foregroundStyle(.secondary) }
-                ForEach(rows) { r in holdingRow(r) }
+            if rows.isEmpty {
+                Section(LS("持仓明细")) { Text(LS("暂无以成本计价的持仓")).foregroundStyle(.secondary) }
+            }
+            ForEach(Array(rows.enumerated()), id: \.element.id) { i, r in
+                Section {
+                    holdingCard(r)
+                } header: {
+                    if i == 0 { Text(LS("持仓明细")) }
+                }
             }
             incomeSection(L)
             Section {
@@ -66,63 +113,164 @@ struct HoldingsView: View {
                 Text(LS("市值只是持仓份额 × 最新价格（账本中最新的 price 指令），不含股息、利息和账户里的现金；这些收入列在「投资收入」，信用卡返现不算投资收益。成本取自买入时记录的 {成本}；卖出时按账户的批次匹配方法（如 FIFO）结转。"))
             }
         }
+        .listSectionSpacing(.compact)
     }
 
-    @ViewBuilder
-    private func holdingRow(_ r: Holding) -> some View {
-        Button {
-            if open.contains(r.id) { open.remove(r.id) } else { open.insert(r.id) }
-        } label: {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
-                        Text(r.c).font(.headline)
-                        Text(acctLabel(r.acct)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+    /// 总市值, 持仓成本 | 浮动盈亏, 累计收益, when the prices are from
+    private func summary(_ L: Ledger, _ rows: [Holding]) -> some View {
+        let value = rows.reduce(0.0) { $0 + cny(L, $1.value ?? $1.cost, $1.q) }
+        let cost = rows.reduce(0.0) { $0 + cny(L, $1.cost, $1.q) }
+        let pxDate = rows.compactMap { $0.px?.date }.max()
+        let income = investIncome(L, String(Day.today().prefix(4))).reduce(0.0) { $0 + $1.2 }
+        let up = value >= cost
+        return Section {
+            Card {
+                VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(LS("总市值 · %@", L.base)).font(.subheadline).foregroundStyle(.secondary)
+                        Text(money(value, L.base)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+                            .lineLimit(1).minimumScaleFactor(0.6).sensitive()
                     }
-                    Text(LS("%@ 份 · 均价 %@ %@", masked(fmtNum(r.units, 4)), masked(fmtNum(r.avg, 2)), r.q) + (r.px.map { LS(" · 现价 %@", fmtNum($0.number, 2)) } ?? LS(" · 无价格")))
-                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 3) {
-                    Text(money(r.value ?? r.cost, r.q)).monospacedDigit().sensitive()
-                    if let p = r.pnl {
-                        Text(signedMoney(p, r.q) + (r.cost != 0 ? String(format: " %@%.1f%%", p >= 0 ? "+" : "", p / r.cost * 100) : ""))
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(p >= 0 ? Color.gain : Color.loss)
+                    HStack(alignment: .top, spacing: 0) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(LS("持仓成本")).font(.caption).foregroundStyle(.secondary)
+                            Text(money(cost, L.base)).font(.callout.weight(.semibold).monospacedDigit()).sensitive()
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Divider().frame(height: 34)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(LS("浮动盈亏")).font(.caption).foregroundStyle(.secondary)
+                            HStack(spacing: 6) {
+                                Text(signedMoney(value - cost, L.base)).font(.callout.weight(.semibold).monospacedDigit())
+                                    .foregroundStyle(up ? Color.gain : Color.loss).lineLimit(1).minimumScaleFactor(0.7)
+                                if cost != 0 {
+                                    Text(String(format: "%@%.1f%%", up ? "+" : "", (value - cost) / cost * 100))
+                                        .font(.caption.weight(.semibold).monospacedDigit())
+                                        .padding(.horizontal, 7).padding(.vertical, 2)
+                                        .background((up ? Color.gain : Color.loss).opacity(0.14), in: Capsule())
+                                        .foregroundStyle(up ? Color.gain : Color.loss)
+                                }
+                            }
                             .sensitive()
+                        }
+                        .padding(.leading, 14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    if abs(income) > 0.005 {
+                        Text(LS("累计收益 %@（浮动盈亏 + 已实现收益、股息、利息）", signedMoney(value - cost + income, L.base)))
+                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
+                    }
+                    if let d = pxDate {
+                        HStack(spacing: 6) {
+                            Circle().fill(Day.shift(d, 3) >= Day.today() ? Color.gain : Color.warn).frame(width: 7, height: 7)
+                            Text(LS("价格更新于 %@", d)).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            .cardRow()
+        }
+    }
+
+    /// two letters for a ticker's badge
+    private func monogram(_ c: String) -> String { String(c.prefix(c.count > 4 ? 2 : min(c.count, 4)).prefix(4)) }
+
+    @ViewBuilder
+    private func holdingCard(_ r: Holding) -> some View {
+        let isOpen = open.contains(r.id)
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) { if isOpen { open.remove(r.id) } else { open.insert(r.id) } }
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .center, spacing: 12) {
+                    Text(monogram(r.c))
+                        .font(.system(size: r.c.count > 3 ? 11 : 13, weight: .bold, design: .rounded))
+                        .lineLimit(1).minimumScaleFactor(0.6)
+                        .foregroundStyle(Color.jade)
+                        .frame(width: 40, height: 40)
+                        .background(Color.jade.opacity(0.12), in: Circle())
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(r.c).font(.headline)
+                        Text(acctLabel(r.acct) + " · " + Self.marketName(r.q)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    Spacer(minLength: 6)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(money(r.value ?? r.cost, r.q)).font(.body.weight(.semibold)).monospacedDigit().sensitive()
+                        if let p = r.pnl {
+                            Text(signedMoney(p, r.q) + (r.cost != 0 ? String(format: "  %@%.1f%%", p >= 0 ? "+" : "", p / r.cost * 100) : ""))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(p >= 0 ? Color.gain : Color.loss)
+                                .sensitive()
+                        } else {
+                            Text(LS("无价格")).font(.caption).foregroundStyle(Color.warn)
+                        }
+                    }
+                    Image(systemName: "chevron.down")
+                        .font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(isOpen ? 180 : 0))
+                }
+                if !isOpen {
+                    Text(LS("持仓 %@ 份 · 均价 %@ · 现价 %@", masked(fmtNum(r.units, 4)), masked(fmtNum(r.avg, 2)), r.px.map { fmtNum($0.number, 2) } ?? "—"))
+                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
                 }
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        if open.contains(r.id) {
-            ForEach(Array(r.lots.enumerated()), id: \.offset) { pair in
-                lotRow(pair.element, r)
+        if isOpen {
+            // 持仓 | 均价 | 现价
+            HStack(spacing: 0) {
+                stat(LS("持仓"), LS("%@ 份", masked(fmtNum(r.units, 4))))
+                Divider().frame(height: 32)
+                stat(LS("均价"), masked(fmtNum(r.avg, 2)), lead: true)
+                Divider().frame(height: 32)
+                stat(LS("现价"), r.px.map { fmtNum($0.number, 2) } ?? "—", lead: true)
             }
-            Button { chart = ChartTarget(id: r.id) } label: {
-                Label(LS("K 线"), systemImage: "chart.bar.xaxis").font(.footnote)
+            .sensitive()
+            VStack(alignment: .leading, spacing: 8) {
+                Text(LS("买入批次")).font(.caption).foregroundStyle(.secondary)
+                ForEach(Array(r.lots.enumerated()), id: \.offset) { pair in lotRow(pair.element, r) }
             }
-            NavigationLink(value: AccountDest(name: r.acct)) {
-                Text(LS("查看 %@ 明细", acctLabel(r.acct))).font(.footnote)
+            HStack(spacing: 0) {
+                Button { chart = ChartTarget(id: r.id) } label: {
+                    Label(LS("K 线走势"), systemImage: "chart.bar.xaxis").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderless)
+                Divider().frame(height: 22)
+                Button { register = AccountDest(name: r.acct) } label: {
+                    Label(LS("账户明细"), systemImage: "list.bullet.rectangle").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.primary)
             }
+            .font(.subheadline)
+            .padding(.vertical, 2)
         }
+    }
+
+    private func stat(_ title: String, _ value: String, lead: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(value).font(.callout.monospacedDigit()).lineLimit(1).minimumScaleFactor(0.7)
+        }
+        .padding(.leading, lead ? 12 : 0)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func lotRow(_ l: Lot, _ r: Holding) -> some View {
         let c = l.cost
         let gain = r.px.map { l.units * ($0.number - (c?.number ?? 0)) }
-        return HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text((c?.date ?? "") + (c?.label.map { " · " + $0 } ?? "")).font(.caption)
-                Text("\(masked(fmtNum(l.units, 4))) × \(masked(fmtNum(c?.number ?? 0, 4))) \(c?.currency ?? "")").font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
-            }
-            Spacer()
+        return HStack(spacing: 10) {
+            Text((c?.date ?? "") + (c?.label.map { " · " + $0 } ?? "")).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            Spacer(minLength: 4)
+            Text("\(masked(fmtNum(l.units, 4))) × \(masked(fmtNum(c?.number ?? 0, 4))) \(c?.currency ?? "")")
+                .font(.caption.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7)
             if let g = gain {
-                Text(signedMoney(g, r.q)).font(.caption.monospacedDigit()).foregroundStyle(g >= 0 ? Color.gain : Color.loss).sensitive()
+                Text(signedMoney(g, r.q)).font(.caption.monospacedDigit()).foregroundStyle(g >= 0 ? Color.gain : Color.loss)
+                    .frame(minWidth: 70, alignment: .trailing)
             }
         }
-        .padding(.leading, 14)
+        .sensitive()
     }
 
     @ViewBuilder

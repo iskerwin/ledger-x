@@ -8,6 +8,8 @@ struct AccountsView: View {
     /// account groups folded away on this page ("Assets:Bank", …)
     @AppStorage("ledger.accounts.collapsed") private var collapsedRaw = ""
     private var collapsed: Set<String> { Set(collapsedRaw.split(separator: ",").map(String.init)) }
+    /// 全部 / 资产 / 负债
+    @AppStorage("ledger.accounts.side") private var side = "all"
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -35,6 +37,7 @@ struct AccountsView: View {
             .navigationDestination(for: AccountEditDest.self) { AccountEditView(name: $0.name) }
             .navigationDestination(for: CounterpartyDest.self) { _ in CounterpartyView().privacyToolbar() }
             .navigationDestination(for: NetWorthSettingsDest.self) { _ in NetWorthSettingsView() }
+            .navigationDestination(for: ReconcileDest.self) { _ in ReconcileView().privacyToolbar() }
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .task {
@@ -192,32 +195,56 @@ struct AccountsView: View {
         }
     }
 
-    @ViewBuilder
-    private func holdingsSection(_ L: Ledger) -> some View {
+    /// 待核对 and 投资持仓 side by side (投资持仓 only with holdings)
+    private func tilesSection(_ L: Ledger) -> some View {
+        let due = reconcileDue(L)
+        let failing = Set(L.balanceResults.filter { !$0.ok }.compactMap { $0.entry.account }).count
         let hs = holdings(L)
-        if !hs.isEmpty {
-            let value = hs.reduce(0.0) { $0 + (toCNY(L, $1.value ?? $1.cost, $1.q) ?? 0) }
-            let cost = hs.reduce(0.0) { $0 + (toCNY(L, $1.cost, $1.q) ?? 0) }
-            let names = NSOrderedSet(array: hs.map { $0.c }).array.compactMap { $0 as? String }.joined(separator: LS("、"))
-            Section {
-                NavigationLink(value: HoldingsDest()) {
-                    HStack(spacing: 12) {
-                        IconBadge(symbol: "chart.line.uptrend.xyaxis", color: .purple)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(LS("投资持仓"))
-                            Text(names).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        }
-                        Spacer()
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Amount(n: value, c: L.base)
-                            Text(signedMoney(value - cost, L.base) + (cost > 0 ? String(format: LS("（%@%.1f%%）"), value >= cost ? "+" : "", (value - cost) / cost * 100) : ""))
-                                .font(.caption.monospacedDigit())
-                                .foregroundStyle(value >= cost ? Color.gain : Color.loss).sensitive()
-                        }
+        return Section {
+            HStack(spacing: 10) {
+                NavigationLink(value: ReconcileDest()) {
+                    tile(icon: "doc.text.magnifyingglass", color: .orange, title: LS("待核对"),
+                         line: due.isEmpty ? (failing > 0 ? LS("%@ 个断言不符", failing) : LS("都已核对")) : LS("%@ 个账户", due.count),
+                         sub: nil, subColor: .secondary, dot: !due.isEmpty || failing > 0)
+                }
+                .buttonStyle(.plain)
+                if !hs.isEmpty {
+                    let value = hs.reduce(0.0) { $0 + (toCNY(L, $1.value ?? $1.cost, $1.q) ?? 0) }
+                    let cost = hs.reduce(0.0) { $0 + (toCNY(L, $1.cost, $1.q) ?? 0) }
+                    NavigationLink(value: HoldingsDest()) {
+                        tile(icon: "chart.line.uptrend.xyaxis", color: .jade, title: LS("投资持仓"), line: masked(money(value, L.base)),
+                             sub: cost > 0 ? String(format: "%@%.1f%%", value >= cost ? "+" : "", (value - cost) / cost * 100) : nil,
+                             subColor: value >= cost ? Color.gain : Color.loss, dot: false)
                     }
+                    .buttonStyle(.plain)
                 }
             }
+            .cardRow()
         }
+    }
+
+    private func tile(icon: String, color: Color, title: String, line: String, sub: String?, subColor: Color, dot: Bool) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(color)
+                .frame(width: 40, height: 40)
+                .background(color.opacity(0.13), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                Text(line).font(.caption.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
+                if let s = sub { Text(s).font(.caption.monospacedDigit()).foregroundStyle(subColor) }
+            }
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(alignment: .topTrailing) {
+            if dot { Circle().fill(Color.orange).frame(width: 8, height: 8).padding(10) }
+        }
+        .contentShape(Rectangle())
     }
 
     private func list(_ L: Ledger) -> some View {
@@ -231,12 +258,21 @@ struct AccountsView: View {
         return List {
             if !store.cview.isDefault { Section { CurrencyBanner() } }
             heroSection(L, assets: assets, liab: liab)
+            tilesSection(L)
             Section {
                 NavigationLink(value: CounterpartyDest()) { Label(LS("往来"), systemImage: "person.2") }
             }
-            holdingsSection(L)
-            ForEach(ag, id: \.0) { g in groupSection(L, "Assets", g.0, g.1) }
-            ForEach(lg, id: \.0) { g in groupSection(L, "Liabilities", g.0, g.1) }
+            Section {
+                Picker(LS("显示"), selection: $side) {
+                    Text(LS("全部")).tag("all")
+                    Text(LS("资产")).tag("assets")
+                    Text(LS("负债")).tag("liabilities")
+                }
+                .pickerStyle(.segmented)
+                .cardRow()
+            }
+            if side != "liabilities" { ForEach(ag, id: \.0) { g in groupSection(L, "Assets", g.0, g.1) } }
+            if side != "assets" { ForEach(lg, id: \.0) { g in groupSection(L, "Liabilities", g.0, g.1) } }
             ytdSection(L, String(today.prefix(4)))
         }
         .listSectionSpacing(.compact)
@@ -291,22 +327,39 @@ struct AccountRow: View {
 
     var body: some View {
         let p = account.components(separatedBy: ":")
-        let name = p.count > 2 ? p[2...].joined(separator: ":") : (p.count > 1 ? p[1] : account)
+        let leafName = p.count > 2 ? p[2...].joined(separator: ":") : (p.count > 1 ? p[1] : account)
+        let shownName = store.displayName(account).flatMap { $0.isEmpty ? nil : $0 } ?? leafName
         let k = kind ?? store.groupIcon(account)
+        let card = store.L.flatMap { L in cardCycles(L).first { $0.account == account } }
+        let owed = account.hasPrefix("Liabilities:") && balances.contains { $0.1 < -0.005 }
         HStack(spacing: 12) {
-            IconBadge(symbol: k.symbol, color: closed ? .gray : k.color)
-            VStack(alignment: .leading, spacing: 2) {
+            IconBadge(symbol: k.symbol, color: closed ? .gray : k.color, size: 36)
+            VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    Text(name).foregroundStyle(closed ? Color.secondary : Color.primary).lineLimit(1)
+                    Text(shownName).foregroundStyle(closed ? Color.secondary : Color.primary).lineLimit(1)
                     if failing { Tag(text: LS("断言不符"), warn: true) }
                     if closed { Tag(text: LS("已关闭")) }
                     if isExcluded(account, store.netWorthExclude) { Tag(text: LS("不计入净资产")) }
                 }
-                Text(balances.count > 1 ? balances.map { $0.0 }.joined(separator: " · ") : (store.displayName(account) ?? account))
-                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                HStack(spacing: 6) {
+                    if let c = card, owed, c.statementAmount - c.paid > 0.005 {
+                        let days = daysBetween(Day.today(), c.due)
+                        Text(LS("%@还款", monthDay(c.due))).lineLimit(1)
+                        if days >= 0 && days <= 7 {
+                            Text(days == 0 ? LS("今天") : LS("%@天后", days))
+                                .font(.caption2.weight(.semibold)).foregroundStyle(Color.orange)
+                                .padding(.horizontal, 5).padding(.vertical, 1)
+                                .background(Color.orange.opacity(0.15), in: RoundedRectangle(cornerRadius: 4))
+                        }
+                    } else {
+                        Text(subtitle(leafName)).lineLimit(1)
+                    }
+                }
+                .font(.caption).foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 2) {
+                if owed { Text(LS("待还")).font(.caption2).foregroundStyle(.secondary) }
                 if balances.isEmpty { Text("0.00").foregroundStyle(.secondary).monospacedDigit() }
                 let base = store.L?.base ?? "CNY"
                 let valued = shown?.byCurrency(base: base) ?? []
@@ -327,6 +380,27 @@ struct AccountRow: View {
             }
         }
         .padding(.vertical, 1)
+    }
+
+    /// under the name: the currencies held, else the card's last digits, else when it was last checked, else its name
+    private func subtitle(_ leafName: String) -> String {
+        if balances.count > 1 { return balances.map { $0.0 }.joined(separator: " · ") }
+        if let tail = store.repoConfig?.scanCards?.first(where: { $0.value == account && $0.key.count == 4 && $0.key.allSatisfy(\.isNumber) })?.key {
+            return LS("尾号 %@", tail)
+        }
+        if let L = store.L, let last = L.balanceResults.filter({ $0.ok && $0.entry.account == account }).map({ $0.entry.date }).max() {
+            // an assertion checks the start of its day: it was checked the day before
+            let ago = daysBetween(last, Day.today()) + 1
+            if ago >= 0 && ago <= 30 {
+                return ago == 0 ? LS("今天已核对") : ago == 1 ? LS("昨天已核对") : LS("%@ 天前已核对", ago)
+            }
+        }
+        return store.displayName(account) != nil ? leafName : account
+    }
+
+    /// "10月20日"
+    private func monthDay(_ d: String) -> String {
+        LS("%@月%@日", String(Int(d.dropFirst(5).prefix(2)) ?? 0), String(Int(d.suffix(2)) ?? 0))
     }
 }
 
