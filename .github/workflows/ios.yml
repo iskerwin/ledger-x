@@ -258,6 +258,7 @@ jobs:
           shot 02i-add-subcat SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_SUBCAT=1
           shot 02l-add-allcats SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_ALLCATS=1
           shot 02m-add-allcats-search SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_ALLCATS=1 SIMCTL_CHILD_LEDGER_CAT_QUERY=Food
+          shot 02o-allcats-long SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_ALLCATS=1 SIMCTL_CHILD_LEDGER_EXTRA="$GITHUB_WORKSPACE/LedgerKit/Tests/LedgerKitTests/Fixtures/import/longcats.bean"
           shot 02n-add-longcats SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_EXTRA="$GITHUB_WORKSPACE/LedgerKit/Tests/LedgerKitTests/Fixtures/import/longcats.bean"
           shot 02d-add-income SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_KIND=income
           shot 03-transfer SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_KIND=transfer
@@ -373,6 +374,7 @@ jobs:
             shot 70-se-add SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1
             shot 70-se-add SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1
             limit 20 xcrun simctl ui "$UDID" content_size extra-extra-large || true
+            shot 71-se-add-xxl SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1
             shot 71-se-add-xxl SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1
             limit 20 xcrun simctl ui "$UDID" content_size large || true
             shot 72-se-allcats SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_ALLCATS=1
