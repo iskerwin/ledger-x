@@ -163,6 +163,8 @@ final class Store: ObservableObject {
         op.label = LS("更新仓库结构（%@）", LedgerXConfig.path)
         return await commit([op], word: LS("已保存到 %@", LedgerXConfig.path), checked: true)
     }
+    /// the ledger-x.json change in progress: the next one waits for it (see updateConfig)
+    var configUpdate: Task<Bool, Never>?
     /// the push in progress, for others to wait on
     private var pushTask: Task<Void, Error>?
     /// bumped by every rebuild; a rebuild that finishes after a newer one started is dropped
@@ -922,14 +924,10 @@ final class Store: ObservableObject {
 
     /// checked: nothing wrong
     func confirmAlert(_ id: String) {
-        var s = confirmedAlertIDs
-        s.insert(id)
         // only the ones that can still come up are worth keeping
         let live = Set(anomalyCache?.list.map { $0.id } ?? [])
-        if s.count > 500 { s = s.filter { live.contains($0) } }
-        let keep = s
         alertsVersion += 1
-        Task { await updateConfig(LS("核对无误：%@ 项", keep.count)) { $0.alertsConfirmed = Array(keep) } }
+        Task { await updateConfig(LS("核对无误")) { $0.confirmAlert(id, live: live) } }
     }
 
     /// alerts shown in the app aren't sent as a notification any more
@@ -945,11 +943,8 @@ final class Store: ObservableObject {
 
     /// back on the list to check
     func unconfirmAlert(_ id: String) {
-        var s = confirmedAlertIDs
-        s.remove(id)
-        let keep = s
         alertsVersion += 1
-        Task { await updateConfig(LS("放回待核对")) { $0.alertsConfirmed = Array(keep) } }
+        Task { await updateConfig(LS("放回待核对")) { $0.unconfirmAlert(id) } }
     }
 
     /// the tags a new entry dated `date` gets on its own

@@ -819,14 +819,13 @@ struct TemplateManager: View {
                             }
                             Spacer()
                             Button(x.pinned ? LS("已置顶") : LS("置顶")) {
-                                if x.pinned { store.tplPinned.removeAll { $0 == x.id } } else { store.tplPinned.append(x.id) }
+                                store.pinTemplate(x.id, !x.pinned)
                             }
                             .buttonStyle(.bordered).tint(x.pinned ? .jade : .gray).controlSize(.small)
                         }
                         .swipeActions {
                             Button(LS("隐藏"), role: .destructive) {
-                                store.tplHidden.append(x.id)
-                                store.tplPinned.removeAll { $0 == x.id }
+                                store.hideTemplate(x.id)
                             }
                         }
                     }
@@ -834,7 +833,7 @@ struct TemplateManager: View {
                     Text(LS("近 120 天内出现 3 次及以上的交易将自动列入；置顶项优先显示，左滑可隐藏。"))
                 }
                 if !store.tplHidden.isEmpty {
-                    Button(LS("恢复 %@ 项已隐藏", store.tplHidden.count)) { store.tplHidden = [] }
+                    Button(LS("恢复 %@ 项已隐藏", store.tplHidden.count)) { store.unhideAllTemplates() }
                 }
             }
             .navigationTitle(LS("常用交易"))

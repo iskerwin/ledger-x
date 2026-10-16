@@ -14,9 +14,22 @@ extension Store {
     var settingsMigrated: Bool { Prefs.get(pk("config.migrated"), false) }
 
     /// Change ledger-x.json (one commit). Nothing is written when the change makes no difference.
+    /// Changes go one after another, each applied to the file as it is then — with the changes before it, pushed
+    /// or not — so two in a row both stay (the second is not worked out from settings the first hasn't reached yet).
     @discardableResult
-    func updateConfig(_ label: String, word: String? = nil, _ change: (inout LedgerXConfig) -> Void) async -> Bool {
-        let before = effectiveConfig
+    func updateConfig(_ label: String, word: String? = nil, _ change: @escaping (inout LedgerXConfig) -> Void) async -> Bool {
+        let before = configUpdate
+        let t = Task { @MainActor () -> Bool in
+            _ = await before?.value
+            return await self.updateConfigNow(label, word: word, change)
+        }
+        configUpdate = t
+        return await t.value
+    }
+
+    private func updateConfigNow(_ label: String, word: String?, _ change: (inout LedgerXConfig) -> Void) async -> Bool {
+        // the file with what is queued for it; the settings worked out from the phone when there is none yet
+        let before = (try? await fileText(LedgerXConfig.path)).flatMap(LedgerXConfig.parse) ?? effectiveConfig
         var c = before
         change(&c)
         guard c != before || repoConfig == nil else { return true }
@@ -41,14 +54,19 @@ extension Store {
 
     // MARK: 常用交易
 
-    var tplPinned: [String] {
-        get { repoConfig?.templatesPinned ?? (settingsMigrated ? [] : localTplPinned) }
-        set { let v = newValue; Task { await updateConfig(LS("常用交易置顶"), word: LS("已更新常用交易")) { $0.templatesPinned = v } } }
+    var tplPinned: [String] { repoConfig?.templatesPinned ?? (settingsMigrated ? [] : localTplPinned) }
+    var tplHidden: [String] { repoConfig?.templatesHidden ?? (settingsMigrated ? [] : localTplHidden) }
+
+    func pinTemplate(_ id: String, _ on: Bool) {
+        Task { await updateConfig(on ? LS("常用交易置顶") : LS("常用交易取消置顶"), word: LS("已更新常用交易")) { on ? $0.pinTemplate(id) : $0.unpinTemplate(id) } }
     }
 
-    var tplHidden: [String] {
-        get { repoConfig?.templatesHidden ?? (settingsMigrated ? [] : localTplHidden) }
-        set { let v = newValue; Task { await updateConfig(LS("常用交易隐藏"), word: LS("已更新常用交易")) { $0.templatesHidden = v } } }
+    func hideTemplate(_ id: String) {
+        Task { await updateConfig(LS("常用交易隐藏"), word: LS("已更新常用交易")) { $0.hideTemplate(id) } }
+    }
+
+    func unhideAllTemplates() {
+        Task { await updateConfig(LS("恢复隐藏的常用交易"), word: LS("已更新常用交易")) { $0.unhideAllTemplates() } }
     }
 
     // MARK: 值得留意
@@ -62,8 +80,12 @@ extension Store {
         repoConfig?.linksIgnored ?? (settingsMigrated ? [] : Prefs.get(pk("link.ignored"), [String]()))
     }
 
-    func setIgnoredLinks(_ l: [String], label: String) async {
-        await updateConfig(label) { $0.linksIgnored = l }
+    func ignoreLink(_ key: String, label: String) async {
+        await updateConfig(label) { $0.ignoreLink(key) }
+    }
+
+    func clearIgnoredLinks(label: String) async {
+        await updateConfig(label) { $0.clearIgnoredLinks() }
     }
 
     /// subscription suggestions set aside
@@ -71,8 +93,8 @@ extension Store {
         repoConfig?.subsIgnored ?? (settingsMigrated ? [] : Prefs.get(pk("sub.ignored"), [String]()))
     }
 
-    func setIgnoredSubs(_ l: [String], label: String) async {
-        await updateConfig(label) { $0.subsIgnored = l }
+    func ignoreSubSuggestion(_ id: String, label: String) async {
+        await updateConfig(label) { $0.ignoreSubSuggestion(id) }
     }
 
     // MARK: the one-time move
@@ -116,7 +138,15 @@ extension Store {
     /// searches saved for 明细, in order
     var quickSearches: [QuickSearch] { repoConfig?.searches ?? [] }
 
-    func setQuickSearches(_ l: [QuickSearch], label: String) async {
-        await updateConfig(label, word: LS("已更新快速搜索")) { $0.searches = l }
+    func saveQuickSearch(_ s: QuickSearch, replacing original: QuickSearch?, label: String) async {
+        await updateConfig(label, word: LS("已更新快速搜索")) { $0.saveSearch(s, replacing: original) }
+    }
+
+    func removeQuickSearch(_ s: QuickSearch) async {
+        await updateConfig(LS("删除快速搜索：%@", s.name), word: LS("已更新快速搜索")) { $0.removeSearch(s) }
+    }
+
+    func moveQuickSearch(_ s: QuickSearch, by d: Int) async {
+        await updateConfig(LS("调整快速搜索顺序"), word: LS("已更新快速搜索")) { $0.moveSearch(s, by: d) }
     }
 }

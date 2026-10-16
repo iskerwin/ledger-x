@@ -52,17 +52,15 @@ struct QuickSearchBar: View {
     }
 
     private func move(_ i: Int, _ d: Int) {
-        var l = store.quickSearches
+        let l = store.quickSearches
         guard l.indices.contains(i), l.indices.contains(i + d) else { return }
-        l.swapAt(i, i + d)
-        Task { await store.setQuickSearches(l, label: LS("调整快速搜索顺序")) }
+        Task { await store.moveQuickSearch(l[i], by: d) }
     }
 
     private func remove(_ i: Int) {
-        var l = store.quickSearches
+        let l = store.quickSearches
         guard l.indices.contains(i) else { return }
-        let s = l.remove(at: i)
-        Task { await store.setQuickSearches(l, label: LS("删除快速搜索：%@", s.name)) }
+        Task { await store.removeQuickSearch(l[i]) }
     }
 }
 
@@ -107,11 +105,11 @@ struct QuickSearchSheet: View {
     }
 
     private func save() {
-        var l = store.quickSearches
+        let l = store.quickSearches
         let s = QuickSearch(name: edit.name.trimmed, query: edit.query.trimmed)
-        if let i = edit.index, l.indices.contains(i) { l[i] = s } else { l.append(s) }
-        let label = edit.index == nil ? LS("新增快速搜索：%@", s.name) : LS("修改快速搜索：%@", s.name)
+        let original = edit.index.flatMap { l.indices.contains($0) ? l[$0] : nil }
+        let label = original == nil ? LS("新增快速搜索：%@", s.name) : LS("修改快速搜索：%@", s.name)
         dismiss()
-        Task { await store.setQuickSearches(l, label: label) }
+        Task { await store.saveQuickSearch(s, replacing: original, label: label) }
     }
 }

@@ -312,8 +312,10 @@ extension Store {
         // a screenshot's card saved with an account it wasn't known by: remembered in ledger-x.json (all devices),
         // in the same commit as the entry
         var word = LS("已入账")
-        if let (key, account) = scanCardToRemember(d, cards: effectiveConfig.scanCards ?? [:]) {
-            var c = effectiveConfig
+        // (the settings as they are in the file now, with what is queued for it)
+        let current = (try? await fileText(LedgerXConfig.path)).flatMap(LedgerXConfig.parse) ?? effectiveConfig
+        if let (key, account) = scanCardToRemember(d, cards: current.scanCards ?? [:]) {
+            var c = current
             var m = c.scanCards ?? [:]
             m[key] = account
             c.scanCards = m

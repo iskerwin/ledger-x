@@ -55,10 +55,7 @@ extension Store {
     static var candCache: (Int, [SubCandidate])?
 
     func ignoreCandidate(_ c: SubCandidate) {
-        var x = ignoredSubIDs
-        x.append(c.id)
-        let l = x
-        Task { await setIgnoredSubs(l, label: LS("不再提示订阅：%@", c.payee)) }
+        Task { await ignoreSubSuggestion(c.id, label: LS("不再提示订阅：%@", c.payee)) }
     }
 
     /// 记一笔 for a subscription: the 记一笔 card filled in from it (payee, category, paying account, amount, its

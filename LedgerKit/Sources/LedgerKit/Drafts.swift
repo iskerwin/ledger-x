@@ -195,6 +195,12 @@ public func discountAllowed(_ d: Draft) -> Bool { d.kind == .expense && !d.reimb
 /// The paying side of an expense with 组合付款 or 优惠: the main account (what is left), the other accounts' parts,
 /// then the discount. nil when something doesn't add up, or an account is in another currency.
 /// the currency an account is used in: what it has been used with, else the one its open line allows (when just one)
+/// the account has held `c` before, or its open line allows it (a multi-currency account, say)
+public func accountTakes(_ a: String, _ c: String, _ L: Ledger) -> Bool {
+    if L.accounts[a]?.currencies.contains(c) == true { return true }
+    return L.final[a]?[c] != nil
+}
+
 public func accountCurrency(_ a: String, _ L: Ledger, _ D: Derived) -> String? {
     D.acctCcy[a] ?? L.accounts[a].flatMap { $0.currencies.count == 1 ? $0.currencies[0] : nil }
 }
@@ -390,6 +396,8 @@ func draftTx0(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
                 toP.priceTotal = amt; toP.priceCcy = fc
                 tx.postings = [TxPosting(account: d.funding, amount: -amt, currency: fc), toP]
             } else {
+                // no amount received in the other currency: only into an account that holds this one too
+                if tc != fc && !accountTakes(d.to, fc, L) { return nil }
                 tx.postings = [TxPosting(account: d.funding, amount: -amt, currency: fc), TxPosting(account: d.to, amount: amt, currency: fc)]
             }
         }
@@ -408,6 +416,8 @@ func draftTx0(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
     if d.kind == .expense && !d.reimb && d.split && !d.shares.isEmpty {
         // AA: your part to the category, theirs to their receivables; paying in another currency isn't supported
         guard fc == d.currency || (evalAmount(d.paid) == nil && !(d.byRate && evalAmount(d.rate) != nil)) else { return nil }
+        // the bill's amount is paid as it is: the account must hold the bill's currency
+        if fc != d.currency && !accountTakes(d.funding, d.currency, L) { return nil }
         var theirs: [TxPosting] = []
         var sum = 0.0
         for x in d.shares {
@@ -446,6 +456,9 @@ func draftTx0(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
         cat.suffix = back != rounded(decimalOf(paid), 2) ? "@@ \(moneyText(paid, 2)) \(fc)" : "@ \(unit) \(fc)"
         tx.postings = [cat, TxPosting(account: d.funding, amount: -sgn * paid, currency: fc)]
     } else {
+        // no rate and no amount charged: only for an account that holds the bill's currency too, else the bill's
+        // amount would land in it as a second currency (draftMissing says what to fill in)
+        if fc != d.currency && !accountTakes(d.funding, d.currency, L) { return nil }
         tx.postings = [cat, TxPosting(account: d.funding, amount: -sgn * amt, currency: d.currency)]
     }
     let who = d.person.trimmingCharacters(in: .whitespaces)
@@ -476,6 +489,10 @@ public func draftMissing(_ d: Draft, _ L: Ledger, _ D: Derived) -> String? {
     if d.kind == .transfer {
         if d.funding.isEmpty { return tr("请选择转出账户", "Choose the account to transfer from") }
         if d.to.isEmpty { return tr("请选择转入账户", "Choose the account to transfer to") }
+        let fc = d.currency, tc = accountCurrency(d.to, L, D) ?? fc
+        if tc != fc && (evalAmount(d.toAmount) ?? 0) <= 0 && !accountTakes(d.to, fc, L) {
+            return tr("转入账户是 \(tc)，请填写入账金额", "The receiving account is in \(tc): fill in the amount received")
+        }
         return nil
     }
     if d.account.isEmpty {
@@ -490,7 +507,8 @@ public func draftMissing(_ d: Draft, _ L: Ledger, _ D: Derived) -> String? {
     }
     let fc = accountCurrency(d.funding, L, D) ?? d.currency
     if d.kind == .expense && !d.reimb && d.split && !d.shares.isEmpty {
-        if !(fc == d.currency || (evalAmount(d.paid) == nil && !(d.byRate && evalAmount(d.rate) != nil))) {
+        if !(fc == d.currency || (evalAmount(d.paid) == nil && !(d.byRate && evalAmount(d.rate) != nil)))
+            || (fc != d.currency && !accountTakes(d.funding, d.currency, L)) {
             return tr("AA 分摊暂不支持用另一种货币付款", "Splitting isn't supported when paying in another currency")
         }
         var sum = 0.0
@@ -519,6 +537,13 @@ public func draftMissing(_ d: Draft, _ L: Ledger, _ D: Derived) -> String? {
         }
         if fc != d.currency { return tr("组合付款时，付款账户要与账单同一币种", "With a combined payment the paying account must be in the bill's currency") }
         if payingPostings(d, total: amt, L, D) == nil { return tr("组合付款的金额加起来超过了总额", "The combined payment adds up to more than the total") }
+        return nil
+    }
+    // an account in another currency needs the rate or the amount charged, unless it holds the bill's currency too
+    if fc != d.currency && draftRate(d) == nil && !accountTakes(d.funding, d.currency, L) {
+        return d.kind == .income
+            ? tr("收款账户是 \(fc)，请填写汇率或入账金额", "The receiving account is in \(fc): fill in the rate or the amount received")
+            : tr("付款账户是 \(fc)，请填写汇率或扣款金额", "The paying account is in \(fc): fill in the rate or the amount charged")
     }
     return nil
 }

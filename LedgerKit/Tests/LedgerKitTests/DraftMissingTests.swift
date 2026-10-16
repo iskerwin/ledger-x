@@ -52,6 +52,33 @@ final class DraftMissingTests: XCTestCase {
         XCTAssertEqual(missing(d), tr("优惠金额要小于总额", "The discount must be less than the total"))
     }
 
+    func testAccountInAnotherCurrencyNeedsTheRate() {
+        // BOCHK holds HKD only: a CNY bill paid from it needs the rate or the amount charged
+        XCTAssertNil(L.final["Assets:Bank:BOCHK"]?["CNY"])
+        var d = Draft(); d.currency = "CNY"
+        d.kind = .expense; d.amount = "100"; d.account = "Expenses:Food:Drinks"; d.funding = "Assets:Bank:BOCHK"
+        XCTAssertEqual(missing(d), tr("付款账户是 HKD，请填写汇率或扣款金额", "The paying account is in HKD: fill in the rate or the amount charged"))
+        XCTAssertTrue(draftText(d, L, D).isEmpty, "not written as CNY into an HKD account")
+        d.byRate = true; d.rate = "1.08"
+        XCTAssertNil(missing(d))
+        XCTAssertTrue(draftText(d, L, D).contains("100.00 CNY @ 1.08 HKD"))
+        d.byRate = false; d.rate = ""; d.paid = "108.50"
+        XCTAssertNil(missing(d))
+        XCTAssertTrue(draftText(d, L, D).contains("-108.50 HKD"))
+        // income into it likewise
+        var i = Draft(); i.currency = "CNY"
+        i.kind = .income; i.amount = "100"; i.account = "Income:Salary:Work"; i.funding = "Assets:Bank:BOCHK"
+        XCTAssertEqual(missing(i), tr("收款账户是 HKD，请填写汇率或入账金额", "The receiving account is in HKD: fill in the rate or the amount received"))
+        // a transfer into it needs the amount received
+        var t = Draft(); t.currency = "CNY"
+        t.kind = .transfer; t.amount = "100"; t.funding = "Assets:Bank:CGB"; t.to = "Assets:Bank:BOCHK"
+        XCTAssertEqual(missing(t), tr("转入账户是 HKD，请填写入账金额", "The receiving account is in HKD: fill in the amount received"))
+        XCTAssertTrue(draftText(t, L, D).isEmpty)
+        t.toAmount = "108"
+        XCTAssertNil(missing(t))
+        XCTAssertFalse(draftText(t, L, D).isEmpty)
+    }
+
     func testEveryIncompleteFormSaysSomething() {
         // whatever is left out, the text being empty and a message being there go together
         let kinds: [DraftKind] = [.expense, .income, .refund, .transfer]

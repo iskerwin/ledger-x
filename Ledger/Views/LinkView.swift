@@ -25,14 +25,11 @@ extension Store {
     func linkProblems(for t: Entry) -> [LinkIssue] { linkProblems.filter { $0.txn === t } }
 
     func ignoreLinkIssue(_ i: LinkIssue) {
-        var x = ignoredLinkIDs
-        x.append(i.key)
-        let l = x
-        Task { await setIgnoredLinks(l, label: LS("忽略链接问题")) }
+        Task { await ignoreLink(i.key, label: LS("忽略链接问题")) }
     }
 
     func clearIgnoredLinkIssues() {
-        Task { await setIgnoredLinks([], label: LS("恢复已忽略的链接问题")) }
+        Task { await clearIgnoredLinks(label: LS("恢复已忽略的链接问题")) }
     }
 
     /// add or remove `^link` on a transaction
