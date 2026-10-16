@@ -109,11 +109,12 @@ extension Store {
 
     /// the entry `old` (at `path`) replaced by `newText`: in place when the date and file stay, else moved to
     /// the end of its new day; links paired with it follow
-    func replaceOps(old: String, path: String, date: String, summary: String, newText: String) async -> [Op]? {
+    /// (`transaction`: the text must be one transaction; false for another directive, a note say)
+    func replaceOps(old: String, path: String, date: String, summary: String, newText: String, transaction: Bool = true) async -> [Op]? {
         var rm = Op(kind: .remove, path: path)
         rm.old = old
         rm.label = LS("修改：%@ %@", date, summary)
-        guard var ins = makeOps(newText, extra: OpExtra(silent: true), single: true) else { return nil }
+        guard var ins = makeOps(newText, extra: OpExtra(silent: true), single: transaction) else { return nil }
         var first = [rm]
         if ins.count == 1, ins[0].kind == .insert, ins[0].path == path, ins[0].date == date {
             var op = Op(kind: .replace, path: path)

@@ -1,0 +1,11 @@
+; screenshots of 0.1.1: plugins, notes and Beancount's own events, on top of the realistic sample
+plugin "beancount.plugins.check_commodity"
+plugin "beancount.plugins.auto_accounts"
+
+2026-03-12 note Assets:Bank:CGB "致电银行：网银转账限额调到每日 5 万"
+2026-09-20 note Assets:Bank:CGB "开通了账户变动短信提醒"
+2026-10-02 note Assets:Bank:CGB "银行卡有效期到 2031-09，换卡后尾号不变"
+
+2023-07-01 event "location" "深圳"
+2025-03-01 event "location" "广州"
+2023-07-01 event "employer" "星河科技"

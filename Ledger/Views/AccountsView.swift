@@ -340,8 +340,9 @@ struct RegisterView: View {
     @State private var opened: [String: Bool] = [:]
     @State private var reimb: ReimbTarget?
     @State private var deleting: Entry?
+    @State private var noting: NoteEdit?
 
-    enum Item { case txn(Entry, String), balance(BalanceResult), document(Entry) }
+    enum Item { case txn(Entry, String), balance(BalanceResult), document(Entry), note(Entry) }
 
     var body: some View {
         Group {
@@ -350,7 +351,14 @@ struct RegisterView: View {
         .navigationTitle(acctLabel(account).isEmpty ? account : acctLabel(account))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $checking) { p in CheckSheet(account: account, preset: p) }
+        .sheet(item: $noting) { NoteSheet(account: account, note: $0.note) }
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button { noting = NoteEdit(note: nil) } label: { Label(LS("添加备注"), systemImage: "text.bubble") }
+                } label: { Image(systemName: "ellipsis.circle") }
+                .accessibilityLabel(LS("更多"))
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink(value: AccountEditDest(name: account)) { Image(systemName: "pencil.circle") }
                     .accessibilityLabel(LS("编辑账户"))
@@ -424,6 +432,7 @@ struct RegisterView: View {
             case .txn(let t, _): date = t.date
             case .balance(let r): date = r.entry.date
             case .document(let e): date = e.date
+            case .note(let e): date = e.date
             }
             let ym = Day.ym(date)
             var m = by[ym] ?? Month(ym: ym)
@@ -571,12 +580,23 @@ struct RegisterView: View {
                     Button(role: .destructive) { deleting = r.entry } label: { Label(LS("删除断言"), systemImage: "trash") }
                 }
             }
+        case .note(let n):
+            Button { noting = NoteEdit(note: n) } label: { NoteRow(note: n, account: account) }
+                .buttonStyle(.plain)
+                .swipeActions(edge: .trailing) {
+                    Button(role: .destructive) { Task { _ = await store.deleteDirective(n, summary: LS("备注")) } } label: { Label(LS("删除"), systemImage: "trash") }
+                    Button { noting = NoteEdit(note: n) } label: { Label(LS("编辑"), systemImage: "pencil") }.tint(.orange)
+                }
+                .contextMenu {
+                    Button { noting = NoteEdit(note: n) } label: { Label(LS("编辑备注"), systemImage: "pencil") }
+                    Button(role: .destructive) { Task { _ = await store.deleteDirective(n, summary: LS("备注")) } } label: { Label(LS("删除备注"), systemImage: "trash") }
+                }
         case .document(let d):
             HStack {
                 Image(systemName: "doc.text")
                 Text(d.date + LS(" 对账单"))
                 Spacer()
-                if let p = d.path, let u = docURL(p) {
+                if let p = d.path, let u = docURL(d) {
                     Link((p as NSString).lastPathComponent, destination: u).font(.caption)
                 } else {
                     Text(((d.path ?? "") as NSString).lastPathComponent).font(.caption).foregroundStyle(.secondary)
@@ -586,9 +606,8 @@ struct RegisterView: View {
         }
     }
 
-    private func docURL(_ p: String) -> URL? {
-        guard let r = p.range(of: "/documents/") else { return nil }
-        return store.githubURL(String(p[p.index(after: r.lowerBound)...]))
+    private func docURL(_ d: Entry) -> URL? {
+        documentRepoPath(d).flatMap { store.githubURL($0) }
     }
 
     private func build(_ L: Ledger) -> ([Item], [(String, Double)]) {
@@ -608,6 +627,8 @@ struct RegisterView: View {
                 if let a = e.account, a == account || a.hasPrefix(pre), let r = L.balanceResults.first(where: { $0.entry === e }) { items.append(.balance(r)) }
             case .document:
                 if e.account == account { items.append(.document(e)) }
+            case .note:
+                if let a = e.account, a == account || a.hasPrefix(pre) { items.append(.note(e)) }
             default: break
             }
         }

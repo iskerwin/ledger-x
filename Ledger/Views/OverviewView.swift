@@ -763,6 +763,46 @@ struct CIRow: View {
     }
 }
 
+/// the plugins main.bean declares: those the app runs, and those it doesn't (bean-check on a computer may differ)
+struct PluginsSection: View {
+    let L: Ledger
+    var body: some View {
+        let skipped = unexecutedPlugins(L)
+        let run = BuiltinPlugin.allCases.filter { p in L.plugins.contains { $0.0 == p.rawValue } }
+        Section {
+            ForEach(run, id: \.self) { p in
+                LabeledContent { Text(LS("App 执行")).foregroundStyle(Color.gain) } label: { Text(pluginShortName(p.rawValue)).font(.subheadline.monospaced()) }
+            }
+            ForEach(skipped, id: \.self) { n in
+                LabeledContent { Text(LS("App 不执行")).foregroundStyle(Color.warn) } label: { Text(pluginShortName(n)).font(.subheadline.monospaced()) }
+            }
+        } header: {
+            Text(LS("插件"))
+        } footer: {
+            if !skipped.isEmpty { Text(LS("App 不执行的插件：它们在电脑上 bean-check 报告的问题、生成的内容不会出现在这里，结果可能与电脑上不同。")) }
+        }
+    }
+}
+
+func pluginShortName(_ n: String) -> String {
+    n.hasPrefix("beancount.plugins.") ? String(n.dropFirst("beancount.plugins.".count)) : n
+}
+
+/// one tap to put an error right
+struct FixButton: View {
+    @EnvironmentObject var store: Store
+    let fix: LedgerFix
+    /// the day of the entry the error is on
+    let at: String?
+    var body: some View {
+        switch fix {
+        case .declareCommodity(let c):
+            Button(LS("补上声明")) { Task { await store.declareCommodity(c, firstUsed: at) } }
+                .buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)
+        }
+    }
+}
+
 /// 账本检查: Beancount errors, link problems and bean-check in one place, each opening what needs fixing
 struct ErrorsView: View {
     @EnvironmentObject var store: Store
@@ -777,15 +817,23 @@ struct ErrorsView: View {
                 } footer: {
                     Text(LS("%@ 个文件 · %@ 笔交易", L.files.count, L.txns.count))
                 }
+                if !L.plugins.isEmpty { PluginsSection(L: L) }
                 if !L.errors.isEmpty {
                     Section(LS("账本错误 · %@", L.errors.count)) {
                         ForEach(Array(L.errors.enumerated()), id: \.offset) { _, e in
                             let t = e.file.flatMap { f in L.txns.first { $0.file == f && $0.line == e.line && !$0.synthetic } }
                             let row = VStack(alignment: .leading, spacing: 3) {
                                 Text(e.msg).font(.subheadline)
-                                if let f = e.file { Text("\(f)\(e.line.map { ":\($0)" } ?? "")").font(.caption.monospaced()).foregroundStyle(.secondary) }
+                                if let f = e.file, (e.line ?? 0) > 0 { Text("\(f):\(e.line!)").font(.caption.monospaced()).foregroundStyle(.secondary) }
+                                else if let f = e.file { Text(f).font(.caption.monospaced()).foregroundStyle(.secondary) }
                             }
-                            if let t = t { NavigationLink(value: TxDest(t)) { row } } else { row }
+                            if let fix = e.fix {
+                                HStack(alignment: .center) {
+                                    row
+                                    Spacer(minLength: 8)
+                                    FixButton(fix: fix, at: e.entry?.date)
+                                }
+                            } else if let t = t { NavigationLink(value: TxDest(t)) { row } } else { row }
                         }
                     }
                 }

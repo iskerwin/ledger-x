@@ -14,6 +14,7 @@ struct EventEdit: Identifiable {
 struct EventsView: View {
     @EnvironmentObject var store: Store
     @State private var editing: EventEdit?
+    @State private var changing: LifeEventChange?
     @AppStorage(Store.autoEventsKey) private var auto = true
 
     var body: some View {
@@ -31,6 +32,7 @@ struct EventsView: View {
                 }
                 if !on.isEmpty { Section(LS("进行中")) { ForEach(on) { row($0, L) } } }
                 if !past.isEmpty { Section(LS("已结束")) { ForEach(past) { row($0, L) } } }
+                LifeEventsSections(changing: $changing)
                 Section {
                     Toggle(LS("进行中的事件自动加到新记录"), isOn: $auto).tint(.jade)
                 } footer: {
@@ -46,6 +48,7 @@ struct EventsView: View {
             }
         }
         .sheet(item: $editing) { EventSheet(event: $0.event) }
+        .sheet(item: $changing) { LifeEventSheet(type: $0.type) }
     }
 
     private func row(_ e: LedgerEvent, _ L: Ledger) -> some View {
@@ -530,5 +533,50 @@ struct AlertsView: View {
         .navigationTitle(LS("值得留意"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { store.markAlertsSeen() }
+    }
+}
+
+/// a new value to record for one of Beancount's events (nil type: choose one)
+struct LifeEventChange: Identifiable {
+    let id = UUID()
+    var type: String?
+}
+
+/// Beancount's own event directives (`event "location" "深圳"`): each type a timeline, the current value on top
+struct LifeEventsSections: View {
+    @EnvironmentObject var store: Store
+    @Binding var changing: LifeEventChange?
+    var body: some View {
+        if let L = store.L {
+            let types = lifeEvents(L)
+            ForEach(types) { t in
+                Section {
+                    ForEach(t.spans) { sp in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(sp.value).fontWeight(sp.end == nil ? .semibold : .regular)
+                                Text(sp.start + " ~ " + (sp.end ?? LS("至今"))).font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if sp.end == nil { Text(LS("当前")).font(.caption).foregroundStyle(Color.jade) }
+                        }
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) { Task { _ = await store.deleteDirective(sp.entry, summary: "event \(t.type)") } } label: { Label(LS("删除"), systemImage: "trash") }
+                        }
+                        .contextMenu {
+                            Button(role: .destructive) { Task { _ = await store.deleteDirective(sp.entry, summary: "event \(t.type)") } } label: { Label(LS("删除这一条"), systemImage: "trash") }
+                        }
+                    }
+                    Button { changing = LifeEventChange(type: t.type) } label: { Label(LS("记一条变化…"), systemImage: "plus") }
+                } header: {
+                    Text(t.type).textCase(nil)
+                }
+            }
+            Section {
+                Button { changing = LifeEventChange(type: nil) } label: { Label(types.isEmpty ? LS("记录常住地、雇主等变化…") : LS("新的类型…"), systemImage: "clock.arrow.circlepath") }
+            } footer: {
+                Text(LS("Beancount 的 event 指令记录随时间变化的情况：event \"location\" \"深圳\"。每个值从写下的日期起，到下一次变化为止。"))
+            }
+        }
     }
 }

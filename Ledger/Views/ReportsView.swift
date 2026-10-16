@@ -133,6 +133,7 @@ struct ReportsView: View {
             else if r == "budgets" { path.append(BudgetsDest()) }
             else if r == "subscriptions" { path.append(SubscriptionsDest()) }
             else if r == "forecast" { path.append(ForecastDest()) }
+            else if r == "events" { path.append(EventsDest()) }
             else if r == "reimb" { path.append(ReimbursementsDest()) }
             else if r == "reimb-batch", let b = store.L.flatMap({ reimbBatches($0).first }) { path.append(ReimbursementsDest()); path.append(ReimbBatchDest(link: b.link)) }
             else if let k = ReportKind(rawValue: r) { path.append(k) }

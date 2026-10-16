@@ -155,8 +155,8 @@ struct GuideView: View {
                "git pull before editing and git push after; pull to refresh in the app to see it."),
             tr("App 认得的写法（元数据、标签、链接）见项目里的「账本写法参考」；照着写，App 和 Fava、bean-check 都能识别。",
                "The conventions the app reads (metadata, tags, links) are in the ledger-writing reference; written that way, the app, Fava and bean-check all understand them."),
-            tr("App 不执行 plugin；include、option、plugin 只在电脑上改 main.bean。",
-               "The app doesn't run plugins; include, option and plugin are edited in main.bean on a computer."),
+            tr("App 执行 check_commodity、implicit_prices、noduplicates、leafonly 四个插件（main.bean 里声明了才执行），其他插件不执行，账本检查页会列出来；include、option、plugin 只在电脑上改 main.bean。",
+               "The app runs check_commodity, implicit_prices, noduplicates and leafonly (when main.bean declares them); other plugins aren't run and the ledger check lists them. include, option and plugin are edited in main.bean on a computer."),
         ]),
         Topic(symbol: "lock", title: tr("隐私与备份", "Privacy and backups"), points: [
             tr("导航栏的眼睛按钮隐藏所有金额；设置里可以开启面容 ID 解锁。",
