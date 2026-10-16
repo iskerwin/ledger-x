@@ -820,7 +820,8 @@ struct ErrorsView: View {
                 if !L.plugins.isEmpty { PluginsSection(L: L) }
                 if !L.errors.isEmpty {
                     Section(LS("账本错误 · %@", L.errors.count)) {
-                        ForEach(Array(L.errors.enumerated()), id: \.offset) { _, e in
+                        // those the app can put right with one tap first
+                        ForEach(Array((L.errors.filter { $0.fix != nil } + L.errors.filter { $0.fix == nil }).enumerated()), id: \.offset) { _, e in
                             let t = e.file.flatMap { f in L.txns.first { $0.file == f && $0.line == e.line && !$0.synthetic } }
                             let row = VStack(alignment: .leading, spacing: 3) {
                                 Text(e.msg).font(.subheadline)
