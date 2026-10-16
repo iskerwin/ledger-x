@@ -115,6 +115,8 @@ struct QueryEditorView: View {
             q = initial
             text = initial.text
             if initial.source == "new" { editing = true } else { run() }
+            // screenshots: the editor with its shortcut bar
+            if store.demoEnv["LEDGER_EDITING"] != nil { editing = true }
         }
     }
 

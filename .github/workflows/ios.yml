@@ -286,6 +286,7 @@ jobs:
           shot 24d-balance-cny-stack SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=balance SIMCTL_CHILD_LEDGER_SCROLL=trend
           shot 26-currency-sheet SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=balance SIMCTL_CHILD_LEDGER_CURRENCY_SHEET=1
           shot 26-query SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=b:payees
+          shot 26b-query-editing SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=b:payees SIMCTL_CHILD_LEDGER_EDITING=1
           shot 27-theme-orange SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_THEME=orange
           shot 28-theme-blue SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_THEME=blue
           shot 29-en-overview SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_LANG=en

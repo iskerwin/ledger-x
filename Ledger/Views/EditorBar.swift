@@ -5,97 +5,124 @@ import LedgerKit
 /// The bar above the keyboard in the source editor: shortcuts for what is awkward to type on a phone (dates,
 /// flags, @ @@ # ^, quotes, account names, the indent), a new transaction, laying out the entry the cursor is in,
 /// and 完成. Every edit goes through the text view, so it can be undone like typing.
-final class EditorBar: UIInputView {
+final class EditorBar: UIView {
     private weak var textView: UITextView?
     private let language: CodeLanguage
+    private static let barHeight: CGFloat = 44
+    private static let margin: CGFloat = 6
 
     init(textView: UITextView, language: CodeLanguage) {
         self.textView = textView
         self.language = language
-        super.init(frame: CGRect(x: 0, y: 0, width: 320, height: 50), inputViewStyle: .keyboard)
-        allowsSelfSizing = true
+        super.init(frame: CGRect(x: 0, y: 0, width: 320, height: Self.barHeight + 2 * Self.margin))
+        autoresizingMask = .flexibleHeight
+        backgroundColor = .clear
         build()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    override var intrinsicContentSize: CGSize { CGSize(width: UIView.noIntrinsicMetric, height: 50) }
+    override var intrinsicContentSize: CGSize { CGSize(width: UIView.noIntrinsicMetric, height: Self.barHeight + 2 * Self.margin) }
 
     // MARK: layout
+    //
+    // A rounded glass bar floating above the keyboard, like the system's own (Notes, Mail), with 完成 as a round
+    // button of its own beside it. Glass where the system has it (iOS 26), a thick blur before.
+
+    private static func glass() -> UIVisualEffectView {
+        let v: UIVisualEffectView
+        if #available(iOS 26.0, *) {
+            let g = UIGlassEffect()
+            g.isInteractive = true
+            v = UIVisualEffectView(effect: g)
+        } else {
+            v = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterial))
+            v.layer.borderWidth = 1 / UIScreen.main.scale
+            v.layer.borderColor = UIColor.separator.cgColor
+        }
+        v.layer.cornerRadius = barHeight / 2
+        v.layer.cornerCurve = .continuous
+        v.clipsToBounds = true
+        return v
+    }
 
     private func build() {
-        // a background of its own: the keyboard style's backdrop is clear above the newer keyboards, and the text
-        // behind showed through the keys
-        let back = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterial))
-        back.frame = bounds
-        back.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        addSubview(back)
-        let top = UIView()
-        top.backgroundColor = .separator
-        top.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(top)
-        NSLayoutConstraint.activate([
-            top.leadingAnchor.constraint(equalTo: leadingAnchor), top.trailingAnchor.constraint(equalTo: trailingAnchor),
-            top.topAnchor.constraint(equalTo: topAnchor), top.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale),
-        ])
+        let bar = Self.glass()
         let scroll = UIScrollView()
         scroll.showsHorizontalScrollIndicator = false
+        scroll.alwaysBounceHorizontal = true
         let stack = UIStackView()
         stack.axis = .horizontal
-        stack.spacing = 2
+        stack.spacing = 0
         stack.alignment = .center
         for item in language == .bql ? bqlItems() : beancountItems() { stack.addArrangedSubview(item) }
         scroll.addSubview(stack)
+        bar.contentView.addSubview(scroll)
 
+        let doneBack = Self.glass()
         var cfg = UIButton.Configuration.plain()
-        cfg.title = LS("完成")
+        cfg.image = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .semibold))
         cfg.baseForegroundColor = .tintColor
-        cfg.attributedTitle = AttributedString(LS("完成"), attributes: AttributeContainer([.font: UIFont.systemFont(ofSize: 16, weight: .semibold)]))
         let done = UIButton(configuration: cfg, primaryAction: UIAction { [weak self] _ in self?.textView?.resignFirstResponder() })
+        done.accessibilityLabel = LS("完成")
+        doneBack.contentView.addSubview(done)
 
-        let line = UIView()
-        line.backgroundColor = .separator
-        for v in [scroll, done, line] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
-        stack.translatesAutoresizingMaskIntoConstraints = false
+        for v in [bar, doneBack, scroll, stack, done] as [UIView] { v.translatesAutoresizingMaskIntoConstraints = false }
+        addSubview(bar)
+        addSubview(doneBack)
+        let m = Self.margin, h = Self.barHeight
         NSLayoutConstraint.activate([
-            scroll.leadingAnchor.constraint(equalTo: leadingAnchor),
-            scroll.topAnchor.constraint(equalTo: topAnchor),
-            scroll.bottomAnchor.constraint(equalTo: bottomAnchor),
-            scroll.trailingAnchor.constraint(equalTo: line.leadingAnchor, constant: -4),
-            line.widthAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale),
-            line.heightAnchor.constraint(equalToConstant: 26),
-            line.centerYAnchor.constraint(equalTo: centerYAnchor),
-            line.trailingAnchor.constraint(equalTo: done.leadingAnchor, constant: -2),
-            done.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -4),
-            done.centerYAnchor.constraint(equalTo: centerYAnchor),
-            stack.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor, constant: 6),
-            stack.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor, constant: -6),
+            bar.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: 8),
+            bar.topAnchor.constraint(equalTo: topAnchor, constant: m),
+            bar.heightAnchor.constraint(equalToConstant: h),
+            bar.trailingAnchor.constraint(equalTo: doneBack.leadingAnchor, constant: -8),
+            doneBack.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -8),
+            doneBack.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
+            doneBack.widthAnchor.constraint(equalToConstant: h),
+            doneBack.heightAnchor.constraint(equalToConstant: h),
+            done.leadingAnchor.constraint(equalTo: doneBack.contentView.leadingAnchor),
+            done.trailingAnchor.constraint(equalTo: doneBack.contentView.trailingAnchor),
+            done.topAnchor.constraint(equalTo: doneBack.contentView.topAnchor),
+            done.bottomAnchor.constraint(equalTo: doneBack.contentView.bottomAnchor),
+            scroll.leadingAnchor.constraint(equalTo: bar.contentView.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: bar.contentView.trailingAnchor),
+            scroll.topAnchor.constraint(equalTo: bar.contentView.topAnchor),
+            scroll.bottomAnchor.constraint(equalTo: bar.contentView.bottomAnchor),
+            stack.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor, constant: 8),
+            stack.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor, constant: -8),
             stack.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
             stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
             stack.heightAnchor.constraint(equalTo: scroll.frameLayoutGuide.heightAnchor),
         ])
     }
 
-    /// a key: an SF Symbol over a short caption, or a short text alone
+    /// a key: an SF Symbol, or a short text (a symbol or a BQL word). Its name shows on a long press (unless the
+    /// long press has a menu of its own), and is what VoiceOver reads.
     private func key(_ caption: String, symbol: String? = nil, label: String? = nil, menu: UIMenu? = nil, menuOnTap: Bool = false, _ act: @escaping () -> Void) -> UIButton {
         var cfg = UIButton.Configuration.plain()
         cfg.baseForegroundColor = .label
-        cfg.contentInsets = NSDirectionalEdgeInsets(top: 2, leading: 8, bottom: 2, trailing: 8)
         if let s = symbol {
-            cfg.image = UIImage(systemName: s, withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .regular))
-            cfg.imagePlacement = .top
-            cfg.imagePadding = 2
-            cfg.attributedTitle = AttributedString(caption, attributes: AttributeContainer([.font: UIFont.systemFont(ofSize: 10.5)]))
+            cfg.image = UIImage(systemName: s, withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .regular))
+            cfg.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 9, bottom: 4, trailing: 9)
         } else {
-            cfg.attributedTitle = AttributedString(caption, attributes: AttributeContainer([.font: UIFont.monospacedSystemFont(ofSize: 17, weight: .medium)]))
+            let word = caption.count > 2
+            cfg.attributedTitle = AttributedString(caption, attributes: AttributeContainer([
+                .font: word ? UIFont.systemFont(ofSize: 15, weight: .medium) : UIFont.monospacedSystemFont(ofSize: 18, weight: .medium)]))
+            cfg.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: word ? 9 : 4, bottom: 4, trailing: word ? 9 : 4)
         }
+        let name = label ?? caption
         let b = UIButton(configuration: cfg, primaryAction: UIAction { _ in
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             act()
         })
-        if let m = menu { b.menu = m; b.showsMenuAsPrimaryAction = menuOnTap }
-        b.accessibilityLabel = label ?? caption
-        b.widthAnchor.constraint(greaterThanOrEqualToConstant: symbol == nil ? 36 : 44).isActive = true
+        if let m = menu {
+            b.menu = m; b.showsMenuAsPrimaryAction = menuOnTap
+        } else {
+            // long press: what the key does, and doing it from there
+            b.menu = UIMenu(children: [UIAction(title: name, image: symbol.flatMap { UIImage(systemName: $0) }) { _ in act() }])
+        }
+        b.accessibilityLabel = name
+        b.widthAnchor.constraint(greaterThanOrEqualToConstant: symbol == nil && caption.count <= 2 ? 38 : 42).isActive = true
         return b
     }
 
@@ -104,8 +131,15 @@ final class EditorBar: UIInputView {
         v.backgroundColor = .separator
         v.translatesAutoresizingMaskIntoConstraints = false
         v.widthAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale).isActive = true
-        v.heightAnchor.constraint(equalToConstant: 22).isActive = true
-        return v
+        v.heightAnchor.constraint(equalToConstant: 18).isActive = true
+        let pad = UIView()
+        pad.translatesAutoresizingMaskIntoConstraints = false
+        pad.addSubview(v)
+        NSLayoutConstraint.activate([
+            pad.widthAnchor.constraint(equalToConstant: 9), pad.heightAnchor.constraint(equalToConstant: 18),
+            v.centerXAnchor.constraint(equalTo: pad.centerXAnchor), v.centerYAnchor.constraint(equalTo: pad.centerYAnchor),
+        ])
+        return pad
     }
 
     private func beancountItems() -> [UIView] {
@@ -117,10 +151,10 @@ final class EditorBar: UIInputView {
             key("*", label: LS("标记为已确认（*）")) { [weak self] in self?.flag("*") },
             key("!", label: LS("标记为待确认（!）")) { [weak self] in self?.flag("!") },
             divider(),
-            key("@") { [weak self] in self?.insertWord("@") },
-            key("@@") { [weak self] in self?.insertWord("@@") },
-            key("#") { [weak self] in self?.insertWord("#", spaceAfter: false) },
-            key("^") { [weak self] in self?.insertWord("^", spaceAfter: false) },
+            key("@", label: LS("价格（@）")) { [weak self] in self?.insertWord("@") },
+            key("@@", label: LS("总价（@@）")) { [weak self] in self?.insertWord("@@") },
+            key("#", label: LS("标签（#）")) { [weak self] in self?.insertWord("#", spaceAfter: false) },
+            key("^", label: LS("链接（^）")) { [weak self] in self?.insertWord("^", spaceAfter: false) },
             key("\"\"", label: LS("引号")) { [weak self] in self?.insertPair("\"") },
             divider(),
             key(LS("缩进"), symbol: "arrow.right.to.line", label: LS("缩进两格")) { [weak self] in self?.insert("  ") },
