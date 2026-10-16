@@ -1383,6 +1383,16 @@ struct KeyCap: View {
     let tap: () -> Void
     var hold: (() -> Void)? = nil
 
+    private var color: Color { tint ?? Color.jade }
+    private var ink: Color {
+        if filled { return tint == nil ? Color.onJade : Color.white }
+        return soft ? color : Color.primary
+    }
+    private var fill: Color {
+        if filled { return color }
+        return soft ? color.opacity(0.14) : Color(.secondarySystemGroupedBackground)
+    }
+
     var body: some View {
         Group {
             if let s = systemImage { Image(systemName: s).font(.system(size: 20, weight: .medium)) }
@@ -1390,9 +1400,8 @@ struct KeyCap: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: 50)
-        .foregroundStyle(filled ? (tint == nil ? Color.onJade : Color.white) : soft ? (tint ?? Color.jade) : Color.primary)
-        .background(filled ? (tint ?? Color.jade) : soft ? (tint ?? Color.jade).opacity(0.14) : Color(.secondarySystemGroupedBackground),
-                    in: RoundedRectangle(cornerRadius: 12))
+        .foregroundStyle(ink)
+        .background(fill, in: RoundedRectangle(cornerRadius: 12))
         .contentShape(RoundedRectangle(cornerRadius: 12))
         .onTapGesture(perform: tap)
         .onLongPressGesture(minimumDuration: 0.45) {
