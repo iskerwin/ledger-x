@@ -309,12 +309,15 @@ final class Store: ObservableObject {
 
     /// screenshots on CI: read a ledger from a local folder, never touch GitHub
     private(set) var demo = false
+    /// the folder the screenshots' ledger is read from
+    private var demoDir: URL?
     var demoEnv: [String: String] { demo ? ProcessInfo.processInfo.environment : [:] }
     private func loadDemo(_ dir: String) async {
         demo = true
         cfg = RepoConfig(owner: "demo", repo: "ledger", branch: "main", token: "demo")
         let env = ProcessInfo.processInfo.environment
         let base = URL(fileURLWithPath: dir)
+        demoDir = base
         let result: (Ledger, Derived) = await Task.detached {
             let extra = env["LEDGER_EXTRA"]
             let list = { (try? FileManager.default.subpathsOfDirectory(atPath: base.path)) ?? [] }
@@ -484,6 +487,8 @@ final class Store: ObservableObject {
     func fileText(_ path: String) async throws -> String {
         var base = ""
         if let sha = tree?.files[path] { base = try await blobText(path, sha) }
+        // screenshots: the files of the local folder (there is no tree)
+        else if let dir = demoDir { base = (try? String(contentsOf: dir.appendingPathComponent(path), encoding: .utf8)) ?? "" }
         return try applyOps(base, path: path, ops: pending)
     }
 
