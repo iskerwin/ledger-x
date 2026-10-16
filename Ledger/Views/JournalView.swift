@@ -230,7 +230,9 @@ struct JournalView: View {
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name).privacyToolbar() }
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
+        .onChange(of: store.journalQuery) { _, new in takeQuery(new) }
         .task {
+            takeQuery(store.journalQuery)
             if let q = store.demoEnv["LEDGER_QUERY"] { self.q = q }
             if let f = store.demoEnv["LEDGER_FILTERS"] { quick = f.split(separator: ",").compactMap { QuickFilter(rawValue: String($0)) } }
             if store.demoEnv["LEDGER_SELECT"] != nil, let L = store.L {
@@ -246,6 +248,13 @@ struct JournalView: View {
                 path.append(TxDest(L.txns[id]))
             }
         }
+    }
+
+    /// a search handed over from another page (报表 → 查看这 N 笔): it replaces what is on
+    private func takeQuery(_ new: String?) {
+        guard let x = new else { return }
+        q = x; quick = []; account = nil; path = NavigationPath()
+        store.journalQuery = nil
     }
 
     private var selectedEntries: [Entry] {

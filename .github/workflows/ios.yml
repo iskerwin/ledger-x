@@ -276,6 +276,7 @@ jobs:
           shot 11-register SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_OPEN_ACCOUNT=Assets:Bank:CGB
           shot 12-check SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_OPEN_ACCOUNT=Assets:Bank:CGB SIMCTL_CHILD_LEDGER_CHECK=180000
           shot 13-settings SIMCTL_CHILD_LEDGER_TAB=settings
+          shot 13c-sync SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_SYNC=1
           shot 17-holdings SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_OPEN_HOLDINGS=1
           shot 17b-holdings-open SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_OPEN_HOLDINGS=1 SIMCTL_CHILD_LEDGER_HOLDING_OPEN=1
           shot 18-reimb SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_REIMB=1
@@ -283,6 +284,8 @@ jobs:
           shot 20-refund SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_KIND=refund
           shot 21-detail-actions SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_OPEN_TX=1
           shot 22-reports SIMCTL_CHILD_LEDGER_TAB=reports
+          shot 22d-reports-change SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_QUESTION=change
+          shot 22e-reports-last SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_QUESTION=last
           shot 23-income SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=income
           shot 24-balance SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=balance
           shot 25-trial SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=trial

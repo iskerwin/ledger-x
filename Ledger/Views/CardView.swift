@@ -1,42 +1,109 @@
 import SwiftUI
 import LedgerKit
 
-/// "账单日 5 日" … for the latest statement of a card
-struct CardBillSection: View {
+/// a card's first screen: what is still to pay on its bill, when, and 记录还款; the bill against what was paid
+struct CardHeroSection: View {
     @EnvironmentObject var store: Store
     let cycle: CardCycle
 
     var body: some View {
         let today = Day.today()
         let c = cycle
+        let days = daysBetween(today, c.due)
+        let tail = store.repoConfig?.scanCards?.first { $0.value == c.account && $0.key.count == 4 && $0.key.allSatisfy(\.isNumber) }?.key
+        let tone: Color = c.overdue(today: today) ? .loss : c.settled ? .gain : (days <= 7 ? .orange : .secondary)
         Section {
-            HStack(alignment: .top) {
-                Figure(label: LS("%@ 账单", c.statement), value: money(c.statementAmount, c.currency))
-                Spacer()
-                Figure(label: LS("已还"), value: money(c.paid, c.currency))
-                Spacer()
-                Figure(label: LS("剩余应还"), value: money(c.remaining, c.currency),
-                       color: c.overdue(today: today) ? .loss : c.settled ? .gain : .primary, alignment: .trailing)
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 10) {
+                    IconBadge(symbol: "creditcard.fill", color: .red, size: 34)
+                    Text(LS("本期账单") + (tail.map { " · " + LS("尾号 %@", $0) } ?? "")).font(.subheadline).foregroundStyle(.secondary)
+                }
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(LS("剩余应还")).font(.subheadline).foregroundStyle(.secondary)
+                        Text(money(c.remaining, c.currency)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+                            .lineLimit(1).minimumScaleFactor(0.6).sensitive()
+                    }
+                    Spacer(minLength: 8)
+                    VStack(alignment: .trailing, spacing: 6) {
+                        Label(c.settled ? LS("已还清") : c.overdue(today: today) ? LS("已逾期") : days == 0 ? LS("今天到期") : LS("%@天后到期", days),
+                              systemImage: c.settled ? "checkmark.circle" : "clock")
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 9).padding(.vertical, 5)
+                            .foregroundStyle(tone)
+                            .background(tone.opacity(0.14), in: Capsule())
+                        Text(LS("还款日 %@", (c.dueEstimated ? "≈ " : "") + shortDay(c.due))).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Divider()
+                HStack(spacing: 0) {
+                    VStack(spacing: 3) {
+                        Text(LS("本期账单")).font(.caption).foregroundStyle(.secondary)
+                        Text(money(c.statementAmount, c.currency)).font(.callout.weight(.semibold).monospacedDigit()).sensitive()
+                    }
+                    .frame(maxWidth: .infinity)
+                    Divider().frame(height: 32)
+                    VStack(spacing: 3) {
+                        Text(LS("已还")).font(.caption).foregroundStyle(.secondary)
+                        Text(money(c.paid, c.currency)).font(.callout.weight(.semibold).monospacedDigit()).sensitive()
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                if c.balance > 0.005 {
+                    Button { store.repaying = c } label: {
+                        Text(LS("记录还款")).font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6)
+                    }
+                    .buttonStyle(.borderedProminent).tint(.jade).controlSize(.large)
+                }
             }
-            .padding(.vertical, 4)
-            LabeledContent(LS("还款日")) {
-                Text(c.settled ? LS("%@ · 已还清", c.due)
-                     : c.overdue(today: today) ? LS("%@ · 已逾期", c.due)
-                     : (c.dueEstimated ? "≈ " : "") + c.due + " · " + daysText(c.due, today: today))
-                    .foregroundStyle(c.overdue(today: today) ? Color.loss : c.settled ? Color.gain : Color.secondary)
-            }
-            LabeledContent(LS("本期未出账"), value: money(c.unbilled, c.currency)).sensitive()
-            LabeledContent(LS("下个账单日"), value: c.nextStatement)
-            if let a = c.available, let l = c.limit {
-                LabeledContent(LS("可用额度"), value: money(a, c.currency) + " / " + money(l, c.currency, 0)).sensitive()
-            }
-            if c.balance > 0.005 {
-                Button { store.repaying = c } label: { Label(LS("还款"), systemImage: "arrow.uturn.left.circle") }
-            }
-        } header: {
-            Text(LS("信用卡账单"))
+            .padding(16)
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .cardRow()
+            reminderBanner(c)
         } footer: {
             if c.dueEstimated { Text(LS("未设置还款日，按账单日后 20 天估算。可在「编辑账户」中设置。")) }
+        }
+    }
+
+    /// whether the bill will be reminded of; tap to change it in 设置
+    private func reminderBanner(_ c: CardCycle) -> some View {
+        let on = Reminders.enabled
+        return Button { store.showSettings = true } label: {
+            HStack(spacing: 10) {
+                Image(systemName: on ? "calendar.badge.clock" : "bell.slash").foregroundStyle(Color.orange)
+                Text(on ? LS("已开启还款提醒 · 提前 %@ 天", Reminders.billDays) : LS("还款提醒未开启"))
+                    .font(.subheadline).foregroundStyle(.primary)
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 12)
+            .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .cardRow()
+    }
+
+    private func shortDay(_ d: String) -> String {
+        LS("%@月%@日", String(Int(d.dropFirst(5).prefix(2)) ?? 0), String(Int(d.suffix(2)) ?? 0))
+    }
+}
+
+/// 额度与账单: the credit left, what is not billed yet, the next statement, all that is owed
+struct CardLimitSection: View {
+    let cycle: CardCycle
+    var body: some View {
+        let c = cycle
+        Section(LS("额度与账单")) {
+            if let a = c.available, let l = c.limit, l > 0 {
+                VStack(alignment: .leading, spacing: 8) {
+                    LabeledContent(LS("可用额度"), value: money(a, c.currency) + " / " + money(l, c.currency, 0)).sensitive()
+                    ProgressView(value: max(0, min(1, a / l))).tint(.jade)
+                }
+            }
+            LabeledContent(LS("未出账"), value: money(c.unbilled, c.currency)).sensitive()
+            LabeledContent(LS("下个账单日"), value: c.nextStatement)
+            LabeledContent(LS("当前欠款"), value: money(c.balance, c.currency)).sensitive()
         }
     }
 }

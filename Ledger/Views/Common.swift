@@ -64,14 +64,19 @@ struct SyncBadge: View {
     @EnvironmentObject var store: Store
     var body: some View {
         Button {
-            Task { await store.syncNow() }
+            store.showSync = true
         } label: {
             HStack(spacing: 4) {
+                // synced, kept on this phone (waiting or offline), or something to look at
+                let problem = store.pending.contains { $0.failed != nil || $0.held != nil }
                 switch store.syncState {
                 case .syncing: ProgressView().controlSize(.small)
-                case .offline: Image(systemName: "wifi.slash").foregroundStyle(.secondary)
-                case .error: Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                case .idle: Image(systemName: store.pending.isEmpty ? "checkmark.icloud" : "icloud.and.arrow.up").foregroundStyle(store.pending.isEmpty ? Color.secondary : Color.orange)
+                case .offline: Image(systemName: "icloud.slash").foregroundStyle(.orange)
+                case .error: Image(systemName: "exclamationmark.icloud").foregroundStyle(.orange)
+                case .idle:
+                    if problem { Image(systemName: "exclamationmark.icloud").foregroundStyle(.orange) }
+                    else if store.pending.isEmpty { Image(systemName: "checkmark.icloud").foregroundStyle(.secondary) }
+                    else { Image(systemName: "icloud.and.arrow.up").foregroundStyle(.orange) }
                 }
                 let n = store.pending.filter { $0.failed == nil && $0.held == nil }.count
                 if n > 0 { Text("\(n)").font(.caption.monospacedDigit()).foregroundStyle(.orange) }

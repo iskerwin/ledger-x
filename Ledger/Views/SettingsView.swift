@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var editingLedger: RepoConfig?
     @State private var demoLayout = false
     @State private var demoGuide = false
+    @State private var managingCats = false
     @AppStorage(AppAppearance.key) private var appearance = AppAppearance.system.rawValue
     @AppStorage(OverviewChart.styleKey) private var chartStyle = "list"
     @AppStorage(AppLock.enabledKey) private var lockOn = false
@@ -30,19 +31,6 @@ struct SettingsView: View {
             if first {
                 Section { LanguagePicker() }
             }
-            if !first {
-                appearanceSection
-                securitySection
-                RemindersSection()
-                Section {
-                    NavigationLink { ShortcutsSettingsView() } label: {
-                        Label(LS("快捷指令与 Apple Pay"), systemImage: "bolt.horizontal.circle")
-                    }
-                    NavigationLink { GuideView() } label: {
-                        Label(LS("使用指南与常见问题"), systemImage: "questionmark.circle")
-                    }
-                }
-            }
             if first {
                 ConnectionSections(cfg: $cfg)
                 Section {
@@ -54,116 +42,63 @@ struct SettingsView: View {
                     .disabled(!cfg.isComplete || testing)
                 }
             } else {
-                LedgersSection(editing: $editingLedger)
-                if store.sources.contains(where: { Keychain.inFallback(account: $0.keychainAccount) }) {
-                    Section {
-                        Label(LS("访问令牌未能存入钥匙串，目前未加密保存在本机。通常是安装包的签名缺少钥匙串权限，换用带钥匙串权限的签名重新安装后会自动移入钥匙串。"), systemImage: "exclamationmark.lock")
-                            .font(.footnote).foregroundStyle(Color.warn)
-                    }
-                }
-            }
-
-            if !first, let L = store.L, let D = store.D {
+                ledgerCard
+                // 账本与同步
                 Section {
-                    Picker(LS("默认付款账户"), selection: Binding(get: { store.defaultFunding ?? "" }, set: { store.defaultFunding = $0.isEmpty ? nil : $0 })) {
-                        Text(LS("自动（使用频率最高）")).tag("")
-                        ForEach(D.rankAccounts(["Assets:", "Liabilities:CreditCard"]).filter { !$0.hasPrefix("Assets:Receivable") }.prefix(15), id: \.self) { a in
-                            Text(acctDisplay(a)).tag(a)
-                        }
+                    NavigationLink { LedgersPage(editing: $editingLedger) } label: {
+                        row("books.vertical", LS("账本管理"), LS("%@ 个账本", store.sources.count))
                     }
-                    Picker(LS("默认币种"), selection: Binding(get: { store.defaultCurrency ?? "" }, set: { store.defaultCurrency = $0.isEmpty ? nil : $0 })) {
-                        Text(LS("跟随付款账户")).tag("")
-                        ForEach(D.currencies, id: \.self) { c in Text(c).tag(c) }
+                    NavigationLink { SyncView() } label: {
+                        row("arrow.triangle.2.circlepath", LS("同步与最近改动"), syncSummary)
                     }
-                    Toggle(LS("分录显式写出自动补平金额"), isOn: $store.explicitAmounts)
-                } header: {
-                    Text(LS("记账偏好"))
-                } footer: {
-                    Text(LS("默认币种用于新的支出、收入和退款；付款账户是其他币种时，可填写账户实付金额。转账始终使用转出账户的币种。"))
-                }
-
-                Section {
-                    NavigationLink { NetWorthSettingsView() } label: {
-                        LabeledContent(LS("净资产与资产负债表"), value: exclusionSummary)
+                    NavigationLink { BackupView() } label: {
+                        row("externaldrive", LS("备份与导出"), Backup.folderName == nil ? LS("未设置") : (Backup.last(store).map { $0.formatted(date: .abbreviated, time: .omitted) } ?? ""))
                     }
-                } header: {
-                    Text(LS("统计范围"))
-                } footer: {
-                    Text(LS("选择哪些资产、负债账户计入净资产，哪些列入资产负债表。账户页「管理账户」里也能进入。"))
-                }
-
-                Section {
-                    NavigationLink { RepoLayoutView() } label: {
-                        LabeledContent(LS("仓库结构与共用设置"), value: store.main)
-                    }
-                    Button { Task { await store.rebuild() } } label: { Label(LS("应用并重新加载"), systemImage: "arrow.clockwise") }
-                } header: {
-                    Text(LS("仓库结构"))
-                } footer: {
-                    Text(LS("主文件、各类记录写入哪个文件、记账偏好、统计范围等跟账本有关的设置都保存在仓库的 ledger-x.json，所有设备共用；主题、语言、提醒等只存在这台手机。"))
-                }
-
-                Section {
-                    if store.pending.isEmpty { Text(LS("无待同步的变更")).foregroundStyle(.secondary) }
-                    ForEach(store.pending) { o in
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(o.label ?? o.summary ?? "\(o.kind.rawValue) \(o.path)").font(.subheadline)
-                            Text("\(o.path)\(o.silent == true ? LS(" · 与上一项合并提交") : "")").font(.caption).foregroundStyle(.secondary)
-                            if let f = o.failed { Text(f).font(.caption).foregroundStyle(Color.loss) }
-                            if let h = o.held { Text(h).font(.caption).foregroundStyle(Color.warn) }
-                        }
-                        .swipeActions {
-                            Button(LS("删除"), role: .destructive) { Task { await store.dropPending(o) } }
-                            if o.held != nil { Button(LS("推送")) { Task { await store.release(o) } }.tint(Color.jade) }
-                        }
-                    }
-                    Button { Task { await store.syncNow() } } label: { Label(LS("立即同步"), systemImage: "arrow.triangle.2.circlepath") }
-                    NavigationLink { HistoryView() } label: {
-                        LabeledContent(LS("最近改动"), value: store.history.isEmpty ? "" : LS("%@ 项", store.history.count))
-                    }
-                } header: {
-                    Text(LS("同步队列"))
-                } footer: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        if let d = store.lastSync { Text(LS("上次同步 %@", d.formatted(date: .abbreviated, time: .shortened))) }
-                        if !store.syncError.isEmpty { Text(store.syncError).foregroundStyle(Color.loss) }
-                        Text(LS("离线时的变更暂存于本机，恢复联网后自动提交。未通过提交前检查而暂存的项目不会自动推送，左滑可推送或移除。"))
-                    }
-                }
-
-                Section(LS("账本")) {
-                    // the same page as on the overview: problems open the transactions to fix them there
                     Button {
                         store.openCheckAfterSettings = true
                         store.tab = .overview
                         store.showSettings = false
                     } label: {
-                        HStack { LedgerCheckRow(); Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) }
+                        HStack { LedgerCheckRow(); Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary) }
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    LabeledContent(LS("交易"), value: LS("%@ 笔", L.txns.count))
-                    LabeledContent(LS("余额断言"), value: "\(L.balanceResults.filter { $0.ok }.count)/\(L.balanceResults.count)")
-                    NavigationLink { BackupView() } label: {
-                        LabeledContent(LS("备份与导出"), value: Backup.folderName == nil ? LS("未设置") : (Backup.last(store).map { $0.formatted(date: .abbreviated, time: .omitted) } ?? ""))
-                    }
-                    NavigationLink { SourceFilesView() } label: {
-                        LabeledContent(LS("源文件"), value: LS("%@ 个", L.files.count))
-                    }
-                    if store.cfg.kind == .github { CIRow() }
-                    if let u = store.backend.repoURL { Link(LS("在网页中打开仓库"), destination: u) }
-                    Button(LS("清除缓存并重新下载"), role: .destructive) { confirmReset = true }
-                }
-
+                } header: { Text(LS("账本与同步")) }
+                // 记账偏好
                 Section {
-                    LabeledContent(LS("版本"), value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
+                    NavigationLink { BookkeepingPrefsPage() } label: { row("square.and.pencil", LS("记账偏好"), "") }
+                    Button { managingCats = true } label: { row("square.grid.2x2", LS("分类与常用交易"), "", chevron: true) }
+                        .buttonStyle(.plain)
+                    NavigationLink { NetWorthSettingsView() } label: { row("chart.bar", LS("统计范围"), exclusionSummary) }
+                    NavigationLink { Form { RemindersSection() }.navigationTitle(LS("提醒")) } label: {
+                        row("bell", LS("提醒"), Reminders.enabled ? LS("已开启") : LS("未开启"))
+                    }
+                    NavigationLink { ShortcutsSettingsView() } label: { row("bolt.horizontal.circle", LS("快捷指令与 Apple Pay"), "") }
+                } header: { Text(LS("记账偏好")) }
+                // 外观
+                Section {
+                    NavigationLink { Form { appearanceSection }.navigationTitle(LS("外观")) } label: {
+                        row("paintpalette", LS("外观"), AppTheme.current.name + " · " + (AppAppearance(rawValue: appearance) ?? .system).name)
+                    }
+                    LanguagePicker()
+                } header: { Text(LS("外观")) }
+                securitySection
+                // 高级
+                Section {
+                    NavigationLink { AdvancedPage(confirmReset: $confirmReset) } label: { row("gearshape.2", LS("高级设置"), "") }
+                    NavigationLink { GuideView() } label: { row("questionmark.circle", LS("使用指南与常见问题"), "") }
+                    NavigationLink { AboutPage() } label: {
+                        row("info.circle", LS("关于 Ledger X"), Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
+                    }
+                } header: {
+                    Text(LS("更多"))
                 } footer: {
-                    Text(LS("账本始终为标准 Beancount 文本文件：本应用写入的内容在电脑上 git pull 后即可查看，并可继续使用 Fava、bean-check 等工具处理。"))
+                    Text(LS("账本保存在你选择的位置 · Ledger X %@", Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""))
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
         }
         .keyboardDone()
-        .navigationDestination(item: $editingLedger) { s in LedgerEditView(initial: s) }
         .navigationDestination(isPresented: $demoLayout) { RepoLayoutView() }
         .navigationDestination(isPresented: $demoGuide) { GuideView() }
         .task { if store.demoEnv["LEDGER_GUIDE"] != nil { try? await Task.sleep(nanoseconds: 500_000_000); demoGuide = true } }
@@ -173,6 +108,52 @@ struct SettingsView: View {
         .confirmationDialog(LS("清除本机缓存？同步队列中的变更将保留。"), isPresented: $confirmReset, titleVisibility: .visible) {
             Button(LS("清除并重新下载"), role: .destructive) { Task { await store.resetCache() } }
         }
+        .sheet(isPresented: $managingCats) { CategoryManager(root: "Expenses:") }
+    }
+
+    /// the ledger in use: where it is, and whether it is in sync; tap for 账本同步
+    private var ledgerCard: some View {
+        Section {
+            NavigationLink { SyncView() } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "book.closed.fill")
+                        .font(.system(size: 26))
+                        .foregroundStyle(Color.jade)
+                        .frame(width: 54, height: 54)
+                        .background(Color.jade.opacity(0.13), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(store.cfg.title).font(.headline)
+                        Text(store.cfg.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        HStack(spacing: 5) {
+                            Image(systemName: store.pending.isEmpty && store.syncState != .error ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                                .foregroundStyle(store.pending.isEmpty && store.syncState != .error ? Color.jade : Color.orange)
+                            Text(syncSummary).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+    }
+
+    private var syncSummary: String {
+        if store.syncState == .syncing { return LS("同步中…") }
+        if store.syncState == .error { return LS("同步出错") }
+        if store.syncState == .offline { return LS("离线 · %@ 项待同步", store.pending.count) }
+        if !store.pending.isEmpty { return LS("%@ 项待同步", store.pending.count) }
+        return store.lastSync.map { LS("已同步 · %@", $0.formatted(date: .omitted, time: .shortened)) } ?? LS("已同步")
+    }
+
+    /// a settings row: an icon in the theme's colour, the name, what is set on the right
+    private func row(_ icon: String, _ title: String, _ value: String, chevron: Bool = false) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon).font(.body).foregroundStyle(Color.jade).frame(width: 26)
+            Text(title).foregroundStyle(.primary)
+            Spacer()
+            if !value.isEmpty { Text(value).foregroundStyle(.secondary).lineLimit(1) }
+            if chevron { Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary) }
+        }
+        .contentShape(Rectangle())
     }
 
     private func connect() async {
@@ -240,9 +221,116 @@ extension SettingsView {
             }
             PrivacyToggle()
         } header: {
-            Text(LS("安全与隐私"))
-        } footer: {
-            Text(LS("启用后，打开应用或从后台返回时需验证%@；在多任务界面中隐藏账本内容。", b.name))
+            Text(LS("安全"))
         }
+    }
+}
+
+// MARK: - the pages behind 设置
+
+/// the ledgers on this phone, to switch, edit, add or remove
+struct LedgersPage: View {
+    @EnvironmentObject var store: Store
+    @Binding var editing: RepoConfig?
+    var body: some View {
+        Form {
+            LedgersSection(editing: $editing)
+            if store.sources.contains(where: { Keychain.inFallback(account: $0.keychainAccount) }) {
+                Section {
+                    Label(LS("访问令牌未能存入钥匙串，目前未加密保存在本机。通常是安装包的签名缺少钥匙串权限，换用带钥匙串权限的签名重新安装后会自动移入钥匙串。"), systemImage: "exclamationmark.lock")
+                        .font(.footnote).foregroundStyle(Color.warn)
+                }
+            }
+        }
+        .navigationTitle(LS("账本管理"))
+        .navigationDestination(item: $editing) { s in LedgerEditView(initial: s) }
+    }
+}
+
+/// 记账偏好: the default paying account and currency, how postings are written
+struct BookkeepingPrefsPage: View {
+    @EnvironmentObject var store: Store
+    var body: some View {
+        Form {
+            if let D = store.D {
+                Section {
+                    Picker(LS("默认付款账户"), selection: Binding(get: { store.defaultFunding ?? "" }, set: { store.defaultFunding = $0.isEmpty ? nil : $0 })) {
+                        Text(LS("自动（使用频率最高）")).tag("")
+                        ForEach(D.rankAccounts(["Assets:", "Liabilities:CreditCard"]).filter { !$0.hasPrefix("Assets:Receivable") }.prefix(15), id: \.self) { a in
+                            Text(acctDisplay(a)).tag(a)
+                        }
+                    }
+                    Picker(LS("默认币种"), selection: Binding(get: { store.defaultCurrency ?? "" }, set: { store.defaultCurrency = $0.isEmpty ? nil : $0 })) {
+                        Text(LS("跟随付款账户")).tag("")
+                        ForEach(D.currencies, id: \.self) { c in Text(c).tag(c) }
+                    }
+                } footer: {
+                    Text(LS("默认币种用于新的支出、收入和退款；付款账户是其他币种时，可填写账户实付金额。转账始终使用转出账户的币种。"))
+                }
+                Section {
+                    Toggle(LS("分录显式写出自动补平金额"), isOn: $store.explicitAmounts)
+                } footer: {
+                    Text(LS("关闭时和手写一样，最后一行的金额留空由 Beancount 补平；打开后每一行都写出金额。"))
+                }
+            }
+        }
+        .navigationTitle(LS("记账偏好"))
+    }
+}
+
+/// 高级设置: the repository's layout, its files, the cache
+struct AdvancedPage: View {
+    @EnvironmentObject var store: Store
+    @Binding var confirmReset: Bool
+    var body: some View {
+        Form {
+            Section {
+                NavigationLink { RepoLayoutView() } label: {
+                    LabeledContent(LS("仓库结构与共用设置"), value: store.main)
+                }
+                Button { Task { await store.rebuild() } } label: { Label(LS("应用并重新加载"), systemImage: "arrow.clockwise") }
+            } footer: {
+                Text(LS("主文件、各类记录写入哪个文件、记账偏好、统计范围等跟账本有关的设置都保存在仓库的 ledger-x.json，所有设备共用；主题、语言、提醒等只存在这台手机。"))
+            }
+            if let L = store.L {
+                Section(LS("账本")) {
+                    LabeledContent(LS("交易"), value: LS("%@ 笔", L.txns.count))
+                    LabeledContent(LS("余额断言"), value: "\(L.balanceResults.filter { $0.ok }.count)/\(L.balanceResults.count)")
+                    NavigationLink { SourceFilesView() } label: {
+                        LabeledContent(LS("源文件"), value: LS("%@ 个", L.files.count))
+                    }
+                    if store.cfg.kind == .github { CIRow() }
+                    if let u = store.backend.repoURL { Link(LS("在网页中打开仓库"), destination: u) }
+                }
+            }
+            Section {
+                Button(LS("清除缓存并重新下载"), role: .destructive) { confirmReset = true }
+            } footer: {
+                Text(LS("只清除这台手机上的副本，同步队列中的变更会保留。"))
+            }
+        }
+        .navigationTitle(LS("高级设置"))
+    }
+}
+
+/// 关于: the version, and what the ledger stays
+struct AboutPage: View {
+    var body: some View {
+        Form {
+            Section {
+                VStack(spacing: 10) {
+                    Image("Logo").resizable().frame(width: 72, height: 72).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    Text("Ledger X").font(.title2.weight(.bold))
+                    Text(LS("版本 %@", Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+            }
+            Section {
+                Text(LS("账本始终为标准 Beancount 文本文件：本应用写入的内容在电脑上 git pull 后即可查看，并可继续使用 Fava、bean-check 等工具处理。"))
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle(LS("关于 Ledger X"))
     }
 }

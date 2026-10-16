@@ -430,6 +430,15 @@ struct RegisterView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button { noting = NoteEdit(note: nil) } label: { Label(LS("添加备注"), systemImage: "text.bubble") }
+                    if let L = store.L, cardCycles(L).contains(where: { $0.account == account }) {
+                        Button { store.journalAccount = account; store.tab = .journal } label: { Label(LS("查看明细"), systemImage: "list.bullet") }
+                        if canCheck(L) { Button { checking = CheckPreset() } label: { Label(LS("余额核对"), systemImage: "checkmark.seal") } }
+                        Divider()
+                        Toggle(isOn: Binding(get: { !isExcluded(account, store.netWorthExclude) },
+                                             set: { on in Task { await store.setExcluded(account, netWorth: !on) } })) { Text(LS("计入净资产")) }
+                        Toggle(isOn: Binding(get: { !isExcluded(account, store.balanceExclude) },
+                                             set: { on in Task { await store.setExcluded(account, balance: !on) } })) { Text(LS("显示在资产负债表")) }
+                    }
                 } label: { Image(systemName: "ellipsis.circle") }
                 .accessibilityLabel(LS("更多"))
             }
@@ -462,10 +471,16 @@ struct RegisterView: View {
         let (months, c) = monthGroups(built.0, L)
         let check = canCheck(L)
         let first = months.first?.ym
+        let card = cardCycles(L).first(where: { $0.account == account })
         return List {
-            header(L, built.1)
-            if account.hasPrefix("Assets:") || account.hasPrefix("Liabilities:") { countsSection() }
-            if let c = cardCycles(L).first(where: { $0.account == account }) { CardBillSection(cycle: c) }
+            if let c = card {
+                // a card: its bill first; the account's settings are in ⋯
+                CardHeroSection(cycle: c)
+                CardLimitSection(cycle: c)
+            } else {
+                header(L, built.1)
+                if account.hasPrefix("Assets:") || account.hasPrefix("Liabilities:") { countsSection() }
+            }
             if months.isEmpty { Section { Text(LS("暂无记录")).foregroundStyle(.secondary) } }
             // a month to a section: its totals on top, its entries (newest first) once opened
             ForEach(months) { m in

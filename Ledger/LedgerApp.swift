@@ -92,6 +92,14 @@ struct RootView: View {
         // while the card is open it shows these itself (a sheet can't open under another)
         .sheet(item: store.adding ? .constant(nil) : $store.subSuggestion) { c in SubEditSheet(draft: SubDraft(c)) }
         .sheet(item: $store.repaying) { RepaySheet(cycle: $0) }
+        .sheet(isPresented: $store.showSync) {
+            NavigationStack {
+                SyncView()
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button(LS("完成")) { store.showSync = false }.fontWeight(.semibold) } }
+            }
+            .tint(AppTheme.current.color)
+            .environment(\.locale, AppLanguage.current.locale)
+        }
         .sheet(isPresented: $store.showSettings, onDismiss: {
             if store.openCheckAfterSettings { store.openCheckAfterSettings = false; store.openCheck = true }
         }) {

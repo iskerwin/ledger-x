@@ -14,6 +14,7 @@ struct ReportsView: View {
     var body: some View {
         NavigationStack(path: $path) {
             List {
+                ReportsInsights(path: $path)
                 Section {
                     NavigationLink(value: YearReviewDest()) {
                         ReportRow(symbol: "sparkles", color: .orange, title: LS("年度回顾"), detail: LS("全年收支、净资产、支出构成、工资与大事"))
@@ -52,7 +53,7 @@ struct ReportsView: View {
                         ReportRow(symbol: "exclamationmark.triangle", color: .orange, title: LS("值得留意"), detail: LS("重复扣款、大额支出、分类超常、订阅调价"))
                     }
                 } header: {
-                    Text(LS("财务报表"))
+                    Text(LS("更多报表"))
                 }
 
                 querySection(LS("常用查询"), builtinQueries)
@@ -97,6 +98,7 @@ struct ReportsView: View {
                     }
                 }
             }
+            .listSectionSpacing(.compact)
             .navigationTitle(LS("报表"))
             .toolbar { StandardToolbar() }
             .navigationDestination(for: ReportKind.self) { k in

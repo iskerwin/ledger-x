@@ -91,6 +91,8 @@ final class Store: ObservableObject {
     /// 币种与换算: which currencies the reports, overview and accounts show, and how they are valued (this phone)
     @Published var cview: CurrencyView { didSet { Prefs.set("currencyView", cview) } }
     @Published var showSettings = false
+    /// 账本同步, opened from the status icon
+    @Published var showSync = false
     /// the card bill being repaid: the sheet lives at the root, so a List section can't present it twice
     @Published var repaying: CardCycle?
     /// open 账本检查 on the overview tab (from Settings)
@@ -102,6 +104,8 @@ final class Store: ObservableObject {
     @Published var popToken = 0
     /// account filter handed to the journal tab
     @Published var journalAccount: String?
+    /// a search to open 明细 on (from another page): taken by the journal and cleared
+    @Published var journalQuery: String?
     var toastAction: (() async -> Void)?
     /// a regular payment offered as a subscription after saving it
     @Published var subSuggestion: SubCandidate?
@@ -361,6 +365,7 @@ final class Store: ObservableObject {
             openAdd(full: env["LEDGER_EDIT_TEXT"] != nil || env["LEDGER_ADD_FULL"] != nil ? true : nil)
         } else if let t = env["LEDGER_TAB"], let tab = Tab(rawValue: t) { self.tab = tab }
         if env["LEDGER_TAB"] == "settings" { tab = .overview; showSettings = true }
+        if env["LEDGER_SYNC"] != nil { showSync = true }
         var qs: [SavedQuery] = []
         if let names = try? FileManager.default.subpathsOfDirectory(atPath: dir) {
             for n in names.sorted() where n.hasSuffix(".bql") {
