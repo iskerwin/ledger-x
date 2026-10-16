@@ -202,7 +202,8 @@ struct AccountsView: View {
         let hs = holdings(L)
         return Section {
             HStack(spacing: 10) {
-                NavigationLink(value: ReconcileDest()) {
+                // buttons, not links: a link in a row draws its own chevron beside the tile
+                Button { path.append(ReconcileDest()) } label: {
                     tile(icon: "doc.text.magnifyingglass", color: .orange, title: LS("待核对"),
                          line: due.isEmpty ? (failing > 0 ? LS("%@ 个断言不符", failing) : LS("都已核对")) : LS("%@ 个账户", due.count),
                          sub: nil, subColor: .secondary, dot: !due.isEmpty || failing > 0)
@@ -211,7 +212,7 @@ struct AccountsView: View {
                 if !hs.isEmpty {
                     let value = hs.reduce(0.0) { $0 + (toCNY(L, $1.value ?? $1.cost, $1.q) ?? 0) }
                     let cost = hs.reduce(0.0) { $0 + (toCNY(L, $1.cost, $1.q) ?? 0) }
-                    NavigationLink(value: HoldingsDest()) {
+                    Button { path.append(HoldingsDest()) } label: {
                         tile(icon: "chart.line.uptrend.xyaxis", color: .jade, title: LS("投资持仓"), line: masked(money(value, L.base)),
                              sub: cost > 0 ? String(format: "%@%.1f%%", value >= cost ? "+" : "", (value - cost) / cost * 100) : nil,
                              subColor: value >= cost ? Color.gain : Color.loss, dot: false)

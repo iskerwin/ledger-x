@@ -644,8 +644,10 @@ struct TxDetailView: View {
                 .font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
                 .lineLimit(1).minimumScaleFactor(0.6)
                 .sensitive()
-                ForEach(paid, id: \.0) { x in
-                    Text(LS("实付 %@", money(x.1, x.0))).font(.footnote.monospacedDigit()).foregroundStyle(.secondary).sensitive()
+                if c.kind != .transfer {
+                    ForEach(paid, id: \.0) { x in
+                        Text(LS("实付 %@", money(x.1, x.0))).font(.footnote.monospacedDigit()).foregroundStyle(.secondary).sensitive()
+                    }
                 }
                 HStack(spacing: 6) {
                     Text(kindLabel + " · " + t.date)
@@ -684,7 +686,7 @@ struct TxDetailView: View {
                 NavigationLink(value: AccountDest(name: a)) {
                     LabeledContent(label) {
                         VStack(alignment: .trailing, spacing: 1) {
-                            Text(store.displayName(a) ?? D.shortName(a)).foregroundStyle(.primary)
+                            Text(accountTitle(L, a)).foregroundStyle(.primary).lineLimit(1)
                             if let tail = store.repoConfig?.scanCards?.first(where: { $0.value == a && $0.key.count == 4 && $0.key.allSatisfy(\.isNumber) })?.key {
                                 Text(LS("尾号 %@", tail)).font(.caption)
                             }
