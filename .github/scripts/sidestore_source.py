@@ -14,7 +14,10 @@ import json, os, re, subprocess, sys
 
 repo, out = sys.argv[1], sys.argv[2]
 raw = f"https://raw.githubusercontent.com/{repo}"
-icon = f"{raw}/main/Ledger/Assets.xcassets/AppIcon.appiconset/icon-1024.png"
+ICON = "Ledger/Assets.xcassets/AppIcon.appiconset/icon-1024.png"
+# SideStore keeps images by address: the icon's contents in the address make a new icon a new address
+icon_id = subprocess.check_output(["git", "hash-object", ICON], text=True).strip()[:10]
+icon = f"{raw}/main/{ICON}?v={icon_id}"
 tint = "2B806A"
 mirror = os.environ.get("SIDESTORE_MIRROR", "").strip().rstrip("/")
 DL = f"https://github.com/{repo}/releases/download/"
