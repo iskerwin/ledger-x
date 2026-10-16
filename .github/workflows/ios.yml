@@ -256,6 +256,9 @@ jobs:
           shot 02g-add-combo-sheet SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_COMBO=1 SIMCTL_CHILD_LEDGER_COMBO_SHEET=1
           shot 02h-add-mark SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_MARK=1
           shot 02i-add-subcat SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_SUBCAT=1
+          shot 02l-add-allcats SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_ALLCATS=1
+          shot 02m-add-allcats-search SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_ALLCATS=1 SIMCTL_CHILD_LEDGER_CAT_QUERY=Food
+          shot 02n-add-longcats SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_EXTRA="$GITHUB_WORKSPACE/LedgerKit/Tests/LedgerKitTests/Fixtures/import/longcats.bean"
           shot 02d-add-income SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_KIND=income
           shot 03-transfer SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_KIND=transfer
           shot 04-multi SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_KIND=multi
@@ -353,6 +356,28 @@ jobs:
           shot 15-dark-overview SIMCTL_CHILD_LEDGER_TAB=overview
           shot 16-dark-add SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1
           xcrun simctl spawn "$UDID" log show --last 5m --style compact --predicate 'process == "Ledger"' > shots/app.log 2>&1 || true
+          # a small screen: 记一笔 on an iPhone SE, with the standard and a large text size
+          xcrun simctl ui "$UDID" appearance light || true
+          RT=$(xcrun simctl list runtimes -j | python3 -c "import sys,json; r=[x for x in json.load(sys.stdin)['runtimes'] if x['platform']=='iOS' and x['isAvailable']]; print(r[-1]['identifier'])")
+          SE=$(limit 60 xcrun simctl create "SE shots" "com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation" "$RT" 2>/dev/null || true)
+          if [ -n "$SE" ]; then
+            echo "$(date +%T) small screen $SE" | tee -a shots/progress.txt
+            limit 30 xcrun simctl shutdown "$UDID" || true
+            UDID="$SE"
+            limit 120 xcrun simctl boot "$UDID" || true
+            limit 420 xcrun simctl bootstatus "$UDID" -b || echo "SE boot timed out" | tee -a shots/crash.txt
+            limit 60 xcrun simctl status_bar "$UDID" override --time 9:41 --batteryLevel 100 --cellularBars 4 || true
+            limit 300 xcrun simctl install "$UDID" build-sim/Build/Products/Debug-iphonesimulator/Ledger.app || echo "SE INSTALL FAILED" | tee -a shots/crash.txt
+            # (twice: the first launch on a new simulator can be too slow to draw in time)
+            shot 70-se-add SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1
+            shot 70-se-add SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1
+            limit 20 xcrun simctl ui "$UDID" content_size extra-extra-large || true
+            shot 71-se-add-xxl SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1
+            limit 20 xcrun simctl ui "$UDID" content_size large || true
+            shot 72-se-allcats SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_FILL=1 SIMCTL_CHILD_LEDGER_ALLCATS=1
+          else
+            echo "no iPhone SE simulator" | tee -a shots/crash.txt
+          fi
           ls -la shots
       - name: Add screenshots to the dev build
         if: always()

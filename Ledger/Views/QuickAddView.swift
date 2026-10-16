@@ -76,13 +76,13 @@ struct QuickAddView: View {
     @State private var dating = false
     /// typing the payee and description: the fields replace the keypad (focus follows once they are on screen)
     @State private var writing = false
-    /// the Beancount text under the note line
-    @State private var showSource = false
     /// a category group whose sub-categories are shown
     @State private var subPicking: String?
     /// the category / paying account were picked here: a payee picked afterwards doesn't change them
     @State private var pickedCategory = false
     @State private var pickedFunding = false
+    /// 全部分类: every category, searchable, without the keypad
+    @State private var allCategories = false
 
     enum Pick: String, Identifiable { case funding, from, to; var id: String { rawValue } }
 
@@ -96,6 +96,7 @@ struct QuickAddView: View {
         .task { if store.demoEnv["LEDGER_COMBO_SHEET"] != nil { try? await Task.sleep(nanoseconds: 600_000_000); splittingPay = true } }
         .task { if store.demoEnv["LEDGER_NOTE"] != nil { try? await Task.sleep(nanoseconds: 900_000_000); startWriting(.narration) } }
         .task { if store.demoEnv["LEDGER_MARK"] != nil { try? await Task.sleep(nanoseconds: 600_000_000); marking = true } }
+        .task { if store.demoEnv["LEDGER_ALLCATS"] != nil { try? await Task.sleep(nanoseconds: 600_000_000); allCategories = true } }
         .task { if store.demoEnv["LEDGER_SUBCAT"] != nil { try? await Task.sleep(nanoseconds: 600_000_000); subPicking = catOf(store.draft.account) } }
     }
 
@@ -120,7 +121,6 @@ struct QuickAddView: View {
                 ScrollView {
                     VStack(spacing: 12) {
                         if d.kind == .transfer { transferPanel(d, L, D) } else { grid(d, L, D); subCategories(d, L, D) }
-                        detailsCard(d, L, D)
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
@@ -166,6 +166,7 @@ struct QuickAddView: View {
             if old == .payee && new != .payee { applyPayee(store.draft.payee.trimmed, onlyBlanks: true) }
         }
         .sheet(item: $picking) { p in accountPicker(p) }
+        .navigationDestination(isPresented: $allCategories) { allCategoriesPage(L, D) }
         .sheet(item: $styling) { CategoryStyleSheet(target: $0) }
         .sheet(isPresented: $managingCats) { CategoryManager(root: Store.categoryRoot(store.draft.kind)) }
         .sheet(isPresented: $managingTemplates) { TemplateManager() }
@@ -351,31 +352,50 @@ struct QuickAddView: View {
 
     // MARK: the grid
 
+    /// how many categories the card shows before 全部
+    static let shownCategories = 7
+    static let allCell = "__all__"
+
+    /// the categories on the card: the first seven in the grid's order, the picked one put in the last place when
+    /// it isn't among them
+    private func shownGroups(_ groups: [CategoryGroup], picked: String?) -> [CategoryGroup] {
+        var top = Array(groups.prefix(Self.shownCategories))
+        if let p = picked, !top.contains(where: { $0.id == p }), let g = groups.first(where: { $0.id == p }), !top.isEmpty {
+            top[top.count - 1] = g
+        }
+        return top
+    }
+
+    /// what a long press on a category offers (here and on 全部分类)
+    private func cellMenu(_ g: CategoryGroup, _ L: Ledger) -> AnyView {
+        AnyView(Group {
+            if !g.single { Button { pick(g, L); subPicking = g.id } label: { Label(LS("选择子类"), systemImage: "list.bullet") } }
+            Button { styling = StyleTarget(group: g) } label: { Label(LS("更换图标"), systemImage: "photo") }
+            Button { newTitle = store.catStyle.titles[g.id] ?? ""; renaming = g } label: { Label(LS("改名"), systemImage: "pencil") }
+            Button(role: .destructive) { store.catStyle.hidden.append(g.id) } label: { Label(LS("从宫格隐藏"), systemImage: "eye.slash") }
+        })
+    }
+
     @ViewBuilder
     private func grid(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
         let root = Store.categoryRoot(d.kind)
         let groups = store.gridGroups(root, D)
         let picked = d.account.hasPrefix(root) ? catOf(d.account) : nil
-        let cells = groups.map { g in
-            GridCell(id: g.id, icon: store.catIcon(Store.cellKey(g)),
-                     title: g.id == picked && !g.single ? accountTitle(L, d.account) : store.catTitle(g, L), single: g.single)
-        }
+        let top = shownGroups(groups, picked: picked)
+        let cells = top.map { g in GridCell(id: g.id, icon: store.catIcon(Store.cellKey(g)), title: store.catTitle(g, L), single: g.single) }
+            + (groups.count > top.count || !groups.isEmpty ? [GridCell(id: Self.allCell, icon: "square.grid.2x2", title: LS("全部"), single: true)] : [])
         if groups.isEmpty {
             Text(LS("账本里还没有%@科目，可在「账户」里新建。", d.kind == .income ? LS("收入") : LS("支出")))
                 .font(.footnote).foregroundStyle(.secondary)
         } else {
             CategoryGridView(cells: cells, picked: picked, large: typeSize.isAccessibilitySize, tap: { id in
+                if id == Self.allCell { field = nil; allCategories = true; return }
                 guard let g = groups.first(where: { $0.id == id }) else { return }
                 // the picked group again: its sub-categories
                 if id == picked && !g.single { subPicking = id } else { pick(g, L) }
             }, menu: { id in
                 guard let g = groups.first(where: { $0.id == id }) else { return AnyView(EmptyView()) }
-                return AnyView(Group {
-                    if !g.single { Button { pick(g, L); subPicking = id } label: { Label(LS("选择子类"), systemImage: "list.bullet") } }
-                    Button { styling = StyleTarget(group: g) } label: { Label(LS("更换图标"), systemImage: "photo") }
-                    Button { newTitle = store.catStyle.titles[g.id] ?? ""; renaming = g } label: { Label(LS("改名"), systemImage: "pencil") }
-                    Button(role: .destructive) { store.catStyle.hidden.append(g.id) } label: { Label(LS("从宫格隐藏"), systemImage: "eye.slash") }
-                })
+                return cellMenu(g, L)
             })
             .equatable()
             .sheet(item: Binding(get: { subPicking.flatMap { id in groups.first { $0.id == id } } }, set: { if $0 == nil { subPicking = nil } })) { g in
@@ -387,6 +407,25 @@ struct QuickAddView: View {
                 }
                 .presentationDetents([.height(min(120 + CGFloat(g.accounts.count) * 46, 460))])
             }
+        }
+    }
+
+    /// 全部分类: every group, searchable, its sub-categories below; the choice goes back to the card
+    private func allCategoriesPage(_ L: Ledger, _ D: Derived) -> some View {
+        let root = Store.categoryRoot(store.draft.kind)
+        let groups = store.gridGroups(root, D)
+        return AllCategoriesView(
+            groups: groups,
+            common: Array(groups.prefix(Self.shownCategories)),
+            current: store.draft.account.hasPrefix(root) ? store.draft.account : nil,
+            L: L,
+            menu: { cellMenu($0, L) },
+            manage: { managingCats = true }
+        ) { a in
+            store.draft.account = a
+            store.draft.edited = nil
+            pickedCategory = true
+            allCategories = false
         }
     }
 
@@ -472,7 +511,7 @@ struct QuickAddView: View {
         VStack(spacing: 8) {
             amountCard(d, L, D)
             if !writing {
-                chips(d, L, D)
+                choices(d, L, D)
                 saveToMenu
                 keypad(d)
             }
@@ -512,76 +551,26 @@ struct QuickAddView: View {
         }
     }
 
-    // MARK: details: who, what for, the paying account
-
-    /// 收款方, 备注 (once there is one), the paying account (its card's last digits when the ledger knows them),
-    /// and the Beancount text it makes
-    @ViewBuilder
-    private func detailsCard(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
-        VStack(spacing: 0) {
-            detailRow(icon: "storefront", label: d.kind == .income ? LS("付款方") : d.kind == .transfer ? LS("对方") : LS("收款方"),
-                      value: d.payee.trimmed, placeholder: LS("可选")) { startWriting(.payee) }
-            if !d.narration.trimmed.isEmpty {
-                Divider().padding(.leading, 46)
-                detailRow(icon: "pencil", label: LS("备注"), value: d.narration.trimmed, placeholder: "") { startWriting(.narration) }
-            }
-        }
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
-        if d.kind != .transfer {
-            fundingMenu(d, L, D)
-        }
-        VStack(alignment: .leading, spacing: 8) {
-            Button { withAnimation(.easeInOut(duration: 0.15)) { showSource.toggle() } } label: {
-                HStack {
-                    Label(LS("Beancount 源文本"), systemImage: "chevron.left.forwardslash.chevron.right").font(.footnote)
-                    Spacer()
-                    Image(systemName: showSource ? "chevron.up" : "chevron.down").font(.caption2.weight(.semibold))
-                }
-                .foregroundStyle(.secondary)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(showSource ? LS("收起源文本") : LS("查看源文本"))
-            if showSource { source(d, L, D) }
-        }
-        .padding(.horizontal, 4)
-    }
-
-    private func detailRow(icon: String, label: String, value: String, placeholder: String, tap: @escaping () -> Void) -> some View {
-        Button(action: tap) {
-            HStack(spacing: 12) {
-                Image(systemName: icon).font(.body).foregroundStyle(.secondary).frame(width: 22)
-                Text(label).font(.subheadline).foregroundStyle(.secondary).fixedSize()
-                Text(value.isEmpty ? placeholder : value)
-                    .font(.body)
-                    .foregroundStyle(value.isEmpty ? Color.secondary.opacity(0.7) : Color.primary)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, 8)
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, 14).padding(.vertical, 13)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    /// the picked group's other accounts, one tap each (the grid's second tap still opens the full list)
+    /// the picked group's other accounts, one tap each, and the path picked ("餐饮 › 咖啡") on the right
     @ViewBuilder
     private func subCategories(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
         let root = Store.categoryRoot(d.kind)
         if d.account.hasPrefix(root), let g = store.gridGroups(root, D).first(where: { $0.id == catOf(d.account) }), !g.single {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(g.accounts, id: \.self) { a in
-                        Chip(label: leafTitle(L, a), selected: a == d.account) {
-                            store.draft.account = a
-                            store.draft.edited = nil
-                            pickedCategory = true
-                            UISelectionFeedbackGenerator().selectionChanged()
+            HStack(spacing: 8) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(g.accounts, id: \.self) { a in
+                            Chip(label: leafTitle(L, a), selected: a == d.account) {
+                                store.draft.account = a
+                                store.draft.edited = nil
+                                pickedCategory = true
+                                UISelectionFeedbackGenerator().selectionChanged()
+                            }
                         }
                     }
                 }
+                Text(store.catTitle(g, L) + " › " + leafTitle(L, d.account))
+                    .font(.caption).foregroundStyle(Color.jade).lineLimit(1).fixedSize()
             }
         }
     }
@@ -597,60 +586,83 @@ struct QuickAddView: View {
         store.repoConfig?.scanCards?.first { $0.value == a && $0.key.count == 4 && $0.key.allSatisfy(\.isNumber) }?.key
     }
 
-    // MARK: chips
+    // MARK: the paying account and the day; 报销 · 优惠 · 标签 · 更多
 
-    private func chips(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
-        HStack(spacing: 4) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    Button { dating = true } label: { pill(dayChip(d.date), icon: "calendar", on: false) }
-                        .buttonStyle(.plain)
-                        .sheet(isPresented: $dating) {
-                            DaySheet(date: Binding(get: { store.draft.date }, set: { store.draft.date = $0; store.draft.edited = nil })) { dating = false }
-                                .presentationDetents([.height(500)])
-                        }
-                    if d.kind == .expense { reimbChip(d, D) }
-                    if discountAllowed(d) {
-                        let v = evalAmount(d.discount) ?? 0
-                        Button { splittingPay = true } label: {
-                            pill(v > 0 ? LS("优惠 %@", money(v, d.currency)) : LS("优惠"), icon: "gift", on: v > 0)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    markChip(d, L)
-                    if d.narration.trimmed.isEmpty {
-                        Button { startWriting(.narration) } label: { pill(LS("备注"), icon: "pencil", on: false) }.buttonStyle(.plain)
-                    }
-                    if d.kind == .expense && store.ownedSubLinks.contains(d.link.trimmed) {
-                        // a subscription's charge: paid on top of this period's, or a new period
-                        Button { store.draft.topup.toggle(); store.draft.edited = nil } label: {
-                            pill(LS("本期补差"), icon: "plus.forwardslash.minus", on: d.topup)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    if d.kind == .expense && !d.reimb {
-                        Button {
-                            store.draft.split = true; store.draft.edited = nil
-                            openFull()
-                        } label: { pill(LS("AA"), icon: "person.2", on: false) }
-                        .buttonStyle(.plain)
-                    }
-                    if d.kind != .transfer && (isPersonal(d.account) || isPersonal(d.funding)) {
-                        Button { openFull() } label: {
-                            pill(d.person.trimmed.isEmpty ? LS("填写对方") : d.person, icon: "person", on: !d.person.trimmed.isEmpty)
-                        }
-                        .buttonStyle(.plain)
-                    }
+    /// one card: the paying account beside the day, then the marks, each a third (or a quarter with 更多)
+    private func choices(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                if d.kind != .transfer {
+                    fundingMenu(d, L, D)
+                    Divider().frame(height: 26)
                 }
-                .padding(.horizontal, 2)
+                Button { dating = true } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "calendar").foregroundStyle(.secondary)
+                        Text(dayLabel(d.date)).lineLimit(1)
+                        Spacer(minLength: 2)
+                        Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 11)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: d.kind == .transfer ? .infinity : 140)
+                .sheet(isPresented: $dating) {
+                    DaySheet(date: Binding(get: { store.draft.date }, set: { store.draft.date = $0; store.draft.edited = nil })) { dating = false }
+                        .presentationDetents([.height(500)])
+                }
+            }
+            Divider().padding(.horizontal, 12)
+            HStack(spacing: 0) {
+                if d.kind == .expense { reimbChip(d, D); Divider().frame(height: 20) }
+                if discountAllowed(d) {
+                    let v = evalAmount(d.discount) ?? 0
+                    Button { splittingPay = true } label: {
+                        mark(v > 0 ? LS("优惠 %@", money(v, d.currency)) : LS("优惠"), icon: "gift", on: v > 0)
+                    }
+                    .buttonStyle(.plain)
+                    Divider().frame(height: 20)
+                }
+                markChip(d, L)
+                if let more = moreMenu(d, L) { Divider().frame(height: 20); more }
             }
         }
+        .font(.subheadline)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    /// 更多: AA, 组合付款, 本期补差 and 填写对方 where they apply (nil when none does)
+    private func moreMenu(_ d: Draft, _ L: Ledger) -> AnyView? {
+        let aa = d.kind == .expense && !d.reimb
+        let combo = d.kind == .expense
+        let topup = d.kind == .expense && store.ownedSubLinks.contains(d.link.trimmed)
+        let person = d.kind != .transfer && (isPersonal(d.account) || isPersonal(d.funding))
+        guard aa || combo || topup || person else { return nil }
+        let on = d.topup || hasCombo(d) || !d.person.trimmed.isEmpty
+        return AnyView(Menu {
+            if aa {
+                Button { store.draft.split = true; store.draft.edited = nil; openFull() } label: { Label(LS("AA 分摊…"), systemImage: "person.2") }
+            }
+            if combo { Button { splittingPay = true } label: { Label(LS("组合付款…"), systemImage: "square.split.2x1") } }
+            if topup {
+                Button { store.draft.topup.toggle(); store.draft.edited = nil } label: {
+                    Label(LS("本期补差"), systemImage: d.topup ? "checkmark" : "plus.forwardslash.minus")
+                }
+            }
+            if person {
+                Button { openFull() } label: { Label(d.person.trimmed.isEmpty ? LS("填写对方…") : LS("对方：%@", d.person), systemImage: "person") }
+            }
+        } label: {
+            mark(LS("更多"), icon: "ellipsis.circle", on: on)
+        })
     }
 
     private func fundingMenu(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
         let funds = Array(D.rankAccounts(["Assets:", "Liabilities:"]).filter { !$0.hasPrefix("Assets:Receivable") }.prefix(8))
         let others = d.kind == .expense ? d.extraFunds.filter { !$0.account.isEmpty }.count : 0
         let title = (d.funding.isEmpty ? (d.kind == .income ? LS("收款账户") : LS("付款账户")) : accountTitle(L, d.funding))
+            + (cardTail(d.funding).map { " · " + $0 } ?? "")
             + (others > 0 ? " + \(others)" : "")
         return Menu {
             ForEach(funds, id: \.self) { a in
@@ -666,24 +678,30 @@ struct QuickAddView: View {
                 Button { splittingPay = true } label: { Label(LS("组合付款…"), systemImage: "square.split.2x1") }
             }
         } label: {
-            HStack(spacing: 12) {
-                Image(systemName: d.funding.isEmpty ? "creditcard" : store.groupIcon(d.funding).symbol)
-                    .font(.body).foregroundStyle(Color.jade).frame(width: 22)
-                Text(d.kind == .income ? LS("收款账户") : LS("付款账户")).font(.subheadline).foregroundStyle(.secondary).fixedSize()
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(d.funding.isEmpty ? LS("选择") : title).font(.body)
-                        .foregroundStyle(d.funding.isEmpty ? Color.secondary : Color.primary).lineLimit(1)
-                    if let t = cardTail(d.funding) { Text(LS("尾号 %@", t)).font(.caption).foregroundStyle(.secondary) }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.leading, 8)
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            HStack(spacing: 8) {
+                Image(systemName: d.funding.isEmpty ? "creditcard" : store.groupIcon(d.funding).symbol).foregroundStyle(Color.jade)
+                Text(title).foregroundStyle(d.funding.isEmpty ? Color.secondary : Color.primary).lineLimit(1).truncationMode(.middle)
+                Spacer(minLength: 2)
+                Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
             }
-            .padding(.horizontal, 14).padding(.vertical, 12)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+            .padding(.horizontal, 12).padding(.vertical, 11)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(d.kind == .income ? LS("收款账户") : LS("付款账户"))
+        .accessibilityValue(title)
+    }
+
+    /// one of 报销 · 优惠 · 标签 · 更多: an icon over nothing, its name beside it, in the theme's colour when set
+    private func mark(_ text: String, icon: String, on: Bool) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon).font(.footnote)
+            Text(text).lineLimit(1).minimumScaleFactor(0.8)
+        }
+        .foregroundStyle(on ? Color.jade : Color.primary)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
     }
 
     /// 标记: the entry's tags, its events and 待确认 (!) in one place; the chip says what is set
@@ -691,7 +709,7 @@ struct QuickAddView: View {
         let evs = d.kind == .transfer ? [] : ledgerEvents(L, today: d.date).filter { d.events.contains($0.tag) }.map { $0.title }
         let parts = evs + d.tags.map { "#" + $0 } + (d.flag == "!" ? ["!"] : [])
         return Button { marking = true } label: {
-            pill(parts.isEmpty ? LS("标记") : parts.joined(separator: " "), icon: "bookmark", on: !parts.isEmpty)
+            mark(parts.isEmpty ? LS("标签") : parts.joined(separator: " "), icon: "tag", on: !parts.isEmpty)
         }
         .buttonStyle(.plain)
     }
@@ -727,19 +745,8 @@ struct QuickAddView: View {
                 }
             }
         } label: {
-            pill(label + (d.reimb && !d.voucher.isEmpty ? " · " + d.voucher : ""), icon: d.reimb ? "checkmark.circle.fill" : "circle", on: d.reimb)
+            mark(label + (d.reimb && !d.voucher.isEmpty ? " · " + d.voucher : ""), icon: d.reimb ? "checkmark.circle.fill" : "doc.text", on: d.reimb)
         }
-    }
-
-    private func pill(_ text: String, icon: String, on: Bool) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: icon).font(.caption)
-            Text(text).font(.subheadline).lineLimit(1)
-        }
-        .padding(.horizontal, 12).padding(.vertical, 7)
-        .foregroundStyle(on ? Color.jade : Color.primary)
-        .background(Color(.secondarySystemGroupedBackground), in: Capsule())
-        .overlay(Capsule().stroke(on ? Color.jade.opacity(0.6) : Color.clear, lineWidth: 1))
     }
 
     // MARK: amount
@@ -796,61 +803,41 @@ struct QuickAddView: View {
                     .lineLimit(2)
                     .onTapGesture { splittingPay = true }
             }
+            Divider()
             if writing {
-                Divider()
                 textFields(d, D)
+            } else {
+                merchantRow(d, L)
             }
         }
         .padding(14)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
     }
 
-    /// the day on its chip: 今天 · 10月16日, 昨天 · …, or the day
-    private func dayChip(_ day: String) -> String {
-        let label = dayLabel(day)
-        let today = Day.today()
-        guard day == today || day == Day.shift(today, -1) else { return label }
-        let m = Int(day.dropFirst(5).prefix(2)) ?? 0, dd = Int(day.suffix(2)) ?? 0
-        return label + " · " + LS("%@月%@日", String(m), String(dd))
+    /// 瑞幸咖啡 · 冰美式: who and what for in one line; tap to type them
+    private func merchantRow(_ d: Draft, _ L: Ledger) -> some View {
+        let summary = [d.payee.trimmed, d.narration.trimmed].filter { !$0.isEmpty }.joined(separator: " · ")
+        let icon = d.account.isEmpty ? "storefront" : store.catIcon(catOf(d.account))
+        return Button { startWriting(d.payee.trimmed.isEmpty ? .payee : .narration) } label: {
+            HStack(spacing: 10) {
+                Image(systemName: icon).foregroundStyle(.secondary).frame(width: 22)
+                Text(summary.isEmpty ? (d.kind == .income ? LS("付款方 · 备注") : LS("商户 · 备注")) : summary)
+                    .foregroundStyle(summary.isEmpty ? Color.secondary : Color.primary)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .font(.body)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(LS("收付款方与备注"))
     }
 
     /// show the payee and description fields, then put the cursor in one (a field can only be focused once it exists)
     private func startWriting(_ f: Field) {
         writing = true
         DispatchQueue.main.async { field = f }
-    }
-
-    /// the Beancount text the card makes, and whether it checks out
-    @ViewBuilder
-    private func source(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
-        let text = draftText(d, L, D, explicit: store.explicitAmounts)
-        let v: Validation? = text.trimmed.isEmpty ? nil : validateText(text, L, single: draftIsSingle(d, L))
-        VStack(alignment: .leading, spacing: 6) {
-            if text.trimmed.isEmpty {
-                Text(LS("填写金额与账户后将在此生成分录")).font(.footnote).foregroundStyle(.tertiary)
-            } else {
-                MonoText(text: text)
-                HStack {
-                    Button { editingText = true } label: {
-                        Label(d.edited != nil ? LS("已手动编辑 · 点按继续编辑") : LS("点按编辑源文本"), systemImage: "pencil").font(.footnote)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Color.jade)
-                    Spacer()
-                    if d.edited != nil {
-                        Button(LS("恢复自动生成")) { store.draft.edited = nil }.font(.footnote).buttonStyle(.plain).foregroundStyle(Color.jade)
-                    }
-                }
-            }
-            if let v = v {
-                if v.ok {
-                    Label(v.warnings.isEmpty ? LS("校验通过") : v.warnings[0].msg, systemImage: v.warnings.isEmpty ? "checkmark.circle" : "exclamationmark.triangle")
-                        .font(.footnote).foregroundStyle(v.warnings.isEmpty ? Color.gain : Color.orange)
-                } else if let m = v.msg {
-                    Label(m, systemImage: "xmark.octagon").font(.footnote).foregroundStyle(Color.loss)
-                }
-            }
-        }
     }
 
     /// 今天, 昨天, or the day ("10月14日"; with the year when it isn't this year's)
@@ -1061,6 +1048,149 @@ struct CategoryGridView: View, Equatable {
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
         .contextMenu { menu(c.id) }
+    }
+}
+
+/// 全部分类: the common ones in a row, then every category four to a row; search finds a category, a sub-category
+/// or an account by any of its names. Picking a category shows its sub-categories below, with 使用「餐饮 · 咖啡」.
+/// No keypad here: what was typed on the card stays as it was.
+struct AllCategoriesView: View {
+    @EnvironmentObject var store: Store
+    let groups: [CategoryGroup]
+    let common: [CategoryGroup]
+    /// the account picked on the card
+    let current: String?
+    let L: Ledger
+    let menu: (CategoryGroup) -> AnyView
+    let manage: () -> Void
+    let use: (String) -> Void
+    @State private var query = ""
+    @State private var group: String?
+    @State private var account: String?
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                if query.trimmed.isEmpty {
+                    Text(LS("常用分类")).font(.footnote).foregroundStyle(.secondary)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 14) { ForEach(common) { g in cell(g).frame(width: 64) } }
+                    }
+                    Divider()
+                    Text(LS("所有分类")).font(.footnote).foregroundStyle(.secondary)
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: typeSize.isAccessibilitySize ? 3 : 4), spacing: 14) {
+                        ForEach(groups) { g in cell(g) }
+                    }
+                } else {
+                    let hits = matches()
+                    if hits.isEmpty { Text(LS("没有找到「%@」", query.trimmed)).foregroundStyle(.secondary).padding(.top, 20) }
+                    ForEach(Array(hits.enumerated()), id: \.offset) { _, hit in
+                        let (g, a) = hit
+                        Button { choose(g, a); finish() } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: store.catIcon(Store.cellKey(g))).frame(width: 30, height: 30)
+                                    .background(Color(.tertiarySystemFill), in: Circle())
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(store.catTitle(g, L) + (g.single ? "" : " › " + leaf(a))).foregroundStyle(.primary)
+                                    Text(a).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if a == current { Image(systemName: "checkmark").foregroundStyle(Color.jade) }
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        Divider()
+                    }
+                }
+            }
+            .padding(16)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .background(Color(.systemGroupedBackground))
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: LS("搜索分类"))
+        .navigationTitle(LS("全部分类"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .primaryAction) { Button(LS("管理"), action: manage) } }
+        .safeAreaInset(edge: .bottom) { if let id = group, let g = groups.first(where: { $0.id == id }) { picker(g) } }
+        .onAppear {
+            if let c = current { group = catOf(c); account = c }
+            if let q = store.demoEnv["LEDGER_CAT_QUERY"] { query = q }
+        }
+    }
+
+    private func leaf(_ a: String) -> String {
+        if let n = store.displayName(a), !n.isEmpty { return n }
+        return a.components(separatedBy: ":").last ?? a
+    }
+
+    private func cell(_ g: CategoryGroup) -> some View {
+        let on = group == g.id
+        return Button {
+            withAnimation(.easeInOut(duration: 0.15)) { choose(g, nil) }
+            UISelectionFeedbackGenerator().selectionChanged()
+        } label: {
+            VStack(spacing: 5) {
+                Image(systemName: store.catIcon(Store.cellKey(g)))
+                    .font(.system(size: 22))
+                    .frame(width: 54, height: 54)
+                    .foregroundStyle(on ? Color.onJade : Color.primary)
+                    .background(on ? Color.jade : Color(.secondarySystemGroupedBackground), in: Circle())
+                Text(store.catTitle(g, L)).font(.footnote.weight(on ? .semibold : .regular))
+                    .foregroundStyle(on ? Color.jade : Color.secondary).lineLimit(1).minimumScaleFactor(0.75)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .contextMenu { menu(g) }
+    }
+
+    /// a group, and an account in it (the one used last there when none is given)
+    private func choose(_ g: CategoryGroup, _ a: String?) {
+        group = g.id
+        if let a = a { account = a }
+        else if let c = current, catOf(c) == g.id { account = c }
+        else { account = g.accounts.first }
+    }
+
+    private func finish() { if let a = account { use(a) } }
+
+    /// the picked category's sub-categories and 使用「…」
+    private func picker(_ g: CategoryGroup) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(store.catTitle(g, L)).font(.headline)
+            if !g.single {
+                FlowLayout(spacing: 8) {
+                    ForEach(g.accounts, id: \.self) { a in
+                        Chip(label: leaf(a), selected: account == a) { account = a }
+                    }
+                }
+            }
+            Button { finish() } label: {
+                Text(LS("使用「%@」", store.catTitle(g, L) + (g.single || account == nil ? "" : " · " + leaf(account!))))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent).tint(.jade).controlSize(.large).fontWeight(.semibold)
+            .disabled(account == nil)
+        }
+        .padding(16)
+        .background(.bar)
+    }
+
+    /// what the search finds: (group, account), the group's own name first
+    private func matches() -> [(CategoryGroup, String)] {
+        let q = query.trimmed.lowercased()
+        var out: [(CategoryGroup, String)] = []
+        for g in groups {
+            let gName = store.catTitle(g, L).lowercased()
+            for a in g.accounts {
+                let names = [gName, leaf(a).lowercased(), a.lowercased(), acctDisplay(a).lowercased()]
+                if names.contains(where: { $0.contains(q) }) { out.append((g, a)) }
+            }
+        }
+        return out
     }
 }
 

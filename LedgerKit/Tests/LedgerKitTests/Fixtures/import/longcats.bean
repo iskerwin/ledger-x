@@ -1,0 +1,57 @@
+; screenshots: categories with long names, used a lot (记一笔 must still fit them)
+2024-01-01 open Expenses:Learning
+  name: "职业发展与进修培训"
+2024-01-01 open Expenses:Learning:Courses CNY
+  name: "线上课程与认证考试报名"
+2024-01-01 open Expenses:Learning:Books CNY
+  name: "专业书籍与电子出版物"
+2024-01-01 open Expenses:PetCare CNY
+  name: "宠物医疗与日常护理用品"
+
+2026-02-03 * "示例书店" "资料"
+  Expenses:Learning:Books  51.00 CNY
+  Assets:Bank:CGB
+
+2026-03-05 * "示例书店" "资料"
+  Expenses:PetCare  52.00 CNY
+  Assets:Bank:CGB
+
+2026-04-07 * "示例书店" "资料"
+  Expenses:Learning:Courses  53.00 CNY
+  Assets:Bank:CGB
+
+2026-05-09 * "示例书店" "资料"
+  Expenses:Learning:Books  54.00 CNY
+  Assets:Bank:CGB
+
+2026-06-11 * "示例书店" "资料"
+  Expenses:PetCare  55.00 CNY
+  Assets:Bank:CGB
+
+2026-07-13 * "示例书店" "资料"
+  Expenses:Learning:Courses  56.00 CNY
+  Assets:Bank:CGB
+
+2026-08-15 * "示例书店" "资料"
+  Expenses:Learning:Books  57.00 CNY
+  Assets:Bank:CGB
+
+2026-09-17 * "示例书店" "资料"
+  Expenses:PetCare  58.00 CNY
+  Assets:Bank:CGB
+
+2026-01-19 * "示例书店" "资料"
+  Expenses:Learning:Courses  59.00 CNY
+  Assets:Bank:CGB
+
+2026-02-21 * "示例书店" "资料"
+  Expenses:Learning:Books  60.00 CNY
+  Assets:Bank:CGB
+
+2026-03-23 * "示例书店" "资料"
+  Expenses:PetCare  61.00 CNY
+  Assets:Bank:CGB
+
+2026-04-25 * "示例书店" "资料"
+  Expenses:Learning:Courses  62.00 CNY
+  Assets:Bank:CGB
