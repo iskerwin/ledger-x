@@ -24,6 +24,20 @@ final class EditorBar: UIInputView {
     // MARK: layout
 
     private func build() {
+        // a background of its own: the keyboard style's backdrop is clear above the newer keyboards, and the text
+        // behind showed through the keys
+        let back = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterial))
+        back.frame = bounds
+        back.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        addSubview(back)
+        let top = UIView()
+        top.backgroundColor = .separator
+        top.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(top)
+        NSLayoutConstraint.activate([
+            top.leadingAnchor.constraint(equalTo: leadingAnchor), top.trailingAnchor.constraint(equalTo: trailingAnchor),
+            top.topAnchor.constraint(equalTo: topAnchor), top.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale),
+        ])
         let scroll = UIScrollView()
         scroll.showsHorizontalScrollIndicator = false
         let stack = UIStackView()

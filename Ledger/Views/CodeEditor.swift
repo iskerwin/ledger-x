@@ -214,11 +214,16 @@ struct CodeTextView: UIViewRepresentable {
         }
         style(v)
         v.isEditable = editable
-        // the shortcut bar for Beancount and BQL; plain text gets 完成 alone
-        v.inputAccessoryView = language == .plain ? Self.doneBar(v) : EditorBar(textView: v, language: language)
+        // the shortcut bar while editing only: a read-only view can still be selected, and would show it with no keyboard
+        v.inputAccessoryView = editable ? accessory(v) : nil
         v.delegate = context.coordinator
         v.text = text
         return v
+    }
+
+    /// the shortcut bar for Beancount and BQL; plain text gets 完成 alone
+    private func accessory(_ v: UITextView) -> UIView {
+        language == .plain ? Self.doneBar(v) : EditorBar(textView: v, language: language)
     }
 
     /// 完成 above the keyboard (a UIKit view gets no SwiftUI keyboard toolbar)
@@ -270,6 +275,8 @@ struct CodeTextView: UIViewRepresentable {
         }
         if v.isEditable != editable {
             v.isEditable = editable
+            v.inputAccessoryView = editable ? accessory(v) : nil
+            if v.isFirstResponder { v.reloadInputViews() }
             if editable && !fitsContent { v.becomeFirstResponder() } else if !editable { v.resignFirstResponder() }
         }
         if let f = focused, f.wrappedValue, editable, !v.isFirstResponder {
