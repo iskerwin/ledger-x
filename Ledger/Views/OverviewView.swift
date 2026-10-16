@@ -30,7 +30,6 @@ struct OverviewView: View {
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name).privacyToolbar() }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
             .subscriptionDestinations()
-            .pushes(onto: $path)
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
             .navigationDestination(for: ErrorsDest.self) { _ in ErrorsView() }
             .navigationDestination(for: ReconcileDest.self) { _ in ReconcileView().privacyToolbar() }
@@ -45,6 +44,8 @@ struct OverviewView: View {
             .navigationDestination(for: PayeeDest.self) { PayeeDetailView(name: $0.name).privacyToolbar() }
             .navigationDestination(for: AnomalyDest.self) { AnomalyDetailView(id: $0.id).privacyToolbar() }
         }
+        // on the stack itself: the pages it opens inherit what is set here, not what is set on its first page
+        .pushes(onto: $path)
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         // 设置 → 账本检查 opens the check here, where every problem can be opened and fixed
         .onChange(of: store.openCheck) { _, open in

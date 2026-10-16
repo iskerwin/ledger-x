@@ -18,8 +18,9 @@ struct AddCard: View {
                 .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
                 .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
                 .subscriptionDestinations()
-                .pushes(onto: $path)
         }
+        // on the stack itself: the pages it opens inherit what is set here, not what is set on its first page
+        .pushes(onto: $path)
         .overlay(alignment: .top) { ToastView(top: true).padding(.top, 6).animation(.spring(duration: 0.3), value: store.toast) }
         .sheet(item: $store.subSuggestion) { c in SubEditSheet(draft: SubDraft(c)) }
         .onAppear(perform: route)

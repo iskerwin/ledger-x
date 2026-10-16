@@ -32,6 +32,12 @@ extension Store {
         return await deleteEntry(path: e.file, old: old, date: e.date, summary: summary)
     }
 
+    /// a card's bill as the bank states it (card-bill); true when committed
+    func addCardBill(_ text: String, label: String) async -> Bool {
+        guard let ops = makeOps(text, extra: OpExtra(label: label), single: false) else { return false }
+        return await commit(ops, word: LS("已记下本期账单"))
+    }
+
     /// a new value of one of Beancount's events (where you live, who you work for…)
     func addLifeEvent(type: String, value: String, date: String) async -> Bool {
         guard let ops = makeOps(lifeEventText(date: date, type: type, value: value),

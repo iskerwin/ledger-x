@@ -62,8 +62,10 @@ enum Reminders {
             let lead = cal0.date(byAdding: .day, value: -billDays, to: dueDay) ?? dueDay
             for (k, day) in [lead, dueDay].enumerated() {
                 guard let fire = cal0.date(bySettingHour: 9, minute: 0, second: 0, of: day), fire > Date() else { continue }
-                add("bill." + c.account + "." + c.due + ".\(k)", LS("信用卡还款"),
-                    LS("%@ %@ 到期，应还 %@", accountTitle(L, c.account), c.due, money(c.remaining, c.currency)),
+                let body = c.minimumRemaining < 0.005
+                    ? LS("%@ %@ 到期，已还最低，剩余应还 %@", accountTitle(L, c.account), c.due, money(c.remaining, c.currency))
+                    : LS("%@ %@ 到期，应还 %@，最低 %@", accountTitle(L, c.account), c.due, money(c.remaining, c.currency), money(c.minimumRemaining, c.currency))
+                add("bill." + c.account + "." + c.due + ".\(k)", LS("信用卡还款"), body,
                     cal0.dateComponents([.year, .month, .day, .hour, .minute], from: fire), tab: "overview")
             }
         }

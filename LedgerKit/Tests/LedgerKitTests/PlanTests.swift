@@ -68,13 +68,70 @@ final class PlanTests: XCTestCase {
         XCTAssertEqual(c.balance, 550)
         XCTAssertEqual(c.available ?? 0, 19450, accuracy: 0.001)
         XCTAssertFalse(c.overdue(today: "2026-10-09"))
-        XCTAssertTrue(c.overdue(today: "2026-10-24"))
+        // 700 paid is more than the minimum (10% of 1200 by default): past the due date it is not overdue
+        XCTAssertEqual(c.minimum, 120)
+        XCTAssertTrue(c.minimumEstimated)
+        XCTAssertEqual(c.status(today: "2026-10-24"), .minimumPaid)
+        XCTAssertFalse(c.overdue(today: "2026-10-24"))
         XCTAssertEqual(usualRepaymentAccount("Liabilities:CreditCard:CMB", L), "Assets:Bank:CMB")
         // the repayment text balances
         let text = repaymentText(card: c.account, from: "Assets:Bank:CMB", amount: 500, currency: "CNY", date: "2026-10-09")
         XCTAssertTrue(checkText(text, L).ok, text)
         let paid = ledger(t + "\n" + text + "\n")
         XCTAssertTrue(cardCycles(paid, today: "2026-10-09").first?.settled ?? false)
+    }
+
+    /// the minimum payment: estimated, from min_payment_rate, or the bank's figures in a card-bill directive
+    func testCardMinimum() throws {
+        let spent = """
+        2026-09-10 * "Shop"
+          Expenses:Food  1000.00 CNY
+          Liabilities:CreditCard:CMB
+
+        """
+        // nothing paid: due, then overdue
+        var c = try XCTUnwrap(cardCycles(ledger(base + spent), today: "2026-10-09").first)
+        XCTAssertEqual(c.status(today: "2026-10-09"), .due)
+        XCTAssertEqual(c.status(today: "2026-10-24"), .overdue)
+        XCTAssertEqual(c.minimumRemaining, 100)
+
+        // less than the minimum is still overdue after the due date
+        let little = spent + """
+        2026-10-20 * "Repay"
+          Liabilities:CreditCard:CMB  50.00 CNY
+          Assets:Bank:CMB
+
+        """
+        c = try XCTUnwrap(cardCycles(ledger(base + little), today: "2026-10-24").first)
+        XCTAssertEqual(c.minimumRemaining, 50)
+        XCTAssertEqual(c.status(today: "2026-10-24"), .overdue)
+
+        // a lower rate on the open: 5% (written as "5%")
+        let rated = base.replacingOccurrences(of: "  credit_limit: 20000", with: "  credit_limit: 20000\n  min_payment_rate: \"5%\"")
+        c = try XCTUnwrap(cardCycles(ledger(rated + little), today: "2026-10-24").first)
+        XCTAssertEqual(c.minimum, 50)
+        XCTAssertEqual(c.status(today: "2026-10-24"), .minimumPaid)
+        XCTAssertEqual(minPaymentRate(.number(0.05)), 0.05)
+        XCTAssertEqual(minPaymentRate(.number(5)), 0.05)
+        XCTAssertEqual(minPaymentRate(nil), defaultMinPaymentRate)
+
+        // the bank's figures (an instalment: the ledger owes 1000, the bill is 300 with 30 minimum)
+        let bill = cardBillText(card: "Liabilities:CreditCard:CMB", statement: "2026-10-05", amount: 300, minimum: 30, currency: "CNY")
+        XCTAssertEqual(bill, "2026-10-05 custom \"card-bill\" Liabilities:CreditCard:CMB 300.00 CNY 30.00 CNY")
+        let L = ledger(base + little + bill + "\n")
+        XCTAssertTrue(L.errors.isEmpty, L.errors.map { $0.msg }.joined(separator: "; "))
+        c = try XCTUnwrap(cardCycles(L, today: "2026-10-24").first)
+        XCTAssertEqual(c.statementAmount, 300)
+        XCTAssertEqual(c.minimum, 30)
+        XCTAssertFalse(c.minimumEstimated)
+        XCTAssertNotNil(c.bill)
+        XCTAssertEqual(c.remaining, 250)
+        XCTAssertEqual(c.status(today: "2026-10-24"), .minimumPaid)
+        // a bill for an earlier statement does not apply to this one
+        c = try XCTUnwrap(cardCycles(L, today: "2026-11-06").first)
+        XCTAssertNil(c.bill)
+        XCTAssertEqual(c.statement, "2026-11-05")
+        XCTAssertEqual(cardBills(L).map { $0.minimum }, [30])
     }
 
     func testForecast() throws {

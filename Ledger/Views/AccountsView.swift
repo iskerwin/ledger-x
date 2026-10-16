@@ -32,13 +32,14 @@ struct AccountsView: View {
             .navigationDestination(for: HoldingsDest.self) { _ in HoldingsView().privacyToolbar() }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
             .subscriptionDestinations()
-            .pushes(onto: $path)
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
             .navigationDestination(for: AccountManagerDest.self) { _ in AccountManagerView() }
             .navigationDestination(for: CounterpartyDest.self) { _ in CounterpartyView().privacyToolbar() }
             .navigationDestination(for: NetWorthSettingsDest.self) { _ in NetWorthSettingsView() }
             .navigationDestination(for: ReconcileDest.self) { _ in ReconcileView().privacyToolbar() }
         }
+        // on the stack itself: the pages it opens inherit what is set here, not what is set on its first page
+        .pushes(onto: $path)
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .task {
             if let x = store.demoEnv["LEDGER_SIDE"] { side = x }
@@ -386,9 +387,17 @@ struct AccountRow: View {
                 }
                 HStack(spacing: 6) {
                     if let c = card, owed, c.statementAmount - c.paid > 0.005 {
-                        let days = daysBetween(Day.today(), c.due)
+                        let today = Day.today()
+                        let days = daysBetween(today, c.due)
+                        let status = c.status(today: today)
                         Text(LS("%@还款", monthDay(c.due))).lineLimit(1)
-                        if days >= 0 && days <= 7 {
+                        if status == .overdue || status == .minimumPaid {
+                            let look = CardStatusLook(c, today: today)
+                            Text(look.text)
+                                .font(.caption2.weight(.semibold)).foregroundStyle(look.color)
+                                .padding(.horizontal, 5).padding(.vertical, 1)
+                                .background(look.color.opacity(0.15), in: RoundedRectangle(cornerRadius: 4))
+                        } else if days >= 0 && days <= 7 {
                             Text(days == 0 ? LS("今天") : LS("%@天后", days))
                                 .font(.caption2.weight(.semibold)).foregroundStyle(Color.orange)
                                 .padding(.horizontal, 5).padding(.vertical, 1)

@@ -19,7 +19,8 @@ extension EnvironmentValues {
 }
 
 extension View {
-    /// let the pages in this stack open others through `push`
+    /// let the pages in this stack open others through `push`; set on the NavigationStack itself (pages it opens
+    /// inherit the stack's environment, not that of its first page)
     func pushes(onto path: Binding<NavigationPath>) -> some View {
         environment(\.push, { path.wrappedValue.append($0) })
     }

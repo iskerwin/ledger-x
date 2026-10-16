@@ -884,6 +884,9 @@ public func fileFor(_ e: Entry, _ L: Ledger, layout: RepoLayout = RepoLayout()) 
     case .event: return most { $0.type == .event } ?? most { $0.type == .note } ?? journal
     case .custom where e.name == "budget": return most { $0.type == .custom && $0.name == "budget" } ?? layout.main
     case .custom where e.name == "subscription": return layout.subscriptionsPath
+    // a card's bills beside the balance assertions (both are what the bank says)
+    case .custom where e.name == cardBillName:
+        return most { $0.type == .custom && $0.name == cardBillName } ?? most { $0.type == .balance } ?? journal
     default: return journal
     }
 }

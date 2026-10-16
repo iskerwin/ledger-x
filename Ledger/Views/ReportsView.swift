@@ -126,9 +126,10 @@ struct ReportsView: View {
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name).privacyToolbar() }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
             .subscriptionDestinations()
-            .pushes(onto: $path)
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
         }
+        // on the stack itself: the pages it opens inherit what is set here, not what is set on its first page
+        .pushes(onto: $path)
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .task {
             guard path.isEmpty, let r = store.demoEnv["LEDGER_REPORT"] else { return }

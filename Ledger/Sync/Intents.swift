@@ -226,7 +226,11 @@ struct UpcomingIntent: AppIntent {
         if !soon.isEmpty { parts.append(LS("7 天内扣费：%@", soon.joined(separator: LS("、")))) }
         let cards = cardCycles(L, today: today).filter { !$0.settled && $0.due <= Day.shift(today, 15) }
         if !cards.isEmpty {
-            parts.append(LS("信用卡：%@", cards.map { LS("%@ %@ 应还 %@", acctLabel($0.account), $0.due, money($0.remaining, $0.currency)) }.joined(separator: LS("、"))))
+            parts.append(LS("信用卡：%@", cards.map { c in
+                c.minimumRemaining < 0.005
+                    ? LS("%@ %@ 已还最低，剩余 %@", acctLabel(c.account), c.due, money(c.remaining, c.currency))
+                    : LS("%@ %@ 应还 %@（最低 %@）", acctLabel(c.account), c.due, money(c.remaining, c.currency), money(c.minimumRemaining, c.currency))
+            }.joined(separator: LS("、"))))
         }
         if let f = store.forecastCached(days: 30, daily: UserDefaults.standard.object(forKey: ForecastPrefs.dailyKey) as? Bool ?? true), !f.accounts.isEmpty {
             parts.append(LS("30 天后可用资金约 %@，最低 %@（%@）", money(f.end, f.currency, 0), money(f.lowest.value, f.currency, 0), f.lowest.date))

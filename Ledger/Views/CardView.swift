@@ -1,17 +1,35 @@
 import SwiftUI
 import LedgerKit
 
+/// where a bill stands, in words and colour: 已还清, 已还最低, n 天后到期 or 已逾期
+struct CardStatusLook {
+    let text: String
+    let color: Color
+    let icon: String
+
+    init(_ c: CardCycle, today: String) {
+        let days = daysBetween(today, c.due)
+        switch c.status(today: today) {
+        case .settled: (text, color, icon) = (LS("已还清"), .gain, "checkmark.circle")
+        case .minimumPaid: (text, color, icon) = (LS("已还最低"), .orange, "checkmark.circle")
+        case .overdue: (text, color, icon) = (LS("已逾期"), .loss, "exclamationmark.circle")
+        case .due:
+            (text, color, icon) = (days == 0 ? LS("今天到期") : LS("%@天后到期", days), days <= 7 ? .orange : .secondary, "clock")
+        }
+    }
+}
+
 /// a card's first screen: what is still to pay on its bill, when, and 记录还款; the bill against what was paid
 struct CardHeroSection: View {
     @EnvironmentObject var store: Store
     let cycle: CardCycle
+    @State private var billing = false
 
     var body: some View {
         let today = Day.today()
         let c = cycle
-        let days = daysBetween(today, c.due)
         let tail = store.repoConfig?.scanCards?.first { $0.value == c.account && $0.key.count == 4 && $0.key.allSatisfy(\.isNumber) }?.key
-        let tone: Color = c.overdue(today: today) ? .loss : c.settled ? .gain : (days <= 7 ? .orange : .secondary)
+        let look = CardStatusLook(c, today: today)
         Section {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(spacing: 10) {
@@ -26,12 +44,11 @@ struct CardHeroSection: View {
                     }
                     Spacer(minLength: 8)
                     VStack(alignment: .trailing, spacing: 6) {
-                        Label(c.settled ? LS("已还清") : c.overdue(today: today) ? LS("已逾期") : days == 0 ? LS("今天到期") : LS("%@天后到期", days),
-                              systemImage: c.settled ? "checkmark.circle" : "clock")
+                        Label(look.text, systemImage: look.icon)
                             .font(.caption.weight(.semibold))
                             .padding(.horizontal, 9).padding(.vertical, 5)
-                            .foregroundStyle(tone)
-                            .background(tone.opacity(0.14), in: Capsule())
+                            .foregroundStyle(look.color)
+                            .background(look.color.opacity(0.14), in: Capsule())
                         Text(LS("还款日 %@", (c.dueEstimated ? "≈ " : "") + shortDay(c.due))).font(.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -44,24 +61,54 @@ struct CardHeroSection: View {
                     .frame(maxWidth: .infinity)
                     Divider().frame(height: 32)
                     VStack(spacing: 3) {
+                        Text(LS("最低还款")).font(.caption).foregroundStyle(.secondary)
+                        Text((c.minimumEstimated ? "≈ " : "") + money(c.minimum, c.currency)).font(.callout.weight(.semibold).monospacedDigit()).sensitive()
+                    }
+                    .frame(maxWidth: .infinity)
+                    Divider().frame(height: 32)
+                    VStack(spacing: 3) {
                         Text(LS("已还")).font(.caption).foregroundStyle(.secondary)
                         Text(money(c.paid, c.currency)).font(.callout.weight(.semibold).monospacedDigit()).sensitive()
                     }
                     .frame(maxWidth: .infinity)
                 }
-                if c.balance > 0.005 {
-                    Button { store.repaying = c } label: {
-                        Text(LS("记录还款")).font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6)
+                if c.status(today: today) == .minimumPaid {
+                    Label(LS("已还到最低还款额，不算逾期；剩余 %@ 未还会按银行规定计息。", money(c.remaining, c.currency)), systemImage: "info.circle")
+                        .font(.footnote).foregroundStyle(.secondary).sensitive()
+                } else if c.status(today: today) == .overdue {
+                    Label(LS("还款日已过，最低还款还差 %@。", money(c.minimumRemaining, c.currency)), systemImage: "exclamationmark.triangle")
+                        .font(.footnote).foregroundStyle(Color.loss).sensitive()
+                }
+                HStack(spacing: 10) {
+                    Button { billing = true } label: {
+                        Text(c.bill == nil ? LS("填写本期账单") : LS("修改本期账单")).font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6)
                     }
-                    .buttonStyle(.borderedProminent).tint(.jade).controlSize(.large)
+                    .buttonStyle(.bordered).tint(.jade).controlSize(.large)
+                    if c.balance > 0.005 {
+                        Button { store.repaying = c } label: {
+                            Text(LS("记录还款")).font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6)
+                        }
+                        .buttonStyle(.borderedProminent).tint(.jade).controlSize(.large)
+                    }
                 }
             }
             .padding(16)
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .cardRow()
+            .sheet(isPresented: $billing) { CardBillSheet(cycle: c) }
+            .task { if store.demoEnv["LEDGER_CARD_BILL"] != nil { try? await Task.sleep(nanoseconds: 700_000_000); billing = true } }
             reminderBanner(c)
         } footer: {
-            if c.dueEstimated { Text(LS("未设置还款日，按账单日后 20 天估算。可在「编辑账户」中设置。")) }
+            VStack(alignment: .leading, spacing: 4) {
+                if c.dueEstimated { Text(LS("未设置还款日，按账单日后 20 天估算。可在「编辑账户」中设置。")) }
+                if c.bill == nil {
+                    Text(LS("本期账单按账本算出，最低还款按其 %@ 估算（开户指令的 min_payment_rate 可改）。分期或与银行不一致时，点「填写本期账单」照银行账单填写。",
+                            String(format: "%.0f%%", c.statementAmount > 0 ? c.minimum / c.statementAmount * 100 : defaultMinPaymentRate * 100)))
+                } else if c.minimumEstimated {
+                    Text(LS("本期账单按银行账单；没填最低还款，按 %@ 估算。",
+                            String(format: "%.0f%%", c.statementAmount > 0 ? c.minimum / c.statementAmount * 100 : defaultMinPaymentRate * 100)))
+                }
+            }
         }
     }
 
@@ -126,7 +173,7 @@ struct CardDueSection: View {
                                 IconBadge(symbol: "creditcard.fill", color: c.overdue(today: today) ? .red : .orange, size: 28)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(accountTitle(L, c.account)).lineLimit(1)
-                                    Text(c.overdue(today: today) ? LS("%@ 到期 · 已逾期", c.due) : LS("%@ 到期 · %@", c.due, daysText(c.due, today: today)))
+                                    Text(dueLine(c, today))
                                         .font(.caption).foregroundStyle(c.overdue(today: today) ? Color.loss : Color.secondary)
                                 }
                                 Spacer()
@@ -137,6 +184,98 @@ struct CardDueSection: View {
                     }
                 }
             }
+        }
+    }
+}
+
+extension CardDueSection {
+    private func dueLine(_ c: CardCycle, _ today: String) -> String {
+        switch c.status(today: today) {
+        case .overdue: return LS("%@ 到期 · 已逾期", c.due)
+        case .minimumPaid: return LS("%@ 到期 · 已还最低", c.due)
+        default: return LS("%@ 到期 · %@", c.due, daysText(c.due, today: today))
+        }
+    }
+}
+
+/// 填写本期账单: the bank's statement amount and minimum payment for the latest statement, as a card-bill directive
+struct CardBillSheet: View {
+    @EnvironmentObject var store: Store
+    @Environment(\.dismiss) private var dismiss
+    let cycle: CardCycle
+    @State private var amount = ""
+    @State private var minimum = ""
+    @State private var confirmDelete = false
+    @State private var saving = false
+
+    private var text: String? {
+        guard let a = evalAmount(amount), a >= 0 else { return nil }
+        let m = minimum.trimmingCharacters(in: .whitespaces).isEmpty ? nil : evalAmount(minimum)
+        if let m = m, m > a { return nil }
+        return cardBillText(card: cycle.account, statement: cycle.statement, amount: a, minimum: m, currency: cycle.currency)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    LabeledContent(LS("信用卡"), value: acctDisplay(cycle.account))
+                    LabeledContent(LS("账单日"), value: cycle.statement)
+                    LabeledContent(LS("本期应还") + " " + cycle.currency) {
+                        TextField("0.00", text: $amount).keyboardType(.decimalPad).multilineTextAlignment(.trailing).font(.body.monospacedDigit())
+                    }
+                    LabeledContent(LS("最低还款") + " " + cycle.currency) {
+                        TextField(LS("可不填"), text: $minimum).keyboardType(.decimalPad).multilineTextAlignment(.trailing).font(.body.monospacedDigit())
+                    }
+                } footer: {
+                    Text(LS("照银行账单填写。填了以后，这一期的应还和最低还款以它为准（分期只算本期应还的部分）；还到最低还款额就不算逾期。"))
+                }
+                if let t = text {
+                    Section(LS("将写入")) { MonoText(text: t) }
+                }
+                if cycle.bill != nil {
+                    Section {
+                        Button(LS("删除这期账单记录"), role: .destructive) { confirmDelete = true }
+                    } footer: {
+                        Text(LS("删除后按账本算出的金额估算。"))
+                    }
+                }
+            }
+            .keyboardDone()
+            .navigationTitle(LS("本期账单"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(LS("保存")) { save() }.fontWeight(.semibold).disabled(text == nil || saving)
+                }
+            }
+            .confirmationDialog(LS("删除 %@ 的账单记录？", cycle.statement), isPresented: $confirmDelete, titleVisibility: .visible) {
+                Button(LS("删除"), role: .destructive) {
+                    guard let e = cycle.bill else { return }
+                    Task { if await store.deleteDirective(e, summary: LS("删除账单：%@ %@", acctLabel(cycle.account), cycle.statement)) { dismiss() } }
+                }
+            }
+            .onAppear {
+                amount = jsNumberString(cycle.statementAmount)
+                minimum = cycle.minimumEstimated ? "" : jsNumberString(cycle.minimum)
+            }
+        }
+    }
+
+    private func save() {
+        guard let t = text else { return }
+        saving = true
+        let label = LS("本期账单：%@ %@", acctLabel(cycle.account), cycle.statement)
+        Task {
+            let ok: Bool
+            if let e = cycle.bill {
+                ok = await store.replaceDirective(e, with: t, summary: label, word: LS("已更新本期账单"))
+            } else {
+                ok = await store.addCardBill(t, label: label)
+            }
+            saving = false
+            if ok { dismiss() }
         }
     }
 }
@@ -162,6 +301,11 @@ struct RepaySheet: View {
                         if cycle.remaining > 0.005 {
                             Chip(label: LS("本期应还 %@", money(cycle.remaining, cycle.currency)), selected: evalAmount(amount) == cycle.remaining) {
                                 amount = jsNumberString(cycle.remaining)
+                            }
+                        }
+                        if cycle.minimumRemaining > 0.005 && abs(cycle.minimumRemaining - cycle.remaining) > 0.005 {
+                            Chip(label: LS("最低还款 %@", money(cycle.minimumRemaining, cycle.currency)), selected: evalAmount(amount) == cycle.minimumRemaining) {
+                                amount = jsNumberString(cycle.minimumRemaining)
                             }
                         }
                         if cycle.balance > 0.005 && abs(cycle.balance - cycle.remaining) > 0.005 {

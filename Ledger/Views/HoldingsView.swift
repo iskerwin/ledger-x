@@ -33,6 +33,11 @@ struct HoldingsView: View {
         .task {
             if store.demoEnv["LEDGER_PRICES"] != nil { pricing = true }
             if store.demoEnv["LEDGER_HOLDING_OPEN"] != nil, let L = store.L, let first = sorted(holdings(L), L).first { open.insert(first.id) }
+            // screenshots: 账户明细 through `push`, as the card's button does
+            if store.demoEnv["LEDGER_HOLDING_REGISTER"] != nil, let L = store.L, let first = sorted(holdings(L), L).first {
+                try? await Task.sleep(nanoseconds: 700_000_000)
+                push?(AccountDest(name: first.acct))
+            }
         }
     }
 

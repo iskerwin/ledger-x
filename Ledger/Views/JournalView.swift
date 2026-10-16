@@ -226,10 +226,11 @@ struct JournalView: View {
             .onChange(of: quick) { _, _ in limit = 150 }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
             .subscriptionDestinations()
-            .pushes(onto: $path)
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name).privacyToolbar() }
         }
+        // on the stack itself: the pages it opens inherit what is set here, not what is set on its first page
+        .pushes(onto: $path)
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .onChange(of: store.journalQuery) { _, new in takeQuery(new) }
         .task {
@@ -585,6 +586,8 @@ struct TxDetailView: View {
             }
             .navigationTitle(LS("交易详情"))
             .navigationBarTitleDisplayMode(.inline)
+            // screenshots: 编辑源文本 through `push`, as the ⋯ menu does
+            .task { if store.demoEnv["LEDGER_EDIT_SOURCE"] != nil { try? await Task.sleep(nanoseconds: 700_000_000); editSource() } }
             .sheet(item: $subDraft) { SubEditSheet(draft: $0) }
             .sheet(item: $ordering) { DayOrderSheet(date: $0.date, file: $0.file) }
             .sheet(item: $linkPick) { LinkPickSheet(pick: $0) }
