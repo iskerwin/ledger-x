@@ -209,12 +209,6 @@ public func yearReview(_ L: Ledger, year: String, mode: ReportMode = .convert("C
     return r
 }
 
-/// whole days from `a` to `b` (dates as text)
-func daysBetween(_ a: String, _ b: String) -> Int {
-    guard let x = Day.date(a), let y = Day.date(b) else { return 0 }
-    return Int((y.timeIntervalSince(x) / 86_400).rounded())
-}
-
 /// income from investments: dividends, interest, gains (by the account's name)
 public func isInvestmentIncome(_ a: String) -> Bool {
     let parts = a.components(separatedBy: ":").dropFirst().map { $0.lowercased() }
