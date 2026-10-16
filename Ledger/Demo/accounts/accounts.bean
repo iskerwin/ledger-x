@@ -1,0 +1,65 @@
+; 资产
+2025-01-01 open Assets:Bank:CMB                         CNY
+  name: "招商银行储蓄卡"
+  statement_day: 1
+2025-01-01 open Assets:Bank:ICBC                        CNY
+  name: "工商银行储蓄卡"
+2025-01-01 open Assets:Brokerage:IBKR:Cash              USD
+  name: "盈透证券 现金"
+2025-01-01 open Assets:Brokerage:IBKR:Stock             VOO,AAPL "FIFO"
+  name: "盈透证券 股票"
+2025-01-01 open Assets:Cash                             CNY
+  name: "现金"
+2025-01-01 open Assets:EWallet:Alipay                   CNY
+  name: "支付宝余额"
+2025-01-01 open Assets:EWallet:WeChat                   CNY
+  name: "微信零钱"
+2025-01-01 open Assets:Receivable:Employer              CNY
+  name: "公司往来"
+2025-01-01 open Assets:Receivable:Personal              CNY
+  name: "个人往来"
+2025-01-01 open Assets:Receivable:Reimbursement         CNY
+  name: "报销应收"
+
+; 负债
+2025-01-01 open Liabilities:CreditCard:CMB              CNY
+  name: "招商银行信用卡"
+  statement_day: 1
+  due_day: 10
+  credit_limit: 50000
+
+; 权益
+2025-01-01 open Equity:Opening-Balances
+
+; 收入
+2025-01-01 open Income:Bonus                            CNY
+2025-01-01 open Income:Invest:Dividend
+2025-01-01 open Income:Invest:Gain
+2025-01-01 open Income:Invest:Interest
+2025-01-01 open Income:Rewards                          CNY
+2025-01-01 open Income:Salary:Allowance                 CNY
+2025-01-01 open Income:Salary:Base                      CNY
+2025-01-01 open Income:Salary:Deduction                 CNY
+
+; 支出
+2025-01-01 open Expenses:Charity                        CNY
+2025-01-01 open Expenses:Entertainment:Movie            CNY
+2025-01-01 open Expenses:Food:Dining                    CNY,JPY
+2025-01-01 open Expenses:Food:Drinks                    CNY
+2025-01-01 open Expenses:Food:Groceries                 CNY
+2025-01-01 open Expenses:Food:Meals                     CNY
+2025-01-01 open Expenses:Gifts:RedPacket                CNY
+2025-01-01 open Expenses:Government:IncomeTax           CNY
+2025-01-01 open Expenses:Healthcare                     CNY
+2025-01-01 open Expenses:Housing:Rent                   CNY
+2025-01-01 open Expenses:Housing:Utilities              CNY
+2025-01-01 open Expenses:Shopping:Clothing              CNY
+2025-01-01 open Expenses:Shopping:Digital               CNY
+2025-01-01 open Expenses:Shopping:Household             CNY
+2025-01-01 open Expenses:Subscription:Cloud             CNY
+2025-01-01 open Expenses:Subscription:Phone             CNY
+2025-01-01 open Expenses:Subscription:Streaming         CNY
+2025-01-01 open Expenses:Transit:Metro                  CNY
+2025-01-01 open Expenses:Transit:Taxi                   CNY
+2025-01-01 open Expenses:Travel:Flight                  CNY
+2025-01-01 open Expenses:Travel:Hotel                   CNY

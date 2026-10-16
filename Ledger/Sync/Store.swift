@@ -291,6 +291,8 @@ final class Store: ObservableObject {
     }
 
     private func saveTree() { Prefs.set(pk("tree"), tree) }
+    /// forget the cached files of this ledger (they are read again on the next refresh)
+    func forgetTree() { tree = nil; saveTree() }
     func savePending() { Prefs.set(pk("pending"), pending) }
     private func saveHistory() { Prefs.set(pk("history"), history) }
 

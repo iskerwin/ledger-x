@@ -261,6 +261,7 @@ jobs:
           shot 04-multi SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_KIND=multi
           shot 05-raw SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_KIND=raw
           shot 06-overview SIMCTL_CHILD_LEDGER_TAB=overview
+          shot 06c-overview-demo SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_DEMO_BANNER=1
           shot 06b-overview-units SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_CURRENCY_MODE=units
           shot 07-journal SIMCTL_CHILD_LEDGER_TAB=journal
           shot 07b-calendar SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_CALENDAR=1

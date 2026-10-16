@@ -154,7 +154,10 @@ struct OverviewView: View {
                     }
                 }
             }
+            // (screenshots: the banner on the sample ledger)
+            if store.isDemo || store.demoEnv["LEDGER_DEMO_BANNER"] != nil { DemoBanner() }
             heroSection(s, F.cur)
+            DemoEntryCard()
             YearReviewOverviewSection()
             ReconcileBanner()
             AlertsOverviewSection()

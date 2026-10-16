@@ -1,0 +1,32 @@
+-- 每月支出（折合人民币）
+
+SELECT year, month, SUM(CONVERT(position, 'CNY')) AS total
+WHERE account ~ "^Expenses:"
+GROUP BY year, month
+ORDER BY year DESC, month DESC
+
+-- 本年一级支出分类
+
+SELECT ROOT(account, 2) AS category, SUM(position) AS total
+WHERE account ~ "^Expenses:" AND year = YEAR(TODAY())
+GROUP BY category
+ORDER BY total DESC
+
+-- 咖啡花了多少
+
+SELECT payee, COUNT(*) AS cups, SUM(position) AS total
+WHERE account = "Expenses:Food:Drinks"
+GROUP BY payee
+ORDER BY total DESC
+
+-- 旅行开销（按标签）
+
+SELECT date, payee, narration, position, tags
+WHERE account ~ "^Expenses:Travel"
+ORDER BY date
+
+-- 尚未报销的垫款
+
+SELECT date, payee, narration, position
+WHERE account = "Assets:Receivable:Reimbursement" AND NOT ('reimbursed' IN tags)
+ORDER BY date

@@ -1,0 +1,3644 @@
+; 2026 年交易（演示数据，全部为虚构）
+
+2026-01-01 * "房东" "房租"
+  Expenses:Housing:Rent                             4500.00 CNY
+  Assets:Bank:CMB                                  -4500.00 CNY
+
+2026-01-01 * "西贝" "午餐"
+  Expenses:Food:Meals                                 67.50 CNY
+  Liabilities:CreditCard:CMB                         -67.50 CNY
+
+2026-01-01 * "Manner" "澳白"
+  Expenses:Food:Drinks                                18.50 CNY
+  Liabilities:CreditCard:CMB                         -18.50 CNY
+
+2026-01-01 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-01-02 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 21.20 CNY
+  Liabilities:CreditCard:CMB                         -21.20 CNY
+
+2026-01-02 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 19.70 CNY
+  Liabilities:CreditCard:CMB                         -19.70 CNY
+
+2026-01-02 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-01-03 * "中国联通" "话费" ^sub-unicom
+  Expenses:Subscription:Phone                         59.00 CNY
+  Assets:EWallet:Alipay                              -59.00 CNY
+
+2026-01-03 * "Apple" "iCloud+" ^sub-icloud
+  Expenses:Subscription:Cloud                         21.00 CNY
+  Liabilities:CreditCard:CMB                         -21.00 CNY
+
+2026-01-03 * "美团外卖" "晚餐"
+  Expenses:Food:Dining                                42.60 CNY
+  Assets:EWallet:Alipay                              -42.60 CNY
+
+2026-01-05 * "ATM" "取现" #transfer
+  Assets:Cash                                        300.00 CNY
+  Assets:Bank:ICBC                                  -300.00 CNY
+
+2026-01-05 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 14.70 CNY
+  Assets:EWallet:WeChat                              -14.70 CNY
+
+2026-01-05 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 23.00 CNY
+  Liabilities:CreditCard:CMB                         -23.00 CNY
+
+2026-01-05 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-01-06 * "全家" "早餐"
+  Expenses:Food:Meals                                 11.30 CNY
+  Liabilities:CreditCard:CMB                         -11.30 CNY
+
+2026-01-06 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 32.40 CNY
+  Liabilities:CreditCard:CMB                         -32.40 CNY
+
+2026-01-06 * "星巴克" "美式"
+  Expenses:Food:Drinks                                30.90 CNY
+  Liabilities:CreditCard:CMB                         -30.90 CNY
+
+2026-01-07 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  9.00 CNY
+  Assets:EWallet:Alipay                               -9.00 CNY
+
+2026-01-07 * "西贝" "午餐"
+  Expenses:Food:Meals                                 54.80 CNY
+  Liabilities:CreditCard:CMB                         -54.80 CNY
+
+2026-01-07 * "Manner" "澳白"
+  Expenses:Food:Drinks                                15.60 CNY
+  Assets:EWallet:Alipay                              -15.60 CNY
+
+2026-01-08 * "国家电网" "电费"
+  Expenses:Housing:Utilities                         228.04 CNY
+  Assets:EWallet:Alipay                             -228.04 CNY
+
+2026-01-08 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 17.90 CNY
+  Assets:EWallet:WeChat                              -17.90 CNY
+
+2026-01-08 * "食堂" "午餐"
+  Expenses:Food:Meals                                 15.30 CNY
+  Assets:EWallet:Alipay                              -15.30 CNY
+
+2026-01-08 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-01-08 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260220
+  Assets:Receivable:Reimbursement                     38.90 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -38.90 CNY
+
+2026-01-09 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 22.90 CNY
+  Assets:EWallet:Alipay                              -22.90 CNY
+
+2026-01-09 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-01-10 * "招商银行信用卡" "还款" #transfer
+  Liabilities:CreditCard:CMB                        2171.78 CNY
+  Assets:Bank:CMB                                  -2171.78 CNY
+
+2026-01-10 * "盒马" "晚餐食材"
+  Expenses:Food:Groceries                            116.30 CNY
+  Assets:EWallet:Alipay                             -116.30 CNY
+
+2026-01-10 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               23.10 CNY
+  Assets:EWallet:Alipay                              -23.10 CNY
+
+2026-01-11 * "盒马" "晚餐食材"
+  Expenses:Food:Groceries                            122.90 CNY
+  Liabilities:CreditCard:CMB                        -122.90 CNY
+
+2026-01-11 * "菜市场" "买菜"
+  Expenses:Food:Groceries                             31.00 CNY
+  Assets:Cash                                        -31.00 CNY
+
+2026-01-12 * "IBKR" "换汇入金" #fx
+  exchange_rate: "1 USD = 7.0792 CNY"
+  Assets:Brokerage:IBKR:Cash                        5000.00 USD @ 7.0792 CNY
+  Assets:Bank:CMB                                 -35396.00 CNY
+
+2026-01-12 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 13.00 CNY
+  Liabilities:CreditCard:CMB                         -13.00 CNY
+
+2026-01-12 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 20.20 CNY
+  Assets:EWallet:WeChat                              -20.20 CNY
+
+2026-01-12 * "星巴克" "美式"
+  Expenses:Food:Drinks                                36.20 CNY
+  Assets:EWallet:WeChat                              -36.20 CNY
+
+2026-01-12 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260220
+  Assets:Receivable:Reimbursement                     49.10 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -49.10 CNY
+
+2026-01-13 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 20.20 CNY
+  Assets:EWallet:WeChat                              -20.20 CNY
+
+2026-01-13 * "食堂" "午餐"
+  Expenses:Food:Meals                                 17.10 CNY
+  Assets:EWallet:Alipay                              -17.10 CNY
+
+2026-01-13 * "星巴克" "美式"
+  Expenses:Food:Drinks                                36.20 CNY
+  Assets:EWallet:Alipay                              -36.20 CNY
+
+2026-01-13 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-01-14 * "全家" "早餐"
+  Expenses:Food:Meals                                 12.70 CNY
+  Liabilities:CreditCard:CMB                         -12.70 CNY
+
+2026-01-14 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 22.00 CNY
+  Liabilities:CreditCard:CMB                         -22.00 CNY
+
+2026-01-14 * "Manner" "澳白"
+  Expenses:Food:Drinks                                16.40 CNY
+  Liabilities:CreditCard:CMB                         -16.40 CNY
+
+2026-01-15 * "IBKR" "定投 VOO"
+  Assets:Brokerage:IBKR:Stock                             2 VOO {522.46 USD}
+  Assets:Brokerage:IBKR:Cash                       -1044.92 USD
+
+2026-01-15 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 14.70 CNY
+  Liabilities:CreditCard:CMB                         -14.70 CNY
+
+2026-01-15 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 17.40 CNY
+  Liabilities:CreditCard:CMB                         -17.40 CNY
+
+2026-01-15 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-01-16 * "西贝" "午餐"
+  Expenses:Food:Meals                                 51.90 CNY
+  Assets:EWallet:WeChat                              -51.90 CNY
+
+2026-01-16 * "星巴克" "美式"
+  Expenses:Food:Drinks                                33.40 CNY
+  Assets:EWallet:Alipay                              -33.40 CNY
+
+2026-01-17 * "美团外卖" "晚餐"
+  Expenses:Food:Dining                                43.70 CNY
+  Liabilities:CreditCard:CMB                         -43.70 CNY
+
+2026-01-17 * "京东" "日用品"
+  Expenses:Shopping:Household                        123.87 CNY
+  Liabilities:CreditCard:CMB                        -123.87 CNY
+
+2026-01-18 * "网易云音乐" "会员" ^sub-163music
+  Expenses:Subscription:Streaming                     15.00 CNY
+  Assets:EWallet:WeChat                              -15.00 CNY
+
+2026-01-18 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               41.10 CNY
+  Assets:EWallet:Alipay                              -41.10 CNY
+
+2026-01-18 * "菜市场" "买菜"
+  Expenses:Food:Groceries                             53.30 CNY
+  Assets:Cash                                        -53.30 CNY
+
+2026-01-19 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 21.30 CNY
+  Liabilities:CreditCard:CMB                         -21.30 CNY
+
+2026-01-19 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-01-20 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 14.90 CNY
+  Liabilities:CreditCard:CMB                         -14.90 CNY
+
+2026-01-20 * "西贝" "午餐"
+  Expenses:Food:Meals                                 77.60 CNY
+  Assets:EWallet:WeChat                              -77.60 CNY
+
+2026-01-20 * "Manner" "澳白"
+  Expenses:Food:Drinks                                17.80 CNY
+  Assets:EWallet:WeChat                              -17.80 CNY
+
+2026-01-21 * "全家" "早餐"
+  Expenses:Food:Meals                                 14.50 CNY
+  Assets:EWallet:WeChat                              -14.50 CNY
+
+2026-01-21 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 33.30 CNY
+  Assets:EWallet:WeChat                              -33.30 CNY
+
+2026-01-21 * "星巴克" "美式"
+  Expenses:Food:Drinks                                37.40 CNY
+  Liabilities:CreditCard:CMB                         -37.40 CNY
+
+2026-01-22 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  9.50 CNY
+  Liabilities:CreditCard:CMB                          -9.50 CNY
+
+2026-01-22 * "西贝" "午餐"
+  Expenses:Food:Meals                                 66.00 CNY
+  Assets:EWallet:WeChat                              -66.00 CNY
+
+2026-01-22 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                12.40 CNY
+  Liabilities:CreditCard:CMB                         -12.40 CNY
+
+2026-01-22 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260220
+  Assets:Receivable:Reimbursement                     42.90 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -42.90 CNY
+
+2026-01-23 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 23.90 CNY
+  Assets:EWallet:WeChat                              -23.90 CNY
+
+2026-01-24 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               63.90 CNY
+  Assets:EWallet:Alipay                              -63.90 CNY
+
+2026-01-25 * "示例科技有限公司" "2026-01 工资" ^salary-shili-202601
+  payslip_days: 22
+  payslip_items: "基本工资 26000.00; 餐补 800.00; 交通补贴 400.00; 代扣个税 1450.00"
+  Income:Salary:Base                              -26000.00 CNY
+  Income:Salary:Allowance                          -1200.00 CNY
+  Expenses:Government:IncomeTax                     1450.00 CNY
+  Assets:Bank:CMB                                  25750.00 CNY
+
+2026-01-26 * "支付宝" "余额充值" #transfer
+  Assets:EWallet:Alipay                             1500.00 CNY
+  Assets:Bank:CMB                                  -1500.00 CNY
+
+2026-01-26 * "微信" "零钱充值" #transfer
+  Assets:EWallet:WeChat                             1200.00 CNY
+  Assets:Bank:CMB                                  -1200.00 CNY
+
+2026-01-26 * "食堂" "午餐"
+  Expenses:Food:Meals                                 16.80 CNY
+  Assets:EWallet:Alipay                              -16.80 CNY
+
+2026-01-26 * "星巴克" "美式"
+  Expenses:Food:Drinks                                34.80 CNY
+  Assets:EWallet:WeChat                              -34.80 CNY
+
+2026-01-27 * "全家" "早餐"
+  Expenses:Food:Meals                                 11.10 CNY
+  Liabilities:CreditCard:CMB                         -11.10 CNY
+
+2026-01-27 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 18.10 CNY
+  Liabilities:CreditCard:CMB                         -18.10 CNY
+
+2026-01-27 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-01-28 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 13.90 CNY
+  Assets:EWallet:WeChat                              -13.90 CNY
+
+2026-01-28 * "西贝" "午餐"
+  Expenses:Food:Meals                                 56.40 CNY
+  Assets:EWallet:Alipay                              -56.40 CNY
+
+2026-01-28 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                11.50 CNY
+  Assets:EWallet:WeChat                              -11.50 CNY
+
+2026-01-29 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 16.40 CNY
+  Liabilities:CreditCard:CMB                         -16.40 CNY
+
+2026-01-29 * "食堂" "午餐"
+  Expenses:Food:Meals                                 16.40 CNY
+  Liabilities:CreditCard:CMB                         -16.40 CNY
+
+2026-01-29 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.80 CNY
+  Assets:EWallet:Alipay                              -13.80 CNY
+
+2026-01-29 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-01-29 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260220
+  Assets:Receivable:Reimbursement                     72.70 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -72.70 CNY
+
+2026-01-30 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 19.30 CNY
+  Assets:EWallet:WeChat                              -19.30 CNY
+
+2026-01-30 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 20.00 CNY
+  Assets:EWallet:Alipay                              -20.00 CNY
+
+2026-01-30 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-02-01 * "房东" "房租"
+  Expenses:Housing:Rent                             4500.00 CNY
+  Assets:Bank:CMB                                  -4500.00 CNY
+
+2026-02-01 * "海底捞" "晚餐"
+  Expenses:Food:Dining                               239.80 CNY
+  Assets:EWallet:WeChat                             -239.80 CNY
+
+2026-02-02 * "食堂" "午餐"
+  Expenses:Food:Meals                                 15.10 CNY
+  Assets:EWallet:WeChat                              -15.10 CNY
+
+2026-02-02 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-02-03 * "中国联通" "话费" ^sub-unicom
+  Expenses:Subscription:Phone                         59.00 CNY
+  Assets:EWallet:Alipay                              -59.00 CNY
+
+2026-02-03 * "Apple" "iCloud+" ^sub-icloud
+  Expenses:Subscription:Cloud                         21.00 CNY
+  Liabilities:CreditCard:CMB                         -21.00 CNY
+
+2026-02-03 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  6.30 CNY
+  Liabilities:CreditCard:CMB                          -6.30 CNY
+
+2026-02-03 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 22.50 CNY
+  Liabilities:CreditCard:CMB                         -22.50 CNY
+
+2026-02-03 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-02-04 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 19.10 CNY
+  Assets:EWallet:Alipay                              -19.10 CNY
+
+2026-02-05 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  9.60 CNY
+  Assets:EWallet:WeChat                               -9.60 CNY
+
+2026-02-05 * "食堂" "午餐"
+  Expenses:Food:Meals                                 20.40 CNY
+  Liabilities:CreditCard:CMB                         -20.40 CNY
+
+2026-02-06 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 16.40 CNY
+  Liabilities:CreditCard:CMB                         -16.40 CNY
+
+2026-02-06 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 34.90 CNY
+  Assets:EWallet:WeChat                              -34.90 CNY
+
+2026-02-06 * "星巴克" "美式"
+  Expenses:Food:Drinks                                36.50 CNY
+  Assets:EWallet:Alipay                              -36.50 CNY
+
+2026-02-06 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-02-07 * "京东" "日用品"
+  Expenses:Shopping:Household                        134.38 CNY
+  Liabilities:CreditCard:CMB                        -134.38 CNY
+
+2026-02-08 * "国家电网" "电费"
+  Expenses:Housing:Utilities                         184.74 CNY
+  Assets:EWallet:Alipay                             -184.74 CNY
+
+2026-02-08 * "海底捞" "晚餐"
+  Expenses:Food:Dining                               250.30 CNY
+  Assets:EWallet:Alipay                             -250.30 CNY
+
+2026-02-09 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 34.60 CNY
+  Assets:EWallet:WeChat                              -34.60 CNY
+
+2026-02-09 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-02-10 * "招商银行信用卡" "还款" #transfer
+  Liabilities:CreditCard:CMB                         765.15 CNY
+  Assets:Bank:CMB                                   -765.15 CNY
+
+2026-02-10 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 18.10 CNY
+  Assets:EWallet:WeChat                              -18.10 CNY
+
+2026-02-10 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 30.70 CNY
+  Assets:EWallet:WeChat                              -30.70 CNY
+
+2026-02-10 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-02-11 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 26.10 CNY
+  Liabilities:CreditCard:CMB                         -26.10 CNY
+
+2026-02-11 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                12.30 CNY
+  Liabilities:CreditCard:CMB                         -12.30 CNY
+
+2026-02-11 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-02-12 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 20.70 CNY
+  Assets:EWallet:WeChat                              -20.70 CNY
+
+2026-02-12 * "西贝" "午餐"
+  Expenses:Food:Meals                                 72.60 CNY
+  Liabilities:CreditCard:CMB                         -72.60 CNY
+
+2026-02-12 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-02-13 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  8.20 CNY
+  Liabilities:CreditCard:CMB                          -8.20 CNY
+
+2026-02-13 * "食堂" "午餐"
+  Expenses:Food:Meals                                 19.30 CNY
+  Assets:EWallet:Alipay                              -19.30 CNY
+
+2026-02-13 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-02-15 * "美团外卖" "晚餐"
+  Expenses:Food:Dining                                40.90 CNY
+  Assets:EWallet:Alipay                              -40.90 CNY
+
+2026-02-15 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               32.10 CNY
+  Assets:EWallet:Alipay                              -32.10 CNY
+
+2026-02-16 * "IBKR" "定投 VOO"
+  Assets:Brokerage:IBKR:Stock                             2 VOO {518.52 USD}
+  Assets:Brokerage:IBKR:Cash                       -1037.04 USD
+
+2026-02-16 * "全家" "早餐"
+  Expenses:Food:Meals                                  9.00 CNY
+  Assets:EWallet:WeChat                               -9.00 CNY
+
+2026-02-16 * "西贝" "午餐"
+  Expenses:Food:Meals                                 72.40 CNY
+  Liabilities:CreditCard:CMB                         -72.40 CNY
+
+2026-02-16 * "Manner" "澳白"
+  Expenses:Food:Drinks                                18.50 CNY
+  Liabilities:CreditCard:CMB                         -18.50 CNY
+
+2026-02-16 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-02-16 * "家人" "春节红包"
+  Expenses:Gifts:RedPacket                          2400.00 CNY
+  Assets:EWallet:WeChat                            -2400.00 CNY
+
+2026-02-17 * "全家" "早餐"
+  Expenses:Food:Meals                                 11.70 CNY
+  Assets:EWallet:Alipay                              -11.70 CNY
+
+2026-02-17 * "西贝" "午餐"
+  Expenses:Food:Meals                                 53.30 CNY
+  Assets:EWallet:WeChat                              -53.30 CNY
+
+2026-02-17 * "星巴克" "美式"
+  Expenses:Food:Drinks                                31.40 CNY
+  Assets:EWallet:WeChat                              -31.40 CNY
+
+2026-02-17 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-02-18 * "网易云音乐" "会员" ^sub-163music
+  Expenses:Subscription:Streaming                     15.00 CNY
+  Assets:EWallet:WeChat                              -15.00 CNY
+
+2026-02-18 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 15.00 CNY
+  Liabilities:CreditCard:CMB                         -15.00 CNY
+
+2026-02-18 * "西贝" "午餐"
+  Expenses:Food:Meals                                 62.50 CNY
+  Liabilities:CreditCard:CMB                         -62.50 CNY
+
+2026-02-18 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-02-19 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 20.90 CNY
+  Liabilities:CreditCard:CMB                         -20.90 CNY
+
+2026-02-19 * "Manner" "澳白"
+  Expenses:Food:Drinks                                19.90 CNY
+  Assets:EWallet:WeChat                              -19.90 CNY
+
+2026-02-19 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-02-20 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 19.50 CNY
+  Assets:EWallet:WeChat                              -19.50 CNY
+
+2026-02-20 * "西贝" "午餐"
+  Expenses:Food:Meals                                 55.50 CNY
+  Assets:EWallet:WeChat                              -55.50 CNY
+
+2026-02-20 * "星巴克" "美式"
+  Expenses:Food:Drinks                                36.60 CNY
+  Liabilities:CreditCard:CMB                         -36.60 CNY
+
+2026-02-20 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-02-20 * "示例科技有限公司" "差旅报销 9 笔" #reimbursement ^reimburse-shili-20260220
+  Assets:Bank:CMB                                    460.90 CNY
+  Assets:Receivable:Reimbursement                   -460.90 CNY
+
+2026-02-21 * "美团外卖" "晚餐"
+  Expenses:Food:Dining                                27.40 CNY
+  Liabilities:CreditCard:CMB                         -27.40 CNY
+
+2026-02-22 * "海底捞" "晚餐"
+  Expenses:Food:Dining                               289.70 CNY
+  Liabilities:CreditCard:CMB                        -289.70 CNY
+
+2026-02-22 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               40.90 CNY
+  Assets:EWallet:Alipay                              -40.90 CNY
+
+2026-02-23 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  7.40 CNY
+  Liabilities:CreditCard:CMB                          -7.40 CNY
+
+2026-02-23 * "食堂" "午餐"
+  Expenses:Food:Meals                                 17.80 CNY
+  Liabilities:CreditCard:CMB                         -17.80 CNY
+
+2026-02-23 * "星巴克" "美式"
+  Expenses:Food:Drinks                                36.10 CNY
+  Assets:EWallet:Alipay                              -36.10 CNY
+
+2026-02-23 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-02-24 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 12.40 CNY
+  Assets:EWallet:Alipay                              -12.40 CNY
+
+2026-02-24 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 16.10 CNY
+  Assets:EWallet:WeChat                              -16.10 CNY
+
+2026-02-24 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-02-25 * "示例科技有限公司" "2026-02 工资" ^salary-shili-202602
+  payslip_days: 20
+  payslip_items: "基本工资 26000.00; 餐补 800.00; 交通补贴 400.00; 代扣个税 1450.00"
+  Income:Salary:Base                              -26000.00 CNY
+  Income:Salary:Allowance                          -1200.00 CNY
+  Expenses:Government:IncomeTax                     1450.00 CNY
+  Assets:Bank:CMB                                  25750.00 CNY
+
+2026-02-25 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 13.20 CNY
+  Assets:EWallet:Alipay                              -13.20 CNY
+
+2026-02-25 * "食堂" "午餐"
+  Expenses:Food:Meals                                 21.80 CNY
+  Liabilities:CreditCard:CMB                         -21.80 CNY
+
+2026-02-25 * "Manner" "澳白"
+  Expenses:Food:Drinks                                18.70 CNY
+  Assets:EWallet:Alipay                              -18.70 CNY
+
+2026-02-25 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-02-25 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260420
+  Assets:Receivable:Reimbursement                     82.10 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -82.10 CNY
+
+2026-02-26 * "支付宝" "余额充值" #transfer
+  Assets:EWallet:Alipay                             1500.00 CNY
+  Assets:Bank:CMB                                  -1500.00 CNY
+
+2026-02-26 * "微信" "零钱充值" #transfer
+  Assets:EWallet:WeChat                             1200.00 CNY
+  Assets:Bank:CMB                                  -1200.00 CNY
+
+2026-02-26 * "全家" "早餐"
+  Expenses:Food:Meals                                 10.30 CNY
+  Assets:EWallet:Alipay                              -10.30 CNY
+
+2026-02-26 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 22.50 CNY
+  Assets:EWallet:Alipay                              -22.50 CNY
+
+2026-02-26 * "星巴克" "美式"
+  Expenses:Food:Drinks                                30.80 CNY
+  Liabilities:CreditCard:CMB                         -30.80 CNY
+
+2026-02-26 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-02-27 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 12.70 CNY
+  Liabilities:CreditCard:CMB                         -12.70 CNY
+
+2026-02-27 * "食堂" "午餐"
+  Expenses:Food:Meals                                 16.40 CNY
+  Assets:EWallet:WeChat                              -16.40 CNY
+
+2026-02-27 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-02-28 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               56.60 CNY
+  Assets:EWallet:Alipay                              -56.60 CNY
+
+2026-03-01 * "房东" "房租"
+  Expenses:Housing:Rent                             4500.00 CNY
+  Assets:Bank:CMB                                  -4500.00 CNY
+
+2026-03-01 * "美团外卖" "晚餐"
+  Expenses:Food:Dining                                35.80 CNY
+  Assets:EWallet:WeChat                              -35.80 CNY
+
+2026-03-01 * "京东" "日用品"
+  Expenses:Shopping:Household                        145.11 CNY
+  Liabilities:CreditCard:CMB                        -145.11 CNY
+
+2026-03-02 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 16.60 CNY
+  Liabilities:CreditCard:CMB                         -16.60 CNY
+
+2026-03-02 * "食堂" "午餐"
+  Expenses:Food:Meals                                 18.60 CNY
+  Liabilities:CreditCard:CMB                         -18.60 CNY
+
+2026-03-02 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-03-03 * "中国联通" "话费" ^sub-unicom
+  Expenses:Subscription:Phone                         59.00 CNY
+  Assets:EWallet:Alipay                              -59.00 CNY
+
+2026-03-03 * "Apple" "iCloud+" ^sub-icloud
+  Expenses:Subscription:Cloud                         21.00 CNY
+  Liabilities:CreditCard:CMB                         -21.00 CNY
+
+2026-03-03 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  7.90 CNY
+  Liabilities:CreditCard:CMB                          -7.90 CNY
+
+2026-03-03 * "食堂" "午餐"
+  Expenses:Food:Meals                                 20.40 CNY
+  Assets:EWallet:WeChat                              -20.40 CNY
+
+2026-03-03 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                10.10 CNY
+  Liabilities:CreditCard:CMB                         -10.10 CNY
+
+2026-03-04 * "全家" "早餐"
+  Expenses:Food:Meals                                 13.90 CNY
+  Liabilities:CreditCard:CMB                         -13.90 CNY
+
+2026-03-04 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 17.70 CNY
+  Liabilities:CreditCard:CMB                         -17.70 CNY
+
+2026-03-04 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.40 CNY
+  Assets:EWallet:Alipay                              -13.40 CNY
+
+2026-03-04 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-03-05 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  7.10 CNY
+  Assets:EWallet:Alipay                               -7.10 CNY
+
+2026-03-05 * "食堂" "午餐"
+  Expenses:Food:Meals                                 21.20 CNY
+  Liabilities:CreditCard:CMB                         -21.20 CNY
+
+2026-03-05 * "Manner" "澳白"
+  Expenses:Food:Drinks                                19.60 CNY
+  Liabilities:CreditCard:CMB                         -19.60 CNY
+
+2026-03-05 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-03-06 * "西贝" "午餐"
+  Expenses:Food:Meals                                 58.90 CNY
+  Liabilities:CreditCard:CMB                         -58.90 CNY
+
+2026-03-06 * "星巴克" "美式"
+  Expenses:Food:Drinks                                34.70 CNY
+  Liabilities:CreditCard:CMB                         -34.70 CNY
+
+2026-03-06 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260420
+  Assets:Receivable:Reimbursement                     34.90 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -34.90 CNY
+
+2026-03-08 * "国家电网" "电费"
+  Expenses:Housing:Utilities                         247.45 CNY
+  Assets:EWallet:Alipay                             -247.45 CNY
+
+2026-03-08 * "海底捞" "晚餐"
+  Expenses:Food:Dining                               310.60 CNY
+  Liabilities:CreditCard:CMB                        -310.60 CNY
+
+2026-03-09 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 18.60 CNY
+  Assets:EWallet:Alipay                              -18.60 CNY
+
+2026-03-09 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-03-10 * "招商银行信用卡" "还款" #transfer
+  Liabilities:CreditCard:CMB                        1448.61 CNY
+  Assets:Bank:CMB                                  -1448.61 CNY
+
+2026-03-10 * "西贝" "午餐"
+  Expenses:Food:Meals                                 74.90 CNY
+  Liabilities:CreditCard:CMB                         -74.90 CNY
+
+2026-03-10 * "星巴克" "美式"
+  Expenses:Food:Drinks                                35.20 CNY
+  Assets:EWallet:WeChat                              -35.20 CNY
+
+2026-03-11 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  6.30 CNY
+  Assets:EWallet:WeChat                               -6.30 CNY
+
+2026-03-11 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 27.90 CNY
+  Liabilities:CreditCard:CMB                         -27.90 CNY
+
+2026-03-11 * "星巴克" "美式"
+  Expenses:Food:Drinks                                33.40 CNY
+  Assets:EWallet:Alipay                              -33.40 CNY
+
+2026-03-11 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260420
+  Assets:Receivable:Reimbursement                     38.20 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -38.20 CNY
+
+2026-03-12 * "全家" "早餐"
+  Expenses:Food:Meals                                 14.00 CNY
+  Assets:EWallet:Alipay                              -14.00 CNY
+
+2026-03-12 * "西贝" "午餐"
+  Expenses:Food:Meals                                 63.50 CNY
+  Liabilities:CreditCard:CMB                         -63.50 CNY
+
+2026-03-12 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                12.70 CNY
+  Liabilities:CreditCard:CMB                         -12.70 CNY
+
+2026-03-12 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-03-13 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 12.10 CNY
+  Assets:EWallet:WeChat                              -12.10 CNY
+
+2026-03-13 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 35.70 CNY
+  Liabilities:CreditCard:CMB                         -35.70 CNY
+
+2026-03-13 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-03-14 * "美团外卖" "晚餐"
+  Expenses:Food:Dining                                37.40 CNY
+  Assets:EWallet:Alipay                              -37.40 CNY
+
+2026-03-15 * "坚果云" "年费" ^sub-jianguoyun
+  Expenses:Subscription:Cloud                        199.00 CNY
+  Liabilities:CreditCard:CMB                        -199.00 CNY
+
+2026-03-15 * "美团外卖" "晚餐"
+  Expenses:Food:Dining                                27.30 CNY
+  Assets:EWallet:WeChat                              -27.30 CNY
+
+2026-03-16 * "IBKR" "定投 VOO"
+  Assets:Brokerage:IBKR:Stock                             2 VOO {519.46 USD}
+  Assets:Brokerage:IBKR:Cash                       -1038.92 USD
+
+2026-03-16 * "全家" "早餐"
+  Expenses:Food:Meals                                  9.20 CNY
+  Liabilities:CreditCard:CMB                          -9.20 CNY
+
+2026-03-16 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 20.00 CNY
+  Assets:EWallet:WeChat                              -20.00 CNY
+
+2026-03-16 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                11.70 CNY
+  Assets:EWallet:Alipay                              -11.70 CNY
+
+2026-03-16 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260420
+  Assets:Receivable:Reimbursement                     85.50 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -85.50 CNY
+
+2026-03-17 * "IBKR" "买入 AAPL"
+  Assets:Brokerage:IBKR:Stock                             5 AAPL {264.35 USD}
+  Assets:Brokerage:IBKR:Cash                       -1321.75 USD
+
+2026-03-17 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 19.90 CNY
+  Assets:EWallet:WeChat                              -19.90 CNY
+
+2026-03-17 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 19.00 CNY
+  Assets:EWallet:WeChat                              -19.00 CNY
+
+2026-03-18 * "网易云音乐" "会员" ^sub-163music
+  Expenses:Subscription:Streaming                     15.00 CNY
+  Assets:EWallet:WeChat                              -15.00 CNY
+
+2026-03-18 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 19.20 CNY
+  Liabilities:CreditCard:CMB                         -19.20 CNY
+
+2026-03-18 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 32.40 CNY
+  Assets:EWallet:WeChat                              -32.40 CNY
+
+2026-03-18 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-03-19 * "全家" "早餐"
+  Expenses:Food:Meals                                 10.90 CNY
+  Liabilities:CreditCard:CMB                         -10.90 CNY
+
+2026-03-19 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 25.50 CNY
+  Assets:EWallet:Alipay                              -25.50 CNY
+
+2026-03-20 * "全家" "早餐"
+  Expenses:Food:Meals                                 10.40 CNY
+  Liabilities:CreditCard:CMB                         -10.40 CNY
+
+2026-03-20 * "西贝" "午餐"
+  Expenses:Food:Meals                                 56.70 CNY
+  Assets:EWallet:Alipay                              -56.70 CNY
+
+2026-03-20 * "Manner" "澳白"
+  Expenses:Food:Drinks                                15.40 CNY
+  Liabilities:CreditCard:CMB                         -15.40 CNY
+
+2026-03-20 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-03-20 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260420
+  Assets:Receivable:Reimbursement                     62.60 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -62.60 CNY
+
+2026-03-21 * "招商银行" "活期利息"
+  Income:Invest:Interest                             -92.02 CNY
+  Assets:Bank:CMB                                     92.02 CNY
+
+2026-03-21 * "海底捞" "晚餐"
+  Expenses:Food:Dining                               303.50 CNY
+  Assets:EWallet:WeChat                             -303.50 CNY
+
+2026-03-22 * "盒马" "晚餐食材"
+  Expenses:Food:Groceries                             77.90 CNY
+  Assets:EWallet:WeChat                              -77.90 CNY
+
+2026-03-23 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  9.10 CNY
+  Assets:EWallet:WeChat                               -9.10 CNY
+
+2026-03-23 * "西贝" "午餐"
+  Expenses:Food:Meals                                 76.10 CNY
+  Liabilities:CreditCard:CMB                         -76.10 CNY
+
+2026-03-23 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                11.50 CNY
+  Assets:EWallet:WeChat                              -11.50 CNY
+
+2026-03-23 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-03-24 * "全家" "早餐"
+  Expenses:Food:Meals                                 15.50 CNY
+  Assets:EWallet:WeChat                              -15.50 CNY
+
+2026-03-24 * "食堂" "午餐"
+  Expenses:Food:Meals                                 17.60 CNY
+  Assets:EWallet:WeChat                              -17.60 CNY
+
+2026-03-24 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                11.20 CNY
+  Assets:EWallet:Alipay                              -11.20 CNY
+
+2026-03-24 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-03-25 * "示例科技有限公司" "2026-03 工资" ^salary-shili-202603
+  payslip_days: 22
+  payslip_items: "基本工资 26000.00; 餐补 800.00; 交通补贴 400.00; 代扣个税 1450.00"
+  Income:Salary:Base                              -26000.00 CNY
+  Income:Salary:Allowance                          -1200.00 CNY
+  Expenses:Government:IncomeTax                     1450.00 CNY
+  Assets:Bank:CMB                                  25750.00 CNY
+
+2026-03-25 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 20.00 CNY
+  Assets:EWallet:WeChat                              -20.00 CNY
+
+2026-03-25 * "星巴克" "美式"
+  Expenses:Food:Drinks                                32.40 CNY
+  Assets:EWallet:Alipay                              -32.40 CNY
+
+2026-03-25 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-03-26 * "支付宝" "余额充值" #transfer
+  Assets:EWallet:Alipay                             1500.00 CNY
+  Assets:Bank:CMB                                  -1500.00 CNY
+
+2026-03-26 * "微信" "零钱充值" #transfer
+  Assets:EWallet:WeChat                             1200.00 CNY
+  Assets:Bank:CMB                                  -1200.00 CNY
+
+2026-03-26 * "食堂" "午餐"
+  Expenses:Food:Meals                                 20.40 CNY
+  Liabilities:CreditCard:CMB                         -20.40 CNY
+
+2026-03-26 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                14.10 CNY
+  Assets:EWallet:WeChat                              -14.10 CNY
+
+2026-03-27 * "全家" "早餐"
+  Expenses:Food:Meals                                  9.20 CNY
+  Assets:EWallet:WeChat                               -9.20 CNY
+
+2026-03-27 * "西贝" "午餐"
+  Expenses:Food:Meals                                 46.70 CNY
+  Assets:EWallet:Alipay                              -46.70 CNY
+
+2026-03-27 * "Manner" "澳白"
+  Expenses:Food:Drinks                                19.20 CNY
+  Assets:EWallet:WeChat                              -19.20 CNY
+
+2026-03-27 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-03-28 * "IBKR" "VOO 分红"
+  Income:Invest:Dividend                             -51.00 USD
+  Assets:Brokerage:IBKR:Cash                          51.00 USD
+
+2026-03-28 * "美团外卖" "晚餐"
+  Expenses:Food:Dining                                37.00 CNY
+  Liabilities:CreditCard:CMB                         -37.00 CNY
+
+2026-03-28 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               38.20 CNY
+  Assets:EWallet:Alipay                              -38.20 CNY
+
+2026-03-29 * "海底捞" "晚餐"
+  Expenses:Food:Dining                               212.90 CNY
+  Liabilities:CreditCard:CMB                        -212.90 CNY
+
+2026-03-29 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               22.80 CNY
+  Assets:EWallet:Alipay                              -22.80 CNY
+
+2026-03-30 * "食堂" "午餐"
+  Expenses:Food:Meals                                 15.80 CNY
+  Liabilities:CreditCard:CMB                         -15.80 CNY
+
+2026-03-30 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-03-31 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 20.30 CNY
+  Assets:EWallet:WeChat                              -20.30 CNY
+
+2026-03-31 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 22.20 CNY
+  Assets:EWallet:Alipay                              -22.20 CNY
+
+2026-03-31 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-03-31 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260420
+  Assets:Receivable:Reimbursement                     82.80 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -82.80 CNY
+
+2026-04-01 * "房东" "房租"
+  Expenses:Housing:Rent                             4500.00 CNY
+  Assets:Bank:CMB                                  -4500.00 CNY
+
+2026-04-01 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  9.80 CNY
+  Assets:EWallet:WeChat                               -9.80 CNY
+
+2026-04-01 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 36.80 CNY
+  Assets:EWallet:Alipay                              -36.80 CNY
+
+2026-04-01 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                12.80 CNY
+  Assets:EWallet:WeChat                              -12.80 CNY
+
+2026-04-01 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-04-02 * "全家" "早餐"
+  Expenses:Food:Meals                                 15.70 CNY
+  Assets:EWallet:Alipay                              -15.70 CNY
+
+2026-04-02 * "西贝" "午餐"
+  Expenses:Food:Meals                                 74.40 CNY
+  Assets:EWallet:Alipay                              -74.40 CNY
+
+2026-04-02 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-04-03 * "中国联通" "话费" ^sub-unicom
+  Expenses:Subscription:Phone                         59.00 CNY
+  Assets:EWallet:Alipay                              -59.00 CNY
+
+2026-04-03 * "Apple" "iCloud+" ^sub-icloud
+  Expenses:Subscription:Cloud                         68.00 CNY
+  Liabilities:CreditCard:CMB                         -68.00 CNY
+
+2026-04-03 * "西贝" "午餐"
+  Expenses:Food:Meals                                 52.00 CNY
+  Liabilities:CreditCard:CMB                         -52.00 CNY
+
+2026-04-03 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-04-04 * "海底捞" "晚餐"
+  Expenses:Food:Dining                               281.10 CNY
+  Assets:EWallet:Alipay                             -281.10 CNY
+
+2026-04-04 * "菜市场" "买菜"
+  Expenses:Food:Groceries                             47.10 CNY
+  Assets:Cash                                        -47.10 CNY
+
+2026-04-05 * "盒马" "晚餐食材"
+  Expenses:Food:Groceries                            119.20 CNY
+  Liabilities:CreditCard:CMB                        -119.20 CNY
+
+2026-04-05 * "菜市场" "买菜"
+  Expenses:Food:Groceries                             53.40 CNY
+  Assets:Cash                                        -53.40 CNY
+
+2026-04-05 * "Apple" "配件"
+  Expenses:Shopping:Digital                          684.40 CNY
+  Liabilities:CreditCard:CMB                        -684.40 CNY
+
+2026-04-06 * "西贝" "午餐"
+  Expenses:Food:Meals                                 54.20 CNY
+  Liabilities:CreditCard:CMB                         -54.20 CNY
+
+2026-04-06 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-04-06 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260620
+  Assets:Receivable:Reimbursement                     79.90 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -79.90 CNY
+
+2026-04-07 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 16.00 CNY
+  Assets:EWallet:WeChat                              -16.00 CNY
+
+2026-04-07 * "食堂" "午餐"
+  Expenses:Food:Meals                                 20.60 CNY
+  Assets:EWallet:Alipay                              -20.60 CNY
+
+2026-04-07 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-04-08 * "国家电网" "电费"
+  Expenses:Housing:Utilities                         274.89 CNY
+  Assets:EWallet:Alipay                             -274.89 CNY
+
+2026-04-08 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  9.00 CNY
+  Assets:EWallet:WeChat                               -9.00 CNY
+
+2026-04-08 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 26.10 CNY
+  Assets:EWallet:WeChat                              -26.10 CNY
+
+2026-04-08 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.80 CNY
+  Liabilities:CreditCard:CMB                         -13.80 CNY
+
+2026-04-08 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-04-08 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260620
+  Assets:Receivable:Reimbursement                     74.00 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -74.00 CNY
+
+2026-04-08 * "淘宝" "衣服"
+  Expenses:Shopping:Clothing                         392.22 CNY
+  Liabilities:CreditCard:CMB                        -392.22 CNY
+
+2026-04-09 * "食堂" "午餐"
+  Expenses:Food:Meals                                 19.70 CNY
+  Liabilities:CreditCard:CMB                         -19.70 CNY
+
+2026-04-09 * "星巴克" "美式"
+  Expenses:Food:Drinks                                34.00 CNY
+  Assets:EWallet:WeChat                              -34.00 CNY
+
+2026-04-10 * "招商银行信用卡" "还款" #transfer
+  Liabilities:CreditCard:CMB                        2244.52 CNY
+  Assets:Bank:CMB                                  -2244.52 CNY
+
+2026-04-10 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 17.70 CNY
+  Liabilities:CreditCard:CMB                         -17.70 CNY
+
+2026-04-10 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 27.60 CNY
+  Liabilities:CreditCard:CMB                         -27.60 CNY
+
+2026-04-10 * "星巴克" "美式"
+  Expenses:Food:Drinks                                34.80 CNY
+  Assets:EWallet:Alipay                              -34.80 CNY
+
+2026-04-10 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-04-11 * "美团外卖" "晚餐"
+  Expenses:Food:Dining                                31.00 CNY
+  Liabilities:CreditCard:CMB                         -31.00 CNY
+
+2026-04-11 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               49.00 CNY
+  Assets:EWallet:Alipay                              -49.00 CNY
+
+2026-04-11 * "宜家" "家居"
+  Expenses:Shopping:Household                        447.42 CNY
+  Liabilities:CreditCard:CMB                        -447.42 CNY
+
+2026-04-12 * "IBKR" "换汇入金" #fx
+  exchange_rate: "1 USD = 7.1626 CNY"
+  Assets:Brokerage:IBKR:Cash                        5000.00 USD @ 7.1626 CNY
+  Assets:Bank:CMB                                 -35813.00 CNY
+
+2026-04-12 * "盒马" "晚餐食材"
+  Expenses:Food:Groceries                             62.50 CNY
+  Assets:EWallet:WeChat                              -62.50 CNY
+
+2026-04-13 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  7.80 CNY
+  Assets:EWallet:Alipay                               -7.80 CNY
+
+2026-04-13 * "食堂" "午餐"
+  Expenses:Food:Meals                                 19.60 CNY
+  Assets:EWallet:Alipay                              -19.60 CNY
+
+2026-04-13 * "星巴克" "美式"
+  Expenses:Food:Drinks                                34.10 CNY
+  Assets:EWallet:WeChat                              -34.10 CNY
+
+2026-04-13 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-04-14 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  8.70 CNY
+  Assets:EWallet:Alipay                               -8.70 CNY
+
+2026-04-14 * "食堂" "午餐"
+  Expenses:Food:Meals                                 22.00 CNY
+  Assets:EWallet:WeChat                              -22.00 CNY
+
+2026-04-14 * "Manner" "澳白"
+  Expenses:Food:Drinks                                17.80 CNY
+  Assets:EWallet:WeChat                              -17.80 CNY
+
+2026-04-15 * "IBKR" "定投 VOO"
+  Assets:Brokerage:IBKR:Stock                             2 VOO {526.71 USD}
+  Assets:Brokerage:IBKR:Cash                       -1053.42 USD
+
+2026-04-15 * "西贝" "午餐"
+  Expenses:Food:Meals                                 59.70 CNY
+  Liabilities:CreditCard:CMB                         -59.70 CNY
+
+2026-04-16 * "西贝" "午餐"
+  Expenses:Food:Meals                                 56.30 CNY
+  Assets:EWallet:WeChat                              -56.30 CNY
+
+2026-04-17 * "全家" "早餐"
+  Expenses:Food:Meals                                 14.80 CNY
+  Liabilities:CreditCard:CMB                         -14.80 CNY
+
+2026-04-17 * "食堂" "午餐"
+  Expenses:Food:Meals                                 21.30 CNY
+  Assets:EWallet:Alipay                              -21.30 CNY
+
+2026-04-17 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260620
+  Assets:Receivable:Reimbursement                     46.90 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -46.90 CNY
+
+2026-04-18 * "网易云音乐" "会员" ^sub-163music
+  Expenses:Subscription:Streaming                     15.00 CNY
+  Assets:EWallet:WeChat                              -15.00 CNY
+
+2026-04-18 * "盒马" "晚餐食材"
+  Expenses:Food:Groceries                            119.30 CNY
+  Assets:EWallet:WeChat                             -119.30 CNY
+
+2026-04-19 * "美团外卖" "晚餐"
+  Expenses:Food:Dining                                26.00 CNY
+  Liabilities:CreditCard:CMB                         -26.00 CNY
+
+2026-04-19 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               40.50 CNY
+  Assets:EWallet:Alipay                              -40.50 CNY
+
+2026-04-20 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  6.10 CNY
+  Assets:EWallet:Alipay                               -6.10 CNY
+
+2026-04-20 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 29.30 CNY
+  Liabilities:CreditCard:CMB                         -29.30 CNY
+
+2026-04-20 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                15.00 CNY
+  Liabilities:CreditCard:CMB                         -15.00 CNY
+
+2026-04-20 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-04-20 * "示例科技有限公司" "差旅报销 6 笔" #reimbursement ^reimburse-shili-20260420
+  Assets:Bank:CMB                                    386.10 CNY
+  Assets:Receivable:Reimbursement                   -386.10 CNY
+
+2026-04-21 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 17.50 CNY
+  Assets:EWallet:WeChat                              -17.50 CNY
+
+2026-04-21 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-04-22 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 15.10 CNY
+  Assets:EWallet:Alipay                              -15.10 CNY
+
+2026-04-22 * "西贝" "午餐"
+  Expenses:Food:Meals                                 74.60 CNY
+  Assets:EWallet:WeChat                              -74.60 CNY
+
+2026-04-22 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-04-23 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 18.30 CNY
+  Liabilities:CreditCard:CMB                         -18.30 CNY
+
+2026-04-23 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                15.60 CNY
+  Assets:EWallet:Alipay                              -15.60 CNY
+
+2026-04-23 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-04-24 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  6.70 CNY
+  Liabilities:CreditCard:CMB                          -6.70 CNY
+
+2026-04-24 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 31.50 CNY
+  Liabilities:CreditCard:CMB                         -31.50 CNY
+
+2026-04-24 * "星巴克" "美式"
+  Expenses:Food:Drinks                                36.30 CNY
+  Assets:EWallet:Alipay                              -36.30 CNY
+
+2026-04-24 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-04-24 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260620
+  Assets:Receivable:Reimbursement                     46.60 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -46.60 CNY
+
+2026-04-25 * "示例科技有限公司" "2026-04 工资" ^salary-shili-202604
+  payslip_days: 22
+  payslip_items: "基本工资 26000.00; 餐补 800.00; 交通补贴 400.00; 代扣个税 1450.00"
+  Income:Salary:Base                              -26000.00 CNY
+  Income:Salary:Allowance                          -1200.00 CNY
+  Expenses:Government:IncomeTax                     1450.00 CNY
+  Assets:Bank:CMB                                  25750.00 CNY
+
+2026-04-25 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               27.30 CNY
+  Assets:EWallet:Alipay                              -27.30 CNY
+
+2026-04-25 * "菜市场" "买菜"
+  Expenses:Food:Groceries                             24.50 CNY
+  Assets:Cash                                        -24.50 CNY
+
+2026-04-26 * "支付宝" "余额充值" #transfer
+  Assets:EWallet:Alipay                             1500.00 CNY
+  Assets:Bank:CMB                                  -1500.00 CNY
+
+2026-04-26 * "微信" "零钱充值" #transfer
+  Assets:EWallet:WeChat                             1200.00 CNY
+  Assets:Bank:CMB                                  -1200.00 CNY
+
+2026-04-26 * "盒马" "晚餐食材"
+  Expenses:Food:Groceries                             71.30 CNY
+  Assets:EWallet:WeChat                              -71.30 CNY
+
+2026-04-27 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 21.00 CNY
+  Liabilities:CreditCard:CMB                         -21.00 CNY
+
+2026-04-27 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-04-28 * "全家" "早餐"
+  Expenses:Food:Meals                                  9.30 CNY
+  Assets:EWallet:Alipay                               -9.30 CNY
+
+2026-04-28 * "西贝" "午餐"
+  Expenses:Food:Meals                                 59.40 CNY
+  Assets:EWallet:WeChat                              -59.40 CNY
+
+2026-04-28 * "星巴克" "美式"
+  Expenses:Food:Drinks                                31.00 CNY
+  Liabilities:CreditCard:CMB                         -31.00 CNY
+
+2026-04-28 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-04-29 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  8.60 CNY
+  Assets:EWallet:WeChat                               -8.60 CNY
+
+2026-04-29 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 17.90 CNY
+  Assets:EWallet:WeChat                              -17.90 CNY
+
+2026-04-29 * "Manner" "澳白"
+  Expenses:Food:Drinks                                16.00 CNY
+  Assets:EWallet:Alipay                              -16.00 CNY
+
+2026-04-29 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-04-30 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-04-30 * "西贝" "午餐"
+  Expenses:Food:Meals                                 79.60 CNY
+  Liabilities:CreditCard:CMB                         -79.60 CNY
+
+2026-04-30 * "Manner" "澳白"
+  Expenses:Food:Drinks                                16.50 CNY
+  Liabilities:CreditCard:CMB                         -16.50 CNY
+
+2026-04-30 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-05-01 * "房东" "房租"
+  Expenses:Housing:Rent                             4500.00 CNY
+  Assets:Bank:CMB                                  -4500.00 CNY
+
+2026-05-01 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 17.00 CNY
+  Liabilities:CreditCard:CMB                         -17.00 CNY
+
+2026-05-01 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-05-02 * "美团外卖" "晚餐"
+  Expenses:Food:Dining                                26.70 CNY
+  Assets:EWallet:Alipay                              -26.70 CNY
+
+2026-05-02 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               57.50 CNY
+  Assets:EWallet:Alipay                              -57.50 CNY
+
+2026-05-03 * "中国联通" "话费" ^sub-unicom
+  Expenses:Subscription:Phone                         59.00 CNY
+  Assets:EWallet:Alipay                              -59.00 CNY
+
+2026-05-03 * "Apple" "iCloud+" ^sub-icloud
+  Expenses:Subscription:Cloud                         68.00 CNY
+  Liabilities:CreditCard:CMB                         -68.00 CNY
+
+2026-05-03 * "盒马" "晚餐食材"
+  Expenses:Food:Groceries                            123.60 CNY
+  Liabilities:CreditCard:CMB                        -123.60 CNY
+
+2026-05-03 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               55.00 CNY
+  Assets:EWallet:Alipay                              -55.00 CNY
+
+2026-05-03 * "菜市场" "买菜"
+  Expenses:Food:Groceries                             30.40 CNY
+  Assets:Cash                                        -30.40 CNY
+
+2026-05-04 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  9.60 CNY
+  Liabilities:CreditCard:CMB                          -9.60 CNY
+
+2026-05-04 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 30.00 CNY
+  Assets:EWallet:Alipay                              -30.00 CNY
+
+2026-05-04 * "Manner" "澳白"
+  Expenses:Food:Drinks                                17.40 CNY
+  Assets:EWallet:Alipay                              -17.40 CNY
+
+2026-05-04 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-05-04 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260620
+  Assets:Receivable:Reimbursement                     43.80 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -43.80 CNY
+
+2026-05-05 * "ATM" "取现" #transfer
+  Assets:Cash                                        300.00 CNY
+  Assets:Bank:ICBC                                  -300.00 CNY
+
+2026-05-05 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 17.80 CNY
+  Liabilities:CreditCard:CMB                         -17.80 CNY
+
+2026-05-05 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                10.10 CNY
+  Liabilities:CreditCard:CMB                         -10.10 CNY
+
+2026-05-06 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 17.80 CNY
+  Assets:EWallet:Alipay                              -17.80 CNY
+
+2026-05-06 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 34.00 CNY
+  Liabilities:CreditCard:CMB                         -34.00 CNY
+
+2026-05-06 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                15.70 CNY
+  Liabilities:CreditCard:CMB                         -15.70 CNY
+
+2026-05-06 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-05-07 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 18.60 CNY
+  Assets:EWallet:Alipay                              -18.60 CNY
+
+2026-05-07 * "食堂" "午餐"
+  Expenses:Food:Meals                                 16.10 CNY
+  Liabilities:CreditCard:CMB                         -16.10 CNY
+
+2026-05-07 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-05-07 * "宜家" "家居"
+  Expenses:Shopping:Household                        354.28 CNY
+  Liabilities:CreditCard:CMB                        -354.28 CNY
+
+2026-05-08 * "国家电网" "电费"
+  Expenses:Housing:Utilities                         334.05 CNY
+  Assets:EWallet:Alipay                             -334.05 CNY
+
+2026-05-08 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  7.20 CNY
+  Assets:EWallet:WeChat                               -7.20 CNY
+
+2026-05-08 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 35.90 CNY
+  Liabilities:CreditCard:CMB                         -35.90 CNY
+
+2026-05-08 * "星巴克" "美式"
+  Expenses:Food:Drinks                                30.40 CNY
+  Assets:EWallet:Alipay                              -30.40 CNY
+
+2026-05-08 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-05-09 * "美团外卖" "晚餐"
+  Expenses:Food:Dining                                27.40 CNY
+  Assets:EWallet:WeChat                              -27.40 CNY
+
+2026-05-10 * "招商银行信用卡" "还款" #transfer
+  Liabilities:CreditCard:CMB                        1575.20 CNY
+  Assets:Bank:CMB                                  -1575.20 CNY
+
+2026-05-10 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               32.40 CNY
+  Assets:EWallet:Alipay                              -32.40 CNY
+
+2026-05-11 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  8.00 CNY
+  Liabilities:CreditCard:CMB                          -8.00 CNY
+
+2026-05-11 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 24.80 CNY
+  Liabilities:CreditCard:CMB                         -24.80 CNY
+
+2026-05-11 * "Manner" "澳白"
+  Expenses:Food:Drinks                                17.50 CNY
+  Assets:EWallet:WeChat                              -17.50 CNY
+
+2026-05-12 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 24.80 CNY
+  Assets:EWallet:WeChat                              -24.80 CNY
+
+2026-05-12 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-05-13 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  8.80 CNY
+  Liabilities:CreditCard:CMB                          -8.80 CNY
+
+2026-05-13 * "西贝" "午餐"
+  Expenses:Food:Meals                                 79.00 CNY
+  Liabilities:CreditCard:CMB                         -79.00 CNY
+
+2026-05-13 * "星巴克" "美式"
+  Expenses:Food:Drinks                                31.20 CNY
+  Assets:EWallet:Alipay                              -31.20 CNY
+
+2026-05-13 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-05-14 * "西贝" "午餐"
+  Expenses:Food:Meals                                 79.70 CNY
+  Liabilities:CreditCard:CMB                         -79.70 CNY
+
+2026-05-14 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-05-15 * "IBKR" "定投 VOO"
+  Assets:Brokerage:IBKR:Stock                             2 VOO {538.77 USD}
+  Assets:Brokerage:IBKR:Cash                       -1077.54 USD
+
+2026-05-15 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 12.90 CNY
+  Liabilities:CreditCard:CMB                         -12.90 CNY
+
+2026-05-15 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 35.40 CNY
+  Assets:EWallet:WeChat                              -35.40 CNY
+
+2026-05-15 * "Manner" "澳白"
+  Expenses:Food:Drinks                                15.10 CNY
+  Liabilities:CreditCard:CMB                         -15.10 CNY
+
+2026-05-15 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-05-16 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               38.80 CNY
+  Assets:EWallet:Alipay                              -38.80 CNY
+
+2026-05-17 * "海底捞" "晚餐"
+  Expenses:Food:Dining                               187.60 CNY
+  Liabilities:CreditCard:CMB                        -187.60 CNY
+
+2026-05-18 * "网易云音乐" "会员" ^sub-163music
+  Expenses:Subscription:Streaming                     15.00 CNY
+  Assets:EWallet:WeChat                              -15.00 CNY
+
+2026-05-18 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 17.90 CNY
+  Assets:EWallet:Alipay                              -17.90 CNY
+
+2026-05-18 * "Manner" "澳白"
+  Expenses:Food:Drinks                                16.90 CNY
+  Assets:EWallet:Alipay                              -16.90 CNY
+
+2026-05-18 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-05-18 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260620
+  Assets:Receivable:Reimbursement                     33.60 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -33.60 CNY
+
+2026-05-19 * "食堂" "午餐"
+  Expenses:Food:Meals                                 21.20 CNY
+  Liabilities:CreditCard:CMB                         -21.20 CNY
+
+2026-05-20 * "全家" "早餐"
+  Expenses:Food:Meals                                 13.40 CNY
+  Assets:EWallet:WeChat                              -13.40 CNY
+
+2026-05-20 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 18.00 CNY
+  Liabilities:CreditCard:CMB                         -18.00 CNY
+
+2026-05-20 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-05-20 * "社区医院" "门诊"
+  Expenses:Healthcare                                263.56 CNY
+  Assets:EWallet:Alipay                             -263.56 CNY
+
+2026-05-21 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  7.90 CNY
+  Liabilities:CreditCard:CMB                          -7.90 CNY
+
+2026-05-21 * "西贝" "午餐"
+  Expenses:Food:Meals                                 72.50 CNY
+  Assets:EWallet:Alipay                              -72.50 CNY
+
+2026-05-21 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-05-22 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  8.00 CNY
+  Liabilities:CreditCard:CMB                          -8.00 CNY
+
+2026-05-22 * "西贝" "午餐"
+  Expenses:Food:Meals                                 60.70 CNY
+  Liabilities:CreditCard:CMB                         -60.70 CNY
+
+2026-05-22 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                10.20 CNY
+  Liabilities:CreditCard:CMB                         -10.20 CNY
+
+2026-05-22 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-05-22 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260620
+  Assets:Receivable:Reimbursement                     60.90 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -60.90 CNY
+
+2026-05-22 * "Apple" "配件"
+  Expenses:Shopping:Digital                          363.43 CNY
+  Liabilities:CreditCard:CMB                        -363.43 CNY
+
+2026-05-23 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               64.00 CNY
+  Assets:EWallet:Alipay                              -64.00 CNY
+
+2026-05-24 * "海底捞" "晚餐"
+  Expenses:Food:Dining                               208.60 CNY
+  Liabilities:CreditCard:CMB                        -208.60 CNY
+
+2026-05-24 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               42.10 CNY
+  Assets:EWallet:Alipay                              -42.10 CNY
+
+2026-05-25 * "示例科技有限公司" "2026-05 工资" ^salary-shili-202605
+  payslip_days: 21
+  payslip_items: "基本工资 26000.00; 餐补 800.00; 交通补贴 400.00; 代扣个税 1450.00"
+  Income:Salary:Base                              -26000.00 CNY
+  Income:Salary:Allowance                          -1200.00 CNY
+  Expenses:Government:IncomeTax                     1450.00 CNY
+  Assets:Bank:CMB                                  25750.00 CNY
+
+2026-05-25 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  6.40 CNY
+  Assets:EWallet:WeChat                               -6.40 CNY
+
+2026-05-25 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 21.80 CNY
+  Assets:EWallet:WeChat                              -21.80 CNY
+
+2026-05-25 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                14.70 CNY
+  Liabilities:CreditCard:CMB                         -14.70 CNY
+
+2026-05-25 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-05-26 * "支付宝" "余额充值" #transfer
+  Assets:EWallet:Alipay                             1500.00 CNY
+  Assets:Bank:CMB                                  -1500.00 CNY
+
+2026-05-26 * "微信" "零钱充值" #transfer
+  Assets:EWallet:WeChat                             1200.00 CNY
+  Assets:Bank:CMB                                  -1200.00 CNY
+
+2026-05-26 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  9.60 CNY
+  Liabilities:CreditCard:CMB                          -9.60 CNY
+
+2026-05-26 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 34.70 CNY
+  Liabilities:CreditCard:CMB                         -34.70 CNY
+
+2026-05-26 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-05-27 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 23.40 CNY
+  Assets:EWallet:WeChat                              -23.40 CNY
+
+2026-05-27 * "星巴克" "美式"
+  Expenses:Food:Drinks                                33.00 CNY
+  Assets:EWallet:Alipay                              -33.00 CNY
+
+2026-05-27 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-05-28 * "全家" "早餐"
+  Expenses:Food:Meals                                  9.30 CNY
+  Assets:EWallet:Alipay                               -9.30 CNY
+
+2026-05-28 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 31.10 CNY
+  Liabilities:CreditCard:CMB                         -31.10 CNY
+
+2026-05-28 * "Manner" "澳白"
+  Expenses:Food:Drinks                                17.80 CNY
+  Assets:EWallet:Alipay                              -17.80 CNY
+
+2026-05-28 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-05-29 * "全家" "早餐"
+  Expenses:Food:Meals                                 12.40 CNY
+  Assets:EWallet:WeChat                              -12.40 CNY
+
+2026-05-29 * "食堂" "午餐"
+  Expenses:Food:Meals                                 17.10 CNY
+  Assets:EWallet:Alipay                              -17.10 CNY
+
+2026-05-29 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                15.40 CNY
+  Liabilities:CreditCard:CMB                         -15.40 CNY
+
+2026-05-29 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-05-30 * "海底捞" "晚餐"
+  Expenses:Food:Dining                               281.60 CNY
+  Liabilities:CreditCard:CMB                        -281.60 CNY
+
+2026-05-31 * "海底捞" "晚餐"
+  Expenses:Food:Dining                               279.50 CNY
+  Assets:EWallet:WeChat                             -279.50 CNY
+
+2026-06-01 * "房东" "房租"
+  Expenses:Housing:Rent                             4500.00 CNY
+  Assets:Bank:CMB                                  -4500.00 CNY
+
+2026-06-01 * "全家" "早餐"
+  Expenses:Food:Meals                                 15.90 CNY
+  Assets:EWallet:Alipay                              -15.90 CNY
+
+2026-06-01 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 30.60 CNY
+  Assets:EWallet:Alipay                              -30.60 CNY
+
+2026-06-01 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-06-02 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 12.70 CNY
+  Assets:EWallet:Alipay                              -12.70 CNY
+
+2026-06-02 * "食堂" "午餐"
+  Expenses:Food:Meals                                 16.60 CNY
+  Assets:EWallet:WeChat                              -16.60 CNY
+
+2026-06-02 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-06-03 * "中国联通" "话费" ^sub-unicom
+  Expenses:Subscription:Phone                         59.00 CNY
+  Assets:EWallet:Alipay                              -59.00 CNY
+
+2026-06-03 * "Apple" "iCloud+" ^sub-icloud
+  Expenses:Subscription:Cloud                         68.00 CNY
+  Liabilities:CreditCard:CMB                         -68.00 CNY
+
+2026-06-03 * "食堂" "午餐"
+  Expenses:Food:Meals                                 15.30 CNY
+  Assets:EWallet:Alipay                              -15.30 CNY
+
+2026-06-03 * "Manner" "澳白"
+  Expenses:Food:Drinks                                17.10 CNY
+  Liabilities:CreditCard:CMB                         -17.10 CNY
+
+2026-06-03 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-06-04 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 19.00 CNY
+  Liabilities:CreditCard:CMB                         -19.00 CNY
+
+2026-06-04 * "西贝" "午餐"
+  Expenses:Food:Meals                                 67.70 CNY
+  Liabilities:CreditCard:CMB                         -67.70 CNY
+
+2026-06-04 * "星巴克" "美式"
+  Expenses:Food:Drinks                                31.00 CNY
+  Assets:EWallet:WeChat                              -31.00 CNY
+
+2026-06-05 * "食堂" "午餐"
+  Expenses:Food:Meals                                 15.20 CNY
+  Assets:EWallet:Alipay                              -15.20 CNY
+
+2026-06-06 * "美团外卖" "晚餐"
+  Expenses:Food:Dining                                44.00 CNY
+  Liabilities:CreditCard:CMB                         -44.00 CNY
+
+2026-06-07 * "菜市场" "买菜"
+  Expenses:Food:Groceries                             49.50 CNY
+  Assets:Cash                                        -49.50 CNY
+
+2026-06-08 * "国家电网" "电费"
+  Expenses:Housing:Utilities                         240.46 CNY
+  Assets:EWallet:Alipay                             -240.46 CNY
+
+2026-06-08 * "全家" "早餐"
+  Expenses:Food:Meals                                 10.90 CNY
+  Assets:EWallet:WeChat                              -10.90 CNY
+
+2026-06-08 * "西贝" "午餐"
+  Expenses:Food:Meals                                 48.40 CNY
+  Liabilities:CreditCard:CMB                         -48.40 CNY
+
+2026-06-08 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-06-09 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  7.40 CNY
+  Assets:EWallet:WeChat                               -7.40 CNY
+
+2026-06-09 * "食堂" "午餐"
+  Expenses:Food:Meals                                 19.30 CNY
+  Assets:EWallet:Alipay                              -19.30 CNY
+
+2026-06-09 * "Manner" "澳白"
+  Expenses:Food:Drinks                                16.60 CNY
+  Assets:EWallet:WeChat                              -16.60 CNY
+
+2026-06-09 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-06-10 * "招商银行信用卡" "还款" #transfer
+  Liabilities:CreditCard:CMB                        1765.23 CNY
+  Assets:Bank:CMB                                  -1765.23 CNY
+
+2026-06-10 * "全家" "早餐"
+  Expenses:Food:Meals                                  9.00 CNY
+  Liabilities:CreditCard:CMB                          -9.00 CNY
+
+2026-06-10 * "西贝" "午餐"
+  Expenses:Food:Meals                                 55.00 CNY
+  Assets:EWallet:WeChat                              -55.00 CNY
+
+2026-06-10 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                11.70 CNY
+  Assets:EWallet:Alipay                              -11.70 CNY
+
+2026-06-10 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-06-11 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 16.30 CNY
+  Liabilities:CreditCard:CMB                         -16.30 CNY
+
+2026-06-12 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  7.10 CNY
+  Assets:EWallet:WeChat                               -7.10 CNY
+
+2026-06-12 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 36.40 CNY
+  Assets:EWallet:Alipay                              -36.40 CNY
+
+2026-06-12 * "Manner" "澳白"
+  Expenses:Food:Drinks                                17.40 CNY
+  Liabilities:CreditCard:CMB                         -17.40 CNY
+
+2026-06-12 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-06-13 * "盒马" "晚餐食材"
+  Expenses:Food:Groceries                            102.90 CNY
+  Assets:EWallet:WeChat                             -102.90 CNY
+
+2026-06-14 * "美团外卖" "晚餐"
+  Expenses:Food:Dining                                25.10 CNY
+  Assets:EWallet:WeChat                              -25.10 CNY
+
+2026-06-14 * "菜市场" "买菜"
+  Expenses:Food:Groceries                             20.80 CNY
+  Assets:Cash                                        -20.80 CNY
+
+2026-06-15 * "IBKR" "定投 VOO"
+  Assets:Brokerage:IBKR:Stock                             2 VOO {551.78 USD}
+  Assets:Brokerage:IBKR:Cash                       -1103.56 USD
+
+2026-06-15 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 21.90 CNY
+  Assets:EWallet:WeChat                              -21.90 CNY
+
+2026-06-15 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260820
+  Assets:Receivable:Reimbursement                     75.60 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -75.60 CNY
+
+2026-06-16 * "全家" "早餐"
+  Expenses:Food:Meals                                 15.80 CNY
+  Liabilities:CreditCard:CMB                         -15.80 CNY
+
+2026-06-16 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 26.40 CNY
+  Assets:EWallet:Alipay                              -26.40 CNY
+
+2026-06-16 * "星巴克" "美式"
+  Expenses:Food:Drinks                                32.00 CNY
+  Assets:EWallet:WeChat                              -32.00 CNY
+
+2026-06-17 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 21.90 CNY
+  Liabilities:CreditCard:CMB                         -21.90 CNY
+
+2026-06-17 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 21.90 CNY
+  Assets:EWallet:WeChat                              -21.90 CNY
+
+2026-06-17 * "Manner" "澳白"
+  Expenses:Food:Drinks                                20.00 CNY
+  Assets:EWallet:WeChat                              -20.00 CNY
+
+2026-06-17 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-06-18 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 16.90 CNY
+  Assets:EWallet:WeChat                              -16.90 CNY
+
+2026-06-18 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-06-19 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 31.50 CNY
+  Liabilities:CreditCard:CMB                         -31.50 CNY
+
+2026-06-19 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-06-20 * "Apple" "配件"
+  Expenses:Shopping:Digital                          193.06 CNY
+  Liabilities:CreditCard:CMB                        -193.06 CNY
+
+2026-06-20 * "示例科技有限公司" "差旅报销 7 笔" #reimbursement ^reimburse-shili-20260620
+  Assets:Bank:CMB                                    385.70 CNY
+  Assets:Receivable:Reimbursement                   -385.70 CNY
+
+2026-06-21 * "招商银行" "活期利息"
+  Income:Invest:Interest                            -106.34 CNY
+  Assets:Bank:CMB                                    106.34 CNY
+
+2026-06-21 * "海底捞" "晚餐"
+  Expenses:Food:Dining                               221.50 CNY
+  Liabilities:CreditCard:CMB                        -221.50 CNY
+
+2026-06-22 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 35.20 CNY
+  Liabilities:CreditCard:CMB                         -35.20 CNY
+
+2026-06-22 * "Manner" "澳白"
+  Expenses:Food:Drinks                                19.50 CNY
+  Liabilities:CreditCard:CMB                         -19.50 CNY
+
+2026-06-22 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-06-23 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  7.60 CNY
+  Assets:EWallet:WeChat                               -7.60 CNY
+
+2026-06-23 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 24.60 CNY
+  Assets:EWallet:Alipay                              -24.60 CNY
+
+2026-06-23 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                15.70 CNY
+  Liabilities:CreditCard:CMB                         -15.70 CNY
+
+2026-06-24 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 37.40 CNY
+  Liabilities:CreditCard:CMB                         -37.40 CNY
+
+2026-06-24 * "星巴克" "美式"
+  Expenses:Food:Drinks                                33.30 CNY
+  Liabilities:CreditCard:CMB                         -33.30 CNY
+
+2026-06-24 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-06-24 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260820
+  Assets:Receivable:Reimbursement                     60.20 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -60.20 CNY
+
+2026-06-25 * "示例科技有限公司" "2026-06 工资" ^salary-shili-202606
+  payslip_days: 22
+  payslip_items: "基本工资 26000.00; 餐补 800.00; 交通补贴 400.00; 代扣个税 1450.00"
+  Income:Salary:Base                              -26000.00 CNY
+  Income:Salary:Allowance                          -1200.00 CNY
+  Expenses:Government:IncomeTax                     1450.00 CNY
+  Assets:Bank:CMB                                  25750.00 CNY
+
+2026-06-25 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  9.50 CNY
+  Assets:EWallet:WeChat                               -9.50 CNY
+
+2026-06-25 * "西贝" "午餐"
+  Expenses:Food:Meals                                 73.40 CNY
+  Assets:EWallet:WeChat                              -73.40 CNY
+
+2026-06-25 * "星巴克" "美式"
+  Expenses:Food:Drinks                                30.20 CNY
+  Assets:EWallet:WeChat                              -30.20 CNY
+
+2026-06-25 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-06-26 * "支付宝" "余额充值" #transfer
+  Assets:EWallet:Alipay                             1500.00 CNY
+  Assets:Bank:CMB                                  -1500.00 CNY
+
+2026-06-26 * "微信" "零钱充值" #transfer
+  Assets:EWallet:WeChat                             1200.00 CNY
+  Assets:Bank:CMB                                  -1200.00 CNY
+
+2026-06-26 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 34.60 CNY
+  Assets:EWallet:WeChat                              -34.60 CNY
+
+2026-06-26 * "Manner" "澳白"
+  Expenses:Food:Drinks                                16.50 CNY
+  Liabilities:CreditCard:CMB                         -16.50 CNY
+
+2026-06-26 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-06-27 * "美团外卖" "晚餐"
+  Expenses:Food:Dining                                32.90 CNY
+  Assets:EWallet:WeChat                              -32.90 CNY
+
+2026-06-27 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               49.50 CNY
+  Assets:EWallet:Alipay                              -49.50 CNY
+
+2026-06-27 * "Apple" "配件"
+  Expenses:Shopping:Digital                          335.00 CNY
+  Liabilities:CreditCard:CMB                        -335.00 CNY
+
+2026-06-28 * "IBKR" "VOO 分红"
+  Income:Invest:Dividend                             -61.20 USD
+  Assets:Brokerage:IBKR:Cash                          61.20 USD
+
+2026-06-28 * "海底捞" "晚餐"
+  Expenses:Food:Dining                               245.20 CNY
+  Assets:EWallet:Alipay                             -245.20 CNY
+
+2026-06-28 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               59.30 CNY
+  Assets:EWallet:Alipay                              -59.30 CNY
+
+2026-06-29 * "西贝" "午餐"
+  Expenses:Food:Meals                                 59.40 CNY
+  Assets:EWallet:WeChat                              -59.40 CNY
+
+2026-06-29 * "星巴克" "美式"
+  Expenses:Food:Drinks                                33.10 CNY
+  Liabilities:CreditCard:CMB                         -33.10 CNY
+
+2026-06-29 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-06-30 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  7.40 CNY
+  Assets:EWallet:Alipay                               -7.40 CNY
+
+2026-06-30 * "食堂" "午餐"
+  Expenses:Food:Meals                                 19.60 CNY
+  Liabilities:CreditCard:CMB                         -19.60 CNY
+
+2026-06-30 * "Manner" "澳白"
+  Expenses:Food:Drinks                                18.40 CNY
+  Assets:EWallet:Alipay                              -18.40 CNY
+
+2026-06-30 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-06-30 * "招商银行" "信用卡积分返现"
+  Income:Rewards                                     -50.00 CNY
+  Liabilities:CreditCard:CMB                          50.00 CNY
+
+2026-07-01 * "房东" "房租"
+  Expenses:Housing:Rent                             4500.00 CNY
+  Assets:Bank:CMB                                  -4500.00 CNY
+
+2026-07-01 * "全家" "早餐"
+  Expenses:Food:Meals                                 15.00 CNY
+  Assets:EWallet:WeChat                              -15.00 CNY
+
+2026-07-01 * "食堂" "午餐"
+  Expenses:Food:Meals                                 20.40 CNY
+  Assets:EWallet:Alipay                              -20.40 CNY
+
+2026-07-02 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  7.10 CNY
+  Liabilities:CreditCard:CMB                          -7.10 CNY
+
+2026-07-02 * "食堂" "午餐"
+  Expenses:Food:Meals                                 15.60 CNY
+  Assets:EWallet:Alipay                              -15.60 CNY
+
+2026-07-02 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-07-02 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260820
+  Assets:Receivable:Reimbursement                     47.40 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -47.40 CNY
+
+2026-07-03 * "中国联通" "话费" ^sub-unicom
+  Expenses:Subscription:Phone                         59.00 CNY
+  Assets:EWallet:Alipay                              -59.00 CNY
+
+2026-07-03 * "Apple" "iCloud+" ^sub-icloud
+  Expenses:Subscription:Cloud                         68.00 CNY
+  Liabilities:CreditCard:CMB                         -68.00 CNY
+
+2026-07-03 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  9.20 CNY
+  Liabilities:CreditCard:CMB                          -9.20 CNY
+
+2026-07-03 * "西贝" "午餐"
+  Expenses:Food:Meals                                 47.40 CNY
+  Assets:EWallet:Alipay                              -47.40 CNY
+
+2026-07-04 * "盒马" "晚餐食材"
+  Expenses:Food:Groceries                            138.00 CNY
+  Assets:EWallet:WeChat                             -138.00 CNY
+
+2026-07-05 * "海底捞" "晚餐（AA）"
+  Expenses:Food:Dining                               154.00 CNY
+  Assets:Receivable:Personal                         154.00 CNY
+    person: "小陈"
+  Liabilities:CreditCard:CMB                        -308.00 CNY
+
+2026-07-06 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  8.80 CNY
+  Liabilities:CreditCard:CMB                          -8.80 CNY
+
+2026-07-06 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 26.80 CNY
+  Liabilities:CreditCard:CMB                         -26.80 CNY
+
+2026-07-06 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                12.60 CNY
+  Liabilities:CreditCard:CMB                         -12.60 CNY
+
+2026-07-06 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-07-07 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 17.40 CNY
+  Assets:EWallet:Alipay                              -17.40 CNY
+
+2026-07-07 * "西贝" "午餐"
+  Expenses:Food:Meals                                 53.80 CNY
+  Assets:EWallet:WeChat                              -53.80 CNY
+
+2026-07-07 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-07-08 * "国家电网" "电费"
+  Expenses:Housing:Utilities                         161.84 CNY
+  Assets:EWallet:Alipay                             -161.84 CNY
+
+2026-07-08 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 21.60 CNY
+  Assets:EWallet:Alipay                              -21.60 CNY
+
+2026-07-08 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-07-08 * "小陈" "AA 还款"
+  Assets:EWallet:WeChat                              154.00 CNY
+  Assets:Receivable:Personal                        -154.00 CNY
+    person: "小陈"
+
+2026-07-08 * "Apple" "配件"
+  Expenses:Shopping:Digital                          162.52 CNY
+  Liabilities:CreditCard:CMB                        -162.52 CNY
+
+2026-07-09 * "食堂" "午餐"
+  Expenses:Food:Meals                                 16.20 CNY
+  Liabilities:CreditCard:CMB                         -16.20 CNY
+
+2026-07-09 * "Manner" "澳白"
+  Expenses:Food:Drinks                                19.20 CNY
+  Assets:EWallet:Alipay                              -19.20 CNY
+
+2026-07-09 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-07-10 * "招商银行信用卡" "还款" #transfer
+  Liabilities:CreditCard:CMB                        1640.98 CNY
+  Assets:Bank:CMB                                  -1640.98 CNY
+
+2026-07-10 * "全家" "早餐"
+  Expenses:Food:Meals                                 12.20 CNY
+  Liabilities:CreditCard:CMB                         -12.20 CNY
+
+2026-07-10 * "西贝" "午餐"
+  Expenses:Food:Meals                                 62.50 CNY
+  Liabilities:CreditCard:CMB                         -62.50 CNY
+
+2026-07-10 * "星巴克" "美式"
+  Expenses:Food:Drinks                                34.10 CNY
+  Assets:EWallet:Alipay                              -34.10 CNY
+
+2026-07-10 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-07-11 * "海底捞" "晚餐（AA）"
+  Expenses:Food:Dining                                99.20 CNY
+  Assets:Receivable:Personal                          99.20 CNY
+    person: "小陈"
+  Liabilities:CreditCard:CMB                        -198.40 CNY
+
+2026-07-12 * "IBKR" "换汇入金" #fx
+  exchange_rate: "1 USD = 7.2039 CNY"
+  Assets:Brokerage:IBKR:Cash                        5000.00 USD @ 7.2039 CNY
+  Assets:Bank:CMB                                 -36019.50 CNY
+
+2026-07-12 * "盒马" "晚餐食材"
+  Expenses:Food:Groceries                             86.70 CNY
+  Liabilities:CreditCard:CMB                         -86.70 CNY
+
+2026-07-13 * "全家" "早餐"
+  Expenses:Food:Meals                                 12.40 CNY
+  Assets:EWallet:WeChat                              -12.40 CNY
+
+2026-07-13 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 35.00 CNY
+  Liabilities:CreditCard:CMB                         -35.00 CNY
+
+2026-07-13 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                14.50 CNY
+  Liabilities:CreditCard:CMB                         -14.50 CNY
+
+2026-07-13 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-07-14 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 21.00 CNY
+  Assets:EWallet:WeChat                              -21.00 CNY
+
+2026-07-14 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-07-14 * "小陈" "AA 还款"
+  Assets:EWallet:WeChat                               99.20 CNY
+  Assets:Receivable:Personal                         -99.20 CNY
+    person: "小陈"
+
+2026-07-14 * "Apple" "配件"
+  Expenses:Shopping:Digital                          697.71 CNY
+  Liabilities:CreditCard:CMB                        -697.71 CNY
+
+2026-07-15 * "IBKR" "定投 VOO"
+  Assets:Brokerage:IBKR:Stock                             2 VOO {560.29 USD}
+  Assets:Brokerage:IBKR:Cash                       -1120.58 USD
+
+2026-07-15 * "全家" "早餐"
+  Expenses:Food:Meals                                 14.10 CNY
+  Liabilities:CreditCard:CMB                         -14.10 CNY
+
+2026-07-15 * "西贝" "午餐"
+  Expenses:Food:Meals                                 61.90 CNY
+  Assets:EWallet:Alipay                              -61.90 CNY
+
+2026-07-16 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  8.20 CNY
+  Assets:EWallet:Alipay                               -8.20 CNY
+
+2026-07-16 * "西贝" "午餐"
+  Expenses:Food:Meals                                 46.50 CNY
+  Liabilities:CreditCard:CMB                         -46.50 CNY
+
+2026-07-16 * "星巴克" "美式"
+  Expenses:Food:Drinks                                35.10 CNY
+  Liabilities:CreditCard:CMB                         -35.10 CNY
+
+2026-07-16 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-07-16 * "淘宝" "衣服"
+  Expenses:Shopping:Clothing                         226.21 CNY
+  Liabilities:CreditCard:CMB                        -226.21 CNY
+
+2026-07-17 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 37.90 CNY
+  Assets:EWallet:Alipay                              -37.90 CNY
+
+2026-07-17 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-07-17 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260820
+  Assets:Receivable:Reimbursement                     82.90 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -82.90 CNY
+
+2026-07-18 * "海底捞" "晚餐（AA）"
+  Expenses:Food:Dining                               128.85 CNY
+  Assets:Receivable:Personal                         128.85 CNY
+    person: "小陈"
+  Liabilities:CreditCard:CMB                        -257.70 CNY
+
+2026-07-18 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               47.50 CNY
+  Assets:EWallet:Alipay                              -47.50 CNY
+
+2026-07-20 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 35.20 CNY
+  Assets:EWallet:WeChat                              -35.20 CNY
+
+2026-07-21 * "IBKR" "卖出 AAPL"
+  Income:Invest:Gain                                 -81.75 USD
+  Assets:Brokerage:IBKR:Cash                        1296.10 USD
+  Assets:Brokerage:IBKR:Stock                            -5 AAPL {} @ 259.22 USD
+
+2026-07-21 * "食堂" "午餐"
+  Expenses:Food:Meals                                 20.50 CNY
+  Liabilities:CreditCard:CMB                         -20.50 CNY
+
+2026-07-21 * "小陈" "AA 还款"
+  Assets:EWallet:WeChat                              128.85 CNY
+  Assets:Receivable:Personal                        -128.85 CNY
+    person: "小陈"
+
+2026-07-22 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  7.30 CNY
+  Assets:EWallet:WeChat                               -7.30 CNY
+
+2026-07-22 * "食堂" "午餐"
+  Expenses:Food:Meals                                 16.70 CNY
+  Assets:EWallet:Alipay                              -16.70 CNY
+
+2026-07-22 * "星巴克" "美式"
+  Expenses:Food:Drinks                                32.20 CNY
+  Assets:EWallet:Alipay                              -32.20 CNY
+
+2026-07-22 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-07-23 * "食堂" "午餐"
+  Expenses:Food:Meals                                 17.50 CNY
+  Assets:EWallet:WeChat                              -17.50 CNY
+
+2026-07-23 * "星巴克" "美式"
+  Expenses:Food:Drinks                                36.70 CNY
+  Assets:EWallet:WeChat                              -36.70 CNY
+
+2026-07-24 * "西贝" "午餐"
+  Expenses:Food:Meals                                 56.50 CNY
+  Liabilities:CreditCard:CMB                         -56.50 CNY
+
+2026-07-24 * "Manner" "澳白"
+  Expenses:Food:Drinks                                20.00 CNY
+  Liabilities:CreditCard:CMB                         -20.00 CNY
+
+2026-07-25 * "示例科技有限公司" "2026-07 工资" ^salary-shili-202607
+  payslip_days: 23
+  payslip_items: "基本工资 26000.00; 餐补 800.00; 交通补贴 400.00; 代扣个税 1450.00"
+  Income:Salary:Base                              -26000.00 CNY
+  Income:Salary:Allowance                          -1200.00 CNY
+  Expenses:Government:IncomeTax                     1450.00 CNY
+  Assets:Bank:CMB                                  25750.00 CNY
+
+2026-07-26 * "支付宝" "余额充值" #transfer
+  Assets:EWallet:Alipay                             1500.00 CNY
+  Assets:Bank:CMB                                  -1500.00 CNY
+
+2026-07-26 * "微信" "零钱充值" #transfer
+  Assets:EWallet:WeChat                             1200.00 CNY
+  Assets:Bank:CMB                                  -1200.00 CNY
+
+2026-07-26 * "美团外卖" "晚餐"
+  Expenses:Food:Dining                                44.40 CNY
+  Assets:EWallet:Alipay                              -44.40 CNY
+
+2026-07-27 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 18.80 CNY
+  Liabilities:CreditCard:CMB                         -18.80 CNY
+
+2026-07-27 * "食堂" "午餐"
+  Expenses:Food:Meals                                 17.60 CNY
+  Liabilities:CreditCard:CMB                         -17.60 CNY
+
+2026-07-27 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-07-28 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  7.80 CNY
+  Assets:EWallet:WeChat                               -7.80 CNY
+
+2026-07-28 * "西贝" "午餐"
+  Expenses:Food:Meals                                 61.10 CNY
+  Liabilities:CreditCard:CMB                         -61.10 CNY
+
+2026-07-28 * "星巴克" "美式"
+  Expenses:Food:Drinks                                32.20 CNY
+  Liabilities:CreditCard:CMB                         -32.20 CNY
+
+2026-07-28 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-07-29 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  6.70 CNY
+  Assets:EWallet:WeChat                               -6.70 CNY
+
+2026-07-29 * "食堂" "午餐"
+  Expenses:Food:Meals                                 20.10 CNY
+  Liabilities:CreditCard:CMB                         -20.10 CNY
+
+2026-07-29 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                15.60 CNY
+  Liabilities:CreditCard:CMB                         -15.60 CNY
+
+2026-07-29 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-07-30 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 15.40 CNY
+  Assets:EWallet:Alipay                              -15.40 CNY
+
+2026-07-30 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 27.60 CNY
+  Assets:EWallet:WeChat                              -27.60 CNY
+
+2026-07-30 * "Manner" "澳白"
+  Expenses:Food:Drinks                                15.80 CNY
+  Assets:EWallet:WeChat                              -15.80 CNY
+
+2026-07-30 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-07-31 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  8.20 CNY
+  Liabilities:CreditCard:CMB                          -8.20 CNY
+
+2026-07-31 * "食堂" "午餐"
+  Expenses:Food:Meals                                 21.50 CNY
+  Assets:EWallet:Alipay                              -21.50 CNY
+
+2026-07-31 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                14.00 CNY
+  Liabilities:CreditCard:CMB                         -14.00 CNY
+
+2026-07-31 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-07-31 * "滴滴出行" "客户拜访打车" #reimbursed ^reimburse-shili-20260820
+  Assets:Receivable:Reimbursement                     84.00 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -84.00 CNY
+
+2026-08-01 * "房东" "房租"
+  Expenses:Housing:Rent                             4500.00 CNY
+  Assets:Bank:CMB                                  -4500.00 CNY
+
+2026-08-01 * "盒马" "晚餐食材"
+  Expenses:Food:Groceries                             77.10 CNY
+  Liabilities:CreditCard:CMB                         -77.10 CNY
+
+2026-08-02 * "海底捞" "晚餐（AA）"
+  Expenses:Food:Dining                               150.60 CNY
+  Assets:Receivable:Personal                         150.60 CNY
+    person: "小陈"
+  Liabilities:CreditCard:CMB                        -301.20 CNY
+
+2026-08-02 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               47.30 CNY
+  Assets:EWallet:Alipay                              -47.30 CNY
+
+2026-08-03 * "中国联通" "话费" ^sub-unicom
+  Expenses:Subscription:Phone                         59.00 CNY
+  Assets:EWallet:Alipay                              -59.00 CNY
+
+2026-08-03 * "Apple" "iCloud+" ^sub-icloud
+  Expenses:Subscription:Cloud                         68.00 CNY
+  Liabilities:CreditCard:CMB                         -68.00 CNY
+
+2026-08-03 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 28.90 CNY
+  Liabilities:CreditCard:CMB                         -28.90 CNY
+
+2026-08-03 * "Manner" "澳白"
+  Expenses:Food:Drinks                                16.80 CNY
+  Assets:EWallet:WeChat                              -16.80 CNY
+
+2026-08-03 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-08-04 * "西贝" "午餐"
+  Expenses:Food:Meals                                 57.40 CNY
+  Assets:EWallet:WeChat                              -57.40 CNY
+
+2026-08-04 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-08-05 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 13.70 CNY
+  Assets:EWallet:Alipay                              -13.70 CNY
+
+2026-08-05 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 21.50 CNY
+  Liabilities:CreditCard:CMB                         -21.50 CNY
+
+2026-08-05 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                12.40 CNY
+  Assets:EWallet:Alipay                              -12.40 CNY
+
+2026-08-05 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-08-05 * "小陈" "AA 还款"
+  Assets:EWallet:WeChat                              150.60 CNY
+  Assets:Receivable:Personal                        -150.60 CNY
+    person: "小陈"
+
+2026-08-06 * "全家" "早餐"
+  Expenses:Food:Meals                                 14.30 CNY
+  Assets:EWallet:WeChat                              -14.30 CNY
+
+2026-08-06 * "西贝" "午餐"
+  Expenses:Food:Meals                                 56.60 CNY
+  Assets:EWallet:Alipay                              -56.60 CNY
+
+2026-08-06 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                10.20 CNY
+  Liabilities:CreditCard:CMB                         -10.20 CNY
+
+2026-08-07 * "食堂" "午餐"
+  Expenses:Food:Meals                                 16.90 CNY
+  Assets:EWallet:WeChat                              -16.90 CNY
+
+2026-08-07 * "Manner" "澳白"
+  Expenses:Food:Drinks                                16.80 CNY
+  Assets:EWallet:Alipay                              -16.80 CNY
+
+2026-08-07 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-08-08 * "国家电网" "电费"
+  Expenses:Housing:Utilities                         165.66 CNY
+  Assets:EWallet:Alipay                             -165.66 CNY
+
+2026-08-08 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               54.20 CNY
+  Assets:EWallet:Alipay                              -54.20 CNY
+
+2026-08-10 * "招商银行信用卡" "还款" #transfer
+  Liabilities:CreditCard:CMB                        2478.12 CNY
+  Assets:Bank:CMB                                  -2478.12 CNY
+
+2026-08-10 * "全家" "早餐"
+  Expenses:Food:Meals                                 13.00 CNY
+  Liabilities:CreditCard:CMB                         -13.00 CNY
+
+2026-08-10 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 24.30 CNY
+  Assets:EWallet:WeChat                              -24.30 CNY
+
+2026-08-10 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                15.80 CNY
+  Liabilities:CreditCard:CMB                         -15.80 CNY
+
+2026-08-10 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-08-11 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  9.80 CNY
+  Assets:EWallet:Alipay                               -9.80 CNY
+
+2026-08-11 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 21.10 CNY
+  Liabilities:CreditCard:CMB                         -21.10 CNY
+
+2026-08-11 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                14.60 CNY
+  Liabilities:CreditCard:CMB                         -14.60 CNY
+
+2026-08-11 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-08-12 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  9.70 CNY
+  Assets:EWallet:WeChat                               -9.70 CNY
+
+2026-08-12 * "西贝" "午餐"
+  Expenses:Food:Meals                                 58.10 CNY
+  Assets:EWallet:Alipay                              -58.10 CNY
+
+2026-08-12 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-08-13 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 17.20 CNY
+  Assets:EWallet:WeChat                              -17.20 CNY
+
+2026-08-13 * "西贝" "午餐"
+  Expenses:Food:Meals                                 47.80 CNY
+  Liabilities:CreditCard:CMB                         -47.80 CNY
+
+2026-08-13 * "星巴克" "美式"
+  Expenses:Food:Drinks                                34.00 CNY
+  Liabilities:CreditCard:CMB                         -34.00 CNY
+
+2026-08-13 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-08-13 * "滴滴出行" "客户拜访打车" #reimbursed
+  Assets:Receivable:Reimbursement                     71.50 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -71.50 CNY
+
+2026-08-14 * "全家" "早餐"
+  Expenses:Food:Meals                                 14.60 CNY
+  Liabilities:CreditCard:CMB                         -14.60 CNY
+
+2026-08-14 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 16.80 CNY
+  Liabilities:CreditCard:CMB                         -16.80 CNY
+
+2026-08-14 * "Manner" "澳白"
+  Expenses:Food:Drinks                                17.40 CNY
+  Assets:EWallet:Alipay                              -17.40 CNY
+
+2026-08-14 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-08-15 * "海底捞" "晚餐（AA）"
+  Expenses:Food:Dining                               113.55 CNY
+  Assets:Receivable:Personal                         113.55 CNY
+    person: "小陈"
+  Liabilities:CreditCard:CMB                        -227.10 CNY
+
+2026-08-17 * "IBKR" "定投 VOO"
+  Assets:Brokerage:IBKR:Stock                             2 VOO {562.29 USD}
+  Assets:Brokerage:IBKR:Cash                       -1124.58 USD
+
+2026-08-17 * "全家" "早餐"
+  Expenses:Food:Meals                                 11.10 CNY
+  Assets:EWallet:Alipay                              -11.10 CNY
+
+2026-08-17 * "食堂" "午餐"
+  Expenses:Food:Meals                                 16.70 CNY
+  Assets:EWallet:Alipay                              -16.70 CNY
+
+2026-08-17 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.00 CNY
+  Liabilities:CreditCard:CMB                         -13.00 CNY
+
+2026-08-17 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-08-18 * "全家" "早餐"
+  Expenses:Food:Meals                                 10.80 CNY
+  Assets:EWallet:WeChat                              -10.80 CNY
+
+2026-08-18 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 17.00 CNY
+  Assets:EWallet:Alipay                              -17.00 CNY
+
+2026-08-18 * "Manner" "澳白"
+  Expenses:Food:Drinks                                15.00 CNY
+  Assets:EWallet:WeChat                              -15.00 CNY
+
+2026-08-18 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-08-18 * "小陈" "AA 还款"
+  Assets:EWallet:WeChat                              113.55 CNY
+  Assets:Receivable:Personal                        -113.55 CNY
+    person: "小陈"
+
+2026-08-19 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 23.40 CNY
+  Assets:EWallet:Alipay                              -23.40 CNY
+
+2026-08-19 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-08-19 * "宜家" "家居"
+  Expenses:Shopping:Household                        154.36 CNY
+  Liabilities:CreditCard:CMB                        -154.36 CNY
+
+2026-08-20 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 29.40 CNY
+  Assets:EWallet:WeChat                              -29.40 CNY
+
+2026-08-20 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                12.00 CNY
+  Liabilities:CreditCard:CMB                         -12.00 CNY
+
+2026-08-20 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-08-20 * "示例科技有限公司" "差旅报销 5 笔" #reimbursement ^reimburse-shili-20260820
+  Assets:Bank:CMB                                    350.10 CNY
+  Assets:Receivable:Reimbursement                   -350.10 CNY
+
+2026-08-21 * "全家" "早餐"
+  Expenses:Food:Meals                                  9.60 CNY
+  Assets:EWallet:Alipay                               -9.60 CNY
+
+2026-08-21 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 31.10 CNY
+  Liabilities:CreditCard:CMB                         -31.10 CNY
+
+2026-08-21 * "星巴克" "美式"
+  Expenses:Food:Drinks                                30.70 CNY
+  Liabilities:CreditCard:CMB                         -30.70 CNY
+
+2026-08-21 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-08-22 * "美团外卖" "晚餐"
+  Expenses:Food:Dining                                29.40 CNY
+  Assets:EWallet:WeChat                              -29.40 CNY
+
+2026-08-24 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  7.40 CNY
+  Liabilities:CreditCard:CMB                          -7.40 CNY
+
+2026-08-24 * "食堂" "午餐"
+  Expenses:Food:Meals                                 21.20 CNY
+  Assets:EWallet:Alipay                              -21.20 CNY
+
+2026-08-24 * "星巴克" "美式"
+  Expenses:Food:Drinks                                33.10 CNY
+  Assets:EWallet:Alipay                              -33.10 CNY
+
+2026-08-24 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-08-25 * "示例科技有限公司" "2026-08 工资" ^salary-shili-202608
+  payslip_days: 21
+  payslip_items: "基本工资 26000.00; 餐补 800.00; 交通补贴 400.00; 代扣个税 1450.00"
+  Income:Salary:Base                              -26000.00 CNY
+  Income:Salary:Allowance                          -1200.00 CNY
+  Expenses:Government:IncomeTax                     1450.00 CNY
+  Assets:Receivable:Employer                        1200.00 CNY
+  Assets:Bank:CMB                                  24550.00 CNY
+
+2026-08-25 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 18.70 CNY
+  Assets:EWallet:Alipay                              -18.70 CNY
+
+2026-08-25 * "Manner" "澳白"
+  Expenses:Food:Drinks                                15.60 CNY
+  Liabilities:CreditCard:CMB                         -15.60 CNY
+
+2026-08-26 * "支付宝" "余额充值" #transfer
+  Assets:EWallet:Alipay                             1500.00 CNY
+  Assets:Bank:CMB                                  -1500.00 CNY
+
+2026-08-26 * "微信" "零钱充值" #transfer
+  Assets:EWallet:WeChat                             1200.00 CNY
+  Assets:Bank:CMB                                  -1200.00 CNY
+
+2026-08-26 * "食堂" "午餐"
+  Expenses:Food:Meals                                 21.30 CNY
+  Assets:EWallet:WeChat                              -21.30 CNY
+
+2026-08-26 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                11.40 CNY
+  Assets:EWallet:Alipay                              -11.40 CNY
+
+2026-08-26 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-08-27 * "全家" "早餐"
+  Expenses:Food:Meals                                  9.80 CNY
+  Assets:EWallet:Alipay                               -9.80 CNY
+
+2026-08-27 * "西贝" "午餐"
+  Expenses:Food:Meals                                 61.10 CNY
+  Liabilities:CreditCard:CMB                         -61.10 CNY
+
+2026-08-27 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-08-27 * "滴滴出行" "客户拜访打车" #reimbursed
+  Assets:Receivable:Reimbursement                     54.20 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -54.20 CNY
+
+2026-08-28 * "全家" "早餐"
+  Expenses:Food:Meals                                  9.30 CNY
+  Assets:EWallet:Alipay                               -9.30 CNY
+
+2026-08-28 * "西贝" "午餐"
+  Expenses:Food:Meals                                 58.70 CNY
+  Assets:EWallet:WeChat                              -58.70 CNY
+
+2026-08-28 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-08-28 * "滴滴出行" "客户拜访打车" #reimbursed
+  Assets:Receivable:Reimbursement                     77.70 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -77.70 CNY
+
+2026-08-29 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               44.90 CNY
+  Assets:EWallet:Alipay                              -44.90 CNY
+
+2026-08-30 * "美团外卖" "晚餐"
+  Expenses:Food:Dining                                43.70 CNY
+  Assets:EWallet:WeChat                              -43.70 CNY
+
+2026-08-31 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  9.30 CNY
+  Liabilities:CreditCard:CMB                          -9.30 CNY
+
+2026-08-31 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 22.10 CNY
+  Liabilities:CreditCard:CMB                         -22.10 CNY
+
+2026-08-31 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-08-31 * "滴滴出行" "客户拜访打车" #reimbursed
+  Assets:Receivable:Reimbursement                     83.40 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -83.40 CNY
+
+2026-08-31 * "示例科技有限公司" "备用金" ^float-shili-20260831
+  Assets:Bank:CMB                                   3000.00 CNY
+  Assets:Receivable:Reimbursement                  -3000.00 CNY
+
+2026-09-01 * "房东" "房租"
+  Expenses:Housing:Rent                             4500.00 CNY
+  Assets:Bank:CMB                                  -4500.00 CNY
+
+2026-09-01 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 12.20 CNY
+  Liabilities:CreditCard:CMB                         -12.20 CNY
+
+2026-09-01 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 19.50 CNY
+  Liabilities:CreditCard:CMB                         -19.50 CNY
+
+2026-09-02 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 28.00 CNY
+  Assets:EWallet:WeChat                              -28.00 CNY
+
+2026-09-02 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-09-03 * "中国联通" "话费" ^sub-unicom
+  Expenses:Subscription:Phone                         59.00 CNY
+  Assets:EWallet:Alipay                              -59.00 CNY
+
+2026-09-03 * "Apple" "iCloud+" ^sub-icloud
+  Expenses:Subscription:Cloud                         68.00 CNY
+  Liabilities:CreditCard:CMB                         -68.00 CNY
+
+2026-09-03 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  9.90 CNY
+  Assets:EWallet:Alipay                               -9.90 CNY
+
+2026-09-03 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 17.90 CNY
+  Liabilities:CreditCard:CMB                         -17.90 CNY
+
+2026-09-03 * "星巴克" "美式"
+  Expenses:Food:Drinks                                35.30 CNY
+  Liabilities:CreditCard:CMB                         -35.30 CNY
+
+2026-09-03 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-09-04 * "全家" "早餐"
+  Expenses:Food:Meals                                 10.50 CNY
+  Assets:EWallet:WeChat                              -10.50 CNY
+
+2026-09-04 * "食堂" "午餐"
+  Expenses:Food:Meals                                 21.30 CNY
+  Liabilities:CreditCard:CMB                         -21.30 CNY
+
+2026-09-04 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                11.80 CNY
+  Assets:EWallet:Alipay                              -11.80 CNY
+
+2026-09-04 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-09-05 * "ATM" "取现" #transfer
+  Assets:Cash                                        300.00 CNY
+  Assets:Bank:ICBC                                  -300.00 CNY
+
+2026-09-05 * "海底捞" "晚餐（AA）"
+  Expenses:Food:Dining                               113.55 CNY
+  Assets:Receivable:Personal                         113.55 CNY
+    person: "小陈"
+  Liabilities:CreditCard:CMB                        -227.10 CNY
+
+2026-09-06 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               45.10 CNY
+  Assets:EWallet:Alipay                              -45.10 CNY
+
+2026-09-07 * "西贝" "午餐"
+  Expenses:Food:Meals                                 76.80 CNY
+  Assets:EWallet:WeChat                              -76.80 CNY
+
+2026-09-07 * "星巴克" "美式"
+  Expenses:Food:Drinks                                37.10 CNY
+  Assets:EWallet:WeChat                              -37.10 CNY
+
+2026-09-07 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-09-08 * "国家电网" "电费"
+  Expenses:Housing:Utilities                         301.21 CNY
+  Assets:EWallet:Alipay                             -301.21 CNY
+
+2026-09-08 * "全家" "早餐"
+  Expenses:Food:Meals                                 14.80 CNY
+  Liabilities:CreditCard:CMB                         -14.80 CNY
+
+2026-09-08 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 28.20 CNY
+  Liabilities:CreditCard:CMB                         -28.20 CNY
+
+2026-09-08 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-09-08 * "小陈" "AA 还款"
+  Assets:EWallet:WeChat                              113.55 CNY
+  Assets:Receivable:Personal                        -113.55 CNY
+    person: "小陈"
+
+2026-09-09 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 14.50 CNY
+  Liabilities:CreditCard:CMB                         -14.50 CNY
+
+2026-09-09 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 19.50 CNY
+  Assets:EWallet:WeChat                              -19.50 CNY
+
+2026-09-09 * "Manner" "澳白"
+  Expenses:Food:Drinks                                15.20 CNY
+  Assets:EWallet:WeChat                              -15.20 CNY
+
+2026-09-09 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-09-10 * "招商银行信用卡" "还款" #transfer
+  Liabilities:CreditCard:CMB                        1220.26 CNY
+  Assets:Bank:CMB                                  -1220.26 CNY
+
+2026-09-10 * "食堂" "午餐"
+  Expenses:Food:Meals                                 22.00 CNY
+  Assets:EWallet:Alipay                              -22.00 CNY
+
+2026-09-10 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-09-10 * "滴滴出行" "客户拜访打车" #reimbursed ^float-shili-20260831
+  Assets:Receivable:Reimbursement                     37.20 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -37.20 CNY
+
+2026-09-11 * "全家" "早餐"
+  Expenses:Food:Meals                                 13.90 CNY
+  Assets:EWallet:Alipay                              -13.90 CNY
+
+2026-09-11 * "西贝" "午餐"
+  Expenses:Food:Meals                                 52.60 CNY
+  Assets:EWallet:Alipay                              -52.60 CNY
+
+2026-09-11 * "星巴克" "美式"
+  Expenses:Food:Drinks                                32.20 CNY
+  Assets:EWallet:Alipay                              -32.20 CNY
+
+2026-09-11 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-09-14 * "全家" "早餐"
+  Expenses:Food:Meals                                 10.60 CNY
+  Assets:EWallet:WeChat                              -10.60 CNY
+
+2026-09-14 * "西贝" "午餐"
+  Expenses:Food:Meals                                 61.70 CNY
+  Assets:EWallet:WeChat                              -61.70 CNY
+
+2026-09-14 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-09-15 * "IBKR" "定投 VOO"
+  Assets:Brokerage:IBKR:Stock                             2 VOO {558.97 USD}
+  Assets:Brokerage:IBKR:Cash                       -1117.94 USD
+
+2026-09-15 * "西贝" "午餐"
+  Expenses:Food:Meals                                 60.10 CNY
+  Assets:EWallet:Alipay                              -60.10 CNY
+
+2026-09-15 * "Manner" "澳白"
+  Expenses:Food:Drinks                                19.10 CNY
+  Assets:EWallet:WeChat                              -19.10 CNY
+
+2026-09-15 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-09-16 * "全家" "早餐"
+  Expenses:Food:Meals                                  9.70 CNY
+  Assets:EWallet:Alipay                               -9.70 CNY
+
+2026-09-16 * "食堂" "午餐"
+  Expenses:Food:Meals                                 16.30 CNY
+  Liabilities:CreditCard:CMB                         -16.30 CNY
+
+2026-09-16 * "星巴克" "美式"
+  Expenses:Food:Drinks                                31.00 CNY
+  Assets:EWallet:Alipay                              -31.00 CNY
+
+2026-09-16 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-09-17 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 19.30 CNY
+  Assets:EWallet:Alipay                              -19.30 CNY
+
+2026-09-17 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 31.00 CNY
+  Assets:EWallet:WeChat                              -31.00 CNY
+
+2026-09-17 * "星巴克" "美式"
+  Expenses:Food:Drinks                                32.70 CNY
+  Assets:EWallet:Alipay                              -32.70 CNY
+
+2026-09-17 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-09-18 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  8.40 CNY
+  Assets:EWallet:WeChat                               -8.40 CNY
+
+2026-09-18 * "食堂" "午餐"
+  Expenses:Food:Meals                                 21.70 CNY
+  Assets:EWallet:WeChat                              -21.70 CNY
+
+2026-09-18 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-09-19 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               45.40 CNY
+  Assets:EWallet:Alipay                              -45.40 CNY
+
+2026-09-20 * "盒马" "晚餐食材"
+  Expenses:Food:Groceries                             75.80 CNY
+  Liabilities:CreditCard:CMB                         -75.80 CNY
+
+2026-09-20 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               51.70 CNY
+  Assets:EWallet:Alipay                              -51.70 CNY
+
+2026-09-20 * "万达影城" "电影（小陈请）"
+  Expenses:Entertainment:Movie                        90.00 CNY
+  Assets:Receivable:Personal                         -90.00 CNY
+    person: "小陈"
+
+2026-09-21 * "招商银行" "活期利息"
+  Income:Invest:Interest                            -137.43 CNY
+  Assets:Bank:CMB                                    137.43 CNY
+
+2026-09-21 * "西贝" "午餐"
+  Expenses:Food:Meals                                 71.40 CNY
+  Liabilities:CreditCard:CMB                         -71.40 CNY
+
+2026-09-21 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-09-22 * "全家" "早餐"
+  Expenses:Food:Meals                                 10.20 CNY
+  Assets:EWallet:Alipay                              -10.20 CNY
+
+2026-09-22 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 35.70 CNY
+  Assets:EWallet:Alipay                              -35.70 CNY
+
+2026-09-22 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-09-23 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 19.30 CNY
+  Liabilities:CreditCard:CMB                         -19.30 CNY
+
+2026-09-23 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 33.00 CNY
+  Assets:EWallet:WeChat                              -33.00 CNY
+
+2026-09-23 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                12.20 CNY
+  Liabilities:CreditCard:CMB                         -12.20 CNY
+
+2026-09-23 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-09-24 * "食堂" "午餐"
+  Expenses:Food:Meals                                 18.70 CNY
+  Liabilities:CreditCard:CMB                         -18.70 CNY
+
+2026-09-24 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-09-24 * "滴滴出行" "客户拜访打车" #reimbursed ^float-shili-20260831
+  Assets:Receivable:Reimbursement                     51.20 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -51.20 CNY
+
+2026-09-25 * "示例科技有限公司" "2026-09 工资" ^salary-shili-202609
+  payslip_days: 22
+  payslip_items: "基本工资 26000.00; 餐补 800.00; 交通补贴 400.00; 代扣个税 1450.00"
+  Income:Salary:Base                              -26000.00 CNY
+  Income:Salary:Allowance                          -1200.00 CNY
+  Expenses:Government:IncomeTax                     1450.00 CNY
+  Assets:Bank:CMB                                  25750.00 CNY
+
+2026-09-25 * "示例科技有限公司" "2026-08 工资补发" ^salary-shili-202608
+  Assets:Bank:CMB                                   1200.00 CNY
+  Assets:Receivable:Employer                       -1200.00 CNY
+
+2026-09-25 * "全家" "早餐"
+  Expenses:Food:Meals                                 13.90 CNY
+  Assets:EWallet:WeChat                              -13.90 CNY
+
+2026-09-25 * "西贝" "午餐"
+  Expenses:Food:Meals                                 58.50 CNY
+  Liabilities:CreditCard:CMB                         -58.50 CNY
+
+2026-09-25 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-09-26 * "支付宝" "余额充值" #transfer
+  Assets:EWallet:Alipay                             1500.00 CNY
+  Assets:Bank:CMB                                  -1500.00 CNY
+
+2026-09-26 * "微信" "零钱充值" #transfer
+  Assets:EWallet:WeChat                             1200.00 CNY
+  Assets:Bank:CMB                                  -1200.00 CNY
+
+2026-09-26 * "盒马" "晚餐食材"
+  Expenses:Food:Groceries                             94.40 CNY
+  Assets:EWallet:WeChat                              -94.40 CNY
+
+2026-09-26 * "菜市场" "买菜"
+  Expenses:Food:Groceries                             17.50 CNY
+  Assets:Cash                                        -17.50 CNY
+
+2026-09-26 * "京东" "日用品"
+  Expenses:Shopping:Household                        105.36 CNY
+  Liabilities:CreditCard:CMB                        -105.36 CNY
+
+2026-09-28 * "IBKR" "VOO 分红"
+  Income:Invest:Dividend                             -71.40 USD
+  Assets:Brokerage:IBKR:Cash                          71.40 USD
+
+2026-09-28 * "西贝" "午餐"
+  Expenses:Food:Meals                                 57.90 CNY
+  Assets:EWallet:WeChat                              -57.90 CNY
+
+2026-09-28 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-09-29 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 18.60 CNY
+  Assets:EWallet:WeChat                              -18.60 CNY
+
+2026-09-29 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 17.90 CNY
+  Assets:EWallet:Alipay                              -17.90 CNY
+
+2026-09-29 * "Manner" "澳白"
+  Expenses:Food:Drinks                                18.50 CNY
+  Assets:EWallet:WeChat                              -18.50 CNY
+
+2026-09-29 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-09-30 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 29.80 CNY
+  Liabilities:CreditCard:CMB                         -29.80 CNY
+
+2026-09-30 * "地铁" "通勤"
+  Expenses:Transit:Metro                               4.00 CNY
+  Assets:EWallet:Alipay                               -4.00 CNY
+
+2026-09-30 * "滴滴出行" "客户拜访打车" #reimbursed ^float-shili-20260831
+  Assets:Receivable:Reimbursement                     79.40 CNY
+    category: "Expenses:Transit:Taxi"
+    voucher: "发票"
+  Assets:EWallet:Alipay                              -79.40 CNY
+
+2026-09-30 * "示例科技有限公司" "季度奖金"
+  Income:Bonus                                    -12000.00 CNY
+  Assets:Bank:CMB                                  12000.00 CNY
+
+2026-10-01 * "房东" "房租"
+  Expenses:Housing:Rent                             4500.00 CNY
+  Assets:Bank:CMB                                  -4500.00 CNY
+
+2026-10-01 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 21.30 CNY
+  Assets:EWallet:WeChat                              -21.30 CNY
+
+2026-10-01 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 17.30 CNY
+  Liabilities:CreditCard:CMB                         -17.30 CNY
+
+2026-10-01 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-10-02 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  7.00 CNY
+  Liabilities:CreditCard:CMB                          -7.00 CNY
+
+2026-10-02 * "西贝" "午餐"
+  Expenses:Food:Meals                                 62.50 CNY
+  Assets:EWallet:Alipay                              -62.50 CNY
+
+2026-10-02 * "Manner" "澳白"
+  Expenses:Food:Drinks                                16.20 CNY
+  Assets:EWallet:WeChat                              -16.20 CNY
+
+2026-10-02 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-10-03 * "中国联通" "话费" ^sub-unicom
+  Expenses:Subscription:Phone                         59.00 CNY
+  Assets:EWallet:Alipay                              -59.00 CNY
+
+2026-10-03 * "Apple" "iCloud+" ^sub-icloud
+  Expenses:Subscription:Cloud                         68.00 CNY
+  Liabilities:CreditCard:CMB                         -68.00 CNY
+
+2026-10-03 * "盒马" "晚餐食材"
+  Expenses:Food:Groceries                             76.80 CNY
+  Assets:EWallet:WeChat                              -76.80 CNY
+
+2026-10-04 * "美团外卖" "晚餐"
+  Expenses:Food:Dining                                28.50 CNY
+  Liabilities:CreditCard:CMB                         -28.50 CNY
+
+2026-10-04 * "滴滴出行" "打车"
+  Expenses:Transit:Taxi                               46.10 CNY
+  Assets:EWallet:Alipay                              -46.10 CNY
+
+2026-10-05 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 23.30 CNY
+  Liabilities:CreditCard:CMB                         -23.30 CNY
+
+2026-10-06 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 22.00 CNY
+  Assets:EWallet:WeChat                              -22.00 CNY
+
+2026-10-06 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-10-06 ! "京东" "显示器"
+  Expenses:Shopping:Digital                         1699.00 CNY
+  Liabilities:CreditCard:CMB                       -1699.00 CNY
+
+2026-10-07 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 21.00 CNY
+  Assets:EWallet:WeChat                              -21.00 CNY
+
+2026-10-07 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 25.00 CNY
+  Liabilities:CreditCard:CMB                         -25.00 CNY
+
+2026-10-08 * "国家电网" "电费"
+  Expenses:Housing:Utilities                         323.97 CNY
+  Assets:EWallet:Alipay                             -323.97 CNY
+
+2026-10-08 * "全家" "早餐"
+  Expenses:Food:Meals                                 13.20 CNY
+  Liabilities:CreditCard:CMB                         -13.20 CNY
+
+2026-10-08 * "食堂" "午餐"
+  Expenses:Food:Meals                                 19.80 CNY
+  Assets:EWallet:WeChat                              -19.80 CNY
+
+2026-10-08 * "宜家" "家居"
+  Expenses:Shopping:Household                        561.67 CNY
+  Liabilities:CreditCard:CMB                        -561.67 CNY
+
+2026-10-09 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  6.60 CNY
+  Liabilities:CreditCard:CMB                          -6.60 CNY
+
+2026-10-09 * "食堂" "午餐"
+  Expenses:Food:Meals                                 19.20 CNY
+  Assets:EWallet:Alipay                              -19.20 CNY
+
+2026-10-09 * "瑞幸" "拿铁"
+  Expenses:Food:Drinks                                13.10 CNY
+  Liabilities:CreditCard:CMB                         -13.10 CNY
+
+2026-10-09 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-10-10 * "招商银行信用卡" "还款" #transfer
+  Liabilities:CreditCard:CMB                        2870.03 CNY
+  Assets:Bank:CMB                                  -2870.03 CNY
+
+2026-10-12 * "IBKR" "换汇入金" #fx
+  exchange_rate: "1 USD = 7.1273 CNY"
+  Assets:Brokerage:IBKR:Cash                        5000.00 USD @ 7.1273 CNY
+  Assets:Bank:CMB                                 -35636.50 CNY
+
+2026-10-12 * "美团外卖" "午餐"
+  Expenses:Food:Meals                                 24.00 CNY
+  Liabilities:CreditCard:CMB                         -24.00 CNY
+
+2026-10-12 * "星巴克" "美式"
+  Expenses:Food:Drinks                                31.10 CNY
+  Liabilities:CreditCard:CMB                         -31.10 CNY
+
+2026-10-12 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-10-13 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 17.40 CNY
+  Liabilities:CreditCard:CMB                         -17.40 CNY
+
+2026-10-13 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 18.50 CNY
+  Assets:EWallet:WeChat                              -18.50 CNY
+
+2026-10-13 * "地铁" "通勤"
+  Expenses:Transit:Metro                               5.00 CNY
+  Assets:EWallet:Alipay                               -5.00 CNY
+
+2026-10-14 * "麦当劳" "早餐"
+  Expenses:Food:Meals                                 20.20 CNY
+  Assets:EWallet:WeChat                              -20.20 CNY
+
+2026-10-14 * "沙县小吃" "午餐"
+  Expenses:Food:Meals                                 17.10 CNY
+  Assets:EWallet:Alipay                              -17.10 CNY
+
+2026-10-14 * "Manner" "澳白"
+  Expenses:Food:Drinks                                18.00 CNY
+  Assets:EWallet:Alipay                              -18.00 CNY
+
+2026-10-14 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-10-14 * "京东" "日用品"
+  Expenses:Shopping:Household                        203.78 CNY
+  Liabilities:CreditCard:CMB                        -203.78 CNY
+
+2026-10-15 * "IBKR" "定投 VOO"
+  Assets:Brokerage:IBKR:Stock                             2 VOO {554.58 USD}
+  Assets:Brokerage:IBKR:Cash                       -1109.16 USD
+
+2026-10-15 * "包子铺" "早餐"
+  Expenses:Food:Meals                                  9.30 CNY
+  Liabilities:CreditCard:CMB                          -9.30 CNY
+
+2026-10-15 * "西贝" "午餐"
+  Expenses:Food:Meals                                 52.60 CNY
+  Assets:EWallet:WeChat                              -52.60 CNY
+
+2026-10-15 * "星巴克" "美式"
+  Expenses:Food:Drinks                                30.90 CNY
+  Assets:EWallet:WeChat                              -30.90 CNY
+
+2026-10-15 * "地铁" "通勤"
+  Expenses:Transit:Metro                               6.00 CNY
+  Assets:EWallet:Alipay                               -6.00 CNY
+
+2026-10-15 * "Apple" "配件"
+  Expenses:Shopping:Digital                          400.40 CNY
+  Liabilities:CreditCard:CMB                        -400.40 CNY

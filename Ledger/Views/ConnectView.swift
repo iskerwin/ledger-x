@@ -10,7 +10,7 @@ struct ConnectionSections: View {
     var body: some View {
         Section {
             Picker(LS("存储位置"), selection: $cfg.kind) {
-                ForEach(SourceKind.allCases) { k in Label(k.name, systemImage: k.symbol).tag(k) }
+                ForEach(cfg.kind == .local ? SourceKind.allCases : SourceKind.connectable) { k in Label(k.name, systemImage: k.symbol).tag(k) }
             }
             LabeledContent(LS("名称")) {
                 TextField(LS("可选，如「个人账本」"), text: $cfg.name).multilineTextAlignment(.trailing)
@@ -23,6 +23,12 @@ struct ConnectionSections: View {
         case .github, .gitlab, .gitea: gitSection
         case .folder: folderSection
         case .webdav: davSection
+        case .local:
+            Section {
+                LabeledContent(LS("位置"), value: cfg.subtitle)
+            } footer: {
+                Text(LS("账本文件就在这台手机上，可以在「文件」App 里找到；以后想放到 Git 仓库，把文件夹的内容推到仓库，再在这里连接仓库即可。"))
+            }
         }
     }
 
@@ -31,6 +37,7 @@ struct ConnectionSections: View {
         case .github, .gitlab, .gitea: return LS("通过 API 直接读写仓库，每次保存都是一次 Git 提交。")
         case .folder: return LS("读写「文件」App 中的文件夹：我的 iPhone、iCloud Drive，或坚果云、OneDrive、Working Copy 等提供的位置。修改直接写入文件。")
         case .webdav: return LS("直接读写 WebDAV 上的账本文件夹，如坚果云、Nextcloud、群晖。")
+        case .local: return LS("保存在这台手机上的账本。")
         }
     }
 

@@ -14,6 +14,12 @@ targets:
     platform: iOS
     sources:
       - path: Ledger
+        excludes:
+          - "Demo/**"
+      # the demo ledger, copied as a folder (its files keep their places)
+      - path: Ledger/Demo
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: LedgerKit
     info:
@@ -27,6 +33,9 @@ targets:
         NSCameraUsageDescription: 拍摄票据作为交易附件
         NSPhotoLibraryUsageDescription: 选择票据照片作为交易附件
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        # the ledgers kept on this phone show in the Files app (On My iPhone › Ledger)
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
         CFBundleURLTypes:
           - CFBundleURLName: com.iskerwin.ledger
             CFBundleURLSchemes: [ledgerx]

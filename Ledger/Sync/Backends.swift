@@ -75,6 +75,7 @@ func makeBackend(_ c: RepoConfig) -> LedgerBackend {
     case .gitea: return Gitea(cfg: c)
     case .folder: return FolderBackend(cfg: c)
     case .webdav: return WebDAV(cfg: c)
+    case .local: return FolderBackend(cfg: c)
     }
 }
 
@@ -362,8 +363,18 @@ struct Gitea: LedgerBackend {
 struct FolderBackend: LedgerBackend {
     let cfg: RepoConfig
 
+    /// the folder of a ledger kept in this app's own files (On My iPhone › Ledger)
+    static func localRoot(_ folder: String) -> URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(folder, isDirectory: true)
+    }
+
     /// resolve the bookmark and run `body` with access to the folder
     private func withFolder<T>(_ body: (URL) throws -> T) throws -> T {
+        if cfg.kind == .local {
+            let root = Self.localRoot(cfg.folderName)
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            return try body(root)
+        }
         guard let bm = cfg.bookmark else { throw GitHubError(status: 404, message: LS("尚未选择文件夹")) }
         var stale = false
         let url = try URL(resolvingBookmarkData: bm, options: [], relativeTo: nil, bookmarkDataIsStale: &stale)

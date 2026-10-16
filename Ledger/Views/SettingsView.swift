@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var demoLayout = false
     @State private var demoGuide = false
     @State private var managingCats = false
+    @AppStorage(Store.demoEntryKey) private var demoEntry = true
     @AppStorage(AppAppearance.key) private var appearance = AppAppearance.system.rawValue
     @AppStorage(OverviewChart.styleKey) private var chartStyle = "list"
     @AppStorage(AppLock.enabledKey) private var lockOn = false
@@ -30,6 +31,16 @@ struct SettingsView: View {
             }
             if first {
                 Section { LanguagePicker() }
+                Section {
+                    Button { Task { await store.openDemo() } } label: {
+                        Label(LS("先看看演示账本"), systemImage: "sparkles")
+                    }
+                    Button { Task { await store.createEmptyLedger() } } label: {
+                        Label(LS("在本机新建空账本"), systemImage: "iphone")
+                    }
+                } footer: {
+                    Text(LS("演示账本的数据均为虚构。新建的空账本带有常用的账户和分类，保存在这台手机上（「文件」App › 我的 iPhone › Ledger），以后可以再放到 Git 仓库。也可以在下面直接连接已有的账本。"))
+                }
             }
             if first {
                 ConnectionSections(cfg: $cfg)
@@ -87,6 +98,13 @@ struct SettingsView: View {
                 Section {
                     NavigationLink { AdvancedPage(confirmReset: $confirmReset) } label: { row("gearshape.2", LS("高级设置"), "") }
                     NavigationLink { GuideView() } label: { row("questionmark.circle", LS("使用指南与常见问题"), "") }
+                    Toggle(isOn: $demoEntry) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "sparkles").foregroundStyle(Color.jade).frame(width: 26)
+                            Text(LS("概览显示演示账本入口"))
+                        }
+                    }
+                    .tint(.jade)
                     NavigationLink { AboutPage() } label: {
                         row("info.circle", LS("关于 Ledger X"), Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
                     }

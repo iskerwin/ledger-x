@@ -4,7 +4,11 @@ import Security
 /// where a ledger lives
 enum SourceKind: String, Codable, CaseIterable, Identifiable, Hashable {
     case github, gitlab, gitea, folder, webdav
+    /// a folder of this app's own (On My iPhone › Ledger): the demo, and ledgers started on the phone
+    case local
     var id: String { rawValue }
+    /// what can be chosen when connecting (a ledger on the phone is made, not connected)
+    static var connectable: [SourceKind] { allCases.filter { $0 != .local } }
     var name: String {
         switch self {
         case .github: return "GitHub"
@@ -12,6 +16,7 @@ enum SourceKind: String, Codable, CaseIterable, Identifiable, Hashable {
         case .gitea: return "Gitea"
         case .folder: return LS("文件夹")
         case .webdav: return "WebDAV"
+        case .local: return LS("本机")
         }
     }
     var symbol: String {
@@ -19,6 +24,7 @@ enum SourceKind: String, Codable, CaseIterable, Identifiable, Hashable {
         case .github, .gitlab, .gitea: return "arrow.triangle.branch"
         case .folder: return "folder"
         case .webdav: return "externaldrive.connected.to.line.below"
+        case .local: return "iphone"
         }
     }
 }
@@ -64,6 +70,7 @@ struct RepoConfig: Codable, Hashable, Identifiable {
         case .gitlab, .gitea: return !server.isEmpty && !owner.isEmpty && !repo.isEmpty && !branch.isEmpty && !token.isEmpty
         case .folder: return bookmark != nil
         case .webdav: return URL(string: server)?.scheme != nil
+        case .local: return !folderName.isEmpty
         }
     }
 
@@ -74,6 +81,7 @@ struct RepoConfig: Codable, Hashable, Identifiable {
         case .github, .gitlab, .gitea: return repo.isEmpty ? kind.name : repo
         case .folder: return folderName.isEmpty ? LS("文件夹") : folderName
         case .webdav: return URL(string: server)?.lastPathComponent.removingPercentEncoding ?? "WebDAV"
+        case .local: return folderName
         }
     }
     var subtitle: String {
@@ -82,6 +90,7 @@ struct RepoConfig: Codable, Hashable, Identifiable {
         case .gitlab, .gitea: return "\(kind.name) · \(URL(string: server)?.host ?? server) · \(owner)/\(repo)"
         case .folder: return LS("文件夹") + " · " + folderName
         case .webdav: return "WebDAV · " + (URL(string: server)?.host ?? server)
+        case .local: return LS("本机 · 文件 › 我的 iPhone › Ledger › %@", folderName)
         }
     }
     var keychainAccount: String { id == "default" ? "token" : "token." + id }

@@ -1,0 +1,29 @@
+; 订阅：App「报表 → 订阅管理」按这里计算下次扣费、累计已付；之后有变化（调价、取消）另起一行
+
+2025-01-03 custom "subscription" "iCloud+" "monthly"  21.00 CNY
+  account: "Expenses:Subscription:Cloud"
+  funding: "Liabilities:CreditCard:CMB"
+  payee: "Apple"
+  link: "sub-icloud"
+
+2026-04-03 custom "subscription" "iCloud+" "monthly"  68.00 CNY
+
+2025-01-03 custom "subscription" "中国联通 话费" "monthly"  59.00 CNY
+  account: "Expenses:Subscription:Phone"
+  funding: "Assets:EWallet:Alipay"
+  payee: "中国联通"
+  link: "sub-unicom"
+
+2025-01-18 custom "subscription" "网易云音乐" "monthly"  15.00 CNY
+  account: "Expenses:Subscription:Streaming"
+  funding: "Assets:EWallet:WeChat"
+  payee: "网易云音乐"
+  link: "sub-163music"
+
+2026-06-01 custom "subscription" "网易云音乐" "cancelled"
+
+2025-03-15 custom "subscription" "坚果云" "yearly"   199.00 CNY
+  account: "Expenses:Subscription:Cloud"
+  funding: "Liabilities:CreditCard:CMB"
+  payee: "坚果云"
+  link: "sub-jianguoyun"
