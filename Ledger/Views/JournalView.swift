@@ -168,7 +168,7 @@ struct JournalView: View {
             }
         }
         /// the same in the search box's own words
-        func query(_ store: Store) -> String {
+        @MainActor func query(_ store: Store) -> String {
             switch self {
             case .month: return "本月"
             case .large: return ">" + jsNumberString(store.largeExpense)
