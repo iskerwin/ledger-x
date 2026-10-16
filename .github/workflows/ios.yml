@@ -326,6 +326,9 @@ jobs:
           shot 57-overview-flow SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_TREND=flow
           shot 58-overview-donut-style SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_SCROLL=category SIMCTL_CHILD_LEDGER_CHART=donut
           shot 59-overview-liab-cards SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_SCROLL=liab SIMCTL_CHILD_LEDGER_EXTRA="$CARDS"
+          shot 61-year-review SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=year SIMCTL_CHILD_LEDGER_YEAR=2025
+          shot 61b-year-review-more SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=year SIMCTL_CHILD_LEDGER_YEAR=2025 SIMCTL_CHILD_LEDGER_YEAR_SCROLL=1
+          shot 62-overview-year SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_YEAR_CARD=1
           shot 60-repo-layout SIMCTL_CHILD_LEDGER_TAB=settings SIMCTL_CHILD_LEDGER_LAYOUT=1
           shot 14-privacy SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_PRIVACY=1
           xcrun simctl ui "$UDID" appearance dark

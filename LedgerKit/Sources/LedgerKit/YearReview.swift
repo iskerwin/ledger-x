@@ -107,7 +107,7 @@ public func reviewYears(_ L: Ledger) -> [String] {
 /// One year of the ledger. `currency`: what the amounts are shown in (with `.units`, only what is in it counts);
 /// `exclude`: accounts left out of net worth (ledger-x.json networth_exclude); `today` ends the current year.
 public func yearReview(_ L: Ledger, year: String, mode: ReportMode = .convert("CNY"), currency: String? = nil,
-                       exclude: [String] = [], reimbursement: String = "Assets:Receivable:Reimbursement",
+                       only: Set<String>? = nil, exclude: [String] = [], reimbursement: String = "Assets:Receivable:Reimbursement",
                        today: String = Day.today()) -> YearReview {
     let cur = currency ?? mode.converted ?? L.base
     let start = year + "-01-01", yearEnd = year + "-12-31"
@@ -122,7 +122,7 @@ public func yearReview(_ L: Ledger, year: String, mode: ReportMode = .convert("C
     }
 
     // income and expenses, by month and by category: the overview's own figures
-    let f = viewFlows(L, mode: mode, only: nil, currency: cur)
+    let f = viewFlows(L, mode: mode, only: only, currency: cur)
     var cats: [String: Double] = [:], prevCats: [String: Double] = [:]
     var prevInc = 0.0, prevExp = 0.0, prevAny = false
     for k in 1...12 {
@@ -159,14 +159,16 @@ public func yearReview(_ L: Ledger, year: String, mode: ReportMode = .convert("C
     r.payees = byPayee.sorted { $0.value.0 > $1.value.0 }.prefix(10).map { YearPayee(name: $0.key, amount: roundTo($0.value.0, 2), count: $0.value.1) }
 
     // net worth: the year before's last month end, then each month end of this year
-    let slices = worthSeries(L, today: through, exclude: exclude, mode: mode)
+    let slices = worthSeries(L, today: through, exclude: exclude, mode: mode, only: only)
     if let s = slices.last(where: { $0.month < year + "-01" }) { r.worthStart = roundTo(s.total.amounts[cur] ?? 0, 2) }
     r.worthByMonth = slices.filter { $0.month.hasPrefix(year) }.map { (month: $0.month, value: roundTo($0.total.amounts[cur] ?? 0, 2)) }
     if !r.worthByMonth.isEmpty && r.worthStart == nil && slices.first?.month.hasPrefix(year) == true { r.worthStart = 0 }
     // assets and liabilities on their own: the change over the year, each valued at its day
     func side(_ prefix: String, _ date: String) -> Double {
         var inv = Inventory()
-        for (a, cs) in balancesAt(L, date) where a.hasPrefix(prefix) && !isExcluded(a, exclude) { for (c, n) in cs { inv.add(n, c) } }
+        for (a, cs) in balancesAt(L, date) where a.hasPrefix(prefix) && !isExcluded(a, exclude) {
+            for (c, n) in cs where only?.contains(c) ?? true { inv.add(n, c) }
+        }
         return valueInventory(inv, mode, L, at: date).amounts[cur] ?? 0
     }
     let before = Day.shift(start, -1)

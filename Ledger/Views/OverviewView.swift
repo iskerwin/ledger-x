@@ -40,6 +40,8 @@ struct OverviewView: View {
             .navigationDestination(for: EventsDest.self) { _ in EventsView().privacyToolbar() }
             .navigationDestination(for: EventDest.self) { EventDetailView(tag: $0.tag).privacyToolbar() }
             .navigationDestination(for: AlertsDest.self) { _ in AlertsView().privacyToolbar() }
+            .navigationDestination(for: YearReviewDest.self) { YearReviewView(year: $0.year).privacyToolbar(currency: true) }
+            .navigationDestination(for: PayeeDest.self) { PayeeDetailView(name: $0.name).privacyToolbar() }
             .navigationDestination(for: AnomalyDest.self) { AnomalyDetailView(id: $0.id).privacyToolbar() }
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
@@ -153,6 +155,7 @@ struct OverviewView: View {
                 }
             }
             heroSection(s, F.cur)
+            YearReviewOverviewSection()
             ReconcileBanner()
             AlertsOverviewSection()
             EventsOverviewSection(L: L)

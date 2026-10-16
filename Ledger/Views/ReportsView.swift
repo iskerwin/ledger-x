@@ -15,6 +15,9 @@ struct ReportsView: View {
         NavigationStack(path: $path) {
             List {
                 Section {
+                    NavigationLink(value: YearReviewDest()) {
+                        ReportRow(symbol: "sparkles", color: .orange, title: LS("年度回顾"), detail: LS("全年收支、净资产、支出构成、工资与大事"))
+                    }
                     NavigationLink(value: ReportKind.income) {
                         ReportRow(symbol: "chart.bar.doc.horizontal", color: .green, title: LS("损益表"), detail: LS("收入、支出与净收益"))
                     }
@@ -106,6 +109,7 @@ struct ReportsView: View {
                 }
                 .privacyToolbar(currency: true)
             }
+            .navigationDestination(for: YearReviewDest.self) { YearReviewView(year: $0.year).privacyToolbar(currency: true) }
             .navigationDestination(for: BudgetsDest.self) { _ in BudgetsView().privacyToolbar() }
             .navigationDestination(for: SubscriptionsDest.self) { _ in SubscriptionsView().privacyToolbar() }
             .navigationDestination(for: ForecastDest.self) { _ in ForecastView().privacyToolbar() }
@@ -125,7 +129,8 @@ struct ReportsView: View {
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .task {
             guard path.isEmpty, let r = store.demoEnv["LEDGER_REPORT"] else { return }
-            if r == "budgets" { path.append(BudgetsDest()) }
+            if r == "year" { path.append(YearReviewDest(year: store.demoEnv["LEDGER_YEAR"])) }
+            else if r == "budgets" { path.append(BudgetsDest()) }
             else if r == "subscriptions" { path.append(SubscriptionsDest()) }
             else if r == "forecast" { path.append(ForecastDest()) }
             else if r == "reimb" { path.append(ReimbursementsDest()) }
