@@ -197,6 +197,8 @@ public struct LedgerError {
     public var line: Int?
     public var msg: String
     public var soft = false
+    /// what the app can do about it with one tap
+    public var fix: LedgerFix?
 
     public init(entry: Entry?, msg: String, soft: Bool = false) {
         self.entry = entry; self.file = entry?.file; self.line = entry?.line; self.msg = msg; self.soft = soft

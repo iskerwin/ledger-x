@@ -1,0 +1,8 @@
+; a duplicate in another file
+2024-01-02 * "Shop" "lunch"
+  Expenses:Food:Dining   35.00 CNY
+  Assets:Bank:Main
+
+2024-04-01 * "Savings"
+  Assets:Savings:Fixed   1000.00 CNY
+  Assets:Bank:Main

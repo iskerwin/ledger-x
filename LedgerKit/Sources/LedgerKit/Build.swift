@@ -308,7 +308,7 @@ public func normalizePath(_ p: String) -> String {
     return parts.joined(separator: "/")
 }
 
-private func typeOrder(_ t: EntryType) -> Int {
+func typeOrder(_ t: EntryType) -> Int {
     switch t {
     case .open: return -2
     case .balance: return -1
@@ -437,6 +437,7 @@ public func build(_ input: [Entry], files: [String] = [], options: [String: [Str
     for (i, t) in L.txns.enumerated() { t.id = i }
     L.final = bal
     L.inventory = inv
+    runPlugins(L)
     buildRates(L)
     return L
 }
@@ -446,7 +447,8 @@ public func build(_ input: [Entry], files: [String] = [], options: [String: [Str
 func buildRates(_ L: Ledger) {
     struct Pair { let date: String; let base: String; let quote: String; let rate: Double }
     var pairs: [Pair] = []
-    for p in L.prices { pairs.append(Pair(date: p.date, base: p.currency ?? "", quote: p.quote ?? "", rate: p.number)) }
+    // (the prices implicit_prices adds come from the postings below)
+    for p in L.prices where !p.synthetic { pairs.append(Pair(date: p.date, base: p.currency ?? "", quote: p.quote ?? "", rate: p.number)) }
     for t in L.txns {
         for p in t.postings {
             // a per-unit price, or a total one (@@) over the units

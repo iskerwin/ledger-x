@@ -1,0 +1,112 @@
+{
+ "duplicates": [
+  [
+   "main.bean:31",
+   "more.bean:2"
+  ],
+  [
+   "main.bean:36",
+   "main.bean:31"
+  ],
+  [
+   "main.bean:41",
+   "main.bean:36"
+  ],
+  [
+   "main.bean:98",
+   "main.bean:97"
+  ]
+ ],
+ "latest": {
+  "EUR/CNY": [
+   "2024-03-03",
+   7.8
+  ],
+  "GBP/CNY": [
+   "2024-03-02",
+   9.1
+  ],
+  "USD/CNY": [
+   "2024-01-06",
+   7.15
+  ],
+  "VOO/USD": [
+   "2024-03-01",
+   420.0
+  ]
+ },
+ "leafonly": [
+  "Assets:Savings",
+  "Expenses:Food"
+ ],
+ "missing_commodities": [
+  "JPY",
+  "GBP",
+  "EUR"
+ ],
+ "prices": [
+  [
+   "2024-01-05",
+   "USD",
+   7.1,
+   "CNY",
+   true
+  ],
+  [
+   "2024-01-05",
+   "USD",
+   7.1,
+   "CNY",
+   false
+  ],
+  [
+   "2024-01-06",
+   "USD",
+   7.15,
+   "CNY",
+   true
+  ],
+  [
+   "2024-02-01",
+   "VOO",
+   400.0,
+   "USD",
+   true
+  ],
+  [
+   "2024-02-15",
+   "VOO",
+   410.0,
+   "USD",
+   true
+  ],
+  [
+   "2024-03-01",
+   "VOO",
+   420.0,
+   "USD",
+   true
+  ],
+  [
+   "2024-03-02",
+   "GBP",
+   9.1,
+   "CNY",
+   false
+  ],
+  [
+   "2024-03-02",
+   "GBP",
+   9.1,
+   "CNY",
+   false
+  ],
+  [
+   "2024-03-03",
+   "EUR",
+   7.8,
+   "CNY",
+   true
+  ]
+ ]
+}
