@@ -211,6 +211,16 @@ public func yearReview(_ L: Ledger, year: String, mode: ReportMode = .convert("C
     return r
 }
 
+/// `yearReview` kept with this ledger: worked out once per year, view and day (the page draws it many times)
+public func yearReviewCached(_ L: Ledger, year: String, mode: ReportMode, currency: String, only: Set<String>?,
+                             exclude: [String], reimbursement: String, today: String = Day.today()) -> YearReview {
+    let key = ["yearReview", year, mode.raw, currency, only.map { $0.sorted().joined(separator: ",") } ?? "*",
+               exclude.joined(separator: ","), reimbursement, today].joined(separator: "|")
+    return L.memoized(key) {
+        yearReview(L, year: year, mode: mode, currency: currency, only: only, exclude: exclude, reimbursement: reimbursement, today: today)
+    }
+}
+
 /// income from investments: dividends, interest, gains (by the account's name)
 public func isInvestmentIncome(_ a: String) -> Bool {
     let parts = a.components(separatedBy: ":").dropFirst().map { $0.lowercased() }

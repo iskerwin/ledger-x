@@ -26,11 +26,8 @@ struct YearReviewView: View {
         let mode = store.cmode, only = store.conly
         let cs = store.cview.isDefault ? [L.base] : viewCurrencies(L, mode: mode, only: only)
         let c = cur.flatMap { cs.contains($0) ? $0 : nil } ?? cs.first ?? L.base
-        let key = "yearReview|\(year)|\(mode.raw)|\(c)|\(only.map { $0.sorted().joined(separator: ",") } ?? "*")|\(store.netWorthExclude.joined(separator: ","))|\(store.receivable)"
-        let r = L.memoized(key) {
-            yearReview(L, year: year, mode: mode, currency: c, only: only, exclude: store.netWorthExclude,
-                       reimbursement: store.receivable, today: Day.today())
-        }
+        let r = yearReviewCached(L, year: year, mode: mode, currency: c, only: only, exclude: store.netWorthExclude,
+                                 reimbursement: store.receivable)
         return (r, cs)
     }
 
