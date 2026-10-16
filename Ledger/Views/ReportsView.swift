@@ -552,10 +552,12 @@ struct IncomeExpenseChart: View {
             .chartYAxis { AxisMarks(position: .trailing) }
             .chartXAxis {
                 // at most about 8 labels: every month, every 2nd, every quarter or every half year; January shows the year
+                // when the months run over more than one
+                let years = Set(months.map { $0.prefix(4) }).count
                 AxisMarks(values: labelled) { v in
                     AxisGridLine()
                     AxisValueLabel {
-                        if let s = v.as(String.self) { Text(s.hasSuffix("-01") ? String(s.prefix(4)) : String(Int(s.suffix(2)) ?? 0)) }
+                        if let s = v.as(String.self) { Text(years > 1 && s.hasSuffix("-01") ? String(s.prefix(4)) : String(Int(s.suffix(2)) ?? 0)) }
                     }
                 }
             }
