@@ -126,6 +126,7 @@ struct ReportsView: View {
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name).privacyToolbar() }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
             .subscriptionDestinations()
+            .pushes(onto: $path)
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }

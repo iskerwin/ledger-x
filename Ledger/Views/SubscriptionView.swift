@@ -8,7 +8,7 @@ struct SubCalendarDest: Hashable {}
 extension View {
     /// subscription pages pushed by value, so they live in the tab's navigation path like everything else
     /// (a view-based link mixed with value-based ones makes SwiftUI push pages twice)
-    /// pages every tab can open: subscriptions, links, reimbursements
+    /// pages every tab can open: subscriptions, links, reimbursements, editing an account (from its register)
     func subscriptionDestinations() -> some View {
         navigationDestination(for: SubDetailDest.self) { SubscriptionDetailView(name: $0.name) }
             .navigationDestination(for: SubCalendarDest.self) { _ in SubscriptionCalendarView().privacyToolbar() }
@@ -16,6 +16,7 @@ extension View {
             .navigationDestination(for: ReimbursementsDest.self) { _ in ReimbursementsView().privacyToolbar() }
             .navigationDestination(for: ReimbBatchDest.self) { ReimbBatchView(link: $0.link).privacyToolbar() }
             .navigationDestination(for: UnclaimedDest.self) { _ in UnclaimedView().privacyToolbar() }
+            .navigationDestination(for: AccountEditDest.self) { AccountEditView(name: $0.name) }
     }
 }
 

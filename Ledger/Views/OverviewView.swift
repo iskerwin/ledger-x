@@ -30,6 +30,7 @@ struct OverviewView: View {
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name).privacyToolbar() }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
             .subscriptionDestinations()
+            .pushes(onto: $path)
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
             .navigationDestination(for: ErrorsDest.self) { _ in ErrorsView() }
             .navigationDestination(for: ReconcileDest.self) { _ in ReconcileView().privacyToolbar() }
@@ -156,7 +157,7 @@ struct OverviewView: View {
             }
             // (screenshots: the banner on the sample ledger)
             if store.isDemo || store.demoEnv["LEDGER_DEMO_BANNER"] != nil { DemoBanner() }
-            heroSection(s, F.cur)
+            heroSection(s, picked.map { monthSummary(F, $0) } ?? s, F.cur)
             DemoEntryCard()
             YearReviewOverviewSection()
             ReconcileBanner()
@@ -192,7 +193,18 @@ struct OverviewView: View {
         }
     }
 
-    private func heroSection(_ s: Summary, _ cur: String) -> some View {
+    /// one month, for the card when a bar of the chart is picked
+    private func monthSummary(_ F: Flows, _ m: String) -> Summary {
+        let before = (1...11).map { Day.addMonth(m, -$0) }
+        return Summary(yearMode: false, key: m, label: Day.monthLabel(m), months: [m], exp: F.exp[m] ?? 0, inc: F.inc[m] ?? 0,
+                       prev: F.exp[Day.addMonth(m, -1)] ?? 0, prevLabel: LS("上月"),
+                       avg: before.reduce(0.0) { $0 + (F.exp[$1] ?? 0) } / 11, nw: F.netWorth)
+    }
+
+    /// the period picker (for `head`, the page's period) and the card (for `c`: the page's period, or the month
+    /// picked on the chart)
+    private func heroSection(_ head: Summary, _ c: Summary, _ cur: String) -> some View {
+        let s = c
         let net = s.inc - s.exp
         let rate: Double? = s.inc > 0 ? net / s.inc * 100 : nil
         let delta = s.exp - s.prev
@@ -206,9 +218,9 @@ struct OverviewView: View {
                     .pickerStyle(.segmented)
                     .frame(width: 110)
                     Spacer()
-                    Button { month = s.yearMode ? Day.addMonth(month, -12) : Day.addMonth(month, -1) } label: { Image(systemName: "chevron.left") }
-                    Text(s.label).font(.headline).frame(minWidth: 96)
-                    Button { month = s.yearMode ? Day.addMonth(month, 12) : Day.addMonth(month, 1) } label: { Image(systemName: "chevron.right") }
+                    Button { month = head.yearMode ? Day.addMonth(month, -12) : Day.addMonth(month, -1) } label: { Image(systemName: "chevron.left") }
+                    Text(head.label).font(.headline).frame(minWidth: 96)
+                    Button { month = head.yearMode ? Day.addMonth(month, 12) : Day.addMonth(month, 1) } label: { Image(systemName: "chevron.right") }
                 }
                 .buttonStyle(.borderless)
                 .listRowBackground(Color.clear)
@@ -218,7 +230,14 @@ struct OverviewView: View {
                 Card {
                     VStack(alignment: .leading, spacing: 14) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(s.yearMode ? LS("本年支出") : LS("本月支出")).font(.subheadline).foregroundStyle(.secondary)
+                            HStack {
+                                Text(picked != nil ? LS("%@支出", s.label) : s.yearMode ? LS("本年支出") : LS("本月支出")).font(.subheadline).foregroundStyle(.secondary)
+                                Spacer()
+                                if picked != nil {
+                                    Button(head.yearMode ? LS("回到全年") : LS("回到本月")) { withAnimation(.easeOut(duration: 0.15)) { picked = nil } }
+                                        .font(.caption.weight(.semibold)).buttonStyle(.borderless)
+                                }
+                            }
                             Text(money(s.exp, cur)).font(.system(size: 40, weight: .bold, design: .rounded)).monospacedDigit()
                                 .contentTransition(.numericText()).sensitive()
                             HStack(spacing: 6) {
@@ -323,7 +342,7 @@ struct OverviewView: View {
             HStack {
                 Text(trend == "flow" ? (s.yearMode ? LS("%@ 年月度收支", s.key) : LS("近 12 个月收支")) : (s.yearMode ? LS("%@ 年月度支出", s.key) : LS("近 12 个月支出")))
                 Spacer()
-                Text(LS("点按月份联动下方图表")).textCase(nil)
+                Text(LS("点按月份查看那个月")).textCase(nil)
             }
         }
     }

@@ -18,6 +18,7 @@ struct AddCard: View {
                 .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
                 .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
                 .subscriptionDestinations()
+                .pushes(onto: $path)
         }
         .overlay(alignment: .top) { ToastView(top: true).padding(.top, 6).animation(.spring(duration: 0.3), value: store.toast) }
         .sheet(item: $store.subSuggestion) { c in SubEditSheet(draft: SubDraft(c)) }
@@ -102,8 +103,22 @@ struct QuickAddView: View {
 
     private static let kinds: [DraftKind] = [.expense, .income, .transfer]
 
-    /// the amount in the text colour; the kind shows in its label (支出金额 / 收入金额 / 转账金额)
-    private var kindColor: Color { Color.primary }
+    /// the kind's colour, for the amount, its currency sign and the save keys: spending red, income green, a
+    /// transfer the theme's (green for a gain and red for a loss everywhere in the app)
+    private var kindColor: Color {
+        switch store.draft.kind {
+        case .expense: return .loss
+        case .income: return .gain
+        default: return .jade
+        }
+    }
+    /// the save keys' colour: the theme's own (with its text colour) for a transfer
+    private var saveTint: Color? {
+        switch store.draft.kind {
+        case .expense, .income: return kindColor
+        default: return nil
+        }
+    }
 
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -512,7 +527,6 @@ struct QuickAddView: View {
             amountCard(d, L, D)
             if !writing {
                 choices(d, L, D)
-                saveToMenu
                 keypad(d)
             }
         }
@@ -524,11 +538,12 @@ struct QuickAddView: View {
         .dynamicTypeSize(...DynamicTypeSize.xxLarge)
     }
 
-    /// 保存至 <ledger> when there is more than one on this phone
-    @ViewBuilder
-    private var saveToMenu: some View {
-        if store.sources.count > 1 && store.draft.replacing == nil {
-            Menu {
+    /// 保存至 <ledger>: a cell beside the day, when there is more than one ledger on this phone (and not while editing)
+    private var showsLedger: Bool { store.sources.count > 1 && store.draft.replacing == nil }
+
+    private var ledgerMenu: some View {
+        Menu {
+            Section(LS("保存至")) {
                 ForEach(store.sources) { s in
                     Button {
                         guard s.id != store.cfg.id else { return }
@@ -540,15 +555,20 @@ struct QuickAddView: View {
                         if s.id == store.cfg.id { Label(s.title, systemImage: "checkmark") } else { Text(s.title) }
                     }
                 }
-            } label: {
-                HStack(spacing: 4) {
-                    Text(LS("保存至 %@", store.cfg.title))
-                    Image(systemName: "chevron.down").font(.caption2.weight(.semibold))
-                }
-                .font(.footnote)
-                .foregroundStyle(.secondary)
             }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "book.closed").foregroundStyle(.secondary)
+                Text(store.cfg.title).lineLimit(1).truncationMode(.middle)
+                Spacer(minLength: 2)
+                Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 11)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(LS("保存至"))
+        .accessibilityValue(store.cfg.title)
     }
 
     /// the picked group's other accounts, one tap each, and the path picked ("餐饮 › 咖啡") on the right
@@ -588,12 +608,13 @@ struct QuickAddView: View {
 
     // MARK: the paying account and the day; 报销 · 优惠 · 标签 · 更多
 
-    /// one card: the paying account beside the day, then the marks, each a third (or a quarter with 更多)
+    /// one card: the paying account, the day and the ledger saved to, side by side in equal parts; then the
+    /// marks, each a third (or a quarter with 更多)
     private func choices(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 if d.kind != .transfer {
-                    fundingMenu(d, L, D)
+                    fundingMenu(d, L, D).frame(maxWidth: .infinity)
                     Divider().frame(height: 26)
                 }
                 Button { dating = true } label: {
@@ -607,10 +628,14 @@ struct QuickAddView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .frame(maxWidth: d.kind == .transfer ? .infinity : 140)
+                .frame(maxWidth: .infinity)
                 .sheet(isPresented: $dating) {
                     DaySheet(date: Binding(get: { store.draft.date }, set: { store.draft.date = $0; store.draft.edited = nil })) { dating = false }
                         .presentationDetents([.height(500)])
+                }
+                if showsLedger {
+                    Divider().frame(height: 26)
+                    ledgerMenu.frame(maxWidth: .infinity)
                 }
             }
             Divider().padding(.horizontal, 12)
@@ -759,7 +784,7 @@ struct QuickAddView: View {
             Text(d.kind == .income ? LS("收入金额") : d.kind == .transfer ? LS("转账金额") : LS("支出金额"))
                 .font(.caption).foregroundStyle(.secondary)
             HStack(alignment: .center, spacing: 6) {
-                Text(SYM[d.currency] ?? "").font(.system(size: 22, weight: .semibold, design: .rounded))
+                Text(SYM[d.currency] ?? "").font(.system(size: 22, weight: .semibold, design: .rounded)).foregroundStyle(kindColor)
                 // smaller as the expression grows (a fixed size each step, so it doesn't wobble while typing)
                 Text(d.amount.isEmpty ? "0.00" : d.amount)
                     .font(.system(size: d.amount.count <= 10 ? 38 : d.amount.count <= 15 ? 28 : 21, weight: .bold, design: .rounded))
@@ -919,10 +944,10 @@ struct QuickAddView: View {
                     // editing: there is no next one; its text instead
                     KeyCap(text: LS("源文本"), font: .system(size: 16, weight: .semibold), tap: { editingText = true })
                 } else {
-                    KeyCap(text: LS("保存再记"), font: .system(size: 16, weight: .semibold), soft: true, tap: { submit(close: false) })
+                    KeyCap(text: LS("保存再记"), font: .system(size: 16, weight: .semibold), tint: saveTint, soft: true, tap: { submit(close: false) })
                 }
                 KeyCap(text: expr ? "=" : LS("保存"), font: .system(size: expr ? 24 : 17, weight: .semibold), filled: true,
-                       tap: { expr ? equals() : submit(close: true) })
+                       tint: saveTint, tap: { expr ? equals() : submit(close: true) })
                     .opacity(saving ? 0.5 : 1)
             }
         }
@@ -1012,7 +1037,7 @@ struct CategoryGridView: View, Equatable {
     static func == (a: CategoryGridView, b: CategoryGridView) -> Bool { a.cells == b.cells && a.picked == b.picked && a.large == b.large }
 
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: large ? 3 : 4), spacing: 14) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6, alignment: .top), count: large ? 3 : 4), spacing: 14) {
             ForEach(cells, id: \.id) { c in cell(c, selected: c.id == picked) }
         }
     }
@@ -1039,8 +1064,10 @@ struct CategoryGridView: View, Equatable {
                 Text(c.title)
                     .font(.footnote.weight(selected ? .semibold : .regular))
                     .foregroundStyle(selected ? Color.jade : Color.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                    // a long name on two lines rather than shrunk
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.9)
             }
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
@@ -1079,7 +1106,7 @@ struct AllCategoriesView: View {
                     }
                     Divider()
                     Text(LS("所有分类")).font(.footnote).foregroundStyle(.secondary)
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: typeSize.isAccessibilitySize ? 3 : 4), spacing: 14) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6, alignment: .top), count: typeSize.isAccessibilitySize ? 3 : 4), spacing: 14) {
                         ForEach(groups) { g in cell(g) }
                     }
                 } else {
@@ -1138,7 +1165,8 @@ struct AllCategoriesView: View {
                     .foregroundStyle(on ? Color.onJade : Color.primary)
                     .background(on ? Color.jade : Color(.secondarySystemGroupedBackground), in: Circle())
                 Text(store.catTitle(g, L)).font(.footnote.weight(on ? .semibold : .regular))
-                    .foregroundStyle(on ? Color.jade : Color.secondary).lineLimit(1).minimumScaleFactor(0.75)
+                    .foregroundStyle(on ? Color.jade : Color.secondary)
+                    .lineLimit(2).multilineTextAlignment(.center).minimumScaleFactor(0.9)
             }
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
@@ -1348,9 +1376,9 @@ struct KeyCap: View {
     var label: String? = nil
     var font: Font = .system(size: 24, weight: .regular, design: .rounded)
     var filled = false
-    /// the filled key's colour (the theme's by default)
+    /// the filled or soft key's colour (the theme's by default)
     var tint: Color? = nil
-    /// a light key in the theme's colour (保存再记)
+    /// a light key in the tint's colour (保存再记)
     var soft = false
     let tap: () -> Void
     var hold: (() -> Void)? = nil
@@ -1362,8 +1390,8 @@ struct KeyCap: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: 50)
-        .foregroundStyle(filled ? (tint == nil ? Color.onJade : Color.white) : soft ? Color.jade : Color.primary)
-        .background(filled ? (tint ?? Color.jade) : soft ? Color.jade.opacity(0.14) : Color(.secondarySystemGroupedBackground),
+        .foregroundStyle(filled ? (tint == nil ? Color.onJade : Color.white) : soft ? (tint ?? Color.jade) : Color.primary)
+        .background(filled ? (tint ?? Color.jade) : soft ? (tint ?? Color.jade).opacity(0.14) : Color(.secondarySystemGroupedBackground),
                     in: RoundedRectangle(cornerRadius: 12))
         .contentShape(RoundedRectangle(cornerRadius: 12))
         .onTapGesture(perform: tap)

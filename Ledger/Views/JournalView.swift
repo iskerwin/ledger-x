@@ -226,6 +226,7 @@ struct JournalView: View {
             .onChange(of: quick) { _, _ in limit = 150 }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
             .subscriptionDestinations()
+            .pushes(onto: $path)
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name).privacyToolbar() }
         }
@@ -515,14 +516,13 @@ struct TxDetailView: View {
     @State private var ordering: Entry?
     /// the form can't hold all of this entry: edit its source
     @State private var visualUnavailable = false
-    @State private var goSource = false
     /// the subscription form to open once the picker has gone
     @State private var nextSub: SubDraft?
     @State private var linkPick: LinkPick?
     @State private var linkRemoval: LinkPick?
     @State private var confirmDelete = false
-    /// a subscription opened from the ⋯ menu
-    @State private var subOpen: String?
+    /// opens the subscription and the source editor (pages of the tab's own path)
+    @Environment(\.push) private var push
 
     /// the postings' categories and accounts, folded away under the summary
     @State private var showPostings = false
@@ -587,14 +587,10 @@ struct TxDetailView: View {
             .navigationBarTitleDisplayMode(.inline)
             .sheet(item: $subDraft) { SubEditSheet(draft: $0) }
             .sheet(item: $ordering) { DayOrderSheet(date: $0.date, file: $0.file) }
-            .navigationDestination(item: Binding(get: { subOpen.map { SubDetailDest(name: $0) } }, set: { subOpen = $0?.name })) { SubscriptionDetailView(name: $0.name) }
             .sheet(item: $linkPick) { LinkPickSheet(pick: $0) }
             .linkRemovalDialog($linkRemoval, store: store)
-            .navigationDestination(isPresented: $goSource) {
-                if let t = store.txn(dest.id, key: dest.key) { EditTxView(dest: EditDest(t)) }
-            }
             .alert(LS("这笔请编辑源文本"), isPresented: $visualUnavailable) {
-                Button(LS("编辑源文本")) { goSource = true }
+                Button(LS("编辑源文本")) { editSource() }
                 Button(LS("取消"), role: .cancel) {}
             } message: {
                 Text(LS("这笔交易有表单表达不了的内容（注释、成本批次、多个价格等），用表单保存会改掉它们，请直接编辑源文本。"))
@@ -733,17 +729,21 @@ struct TxDetailView: View {
         .background(.bar)
     }
 
+    private func editSource() {
+        if let t = store.txn(dest.id, key: dest.key) { push?(EditDest(t)) }
+    }
+
     /// everything else: the source, the day's order, subscriptions, copying and opening the text, deleting
     private func moreMenu(_ t: Entry, _ L: Ledger) -> some View {
         Menu {
             if !t.synthetic {
-                Button { goSource = true } label: { Label(LS("编辑源文本"), systemImage: "chevron.left.forwardslash.chevron.right") }
+                Button { editSource() } label: { Label(LS("编辑源文本"), systemImage: "chevron.left.forwardslash.chevron.right") }
                 if L.txns.filter({ $0.date == t.date && $0.file == t.file && !$0.synthetic }).count > 1 {
                     Button { ordering = t } label: { Label(LS("调整当天顺序"), systemImage: "arrow.up.arrow.down") }
                 }
                 if classify(t, L).kind == .expense {
                     if let s = store.subs.first(where: { s in s.charges.contains { $0.txn.id == t.id } }) {
-                        Button { subOpen = s.name } label: { Label(LS("订阅：%@", s.name), systemImage: "repeat") }
+                        Button { push?(SubDetailDest(name: s.name)) } label: { Label(LS("订阅：%@", s.name), systemImage: "repeat") }
                     } else {
                         Button { subPick = t } label: { Label(LS("加入订阅管理"), systemImage: "repeat") }
                     }

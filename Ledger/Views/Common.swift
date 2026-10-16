@@ -1,6 +1,30 @@
 import SwiftUI
 import LedgerKit
 
+// MARK: - opening pages
+
+// A page is opened by appending a value to its tab's navigation path (NavigationStack(path:)). A page that needs
+// to open another one from a button (not a NavigationLink, which takes a whole list row or card) uses `push`, so
+// it never declares a destination of its own: SwiftUI pushes pages over and over when `navigationDestination(item:
+// / isPresented:)` on a pushed page is mixed with the path's values.
+
+private struct PushKey: EnvironmentKey { static let defaultValue: ((any Hashable) -> Void)? = nil }
+
+extension EnvironmentValues {
+    /// append a value to the current tab's navigation path (nil outside a tab's stack)
+    var push: ((any Hashable) -> Void)? {
+        get { self[PushKey.self] }
+        set { self[PushKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// let the pages in this stack open others through `push`
+    func pushes(onto path: Binding<NavigationPath>) -> some View {
+        environment(\.push, { path.wrappedValue.append($0) })
+    }
+}
+
 // MARK: - hide amounts
 
 // Amounts are hidden where they are formatted: money() gives "¥***" while 隐藏金额 is on (KitPrivacy).

@@ -32,9 +32,9 @@ struct AccountsView: View {
             .navigationDestination(for: HoldingsDest.self) { _ in HoldingsView().privacyToolbar() }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
             .subscriptionDestinations()
+            .pushes(onto: $path)
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
             .navigationDestination(for: AccountManagerDest.self) { _ in AccountManagerView() }
-            .navigationDestination(for: AccountEditDest.self) { AccountEditView(name: $0.name) }
             .navigationDestination(for: CounterpartyDest.self) { _ in CounterpartyView().privacyToolbar() }
             .navigationDestination(for: NetWorthSettingsDest.self) { _ in NetWorthSettingsView() }
             .navigationDestination(for: ReconcileDest.self) { _ in ReconcileView().privacyToolbar() }
@@ -295,15 +295,11 @@ struct AccountsView: View {
         let year = String(today.prefix(4))
         return List {
             if !store.cview.isDefault { Section { CurrencyBanner() } }
-            if side == "flows" {
-                // 收支: the income and expense categories on their own, this year's totals on top
-                flowsHero(L, year)
-            } else {
-                heroSection(L, assets: assets, liab: liab)
-                tilesSection(L)
-                Section {
-                    NavigationLink(value: CounterpartyDest()) { Label(LS("往来"), systemImage: "person.2") }
-                }
+            // the hero follows the tab (收支: this year's income and spending); 待核对, 投资持仓 and 往来 stay in every tab
+            if side == "flows" { flowsHero(L, year) } else { heroSection(L, assets: assets, liab: liab) }
+            tilesSection(L)
+            Section {
+                NavigationLink(value: CounterpartyDest()) { Label(LS("往来"), systemImage: "person.2") }
             }
             Section {
                 Picker(LS("显示"), selection: $side) {
@@ -494,7 +490,6 @@ struct RegisterView: View {
                     .accessibilityLabel(LS("编辑账户"))
             }
         }
-        .navigationDestination(for: AccountEditDest.self) { AccountEditView(name: $0.name) }
         .sheet(item: $reimb) { ReimbSheet(target: $0) }
         .confirmationDialog(deleting.map { LS("删除 %@ 的余额断言？", $0.date) } ?? "", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
             Button(LS("删除"), role: .destructive) {

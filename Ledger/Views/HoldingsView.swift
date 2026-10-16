@@ -14,8 +14,8 @@ struct HoldingsView: View {
     /// the quote currency shown (nil: all)
     @State private var market: String?
     @AppStorage("ledger.holdings.sort") private var sort = "value"
-    /// the register opened from a card (a link of its own would take the whole card)
-    @State private var register: AccountDest?
+    /// opens the register from a card (a link of its own would take the whole card)
+    @Environment(\.push) private var push
 
     var body: some View {
         Group {
@@ -29,7 +29,6 @@ struct HoldingsView: View {
             }
         }
         .sheet(isPresented: $pricing) { PriceUpdateSheet() }
-        .navigationDestination(item: $register) { RegisterView(account: $0.name).privacyToolbar() }
         .sheet(item: $chart) { t in if let L = store.L { KLineSheet(rows: holdings(L), selected: t.id) } }
         .task {
             if store.demoEnv["LEDGER_PRICES"] != nil { pricing = true }
@@ -247,7 +246,7 @@ struct HoldingsView: View {
                 }
                 .buttonStyle(.borderless)
                 Divider().frame(height: 22)
-                Button { register = AccountDest(name: r.acct) } label: {
+                Button { push?(AccountDest(name: r.acct)) } label: {
                     Label(LS("账户明细"), systemImage: "list.bullet.rectangle").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderless)
@@ -508,7 +507,7 @@ struct KLineSheet: View {
                     else if let r = row { chart(r).frame(height: 300) }
                 } footer: {
                     if let r = row, let L = store.L {
-                        Text(LS("数据来自 Yahoo Finance（%@），红涨绿跌；虚线为持仓均价 %@，圆点为买入批次。", PriceFetch.symbol(r.c, r.q, L).0, fmtNum(r.avg, 2)))
+                        Text(LS("数据来自 Yahoo Finance（%@），绿涨红跌；虚线为持仓均价 %@，圆点为买入批次。", PriceFetch.symbol(r.c, r.q, L).0, fmtNum(r.avg, 2)))
                     }
                 }
                 if let last = candles.last, let first = candles.first {
@@ -541,7 +540,8 @@ struct KLineSheet: View {
     }
 
     private func chart(_ r: Holding) -> some View {
-        let up = Color.red, down = Color.green
+        // green up, red down, like gains and losses everywhere in the app
+        let up = Color.gain, down = Color.loss
         let from = candles.first?.date ?? Date()
         let buys = r.lots.compactMap { l -> (Date, Double)? in
             guard let c = l.cost, let ds = c.date, let d = Day.date(ds), d >= from else { return nil }
