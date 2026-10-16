@@ -34,6 +34,8 @@ final class EditorBar: UIView {
         if #available(iOS 26.0, *) {
             let g = UIGlassEffect()
             g.isInteractive = true
+            // a little of the page's colour, so what scrolls behind stays faint under the keys
+            g.tintColor = UIColor.systemBackground.withAlphaComponent(0.55)
             v = UIVisualEffectView(effect: g)
         } else {
             v = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterial))
