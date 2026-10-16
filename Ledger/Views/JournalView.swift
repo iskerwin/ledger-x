@@ -308,7 +308,7 @@ struct JournalView: View {
                             Button {
                                 withAnimation(.easeInOut(duration: 0.15)) { if on { quick.removeAll { $0 == f } } else { quick.append(f) } }
                             } label: {
-                                Label(f.title, systemImage: f.icon)
+                                HStack(spacing: 4) { Image(systemName: f.icon); Text(f.title) }
                                     .font(.subheadline.weight(on ? .semibold : .regular))
                                     .padding(.horizontal, 12).padding(.vertical, 7)
                                     .foregroundStyle(on ? Color.onJade : Color.primary)

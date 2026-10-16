@@ -275,6 +275,7 @@ jobs:
           shot 09b-detail-hero SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_OPEN_LINK=refund-20260902-ab12 SIMCTL_CHILD_LEDGER_EXTRA="$GITHUB_WORKSPACE/LedgerKit/Tests/LedgerKitTests/Fixtures/import/links.bean"
           shot 09-detail SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_OPEN_TX=1
           shot 10-accounts SIMCTL_CHILD_LEDGER_TAB=accounts
+          shot 10d-accounts-flows SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_SIDE=flows
           shot 10b-accounts-units SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_CURRENCY_MODE=units
           shot 10c-accounts-hkd SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_CURRENCIES=HKD
           shot 11-register SIMCTL_CHILD_LEDGER_TAB=accounts SIMCTL_CHILD_LEDGER_OPEN_ACCOUNT=Assets:Bank:CGB

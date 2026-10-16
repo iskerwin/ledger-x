@@ -68,30 +68,17 @@ struct HoldingsView: View {
         let rows = sorted(all.filter { market == nil || $0.q == market }, L)
         return List {
             summary(L, all)
-            if markets.count > 1 || all.count > 1 {
+            // the markets to filter by when there is more than one; the order beside them, else beside 持仓明细
+            if markets.count > 1 {
                 Section {
                     HStack(spacing: 8) {
-                        if markets.count > 1 {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    Chip(label: LS("全部"), selected: market == nil) { market = nil }
-                                    ForEach(markets, id: \.self) { m in Chip(label: Self.marketName(m), selected: market == m) { market = market == m ? nil : m } }
-                                }
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                Chip(label: LS("全部"), selected: market == nil) { market = nil }
+                                ForEach(markets, id: \.self) { m in Chip(label: Self.marketName(m), selected: market == m) { market = market == m ? nil : m } }
                             }
-                        } else { Spacer() }
-                        Menu {
-                            Picker(LS("排序"), selection: $sort) {
-                                Text(LS("市值")).tag("value")
-                                Text(LS("盈亏")).tag("pnl")
-                                Text(LS("名称")).tag("name")
-                            }
-                        } label: {
-                            HStack(spacing: 3) {
-                                Text(sort == "pnl" ? LS("盈亏") : sort == "name" ? LS("名称") : LS("市值"))
-                                Image(systemName: sort == "name" ? "arrow.up" : "arrow.down")
-                            }
-                            .font(.subheadline)
                         }
+                        sortMenu
                     }
                 }
                 .cardRow()
@@ -103,7 +90,13 @@ struct HoldingsView: View {
                 Section {
                     holdingCard(r)
                 } header: {
-                    if i == 0 { Text(LS("持仓明细")) }
+                    if i == 0 {
+                        HStack {
+                            Text(LS("持仓明细"))
+                            Spacer()
+                            if markets.count <= 1 && rows.count > 1 { sortMenu.textCase(nil) }
+                        }
+                    }
                 }
             }
             incomeSection(L)
@@ -114,6 +107,23 @@ struct HoldingsView: View {
             }
         }
         .listSectionSpacing(.compact)
+    }
+
+    /// 市值 ↓ / 盈亏 ↓ / 名称 ↑
+    private var sortMenu: some View {
+        Menu {
+            Picker(LS("排序"), selection: $sort) {
+                Text(LS("市值")).tag("value")
+                Text(LS("盈亏")).tag("pnl")
+                Text(LS("名称")).tag("name")
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Text(sort == "pnl" ? LS("盈亏") : sort == "name" ? LS("名称") : LS("市值"))
+                Image(systemName: sort == "name" ? "arrow.up" : "arrow.down")
+            }
+            .font(.subheadline)
+        }
     }
 
     /// 总市值, 持仓成本 | 浮动盈亏, 累计收益, when the prices are from

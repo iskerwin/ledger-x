@@ -41,6 +41,7 @@ struct AccountsView: View {
         }
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .task {
+            if let x = store.demoEnv["LEDGER_SIDE"] { side = x }
             if store.demoEnv["LEDGER_MANAGE"] != nil, path.isEmpty { path.append(AccountManagerDest()) }
             if store.demoEnv["LEDGER_NW"] != nil, path.isEmpty { path.append(NetWorthSettingsDest()) }
             if let a = store.demoEnv["LEDGER_EDIT_ACCOUNT"], path.isEmpty { path.append(AccountEditDest(name: a)) }
@@ -170,27 +171,62 @@ struct AccountsView: View {
         }
     }
 
+    /// this year's income, spending and what is left, for 收支
+    private func flowsHero(_ L: Ledger, _ year: String) -> some View {
+        let ie = ytd(L, year)
+        let income = -ie.filter { $0.0.hasPrefix("Income") }.reduce(0.0) { $0 + $1.1 }
+        let spent = ie.filter { $0.0.hasPrefix("Expenses") }.reduce(0.0) { $0 + $1.1 }
+        return Section {
+            Card {
+                VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(LS("%@ 年结余", year)).font(.subheadline).foregroundStyle(.secondary)
+                        Text(money(income - spent, L.base)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+                            .foregroundStyle(income - spent < 0 ? Color.loss : Color.primary).sensitive()
+                    }
+                    HStack(alignment: .top) {
+                        Figure(label: LS("收入"), value: money(income, L.base), color: .gain)
+                        Spacer()
+                        Figure(label: LS("支出"), value: money(spent, L.base), alignment: .trailing)
+                    }
+                }
+            }
+            .cardRow()
+        }
+    }
+
+    /// 收支: this year's income categories, then the spending ones, each group with its total
     @ViewBuilder
     private func ytdSection(_ L: Ledger, _ year: String) -> some View {
         let ie = ytd(L, year)
-        if !ie.isEmpty {
-            Section {
-                ForEach(ie, id: \.0) { item in
-                    NavigationLink(value: AccountDest(name: item.0)) {
-                        HStack(spacing: 12) {
-                            IconBadge(symbol: item.0.hasPrefix("Income") ? "arrow.down.circle.fill" : "arrow.up.circle.fill",
-                                      color: item.0.hasPrefix("Income") ? .green : .gray, size: 28)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(leaf(item.0))
-                                Text(acctZH(item.0) ?? (item.0.hasPrefix("Income") ? LS("收入") : LS("支出"))).font(.caption).foregroundStyle(.secondary)
+        let inc = ie.filter { $0.0.hasPrefix("Income") }, exp = ie.filter { $0.0.hasPrefix("Expenses") }
+        if ie.isEmpty {
+            Section { Text(LS("%@ 年还没有收支", year)).foregroundStyle(.secondary) }
+        }
+        ForEach([(LS("收入"), inc), (LS("支出"), exp)], id: \.0) { title, rows in
+            if !rows.isEmpty {
+                Section {
+                    ForEach(rows, id: \.0) { item in
+                        NavigationLink(value: AccountDest(name: item.0)) {
+                            HStack(spacing: 12) {
+                                IconBadge(symbol: item.0.hasPrefix("Income") ? "arrow.down.circle.fill" : store.catIcon(item.0),
+                                          color: item.0.hasPrefix("Income") ? .green : .gray, size: 28)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(leaf(item.0))
+                                    Text(acctZH(item.0) ?? (item.0.hasPrefix("Income") ? LS("收入") : LS("支出"))).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Amount(n: -item.1, color: true)
                             }
-                            Spacer()
-                            Amount(n: -item.1, color: true)
                         }
                     }
+                } header: {
+                    HStack {
+                        Text(year + " " + title)
+                        Spacer()
+                        Text(money(abs(rows.reduce(0.0) { $0 + $1.1 }), L.base)).monospacedDigit().textCase(nil).sensitive()
+                    }
                 }
-            } header: {
-                Text(year + LS(" 年收支科目"))
             }
         }
     }
@@ -256,25 +292,35 @@ struct AccountsView: View {
         // the hero is 净资产: without the accounts left out of it (the group totals below are every account's)
         let counted = { (gs: [(String, [Row])]) in gs.flatMap { $0.1 }.filter { !isExcluded($0.account, store.netWorthExclude) } }
         let assets = total(counted(ag)), liab = total(counted(lg))
+        let year = String(today.prefix(4))
         return List {
             if !store.cview.isDefault { Section { CurrencyBanner() } }
-            heroSection(L, assets: assets, liab: liab)
-            tilesSection(L)
-            Section {
-                NavigationLink(value: CounterpartyDest()) { Label(LS("往来"), systemImage: "person.2") }
+            if side == "flows" {
+                // 收支: the income and expense categories on their own, this year's totals on top
+                flowsHero(L, year)
+            } else {
+                heroSection(L, assets: assets, liab: liab)
+                tilesSection(L)
+                Section {
+                    NavigationLink(value: CounterpartyDest()) { Label(LS("往来"), systemImage: "person.2") }
+                }
             }
             Section {
                 Picker(LS("显示"), selection: $side) {
                     Text(LS("全部")).tag("all")
                     Text(LS("资产")).tag("assets")
                     Text(LS("负债")).tag("liabilities")
+                    Text(LS("收支")).tag("flows")
                 }
                 .pickerStyle(.segmented)
                 .cardRow()
             }
-            if side != "liabilities" { ForEach(ag, id: \.0) { g in groupSection(L, "Assets", g.0, g.1) } }
-            if side != "assets" { ForEach(lg, id: \.0) { g in groupSection(L, "Liabilities", g.0, g.1) } }
-            ytdSection(L, String(today.prefix(4)))
+            if side == "flows" {
+                ytdSection(L, year)
+            } else {
+                if side != "liabilities" { ForEach(ag, id: \.0) { g in groupSection(L, "Assets", g.0, g.1) } }
+                if side != "assets" { ForEach(lg, id: \.0) { g in groupSection(L, "Liabilities", g.0, g.1) } }
+            }
         }
         .listSectionSpacing(.compact)
         .refreshable { await store.refresh() }

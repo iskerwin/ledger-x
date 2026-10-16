@@ -122,13 +122,14 @@ struct DemoBanner: View {
                 Text(LS("数据均为虚构，可以随意记账、修改，随时重置。觉得合适，就用它的账户和分类新建一个空账本。"))
                     .font(.footnote).foregroundStyle(.secondary)
                 HStack(spacing: 10) {
+                    // an icon and its words side by side (a Label in a list row's button shows the words only)
                     Button { Task { await store.createEmptyLedger() } } label: {
-                        Label(LS("复制为我的空账本"), systemImage: "doc.on.doc").frame(maxWidth: .infinity)
+                        HStack(spacing: 6) { Image(systemName: "doc.on.doc"); Text(LS("复制为我的空账本")) }.frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
                     if !store.ownSources.isEmpty {
                         Button { Task { await store.leaveDemo() } } label: {
-                            Text(LS("返回我的账本")).frame(maxWidth: .infinity)
+                            HStack(spacing: 6) { Image(systemName: "arrow.uturn.backward"); Text(LS("返回我的账本")) }.frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
                     }
