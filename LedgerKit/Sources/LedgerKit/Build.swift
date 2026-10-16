@@ -259,7 +259,62 @@ public func loadLedger(root: String = "main.bean", listFiles: (() -> [String])? 
         }
     }
     visit(root)
+    if let dirs = options["documents"]?.compactMap({ $0 }), !dirs.isEmpty {
+        entries += documentsFromFolders(dirs, root: root, entries: entries, listFiles: listFiles, errors: &errors)
+    }
     return build(entries, files: files, options: options, plugins: plugins, errors: errors)
+}
+
+/// `option "documents" "folder"`: a document for each file named `YYYY-MM-DD…` in a folder of the account's name
+/// under it (`folder/Assets/Bank/HSBC/2025-06-28.statement.pdf`), as Beancount does. Folders are relative to the
+/// main file's; accounts are those the ledger names anywhere. The documents point at their files from the main file.
+func documentsFromFolders(_ dirs: [String], root: String, entries: [Entry], listFiles: (() -> [String])?, errors: inout [LedgerError]) -> [Entry] {
+    guard let all = listFiles?() else {
+        errors.append(softError(root, tr("无法列出文件，option \"documents\" 未生效", "Cannot list the files: option \"documents\" not applied")))
+        return []
+    }
+    let base: String = { guard let r = root.range(of: "/", options: .backwards) else { return "" }; return String(root[..<r.upperBound]) }()
+    var accounts = Set<String>()
+    for e in entries {
+        if let a = e.account { accounts.insert(a) }
+        if let s = e.source { accounts.insert(s) }
+        for p in e.postings { accounts.insert(p.account) }
+    }
+    let dated = try! NSRegularExpression(pattern: #"^(\d{4})-(\d{2})-(\d{2}).(.*)$"#)
+    var out: [Entry] = []
+    for d in dirs {
+        if d.hasPrefix("/") {
+            errors.append(softError(root, tr("option \"documents\" 用的是电脑上的绝对路径 \(d)，App 只能找仓库里的文件夹", "option \"documents\" names a folder on a computer (\(d)); the app looks in the repository only")))
+            continue
+        }
+        let dir = normalizePath(base + d)
+        let pre = dir.isEmpty ? "" : dir + "/"
+        let inDir = all.filter { $0.hasPrefix(pre) }.sorted()
+        if inDir.isEmpty {
+            errors.append(LedgerError(file: root, line: 0, msg: tr("票据文件夹 \(dir) 不存在", "Document folder \(dir) does not exist")))
+            continue
+        }
+        for f in inDir {
+            let rel = String(f.dropFirst(pre.count))
+            guard let slash = rel.range(of: "/", options: .backwards) else { continue }
+            let account = rel[..<slash.lowerBound].replacingOccurrences(of: "/", with: ":")
+            let name = String(rel[slash.upperBound...])
+            guard accounts.contains(account) else { continue }
+            let ns = name as NSString
+            guard let m = dated.firstMatch(in: name, range: NSRange(location: 0, length: ns.length)) else { continue }
+            let date = "\(ns.substring(with: m.range(at: 1)))-\(ns.substring(with: m.range(at: 2)))-\(ns.substring(with: m.range(at: 3)))"
+            guard let real = Day.date(date), Day.string(real) == date else {
+                errors.append(LedgerError(file: root, line: 0, msg: tr("票据文件名的日期不对：\(name)", "Invalid date in a document's file name: \(name)")))
+                continue
+            }
+            let e = Entry(type: .document, date: date, file: root, line: 0, startLine: -1, endLine: -1)
+            e.account = account
+            e.path = String(f.dropFirst(base.count))
+            e.synthetic = true
+            out.append(e)
+        }
+    }
+    return out
 }
 
 private func softError(_ file: String, _ msg: String) -> LedgerError {

@@ -879,6 +879,9 @@ public func fileFor(_ e: Entry, _ L: Ledger, layout: RepoLayout = RepoLayout()) 
         return most { ($0.type == .open || $0.type == .close) && root($0.account) == root(e.account) } ?? most { $0.type == .open } ?? journal
     case .commodity: return most { $0.type == .commodity } ?? journal
     case .document: return most { $0.type == .document } ?? journal
+    // notes beside the balance assertions; Beancount's events with the notes
+    case .note: return most { $0.type == .note } ?? most { $0.type == .balance } ?? journal
+    case .event: return most { $0.type == .event } ?? most { $0.type == .note } ?? journal
     case .custom where e.name == "budget": return most { $0.type == .custom && $0.name == "budget" } ?? layout.main
     case .custom where e.name == "subscription": return layout.subscriptionsPath
     default: return journal

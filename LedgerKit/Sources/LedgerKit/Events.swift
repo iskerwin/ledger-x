@@ -125,3 +125,61 @@ public func eventLine(tag: String, title: String, start: String, end: String?) -
     if let e = end { s += " \(e)" }
     return s
 }
+
+// MARK: - Beancount's own event directive: where you live, who you work for — a value that changes over time
+//
+//   2024-03-01 event "location" "深圳"
+//   2025-07-01 event "location" "广州"
+//
+// Each value holds from its date until the next one of the same type.
+
+public struct LifeEventSpan: Identifiable {
+    public var id: String { "\(entry.file):\(entry.line):\(entry.seq)" }
+    public let value: String
+    public let start: String
+    /// the day before the next value; nil for the current one
+    public let end: String?
+    public let entry: Entry
+}
+
+public struct LifeEventType: Identifiable {
+    public var id: String { type }
+    public let type: String
+    /// latest first
+    public let spans: [LifeEventSpan]
+    public var current: LifeEventSpan? { spans.first { $0.end == nil } }
+}
+
+/// the event directives by type (types in the order first written), each type's values latest first
+public func lifeEvents(_ L: Ledger) -> [LifeEventType] {
+    var order: [String] = [], by: [String: [Entry]] = [:]
+    for e in L.events {
+        let t = e.name ?? ""
+        if by[t] == nil { order.append(t) }
+        by[t, default: []].append(e)
+    }
+    return order.map { t in
+        let es = by[t]!.enumerated().sorted { $0.element.date != $1.element.date ? $0.element.date < $1.element.date : $0.offset < $1.offset }.map { $0.element }
+        var spans: [LifeEventSpan] = []
+        for (i, e) in es.enumerated() {
+            let next = i + 1 < es.count ? es[i + 1].date : nil
+            spans.append(LifeEventSpan(value: e.eventDescription ?? "", start: e.date, end: next.map { max(e.date, Day.shift($0, -1)) }, entry: e))
+        }
+        return LifeEventType(type: t, spans: spans.reversed())
+    }
+}
+
+/// a new event directive's text
+public func lifeEventText(date: String, type: String, value: String) -> String {
+    "\(date) event \(quoted(oneLine(type))) \(quoted(oneLine(value)))"
+}
+
+/// text for one line: line breaks become spaces
+func oneLine(_ s: String) -> String {
+    s.replacingOccurrences(of: "\r\n", with: " ").replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces)
+}
+
+/// a new note directive's text
+public func noteText(date: String, account: String, comment: String) -> String {
+    "\(date) note \(account) \(quoted(oneLine(comment)))"
+}
