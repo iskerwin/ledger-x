@@ -27,7 +27,7 @@ final class DayFlowTests: XCTestCase {
           Assets:Receivable:Work  100.00 CNY
           Assets:Bank
         2026-10-14 * "Move"
-          Assets:Wise  10.00 USD
+          Assets:Wise  10.00 USD @ 7.00 CNY
           Assets:Bank  -70.00 CNY
 
         """ }
