@@ -5,8 +5,8 @@
 <h1 align="center">Ledger X</h1>
 
 <p align="center">
-  原生 SwiftUI 的 iOS <a href="https://beancount.github.io">Beancount</a> 记账 / 查账 App<br>
-  账本放在你自己的仓库，手机上记账、对账、看报表、跑 BQL 查询
+  把 Beancount 装进口袋的原生 iOS App<br>
+  随手记账，看懂收支；账本仍是你自己的纯文本文件
 </p>
 
 <p align="center">
@@ -16,31 +16,32 @@
   <img src="https://img.shields.io/badge/%E8%AF%AD%E8%A8%80-%E4%B8%AD%E6%96%87%20%7C%20English-blue">
 </p>
 
-> **当前版本 0.0.9（预览版）。** 功能已经可以日常使用，仍在打磨；每个版本的新功能和修复见 [CHANGELOG](CHANGELOG.md)。
+> **当前发布版 0.2.0.1（预览版）。** 下方截图实拍于 2026-10-17 的 main 开发版，包含尚未发布的 0.2.1 界面改进；发布版与开发版的区别见 [CHANGELOG](CHANGELOG.md)。
+>
+> 想先看看实际体验？读 [Ledger X 图文介绍](docs/promo/introduction.md)，或安装后直接打开内置演示账本。
 
 ---
 
 ## 为什么做它
 
-Beancount 很好用，但它活在电脑上：记一笔要打开编辑器，看报表要启动 Fava。Ledger X 把这两件事搬到手机上，同时 **不改变你的账本**：
+买完咖啡就记一笔，月底随手看看钱花在哪，出差回来把垫付和回款对上。Ledger X 让这些事在 iPhone 上完成，同时保留 Beancount 纯文本账本的自由：电脑上的 Fava、编辑器和 Git 工作流可以继续使用。
 
 - **账本仍是纯文本。** App 直接读写仓库里的 `.bean` 文件，写入格式与手写一致（金额右对齐、按日期插入到正确位置）。电脑上 `git pull` 后，Fava、bean-check、编辑器照常使用。
-- **数据只在手机和你的仓库之间。** 没有服务器、没有账号体系；Token 存在 iOS 钥匙串里。
-- **原生、离线可用。** 解析器用 Swift 完整重写，几千笔交易秒开；没网时记的账先排队，联网后自动提交。
-- **改账前先检查。** 每次提交前在本机按修改后的账本算一遍，不会把服务器上的 bean-check 弄红。
+- **账本由你保管。** 不需要 Ledger X 账号，可用本机文件夹或自己的仓库存储账本；仓库 Token 存在 iOS 钥匙串里。
+- **原生、离线可用。** 解析器用 Swift 实现，在本机处理账本；没网时记的账先保存在本机，待同步状态和失败原因都能查看。
+- **改账前先检查。** 每次提交前在本机检查借贷、账户和余额断言等问题；不支持的插件会列出，服务端 bean-check 仍可作为补充验证。
 
 ## 功能
 
 ### 记账：几秒钟记完一笔
 
 <p>
-  <img src="docs/screenshots/add.jpg" width="24%">
-  <img src="docs/screenshots/add-filled.jpg" width="24%">
-  <img src="docs/screenshots/multi.jpg" width="24%">
-  <img src="docs/screenshots/review.jpg" width="24%">
+  <img src="docs/screenshots/latest/add.png" alt="记一笔卡片与计算器键盘" width="32%">
+  <img src="docs/screenshots/latest/categories.png" alt="搜索和选择全部分类" width="32%">
+  <img src="docs/screenshots/latest/detail.png" alt="交易详情与编辑退款入口" width="32%">
 </p>
 
-- 任何页面点底部的「记一笔」弹出记账卡片：科目图标宫格一点即选（再点一次选子类），常用交易是一排小胶囊，自带计算器键盘，「保存再记」连续记，记完回到原页面
+- 任何页面点底部的「记一笔」弹出记账卡片：常用分类固定两行，选中后可在下方切换子类，「全部」里搜索更多分类；自带计算器键盘，「保存再记」连续记，记完回到原页面
 - 支出、收入、转账在卡片上完成；退款、多分录、AA、直接写 Beancount 文本在「完整表单」
 - **常用交易**：从近期记录找出重复交易，固定金额的一键入账
 - 输入收付款方即联想，带出上次的科目和付款账户；金额支持算式（`23.5+12×2`）、外币实付、跨币种转账
@@ -53,10 +54,9 @@ Beancount 很好用，但它活在电脑上：记一笔要打开编辑器，看�
 ### 概览：一眼看清这个月
 
 <p>
-  <img src="docs/screenshots/overview.jpg" width="24%">
-  <img src="docs/screenshots/categories.jpg" width="24%">
-  <img src="docs/screenshots/flow.jpg" width="24%">
-  <img src="docs/screenshots/liabilities.jpg" width="24%">
+  <img src="docs/screenshots/latest/overview.png" alt="月度收支与趋势" width="32%">
+  <img src="docs/screenshots/latest/reports.png" alt="钱花在哪" width="32%">
+  <img src="docs/screenshots/latest/comparison.png" alt="与上月同期比较" width="32%">
 </p>
 
 - 本月 / 本年支出与环比、收入、结余、储蓄率、净资产
@@ -69,14 +69,13 @@ Beancount 很好用，但它活在电脑上：记一笔要打开编辑器，看�
 ### 交易、链接与账本检查
 
 <p>
-  <img src="docs/screenshots/journal.jpg" width="24%">
-  <img src="docs/screenshots/link-detail.jpg" width="24%">
-  <img src="docs/screenshots/link-fix.jpg" width="24%">
-  <img src="docs/screenshots/link-issues.jpg" width="24%">
+  <img src="docs/screenshots/latest/journal.png" alt="明细快捷筛选与结果合计" width="32%">
+  <img src="docs/screenshots/latest/calendar.png" alt="月历与明细同时展示" width="32%">
+  <img src="docs/screenshots/latest/day.png" alt="当天收支与交易" width="32%">
 </p>
 
 - 明细组合搜索：收付款方、摘要、科目、`#tag`、`^link`、`>100`、`2026-09`、`本月`、`近 30 天`，`|` 表示任一；常用的存成**快速搜索**，一点即搜
-- **日历**：按天看收支，点某天看当天的交易
+- **日历**：在明细列表上方展开月历，点某天弹出当天收入、支出、纯利、分币种图表与交易，列表仍保留
 - 交易详情可编辑源文本、删除、复制为新交易、登记退款、加入订阅
 - **链接**：点开即可看到同一链接下的全部交易，按退款 / 报销 / 订阅分组，显示原价、已退、净支出或垫付、回款、待回款
 - **链接检查**：链接只剩一笔、找不到原交易或垫付、金额对不上、科目不一致、退款没有关联……在详情页直接修复，提交前有确认页
@@ -87,10 +86,9 @@ Beancount 很好用，但它活在电脑上：记一笔要打开编辑器，看�
 ### 账户与余额核对
 
 <p>
-  <img src="docs/screenshots/accounts.jpg" width="24%">
-  <img src="docs/screenshots/register.jpg" width="24%">
-  <img src="docs/screenshots/card.jpg" width="24%">
-  <img src="docs/screenshots/holdings.jpg" width="24%">
+  <img src="docs/screenshots/latest/accounts.png" alt="账户与待核对入口" width="32%">
+  <img src="docs/screenshots/latest/card.png" alt="信用卡账单与还款" width="32%">
+  <img src="docs/screenshots/latest/holdings.png" alt="投资持仓与批次" width="32%">
 </p>
 
 - 账户按类型分组，带净资产与资产负债率；账户可在账本里用 `name:` 写中文名
@@ -103,12 +101,14 @@ Beancount 很好用，但它活在电脑上：记一笔要打开编辑器，看�
 ### 报表、订阅与查询
 
 <p>
-  <img src="docs/screenshots/income.jpg" width="24%">
-  <img src="docs/screenshots/forecast.jpg" width="24%">
-  <img src="docs/screenshots/subscriptions.jpg" width="24%">
-  <img src="docs/screenshots/query.jpg" width="24%">
+  <img src="docs/screenshots/latest/year.png" alt="年度回顾" width="24%">
+  <img src="docs/screenshots/latest/forecast.png" alt="现金流预测" width="24%">
+  <img src="docs/screenshots/latest/subscriptions.png" alt="订阅管理" width="24%">
+  <img src="docs/screenshots/latest/query.png" alt="BQL 查询" width="24%">
 </p>
 
+- **报表首页**先回答「钱花在哪」「比以前如何」「还能用多久」，从分类变化直接追到具体交易
+- **年度回顾**：一年收支、储蓄率、净资产走势、支出构成，以及工资、订阅、报销等汇总
 - **损益表 / 资产负债表 / 试算平衡表 / 预算**（Fava 同款 `custom "budget"`）
 - **现金流预测**：根据工资、固定支出、订阅、信用卡账单和日常消费，推算未来 30～90 天可用资金，余额可能不足时提醒
 - **订阅管理**：周期扣费写成 `custom "subscription"`，扣费交易用 `^sub-…` 关联；调价、暂停、取消都保留历史；自动发现周期性扣费；到期提醒、一键入账、订阅日历
@@ -117,10 +117,10 @@ Beancount 很好用，但它活在电脑上：记一笔要打开编辑器，看�
 ### 设置与安全
 
 <p>
-  <img src="docs/screenshots/settings.jpg" width="24%">
-  <img src="docs/screenshots/repo-layout.jpg" width="24%">
-  <img src="docs/screenshots/privacy.jpg" width="24%">
-  <img src="docs/screenshots/dark.jpg" width="24%">
+  <img src="docs/screenshots/latest/settings.png" alt="分组设置" width="24%">
+  <img src="docs/screenshots/latest/sync.png" alt="本机保存与同步状态" width="24%">
+  <img src="docs/screenshots/latest/privacy.png" alt="隐藏金额" width="24%">
+  <img src="docs/screenshots/latest/dark.png" alt="深色模式" width="24%">
 </p>
 
 - **多个账本**：GitHub、GitLab、Gitea / Forgejo、「文件」App 里的文件夹、WebDAV，随时切换
@@ -135,9 +135,15 @@ Beancount 很好用，但它活在电脑上：记一笔要打开编辑器，看�
 - **备份与导出**：每周自动把整个账本打包备份到 iCloud Drive 等文件夹，保留最近 12 份；导出交易明细 CSV
 - 默认币种、本地提醒、快捷指令与 Apple Pay 自动记账、票据附件、批量编辑、iPad 分栏布局
 
-## 快速体验：用演示账本试一试
+## 快速体验：打开内置演示账本
 
-[**ledger-demo**](https://github.com/iskerwin/ledger-demo) 是一份完全虚构的 Beancount 账本，App 的每个页面都有数据可看。
+安装后点「先看看演示账本」，就能查看虚构的收支、账户、投资与报销数据，也可以随意记账和修改，随时重置。无需注册、Fork 仓库或创建 Token。
+
+准备开始自己的账本时，点「复制为我的空账本」，或在连接页点「在本机新建空账本」：保留常用账户与分类，不带入演示交易，之后也可以迁移到 Git 仓库。
+
+### 安装与连接 GitHub 演示仓库
+
+希望体验 Git 同步时，可以使用独立的 [ledger-demo](https://github.com/iskerwin/ledger-demo) 仓库，按下面步骤连接自己的 Fork。
 
 1. **安装 App**：在 [SideStore](https://sidestore.io) 或 AltStore 的「源」里添加下面任一地址，之后在源里安装，有新版本时直接显示更新：
    - 发布版：`https://ledger.iskerwin.com/release.json`
@@ -204,4 +210,4 @@ App 读取主文件（默认 `main.bean`）及其 `include` 的全部文件，�
 - `project.yml` — XcodeGen 工程：`brew install xcodegen && xcodegen` 后用 Xcode 打开
 - `tools/golden.mjs` — 用 `tools/reference/` 里的 JavaScript 参考实现生成测试账本和标准答案，Swift 解析结果须与之逐项一致
 
-截图中的数据均为测试用的虚构账本。
+截图中的数据均来自 App 内置的虚构演示账本。原始截图位于 [docs/screenshots/latest](docs/screenshots/latest)，拍摄来源见 [capture.json](docs/screenshots/latest/capture.json)；构建并安装模拟器 App 后，可运行 `python3 tools/capture-promo.py <模拟器 UDID>` 重新拍摄。
