@@ -1,0 +1,237 @@
+{
+  "updated_on": "2026-10-17",
+  "timezone": "Asia/Shanghai",
+  "app_repository": "https://github.com/iskerwin/ledger-x",
+  "app_commit": "28e3f77fa44475fc582f251667eeb309558cd5d5",
+  "demo_repository": "https://github.com/iskerwin/ledger-demo",
+  "demo_commit": "4ffdc0337165ea61f031a3a720d9d05edb85f44a",
+  "version_status": "0.2.1 development (unreleased); latest numbered release checked: v0.2.0.1",
+  "capture": {
+    "device": "iPhone 17",
+    "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-27-0",
+    "xcode": "27.1",
+    "app_source_changes": [],
+    "real_screenshots": 29,
+    "details": "screens/capture.json"
+  },
+  "banner_production": {
+    "tool": "built-in image_gen",
+    "mode": "edit/compositing",
+    "note": "Promotional compositions use real simulator screenshots as references; screens/ contains the unmodified actual UI captures.",
+    "original_design_commit": "504e6680f4e1c568dfb242661ac1a40df7f7adb9",
+    "original_design_folder": "docs/promo",
+    "icon_source": "https://github.com/iskerwin/ledger-x/blob/28e3f77fa44475fc582f251667eeb309558cd5d5/Ledger/Assets.xcassets/AppIcon.appiconset/icon-1024.png"
+  },
+  "checks": {
+    "ios_simulator_build": "passed",
+    "article_local_image_references": 26,
+    "all_references_exist": true,
+    "png_dimensions_verified": true,
+    "visual_review": "all four banners and representative original screenshots checked"
+  },
+  "prompts": {
+    "hero-20261017-forest.png": {
+      "prompt": "Use case: compositing / ads-marketing. Refresh an existing Ledger X iOS product marketing banner to the latest real screenshots. Input image 1 is the EDIT TARGET and its layout is the invariant. Input images 2, 3 and 4 are real current app screenshots: use them as the exact screen contents of the three phone mockups. Input image 5 is the actual current app icon: replace any old icon with this cream leaf-L on forest green, without redesigning the icon. Preserve image 1's three-phone composition, typographic hierarchy, subtle phone shadows, margin proportions, and premium restrained style. Landscape 16:9, 2000x1125 or higher with the same ratio. Keep the app screenshots as faithful and legible as possible, do not invent charts, controls, amounts or app features. Screens are screenshots, not new UI designs. Do not add a Dynamic Island, notch or home indicator if it is absent in the supplied screenshots. Every phone must show its entire screenshot framed neatly; no strange duplicated edges. Chinese text must be accurate and typeset cleanly. Marketing copy outside the screens must be exactly the following, with no extra text. Footer is visible and legible. The output is a finished banner, no white frame or watermark.\nPreserve the forest-green, warm cream and sage palette of the original hero. The middle phone is the overview screenshot, the left phone is Add, the right phone is Accounts. Keep the original headline concept. Text: brand \"Ledger X · iOS\"; headline line 1 \"口袋里的\" line 2 \"Beancount\"; description line 1 \"原生 SwiftUI 记账 App，账本由你保管。\" line 2 \"纯文本、可追溯，Fava 照常用。\"; three bullets: \"随手记一笔：分类点选，计算器键盘\"; \"收支、持仓与往来，随时随地查账\"; \"离线体验演示账本，支持 App 内更新\". Small pill above left phone \"分类点选 · 计算器键盘\"; above right phone \"账户与持仓\". Footer \"最新主分支实拍 · 2026.10.17 · 数据均为虚构\".",
+      "screen_references": [
+        "screens/add.png",
+        "screens/overview.png",
+        "screens/accounts.png"
+      ],
+      "edit_target_sha256": "0e2d2abc2cf7012c462fa57062c078211efac9a0126e7c683f69d1f375d35fd8"
+    },
+    "daily.png": {
+      "prompt": "Use case: compositing / ads-marketing. Refresh an existing Ledger X iOS product marketing banner to the latest real screenshots. Input image 1 is the EDIT TARGET and its layout is the invariant. Input images 2, 3 and 4 are real current app screenshots: use them as the exact screen contents of the three phone mockups. Input image 5 is the actual current app icon: replace any old icon with this cream leaf-L on forest green, without redesigning the icon. Preserve image 1's three-phone composition, typographic hierarchy, subtle phone shadows, margin proportions, and premium restrained style. Landscape 16:9, 2000x1125 or higher with the same ratio. Keep the app screenshots as faithful and legible as possible, do not invent charts, controls, amounts or app features. Screens are screenshots, not new UI designs. Do not add a Dynamic Island, notch or home indicator if it is absent in the supplied screenshots. Every phone must show its entire screenshot framed neatly; no strange duplicated edges. Chinese text must be accurate and typeset cleanly. Marketing copy outside the screens must be exactly the following, with no extra text. Footer is visible and legible. The output is a finished banner, no white frame or watermark.\nKeep the deep green gradient of the original daily banner, and harmonize the small brand icon with the new forest-green icon. Left phone is Calendar, center phone is Transaction Detail, right phone is Journal. Text: brand \"明细 · 月历 · 退款\"; headline line 1 \"每一笔，\" line 2 \"都有来处\"; description \"从明细查到账户与原文，记过的每一笔都能继续核对。\"; bullets \"组合筛选，查看笔数与收支\"; \"点按日期，回看当天记录\"; \"退款关联原交易，分录可追溯\". Footer \"最新主分支实拍 · 2026.10.17 · 数据均为虚构\". Delete all previous text, old logo and obsolete app screenshots.",
+      "screen_references": [
+        "screens/calendar.png",
+        "screens/detail.png",
+        "screens/journal.png"
+      ],
+      "edit_target_sha256": "4cadd3501406fb9f90ae69f62db347a2f298927fe6dae1c16ff471a8292869b5"
+    },
+    "reports.png": {
+      "prompt": "Use case: compositing / ads-marketing. Refresh an existing Ledger X iOS product marketing banner to the latest real screenshots. Input image 1 is the EDIT TARGET and its layout is the invariant. Input images 2, 3 and 4 are real current app screenshots: use them as the exact screen contents of the three phone mockups. Input image 5 is the actual current app icon: replace any old icon with this cream leaf-L on forest green, without redesigning the icon. Preserve image 1's three-phone composition, typographic hierarchy, subtle phone shadows, margin proportions, and premium restrained style. Landscape 16:9, 2000x1125 or higher with the same ratio. Keep the app screenshots as faithful and legible as possible, do not invent charts, controls, amounts or app features. Screens are screenshots, not new UI designs. Do not add a Dynamic Island, notch or home indicator if it is absent in the supplied screenshots. Every phone must show its entire screenshot framed neatly; no strange duplicated edges. Chinese text must be accurate and typeset cleanly. Marketing copy outside the screens must be exactly the following, with no extra text. Footer is visible and legible. The output is a finished banner, no white frame or watermark.\nKeep the original deep navy to blue gradient, with cream white and pale blue type, but update the small app icon to the supplied current icon. Left phone is Reports overview, center phone is BQL Query, right phone is Forecast. Text: brand \"报表 · 查询 · 预测\"; headline line 1 \"看清变化，\" line 2 \"安排下一步\"; description \"分类、对比、预算与现金流预测，让记录回答实际问题。\"; bullets \"收支报表与年度回顾\"; \"订阅、预算与未来可用资金\"; \"编辑 BQL 查询，结果可导出 CSV\". Small pill above center phone \"BQL · 随时自己查\". Footer \"最新主分支实拍 · 2026.10.17 · 数据均为虚构\". Delete all previous text and obsolete app screenshots.",
+      "screen_references": [
+        "screens/reports.png",
+        "screens/query.png",
+        "screens/forecast.png"
+      ],
+      "edit_target_sha256": "fa4467d9ca1fdf0722ff41a4fe7ed97f2fc61c49aa11087d702b81bd18345d71"
+    },
+    "style.png": {
+      "prompt": "Use case: compositing / ads-marketing. Refresh an existing Ledger X iOS product marketing banner to the latest real screenshots. Input image 1 is the EDIT TARGET and its layout is the invariant. Input images 2, 3 and 4 are real current app screenshots: use them as the exact screen contents of the three phone mockups. Input image 5 is the actual current app icon: replace any old icon with this cream leaf-L on forest green, without redesigning the icon. Preserve image 1's three-phone composition, typographic hierarchy, subtle phone shadows, margin proportions, and premium restrained style. Landscape 16:9, 2000x1125 or higher with the same ratio. Keep the app screenshots as faithful and legible as possible, do not invent charts, controls, amounts or app features. Screens are screenshots, not new UI designs. Do not add a Dynamic Island, notch or home indicator if it is absent in the supplied screenshots. Every phone must show its entire screenshot framed neatly; no strange duplicated edges. Chinese text must be accurate and typeset cleanly. Marketing copy outside the screens must be exactly the following, with no extra text. Footer is visible and legible. The output is a finished banner, no white frame or watermark.\nKeep the original deep plum/purple gradient and white/lavender text, while replacing the old small app icon with the supplied real forest-green icon. Left phone is the Privacy amount-hidden screenshot; center is Dark Mode; right is the English overview. Text: brand \"外观 · 语言 · 隐私\"; headline line 1 \"按你的习惯，\" line 2 \"安心记账\"; description \"12 种主题色，深浅色随心切换；简体中文 / English 双语。\"; bullets \"面容 ID / 触控 ID 锁定\"; \"切入后台时隐私遮挡\"; \"一键隐藏金额，放心查看\". Footer \"最新主分支实拍 · 2026.10.17 · 数据均为虚构\". Delete all previous text and obsolete app screenshots.",
+      "screen_references": [
+        "screens/privacy.png",
+        "screens/dark.png",
+        "screens/en.png"
+      ],
+      "edit_target_sha256": "e91cda8eaab4e5894aba5abdc5f867f6f86b56edffd0e40c64985d898e1c626f"
+    }
+  },
+  "images": {
+    "daily.png": {
+      "width": 1672,
+      "height": 941,
+      "sha256": "7c4883768cd67c5d108f89542eddb14480ec70c73cc007befdb7fe05d0b1eb4c"
+    },
+    "hero-20261017-forest.png": {
+      "width": 1672,
+      "height": 941,
+      "sha256": "d563d89f0bbe03d7e5b034477ce4ce9d39dd259974c749444408cd37bade6d4d"
+    },
+    "reports.png": {
+      "width": 1672,
+      "height": 941,
+      "sha256": "85f8f7768427455c024f898abeb2a926059994a934ea63f4c9e550d28a34a360"
+    },
+    "screens/accounts.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "1b711299d6b23f03eaf3bbd29a02e225c68f669999b89bc49f7e4aa8d26b8270"
+    },
+    "screens/add.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "baf3a83d4de99ac237e099b4c3788ddc8f0e8fe1e9a4073397e0c2913e2561a7"
+    },
+    "screens/balance.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "87f07b9cc9c69a9453cc1f6edd2344148b2247f06372cb668b110e756f0911ea"
+    },
+    "screens/budgets.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "ca9f14865cdfb588041e52edaca075632c7366da3075ce9e4e9e707b56d79ea4"
+    },
+    "screens/calendar.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "8a9a8cb9a10e3d4edab0c713340258c4bff60d869bde55775db1ddc388d57176"
+    },
+    "screens/card.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "8597efa596e0308fdd6b5fa89e3943c7b414fee819f48cc3920aa28fe63d1f71"
+    },
+    "screens/categories.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "82255cb98b57f4317876245c5362dbcfbc4f91bd8970acd5468f0b5aadfd5f4f"
+    },
+    "screens/comparison.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "f244afde5763d34028ff4f638cc3bdca5a9ce4ac322f014f4a960ca4c737164c"
+    },
+    "screens/dark.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "1a89415310c2abcfdd6e95304ce8c31ed33050c7c676d6da0379fd3d6e874b3e"
+    },
+    "screens/day.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "1265f5e7aabba67de57dbfdbc0f9ed7181e6910ca72e6d0098caf15ebdea75ff"
+    },
+    "screens/demo-update.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "8fd2e97b2caa555f05c1eb6e99989e97d2102fc2dc682aab0e6344f76f6ae3d3"
+    },
+    "screens/detail.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "5a5875642041d5806c1d1176a747d75295b6a0aac05cc6ba14b2746c4caa1327"
+    },
+    "screens/en.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "9eb010216cee1f3f2eea80e8bce151418d6c345cbba096c5daed9eb5a3f34d32"
+    },
+    "screens/forecast.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "6a6dd3f8c440dddd00c970708e3137be068bb8443fd50e6098e260a70563d09c"
+    },
+    "screens/holdings.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "82d6332952ab9f709c59e92a98ab84009c1fdac7520e6e579cb1ce92e56c29c0"
+    },
+    "screens/income.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "0880f5f414d93158e7b09b1e0d9996a5e1b05fae4a5351979af49fbf1fb9663c"
+    },
+    "screens/journal.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "596f99fc5263963d95a4aac3ea098f6aa42b5dc6583d19018fb52942b8522a19"
+    },
+    "screens/orange.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "16b6446100909492517a6494f9194d19562827d9eb23b58471cbb495f8e1a598"
+    },
+    "screens/overview.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "7e613ec2ba603d723e4a8433ad67a9704204219d5f8eab1b92c25000a02dfc5f"
+    },
+    "screens/privacy.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "b0d4a437afd849d5430ee492b085e7f412b08452b0d198bb56aff72adb3f4452"
+    },
+    "screens/query.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "4d146a4332f143170ecf90fc48b93207f6cc7b5011c8a8032739870fdb149943"
+    },
+    "screens/register.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "3513fa070da5b749066df0d4f457ddb4359749cd5604c57b462c709dbc9b8e05"
+    },
+    "screens/reimb-batch.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "3b82ad401a103bfcaab2f9c4bea06e73e3a75bf091ba7872b86b0124b85b6eed"
+    },
+    "screens/reimb.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "f6c5d8cadabada8fb6b889a12b2d74c77fe18a61a7096959aec9ea1f19e1f94b"
+    },
+    "screens/reports.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "a521b84573652b0a8a99019ad6049b644796eff848df2e021d50fb406a8a939b"
+    },
+    "screens/settings.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "4a63f1eaef24a6c30d760ea4f169b73714e8cf0971fc4b9fea6a5f813228fe78"
+    },
+    "screens/subscriptions.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "057be092584626284a1afe23b7a70faa8a964e343e3f6f64e5ee12990cc9ca77"
+    },
+    "screens/sync.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "54ce4af520a0077312262487c8672f64145a68340faef1f74b0893a566a1298a"
+    },
+    "screens/year.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "6e9aafd624543c687010282ba838b25797422c31b2fc98ebdeb40c047061ddf8"
+    },
+    "style.png": {
+      "width": 1672,
+      "height": 941,
+      "sha256": "1696da0882c7d655ca4fa87aab42f57d07cbe9769996a0744324f56470359630"
+    }
+  }
+}
