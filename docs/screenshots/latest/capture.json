@@ -1,0 +1,32 @@
+{
+  "source_commit": "cb17d6acd27748c94dbda801af7c9e8ae39190a0",
+  "source_working_tree_changes": [],
+  "device": "B1C5F38C-853C-48C0-A2E5-060EE7520006",
+  "device_name": "iPhone 17",
+  "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-27-0",
+  "captured_on": "2026-10-17",
+  "ledger": "Ledger/Demo (fictional data)",
+  "screens": [
+    "overview",
+    "add",
+    "categories",
+    "journal",
+    "calendar",
+    "day",
+    "detail",
+    "accounts",
+    "register",
+    "card",
+    "holdings",
+    "reports",
+    "comparison",
+    "forecast",
+    "year",
+    "subscriptions",
+    "query",
+    "settings",
+    "sync",
+    "privacy",
+    "dark"
+  ]
+}

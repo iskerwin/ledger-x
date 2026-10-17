@@ -829,6 +829,14 @@ struct FixButton: View {
 /// 账本检查: Beancount errors, link problems and bean-check in one place, each opening what needs fixing
 struct ErrorsView: View {
     @EnvironmentObject var store: Store
+
+    private func transaction(for error: LedgerError, in ledger: Ledger) -> Entry? {
+        guard let file = error.file else { return nil }
+        return ledger.txns.first { entry in
+            entry.file == file && entry.line == error.line && !entry.synthetic
+        }
+    }
+
     var body: some View {
         List {
             if let L = store.L {
@@ -845,7 +853,7 @@ struct ErrorsView: View {
                     Section(LS("账本错误 · %@", L.errors.count)) {
                         // those the app can put right with one tap first
                         ForEach(Array((L.errors.filter { $0.fix != nil } + L.errors.filter { $0.fix == nil }).enumerated()), id: \.offset) { _, e in
-                            let t = e.file.flatMap { f in L.txns.first { $0.file == f && $0.line == e.line && !$0.synthetic } }
+                            let t = transaction(for: e, in: L)
                             let row = VStack(alignment: .leading, spacing: 3) {
                                 Text(e.msg).font(.subheadline)
                                 if let f = e.file, (e.line ?? 0) > 0 { Text("\(f):\(e.line!)").font(.caption.monospaced()).foregroundStyle(.secondary) }
