@@ -34,4 +34,4 @@ jobs:
           xcodebuild -project Ledger.xcodeproj -scheme Ledger -configuration Debug \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build-demo CODE_SIGNING_ALLOWED=NO build > demo-build.log 2>&1 \
-            || { grep -n "error:" demo-build.log || true; tail -100 demo-build.log; exit 1; }
+            || { grep -E "error:" demo-build.log | sort -u | head -20 | while IFS= read -r l; do echo "::error::${l:0:400}"; done; tail -100 demo-build.log; exit 1; }
