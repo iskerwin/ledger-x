@@ -40,7 +40,7 @@ struct SettingsView: View {
                         Label(LS("在本机新建空账本"), systemImage: "iphone")
                     }
                 } footer: {
-                    Text(LS("首次体验或新建账本需联网下载演示数据，之后可离线使用。数据均为虚构，修改只保存在本机。空账本保留账户和分类，保存在「文件」App › 我的 iPhone › Ledger，以后可以再放到 Git 仓库。"))
+                    Text(LS("演示账本的数据均为虚构，修改只保存在本机，有新版本时可在里面一键更新。新建的空账本带有常用的账户和分类，保存在这台手机上（「文件」App › 我的 iPhone › Ledger），以后可以再放到 Git 仓库。也可以在下面直接连接已有的账本。"))
                 }
             }
             if first {

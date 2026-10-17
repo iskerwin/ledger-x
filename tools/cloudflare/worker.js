@@ -2,12 +2,16 @@
 //
 //   /release.json   /dev.json     the sources, with every download link pointing back at this Worker
 //   /dl/<tag>/Ledger.ipa          the IPA of a release (v0.0.2…) or of the dev build, cached at the edge
+//   /demo/commit                  the commit ledger-demo's main points at (the app's demo updates)
+//   /demo/tree/<sha>              the files of that commit (GitHub's tree listing)
+//   /demo/raw/<sha>/<path>        one ledger file of it (.bean, .beancount, .bql, ledger-x.json)
 //
 // Only these paths are served, so it can't be used as a general proxy.
 // Deploy: Cloudflare dashboard → Workers & Pages → Create → Worker → paste this file → Deploy,
 // then Settings → Domains & Routes → add a custom domain (workers.dev is often unreachable in mainland China).
 
 const REPO = "iskerwin/ledger-x";
+const DEMO = "iskerwin/ledger-demo";
 const RAW = `https://raw.githubusercontent.com/${REPO}/sidestore`;
 const DL = `https://github.com/${REPO}/releases/download/`;
 
@@ -21,6 +25,12 @@ export default {
 
     const dl = url.pathname.match(/^\/dl\/(v\d+(?:\.\d+)*|dev)\/Ledger\.ipa$/);
     if (dl) return ipa(dl[1], request, ctx);
+
+    if (url.pathname === "/demo/commit") return demo(`https://api.github.com/repos/${DEMO}/commits/main`, 300);
+    const tree = url.pathname.match(/^\/demo\/tree\/([0-9a-f]{40})$/);
+    if (tree) return demo(`https://api.github.com/repos/${DEMO}/git/trees/${tree[1]}?recursive=1`, 31536000);
+    const raw = url.pathname.match(/^\/demo\/raw\/([0-9a-f]{40})\/((?:[^/.][^/]*\/)*[^/.][^/]*\.(?:bean|beancount|bql)|ledger-x\.json)$/);
+    if (raw) return demo(`https://raw.githubusercontent.com/${DEMO}/${raw[1]}/${raw[2]}`, 31536000);
 
     if (url.pathname === "/") {
       return new Response(`Ledger X sources\n${url.origin}/release.json\n${url.origin}/dev.json\n`, { headers: { "content-type": "text/plain; charset=utf-8" } });
@@ -49,6 +59,22 @@ async function source(kind, origin) {
 function rewrite(link, origin, version) {
   if (!link || !link.startsWith(DL)) return link;
   return `${origin}/dl/${link.slice(DL.length)}?v=${encodeURIComponent(version ?? "")}`;
+}
+
+// ledger-demo, for the app where GitHub can't be reached: main's commit for a few minutes, everything of a fixed
+// commit for good (a commit never changes)
+async function demo(target, ttl) {
+  const r = await fetch(target, {
+    headers: { "user-agent": "Ledger-X-Demo-Mirror", accept: target.includes("api.github.com") ? "application/vnd.github+json" : "*/*" },
+    cf: { cacheTtl: ttl, cacheEverything: true },
+  });
+  if (!r.ok) return new Response(`GitHub returned ${r.status}`, { status: r.status === 404 ? 404 : 502 });
+  return new Response(r.body, {
+    headers: {
+      "content-type": r.headers.get("content-type") ?? "application/octet-stream",
+      "cache-control": ttl > 3600 ? "public, max-age=31536000, immutable" : `public, max-age=${ttl}`,
+    },
+  });
 }
 
 async function ipa(tag, request, ctx) {

@@ -64,6 +64,8 @@ final class Store: ObservableObject {
     @Published var syncState: SyncState = .idle
     @Published var syncError = ""
     @Published var demoBusy = false
+    /// a newer commit of ledger-demo than the demo on this phone (offered in its banner)
+    @Published var demoUpdate: String?
     @Published var lastSync: Date?
     @Published var ci: GitHub.CI?
     @Published private(set) var tree: RepoTree?

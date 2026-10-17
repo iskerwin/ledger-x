@@ -14,6 +14,14 @@ targets:
     platform: iOS
     sources:
       - path: Ledger
+        excludes:
+          - "Demo/**"
+      # the demo ledger, copied as a folder (its files keep their places): not kept in this repository, CI fetches
+      # ledger-demo here when it builds the app (a local build without it simply has no built-in demo)
+      - path: Ledger/Demo
+        type: folder
+        buildPhase: resources
+        optional: true
     dependencies:
       - package: LedgerKit
     info:
@@ -33,12 +41,17 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: com.iskerwin.ledger
             CFBundleURLSchemes: [ledgerx]
+        # the ledger-demo commit built in, and the mirror demo updates fall back to (both set by CI)
+        LedgerDemoCommit: $(LEDGER_DEMO_COMMIT)
+        LedgerDemoMirror: $(LEDGER_DEMO_MIRROR)
     settings:
       base:
         PRODUCT_NAME: Ledger
         PRODUCT_BUNDLE_IDENTIFIER: com.iskerwin.ledger
         MARKETING_VERSION: "0.0.6"
         CURRENT_PROJECT_VERSION: "1"
+        LEDGER_DEMO_COMMIT: ""
+        LEDGER_DEMO_MIRROR: "https://ledger.iskerwin.com"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Ledger
         INFOPLIST_KEY_UILaunchScreen_Generation: YES

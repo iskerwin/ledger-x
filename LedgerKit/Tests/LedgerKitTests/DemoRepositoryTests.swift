@@ -34,8 +34,9 @@ final class DemoRepositoryTests: XCTestCase {
     }
 
     func testPinnedSnapshotWithNestedFiles() async throws {
-        let files = try await DemoRepository.files(read: reader(sample))
-        XCTAssertEqual(files, sample)
+        let s = try await DemoRepository.snapshot(read: reader(sample))
+        XCTAssertEqual(s.files, sample)
+        XCTAssertEqual(s.commit, revision)
     }
 
     func testOfflineCacheAndSuccessfulReset() async throws {
@@ -46,7 +47,8 @@ final class DemoRepositoryTests: XCTestCase {
         try Data("local edits".utf8).write(to: main)
         try await DemoRepository.install(at: root, read: { _ in XCTFail("Cached demos must work offline"); throw URLError(.notConnectedToInternet) })
         XCTAssertEqual(try String(contentsOf: main, encoding: .utf8), "local edits")
-        try await DemoRepository.install(at: root, reset: true, read: reader(sample))
+        let installed = try await DemoRepository.install(at: root, reset: true, read: reader(sample))
+        XCTAssertEqual(installed, revision)
         XCTAssertEqual(try Data(contentsOf: main), sample["main.bean"])
         XCTAssertEqual(try Data(contentsOf: root.appendingPathComponent("accounts/accounts.bean")), sample["accounts/accounts.bean"])
     }
@@ -74,9 +76,57 @@ final class DemoRepositoryTests: XCTestCase {
         var unsafe = sample; unsafe["../outside.bean"] = Data()
         var invalid = sample; invalid["main.bean"] = Data("include \"missing.bean\"".utf8)
         for read in [reader(sample, truncated: true), reader(sample, mode: "120000"), reader(missing), reader(unsafe), reader(invalid)] {
-            do { _ = try await DemoRepository.files(read: read); XCTFail("Invalid snapshots must fail") }
+            do { _ = try await DemoRepository.snapshot(read: read); XCTFail("Invalid snapshots must fail") }
             catch {}
         }
+    }
+
+    /// the mirror serves the same commit when GitHub can't be reached
+    func testFallsBackToMirror() async throws {
+        let mirror = URL(string: "https://mirror.example")!
+        let files = sample
+        let read: DemoRepository.Read = { url in
+            guard url.host == "mirror.example" else { throw URLError(.cannotFindHost) }
+            if url.path == "/demo/commit" { return try JSONSerialization.data(withJSONObject: ["sha": self.revision]) }
+            if url.path == "/demo/tree/\(self.revision)" {
+                let tree: [[String: Any]] = files.map { ["path": $0.key, "type": "blob", "mode": "100644", "size": $0.value.count] }
+                return try JSONSerialization.data(withJSONObject: ["truncated": false, "tree": tree])
+            }
+            let prefix = "/demo/raw/\(self.revision)/"
+            XCTAssertTrue(url.path.hasPrefix(prefix))
+            guard let data = files[String(url.path.dropFirst(prefix.count))] else { throw URLError(.fileDoesNotExist) }
+            return data
+        }
+        let sources: [DemoRepository.Source] = [.github, .mirror(mirror)]
+        let latest = try await DemoRepository.latestCommit(sources: sources, read: read)
+        XCTAssertEqual(latest, revision)
+        let s = try await DemoRepository.snapshot(sources: sources, read: read)
+        XCTAssertEqual(s.files, sample)
+        // a commit asked for is fetched as it is, without looking up main
+        let pinned = try await DemoRepository.snapshot(commit: revision, sources: [.mirror(mirror)], read: { url in
+            XCTAssertNotEqual(url.path, "/demo/commit")
+            return try await read(url)
+        })
+        XCTAssertEqual(pinned.commit, revision)
+    }
+
+    /// the copy built into the app is read and checked like a download
+    func testFolderFiles() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        for (path, data) in sample {
+            let f = root.appendingPathComponent(path)
+            try FileManager.default.createDirectory(at: f.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try data.write(to: f)
+        }
+        try Data("notes".utf8).write(to: root.appendingPathComponent("README.md"))
+        try FileManager.default.createDirectory(at: root.appendingPathComponent(".git"), withIntermediateDirectories: true)
+        try Data("x".utf8).write(to: root.appendingPathComponent(".git/config.bean"))
+        XCTAssertEqual(try DemoRepository.folderFiles(root), sample)
+        let dest = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dest) }
+        try DemoRepository.put(try DemoRepository.folderFiles(root), at: dest)
+        XCTAssertEqual(try Data(contentsOf: dest.appendingPathComponent("main.bean")), sample["main.bean"])
     }
 
     func testRealDemoLedger() async throws {

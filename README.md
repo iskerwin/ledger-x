@@ -137,9 +137,9 @@
 
 ## 快速体验：打开演示账本
 
-安装后点「先看看演示账本」，首次联网从公开的 [ledger-demo](https://github.com/iskerwin/ledger-demo) 下载最新账本，无需注册、Fork 仓库或创建 Token。App 不内置账本数据或访问密钥。下载后保存在本机，可离线查看、记账和修改，不会写回公共仓库。重置会重新下载最新数据；下载或校验失败时保留原有演示账本。
+安装后点「先看看演示账本」即可打开，不需要联网，也无需注册、Fork 仓库或创建 Token。演示数据来自公开的 [ledger-demo](https://github.com/iskerwin/ledger-demo)：打包 App 时内置当时的版本，之后 ledger-demo 更新了，演示账本里会提示「演示数据有更新」，点一下就下载最新版本，不用重装 App（连不上 GitHub 时经镜像下载）。演示账本保存在本机，可离线查看、记账和修改，不会写回公共仓库；更新或重置会清除在里面的修改，下载或校验失败时保留原有的。
 
-准备开始自己的账本时，点「复制为我的空账本」，或在连接页点「在本机新建空账本」（首次也需联网下载账户模板）：保留常用账户与分类，不带入演示交易，之后也可以迁移到 Git 仓库。
+准备开始自己的账本时，点「复制为我的空账本」，或在连接页点「在本机新建空账本」（不需要联网）：保留常用账户与分类，不带入演示交易，之后也可以迁移到 Git 仓库。
 
 ### 安装与连接 GitHub 演示仓库
 
@@ -210,4 +210,4 @@ App 读取主文件（默认 `main.bean`）及其 `include` 的全部文件，�
 - `project.yml` — XcodeGen 工程：`brew install xcodegen && xcodegen` 后用 Xcode 打开
 - `tools/golden.mjs` — 用 `tools/reference/` 里的 JavaScript 参考实现生成测试账本和标准答案，Swift 解析结果须与之逐项一致
 
-截图中的数据来自 ledger-demo 的虚构演示账本。原始截图位于 [docs/screenshots/latest](docs/screenshots/latest)，拍摄来源见 [capture.json](docs/screenshots/latest/capture.json)；构建并安装模拟器 App 后，先将 ledger-demo 下载到相邻目录，再运行 `python3 tools/capture-promo.py <模拟器 UDID>` 重新拍摄；也可用 `LEDGER_DEMO_PATH` 指定已下载的账本目录。
+截图中的数据来自 ledger-demo 的虚构演示账本（CI 打包时取 ledger-demo 的 main 放进 App 的 Ledger/Demo，本仓库不保存演示数据）。原始截图位于 [docs/screenshots/latest](docs/screenshots/latest)，拍摄来源见 [capture.json](docs/screenshots/latest/capture.json)；构建并安装模拟器 App 后，先将 ledger-demo 下载到相邻目录，再运行 `python3 tools/capture-promo.py <模拟器 UDID>` 重新拍摄；也可用 `LEDGER_DEMO_PATH` 指定已下载的账本目录。
