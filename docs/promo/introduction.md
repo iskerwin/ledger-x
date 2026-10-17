@@ -1,6 +1,6 @@
 # Ledger X 的 iPhone 记账体验
 
-![Ledger X 记账 概览与账户实拍](hero.png)
+![Ledger X 记账 概览与账户实拍](hero-20261017-forest.png)
 
 买完一杯咖啡，顺手记下；月底打开手机，知道钱花在哪；出差垫付了多少、信用卡还要还多少，也能随时查清。Ledger X 把 Beancount 的记账、查账和报表带到 iPhone 上，让日常记录更顺手，也让你继续掌握自己的账本。
 
