@@ -218,6 +218,8 @@ struct CardBillSheet: View {
     @State private var minimum = ""
     @State private var deletion: EntryDeletion?
     @State private var saving = false
+    @State private var closeRequested = false
+    @State private var baseline: [String]?
 
     private var text: String? {
         guard let a = evalAmount(amount), a >= 0 else { return nil }
@@ -258,22 +260,27 @@ struct CardBillSheet: View {
             .navigationTitle(LS("本期账单"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { closeRequested = true } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(LS("保存")) { save() }.fontWeight(.semibold).disabled(text == nil || saving)
                 }
             }
             .entryDeletion($deletion)
             .disabled(saving)
+            .protectUnsavedChanges(dirty: baseline.map { $0 != [amount, minimum] } ?? false,
+                busy: saving, requested: $closeRequested, discard: { dismiss() }, close: { dismiss() })
             .onAppear {
+                guard baseline == nil else { return }
                 amount = jsNumberString(cycle.statementAmount)
                 minimum = cycle.minimumEstimated ? "" : jsNumberString(cycle.minimum)
+                baseline = [amount, minimum]
             }
+            .onChange(of: store.cfg.id) { _, _ in dismiss() }
         }
     }
 
     private func save() {
-        guard let t = text else { return }
+        guard !saving, let t = text else { return }
         saving = true
         let label = LS("本期账单：%@ %@", acctLabel(cycle.account), cycle.statement)
         Task {

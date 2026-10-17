@@ -22,20 +22,23 @@ extension Store {
         if let t = L.txns.first(where: { TxDest.key($0) == key }) { return t }
         // edited in place (a link added or removed): follow it to its new text
         var k = key, hops = 0
-        while let next = Store.movedKeys[Store.normKey(k)], hops < 8 { k = next; hops += 1 }
+        while let next = movedKeys[Store.normKey(k)], hops < 8 { k = next; hops += 1 }
         guard hops > 0 else { return nil }
         let want = Store.normKey(k)
         return L.txns.first { Store.normKey(TxDest.key($0)) == want }
     }
 
     /// old text → new text of transactions changed in place, so open pages keep showing them
-    static var movedKeys: [String: String] = [:]
+    var movedKeys: [String: String] {
+        get { entryMoves[cfg.id] ?? [:] }
+        set { entryMoves[cfg.id] = newValue }
+    }
     static func normKey(_ k: String) -> String { normEntryText(k) }
     /// before `ops` are applied (the ledger as it is): every transaction they rewrite or move
     func noteMoved(_ ops: [Op]) {
         guard let L = L else { return }
         for m in movedEntries(ops, L) {
-            Store.movedKeys[Store.normKey(m.oldDate + "\u{1}" + m.old)] = m.newDate + "\u{1}" + m.new
+            movedKeys[Store.normKey(m.oldDate + "\u{1}" + m.old)] = m.newDate + "\u{1}" + m.new
         }
     }
 }
@@ -221,8 +224,6 @@ struct JournalView: View {
             .searchSuggestions { if q.isEmpty { searchHelp } }
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
-            .onChange(of: q) { _, _ in limit = 150 }
-            .onChange(of: quick) { _, _ in limit = 150 }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
             .subscriptionDestinations()
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
@@ -230,6 +231,16 @@ struct JournalView: View {
         }
         // on the stack itself: the pages it opens inherit what is set here, not what is set on its first page
         .pushes(onto: $path)
+        .ledgerNavigation("journal", path: $path)
+        .ledgerControls("journal", value: Binding(get: {
+            var context = BrowseContext()
+            context.query = q; context.filters = quick.map(\.rawValue); context.limit = limit
+            context.anchor = account
+            return context
+        }, set: {
+            q = $0.query; quick = $0.filters.compactMap(QuickFilter.init(rawValue:)); limit = max(150, $0.limit)
+            if account == nil { account = $0.anchor }
+        }))
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .onChange(of: store.journalQuery) { _, new in takeQuery(new) }
         .task {
@@ -830,7 +841,6 @@ struct TxDetailView: View {
     /// hand a filled form to 记一笔: close any open detail pages and open the card on it
     private func handOff(_ d: Draft, _ msg: String) {
         store.draft = d
-        store.popToken += 1
         store.openAdd()
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         store.show(msg)
@@ -878,6 +888,9 @@ struct EditTxView: View {
     @State private var summary = ""
     @State private var date = ""
     @State private var deletion: EntryDeletion?
+    @State private var busy = false
+    @State private var closeRequested = false
+    @State private var ledgerID: String?
 
     var body: some View {
         Form {
@@ -910,12 +923,35 @@ struct EditTxView: View {
         .keyboardDone()
         .navigationTitle(LS("编辑交易"))
         .navigationBarTitleDisplayMode(.inline)
+        .disabled(busy)
+        .navigationBarBackButtonHidden(dirty || busy)
+        .toolbar {
+            if dirty || busy {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(LS("返回")) { closeRequested = true }.disabled(busy)
+                }
+            }
+        }
+        .protectUnsavedChanges(dirty: dirty, busy: busy, requested: $closeRequested,
+            keep: { keepDraft(); dismiss() },
+            discard: { if let old = old { store.forgetSourceDraft(file: path, original: old) }; dismiss() },
+            close: { dismiss() })
         .entryDeletion($deletion)
         .task { await load() }
+        .onChange(of: text) { _, _ in keepDraft() }
+        .onChange(of: store.cfg.id) { _, _ in dismiss() }
+    }
+
+    private var dirty: Bool { old.map { normEntryText(alignText(text)) != normEntryText(alignText($0)) } ?? false }
+
+    private func keepDraft() {
+        guard let old = old, ledgerID == store.cfg.id else { return }
+        store.rememberSourceDraft(file: path, original: old, text: text, label: summary)
     }
 
     private func load() async {
         guard old == nil, let t = store.txn(dest.id, key: dest.key) else { return }
+        ledgerID = store.cfg.id
         path = t.file
         date = t.date
         summary = [t.payee, t.narration].filter { !$0.isEmpty }.joined(separator: " ")
@@ -925,15 +961,21 @@ struct EditTxView: View {
             return
         }
         old = o
-        text = compactText(o)
+        text = store.sourceDraft(file: path, original: o, fallback: compactText(o))
     }
 
     private func save(_ old: String, _ L: Ledger) async {
+        guard !busy, ledgerID == store.cfg.id else { return }
+        busy = true
+        defer { busy = false }
         // same date, same file: changed where it is, so it keeps its place among that day's entries;
         // a new date moves it to the end of that day (in that year's file)
         guard let ops = await store.replaceOps(old: old, path: path, date: date, summary: summary, newText: alignText(text)) else { return }
-        store.popToken += 1
-        await store.commit(ops, word: LS("已更新"), checked: true)
+        if await store.commit(ops, word: LS("已更新"), checked: true) {
+            guard ledgerID == store.cfg.id else { return }
+            store.forgetSourceDraft(file: path, original: old)
+            dismiss()
+        }
     }
 
 

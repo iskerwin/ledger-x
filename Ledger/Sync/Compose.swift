@@ -96,8 +96,11 @@ extension Store {
         let summary = [t.payee, t.narration].filter { !$0.isEmpty }.joined(separator: " ")
         d.replacing = Replacing(path: t.file, old: old, date: t.date, summary: summary,
                                 baseline: draftText(d, L, D, explicit: explicitAmounts).trimmed)
-        draft = d
-        openAdd(full: needsFullForm(d))
+        persistActiveDraft()
+        let session = draftWorkspace.session(for: d)
+        drafts.install(session)
+        openAdd(full: needsFullForm(session.draft))
+        if session.hasChanges { show(LS("已恢复这笔交易的编辑草稿")) }
         return true
     }
 
@@ -105,7 +108,8 @@ extension Store {
     func endEdit() {
         scanInfo = nil
         guard draft.replacing != nil else { return }
-        draft = newDraftFor(.expense)
+        persistActiveDraft()
+        restoreCreationDraft()
     }
 
     /// the entry `old` (at `path`) replaced by `newText`: in place when the date and file stay, else moved to
@@ -273,6 +277,9 @@ extension Store {
     @discardableResult
     /// save the form (a screenshot's card is remembered with the entry, see saveForm)
     func saveDraft() async -> Bool {
+        guard !drafts.isSaving else { return false }
+        drafts.isSaving = true
+        defer { drafts.isSaving = false }
         guard await saveForm() else { return false }
         scanInfo = nil
         return true
@@ -292,19 +299,20 @@ extension Store {
         }
         if let r = d.replacing {
             // editing: nothing changed, nothing written
-            if text == r.baseline { draft = newDraftFor(.expense); return true }
+            if text == r.baseline { finishDraft(with: newDraftFor(.expense)); return true }
             guard let ops = await replaceOps(old: r.old, path: r.path, date: r.date, summary: r.summary, newText: text) else { return false }
-            draft = newDraftFor(.expense)
-            popToken += 1
-            return await commit(ops, word: LS("已更新"), checked: true)
+            let ok = await commit(ops, word: LS("已更新"), checked: true)
+            if ok { finishDraft(with: newDraftFor(.expense)) }
+            return ok
         }
         if d.kind == .multi {
             guard let ops0 = makeOps(text, single: true), let ops = await review(ops0) else { return false }
             var nd = newDraftFor(.multi)
             nd.date = d.date
             nd.rows = d.rows.map { r in var x = r; x.amount = ""; x.id = UUID(); return x }
-            draft = nd
-            return await commit(ops, checked: true)
+            let ok = await commit(ops, checked: true)
+            if ok { finishDraft(with: nd) }
+            return ok
         }
         guard var ops = makeOps(text, single: draftIsSingle(d, L)) else { return false }
         // the original purchase gets the refund link that is actually in the saved text (it may have been edited)
@@ -339,8 +347,9 @@ extension Store {
             nd.events = d.eventsTouched ? d.events : autoEvents(on: nd.date)
             nd.eventsTouched = d.eventsTouched
         }
-        draft = nd
-        return await commit(checked, word: word, checked: true)
+        let ok = await commit(checked, word: word, checked: true)
+        if ok { finishDraft(with: nd) }
+        return ok
     }
 
     // MARK: - 常用交易

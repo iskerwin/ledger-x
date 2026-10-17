@@ -7,6 +7,8 @@ enum AddRoute: Hashable { case full }
 /// 记一笔 as a card over any tab: the quick page first, 完整表单 one step in
 struct AddCard: View {
     @EnvironmentObject var store: Store
+    @EnvironmentObject private var dm: DraftModel
+    @State private var recovering = false
     @State private var path = NavigationPath()
     /// 1 while the full form is the card's own first page (opened for 分录, 退款…), so popping keeps it
     @State private var base = 0
@@ -21,6 +23,18 @@ struct AddCard: View {
         }
         // on the stack itself: the pages it opens inherit what is set here, not what is set on its first page
         .pushes(onto: $path)
+        .disabled(dm.isSaving)
+        .protectUnsavedChanges(dirty: dm.hasChanges, busy: dm.isSaving, requested: $store.closeAddRequested,
+            keep: { store.persistActiveDraft(); store.adding = false },
+            discard: { store.discardActiveDraft(); store.adding = false },
+            close: { store.adding = false })
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { recovering = true } label: { Image(systemName: "doc.badge.clock") }
+                    .accessibilityLabel(LS("草稿"))
+            }
+        }
+        .sheet(isPresented: $recovering) { DraftRecoverySheet() }
         .overlay(alignment: .top) { ToastView(top: true).padding(.top, 6).animation(.spring(duration: 0.3), value: store.toast) }
         .sheet(item: $store.subSuggestion) { c in SubEditSheet(draft: SubDraft(c)) }
         .onAppear(perform: route)
@@ -151,7 +165,7 @@ struct QuickAddView: View {
         .background(Color(.systemGroupedBackground))
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button { store.adding = false } label: { Image(systemName: "xmark") }
+                Button { store.closeAddRequested = true } label: { Image(systemName: "xmark") }
                     .accessibilityLabel(LS("关闭"))
             }
             ToolbarItem(placement: .principal) {
@@ -199,8 +213,8 @@ struct QuickAddView: View {
                 guard let r = store.draft.replacing else { return }
                 Task {
                     // the entry as it was when the card opened; the card closes once it is gone
-                    if await store.deleteEntry(path: r.path, old: r.old, date: r.date, summary: r.summary) {
-                        store.endEdit()
+                    if await store.deleteEntry(path: r.path, old: r.old, date: r.date, summary: r.summary, pop: false) {
+                        store.discardActiveDraft()
                         store.adding = false
                     }
                 }
@@ -554,7 +568,6 @@ struct QuickAddView: View {
                         guard s.id != store.cfg.id else { return }
                         Task {
                             await store.switchLedger(s.id)
-                            store.draft = store.newDraftFor(Self.kinds.contains(store.draft.kind) ? store.draft.kind : .expense)
                         }
                     } label: {
                         if s.id == store.cfg.id { Label(s.title, systemImage: "checkmark") } else { Text(s.title) }

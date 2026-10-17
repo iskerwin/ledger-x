@@ -78,8 +78,31 @@ targets:
         CODE_SIGNING_REQUIRED: NO
         CODE_SIGN_IDENTITY: ""
         DEVELOPMENT_TEAM: ""
+  LedgerUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: LedgerUITests
+        excludes: ["Fixtures/**"]
+    dependencies:
+      - target: Ledger
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.iskerwin.ledger.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Ledger
+        CODE_SIGNING_ALLOWED: NO
+        SWIFT_VERSION: "5.0"
 schemes:
   Ledger:
     build:
       targets:
         Ledger: all
+  LedgerInteractionTests:
+    build:
+      targets:
+        Ledger: all
+        LedgerUITests: [test]
+    test:
+      targets:
+        - LedgerUITests

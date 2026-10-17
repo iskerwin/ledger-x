@@ -705,6 +705,9 @@ struct AddForm: View {
     }
 
     private func saveRaw(_ L: Ledger, overwriteOK: Bool) async {
+        guard !store.drafts.isSaving else { return }
+        store.drafts.isSaving = true
+        defer { store.drafts.isSaving = false }
         let text = store.draft.raw.trimmed
         let v = validateText(text, L, single: false)
         guard v.ok else { store.show(text.isEmpty ? LS("请输入 Beancount 文本") : (v.msg.flatMap { $0.isEmpty ? nil : $0 } ?? LS("内容校验未通过"))); return }
@@ -715,8 +718,10 @@ struct AddForm: View {
         guard let ops0 = store.makeOps(alignText(text), single: false), let ops = await store.review(ops0) else { return }
         var nd = store.newDraftFor(.raw)
         nd.date = store.draft.date
-        store.draft = nd
-        if await store.commit(ops, checked: true) { onSaved() }
+        if await store.commit(ops, checked: true) {
+            store.finishDraft(with: nd)
+            onSaved()
+        }
     }
 }
 

@@ -40,6 +40,10 @@ struct AccountsView: View {
         }
         // on the stack itself: the pages it opens inherit what is set here, not what is set on its first page
         .pushes(onto: $path)
+        .ledgerNavigation("accounts", path: $path)
+        .ledgerControls("accounts", value: Binding(get: {
+            var context = BrowseContext(); context.query = collapsedRaw; context.filters = [side]; return context
+        }, set: { collapsedRaw = $0.query; side = $0.filters.first ?? "all" }))
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .task {
             if let x = store.demoEnv["LEDGER_SIDE"] { side = x }
@@ -484,6 +488,10 @@ struct RegisterView: View {
         Group {
             if let L = store.L { page(L) } else { ProgressView() }
         }
+
+        .ledgerControls("register." + account, value: Binding(get: {
+            var context = BrowseContext(); context.opened = opened; return context
+        }, set: { opened = $0.opened }))
         .navigationTitle(acctLabel(account).isEmpty ? account : acctLabel(account))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $checking) { p in CheckSheet(account: account, preset: p) }
@@ -810,7 +818,10 @@ struct CheckSheet: View {
     @State private var date = Day.shift(Day.today(), 1)
     @State private var currency = "CNY"
     @State private var actual = ""
+    @State private var busy = false
     @State private var armed = false
+    @State private var closeRequested = false
+    @State private var baseline: [String]?
     @State private var deletion: EntryDeletion?
     @FocusState private var focused: Bool
 
@@ -819,11 +830,15 @@ struct CheckSheet: View {
             Group {
                 if let L = store.L, let D = store.D { form(L, D) } else { ProgressView() }
             }
+            .disabled(busy)
+            .protectUnsavedChanges(dirty: baseline.map { $0 != [date, currency, actual] } ?? false,
+                busy: busy, requested: $closeRequested, discard: { dismiss() }, close: { dismiss() })
+            .onChange(of: store.cfg.id) { _, _ in dismiss() }
             .entryDeletion($deletion)
             .keyboardDone()
             .navigationTitle(preset.original != nil ? LS("编辑余额断言") : LS("余额核对"))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { closeRequested = true } } }
         }
     }
 
@@ -854,9 +869,11 @@ struct CheckSheet: View {
             }
         }
         .onAppear {
+            guard baseline == nil else { return }
             if let d = preset.date { date = d }
             currency = preset.currency ?? ccys.first ?? "CNY"
             if let x = preset.actual { actual = x }
+            baseline = [date, currency, actual]
             focused = preset.actual == nil
         }
     }
@@ -949,6 +966,7 @@ struct CheckSheet: View {
     }
 
     private func save(_ L: Ledger, _ old0: BalanceResult?, _ a: Double?) {
+        guard !busy else { return }
         guard let a = a else { store.show(LS("请填写实际余额")); return }
         if let orig = preset.original {
             saveEdit(L, orig, old0, a)
@@ -966,7 +984,11 @@ struct CheckSheet: View {
         op.summary = (old != nil ? LS("覆盖") : "") + LS("余额断言 ") + account
         op.amountText = plainMoney(a, currency)
         let word = old != nil ? LS("已更新余额断言") : LS("已写入余额断言")
-        Task { await store.commit([op], word: word, closing: { dismiss() }) }
+        busy = true
+        Task {
+            defer { busy = false }
+            await store.commit([op], word: word, closing: { dismiss() })
+        }
     }
 
     private func saveEdit(_ L: Ledger, _ orig: Entry, _ old0: BalanceResult?, _ a: Double) {
@@ -982,7 +1004,9 @@ struct CheckSheet: View {
         op.amountText = plainMoney(a, currency)
         op.label = LS("修改余额断言：") + account + " " + date
         op.summary = LS("修改余额断言 ") + account
+        busy = true
         Task {
+            defer { busy = false }
             if sameLine {
                 await store.commit([op], word: LS("已更新余额断言"), closing: { dismiss() })
                 return
