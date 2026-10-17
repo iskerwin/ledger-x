@@ -64,11 +64,24 @@ jobs:
           python3 -m pip install --quiet --break-system-packages beancount 2>/dev/null || python3 -m pip install --quiet beancount
           python3 tools/check_reports.py LedgerKit/Tests/LedgerKitTests/Fixtures/realistic/main.bean samples/reports.json 2>&1 | tee reports-check.log
 
+      # the built-in demo: ledger-demo's main as it is now (the app updates it from there later, without a reinstall)
+      - name: Fetch the demo ledger
+        uses: actions/checkout@v4
+        with:
+          repository: iskerwin/ledger-demo
+          ref: main
+          path: Ledger/Demo
+
       - name: Build
         id: build
         env:
           GH_TOKEN: ${{ github.token }}
+          LEDGER_DEMO_MIRROR: ${{ vars.SIDESTORE_MIRROR || (github.repository == 'iskerwin/ledger-x' && 'https://ledger.iskerwin.com' || '') }}
         run: |
+          DEMO_COMMIT=$(git -C Ledger/Demo rev-parse HEAD)
+          rm -rf Ledger/Demo/.git Ledger/Demo/.github
+          test -f Ledger/Demo/main.bean || { echo "::error::没有取到演示账本"; exit 1; }
+          echo "built-in demo: ledger-demo@$DEMO_COMMIT"
           brew install xcodegen
           xcodegen generate
           VERSION=$(sed -nE 's/^ *MARKETING_VERSION: *"?([^"]+)"?$/\1/p' project.yml | head -1)
@@ -82,6 +95,7 @@ jobs:
           xcodebuild -project Ledger.xcodeproj -scheme Ledger -configuration Release \
             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
             MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            LEDGER_DEMO_COMMIT="$DEMO_COMMIT" LEDGER_DEMO_MIRROR="$LEDGER_DEMO_MIRROR" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build > build.log 2>&1
           status=$?
           grep -E "error:|BUILD" build.log | sort -u | head -40
@@ -94,6 +108,7 @@ jobs:
           ditto build/Build/Products/Release-iphoneos/Ledger.app Payload/Ledger.app
           # no extended attributes or resource forks in the bundle: some installers reject the archive
           xattr -cr Payload
+          test -f Payload/Ledger.app/Demo/main.bean || { echo "::error::Ledger.app 里没有内置演示账本"; exit 1; }
           # always ad-hoc sign: SideStore re-signs with your Apple ID, but rejects a bundle with no signature at all
           codesign -f -s - Payload/Ledger.app
           # fail the build instead of shipping an IPA SideStore can't install
@@ -266,6 +281,7 @@ jobs:
           shot 05-raw SIMCTL_CHILD_LEDGER_TAB=add SIMCTL_CHILD_LEDGER_KIND=raw
           shot 06-overview SIMCTL_CHILD_LEDGER_TAB=overview
           shot 06c-overview-demo SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_DEMO_BANNER=1
+          shot 06d-demo-update SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_DEMO_BANNER=1 SIMCTL_CHILD_LEDGER_DEMO_UPDATE=1
           shot 06b-overview-units SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_CURRENCY_MODE=units
           shot 07-journal SIMCTL_CHILD_LEDGER_TAB=journal
           shot 07b-calendar SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_CALENDAR=1

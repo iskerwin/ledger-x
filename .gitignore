@@ -4,3 +4,5 @@ Payload/
 *.ipa
 *.log
 .build/
+# the built-in demo, fetched from ledger-demo by CI
+Ledger/Demo/

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture real simulator screens using the bundled, fictional ledger.
+"""Capture real simulator screens using a local checkout of the fictional ledger-demo repository.
 
 Build/install Ledger first, then run with a booted simulator UDID:
   DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer python3 tools/capture-promo.py UDID
@@ -15,6 +15,9 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs/screenshots/latest"
 DEVICE = sys.argv[1]
+DEMO = Path(os.environ.get("LEDGER_DEMO_PATH", str(ROOT.parent / "ledger-demo"))).resolve()
+if not (DEMO / "main.bean").is_file():
+    raise SystemExit("Download ledger-demo beside this repository, or set LEDGER_DEMO_PATH to its folder.")
 BUNDLE = "com.iskerwin.ledger"
 SHOTS = [
     ("overview", {"TAB": "overview"}),
@@ -56,7 +59,7 @@ try:
         sim("terminate", DEVICE, BUNDLE, check=False)
         sim("ui", DEVICE, "appearance", "dark" if flags.get("DARK") else "light")
         env = {k: v for k, v in os.environ.items() if not k.startswith("SIMCTL_CHILD_LEDGER_")}
-        env["SIMCTL_CHILD_LEDGER_DEMO"] = str(ROOT / "Ledger/Demo")
+        env["SIMCTL_CHILD_LEDGER_DEMO"] = str(DEMO)
         env.update({"SIMCTL_CHILD_LEDGER_" + k: v for k, v in flags.items() if k != "DARK"})
         sim("launch", DEVICE, BUNDLE, "-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN", env=env)
         # The first parse can exceed a fixed 4–8 second delay in Debug.
@@ -83,6 +86,6 @@ revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=
     "device_name": device["name"],
     "runtime": runtime,
     "captured_on": time.strftime("%Y-%m-%d"),
-    "ledger": "Ledger/Demo (fictional data)",
+    "ledger": str(DEMO) + " (fictional data)",
     "screens": [name for name, _ in SHOTS],
 }, ensure_ascii=False, indent=2) + "\n")

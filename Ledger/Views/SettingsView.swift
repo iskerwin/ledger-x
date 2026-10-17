@@ -33,13 +33,14 @@ struct SettingsView: View {
                 Section { LanguagePicker() }
                 Section {
                     Button { Task { await store.openDemo() } } label: {
-                        Label(LS("先看看演示账本"), systemImage: "sparkles")
+                        if store.demoBusy { ProgressView(LS("正在下载演示账本…")) }
+                        else { Label(LS("先看看演示账本"), systemImage: "sparkles") }
                     }
                     Button { Task { await store.createEmptyLedger() } } label: {
                         Label(LS("在本机新建空账本"), systemImage: "iphone")
                     }
                 } footer: {
-                    Text(LS("演示账本的数据均为虚构。新建的空账本带有常用的账户和分类，保存在这台手机上（「文件」App › 我的 iPhone › Ledger），以后可以再放到 Git 仓库。也可以在下面直接连接已有的账本。"))
+                    Text(LS("演示账本的数据均为虚构，修改只保存在本机，有新版本时可在里面一键更新。新建的空账本带有常用的账户和分类，保存在这台手机上（「文件」App › 我的 iPhone › Ledger），以后可以再放到 Git 仓库。也可以在下面直接连接已有的账本。"))
                 }
             }
             if first {

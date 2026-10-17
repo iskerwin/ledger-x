@@ -70,7 +70,7 @@ Ledger X 直接读写 Beancount 文件。你可以把账本留在本机，放进
 
 ## 安装后直接体验
 
-从 [项目 README 的安装说明](../../README.md#快速体验打开内置演示账本) 添加 SideStore / AltStore 源，或前往 [Releases](https://github.com/iskerwin/ledger-x/releases) 下载。打开 App 后点「先看看演示账本」，无需注册，也不用先配置仓库和 Token。演示数据可以随意改、随时重置。
+从 [项目 README 的安装说明](../../README.md#快速体验打开演示账本) 添加 SideStore / AltStore 源，或前往 [Releases](https://github.com/iskerwin/ledger-x/releases) 下载。打开 App 后点「先看看演示账本」，不需要联网、注册，也不用先配置仓库和 Token。演示数据可以随意改、随时重置；演示账本有新版本时，在 App 里一键更新，不用重装。
 
 准备记录自己的生活时，选择「复制为我的空账本」，保留常用账户与分类，从第一笔真实消费开始。
 
@@ -78,4 +78,4 @@ Ledger X 直接读写 Beancount 文件。你可以把账本留在本机，放进
 
 ---
 
-本文界面实拍于 2026 年 10 月 17 日的 main 开发版，包含尚未发布的 0.2.1 改进；当前发布版本及安装方式以项目说明为准。截图全部使用 App 内置的虚构演示账本。项目目前为预览版，支持 iOS 17 及以上、简体中文和 English。
+本文界面实拍于 2026 年 10 月 17 日的 main 开发版，包含尚未发布的 0.2.1 改进；当前发布版本及安装方式以项目说明为准。截图使用 App 内置的虚构演示账本（来自 ledger-demo）。项目目前为预览版，支持 iOS 17 及以上、简体中文和 English。

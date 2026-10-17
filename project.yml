@@ -16,10 +16,18 @@ targets:
       - path: Ledger
         excludes:
           - "Demo/**"
-      # the demo ledger, copied as a folder (its files keep their places)
-      - path: Ledger/Demo
-        type: folder
-        buildPhase: resources
+    # the demo ledger: not kept in this repository; CI fetches ledger-demo into Ledger/Demo when it builds the
+    # app, and this copies it into the bundle as a folder (its files keep their places). Without it (a local
+    # build) the app simply has no built-in demo and downloads it when first opened.
+    postCompileScripts:
+      - name: Copy the built-in demo ledger
+        basedOnDependencyAnalysis: false
+        script: |
+          if [ -f "$SRCROOT/Ledger/Demo/main.bean" ]; then
+            dst="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Demo"
+            rm -rf "$dst" && mkdir -p "$dst"
+            rsync -a --exclude '.*' "$SRCROOT/Ledger/Demo/" "$dst/"
+          fi
     dependencies:
       - package: LedgerKit
     info:
@@ -39,12 +47,17 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: com.iskerwin.ledger
             CFBundleURLSchemes: [ledgerx]
+        # the ledger-demo commit built in, and the mirror demo updates fall back to (both set by CI)
+        LedgerDemoCommit: $(LEDGER_DEMO_COMMIT)
+        LedgerDemoMirror: $(LEDGER_DEMO_MIRROR)
     settings:
       base:
         PRODUCT_NAME: Ledger
         PRODUCT_BUNDLE_IDENTIFIER: com.iskerwin.ledger
         MARKETING_VERSION: "0.0.6"
         CURRENT_PROJECT_VERSION: "1"
+        LEDGER_DEMO_COMMIT: ""
+        LEDGER_DEMO_MIRROR: "https://ledger.iskerwin.com"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Ledger
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -60,6 +73,8 @@ targets:
         SWIFT_STRICT_CONCURRENCY: minimal
         ENABLE_PREVIEWS: NO
         CODE_SIGNING_ALLOWED: NO
+        # the demo copy script writes into the app bundle
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
         CODE_SIGNING_REQUIRED: NO
         CODE_SIGN_IDENTITY: ""
         DEVELOPMENT_TEAM: ""
