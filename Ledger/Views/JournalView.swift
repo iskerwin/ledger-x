@@ -133,6 +133,7 @@ struct Tag: View {
 
 struct JournalView: View {
     @EnvironmentObject var store: Store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var path = NavigationPath()
     @State private var q = ""
     @State private var limit = 150
@@ -198,7 +199,7 @@ struct JournalView: View {
             .toolbar {
                 StandardToolbar()
                 ToolbarItemGroup(placement: .topBarLeading) {
-                    Button { withAnimation(.easeInOut(duration: 0.2)) { showCalendar.toggle() } } label: {
+                    Button { withAnimation(reduceMotion ? nil : .spring(duration: 0.32, bounce: 0)) { showCalendar.toggle() } } label: {
                         Image(systemName: showCalendar ? "calendar.circle.fill" : "calendar")
                     }
                     .accessibilityLabel(showCalendar ? LS("收起月历") : LS("月历"))
@@ -367,7 +368,7 @@ struct JournalView: View {
                         calendarDay = CalendarDay(day: d)
                     }
                 }
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
             }
             if filtered {
                 resultCard(matches, sums)

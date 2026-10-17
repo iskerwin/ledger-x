@@ -46,6 +46,7 @@ extension Store {
 /// and every settled one by year
 struct ReimbursementsView: View {
     @EnvironmentObject var store: Store
+    @State private var pettyCash = false
 
     var body: some View {
         List {
@@ -80,6 +81,12 @@ struct ReimbursementsView: View {
         }
         .navigationTitle(LS("报销"))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { pettyCash = true } label: { Label(LS("领取备用金"), systemImage: "banknote") }
+            }
+        }
+        .sheet(isPresented: $pettyCash) { PettyCashSheet() }
     }
 }
 

@@ -2024,5 +2024,16 @@
  "，请先补录遗漏的交易": " — record the missing transactions first",
  "：": ": ",
  "；点开可编辑交易本身。橙色是还没填或按商户推测的。": "; tap to edit the transaction itself. Orange means not set yet, or guessed from the merchant.",
- "；预算剩余 %@": "; budget left %@"
+ "；预算剩余 %@": "; budget left %@",
+ "添加票据 / 对账单": "Add document / statement",
+ "添加票据：%@": "Add document: %@",
+ "已添加票据": "Document added",
+ "选择 PDF、图片或其他文件，作为账户票据保存；不会改变账户余额。": "Choose a PDF, image or other file to keep with this account; it does not change its balance.",
+ "文件为空，请重新选择": "The file is empty. Choose another file.",
+ "还没有票据，可添加银行对账单或其他文件": "No documents yet. Add a bank statement or another file.",
+ "票据与对账单": "Documents and statements",
+ "查看 / 添加对账单": "View / add statements",
+ "领取备用金": "Receive petty cash",
+ "公司 / 发放方": "Company / payer",
+ "领取时增加收款账户余额，同时记为负的报销应收；垫付时选择这笔备用金即可冲抵。": "The money increases the receiving account and creates a negative reimbursement receivable. Select this advance when recording reimbursable spending."
 }

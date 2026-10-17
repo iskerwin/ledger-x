@@ -9,27 +9,12 @@ import LedgerKit
 
 /// repository path of a document directive's file (relative to the file the directive is in)
 func documentRepoPath(_ e: Entry) -> String? {
-    guard var p = e.path, !p.isEmpty else { return nil }
-    if p.hasPrefix("/") {
-        // absolute path from a computer: use the part from "documents/" on
-        guard let r = p.range(of: "/documents/") else { return nil }
-        return String(p[p.index(after: r.lowerBound)...])
-    }
-    var parts = (e.file as NSString).deletingLastPathComponent.split(separator: "/").map(String.init)
-    if p.hasPrefix("./") { p.removeFirst(2) }
-    for c in p.split(separator: "/") {
-        if c == ".." { if !parts.isEmpty { parts.removeLast() } } else if c != "." { parts.append(String(c)) }
-    }
-    return parts.joined(separator: "/")
+    guard let path = e.path else { return nil }
+    return documentPath(path, from: e.file)
 }
 
-/// path of `target` relative to the folder of `from` (both repository paths)
 func relativePath(_ target: String, from file: String) -> String {
-    let base = (file as NSString).deletingLastPathComponent.split(separator: "/").map(String.init)
-    let t = target.split(separator: "/").map(String.init)
-    var i = 0
-    while i < base.count && i < t.count - 1 && base[i] == t[i] { i += 1 }
-    return (Array(repeating: "..", count: base.count - i) + t[i...]).joined(separator: "/")
+    relativeDocumentPath(target, from: file)
 }
 
 extension Store {
@@ -173,12 +158,19 @@ struct DocumentViewer: View {
     let path: String
     @State private var url: URL?
     @State private var error: String?
+    @State private var retry = 0
+    @State private var temporaryFolder: URL?
 
     var body: some View {
         NavigationStack {
             Group {
                 if let u = url { QuickLookView(url: u) }
-                else if let e = error { Text(e).foregroundStyle(.secondary).padding() }
+                else if let e = error {
+                    VStack(spacing: 16) {
+                        Text(e).foregroundStyle(.secondary)
+                        Button(LS("重试")) { retry += 1 }
+                    }.padding()
+                }
                 else { ProgressView() }
             }
             .navigationTitle((path as NSString).lastPathComponent)
@@ -188,17 +180,26 @@ struct DocumentViewer: View {
                 if let u = url { ToolbarItem(placement: .topBarLeading) { ShareLink(item: u) } }
             }
         }
-        .task {
+        .task(id: retry) {
+            error = nil
             do {
                 let d = try await store.backend.readData(path)
-                let dir = FileManager.default.temporaryDirectory.appendingPathComponent("docs", isDirectory: true)
-                try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                try Task.checkCancellation()
+                let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ledger-document-" + UUID().uuidString, isDirectory: true)
+                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                temporaryFolder = dir
                 let f = dir.appendingPathComponent((path as NSString).lastPathComponent)
-                try d.write(to: f)
+                try d.write(to: f, options: .atomic)
                 url = f
+            } catch is CancellationError {
+                return
             } catch {
                 self.error = LS("无法下载：%@", error.localizedDescription)
             }
+        }
+        .onChange(of: store.cfg.id) { _, _ in dismiss() }
+        .onDisappear {
+            if let dir = temporaryFolder { try? FileManager.default.removeItem(at: dir) }
         }
     }
 }

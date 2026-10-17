@@ -6,6 +6,8 @@ import LedgerKit
 /// tap a day for its sheet. It counts what the list shows (the same search and account filter).
 struct JournalCalendar: View {
     @EnvironmentObject var store: Store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var forward = true
     let L: Ledger
     /// the transactions the list would show, newest first
     let entries: [Entry]
@@ -48,11 +50,18 @@ struct JournalCalendar: View {
         let top = max(1, totals.values.map { $0.out }.max() ?? 1)
         VStack(spacing: 8) {
             header(out: out, inn: inn)
-            grid(totals, top: top)
-                .contentShape(Rectangle())
-                .gesture(DragGesture(minimumDistance: 30).onEnded { g in
-                    if abs(g.translation.width) > abs(g.translation.height) { step(g.translation.width < 0 ? 1 : -1) }
-                })
+            ZStack(alignment: .top) {
+                grid(totals, top: top)
+                    .id(month)
+                    .transition(reduceMotion ? .opacity : .asymmetric(
+                        insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
+                        removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)))
+            }
+            .clipped()
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 30).onEnded { g in
+                if abs(g.translation.width) > abs(g.translation.height) { step(g.translation.width < 0 ? 1 : -1) }
+            })
         }
         .onAppear(perform: follow)
         .onChange(of: entries.first?.date) { _, _ in follow() }
@@ -65,9 +74,15 @@ struct JournalCalendar: View {
     }
 
     private func step(_ k: Int) {
-        withAnimation(.easeInOut(duration: 0.2)) {
-            month = Day.addMonth(month, k)
-        }
+        let next = Day.addMonth(month, k)
+        guard next <= Day.ym(Day.today()) else { return }
+        changeMonth(next)
+    }
+
+    private func changeMonth(_ next: String) {
+        guard next != month else { return }
+        forward = next > month
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.24)) { month = next }
     }
 
     private func header(out: Double, inn: Double) -> some View {
@@ -76,7 +91,7 @@ struct JournalCalendar: View {
                 Button { step(-1) } label: { Image(systemName: "chevron.left") }.buttonStyle(.borderless)
                 Spacer()
                 Button {
-                    month = Day.ym(Day.today())
+                    changeMonth(Day.ym(Day.today()))
                 } label: { Text(Day.monthLabel(month)).font(.headline).foregroundStyle(.primary) }
                 .buttonStyle(.borderless)
                 Spacer()
@@ -106,7 +121,9 @@ struct JournalCalendar: View {
         let count = Int(Day.monthEnd(month).suffix(2)) ?? 30
         let wd = Day.date(first).map { Day.calendar.component(.weekday, from: $0) } ?? 1
         let lead = (wd - Calendar.current.firstWeekday + 7) % 7
-        let cells: [String?] = Array(repeating: nil, count: lead) + (1...count).map { month + String(format: "-%02d", $0) }
+        // Six weeks keep the journal's rows still when switching between short and long months.
+        let days: [String?] = (1...count).map { month + String(format: "-%02d", $0) }
+        let cells: [String?] = Array(repeating: nil, count: lead) + days + Array(repeating: nil, count: 42 - lead - count)
         let today = Day.today()
         // a line for income only in a month that has some, so the spending sits right under the day
         let hasIncome = cells.contains { d in d.map { (totals[$0]?.inn ?? 0) > 0.005 } ?? false }
