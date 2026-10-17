@@ -159,6 +159,33 @@ public func classify(postings: [Posting], date: String, _ L: Ledger) -> Classifi
     return Classified(kind: .transfer, amount: pos?.units ?? 0, currency: pos?.currency)
 }
 
+/// income and spending of some transactions in each currency as booked (not converted), read like `classify`: a
+/// transaction with an expense counts as spending (a refund lowers it), else one with income as income; transfers,
+/// advances and others' AA parts (on receivable accounts, not expenses) count as neither
+public struct CurrencyFlow: Equatable {
+    public let currency: String
+    public var income: Double
+    public var expenses: Double
+    public var net: Double { income - expenses }
+}
+
+public func flowsByCurrency(_ ts: [Entry]) -> [CurrencyFlow] {
+    var inc: [String: Double] = [:], exp: [String: Double] = [:]
+    for t in ts {
+        let e = t.postings.filter { $0.account.hasPrefix("Expenses:") }
+        let i = t.postings.filter { $0.account.hasPrefix("Income:") }
+        if !e.isEmpty {
+            for p in e { if let u = p.units, let c = p.currency { exp[c, default: 0] += u } }
+        } else {
+            for p in i { if let u = p.units, let c = p.currency { inc[c, default: 0] -= u } }
+        }
+    }
+    let ccys = Set(inc.keys).union(exp.keys)
+    return ccys.map { CurrencyFlow(currency: $0, income: roundTo(inc[$0] ?? 0, 2), expenses: roundTo(exp[$0] ?? 0, 2)) }
+        .filter { abs($0.income) > 0.004 || abs($0.expenses) > 0.004 }
+        .sorted { $0.currency < $1.currency }
+}
+
 // MARK: - derived data (what the UI needs on top of the ledger)
 
 public struct PayeeStat {

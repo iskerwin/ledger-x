@@ -234,16 +234,24 @@ struct AccountsView: View {
 
     /// 待核对 and 投资持仓 side by side (投资持仓 only with holdings)
     private func tilesSection(_ L: Ledger) -> some View {
-        let due = reconcileDue(L)
-        let failing = Set(L.balanceResults.filter { !$0.ok }.compactMap { $0.entry.account }).count
+        let dueAccounts = Set(reconcileDue(L).map { $0.account })
+        let failingAccounts = Set(L.balanceResults.filter { !$0.ok }.compactMap { $0.entry.account })
+        // accounts to look at: due for a check, or with an assertion that fails (each counted once)
+        let open = dueAccounts.union(failingAccounts).count
         let hs = holdings(L)
         return Section {
             HStack(spacing: 10) {
                 // buttons, not links: a link in a row draws its own chevron beside the tile
                 Button { path.append(ReconcileDest()) } label: {
-                    tile(icon: "doc.text.magnifyingglass", color: .orange, title: LS("待核对"),
-                         line: due.isEmpty ? (failing > 0 ? LS("%@ 个断言不符", failing) : LS("都已核对")) : LS("%@ 个账户", due.count),
-                         sub: nil, subColor: .secondary, dot: !due.isEmpty || failing > 0)
+                    if open == 0 {
+                        tile(icon: "checkmark.seal", color: .gain, title: LS("核对完成"), line: LS("账户都已核对"),
+                             sub: nil, subColor: .secondary, dot: false)
+                    } else {
+                        tile(icon: "doc.text.magnifyingglass", color: .orange, title: LS("待核对 · %@ 个", open),
+                             line: [dueAccounts.isEmpty ? nil : LS("%@ 个到核对日", dueAccounts.count),
+                                    failingAccounts.isEmpty ? nil : LS("%@ 个断言不符", failingAccounts.count)].compactMap { $0 }.joined(separator: " · "),
+                             sub: nil, subColor: .secondary, dot: true)
+                    }
                 }
                 .buttonStyle(.plain)
                 if !hs.isEmpty {
@@ -251,7 +259,8 @@ struct AccountsView: View {
                     let cost = hs.reduce(0.0) { $0 + (toCNY(L, $1.cost, $1.q) ?? 0) }
                     Button { path.append(HoldingsDest()) } label: {
                         tile(icon: "chart.line.uptrend.xyaxis", color: .jade, title: LS("投资持仓"), line: masked(money(value, L.base)),
-                             sub: cost > 0 ? String(format: "%@%.1f%%", value >= cost ? "+" : "", (value - cost) / cost * 100) : nil,
+                             sub: cost > 0 ? (value >= cost ? LS("持仓浮盈 %@", String(format: "+%.1f%%", (value - cost) / cost * 100))
+                                                           : LS("持仓浮亏 %@", String(format: "−%.1f%%", (cost - value) / cost * 100))) : nil,
                              subColor: value >= cost ? Color.gain : Color.loss, dot: false)
                     }
                     .buttonStyle(.plain)

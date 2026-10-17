@@ -390,7 +390,7 @@ final class Store: ObservableObject {
             cv.on = Set(only)
         }
         cview = cv
-        // the journal as a calendar (the setting is remembered between launches, so it is set either way)
+        // the journal's month calendar opened (the setting is remembered between launches, so it is set either way)
         UserDefaults.standard.set(env["LEDGER_CALENDAR"] != nil, forKey: "ledger.journal.calendar")
         lastSync = Date()
     }

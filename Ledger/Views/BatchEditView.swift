@@ -121,18 +121,7 @@ struct BatchEditSheet: View {
         guard !lines.isEmpty else { return nil }
         switch mode {
         case .account:
-            var changed = false
-            for i in lines.indices.dropFirst() {
-                let l = lines[i]
-                let body = l.trimmingCharacters(in: .whitespaces)
-                let flagged = body.hasPrefix("! ") || body.hasPrefix("* ")
-                let name = (flagged ? String(body.dropFirst(2)).trimmingCharacters(in: .whitespaces) : body).split(separator: " ", maxSplits: 1).first.map(String.init) ?? ""
-                if name == from, let r = l.range(of: from) {
-                    lines[i] = l.replacingCharacters(in: r, with: to)
-                    changed = true
-                }
-            }
-            return changed ? alignText(lines.joined(separator: "\n")) : nil
+            return accountReplaced(in: block, from: from, to: to)
         case .tag, .link:
             let add = (mode == .tag ? " #" : " ^") + cleanWord
             if lines[0].components(separatedBy: " ").contains(add.trimmingCharacters(in: .whitespaces)) { return nil }
@@ -146,11 +135,38 @@ struct BatchEditSheet: View {
     private func apply() async {
         working = true
         defer { working = false }
+        let label = LS("批量编辑 %@ 笔：%@", affected, mode == .account ? acctLabel(from) + " → " + acctLabel(to) : (mode == .tag ? "#" : "^") + cleanWord)
+        await store.rewrite(entries, label: label, before: { dismiss(); done() }, transform: transform)
+    }
+}
+
+/// a transaction's text with one posting's account changed (exactly that account, not its sub-accounts); nil when
+/// it has no such posting
+func accountReplaced(in block: String, from: String, to: String) -> String? {
+    var lines = block.components(separatedBy: "\n")
+    var changed = false
+    for i in lines.indices.dropFirst() {
+        let l = lines[i]
+        let body = l.trimmingCharacters(in: .whitespaces)
+        let flagged = body.hasPrefix("! ") || body.hasPrefix("* ")
+        let name = (flagged ? String(body.dropFirst(2)).trimmingCharacters(in: .whitespaces) : body).split(separator: " ", maxSplits: 1).first.map(String.init) ?? ""
+        if name == from, let r = l.range(of: from) {
+            lines[i] = l.replacingCharacters(in: r, with: to)
+            changed = true
+        }
+    }
+    return changed ? alignText(lines.joined(separator: "\n")) : nil
+}
+
+extension Store {
+    /// each transaction's text rewritten by `transform` (skipped when it gives nil), as one change after the review;
+    /// `before` runs once the review has passed. True when committed.
+    @discardableResult
+    func rewrite(_ entries: [Entry], label: String, before: () -> Void = {}, transform: (String) -> String?) async -> Bool {
         var ops: [Op] = []
         var cache: [String: [String]] = [:]
-        let label = LS("批量编辑 %@ 笔：%@", affected, mode == .account ? acctLabel(from) + " → " + acctLabel(to) : (mode == .tag ? "#" : "^") + cleanWord)
         for t in entries.sorted(by: { $0.date < $1.date }) {
-            if cache[t.file] == nil { cache[t.file] = (try? await store.fileText(t.file))?.components(separatedBy: "\n") }
+            if cache[t.file] == nil { cache[t.file] = (try? await fileText(t.file))?.components(separatedBy: "\n") }
             guard let lines = cache[t.file], t.endLine < lines.count else { continue }
             let old = lines[t.startLine...t.endLine].joined(separator: "\n")
             guard let new = transform(old) else { continue }
@@ -163,11 +179,10 @@ struct BatchEditSheet: View {
             op.silent = ops.isEmpty ? nil : true
             ops.append(op)
         }
-        guard !ops.isEmpty else { store.show(LS("没有需要修改的交易")); return }
+        guard !ops.isEmpty else { show(LS("没有需要修改的交易")); return false }
         let n = ops.count
-        guard let checked = await store.review(ops) else { return }
-        dismiss()
-        done()
-        await store.commit(checked, word: LS("已修改 %@ 笔", n), checked: true)
+        guard let checked = await review(ops) else { return false }
+        before()
+        return await commit(checked, word: n == 1 ? LS("已修改") : LS("已修改 %@ 笔", n), checked: true)
     }
 }

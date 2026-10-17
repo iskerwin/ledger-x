@@ -269,6 +269,7 @@ jobs:
           shot 06b-overview-units SIMCTL_CHILD_LEDGER_TAB=overview SIMCTL_CHILD_LEDGER_CURRENCY_MODE=units
           shot 07-journal SIMCTL_CHILD_LEDGER_TAB=journal
           shot 07b-calendar SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_CALENDAR=1
+          shot 07c-calendar-day SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_CALENDAR=1 SIMCTL_CHILD_LEDGER_CAL_DAY=1
           shot 22b-reimb SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=reimb
           shot 22c-reimb-batch SIMCTL_CHILD_LEDGER_TAB=reports SIMCTL_CHILD_LEDGER_REPORT=reimb-batch
           shot 08-search SIMCTL_CHILD_LEDGER_TAB=journal SIMCTL_CHILD_LEDGER_QUERY="#fx"

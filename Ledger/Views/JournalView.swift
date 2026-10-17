@@ -141,8 +141,12 @@ struct JournalView: View {
     /// swiped to delete, waiting for the confirmation
     @State private var deleting: Entry?
     @State private var batch: BatchMode?
-    /// list or month calendar (remembered on this device)
+    /// the month calendar opened above the list (remembered on this device)
     @AppStorage("ledger.journal.calendar") private var showCalendar = false
+    /// a day picked on the calendar: its sheet
+    @State private var calendarDay: CalendarDay?
+    /// a transaction tapped in that sheet, opened once the sheet has gone
+    @State private var afterSheet: TxDest?
     /// the quick filters on (本月, 大额, 待确认, 报销), added to what is typed
     @State private var quick: [QuickFilter] = []
     /// saving the filters as a quick search
@@ -187,27 +191,30 @@ struct JournalView: View {
         NavigationStack(path: $path) {
             Group {
                 if let L = store.L {
-                    if showCalendar { JournalCalendar(L: L, entries: search(L), account: account) } else { list(L) }
+                    list(L)
                 } else { ProgressView() }
             }
             .navigationTitle(LS("明细"))
             .toolbar {
                 StandardToolbar()
                 ToolbarItemGroup(placement: .topBarLeading) {
-                    Button { withAnimation { showCalendar.toggle(); selecting = false; selected = [] } } label: {
-                        Image(systemName: showCalendar ? "list.bullet" : "calendar")
+                    Button { withAnimation(.easeInOut(duration: 0.2)) { showCalendar.toggle() } } label: {
+                        Image(systemName: showCalendar ? "calendar.circle.fill" : "calendar")
                     }
-                    .accessibilityLabel(showCalendar ? LS("列表") : LS("日历"))
-                    if !showCalendar {
-                        Button(selecting ? LS("完成") : LS("选择")) {
-                            withAnimation { selecting.toggle(); selected = [] }
-                        }
+                    .accessibilityLabel(showCalendar ? LS("收起月历") : LS("月历"))
+                    Button(selecting ? LS("完成") : LS("选择")) {
+                        withAnimation { selecting.toggle(); selected = [] }
                     }
                 }
             }
             .topBar { if !selecting { QuickSearchBar(q: $q) } }
             .safeAreaInset(edge: .bottom) { if selecting { batchBar } }
             .sheet(item: $savingFilter) { e in QuickSearchSheet(edit: e) }
+            .sheet(item: $calendarDay, onDismiss: {
+                if let t = afterSheet { afterSheet = nil; path.append(t) }
+            }) { d in
+                if let L = store.L { daySheet(d.day, L) }
+            }
             .sheet(item: $batch) { m in
                 BatchEditSheet(entries: selectedEntries, mode: m) { selecting = false; selected = [] }
             }
@@ -236,6 +243,10 @@ struct JournalView: View {
         .task {
             takeQuery(store.journalQuery)
             if let q = store.demoEnv["LEDGER_QUERY"] { self.q = q }
+            if store.demoEnv["LEDGER_CAL_DAY"] != nil, let L = store.L, let d = search(L).first?.date {
+                try? await Task.sleep(nanoseconds: 800_000_000)
+                calendarDay = CalendarDay(day: d)
+            }
             if let f = store.demoEnv["LEDGER_FILTERS"] { quick = f.split(separator: ",").compactMap { QuickFilter(rawValue: String($0)) } }
             if store.demoEnv["LEDGER_SELECT"] != nil, let L = store.L {
                 selecting = true
@@ -250,6 +261,23 @@ struct JournalView: View {
                 path.append(TxDest(L.txns[id]))
             }
         }
+    }
+
+    /// the sheet of a day picked on the calendar: its transactions as filtered here, and (with no search on) its
+    /// documents
+    private func daySheet(_ day: String, _ L: Ledger) -> some View {
+        let ts = search(L).filter { $0.date == day }
+        let a = account
+        let docs = fullQuery.isEmpty ? L.entries.filter { e in
+            e.type == .document && e.date == day && (a == nil || e.account.map { $0 == a! || $0.hasPrefix(a! + ":") } ?? false)
+        } : []
+        return CalendarDaySheet(L: L, day: day, entries: ts, account: a, documents: docs) { t in
+            afterSheet = TxDest(t)
+            calendarDay = nil
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .presentationContentInteraction(.scrolls)
     }
 
     /// a search handed over from another page (报表 → 查看这 N 笔): it replaces what is on
@@ -333,18 +361,31 @@ struct JournalView: View {
                     }
                 }
             }
+            if showCalendar {
+                Section {
+                    JournalCalendar(L: L, entries: matches, account: account, picked: calendarDay?.day) { d in
+                        calendarDay = CalendarDay(day: d)
+                    }
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
             if filtered {
                 resultCard(matches, sums)
             } else {
+                // everything in the ledger: say so, so the totals are not read as this month's
                 Section {
-                    HStack {
-                        Text(LS("%@ 笔", matches.count)).foregroundStyle(.secondary)
-                        Spacer()
-                        Group {
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack {
+                            Text(matches.last.map { LS("全部时间 · %@ 起", $0.date) } ?? LS("全部时间")).foregroundStyle(.secondary)
+                            Spacer()
+                            Text(LS("%@ 笔", matches.count)).foregroundStyle(.secondary)
+                        }
+                        HStack(spacing: 12) {
                             if sums.0 != 0 { Text(LS("支出 ") + money(sums.0)) }
                             if sums.1 != 0 { Text(LS("收入 ") + money(sums.1)) }
+                            Spacer()
                         }
-                        .font(.footnote.monospacedDigit()).foregroundStyle(.secondary).sensitive()
+                        .monospacedDigit().foregroundStyle(.secondary).sensitive()
                     }
                     .font(.footnote)
                 }
@@ -409,10 +450,20 @@ struct JournalView: View {
     /// 筛选结果: how many, spent and received, over which days; saved as a quick search from here
     private func resultCard(_ matches: [Entry], _ sums: (Double, Double)) -> some View {
         let first = matches.last?.date, last = matches.first?.date
+        let span = TxQuery(fullQuery).dateSpan
+        // the range the totals cover: the search's own dates, or all time (with the days actually found)
+        let range: String = {
+            if let s = span { return s.0 == s.1 ? Day.dayLabel(s.0) : rangeLabel(s.0, s.1) }
+            guard let f = first, let l = last else { return LS("全部时间") }
+            return LS("全部时间（%@）", f == l ? Day.dayLabel(f) : rangeLabel(f, l))
+        }()
         return Section {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text(LS("筛选结果 · %@ 笔", matches.count)).font(.headline)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(LS("筛选结果 · %@ 笔", matches.count)).font(.headline)
+                        Label(range, systemImage: "calendar").font(.caption).foregroundStyle(.secondary)
+                    }
                     Spacer()
                     if account == nil, !fullQuery.isEmpty, !store.quickSearches.contains(where: { $0.query.trimmed == fullQuery }) {
                         Button(LS("保存为常用筛选")) { savingFilter = QuickSearchEdit(index: nil, name: "", query: fullQuery) }
@@ -434,12 +485,19 @@ struct JournalView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .sensitive()
-                if let f = first, let l = last {
-                    Text(f == l ? Day.dayLabel(f) : Day.dayLabel(f) + " — " + Day.dayLabel(l)).font(.caption).foregroundStyle(.secondary)
-                }
             }
             .padding(.vertical, 4)
         }
+    }
+
+    /// "10月1日 — 10月31日", with the years when they are not this one or differ
+    private func rangeLabel(_ a: String, _ b: String) -> String {
+        let years = a.prefix(4) != b.prefix(4) || a.prefix(4) != Day.today().prefix(4)
+        func short(_ d: String) -> String {
+            let m = String(Int(d.dropFirst(5).prefix(2)) ?? 0), day = String(Int(d.suffix(2)) ?? 0)
+            return years ? LS("%@年%@月%@日", String(d.prefix(4)), m, day) : LS("%@月%@日", m, day)
+        }
+        return short(a) + " — " + short(b)
     }
 
     private func totals(_ ts: [Entry], _ L: Ledger) -> (Double, Double) {
@@ -456,11 +514,7 @@ struct JournalView: View {
     }
 
     private func daySection(_ day: String, _ ts: [Entry], _ L: Ledger) -> some View {
-        var out = 0.0
-        for x in ts {
-            let c = classify(x, L)
-            if c.kind == .expense || c.kind == .refund { out -= c.amount }
-        }
+        let (out, inn) = totals(ts, L)
         let year = day.prefix(4) != Day.today().prefix(4) ? " " + day.prefix(4) : ""
         return Section {
             ForEach(ts, id: \.id) { t in
@@ -492,7 +546,7 @@ struct JournalView: View {
             HStack {
                 Text(Day.dayLabel(day) + year)
                 Spacer()
-                if out != 0 { Text(money(out)).monospacedDigit().sensitive() }
+                DayTotalsText(out: out, inn: inn)
             }
         }
     }
@@ -524,6 +578,9 @@ struct TxDetailView: View {
     @State private var confirmDelete = false
     /// opens the subscription and the source editor (pages of the tab's own path)
     @Environment(\.push) private var push
+    /// a category being changed (the picker open)
+    @State private var recategorizing: Recategorize?
+    struct Recategorize: Identifiable { let from: String; var id: String { from } }
 
     /// the postings' categories and accounts, folded away under the summary
     @State private var showPostings = false
@@ -591,6 +648,12 @@ struct TxDetailView: View {
             .sheet(item: $subDraft) { SubEditSheet(draft: $0) }
             .sheet(item: $ordering) { DayOrderSheet(date: $0.date, file: $0.file) }
             .sheet(item: $linkPick) { LinkPickSheet(pick: $0) }
+            .sheet(item: $recategorizing) { r in
+                AccountPicker(title: LS("分类"), prefixes: [r.from.hasPrefix("Income:") ? "Income:" : "Expenses:"], current: r.from) { to in
+                    guard to != r.from else { return }
+                    Task { await store.rewrite([t], label: LS("改分类：%@ → %@", acctLabel(r.from), acctLabel(to))) { accountReplaced(in: $0, from: r.from, to: to) } }
+                }
+            }
             .linkRemovalDialog($linkRemoval, store: store)
             .alert(LS("这笔请编辑源文本"), isPresented: $visualUnavailable) {
                 Button(LS("编辑源文本")) { editSource() }
@@ -653,13 +716,6 @@ struct TxDetailView: View {
                     if t.flag == "!" { Tag(text: LS("待确认"), warn: true) }
                 }
                 .font(.subheadline).foregroundStyle(.secondary)
-                if let a = cat {
-                    Label(acctDisplay(a), systemImage: icon)
-                        .font(.footnote.weight(.medium))
-                        .padding(.horizontal, 12).padding(.vertical, 6)
-                        .foregroundStyle(Color.jade)
-                        .background(Color.jade.opacity(0.12), in: Capsule())
-                }
                 if !t.tags.isEmpty {
                     HStack { ForEach(t.tags, id: \.self) { Tag(text: "#" + $0) } }
                 }
@@ -693,12 +749,22 @@ struct TxDetailView: View {
                     }
                 }
             }
+            // the category, changed here (only in this transaction); its own register from the long press
             ForEach(Array(Set(cats)).sorted(), id: \.self) { a in
-                NavigationLink(value: AccountDest(name: a)) {
-                    LabeledContent(LS("分类"), value: acctDisplay(a))
+                Button { if !t.synthetic { recategorizing = Recategorize(from: a) } } label: {
+                    LabeledContent(LS("分类")) {
+                        HStack(spacing: 6) {
+                            Text(acctDisplay(a)).foregroundStyle(.primary).lineLimit(1)
+                            if !t.synthetic { Image(systemName: "chevron.up.chevron.down").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary) }
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .contextMenu {
+                    Button { push?(AccountDest(name: a)) } label: { Label(LS("查看该分类明细"), systemImage: "list.bullet") }
                 }
             }
-            LabeledContent(LS("日期"), value: t.date)
             if !t.payee.isEmpty && !t.narration.isEmpty { LabeledContent(LS("备注"), value: t.narration) }
         }
     }

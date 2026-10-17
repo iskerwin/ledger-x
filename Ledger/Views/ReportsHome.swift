@@ -77,6 +77,12 @@ struct ReportsInsights: View {
         return (cat, payee)
     }
 
+    /// a card's title: the icon in the theme's colour, the words in the text colour (the same on all three)
+    private func cardTitle(_ text: String, _ icon: String) -> some View {
+        Label { Text(text).foregroundStyle(.primary) } icon: { Image(systemName: icon).foregroundStyle(Color.jade) }
+            .font(.headline)
+    }
+
     private func monthEnd(_ m: String) -> String { Day.shift(Day.addMonth(m, 1) + "-01", -1) }
 
     // MARK: 钱花在哪
@@ -92,7 +98,7 @@ struct ReportsInsights: View {
         let rest = total - top.reduce(0.0) { $0 + $1.value }
         Section {
             VStack(alignment: .leading, spacing: 12) {
-                Label(LS("支出构成"), systemImage: "chart.bar.fill").font(.headline).foregroundStyle(.primary)
+                cardTitle(LS("支出构成"), "chart.bar.fill")
                 VStack(alignment: .leading, spacing: 2) {
                     Text(month == Day.ym(Day.today()) ? LS("本月支出") : LS("%@支出", Day.monthLabel(month))).font(.caption).foregroundStyle(.secondary)
                     Text(money(total, L.base)).font(.system(size: 32, weight: .bold, design: .rounded)).monospacedDigit().sensitive()
@@ -160,7 +166,7 @@ struct ReportsInsights: View {
         let totalNow = now.byCat.values.reduce(0, +), totalBefore = before.byCat.values.reduce(0, +)
         Section {
             VStack(alignment: .leading, spacing: 12) {
-                Label(current ? LS("本月变化") : LS("%@的变化", Day.monthLabel(month)), systemImage: "chart.bar.xaxis").font(.headline)
+                cardTitle(current ? LS("本月变化") : LS("%@的变化", Day.monthLabel(month)), "chart.bar.xaxis")
                 Text(current ? LS("和上月同期（1 日到 %@ 日）比", String(day)) : LS("和%@比", Day.monthLabel(prevMonth)))
                     .font(.caption).foregroundStyle(.secondary)
                 if let up = deltas.first, up.1 > 0.005 {
@@ -222,7 +228,7 @@ struct ReportsInsights: View {
         Section {
             Button { path.append(ForecastDest()) } label: {
                 VStack(alignment: .leading, spacing: 10) {
-                    Label(LS("未来 30 天可用资金"), systemImage: "wallet.bifold").font(.headline).foregroundStyle(.primary)
+                    cardTitle(LS("未来 30 天可用资金"), "wallet.bifold")
                     HStack(alignment: .bottom) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(money(f.end, L.base)).font(.system(size: 30, weight: .bold, design: .rounded)).monospacedDigit().sensitive()
