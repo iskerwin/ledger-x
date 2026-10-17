@@ -278,9 +278,9 @@ struct AccountsView: View {
                 .frame(width: 40, height: 40)
                 .background(color.opacity(0.13), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
-                Text(line).font(.caption.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
-                if let s = sub { Text(s).font(.caption.monospacedDigit()).foregroundStyle(subColor) }
+                Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).lineLimit(1).minimumScaleFactor(0.75)
+                Text(line).font(.caption.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.75)
+                if let s = sub { Text(s).font(.caption.monospacedDigit()).foregroundStyle(subColor).lineLimit(1).minimumScaleFactor(0.7) }
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
