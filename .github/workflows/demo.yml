@@ -19,6 +19,10 @@ jobs:
           repository: iskerwin/ledger-demo
           ref: 4ffdc0337165ea61f031a3a720d9d05edb85f44a
           path: .demo-data
+      - name: Select the same current Xcode as the release workflow
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | grep -E 'Xcode_[0-9.]+\.app$' | sort -V | tail -1)"
+          xcodebuild -version
       - name: Test LedgerKit and demo installation
         env:
           LEDGER_DEMO_PATH: ${{ github.workspace }}/.demo-data
@@ -30,4 +34,4 @@ jobs:
           xcodebuild -project Ledger.xcodeproj -scheme Ledger -configuration Debug \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build-demo CODE_SIGNING_ALLOWED=NO build > demo-build.log 2>&1 \
-            || { tail -100 demo-build.log; exit 1; }
+            || { grep -n "error:" demo-build.log || true; tail -100 demo-build.log; exit 1; }
