@@ -31,7 +31,7 @@ public func isExpression(_ s: String) -> Bool {
 
 // MARK: - the entry form
 
-public struct DraftRow: Equatable, Identifiable {
+public struct DraftRow: Codable, Equatable, Identifiable {
     public var id = UUID()
     public var account = ""
     public var amount = ""
@@ -47,7 +47,7 @@ public struct DraftRow: Equatable, Identifiable {
     public init(account: String = "", currency: String = "CNY") { self.account = account; self.currency = currency }
 }
 
-public enum DraftKind: String, CaseIterable, Identifiable {
+public enum DraftKind: String, Codable, CaseIterable, Identifiable {
     case expense, income, transfer, refund, multi, raw
     public var id: String { rawValue }
     public var label: String {
@@ -73,7 +73,7 @@ public func advanceCategory(_ p: Posting) -> String? {
 }
 
 /// someone's part of an expense you paid (AA): it goes to the personal receivable, `person:` naming them
-public struct Share: Equatable, Identifiable {
+public struct Share: Codable, Equatable, Identifiable {
     public var id = UUID()
     public var person: String
     public var amount: String
@@ -81,7 +81,7 @@ public struct Share: Equatable, Identifiable {
 }
 
 /// 组合付款: another account paying part of an expense (the main paying account pays the rest)
-public struct ExtraFund: Equatable, Identifiable {
+public struct ExtraFund: Codable, Equatable, Identifiable {
     public var id = UUID()
     public var account: String
     public var amount: String
@@ -91,7 +91,7 @@ public struct ExtraFund: Equatable, Identifiable {
 /// where a discount (优惠 / 立减 / 红包抵扣) is recorded unless another income account is picked
 public let defaultDiscountAccount = "Income:Rewards"
 
-public struct RefundOf: Equatable {
+public struct RefundOf: Codable, Equatable {
     public var path: String
     public var line: Int
     public var header: String
@@ -99,7 +99,7 @@ public struct RefundOf: Equatable {
 }
 
 /// the entry being edited: where it is and its text as it stands in the file
-public struct Replacing: Equatable {
+public struct Replacing: Codable, Equatable {
     public var path: String
     public var old: String
     public var date: String
@@ -112,7 +112,7 @@ public struct Replacing: Equatable {
 }
 
 /// `exchange_rate: "1 USD = 7.80000 HKD"` as written, kept while the amounts are `amount` → `toAmount`
-public struct KeptRate: Equatable {
+public struct KeptRate: Codable, Equatable {
     public var text: String
     public var amount: Double
     public var toAmount: Double
@@ -124,13 +124,13 @@ public struct KeptRate: Equatable {
     }
 }
 
-public struct KeptMeta: Equatable {
+public struct KeptMeta: Codable, Equatable {
     public var key: String
     /// as written in Beancount: a string in quotes, anything else as it is
     public var value: String
 }
 
-public struct Draft: Equatable {
+public struct Draft: Codable, Equatable {
     public var kind: DraftKind = .expense
     public var date = Day.today()
     public var payee = ""

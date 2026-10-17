@@ -1,0 +1,6 @@
+option "title" "Interaction tests"
+2026-01-01 open Assets:Bank:CGB CNY
+2026-01-01 open Expenses:Food CNY
+2026-10-17 * "Coffee" "Interaction test"
+  Expenses:Food 12.00 CNY
+  Assets:Bank:CGB

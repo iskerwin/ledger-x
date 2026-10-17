@@ -35,3 +35,12 @@ jobs:
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build-demo CODE_SIGNING_ALLOWED=NO build > demo-build.log 2>&1 \
             || { grep -E "error:" demo-build.log | sort -u | head -20 | while IFS= read -r l; do echo "::error::${l:0:400}"; done; tail -100 demo-build.log; exit 1; }
+      - name: Test editing and draft interactions on iPhone simulator
+        timeout-minutes: 15
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for k,v in d.items() if "iOS" in k for x in v if x["name"].startswith("iPhone")))')
+          xcodebuild test -project Ledger.xcodeproj -scheme LedgerInteractionTests \
+            -destination "platform=iOS Simulator,id=$UDID" -derivedDataPath build-demo \
+            -parallel-testing-enabled NO -resultBundlePath interaction-tests.xcresult \
+            CODE_SIGNING_ALLOWED=NO > interaction-tests.log 2>&1 \
+            || { tail -160 interaction-tests.log; exit 1; }

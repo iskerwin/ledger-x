@@ -118,7 +118,7 @@ func platformCategory(_ payee: String, item: String, _ L: Ledger) -> String? {
 /// What a draft filled in from a screenshot keeps of it, on the draft itself (so it lasts until the entry is
 /// saved, whatever happens to the card in between): what was read, how the card is known, and the paying
 /// account the plan chose for it.
-public struct ScanMemo: Equatable {
+public struct ScanMemo: Codable, Equatable {
     public var fields: ScanFields
     /// the card's last four digits, else the method as written
     public var cardKey: String?

@@ -5,11 +5,11 @@ import Foundation
 // foreign-card details (local price + exchange rate). Then `scanPlan` turns it into a 记一笔 draft using the
 // ledger: the paying account by the card's last four digits, the payee and category as recorded before.
 
-public enum ScanSource: String { case wechat, alipay, unknown }
-public enum ScanKind: Equatable { case payment, refund, transfer, several(Int) }
+public enum ScanSource: String, Codable { case wechat, alipay, unknown }
+public enum ScanKind: Codable, Equatable { case payment, refund, transfer, several(Int) }
 
 /// what a screenshot says about one payment
-public struct ScanFields: Equatable {
+public struct ScanFields: Codable, Equatable {
     public var source = ScanSource.unknown
     public var kind = ScanKind.payment
     /// what was paid, in the bill's currency (always positive)

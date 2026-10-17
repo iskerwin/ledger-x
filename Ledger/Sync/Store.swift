@@ -46,8 +46,27 @@ enum Prefs {
 @MainActor
 final class DraftModel: ObservableObject {
     @Published var draft = Draft() {
-        didSet { if draft.funding != oldValue.funding { fundingChanged?() } }
+        didSet {
+            if draft.funding != oldValue.funding { fundingChanged?() }
+            if !installing { changed?() }
+        }
     }
+    @Published var isSaving = false
+    private(set) var baseline: Draft?
+    private var installing = false
+    var changed: (() -> Void)?
+    var initialized: Bool { baseline != nil }
+    var hasChanges: Bool {
+        guard let baseline = baseline else { return false }
+        return DraftSession(draft: draft, baseline: baseline).shouldKeep
+    }
+    func install(_ session: DraftSession) {
+        installing = true
+        baseline = session.baseline
+        draft = session.draft
+        installing = false
+    }
+    func reset() { baseline = nil; installing = true; draft = Draft(); installing = false }
     /// told when the paying account changes, however it is changed (pickers bind to the draft directly)
     var fundingChanged: (() -> Void)?
 }
@@ -74,6 +93,11 @@ final class Store: ObservableObject {
 
     /// the entry form lives in its own object so typing only redraws the 记一笔 page
     let drafts = DraftModel()
+    var draftWorkspace = DraftWorkspace()
+    var navigationContexts: [String: [String: NavigationPath]] = [:]
+    var ledgerTabs: [String: Tab] = [:]
+    var entryMoves: [String: [String: String]] = [:]
+    @Published var closeAddRequested = false
     var draft: Draft {
         get { drafts.draft }
         set { drafts.draft = newValue }
@@ -188,7 +212,10 @@ final class Store: ObservableObject {
     init() {
         // a card filled in from a screenshot follows the paying account: its rate and amount charged go on
         // when a foreign card is picked, and come off again for an account in the bill's currency
-        defer { drafts.fundingChanged = { [weak self] in self?.scanFundingChanged() } }
+        defer {
+            drafts.fundingChanged = { [weak self] in self?.scanFundingChanged() }
+            drafts.changed = { [weak self] in self?.persistActiveDraft() }
+        }
         var list: [RepoConfig] = Prefs.get("sources", [RepoConfig]())
         if list.isEmpty {
             let old: RepoConfig = Prefs.get("cfg", RepoConfig())
@@ -200,6 +227,7 @@ final class Store: ObservableObject {
         sources = list
         cfg = c
         let id = c.id
+        draftWorkspace = Prefs.get(Store.key("draftWorkspace", id), DraftWorkspace())
         pending = Prefs.get(Store.key("pending", id), [Op]())
         tree = Prefs.get(Store.key("tree", id), RepoTree?.none)
         lastSync = Prefs.get(Store.key("lastSync", id), Date?.none)
@@ -231,6 +259,7 @@ final class Store: ObservableObject {
 
     /// save the connection settings of a ledger and make it the active one
     func saveConfig(_ c: RepoConfig) async {
+        guard !drafts.isSaving else { show(LS("正在保存，请稍后切换账本")); return }
         let same = c.id == cfg.id
         let changedRepo = !same || c.kind != cfg.kind || c.owner != cfg.owner || c.repo != cfg.repo || c.branch != cfg.branch
             || c.server != cfg.server || c.bookmark != cfg.bookmark
@@ -250,7 +279,15 @@ final class Store: ObservableObject {
 
     /// switch to another ledger: its own cached files, queue and settings
     private func switchLedgerState(_ c: RepoConfig) {
+        persistActiveDraft()
+        ledgerTabs[cfg.id] = tab
         cfg = c
+        tab = ledgerTabs[c.id] ?? .overview
+        draftWorkspace = Prefs.get(pk("draftWorkspace"), DraftWorkspace())
+        drafts.reset()
+        closeAddRequested = false
+        journalAccount = nil
+        journalQuery = nil
         Prefs.set("activeSource", c.id)
         L = nil; D = nil; ci = nil; ledgerQueries = []; loadError = nil
         pending = Prefs.get(pk("pending"), [Op]())
@@ -264,20 +301,20 @@ final class Store: ObservableObject {
         receivableAccount = Prefs.get(pk("receivable"), "")
         subsFile = Prefs.get(pk("subsFile"), "")
         tplCache = nil
-        draft = Draft()
         toast = nil
         toastAction = nil
         rebuildGen += 1     // drop a rebuild of the previous ledger still in flight
         building = false
-        popToken += 1
     }
 
     func switchLedger(_ id: String) async {
+        guard !drafts.isSaving else { show(LS("正在保存，请稍后切换账本")); return }
         guard id != cfg.id, let c = sources.first(where: { $0.id == id }) else { return }
         await waitForPush()
         switchLedgerState(c)
         if tree != nil { await rebuild(quietly: true) }
         await refresh()
+        if adding, drafts.initialized { openAdd(full: needsFullForm(draft)) }
     }
 
     func removeLedger(_ id: String) {
@@ -286,7 +323,7 @@ final class Store: ObservableObject {
         persistSources()
         Keychain.save("", account: id == "default" ? "token" : "token." + id)
         // everything kept per ledger on this phone (see pk(_:))
-        for k in ["pending", "tree", "lastSync", "ci", "history", "mainFile", "journalPattern", "receivable", "subsFile",
+        for k in ["pending", "tree", "lastSync", "ci", "history", "draftWorkspace", "pageContexts", "mainFile", "journalPattern", "receivable", "subsFile",
                   "sub.ignored", "link.ignored", "remind.cards", "alerts.dismissed", "alerts.seen", "backup.last", "config.migrated"] {
             UserDefaults.standard.removeObject(forKey: "ledger." + Store.key(k, id))
         }
@@ -317,6 +354,7 @@ final class Store: ObservableObject {
     var demoEnv: [String: String] { demo ? ProcessInfo.processInfo.environment : [:] }
     private func loadDemo(_ dir: String) async {
         demo = true
+        draftWorkspace = DraftWorkspace()
         cfg = RepoConfig(owner: "demo", repo: "ledger", branch: "main", token: "demo")
         let env = ProcessInfo.processInfo.environment
         let base = URL(fileURLWithPath: dir)
@@ -337,7 +375,8 @@ final class Store: ObservableObject {
         D = result.1
         version += 1
         afterLoad()
-        draft = newDraft(.expense, result.1, defaultFunding: nil)
+        let initial = newDraft(.expense, result.1, defaultFunding: nil)
+        drafts.install(DraftSession(draft: initial, baseline: initial))
         if env["LEDGER_REVIEW"] != nil {
             // the pre-commit check: an expense the bank account can't cover, dated before its last assertion
             let before = result.0
@@ -532,7 +571,7 @@ final class Store: ObservableObject {
             version += 1
             afterLoad()
             if !demo { Task { await migrateLocalSettings() } }
-            if draft.funding.isEmpty { draft = newDraft(.expense, r.1, defaultFunding: defaultFunding, defaultCurrency: defaultCurrency) }
+            if !drafts.initialized { restoreCreationDraft() }
         } else {
             loadError = LS("无法读取 %@", main)
         }

@@ -130,6 +130,7 @@ struct ReportsView: View {
         }
         // on the stack itself: the pages it opens inherit what is set here, not what is set on its first page
         .pushes(onto: $path)
+        .ledgerNavigation("reports", path: $path)
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .task {
             guard path.isEmpty, let r = store.demoEnv["LEDGER_REPORT"] else { return }

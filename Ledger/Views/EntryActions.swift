@@ -241,6 +241,7 @@ struct EntrySourceSheet: View {
     @State private var ledgerID: String?
     @State private var busy = false
     @State private var error: String?
+    @State private var closeRequested = false
 
     var body: some View {
         NavigationStack {
@@ -257,7 +258,7 @@ struct EntrySourceSheet: View {
             .navigationTitle(target.editing ? LS("编辑源文本") : LS("查看原文"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button(LS("完成")) { dismiss() }.disabled(busy) }
+                ToolbarItem(placement: .cancellationAction) { Button(LS("完成")) { closeRequested = true }.disabled(busy) }
                 if target.editing {
                     ToolbarItem(placement: .confirmationAction) {
                         Button(LS("保存")) { save() }.disabled(busy || original == nil || text.trimmed.isEmpty || text == original)
@@ -265,17 +266,27 @@ struct EntrySourceSheet: View {
                 }
             }
             .disabled(busy)
-            .interactiveDismissDisabled(busy)
+            .protectUnsavedChanges(dirty: target.editing && original.map { $0 != text } == true,
+                busy: busy, requested: $closeRequested,
+                keep: target.editing ? { keepDraft(); dismiss() } : nil,
+                discard: { if let original = original { store.forgetSourceDraft(file: target.entry.file, original: original) }; dismiss() },
+                close: { dismiss() })
             .task {
                 guard ledgerID == nil else { return }
                 guard target.ledgerID == store.cfg.id else { dismiss(); return }
                 ledgerID = target.ledgerID
                 original = await store.entryText(target.entry)
-                text = original ?? target.entry.src
+                text = original.map { store.sourceDraft(file: target.entry.file, original: $0, fallback: $0) } ?? target.entry.src
                 if original == nil { error = LS("记录或账本已变化，请重新打开后再试") }
             }
+            .onChange(of: text) { _, _ in keepDraft() }
             .onChange(of: store.cfg.id) { _, _ in dismiss() }
         }
+    }
+
+    private func keepDraft() {
+        guard target.editing, let original = original, ledgerID == store.cfg.id else { return }
+        store.rememberSourceDraft(file: target.entry.file, original: original, text: text, label: entryActionName(target.entry))
     }
 
     private func save() {
@@ -303,12 +314,18 @@ struct EntrySourceSheet: View {
                 op.text = text
                 op.label = LS("编辑源文本") + " · " + entryActionName(entry)
                 guard let checked = await store.review([op]), ledgerID == store.cfg.id else { return }
-                if await store.commit(checked, word: LS("已更新"), checked: true) { dismiss() }
+                if await store.commit(checked, word: LS("已更新"), checked: true) {
+                    store.forgetSourceDraft(file: entry.file, original: original)
+                    dismiss()
+                }
                 return
             }
             guard let ops = await store.replaceOps(old: original, path: entry.file, date: entry.date,
                 summary: entryActionName(entry), newText: text, transaction: entry.type == .txn), ledgerID == store.cfg.id else { return }
-            if await store.commit(ops, word: LS("已更新"), checked: true) { dismiss() }
+            if await store.commit(ops, word: LS("已更新"), checked: true) {
+                store.forgetSourceDraft(file: entry.file, original: original)
+                dismiss()
+            }
         }
     }
 }

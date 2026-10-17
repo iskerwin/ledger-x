@@ -37,6 +37,8 @@ struct NoteSheet: View {
     @State private var text = ""
     @State private var busy = false
     @State private var deletion: EntryDeletion?
+    @State private var closeRequested = false
+    @State private var baseline: [String]?
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -67,14 +69,19 @@ struct NoteSheet: View {
             .navigationTitle(note == nil ? LS("添加备注") : LS("编辑备注"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { closeRequested = true } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(LS("保存")) { save() }.disabled(text.trimmed.isEmpty || busy)
                 }
             }
+            .protectUnsavedChanges(dirty: baseline.map { $0 != [date, text] } ?? false,
+                busy: busy, requested: $closeRequested, discard: { dismiss() }, close: { dismiss() })
             .onAppear {
+                guard baseline == nil else { return }
                 if let n = note { date = n.date; text = n.comment ?? "" } else { focused = true }
+                baseline = [date, text]
             }
+            .onChange(of: store.cfg.id) { _, _ in dismiss() }
         }
     }
 

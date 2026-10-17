@@ -46,6 +46,10 @@ struct OverviewView: View {
         }
         // on the stack itself: the pages it opens inherit what is set here, not what is set on its first page
         .pushes(onto: $path)
+        .ledgerNavigation("overview", path: $path)
+        .ledgerControls("overview", value: Binding(get: {
+            var context = BrowseContext(); context.month = month; return context
+        }, set: { month = $0.month }))
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         // 设置 → 账本检查 opens the check here, where every problem can be opened and fixed
         .onChange(of: store.openCheck) { _, open in

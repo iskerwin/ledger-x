@@ -40,6 +40,7 @@ struct AccountsView: View {
         }
         // on the stack itself: the pages it opens inherit what is set here, not what is set on its first page
         .pushes(onto: $path)
+        .ledgerNavigation("accounts", path: $path)
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .task {
             if let x = store.demoEnv["LEDGER_SIDE"] { side = x }
@@ -484,6 +485,10 @@ struct RegisterView: View {
         Group {
             if let L = store.L { page(L) } else { ProgressView() }
         }
+
+        .ledgerControls("register." + account, value: Binding(get: {
+            var context = BrowseContext(); context.opened = opened; return context
+        }, set: { opened = $0.opened }))
         .navigationTitle(acctLabel(account).isEmpty ? account : acctLabel(account))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $checking) { p in CheckSheet(account: account, preset: p) }
@@ -811,6 +816,8 @@ struct CheckSheet: View {
     @State private var currency = "CNY"
     @State private var actual = ""
     @State private var armed = false
+    @State private var closeRequested = false
+    @State private var baseline: [String]?
     @State private var deletion: EntryDeletion?
     @FocusState private var focused: Bool
 
@@ -819,11 +826,14 @@ struct CheckSheet: View {
             Group {
                 if let L = store.L, let D = store.D { form(L, D) } else { ProgressView() }
             }
+            .protectUnsavedChanges(dirty: baseline.map { $0 != [date, currency, actual] } ?? false,
+                requested: $closeRequested, discard: { dismiss() }, close: { dismiss() })
+            .onChange(of: store.cfg.id) { _, _ in dismiss() }
             .entryDeletion($deletion)
             .keyboardDone()
             .navigationTitle(preset.original != nil ? LS("编辑余额断言") : LS("余额核对"))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { closeRequested = true } } }
         }
     }
 
@@ -854,9 +864,11 @@ struct CheckSheet: View {
             }
         }
         .onAppear {
+            guard baseline == nil else { return }
             if let d = preset.date { date = d }
             currency = preset.currency ?? ccys.first ?? "CNY"
             if let x = preset.actual { actual = x }
+            baseline = [date, currency, actual]
             focused = preset.actual == nil
         }
     }
