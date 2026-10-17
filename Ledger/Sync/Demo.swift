@@ -47,11 +47,17 @@ extension Store {
         demoBusy = true
         defer { demoBusy = false }
         do { try await installDemo(reset: true) } catch { show(LS("更新失败，已保留原演示账本：%@", error.localizedDescription)); return }
-        guard isDemo else { return }
-        pending = []
-        savePending()
-        forgetTree()
-        await refresh()
+        if isDemo {
+            pending = []
+            savePending()
+            forgetTree()
+            await refresh()
+        } else {
+            // The user may switch ledgers while the download is running. Clear only the demo's
+            // old queue/cache, so it cannot replay pre-reset edits when opened again.
+            Prefs.set(Store.key("pending", Store.demoID), [Op]())
+            Prefs.set(Store.key("tree", Store.demoID), RepoTree?.none)
+        }
         show(LS("演示账本已重置"))
     }
 
