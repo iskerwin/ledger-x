@@ -46,8 +46,12 @@ private struct LedgerControls: ViewModifier {
     private func restore() {
         ledgerID = store.cfg.id
         guard !store.demo else { return }
-        let all = Prefs.get(Store.key("pageContexts", ledgerID), [String: BrowseContext]())
-        value = all[page] ?? BrowseContext()
+        var all = Prefs.get(Store.key("pageContexts", ledgerID), [String: BrowseContext]())
+        if let saved = all[page] { value = saved }
+        else {
+            all[page] = value
+            Prefs.set(Store.key("pageContexts", ledgerID), all)
+        }
     }
 }
 

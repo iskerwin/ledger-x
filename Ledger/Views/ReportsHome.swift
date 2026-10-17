@@ -27,8 +27,8 @@ struct ReportsInsights: View {
             // screenshots: which question is open
             .onAppear { if let q = store.demoEnv["LEDGER_QUESTION"] { question = q } }
             .ledgerControls("reports.insights", value: Binding(get: {
-                var context = BrowseContext(); context.month = month; return context
-            }, set: { month = $0.month }))
+                var context = BrowseContext(); context.month = month; context.filters = [question]; return context
+            }, set: { month = $0.month; question = $0.filters.first ?? "where" }))
             switch question {
             case "change": changeCard(L)
             case "last": lastCard(L)

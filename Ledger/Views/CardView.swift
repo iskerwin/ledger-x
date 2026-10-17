@@ -280,7 +280,7 @@ struct CardBillSheet: View {
     }
 
     private func save() {
-        guard let t = text else { return }
+        guard !saving, let t = text else { return }
         saving = true
         let label = LS("本期账单：%@ %@", acctLabel(cycle.account), cycle.statement)
         Task {

@@ -315,6 +315,7 @@ struct EntrySourceSheet: View {
                 op.label = LS("编辑源文本") + " · " + entryActionName(entry)
                 guard let checked = await store.review([op]), ledgerID == store.cfg.id else { return }
                 if await store.commit(checked, word: LS("已更新"), checked: true) {
+                    guard ledgerID == store.cfg.id else { return }
                     store.forgetSourceDraft(file: entry.file, original: original)
                     dismiss()
                 }
@@ -323,6 +324,7 @@ struct EntrySourceSheet: View {
             guard let ops = await store.replaceOps(old: original, path: entry.file, date: entry.date,
                 summary: entryActionName(entry), newText: text, transaction: entry.type == .txn), ledgerID == store.cfg.id else { return }
             if await store.commit(ops, word: LS("已更新"), checked: true) {
+                guard ledgerID == store.cfg.id else { return }
                 store.forgetSourceDraft(file: entry.file, original: original)
                 dismiss()
             }

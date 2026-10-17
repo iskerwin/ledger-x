@@ -972,6 +972,7 @@ struct EditTxView: View {
         // a new date moves it to the end of that day (in that year's file)
         guard let ops = await store.replaceOps(old: old, path: path, date: date, summary: summary, newText: alignText(text)) else { return }
         if await store.commit(ops, word: LS("已更新"), checked: true) {
+            guard ledgerID == store.cfg.id else { return }
             store.forgetSourceDraft(file: path, original: old)
             dismiss()
         }

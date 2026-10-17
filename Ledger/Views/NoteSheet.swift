@@ -86,6 +86,7 @@ struct NoteSheet: View {
     }
 
     private func save() {
+        guard !busy else { return }
         busy = true
         Task {
             let ok: Bool

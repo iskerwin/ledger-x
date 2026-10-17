@@ -38,6 +38,18 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(app.buttons["保留草稿并关闭"].waitForExistence(timeout: 5))
     }
 
+    func testSwipeToDismissOffersTheSameUnsavedChangesChoices() {
+        let app = launch()
+        XCTAssertTrue(app.buttons["关闭"].waitForExistence(timeout: 20))
+        let bar = app.navigationBars.firstMatch
+        let start = bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9))
+        start.press(forDuration: 0.15, thenDragTo: end)
+        XCTAssertTrue(app.buttons["继续编辑"].waitForExistence(timeout: 5))
+        app.buttons["继续编辑"].tap()
+        XCTAssertTrue(app.buttons["关闭"].exists)
+    }
+
     func testUntouchedFormClosesWithoutPrompt() {
         let app = launch(filled: false)
         let close = app.buttons["关闭"]

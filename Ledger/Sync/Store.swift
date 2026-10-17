@@ -604,17 +604,23 @@ final class Store: ObservableObject {
     /// build the ledger with `ops` applied and ask the user about anything the change would break.
     /// Returns the ops to commit (marked `held` when kept on this device), or nil to go back and edit.
     func review(_ ops: [Op]) async -> [Op]? {
+        let ledgerID = cfg.id
         // held changes that pass together with this one go out with it, in the same commit
         let heldGroups = Set(pending.compactMap { $0.held != nil ? $0.heldGroup : nil })
         if !heldGroups.isEmpty, await issues(for: pending.filter { $0.held != nil } + ops).isEmpty {
+            guard cfg.id == ledgerID else { return nil }
             var out = ops
             if !out.isEmpty { out[0].releases = Array(heldGroups) }
             return out
         }
+        guard cfg.id == ledgerID else { return nil }
         let issues = await issues(for: ops)
+        guard cfg.id == ledgerID else { return nil }
         if issues.isEmpty { return ops }
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
-        switch await ChangeReview.ask(issues) {
+        let choice = await ChangeReview.ask(issues)
+        guard cfg.id == ledgerID else { return nil }
+        switch choice {
         case .edit: return nil
         case .force: return ops
         case .hold:
