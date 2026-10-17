@@ -100,6 +100,7 @@ struct CardHeroSection: View {
             .padding(16)
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .cardRow()
+            .entryActions(c.bill, edit: { billing = true })
             .sheet(isPresented: $billing) { CardBillSheet(cycle: c) }
             .sheet(isPresented: $documents) { AccountDocumentsSheet(account: c.account) }
             .task { if store.demoEnv["LEDGER_DOCUMENTS"] != nil { try? await Task.sleep(nanoseconds: 700_000_000); documents = true } }
@@ -165,6 +166,7 @@ struct CardLimitSection: View {
 /// cards with a bill due soon (or overdue), for the overview
 struct CardDueSection: View {
     @EnvironmentObject var store: Store
+    @State private var editingBill: CardCycle?
     let L: Ledger
 
     var body: some View {
@@ -189,8 +191,10 @@ struct CardDueSection: View {
                         }
                         Button(LS("还款")) { store.repaying = c }.buttonStyle(.borderedProminent).controlSize(.small)
                     }
+                    .entryActions(c.bill, edit: { editingBill = c })
                 }
             }
+            .sheet(item: $editingBill) { CardBillSheet(cycle: $0) }
         }
     }
 }
@@ -212,7 +216,7 @@ struct CardBillSheet: View {
     let cycle: CardCycle
     @State private var amount = ""
     @State private var minimum = ""
-    @State private var confirmDelete = false
+    @State private var deletion: EntryDeletion?
     @State private var saving = false
 
     private var text: String? {
@@ -242,7 +246,9 @@ struct CardBillSheet: View {
                 }
                 if cycle.bill != nil {
                     Section {
-                        Button(LS("删除这期账单记录"), role: .destructive) { confirmDelete = true }
+                        Button(LS("删除这期账单记录"), role: .destructive) {
+                            if let entry = cycle.bill { deletion = EntryDeletion(entry, ledgerID: store.cfg.id, onDeleted: { dismiss() }) }
+                        }
                     } footer: {
                         Text(LS("删除后按账本算出的金额估算。"))
                     }
@@ -257,12 +263,8 @@ struct CardBillSheet: View {
                     Button(LS("保存")) { save() }.fontWeight(.semibold).disabled(text == nil || saving)
                 }
             }
-            .confirmationDialog(LS("删除 %@ 的账单记录？", cycle.statement), isPresented: $confirmDelete, titleVisibility: .visible) {
-                Button(LS("删除"), role: .destructive) {
-                    guard let e = cycle.bill else { return }
-                    Task { if await store.deleteDirective(e, summary: LS("删除账单：%@ %@", acctLabel(cycle.account), cycle.statement)) { dismiss() } }
-                }
-            }
+            .entryDeletion($deletion)
+            .disabled(saving)
             .onAppear {
                 amount = jsNumberString(cycle.statementAmount)
                 minimum = cycle.minimumEstimated ? "" : jsNumberString(cycle.minimum)

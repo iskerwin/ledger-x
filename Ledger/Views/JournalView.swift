@@ -139,8 +139,6 @@ struct JournalView: View {
     @State private var limit = 150
     @State private var selecting = false
     @State private var selected: Set<String> = []
-    /// swiped to delete, waiting for the confirmation
-    @State private var deleting: Entry?
     @State private var batch: BatchMode?
     /// the month calendar opened above the list (remembered on this device)
     @AppStorage("ledger.journal.calendar") private var showCalendar = false
@@ -218,13 +216,6 @@ struct JournalView: View {
             }
             .sheet(item: $batch) { m in
                 BatchEditSheet(entries: selectedEntries, mode: m) { selecting = false; selected = [] }
-            }
-            .confirmationDialog(deleting.map { LS("删除 %@ %@？", $0.date, [$0.payee, $0.narration].filter { !$0.isEmpty }.joined(separator: " ")) } ?? "",
-                                isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
-                                titleVisibility: .visible, presenting: deleting) { t in
-                Button(LS("删除"), role: .destructive) { Task { await store.deleteEntry(t) } }
-            } message: { _ in
-                Text(LS("删除后可在「最近改动」里撤回。"))
             }
             .searchable(text: $q, placement: .navigationBarDrawer(displayMode: .always), prompt: LS("收付款方、摘要、科目、对方、#标签、金额、2026-09"))
             .searchSuggestions { if q.isEmpty { searchHelp } }
@@ -536,11 +527,7 @@ struct JournalView: View {
                     .disabled(t.synthetic)
                 } else {
                     NavigationLink(value: TxDest(t)) { TxRow(t: t, account: account) }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            if !t.synthetic {
-                                Button(role: .destructive) { deleting = t } label: { Label(LS("删除"), systemImage: "trash") }
-                            }
-                        }
+                        .entryActions(t)
                 }
             }
         } header: {
@@ -576,7 +563,7 @@ struct TxDetailView: View {
     @State private var nextSub: SubDraft?
     @State private var linkPick: LinkPick?
     @State private var linkRemoval: LinkPick?
-    @State private var confirmDelete = false
+    @State private var deletion: EntryDeletion?
     /// opens the subscription and the source editor (pages of the tab's own path)
     @Environment(\.push) private var push
     /// a category being changed (the picker open)
@@ -636,12 +623,7 @@ struct TxDetailView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) { moreMenu(t, L) }
             }
-            .confirmationDialog(LS("删除 %@ %@？", t.date, [t.payee, t.narration].filter { !$0.isEmpty }.joined(separator: " ")),
-                                isPresented: $confirmDelete, titleVisibility: .visible) {
-                Button(LS("删除"), role: .destructive) { Task { await store.deleteEntry(t) } }
-            } message: {
-                Text(LS("删除后可在「最近改动」里撤回。"))
-            }
+            .entryDeletion($deletion)
             .navigationTitle(LS("交易详情"))
             .navigationBarTitleDisplayMode(.inline)
             // screenshots: 编辑源文本 through `push`, as the ⋯ menu does
@@ -827,7 +809,7 @@ struct TxDetailView: View {
             if let u = store.githubURL(t.file, line: t.line) { Link(destination: u) { Label(LS("在网页中打开"), systemImage: "arrow.up.right.square") } }
             if !t.synthetic {
                 Divider()
-                Button(role: .destructive) { confirmDelete = true } label: { Label(LS("删除交易"), systemImage: "trash") }
+                Button(role: .destructive) { deletion = EntryDeletion(t, ledgerID: store.cfg.id) } label: { Label(LS("删除交易"), systemImage: "trash") }
             }
         } label: {
             Image(systemName: "ellipsis")
@@ -895,7 +877,7 @@ struct EditTxView: View {
     @State private var path = ""
     @State private var summary = ""
     @State private var date = ""
-    @State private var confirmDelete = false
+    @State private var deletion: EntryDeletion?
 
     var body: some View {
         Form {
@@ -917,7 +899,9 @@ struct EditTxView: View {
                         .listRowBackground(Color.clear).listRowInsets(EdgeInsets())
                 }
                 Section {
-                    Button(LS("删除交易"), role: .destructive) { confirmDelete = true }
+                    Button(LS("删除交易"), role: .destructive) {
+                        if let entry = store.txn(dest.id, key: dest.key) { deletion = EntryDeletion(entry, ledgerID: store.cfg.id) }
+                    }
                 }
             } else {
                 ProgressView()
@@ -926,9 +910,7 @@ struct EditTxView: View {
         .keyboardDone()
         .navigationTitle(LS("编辑交易"))
         .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog(LS("删除 %@ %@？", date, summary), isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button(LS("删除"), role: .destructive) { Task { await delete() } }
-        }
+        .entryDeletion($deletion)
         .task { await load() }
     }
 
@@ -954,10 +936,7 @@ struct EditTxView: View {
         await store.commit(ops, word: LS("已更新"), checked: true)
     }
 
-    private func delete() async {
-        guard let old = old else { return }
-        await store.deleteEntry(path: path, old: old, date: date, summary: summary)
-    }
+
 }
 
 
