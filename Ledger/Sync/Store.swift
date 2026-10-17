@@ -453,7 +453,7 @@ final class Store: ObservableObject {
             lastSync = Date()
             Prefs.set(pk("lastSync"), lastSync)
             ci = await backend.check()
-        } catch { fail(error) }
+        } catch { fail(error); Haptics.error() }
     }
 
     // MARK: - files
@@ -673,6 +673,7 @@ final class Store: ObservableObject {
         if held {
             show(LS("已暂存在本机，未推送"))
             await rebuild()
+            Haptics.selection()
             return true
         }
         var shown = subNames.isEmpty ? word : word + LS(" · 已关联到 %@", subNames.first ?? "")
@@ -680,8 +681,7 @@ final class Store: ObservableObject {
         if let undo = undo { show(shown, action: LS("撤销"), undo) }
         else if let r = record { show(shown, action: LS("撤销")) { [weak self] in _ = await self?.revert(r.id) } }
         else { show(shown) }
-        let gen = UIImpactFeedbackGenerator(style: .light)
-        gen.impactOccurred()
+        Haptics.success()
         let shownID = toast?.id
         await rebuild()
         // the balances of the accounts the change touched, to compare with the bank app at a glance
@@ -813,18 +813,11 @@ final class Store: ObservableObject {
         }
     }
 
-    /// an op removing one balance assertion line (found in the file as it is now, pending ops applied)
+    /// Remove one complete assertion, including metadata, from the current pending file text.
     func balanceRemoveOp(_ e: Entry) async -> Op? {
-        guard let account = e.account, let text = try? await fileText(e.file) else { return nil }
-        let prefix = "\(e.date) balance \(account)"
-        let ccy = e.currency ?? ""
-        guard let line = text.components(separatedBy: "\n").first(where: { l in
-            guard l.hasPrefix(prefix), l.dropFirst(prefix.count).first?.isWhitespace == true else { return false }
-            let toks = l.split(whereSeparator: { $0.isWhitespace }).map(String.init)
-            return ccy.isEmpty || toks.contains(ccy)
-        }) else { return nil }
+        guard let account = e.account, let old = await entryText(e) else { return nil }
         var op = Op(kind: .remove, path: e.file)
-        op.line = line
+        op.old = old
         op.date = e.date
         op.account = account
         op.currency = e.currency

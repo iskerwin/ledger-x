@@ -2035,5 +2035,19 @@
  "查看 / 添加对账单": "View / add statements",
  "领取备用金": "Receive petty cash",
  "公司 / 发放方": "Company / payer",
- "领取时增加收款账户余额，同时记为负的报销应收；垫付时选择这笔备用金即可冲抵。": "The money increases the receiving account and creates a negative reimbursement receivable. Select this advance when recording reimbursable spending."
+ "领取时增加收款账户余额，同时记为负的报销应收；垫付时选择这笔备用金即可冲抵。": "The money increases the receiving account and creates a negative reimbursement receivable. Select this advance when recording reimbursable spending.",
+ "记录": "Record",
+ "账单": "Bill",
+ "复制账户名称": "Copy account name",
+ "相关操作": "Related actions",
+ "查看账户": "View account",
+ "查看原文": "View source",
+ "记录或账本已变化，请重新打开后再试": "The entry or ledger has changed. Reopen it and try again.",
+ "请保留一条同类型记录，并检查源文本格式": "Keep exactly one entry of the same type and check the source syntax.",
+ "将删除整笔交易及其所有账户分录。删除后可在「最近改动」里撤回。": "This deletes the whole transaction, including postings in every account. Undo it in Recent changes.",
+ "仅移除这一条余额断言，不删除交易。删除后可在「最近改动」里撤回。": "Only this balance assertion is removed. Transactions are kept. Undo it in Recent changes.",
+ "仅移除账本中的票据引用，保留实际附件文件。删除后可在「最近改动」里撤回。": "Only the document reference is removed. The attachment file is kept. Undo it in Recent changes.",
+ "删除后恢复按账本估算账单；消费和还款记录保持不变。删除后可在「最近改动」里撤回。": "The bill returns to the ledger estimate. Spending and repayments are kept. Undo it in Recent changes.",
+ "仅删除这一条记录。删除后可在「最近改动」里撤回。": "Only this entry is deleted. Undo it in Recent changes.",
+ "复制金额": "Copy amount"
 }

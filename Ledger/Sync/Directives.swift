@@ -22,14 +22,14 @@ extension Store {
 
     /// a note (or an event directive) rewritten in place, or moved when its date changes
     func replaceDirective(_ e: Entry, with text: String, summary: String, word: String) async -> Bool {
-        guard let old = await entryText(e) else { show(LS("这一条所在的文件已经变了，请刷新后再试")); return false }
+        guard let old = await entryText(e) else { Haptics.error(); show(LS("这一条所在的文件已经变了，请刷新后再试")); return false }
         guard let ops = await replaceOps(old: old, path: e.file, date: e.date, summary: summary, newText: text, transaction: false) else { return false }
         return await commit(ops, word: word, checked: true)
     }
 
-    func deleteDirective(_ e: Entry, summary: String) async -> Bool {
-        guard let old = await entryText(e) else { show(LS("这一条所在的文件已经变了，请刷新后再试")); return false }
-        return await deleteEntry(path: e.file, old: old, date: e.date, summary: summary)
+    func deleteDirective(_ e: Entry, summary: String, pop: Bool = true) async -> Bool {
+        guard let old = await entryText(e) else { Haptics.error(); show(LS("这一条所在的文件已经变了，请刷新后再试")); return false }
+        return await deleteEntry(path: e.file, old: old, date: e.date, summary: summary, pop: pop)
     }
 
     /// a card's bill as the bank states it (card-bill); true when committed

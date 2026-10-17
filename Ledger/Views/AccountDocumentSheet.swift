@@ -117,7 +117,8 @@ struct AccountDocumentsSheet: View {
                             Text(((doc.path ?? "") as NSString).lastPathComponent).lineLimit(2)
                             Text(doc.date).font(.caption).foregroundStyle(.secondary)
                         }
-                    }.disabled(documentRepoPath(doc) == nil)
+                    }
+                    .entryActions(doc)
                 }
             }
             .navigationTitle(LS("票据与对账单"))

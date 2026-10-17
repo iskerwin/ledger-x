@@ -36,6 +36,7 @@ struct NoteSheet: View {
     @State private var date = Day.today()
     @State private var text = ""
     @State private var busy = false
+    @State private var deletion: EntryDeletion?
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -53,17 +54,15 @@ struct NoteSheet: View {
                 if let n = note {
                     Section {
                         Button(role: .destructive) {
-                            busy = true
-                            Task {
-                                if await store.deleteDirective(n, summary: LS("备注")) { dismiss() }
-                                busy = false
-                            }
+                            deletion = EntryDeletion(n, ledgerID: store.cfg.id, onDeleted: { dismiss() })
                         } label: {
                             HStack(spacing: 6) { Spacer(minLength: 0); Image(systemName: "trash"); Text(LS("删除备注")); Spacer(minLength: 0) }
                         }
                     }
                 }
             }
+            .disabled(busy)
+            .entryDeletion($deletion)
             .keyboardDone()
             .navigationTitle(note == nil ? LS("添加备注") : LS("编辑备注"))
             .navigationBarTitleDisplayMode(.inline)

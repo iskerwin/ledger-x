@@ -62,20 +62,21 @@ extension Store {
     /// open an entry of the ledger in the 记一笔 form; false when the form can't hold all of it (edit its source)
     /// the entry's text as it is in its file now (pending edits applied); nil when the file changed under it
     func entryText(_ t: Entry) async -> String? {
+        let ledgerID = cfg.id
         guard let file = try? await fileText(t.file) else { return nil }
-        let lines = file.components(separatedBy: "\n")
-        guard t.startLine >= 0, t.startLine <= t.endLine, t.endLine < lines.count else { return nil }
-        return lines[t.startLine...t.endLine].joined(separator: "\n")
+        guard cfg.id == ledgerID else { return nil }
+        return EntryLocator(t).text(in: file)
     }
 
     /// delete one entry (with the links paired with it), after the change review; true when committed
     @discardableResult
-    func deleteEntry(path: String, old: String, date: String, summary: String) async -> Bool {
+    func deleteEntry(path: String, old: String, date: String, summary: String, pop: Bool = true) async -> Bool {
+        let ledgerID = cfg.id
         var rm = Op(kind: .remove, path: path)
         rm.old = old
         rm.label = LS("删除：%@ %@", date, summary)
-        guard let ops = await review([rm] + pairedLinkOps(oldText: old, newText: nil)) else { return false }
-        popToken += 1
+        guard let ops = await review([rm] + pairedLinkOps(oldText: old, newText: nil)), cfg.id == ledgerID else { return false }
+        if pop { popToken += 1 }
         return await commit(ops, word: LS("已删除"), checked: true)
     }
 
@@ -111,6 +112,7 @@ extension Store {
     /// the end of its new day; links paired with it follow
     /// (`transaction`: the text must be one transaction; false for another directive, a note say)
     func replaceOps(old: String, path: String, date: String, summary: String, newText: String, transaction: Bool = true) async -> [Op]? {
+        let ledgerID = cfg.id
         var rm = Op(kind: .remove, path: path)
         rm.old = old
         rm.label = LS("修改：%@ %@", date, summary)
@@ -130,7 +132,8 @@ extension Store {
             // moved to another day: the page showing it follows it there
             ins[i].moves = old
         }
-        return await review(first + ins + pairedLinkOps(oldText: old, newText: newText))
+        let checked = await review(first + ins + pairedLinkOps(oldText: old, newText: newText))
+        return cfg.id == ledgerID ? checked : nil
     }
 
     func needsFullForm(_ d: Draft) -> Bool {

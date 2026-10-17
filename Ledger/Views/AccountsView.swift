@@ -474,7 +474,6 @@ struct RegisterView: View {
     /// months opened or closed by hand (the rest follow `open`)
     @State private var opened: [String: Bool] = [:]
     @State private var reimb: ReimbTarget?
-    @State private var deleting: Entry?
     @State private var noting: NoteEdit?
     @State private var viewing: DocItem?
     @State private var addingDocument = false
@@ -514,14 +513,6 @@ struct RegisterView: View {
             }
         }
         .sheet(item: $reimb) { ReimbSheet(target: $0) }
-        .confirmationDialog(deleting.map { LS("删除 %@ 的余额断言？", $0.date) } ?? "", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
-            Button(LS("删除"), role: .destructive) {
-                if let e = deleting { Task { await store.deleteBalance(e) } }
-                deleting = nil
-            }
-        } message: {
-            Text(LS("将从账本文件中移除这一行断言。"))
-        }
         .task {
             if store.demoEnv["LEDGER_CHECK"] != nil { checking = CheckPreset(actual: store.demoEnv["LEDGER_CHECK"]) }
             if store.demoEnv["LEDGER_ADD_DOCUMENT"] != nil { addingDocument = true }
@@ -713,39 +704,19 @@ struct RegisterView: View {
         switch it {
         case .txn(let t, let b):
             NavigationLink(value: TxDest(t)) { TxRow(t: t, account: account, balance: b, showDate: true) }
+                .entryActions(t)
         case .balance(let r):
             let own = r.entry.account == account && check
             BalanceRow(r: r) {
                 if own { checking = CheckPreset(date: r.entry.date, currency: r.entry.currency, actual: jsNumberString(r.entry.number), original: r.entry) }
             }
-            .swipeActions(edge: .trailing) {
-                if r.entry.account == account {
-                    Button(role: .destructive) { deleting = r.entry } label: { Label(LS("删除"), systemImage: "trash") }
-                    if own {
-                        Button { checking = CheckPreset(date: r.entry.date, currency: r.entry.currency, actual: jsNumberString(r.entry.number), original: r.entry) } label: { Label(LS("编辑"), systemImage: "pencil") }
-                            .tint(.orange)
-                    }
-                }
-            }
-            .contextMenu {
-                if r.entry.account == account {
-                    if own {
-                        Button { checking = CheckPreset(date: r.entry.date, currency: r.entry.currency, actual: jsNumberString(r.entry.number), original: r.entry) } label: { Label(LS("编辑断言"), systemImage: "pencil") }
-                    }
-                    Button(role: .destructive) { deleting = r.entry } label: { Label(LS("删除断言"), systemImage: "trash") }
-                }
-            }
+            .entryActions(r.entry, edit: own ? {
+                checking = CheckPreset(date: r.entry.date, currency: r.entry.currency, actual: jsNumberString(r.entry.number), original: r.entry)
+            } : nil)
         case .note(let n):
             Button { noting = NoteEdit(note: n) } label: { NoteRow(note: n, account: account) }
                 .buttonStyle(.plain)
-                .swipeActions(edge: .trailing) {
-                    Button(role: .destructive) { Task { _ = await store.deleteDirective(n, summary: LS("备注")) } } label: { Label(LS("删除"), systemImage: "trash") }
-                    Button { noting = NoteEdit(note: n) } label: { Label(LS("编辑"), systemImage: "pencil") }.tint(.orange)
-                }
-                .contextMenu {
-                    Button { noting = NoteEdit(note: n) } label: { Label(LS("编辑备注"), systemImage: "pencil") }
-                    Button(role: .destructive) { Task { _ = await store.deleteDirective(n, summary: LS("备注")) } } label: { Label(LS("删除备注"), systemImage: "trash") }
-                }
+                .entryActions(n, edit: { noting = NoteEdit(note: n) })
         case .document(let d):
             Button {
                 if let path = documentRepoPath(d) { viewing = DocItem(path: path) }
@@ -762,7 +733,7 @@ struct RegisterView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .disabled(documentRepoPath(d) == nil)
+            .entryActions(d)
         }
     }
 
@@ -840,6 +811,7 @@ struct CheckSheet: View {
     @State private var currency = "CNY"
     @State private var actual = ""
     @State private var armed = false
+    @State private var deletion: EntryDeletion?
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -847,6 +819,7 @@ struct CheckSheet: View {
             Group {
                 if let L = store.L, let D = store.D { form(L, D) } else { ProgressView() }
             }
+            .entryDeletion($deletion)
             .keyboardDone()
             .navigationTitle(preset.original != nil ? LS("编辑余额断言") : LS("余额核对"))
             .navigationBarTitleDisplayMode(.inline)
@@ -871,8 +844,7 @@ struct CheckSheet: View {
             if let o = preset.original {
                 Section {
                     Button(role: .destructive) {
-                        dismiss()
-                        Task { await store.deleteBalance(o) }
+                        deletion = EntryDeletion(o, ledgerID: store.cfg.id, onDeleted: { dismiss() })
                     } label: {
                         HStack(spacing: 6) { Spacer(minLength: 0); Image(systemName: "trash"); Text(LS("删除此断言")); Spacer(minLength: 0) }
                     }
