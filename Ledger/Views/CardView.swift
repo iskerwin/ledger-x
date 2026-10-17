@@ -24,6 +24,7 @@ struct CardHeroSection: View {
     @EnvironmentObject var store: Store
     let cycle: CardCycle
     @State private var billing = false
+    @State private var documents = false
 
     var body: some View {
         let today = Day.today()
@@ -79,6 +80,10 @@ struct CardHeroSection: View {
                     Label(LS("还款日已过，最低还款还差 %@。", money(c.minimumRemaining, c.currency)), systemImage: "exclamationmark.triangle")
                         .font(.footnote).foregroundStyle(Color.loss).sensitive()
                 }
+                Button { documents = true } label: {
+                    Label(LS("查看 / 添加对账单"), systemImage: "doc.text.magnifyingglass")
+                }
+                .buttonStyle(.borderless)
                 HStack(spacing: 10) {
                     Button { billing = true } label: {
                         Text(c.bill == nil ? LS("填写本期账单") : LS("修改本期账单")).font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6)
@@ -96,6 +101,8 @@ struct CardHeroSection: View {
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .cardRow()
             .sheet(isPresented: $billing) { CardBillSheet(cycle: c) }
+            .sheet(isPresented: $documents) { AccountDocumentsSheet(account: c.account) }
+            .task { if store.demoEnv["LEDGER_DOCUMENTS"] != nil { try? await Task.sleep(nanoseconds: 700_000_000); documents = true } }
             .task { if store.demoEnv["LEDGER_CARD_BILL"] != nil { try? await Task.sleep(nanoseconds: 700_000_000); billing = true } }
             reminderBanner(c)
         } footer: {

@@ -476,6 +476,8 @@ struct RegisterView: View {
     @State private var reimb: ReimbTarget?
     @State private var deleting: Entry?
     @State private var noting: NoteEdit?
+    @State private var viewing: DocItem?
+    @State private var addingDocument = false
 
     enum Item { case txn(Entry, String), balance(BalanceResult), document(Entry), note(Entry) }
 
@@ -487,9 +489,12 @@ struct RegisterView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $checking) { p in CheckSheet(account: account, preset: p) }
         .sheet(item: $noting) { NoteSheet(account: account, note: $0.note) }
+        .sheet(item: $viewing) { DocumentViewer(path: $0.path) }
+        .sheet(isPresented: $addingDocument) { AccountDocumentSheet(account: account) }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    Button { addingDocument = true } label: { Label(LS("添加票据 / 对账单"), systemImage: "doc.badge.plus") }
                     Button { noting = NoteEdit(note: nil) } label: { Label(LS("添加备注"), systemImage: "text.bubble") }
                     if let L = store.L, cardCycles(L).contains(where: { $0.account == account }) {
                         Button { store.journalAccount = account; store.tab = .journal } label: { Label(LS("查看明细"), systemImage: "list.bullet") }
@@ -519,6 +524,7 @@ struct RegisterView: View {
         }
         .task {
             if store.demoEnv["LEDGER_CHECK"] != nil { checking = CheckPreset(actual: store.demoEnv["LEDGER_CHECK"]) }
+            if store.demoEnv["LEDGER_ADD_DOCUMENT"] != nil { addingDocument = true }
         }
     }
 
@@ -741,22 +747,23 @@ struct RegisterView: View {
                     Button(role: .destructive) { Task { _ = await store.deleteDirective(n, summary: LS("备注")) } } label: { Label(LS("删除备注"), systemImage: "trash") }
                 }
         case .document(let d):
-            HStack {
-                Image(systemName: "doc.text")
-                Text(d.date + LS(" 对账单"))
-                Spacer()
-                if let p = d.path, let u = docURL(d) {
-                    Link((p as NSString).lastPathComponent, destination: u).font(.caption)
-                } else {
-                    Text(((d.path ?? "") as NSString).lastPathComponent).font(.caption).foregroundStyle(.secondary)
+            Button {
+                if let path = documentRepoPath(d) { viewing = DocItem(path: path) }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "doc.text").foregroundStyle(Color.jade)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(d.date + LS(" 对账单"))
+                        Text(((d.path ?? "") as NSString).lastPathComponent).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
                 }
+                .contentShape(Rectangle())
             }
-            .font(.subheadline)
+            .buttonStyle(.plain)
+            .disabled(documentRepoPath(d) == nil)
         }
-    }
-
-    private func docURL(_ d: Entry) -> URL? {
-        documentRepoPath(d).flatMap { store.githubURL($0) }
     }
 
     private func build(_ L: Ledger) -> ([Item], [(String, Double)]) {

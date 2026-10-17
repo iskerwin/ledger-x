@@ -31,6 +31,7 @@ struct CounterpartyView: View {
     @State private var loan: LoanTarget?
     @State private var settle: SettleTarget?
     @State private var showSettled = false
+    @State private var pettyCash = false
 
     var body: some View {
         List {
@@ -47,12 +48,16 @@ struct CounterpartyView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button { loan = LoanTarget(name: nil, kind: .lend) } label: { Image(systemName: "person.badge.plus") }
-                    .accessibilityLabel(LS("新的往来"))
+                Menu {
+                    Button { loan = LoanTarget(name: nil, kind: .lend) } label: { Label(LS("新的往来"), systemImage: "person.badge.plus") }
+                    Button { pettyCash = true } label: { Label(LS("领取备用金"), systemImage: "banknote") }
+                } label: { Image(systemName: "plus") }
+                .accessibilityLabel(LS("新的往来"))
             }
         }
         .navigationDestination(for: PersonDest.self) { PersonView(name: $0.name).privacyToolbar() }
         .sheet(item: $loan) { LoanSheet(target: $0) }
+        .sheet(isPresented: $pettyCash) { PettyCashSheet() }
         .sheet(item: $settle) { SettleSheet(target: $0) }
     }
 

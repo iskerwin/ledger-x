@@ -65,6 +65,7 @@ struct QuickAddView: View {
     @State private var managingCats = false
     @State private var managingTemplates = false
     @State private var importing = false
+    @State private var pettyCash = false
     @State private var saving = false
     /// editing an entry: 删除这笔交易 asked, waiting for the confirmation
     @State private var confirmDelete = false
@@ -94,6 +95,7 @@ struct QuickAddView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .task { if store.demoEnv["LEDGER_IMPORT"] != nil { importing = true } }
+        .task { if store.demoEnv["LEDGER_PETTY_CASH"] != nil { try? await Task.sleep(nanoseconds: 700_000_000); pettyCash = true } }
         .task { if store.demoEnv["LEDGER_CATS"] != nil { managingCats = true } }
         .task { if store.demoEnv["LEDGER_COMBO_SHEET"] != nil { try? await Task.sleep(nanoseconds: 600_000_000); splittingPay = true } }
         .task { if store.demoEnv["LEDGER_NOTE"] != nil { try? await Task.sleep(nanoseconds: 900_000_000); startWriting(.narration) } }
@@ -190,6 +192,7 @@ struct QuickAddView: View {
         .sheet(isPresented: $rating) { RateSheet(L: L, D: D) }
         .sheet(isPresented: $marking) { MarkSheet(L: L).presentationDetents([.medium, .large]) }
         .sheet(isPresented: $importing) { ImportView() }
+        .sheet(isPresented: $pettyCash) { PettyCashSheet() }
         .confirmationDialog(store.draft.replacing.map { LS("删除 %@ %@？", $0.date, $0.summary) } ?? "",
                             isPresented: $confirmDelete, titleVisibility: .visible) {
             Button(LS("删除"), role: .destructive) {
@@ -276,6 +279,7 @@ struct QuickAddView: View {
             }
             if store.draft.replacing == nil {
                 Divider()
+                Button { pettyCash = true } label: { Label(LS("领取备用金"), systemImage: "banknote") }
                 Button { importing = true } label: { Label(LS("导入账单"), systemImage: "square.and.arrow.down.on.square") }
             }
             Divider()
