@@ -63,6 +63,7 @@ final class Store: ObservableObject {
     @Published var pending: [Op]
     @Published var syncState: SyncState = .idle
     @Published var syncError = ""
+    @Published var demoBusy = false
     @Published var lastSync: Date?
     @Published var ci: GitHub.CI?
     @Published private(set) var tree: RepoTree?

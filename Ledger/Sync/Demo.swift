@@ -2,9 +2,8 @@ import Foundation
 import SwiftUI
 import LedgerKit
 
-// 演示账本: the demo ledger that comes with the app (made-up data), kept in the app's own files so it can be
-// tried out like a real one — recorded in, edited, reset. From it, 我的账本: a new ledger on this phone with the
-// demo's accounts and categories and no transactions, ready to use (and to move to a Git repository later).
+// The public ledger-demo repository supplies the demo on first use and reset. The installed
+// copy is local: edits stay on this phone, existing copies work offline, and nothing is pushed upstream.
 
 extension Store {
     static let demoID = "demo"
@@ -16,18 +15,8 @@ extension Store {
     /// the ledgers other than the demo
     var ownSources: [RepoConfig] { sources.filter { $0.id != Store.demoID } }
 
-    /// the bundled demo copied into the app's files (again, from scratch, with `reset`)
-    private func installDemo(reset: Bool) throws {
-        let fm = FileManager.default
-        let dst = FolderBackend.localRoot(Store.demoFolder)
-        if reset, fm.fileExists(atPath: dst.path) { try fm.removeItem(at: dst) }
-        if fm.fileExists(atPath: dst.appendingPathComponent("main.bean").path) { return }
-        guard let src = Bundle.main.url(forResource: "Demo", withExtension: nil) else {
-            throw GitHubError(status: 404, message: LS("找不到内置的演示账本"))
-        }
-        try fm.createDirectory(at: dst.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if fm.fileExists(atPath: dst.path) { try fm.removeItem(at: dst) }
-        try fm.copyItem(at: src, to: dst)
+    private func installDemo(reset: Bool) async throws {
+        try await DemoRepository.install(at: FolderBackend.localRoot(Store.demoFolder), reset: reset)
     }
 
     private var demoConfig: RepoConfig {
@@ -41,7 +30,10 @@ extension Store {
 
     /// open the demo (installed the first time)
     func openDemo() async {
-        do { try installDemo(reset: false) } catch { show(error.localizedDescription); return }
+        guard !demoBusy else { return }
+        demoBusy = true
+        defer { demoBusy = false }
+        do { try await installDemo(reset: false) } catch { show(LS("无法打开演示账本：%@", error.localizedDescription)); return }
         guard !isDemo else { return }
         await saveConfig(demoConfig)
         await refresh()
@@ -51,8 +43,11 @@ extension Store {
 
     /// the demo as it came: what was recorded in it is gone
     func resetDemo() async {
+        guard isDemo, !demoBusy else { return }
+        demoBusy = true
+        defer { demoBusy = false }
+        do { try await installDemo(reset: true) } catch { show(LS("更新失败，已保留原演示账本：%@", error.localizedDescription)); return }
         guard isDemo else { return }
-        do { try installDemo(reset: true) } catch { show(error.localizedDescription); return }
         pending = []
         savePending()
         forgetTree()
@@ -68,10 +63,13 @@ extension Store {
 
     /// a new ledger on this phone with the demo's accounts and categories, opened at once
     func createEmptyLedger() async {
-        // the structure: the demo as loaded, or read from the bundle when it isn't open
+        guard !demoBusy else { return }
+        demoBusy = true
+        defer { demoBusy = false }
         let from: Ledger
         if isDemo, let L = L { from = L } else {
-            guard let src = Bundle.main.url(forResource: "Demo", withExtension: nil) else { show(LS("找不到内置的演示账本")); return }
+            do { try await installDemo(reset: false) } catch { show(LS("无法下载账户与分类：%@", error.localizedDescription)); return }
+            let src = FolderBackend.localRoot(Store.demoFolder)
             from = await Task.detached {
                 loadLedger(root: "main.bean") { p in try String(contentsOf: src.appendingPathComponent(p), encoding: .utf8) }
             }.value
@@ -119,6 +117,7 @@ struct DemoBanner: View {
                         Button(role: .destructive) { confirmReset = true } label: { Label(LS("重置演示账本"), systemImage: "arrow.counterclockwise") }
                     } label: { Image(systemName: "ellipsis.circle").foregroundStyle(.secondary) }
                 }
+                if store.demoBusy { ProgressView(LS("正在下载演示账本…")) }
                 Text(LS("数据均为虚构，可以随意记账、修改，随时重置。觉得合适，就用它的账户和分类新建一个空账本。"))
                     .font(.footnote).foregroundStyle(.secondary)
                 HStack(spacing: 10) {
@@ -143,7 +142,7 @@ struct DemoBanner: View {
             .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Color.jade.opacity(0.25), lineWidth: 1))
             .cardRow()
         }
-        .confirmationDialog(LS("重置演示账本？在里面记的和改的都会清除。"), isPresented: $confirmReset, titleVisibility: .visible) {
+        .confirmationDialog(LS("下载最新演示账本并重置？成功后，在里面记的和改的都会清除。"), isPresented: $confirmReset, titleVisibility: .visible) {
             Button(LS("重置"), role: .destructive) { Task { await store.resetDemo() } }
         }
     }
@@ -167,7 +166,9 @@ struct DemoEntryCard: View {
                         Text(LS("看看完整功能用起来的样子，数据均为虚构")).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                     }
                     Spacer(minLength: 4)
+                    if store.demoBusy { ProgressView() }
                     Button(LS("打开")) { Task { await store.openDemo() } }
+                        .disabled(store.demoBusy)
                         .buttonStyle(.bordered).tint(.jade).controlSize(.small)
                     Button { withAnimation { shown = false } } label: { Image(systemName: "xmark").font(.caption.weight(.bold)).foregroundStyle(.secondary) }
                         .buttonStyle(.plain)

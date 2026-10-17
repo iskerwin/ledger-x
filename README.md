@@ -18,7 +18,7 @@
 
 > **当前发布版 0.2.0.1（预览版）。** 下方截图实拍于 2026-10-17 的 main 开发版，包含尚未发布的 0.2.1 界面改进；发布版与开发版的区别见 [CHANGELOG](CHANGELOG.md)。
 >
-> 想先看看实际体验？读 [Ledger X 图文介绍](docs/promo/introduction.md)，或安装后直接打开内置演示账本。
+> 想先看看实际体验？读 [Ledger X 图文介绍](docs/promo/introduction.md)，或安装后直接打开演示账本。
 
 ---
 
@@ -135,11 +135,11 @@
 - **备份与导出**：每周自动把整个账本打包备份到 iCloud Drive 等文件夹，保留最近 12 份；导出交易明细 CSV
 - 默认币种、本地提醒、快捷指令与 Apple Pay 自动记账、票据附件、批量编辑、iPad 分栏布局
 
-## 快速体验：打开内置演示账本
+## 快速体验：打开演示账本
 
-安装后点「先看看演示账本」，就能查看虚构的收支、账户、投资与报销数据，也可以随意记账和修改，随时重置。无需注册、Fork 仓库或创建 Token。
+安装后点「先看看演示账本」，首次联网从公开的 [ledger-demo](https://github.com/iskerwin/ledger-demo) 下载最新账本，无需注册、Fork 仓库或创建 Token。App 不内置账本数据或访问密钥。下载后保存在本机，可离线查看、记账和修改，不会写回公共仓库。重置会重新下载最新数据；下载或校验失败时保留原有演示账本。
 
-准备开始自己的账本时，点「复制为我的空账本」，或在连接页点「在本机新建空账本」：保留常用账户与分类，不带入演示交易，之后也可以迁移到 Git 仓库。
+准备开始自己的账本时，点「复制为我的空账本」，或在连接页点「在本机新建空账本」（首次也需联网下载账户模板）：保留常用账户与分类，不带入演示交易，之后也可以迁移到 Git 仓库。
 
 ### 安装与连接 GitHub 演示仓库
 
@@ -210,4 +210,4 @@ App 读取主文件（默认 `main.bean`）及其 `include` 的全部文件，�
 - `project.yml` — XcodeGen 工程：`brew install xcodegen && xcodegen` 后用 Xcode 打开
 - `tools/golden.mjs` — 用 `tools/reference/` 里的 JavaScript 参考实现生成测试账本和标准答案，Swift 解析结果须与之逐项一致
 
-截图中的数据均来自 App 内置的虚构演示账本。原始截图位于 [docs/screenshots/latest](docs/screenshots/latest)，拍摄来源见 [capture.json](docs/screenshots/latest/capture.json)；构建并安装模拟器 App 后，可运行 `python3 tools/capture-promo.py <模拟器 UDID>` 重新拍摄。
+截图中的数据来自 ledger-demo 的虚构演示账本。原始截图位于 [docs/screenshots/latest](docs/screenshots/latest)，拍摄来源见 [capture.json](docs/screenshots/latest/capture.json)；构建并安装模拟器 App 后，先将 ledger-demo 下载到相邻目录，再运行 `python3 tools/capture-promo.py <模拟器 UDID>` 重新拍摄；也可用 `LEDGER_DEMO_PATH` 指定已下载的账本目录。

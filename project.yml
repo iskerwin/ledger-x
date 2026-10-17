@@ -14,12 +14,6 @@ targets:
     platform: iOS
     sources:
       - path: Ledger
-        excludes:
-          - "Demo/**"
-      # the demo ledger, copied as a folder (its files keep their places)
-      - path: Ledger/Demo
-        type: folder
-        buildPhase: resources
     dependencies:
       - package: LedgerKit
     info:

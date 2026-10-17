@@ -2013,5 +2013,11 @@
  "，请先补录遗漏的交易": " — record the missing transactions first",
  "：": ": ",
  "；点开可编辑交易本身。橙色是还没填或按商户推测的。": "; tap to edit the transaction itself. Orange means not set yet, or guessed from the merchant.",
- "；预算剩余 %@": "; budget left %@"
+ "；预算剩余 %@": "; budget left %@",
+ "无法打开演示账本：%@": "Could not open the demo ledger: %@",
+ "更新失败，已保留原演示账本：%@": "Update failed; your previous demo ledger was kept: %@",
+ "无法下载账户与分类：%@": "Could not download accounts and categories: %@",
+ "正在下载演示账本…": "Downloading the demo ledger…",
+ "下载最新演示账本并重置？成功后，在里面记的和改的都会清除。": "Download the latest demo and reset? After a successful download, your demo entries and edits will be cleared.",
+ "首次体验或新建账本需联网下载演示数据，之后可离线使用。数据均为虚构，修改只保存在本机。空账本保留账户和分类，保存在「文件」App › 我的 iPhone › Ledger，以后可以再放到 Git 仓库。": "The first demo or new ledger needs an internet connection to download the sample data. It works offline afterward. All data is fictional and edits stay on this phone. An empty ledger keeps the accounts and categories in Files › On My iPhone › Ledger, and can move to a Git repository later."
 }
