@@ -70,13 +70,13 @@ extension Store {
 
     /// delete one entry (with the links paired with it), after the change review; true when committed
     @discardableResult
-    func deleteEntry(path: String, old: String, date: String, summary: String) async -> Bool {
+    func deleteEntry(path: String, old: String, date: String, summary: String, pop: Bool = true) async -> Bool {
         let ledgerID = cfg.id
         var rm = Op(kind: .remove, path: path)
         rm.old = old
         rm.label = LS("删除：%@ %@", date, summary)
         guard let ops = await review([rm] + pairedLinkOps(oldText: old, newText: nil)), cfg.id == ledgerID else { return false }
-        popToken += 1
+        if pop { popToken += 1 }
         return await commit(ops, word: LS("已删除"), checked: true)
     }
 

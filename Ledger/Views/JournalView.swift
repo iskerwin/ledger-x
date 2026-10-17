@@ -809,7 +809,7 @@ struct TxDetailView: View {
             if let u = store.githubURL(t.file, line: t.line) { Link(destination: u) { Label(LS("在网页中打开"), systemImage: "arrow.up.right.square") } }
             if !t.synthetic {
                 Divider()
-                Button(role: .destructive) { deletion = EntryDeletion(t, ledgerID: store.cfg.id) } label: { Label(LS("删除交易"), systemImage: "trash") }
+                Button(role: .destructive) { deletion = EntryDeletion(t, ledgerID: store.cfg.id, onDeleted: { dismiss() }) } label: { Label(LS("删除交易"), systemImage: "trash") }
             }
         } label: {
             Image(systemName: "ellipsis")
@@ -900,7 +900,7 @@ struct EditTxView: View {
                 }
                 Section {
                     Button(LS("删除交易"), role: .destructive) {
-                        if let entry = store.txn(dest.id, key: dest.key) { deletion = EntryDeletion(entry, ledgerID: store.cfg.id) }
+                        if let entry = store.txn(dest.id, key: dest.key) { deletion = EntryDeletion(entry, ledgerID: store.cfg.id, onDeleted: { dismiss() }) }
                     }
                 }
             } else {

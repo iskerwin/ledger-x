@@ -77,7 +77,7 @@ private struct EntryDeletionModifier: ViewModifier {
                             return
                         }
                         // The Store also reparses pending file text before making the operation.
-                        if await store.deleteDirective(entry, summary: entryActionName(entry)) {
+                        if await store.deleteDirective(entry, summary: entryActionName(entry), pop: false) {
                             target.onDeleted()
                         }
                     }
@@ -294,6 +294,17 @@ struct EntrySourceSheet: View {
                   parsed.entries.first?.type == entry.type,
                   entry.type != .custom || parsed.entries.first?.name == entry.name else {
                 error = LS("请保留一条同类型记录，并检查源文本格式"); Haptics.error(); return
+            }
+            if entry.type == .document {
+                // Keep the directive in its file: its attachment path is relative to that file.
+                // Routing it through fileFor could silently point it at a different attachment.
+                var op = Op(kind: .replace, path: entry.file)
+                op.old = original
+                op.text = text
+                op.label = LS("编辑源文本") + " · " + entryActionName(entry)
+                guard let checked = await store.review([op]), ledgerID == store.cfg.id else { return }
+                if await store.commit(checked, word: LS("已更新"), checked: true) { dismiss() }
+                return
             }
             guard let ops = await store.replaceOps(old: original, path: entry.file, date: entry.date,
                 summary: entryActionName(entry), newText: text, transaction: entry.type == .txn), ledgerID == store.cfg.id else { return }

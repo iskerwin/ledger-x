@@ -813,7 +813,7 @@ final class Store: ObservableObject {
         }
     }
 
-    /// an op removing one balance assertion line (found in the file as it is now, pending ops applied)
+    /// Remove one complete assertion, including metadata, from the current pending file text.
     func balanceRemoveOp(_ e: Entry) async -> Op? {
         guard let account = e.account, let old = await entryText(e) else { return nil }
         var op = Op(kind: .remove, path: e.file)

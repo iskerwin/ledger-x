@@ -27,9 +27,9 @@ extension Store {
         return await commit(ops, word: word, checked: true)
     }
 
-    func deleteDirective(_ e: Entry, summary: String) async -> Bool {
+    func deleteDirective(_ e: Entry, summary: String, pop: Bool = true) async -> Bool {
         guard let old = await entryText(e) else { Haptics.error(); show(LS("这一条所在的文件已经变了，请刷新后再试")); return false }
-        return await deleteEntry(path: e.file, old: old, date: e.date, summary: summary)
+        return await deleteEntry(path: e.file, old: old, date: e.date, summary: summary, pop: pop)
     }
 
     /// a card's bill as the bank states it (card-bill); true when committed
