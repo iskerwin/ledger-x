@@ -1,0 +1,32 @@
+{
+  "name": "Ledger X",
+  "identifier": "com.iskerwin.ledger-x.release",
+  "sourceURL": "https://raw.githubusercontent.com/iskerwin/ledger-x/ipa/release.json",
+  "subtitle": "Beancount 记账",
+  "description": "原生 SwiftUI 的 Beancount 记账 / 查账 App。账本放在你自己的 Git 仓库或文件夹里，手机上记账、对账、看报表、跑 BQL 查询。",
+  "iconURL": "https://raw.githubusercontent.com/iskerwin/ledger-x/main/Ledger/Assets.xcassets/AppIcon.appiconset/icon-1024.png?v=2542e1c22e",
+  "website": "https://github.com/iskerwin/ledger-x",
+  "tintColor": "2B806A",
+  "apps": [
+    {
+      "name": "Ledger X",
+      "bundleIdentifier": "com.iskerwin.ledger",
+      "developerName": "iskerwin",
+      "subtitle": "Beancount 记账",
+      "localizedDescription": "原生 SwiftUI 的 Beancount 记账 / 查账 App。账本放在你自己的 Git 仓库或文件夹里，手机上记账、对账、看报表、跑 BQL 查询。",
+      "iconURL": "https://raw.githubusercontent.com/iskerwin/ledger-x/main/Ledger/Assets.xcassets/AppIcon.appiconset/icon-1024.png?v=2542e1c22e",
+      "tintColor": "2B806A",
+      "category": "utilities",
+      "versions": [],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {
+          "NSCameraUsageDescription": "拍摄票据作为交易附件",
+          "NSFaceIDUsageDescription": "使用面容 ID 解锁账本",
+          "NSPhotoLibraryUsageDescription": "选择票据照片作为交易附件"
+        }
+      }
+    }
+  ],
+  "news": []
+}

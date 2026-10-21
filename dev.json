@@ -1,0 +1,47 @@
+{
+  "name": "Ledger X 开发版",
+  "identifier": "com.iskerwin.ledger-x.dev",
+  "sourceURL": "https://raw.githubusercontent.com/iskerwin/ledger-x/ipa/dev.json",
+  "subtitle": "Beancount 记账",
+  "description": "原生 SwiftUI 的 Beancount 记账 / 查账 App。账本放在你自己的 Git 仓库或文件夹里，手机上记账、对账、看报表、跑 BQL 查询。",
+  "iconURL": "https://raw.githubusercontent.com/iskerwin/ledger-x/main/Ledger/Assets.xcassets/AppIcon.appiconset/icon-1024.png?v=2542e1c22e",
+  "website": "https://github.com/iskerwin/ledger-x",
+  "tintColor": "2B806A",
+  "apps": [
+    {
+      "name": "Ledger X",
+      "bundleIdentifier": "com.iskerwin.ledger",
+      "developerName": "iskerwin",
+      "subtitle": "Beancount 记账",
+      "localizedDescription": "原生 SwiftUI 的 Beancount 记账 / 查账 App。账本放在你自己的 Git 仓库或文件夹里，手机上记账、对账、看报表、跑 BQL 查询。",
+      "iconURL": "https://raw.githubusercontent.com/iskerwin/ledger-x/main/Ledger/Assets.xcassets/AppIcon.appiconset/icon-1024.png?v=2542e1c22e",
+      "tintColor": "2B806A",
+      "category": "utilities",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "buildVersion": "1",
+          "date": "2026-10-21T17:58:29Z",
+          "localizedDescription": "# Ledger X 1.0.0 开发版\n\n版本 1.0.0 · 构建 1 · main 2b94a78 。\n\n## 新增\n\n- 快捷记账、完整表单、多分录与源文本编辑，支持草稿、复制、退款和撤回。\n- 多币种消费、转账与换汇，手续费单独列示，可选本金外另扣、转出已含、到账内扣或其他账户单独支付。\n- 明细搜索与月历、账户核对、信用卡账单与还款、投资持仓、预算和财务报表。\n- 订阅、个人往来、报销、备用金、工资与事件。\n- CSV / XLSX 账单导入与查重，付款截图识别后核对入账。\n- 票据与交易附件：自动给出不重名的文件名，保存过程中不会把刚保存的文件误报为重名；失败时留在原页显示实际原因，可取消或重试，本机保留恢复副本。\n- 多账本、本机文件夹与 GitHub、GitLab、Gitea / Forgejo、WebDAV 存储，离线先保存后同步。\n- 中英文、深色模式与主题色、大字体、隐藏金额、面容 ID / 触控 ID 锁定。\n- 内置虚构演示账本，安装后无需配置即可离线体验，可一键复制为自己的空账本。\n\n## 修复\n\n- 转账/换汇手续费选「其他账户或币种单独支付」后，点「扣费账户」弹出的账户选择不再一闪就关，可以正常搜索、选定第三方账户。\n- 交易上传附件后，详情页不再多出「关联记录 · 自定义 ^doc-…」「关联交易 · 没有其他交易使用这个链接」和「链接只出现在这一笔」提示；这个链接只是把交易和附件连起来，附件照常在「附件」里查看，也不会被误点「移除链接」断开。\n\n## 改进\n\n- 明细搜索改为输入完成后再检索：打字（包括拼音输入）时不再逐字重算列表，按键盘「搜索」才应用；清空搜索框、点标签或快速搜索仍立即生效，解决大账本输入卡顿。",
+          "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
+          "size": 10028022,
+          "minOSVersion": "17.0"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {
+          "NSCameraUsageDescription": "拍摄票据作为交易附件",
+          "NSFaceIDUsageDescription": "使用面容 ID 解锁账本",
+          "NSPhotoLibraryUsageDescription": "选择票据照片作为交易附件"
+        }
+      },
+      "version": "1.0.0",
+      "versionDate": "2026-10-21T17:58:29Z",
+      "versionDescription": "# Ledger X 1.0.0 开发版\n\n版本 1.0.0 · 构建 1 · main 2b94a78 。\n\n## 新增\n\n- 快捷记账、完整表单、多分录与源文本编辑，支持草稿、复制、退款和撤回。\n- 多币种消费、转账与换汇，手续费单独列示，可选本金外另扣、转出已含、到账内扣或其他账户单独支付。\n- 明细搜索与月历、账户核对、信用卡账单与还款、投资持仓、预算和财务报表。\n- 订阅、个人往来、报销、备用金、工资与事件。\n- CSV / XLSX 账单导入与查重，付款截图识别后核对入账。\n- 票据与交易附件：自动给出不重名的文件名，保存过程中不会把刚保存的文件误报为重名；失败时留在原页显示实际原因，可取消或重试，本机保留恢复副本。\n- 多账本、本机文件夹与 GitHub、GitLab、Gitea / Forgejo、WebDAV 存储，离线先保存后同步。\n- 中英文、深色模式与主题色、大字体、隐藏金额、面容 ID / 触控 ID 锁定。\n- 内置虚构演示账本，安装后无需配置即可离线体验，可一键复制为自己的空账本。\n\n## 修复\n\n- 转账/换汇手续费选「其他账户或币种单独支付」后，点「扣费账户」弹出的账户选择不再一闪就关，可以正常搜索、选定第三方账户。\n- 交易上传附件后，详情页不再多出「关联记录 · 自定义 ^doc-…」「关联交易 · 没有其他交易使用这个链接」和「链接只出现在这一笔」提示；这个链接只是把交易和附件连起来，附件照常在「附件」里查看，也不会被误点「移除链接」断开。\n\n## 改进\n\n- 明细搜索改为输入完成后再检索：打字（包括拼音输入）时不再逐字重算列表，按键盘「搜索」才应用；清空搜索框、点标签或快速搜索仍立即生效，解决大账本输入卡顿。",
+      "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
+      "size": 10028022
+    }
+  ],
+  "news": []
+}
