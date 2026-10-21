@@ -1,0 +1,8 @@
+2026-01-01 open Liabilities:CreditCard:Example CNY
+  statement_day: 5
+  due_day: 25
+  name: "示例信用卡"
+
+2026-10-01 * "Example shop" "Card spend"
+  Expenses:Food  80.00 CNY
+  Liabilities:CreditCard:Example

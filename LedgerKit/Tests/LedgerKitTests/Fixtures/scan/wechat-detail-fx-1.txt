@@ -1,0 +1,15 @@
+01:02 円	：！今E9
+Transactions
+高德打车
+-HK$106.45
+Local Price	¥90.23
+Exchange Rate	1CNY=1.17972HKD
+Current Status	Successful
+Transaction Item	高德打车订单
+Time of Payment	2026-09-30 13:58:42
+Payment Method	Visa（2468）
+Transaction No.	450000000120260930000000004
+6
+Merchant Order No.	MYBK0000PN202609300000000
+00099
+Report

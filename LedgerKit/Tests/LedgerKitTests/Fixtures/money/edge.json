@@ -1,0 +1,255 @@
+{
+ "balances": {
+  "2024-04-10": {
+   "Assets:Bank:CN": {
+    "CNY": 100000.0
+   },
+   "Assets:Bank:HK": {
+    "HKD": 50000.0
+   },
+   "Assets:Broker:Cash": {
+    "USD": 18122.8
+   },
+   "Assets:Broker:Stock": {
+    "VOO": 5.5
+   },
+   "Equity:Opening": {
+    "CNY": -100000.0,
+    "HKD": -50000.0,
+    "USD": -20000.0
+   },
+   "Expenses:Fees": {
+    "USD": 1.0
+   },
+   "Income:Gains": {
+    "USD": -568.45
+   }
+  },
+  "2024-06-30": {
+   "Assets:Bank:CN": {
+    "CNY": 123456.78
+   },
+   "Assets:Bank:HK": {
+    "HKD": 25060.0
+   },
+   "Assets:Broker:Cash": {
+    "USD": 16839.47
+   },
+   "Assets:Broker:Stock": {
+    "HSBC": 400.0,
+    "TSLA": 10.0,
+    "VOO": 4.5
+   },
+   "Assets:Wallet": {
+    "CNY": 321.45
+   },
+   "Equity:Opening": {
+    "CNY": -100321.45,
+    "HKD": -50000.0,
+    "USD": -20000.0
+   },
+   "Expenses:Fees": {
+    "USD": 1.0
+   },
+   "Expenses:Food": {
+    "CNY": 188.8,
+    "HKD": 58.0
+   },
+   "Income:Gains": {
+    "USD": -597.2
+   },
+   "Income:Salary": {
+    "CNY": -23456.78
+   },
+   "Liabilities:Card": {
+    "CNY": -242.16
+   }
+  },
+  "2024-07-31": {
+   "Assets:Bank:CN": {
+    "CNY": 123456.78
+   },
+   "Assets:Bank:HK": {
+    "HKD": 25060.0
+   },
+   "Assets:Broker:Cash": {
+    "USD": 16839.47
+   },
+   "Assets:Broker:Stock": {
+    "HSBC": 400.0,
+    "TSLA": 10.0,
+    "VOO": 4.5
+   },
+   "Assets:Wallet": {
+    "CNY": 311.45
+   },
+   "Equity:Opening": {
+    "CNY": -100321.45,
+    "HKD": -50000.0,
+    "USD": -20000.0
+   },
+   "Expenses:Fees": {
+    "USD": 1.0
+   },
+   "Expenses:Food": {
+    "CNY": 198.8,
+    "HKD": 58.0
+   },
+   "Income:Gains": {
+    "USD": -597.2
+   },
+   "Income:Salary": {
+    "CNY": -23456.78
+   },
+   "Liabilities:Card": {
+    "CNY": -242.16
+   }
+  }
+ },
+ "dates": [
+  "2024-04-10",
+  "2024-06-30",
+  "2024-07-31"
+ ],
+ "holdings": [
+  {
+   "account": "Assets:Broker:Stock",
+   "cost": 24940.0,
+   "cost_currency": "HKD",
+   "currency": "HSBC",
+   "lots": [
+    {
+     "cost": 62.35,
+     "date": "2024-05-03",
+     "units": 400.0
+    }
+   ],
+   "units": 400.0
+  },
+  {
+   "account": "Assets:Broker:Stock",
+   "cost": 1753.33,
+   "cost_currency": "USD",
+   "currency": "TSLA",
+   "lots": [
+    {
+     "cost": 175.333,
+     "date": "2024-05-01",
+     "units": 10.0
+    }
+   ],
+   "units": 10.0
+  },
+  {
+   "account": "Assets:Broker:Stock",
+   "cost": 2003.4,
+   "cost_currency": "USD",
+   "currency": "VOO",
+   "lots": [
+    {
+     "cost": 445.2,
+     "date": "2024-03-10",
+     "units": 4.5
+    }
+   ],
+   "units": 4.5
+  }
+ ],
+ "prices": {
+  "HKD/CNY": {
+   "date": "2024-06-28",
+   "number": 0.928
+  },
+  "HSBC/HKD": {
+   "date": "2024-06-28",
+   "number": 67.1
+  },
+  "TSLA/USD": {
+   "date": "2024-05-31",
+   "number": 178.08
+  },
+  "USD/CNY": {
+   "date": "2024-06-30",
+   "number": 7.26
+  },
+  "VOO/USD": {
+   "date": "2024-06-30",
+   "number": 470.0
+  }
+ },
+ "tree": {
+  "Assets": {
+   "CNY": 123768.23,
+   "HKD": 25060.0,
+   "HSBC": 400.0,
+   "TSLA": 10.0,
+   "USD": 16839.47,
+   "VOO": 4.5
+  },
+  "Assets:Bank": {
+   "CNY": 123456.78,
+   "HKD": 25060.0
+  },
+  "Assets:Bank:CN": {
+   "CNY": 123456.78
+  },
+  "Assets:Bank:HK": {
+   "HKD": 25060.0
+  },
+  "Assets:Broker": {
+   "HSBC": 400.0,
+   "TSLA": 10.0,
+   "USD": 16839.47,
+   "VOO": 4.5
+  },
+  "Assets:Broker:Cash": {
+   "USD": 16839.47
+  },
+  "Assets:Broker:Stock": {
+   "HSBC": 400.0,
+   "TSLA": 10.0,
+   "VOO": 4.5
+  },
+  "Assets:Wallet": {
+   "CNY": 311.45
+  },
+  "Equity": {
+   "CNY": -100321.45,
+   "HKD": -50000.0,
+   "USD": -20000.0
+  },
+  "Equity:Opening": {
+   "CNY": -100321.45,
+   "HKD": -50000.0,
+   "USD": -20000.0
+  },
+  "Expenses": {
+   "CNY": 198.8,
+   "HKD": 58.0,
+   "USD": 1.0
+  },
+  "Expenses:Fees": {
+   "USD": 1.0
+  },
+  "Expenses:Food": {
+   "CNY": 198.8,
+   "HKD": 58.0
+  },
+  "Income": {
+   "CNY": -23456.78,
+   "USD": -597.2
+  },
+  "Income:Gains": {
+   "USD": -597.2
+  },
+  "Income:Salary": {
+   "CNY": -23456.78
+  },
+  "Liabilities": {
+   "CNY": -242.16
+  },
+  "Liabilities:Card": {
+   "CNY": -242.16
+  }
+ }
+}

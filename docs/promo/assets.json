@@ -1,0 +1,165 @@
+{
+  "data": "fictional demonstration ledger",
+  "capturedOn": "2026-10-17",
+  "demoCommit": "4ffdc0337165ea61f031a3a720d9d05edb85f44a",
+  "captureDevice": "iPhone 17 simulator",
+  "note": "Screenshots and promotional compositions show fictional demonstration data. Capture dates describe the pictures only; they are not automated-test or phone-acceptance results.",
+  "images": {
+    "docs/promo/screenshots/accounts.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "1b711299d6b23f03eaf3bbd29a02e225c68f669999b89bc49f7e4aa8d26b8270",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/add.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "baf3a83d4de99ac237e099b4c3788ddc8f0e8fe1e9a4073397e0c2913e2561a7",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/balance.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "87f07b9cc9c69a9453cc1f6edd2344148b2247f06372cb668b110e756f0911ea",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/budgets.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "ca9f14865cdfb588041e52edaca075632c7366da3075ce9e4e9e707b56d79ea4",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/calendar.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "8a9a8cb9a10e3d4edab0c713340258c4bff60d869bde55775db1ddc388d57176",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/categories.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "82255cb98b57f4317876245c5362dbcfbc4f91bd8970acd5468f0b5aadfd5f4f",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/comparison.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "f244afde5763d34028ff4f638cc3bdca5a9ce4ac322f014f4a960ca4c737164c",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/dark.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "1a89415310c2abcfdd6e95304ce8c31ed33050c7c676d6da0379fd3d6e874b3e",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/day.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "1265f5e7aabba67de57dbfdbc0f9ed7181e6910ca72e6d0098caf15ebdea75ff",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/detail.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "5a5875642041d5806c1d1176a747d75295b6a0aac05cc6ba14b2746c4caa1327",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/en.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "9eb010216cee1f3f2eea80e8bce151418d6c345cbba096c5daed9eb5a3f34d32",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/forecast.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "6a6dd3f8c440dddd00c970708e3137be068bb8443fd50e6098e260a70563d09c",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/holdings.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "82d6332952ab9f709c59e92a98ab84009c1fdac7520e6e579cb1ce92e56c29c0",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/income.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "0880f5f414d93158e7b09b1e0d9996a5e1b05fae4a5351979af49fbf1fb9663c",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/journal.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "596f99fc5263963d95a4aac3ea098f6aa42b5dc6583d19018fb52942b8522a19",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/overview.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "7e613ec2ba603d723e4a8433ad67a9704204219d5f8eab1b92c25000a02dfc5f",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/privacy.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "b0d4a437afd849d5430ee492b085e7f412b08452b0d198bb56aff72adb3f4452",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/query.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "4d146a4332f143170ecf90fc48b93207f6cc7b5011c8a8032739870fdb149943",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/reimb.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "f6c5d8cadabada8fb6b889a12b2d74c77fe18a61a7096959aec9ea1f19e1f94b",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/reports.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "a521b84573652b0a8a99019ad6049b644796eff848df2e021d50fb406a8a939b",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/screenshots/subscriptions.png": {
+      "width": 1206,
+      "height": 2622,
+      "sha256": "057be092584626284a1afe23b7a70faa8a964e343e3f6f64e5ee12990cc9ca77",
+      "kind": "unmodified simulator screenshot"
+    },
+    "docs/promo/daily.png": {
+      "width": 1672,
+      "height": 941,
+      "sha256": "7c4883768cd67c5d108f89542eddb14480ec70c73cc007befdb7fe05d0b1eb4c",
+      "kind": "promotional composition"
+    },
+    "docs/promo/hero.png": {
+      "width": 1672,
+      "height": 941,
+      "sha256": "d563d89f0bbe03d7e5b034477ce4ce9d39dd259974c749444408cd37bade6d4d",
+      "kind": "promotional composition"
+    },
+    "docs/promo/reports.png": {
+      "width": 1672,
+      "height": 941,
+      "sha256": "85f8f7768427455c024f898abeb2a926059994a934ea63f4c9e550d28a34a360",
+      "kind": "promotional composition"
+    },
+    "docs/promo/style.png": {
+      "width": 1672,
+      "height": 941,
+      "sha256": "1696da0882c7d655ca4fa87aab42f57d07cbe9769996a0744324f56470359630",
+      "kind": "promotional composition"
+    },
+    "docs/promo/gallery.png": {
+      "width": 2400,
+      "height": 1180,
+      "sha256": "20526a33a93ff4a4d57e8689f4e2295e519ef456399f4246efa5fc92ecc245e5",
+      "kind": "promotional composition"
+    }
+  }
+}

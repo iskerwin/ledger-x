@@ -1,0 +1,13 @@
+; option "documents": a document for each dated file in a folder named after its account (DocumentTests)
+option "title" "Documents"
+option "documents" "statements"
+
+2024-01-01 open Assets:Bank:Main CNY
+2024-01-01 open Expenses:Travel
+2024-01-01 open Equity:Opening
+
+2024-01-15 * "Hotel"
+  Expenses:Travel   300.00 CNY
+  Assets:Bank:Main
+
+2024-01-31 document Assets:Bank:Main "statements/Assets/Bank/Main/2024-01-31.statement.pdf"

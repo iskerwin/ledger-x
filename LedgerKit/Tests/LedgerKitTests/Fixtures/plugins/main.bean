@@ -1,0 +1,101 @@
+; The plugins the app runs itself, each case checked against Beancount (tools/fixtures/plugins_expected.py → expected.json)
+option "title" "Plugins"
+option "operating_currency" "CNY"
+plugin "beancount.plugins.implicit_prices"
+plugin "beancount.plugins.check_commodity"
+plugin "beancount.plugins.noduplicates"
+plugin "beancount.plugins.leafonly"
+plugin "beancount.plugins.check_closing"
+
+include "more.bean"
+
+1970-01-01 commodity CNY
+1970-01-01 commodity USD
+2024-06-01 commodity VOO
+
+2024-01-01 open Assets:Bank:Main CNY
+2024-01-01 open Assets:Bank:Card
+2024-01-01 open Assets:Broker:Cash USD
+2024-01-01 open Assets:Broker:Stock
+2024-01-01 open Assets:Wallet JPY
+2024-01-01 open Expenses:Food
+2024-01-01 open Expenses:Food:Dining
+2024-01-01 open Expenses:Travel
+2024-01-01 open Expenses:Fees
+2024-01-01 open Equity:Opening
+; a parent opened on its own: leafonly counts the open (as Beancount does)
+2024-01-01 open Assets:Savings
+2024-01-01 open Assets:Savings:Fixed
+2024-01-01 open Income:Gains
+
+2024-01-02 * "Shop" "lunch"
+  Expenses:Food:Dining   35.00 CNY
+  Assets:Bank:Main
+
+; the same again, word for word: a duplicate
+2024-01-02 * "Shop" "lunch"
+  Expenses:Food:Dining   35.00 CNY
+  Assets:Bank:Main
+
+; the same with the lines the other way round: still the same
+2024-01-02 * "Shop" "lunch"
+  Assets:Bank:Main      -35.00 CNY
+  Expenses:Food:Dining   35.00 CNY
+
+; written with one decimal fewer: not the same to Beancount
+2024-01-02 * "Shop" "lunch"
+  Expenses:Food:Dining   35.0 CNY
+  Assets:Bank:Main
+
+; booked to a category that has a subcategory: leafonly
+2024-01-03 * "Market"
+  Expenses:Food   12.00 CNY
+  Assets:Bank:Main
+
+2024-01-05 * "Exchange"
+  Assets:Broker:Cash   100.00 USD @ 7.10 CNY
+  Assets:Bank:Main
+
+; @@: a total, the price is per unit
+2024-01-06 * "Exchange"
+  Assets:Broker:Cash   200.00 USD @@ 1430.00 CNY
+  Assets:Bank:Main
+
+; the same price twice on a day: one price
+2024-01-06 * "Exchange"
+  Assets:Broker:Cash   200.00 USD @@ 1430.00 CNY
+  Assets:Bank:Card    -1430.00 CNY
+
+2024-02-01 * "Buy"
+  Assets:Broker:Stock   2 VOO {400.00 USD}
+  Assets:Broker:Cash
+
+2024-02-15 * "Buy"
+  Assets:Broker:Stock   1 VOO {410.00 USD, 2024-02-15}
+  Assets:Broker:Cash
+
+; selling from a lot makes no price from its cost; the @ price does
+2024-03-01 * "Sell"
+  Assets:Broker:Stock   -1 VOO {400.00 USD} @ 420.00 USD
+  Assets:Broker:Cash     420.00 USD
+  Income:Gains
+
+; a currency with no commodity directive, in a price
+2024-03-02 price GBP 9.10 CNY
+2024-03-02 price GBP 9.10 CNY
+
+; and in a balance and a cost
+2024-03-03 * "Trip"
+  Expenses:Travel   50.00 EUR {7.80 CNY}
+  Assets:Bank:Card
+
+2024-03-04 balance Assets:Wallet 0 JPY
+
+; a price the same as one a transaction makes: duplicate prices are allowed
+2024-01-05 price USD 7.10 CNY
+
+2024-03-05 note Assets:Bank:Main "called the bank"
+2024-03-05 note Assets:Bank:Main "called the bank"
+
+2024-03-06 pad Assets:Bank:Card Equity:Opening
+2024-03-07 balance Assets:Bank:Card -2000.00 CNY

@@ -1,0 +1,24 @@
+option "title" "Interaction tests"
+2026-01-01 open Assets:Bank:CGB CNY
+2026-01-01 open Assets:Cash CNY
+2026-01-01 open Equity:Opening CNY
+2026-01-01 open Income:Salary CNY
+2026-01-01 open Expenses:Food CNY
+2026-01-01 open Expenses:Fee:Bank CNY,HKD,GBP
+2026-01-01 open Assets:Bank:ExampleFX HKD,GBP
+2026-01-01 price GBP 10.00 HKD
+2026-01-01 * "Opening"
+  Assets:Bank:CGB 1000.00 CNY
+  Equity:Opening
+2026-10-17 * "Coffee" "Interaction test"
+  Expenses:Food 12.00 CNY
+  Assets:Bank:CGB
+
+
+2026-01-01 open Assets:Receivable:Reimbursement
+2026-10-16 * "Example supplier" "Local advance" #reimbursed
+  Assets:Receivable:Reimbursement  22 CNY
+  Assets:Bank:CGB  -22 CNY
+2026-10-16 * "Example supplier" "Foreign advance" #reimbursed
+  Assets:Receivable:Reimbursement  33 HKD
+  Assets:Bank:ExampleFX  -33 HKD

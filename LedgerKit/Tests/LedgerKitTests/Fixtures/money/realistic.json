@@ -1,0 +1,365 @@
+{
+ "balances": {
+  "2024-06-30": {
+   "Assets:Bank:BOCHK": {
+    "HKD": 11501.94
+   },
+   "Assets:Bank:CGB": {
+    "CNY": 100451.8
+   },
+   "Assets:Brokerage:IBKR:Cash": {
+    "USD": 1970.37
+   },
+   "Assets:Brokerage:IBKR:Stock": {
+    "AAPL": 6.0
+   },
+   "Assets:EWallet:Alipay": {
+    "CNY": -2775.3
+   },
+   "Assets:Receivable:Reimbursement": {
+    "CNY": 336.0
+   },
+   "Equity:Opening": {
+    "CNY": -50000.0,
+    "HKD": -8000.0,
+    "USD": -3000.0
+   },
+   "Expenses:Food:Drinks": {
+    "CNY": 3064.1
+   },
+   "Expenses:Food:Meals": {
+    "CNY": 1801.66
+   },
+   "Expenses:Housing:Rent": {
+    "CNY": 27000.0
+   },
+   "Expenses:Shopping:Household": {
+    "CNY": 2833.7
+   },
+   "Expenses:Subscription:Phone": {
+    "CNY": 119.4
+   },
+   "Expenses:Transit:Metro": {
+    "CNY": 355.0
+   },
+   "Income:Invest:Gain": {
+    "USD": -118.73
+   },
+   "Income:Salary:Work": {
+    "CNY": -90000.0
+   },
+   "Liabilities:CreditCard:CMB": {
+    "CNY": 3614.9
+   }
+  },
+  "2025-12-31": {
+   "Assets:Bank:BOCHK": {
+    "HKD": 20933.61
+   },
+   "Assets:Bank:CGB": {
+    "CNY": 254336.7
+   },
+   "Assets:Brokerage:IBKR:Cash": {
+    "USD": 77.42
+   },
+   "Assets:Brokerage:IBKR:Stock": {
+    "AAPL": 16.0
+   },
+   "Assets:EWallet:Alipay": {
+    "CNY": -11115.9
+   },
+   "Assets:Receivable:Reimbursement": {
+    "CNY": 1344.0
+   },
+   "Equity:Opening": {
+    "CNY": -50000.0,
+    "HKD": -8000.0,
+    "USD": -3000.0
+   },
+   "Expenses:Food:Drinks": {
+    "CNY": 11591.7
+   },
+   "Expenses:Food:Meals": {
+    "CNY": 6169.21
+   },
+   "Expenses:Housing:Rent": {
+    "CNY": 108000.0
+   },
+   "Expenses:Shopping:Household": {
+    "CNY": 10747.8
+   },
+   "Expenses:Subscription:Phone": {
+    "CNY": 477.6
+   },
+   "Expenses:Transit:Metro": {
+    "CNY": 1549.0
+   },
+   "Income:Invest:Gain": {
+    "USD": -203.94
+   },
+   "Income:Salary:Work": {
+    "CNY": -360000.0
+   },
+   "Liabilities:CreditCard:CMB": {
+    "CNY": 15172.9
+   }
+  },
+  "2026-10-08": {
+   "Assets:Bank:BOCHK": {
+    "HKD": 26394.13
+   },
+   "Assets:Bank:CGB": {
+    "CNY": 330059.6
+   },
+   "Assets:Brokerage:IBKR:Cash": {
+    "USD": -711.16
+   },
+   "Assets:Brokerage:IBKR:Stock": {
+    "AAPL": 22.0
+   },
+   "Assets:EWallet:Alipay": {
+    "CNY": -14953.7
+   },
+   "Assets:Receivable:Reimbursement": {
+    "CNY": 2136.5
+   },
+   "Equity:Opening": {
+    "CNY": -50500.0,
+    "HKD": -8000.0,
+    "USD": -3000.0
+   },
+   "Expenses:Food:Drinks": {
+    "CNY": 15771.8
+   },
+   "Expenses:Food:Meals": {
+    "CNY": 8700.76
+   },
+   "Expenses:Housing:Rent": {
+    "CNY": 148500.0
+   },
+   "Expenses:Shopping:Household": {
+    "CNY": 14888.8
+   },
+   "Expenses:Subscription:Phone": {
+    "CNY": 676.6
+   },
+   "Expenses:Transit:Metro": {
+    "CNY": 2267.0
+   },
+   "Income:Invest:Gain": {
+    "USD": -417.84
+   },
+   "Income:Salary:Work": {
+    "CNY": -495000.0
+   },
+   "Liabilities:CreditCard:CMB": {
+    "CNY": 20878.4
+   }
+  }
+ },
+ "dates": [
+  "2024-06-30",
+  "2025-12-31",
+  "2026-10-08"
+ ],
+ "holdings": [
+  {
+   "account": "Assets:Brokerage:IBKR:Stock",
+   "cost": 4129.0,
+   "cost_currency": "USD",
+   "currency": "AAPL",
+   "lots": [
+    {
+     "cost": 172.07,
+     "date": "2025-03-03",
+     "units": 1.0
+    },
+    {
+     "cost": 218.89,
+     "date": "2025-04-03",
+     "units": 2.0
+    },
+    {
+     "cost": 187.36,
+     "date": "2025-06-03",
+     "units": 1.0
+    },
+    {
+     "cost": 172.93,
+     "date": "2025-07-03",
+     "units": 2.0
+    },
+    {
+     "cost": 228.76,
+     "date": "2025-09-03",
+     "units": 3.0
+    },
+    {
+     "cost": 224.59,
+     "date": "2025-10-03",
+     "units": 1.0
+    },
+    {
+     "cost": 218.05,
+     "date": "2025-12-03",
+     "units": 1.0
+    },
+    {
+     "cost": 171.63,
+     "date": "2026-01-03",
+     "units": 1.0
+    },
+    {
+     "cost": 173.7,
+     "date": "2026-03-03",
+     "units": 2.0
+    },
+    {
+     "cost": 184.13,
+     "date": "2026-05-03",
+     "units": 2.0
+    },
+    {
+     "cost": 151.89,
+     "date": "2026-08-03",
+     "units": 3.0
+    },
+    {
+     "cost": 171.35,
+     "date": "2026-09-03",
+     "units": 3.0
+    }
+   ],
+   "units": 22.0
+  }
+ ],
+ "prices": {
+  "AAPL/USD": {
+   "date": "2026-10-02",
+   "number": 229.79
+  },
+  "HKD/CNY": {
+   "date": "2026-10-02",
+   "number": 0.926
+  },
+  "USD/CNY": {
+   "date": "2026-10-02",
+   "number": 7.1683
+  }
+ },
+ "tree": {
+  "Assets": {
+   "AAPL": 22.0,
+   "CNY": 317242.4,
+   "HKD": 26394.13,
+   "USD": -711.16
+  },
+  "Assets:Bank": {
+   "CNY": 330059.6,
+   "HKD": 26394.13
+  },
+  "Assets:Bank:BOCHK": {
+   "HKD": 26394.13
+  },
+  "Assets:Bank:CGB": {
+   "CNY": 330059.6
+  },
+  "Assets:Brokerage": {
+   "AAPL": 22.0,
+   "USD": -711.16
+  },
+  "Assets:Brokerage:IBKR": {
+   "AAPL": 22.0,
+   "USD": -711.16
+  },
+  "Assets:Brokerage:IBKR:Cash": {
+   "USD": -711.16
+  },
+  "Assets:Brokerage:IBKR:Stock": {
+   "AAPL": 22.0
+  },
+  "Assets:EWallet": {
+   "CNY": -14953.7
+  },
+  "Assets:EWallet:Alipay": {
+   "CNY": -14953.7
+  },
+  "Assets:Receivable": {
+   "CNY": 2136.5
+  },
+  "Assets:Receivable:Reimbursement": {
+   "CNY": 2136.5
+  },
+  "Equity": {
+   "CNY": -50500.0,
+   "HKD": -8000.0,
+   "USD": -3000.0
+  },
+  "Equity:Opening": {
+   "CNY": -50500.0,
+   "HKD": -8000.0,
+   "USD": -3000.0
+  },
+  "Expenses": {
+   "CNY": 190804.96
+  },
+  "Expenses:Food": {
+   "CNY": 24472.56
+  },
+  "Expenses:Food:Drinks": {
+   "CNY": 15771.8
+  },
+  "Expenses:Food:Meals": {
+   "CNY": 8700.76
+  },
+  "Expenses:Housing": {
+   "CNY": 148500.0
+  },
+  "Expenses:Housing:Rent": {
+   "CNY": 148500.0
+  },
+  "Expenses:Shopping": {
+   "CNY": 14888.8
+  },
+  "Expenses:Shopping:Household": {
+   "CNY": 14888.8
+  },
+  "Expenses:Subscription": {
+   "CNY": 676.6
+  },
+  "Expenses:Subscription:Phone": {
+   "CNY": 676.6
+  },
+  "Expenses:Transit": {
+   "CNY": 2267.0
+  },
+  "Expenses:Transit:Metro": {
+   "CNY": 2267.0
+  },
+  "Income": {
+   "CNY": -495000.0,
+   "USD": -417.84
+  },
+  "Income:Invest": {
+   "USD": -417.84
+  },
+  "Income:Invest:Gain": {
+   "USD": -417.84
+  },
+  "Income:Salary": {
+   "CNY": -495000.0
+  },
+  "Income:Salary:Work": {
+   "CNY": -495000.0
+  },
+  "Liabilities": {
+   "CNY": 20878.4
+  },
+  "Liabilities:CreditCard": {
+   "CNY": 20878.4
+  },
+  "Liabilities:CreditCard:CMB": {
+   "CNY": 20878.4
+  }
+ }
+}

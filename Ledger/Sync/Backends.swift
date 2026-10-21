@@ -1,0 +1,697 @@
+import Foundation
+import LedgerKit
+import CryptoKit
+
+/// Where the ledger files live. Every file has a version token (a git blob sha, or a
+/// WebDAV ETag); writes and deletes pass the version they expect and fail with 409
+/// when the file changed in the meantime.
+protocol LedgerBackend {
+    /// all files with their versions
+    func fetchTree() async throws -> RepoTree
+    func read(_ path: String, version: String) async throws -> String
+    /// write a file (version nil = create), returning the new version
+    func write(_ path: String, text: String, version: String?, message: String) async throws -> String
+    func delete(_ path: String, version: String, message: String) async throws
+    /// binary files (attachments), by path
+    func readData(_ path: String) async throws -> Data
+    func writeData(_ path: String, data: Data, message: String) async throws
+    /// bean-check status, where the host has one
+    func check() async -> GitHub.CI?
+    /// a link to the file on the web, where there is one
+    func webURL(_ file: String, line: Int?) -> URL?
+    var repoURL: URL? { get }
+    /// write several files as ONE commit where the host can (so CI never sees half a change);
+    /// returns the new version of each written path (deleted paths are absent)
+    func writeMany(_ changes: [FileChange], message: String) async throws -> [String: String]
+}
+
+/// one file in a multi-file commit: new text, or nil to delete
+struct FileChange {
+    let path: String
+    let text: String?
+    /// the version the change was made against (nil = a new file)
+    let version: String?
+}
+
+/// some files of a change were written before one failed (hosts that write one file at a time): what got
+/// written must leave the queue, or the next push would apply the same edits on top of them again
+struct PartialWriteError: Error, LocalizedError {
+    /// path → new version; a deleted path maps to nil
+    let written: [String: String?]
+    let underlying: Error
+    var errorDescription: String? { underlying.localizedDescription }
+}
+
+extension LedgerBackend {
+    /// one file at a time (hosts without multi-file commits, or a plain folder)
+    func writeSequentially(_ changes: [FileChange], message: String) async throws -> [String: String] {
+        var out: [String: String] = [:]
+        var done: [String: String?] = [:]
+        for c in changes {
+            do {
+                if let t = c.text {
+                    let v = try await write(c.path, text: t, version: c.version, message: message)
+                    out[c.path] = v; done[c.path] = .some(v)
+                } else if let v = c.version {
+                    try await delete(c.path, version: v, message: message)
+                    done[c.path] = .some(nil)
+                }
+            } catch {
+                if done.isEmpty { throw error }
+                throw PartialWriteError(written: done, underlying: error)
+            }
+        }
+        return out
+    }
+    func writeMany(_ changes: [FileChange], message: String) async throws -> [String: String] {
+        try await writeSequentially(changes, message: message)
+    }
+}
+
+func makeBackend(_ c: RepoConfig) -> LedgerBackend {
+    switch c.kind {
+    case .github: return GitHub(cfg: c)
+    case .gitlab: return GitLab(cfg: c)
+    case .gitea: return Gitea(cfg: c)
+    case .folder: return FolderBackend(cfg: c)
+    case .webdav: return WebDAV(cfg: c)
+    case .local: return FolderBackend(cfg: c)
+    }
+}
+
+/// files the app reads
+func isLedgerFile(_ path: String) -> Bool {
+    (path.hasSuffix(".bean") || path.hasSuffix(".beancount") || path.hasSuffix(".bql") || path == LedgerXConfig.path)
+        && !path.split(separator: "/").contains(where: { $0.hasPrefix(".") })
+}
+
+/// Attachment names participate in collision checks; their contents are never parsed as ledger text.
+func isDocumentFile(_ path: String) -> Bool {
+    path.hasPrefix("documents/") && !path.split(separator: "/").contains(where: { $0.hasPrefix(".") })
+}
+
+func sha1Hex(_ d: Data) -> String { Insecure.SHA1.hash(data: d).map { String(format: "%02x", $0) }.joined() }
+
+/// the sha git gives this content ("blob <len>\0<bytes>")
+func gitBlobSHA(_ text: String) -> String {
+    let body = Data(text.utf8)
+    var d = Data("blob \(body.count)\0".utf8)
+    d.append(body)
+    return sha1Hex(d)
+}
+
+/// a stable id for a whole listing, to notice changes
+func treeID(_ files: [String: String]) -> String {
+    sha1Hex(Data(files.sorted { $0.key < $1.key }.map { $0.key + ":" + $0.value }.joined(separator: "\n").utf8))
+}
+
+private let httpSession: URLSession = {
+    let c = URLSessionConfiguration.default
+    c.requestCachePolicy = .reloadIgnoringLocalCacheData
+    c.urlCache = nil
+    c.timeoutIntervalForRequest = 30
+    return URLSession(configuration: c)
+}()
+
+private func trimSlash(_ s: String) -> String {
+    var x = s.trimmingCharacters(in: .whitespaces)
+    while x.hasSuffix("/") { x.removeLast() }
+    return x
+}
+
+// MARK: - GitLab (gitlab.com or self-hosted, API v4)
+
+struct GitLab: LedgerBackend {
+    let cfg: RepoConfig
+    private var base: String { trimSlash(cfg.server.isEmpty ? "https://gitlab.com" : cfg.server) }
+    private var project: String { GitHub.enc(cfg.owner + "/" + cfg.repo).replacingOccurrences(of: "/", with: "%2F") }
+    private var api: String { base + "/api/v4/projects/" + project }
+
+    private func request(_ path: String, method: String = "GET", body: [String: Any]? = nil) async throws -> (Data, HTTPURLResponse) {
+        guard let url = URL(string: api + path) else { throw GitHubError(status: 0, message: "bad url") }
+        var r = URLRequest(url: url)
+        r.httpMethod = method
+        r.setValue(cfg.token, forHTTPHeaderField: "PRIVATE-TOKEN")
+        if let body = body {
+            r.httpBody = try JSONSerialization.data(withJSONObject: body)
+            r.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
+        let (data, resp) = try await httpSession.data(for: r)
+        guard let h = resp as? HTTPURLResponse else { throw GitHubError(status: 0, message: "no response") }
+        guard (200..<300).contains(h.statusCode) else {
+            let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            throw GitHubError(status: h.statusCode, message: (o?["message"] as? String) ?? (o?["error"] as? String) ?? "")
+        }
+        return (data, h)
+    }
+
+    private var ref: String { GitHub.enc(cfg.branch) }
+
+    func fetchTree() async throws -> RepoTree {
+        var files: [String: String] = [:]
+        var page = "1"
+        while !page.isEmpty {
+            let (d, h) = try await request("/repository/tree?ref=\(ref)&recursive=true&per_page=100&page=\(page)")
+            for n in (try JSONSerialization.jsonObject(with: d) as? [[String: Any]]) ?? [] where n["type"] as? String == "blob" {
+                if let p = n["path"] as? String, let s = n["id"] as? String, (isLedgerFile(p) || isDocumentFile(p)) { files[p] = s }
+            }
+            page = h.value(forHTTPHeaderField: "X-Next-Page") ?? ""
+        }
+        let (b, _) = try await request("/repository/branches/\(ref)")
+        let commit = ((try? JSONSerialization.jsonObject(with: b) as? [String: Any])?["commit"] as? [String: Any])?["id"] as? String
+        return RepoTree(sha: commit ?? treeID(files), files: files, commit: commit)
+    }
+
+    func read(_ path: String, version: String) async throws -> String {
+        let (d, _) = try await request("/repository/blobs/\(version)/raw")
+        return String(decoding: d, as: UTF8.self)
+    }
+
+    /// the file on the branch now: its blob (our version token) and the last commit that changed it, which
+    /// GitLab checks again when it is passed back as last_commit_id (so a push in between is refused there)
+    private func current(_ path: String) async throws -> (blob: String, commit: String?)? {
+        do {
+            let (d, _) = try await request("/repository/files/\(GitHub.enc(path).replacingOccurrences(of: "/", with: "%2F"))?ref=\(ref)")
+            let o = (try JSONSerialization.jsonObject(with: d) as? [String: Any]) ?? [:]
+            guard let b = o["blob_id"] as? String else { return nil }
+            return (b, o["last_commit_id"] as? String)
+        } catch let e as GitHubError where e.status == 404 { return nil }
+    }
+
+    /// GitLab answers a stale last_commit_id (or a file created meanwhile) with 400: a conflict when the
+    /// files really moved on, the error itself otherwise
+    private func conflictOr(_ e: GitHubError, _ changes: [FileChange]) async -> GitHubError {
+        guard e.status == 400 else { return e }
+        for c in changes {
+            let now = try? await current(c.path)
+            if now?.blob != c.version { return GitHubError(status: 409, message: c.path) }
+        }
+        return e
+    }
+
+    func write(_ path: String, text: String, version: String?, message: String) async throws -> String {
+        let now = try await current(path)
+        if now?.blob != version { throw GitHubError(status: 409, message: path) }
+        let file = "/repository/files/" + GitHub.enc(path).replacingOccurrences(of: "/", with: "%2F")
+        var body: [String: Any] = ["branch": cfg.branch, "content": text, "commit_message": message, "encoding": "text"]
+        if let lc = now?.commit { body["last_commit_id"] = lc }
+        do {
+            _ = try await request(file, method: version == nil ? "POST" : "PUT", body: body)
+        } catch let e as GitHubError {
+            throw await conflictOr(e, [FileChange(path: path, text: text, version: version)])
+        }
+        return gitBlobSHA(text)
+    }
+
+    /// one commit with several actions
+    func writeMany(_ changes: [FileChange], message: String) async throws -> [String: String] {
+        if changes.count <= 1 { return try await writeSequentially(changes, message: message) }
+        var actions: [[String: Any]] = []
+        for c in changes {
+            let now = try await current(c.path)
+            if now?.blob != c.version { throw GitHubError(status: 409, message: c.path) }
+            var a: [String: Any]
+            if let t = c.text {
+                a = ["action": now == nil ? "create" : "update", "file_path": c.path, "content": t, "encoding": "text"]
+            } else if now != nil {
+                a = ["action": "delete", "file_path": c.path]
+            } else { continue }
+            if let lc = now?.commit { a["last_commit_id"] = lc }
+            actions.append(a)
+        }
+        if actions.isEmpty { return [:] }
+        do {
+            _ = try await request("/repository/commits", method: "POST", body: ["branch": cfg.branch, "commit_message": message, "actions": actions])
+        } catch let e as GitHubError {
+            throw await conflictOr(e, changes)
+        }
+        var out: [String: String] = [:]
+        for c in changes { if let t = c.text { out[c.path] = gitBlobSHA(t) } }
+        return out
+    }
+
+    func delete(_ path: String, version: String, message: String) async throws {
+        // like write: never delete a file that changed on the server since we read it
+        guard let now = try await current(path) else { return }
+        if now.blob != version { throw GitHubError(status: 409, message: path) }
+        let file = "/repository/files/" + GitHub.enc(path).replacingOccurrences(of: "/", with: "%2F")
+        var body: [String: Any] = ["branch": cfg.branch, "commit_message": message]
+        if let lc = now.commit { body["last_commit_id"] = lc }
+        do {
+            _ = try await request(file, method: "DELETE", body: body)
+        } catch let e as GitHubError {
+            throw await conflictOr(e, [FileChange(path: path, text: nil, version: version)])
+        }
+    }
+
+    func readData(_ path: String) async throws -> Data {
+        try await request("/repository/files/\(GitHub.enc(path).replacingOccurrences(of: "/", with: "%2F"))/raw?ref=\(ref)").0
+    }
+    func writeData(_ path: String, data: Data, message: String) async throws {
+        let file = "/repository/files/" + GitHub.enc(path).replacingOccurrences(of: "/", with: "%2F")
+        _ = try await request(file, method: "POST", body: ["branch": cfg.branch, "content": data.base64EncodedString(), "commit_message": message, "encoding": "base64"])
+    }
+
+    func check() async -> GitHub.CI? { nil }
+    func webURL(_ file: String, line: Int?) -> URL? {
+        URL(string: "\(base)/\(cfg.owner)/\(cfg.repo)/-/blob/\(GitHub.enc(cfg.branch))/\(GitHub.encPath(file))" + (line.map { "#L\($0)" } ?? ""))
+    }
+    var repoURL: URL? { URL(string: "\(base)/\(cfg.owner)/\(cfg.repo)") }
+}
+
+// MARK: - Gitea / Forgejo (incl. Codeberg), API v1
+
+struct Gitea: LedgerBackend {
+    let cfg: RepoConfig
+    private var base: String { trimSlash(cfg.server) }
+    private var api: String { base + "/api/v1/repos/\(GitHub.enc(cfg.owner))/\(GitHub.enc(cfg.repo))" }
+
+    private func json(_ path: String, method: String = "GET", body: [String: Any]? = nil) async throws -> Any {
+        guard let url = URL(string: api + path) else { throw GitHubError(status: 0, message: "bad url") }
+        var r = URLRequest(url: url)
+        r.httpMethod = method
+        r.setValue("token " + cfg.token, forHTTPHeaderField: "Authorization")
+        r.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let body = body {
+            r.httpBody = try JSONSerialization.data(withJSONObject: body)
+            r.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
+        let (data, resp) = try await httpSession.data(for: r)
+        let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(status) else {
+            let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            throw GitHubError(status: status, message: o?["message"] as? String ?? "")
+        }
+        return data.isEmpty ? [:] : ((try? JSONSerialization.jsonObject(with: data)) ?? [:])
+    }
+
+    func fetchTree() async throws -> RepoTree {
+        let b = try await json("/branches/\(GitHub.enc(cfg.branch))") as? [String: Any]
+        guard let commit = (b?["commit"] as? [String: Any])?["id"] as? String else { throw GitHubError(status: 404, message: cfg.branch) }
+        var files: [String: String] = [:]
+        var page = 1
+        while true {
+            let t = try await json("/git/trees/\(commit)?recursive=true&per_page=1000&page=\(page)") as? [String: Any] ?? [:]
+            for n in (t["tree"] as? [[String: Any]]) ?? [] where n["type"] as? String == "blob" {
+                if let p = n["path"] as? String, let s = n["sha"] as? String, (isLedgerFile(p) || isDocumentFile(p)) { files[p] = s }
+            }
+            if (t["truncated"] as? Bool) == true && page < 50 { page += 1 } else { break }
+        }
+        return RepoTree(sha: commit, files: files, commit: commit)
+    }
+
+    func read(_ path: String, version: String) async throws -> String {
+        let o = try await json("/git/blobs/\(version)") as? [String: Any]
+        let b64 = ((o?["content"] as? String) ?? "").replacingOccurrences(of: "\n", with: "")
+        return String(decoding: Data(base64Encoded: b64) ?? Data(), as: UTF8.self)
+    }
+
+    func write(_ path: String, text: String, version: String?, message: String) async throws -> String {
+        var body: [String: Any] = ["content": Data(text.utf8).base64EncodedString(), "message": message, "branch": cfg.branch]
+        if let v = version { body["sha"] = v }
+        let o = try await json("/contents/\(GitHub.encPath(path))", method: version == nil ? "POST" : "PUT", body: body) as? [String: Any]
+        return ((o?["content"] as? [String: Any])?["sha"] as? String) ?? gitBlobSHA(text)
+    }
+
+    func delete(_ path: String, version: String, message: String) async throws {
+        _ = try await json("/contents/\(GitHub.encPath(path))", method: "DELETE", body: ["sha": version, "message": message, "branch": cfg.branch])
+    }
+
+    /// Gitea 1.20+ / Forgejo: several files in one commit; older servers fall back to one at a time
+    func writeMany(_ changes: [FileChange], message: String) async throws -> [String: String] {
+        if changes.count <= 1 { return try await writeSequentially(changes, message: message) }
+        var files: [[String: Any]] = []
+        for c in changes {
+            var f: [String: Any] = ["path": c.path]
+            if let t = c.text {
+                f["operation"] = c.version == nil ? "create" : "update"
+                f["content"] = Data(t.utf8).base64EncodedString()
+            } else {
+                guard c.version != nil else { continue }
+                f["operation"] = "delete"
+            }
+            if let v = c.version { f["sha"] = v }
+            files.append(f)
+        }
+        do {
+            _ = try await json("/contents", method: "POST", body: ["branch": cfg.branch, "message": message, "files": files])
+        } catch let e as GitHubError where e.status == 404 || e.status == 405 {
+            return try await writeSequentially(changes, message: message)
+        }
+        var out: [String: String] = [:]
+        for c in changes { if let t = c.text { out[c.path] = gitBlobSHA(t) } }
+        return out
+    }
+
+    func readData(_ path: String) async throws -> Data {
+        guard let url = URL(string: api + "/raw/\(GitHub.encPath(path))?ref=\(GitHub.enc(cfg.branch))") else { throw GitHubError(status: 0, message: path) }
+        var r = URLRequest(url: url)
+        r.setValue("token " + cfg.token, forHTTPHeaderField: "Authorization")
+        let (data, resp) = try await httpSession.data(for: r)
+        let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(status) else { throw GitHubError(status: status, message: path) }
+        return data
+    }
+    func writeData(_ path: String, data: Data, message: String) async throws {
+        _ = try await json("/contents/\(GitHub.encPath(path))", method: "POST", body: ["content": data.base64EncodedString(), "message": message, "branch": cfg.branch])
+    }
+
+    func check() async -> GitHub.CI? { nil }
+    func webURL(_ file: String, line: Int?) -> URL? {
+        URL(string: "\(base)/\(cfg.owner)/\(cfg.repo)/src/branch/\(GitHub.enc(cfg.branch))/\(GitHub.encPath(file))" + (line.map { "#L\($0)" } ?? ""))
+    }
+    var repoURL: URL? { URL(string: "\(base)/\(cfg.owner)/\(cfg.repo)") }
+}
+
+// MARK: - a folder from the Files app (on this iPhone, iCloud Drive, other providers, Working Copy…)
+
+struct FolderBackend: LedgerBackend {
+    let cfg: RepoConfig
+
+    /// the folder of a ledger kept in this app's own files (On My iPhone › Ledger)
+    static func localRoot(_ folder: String) -> URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(folder, isDirectory: true)
+    }
+
+    /// resolve the bookmark and run `body` with access to the folder
+    private func withFolder<T>(_ body: (URL) throws -> T) throws -> T {
+        if cfg.kind == .local {
+            let root = Self.localRoot(cfg.folderName)
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            return try body(root)
+        }
+        guard let bm = cfg.bookmark else { throw GitHubError(status: 404, message: LS("尚未选择文件夹")) }
+        var stale = false
+        let url = try URL(resolvingBookmarkData: bm, options: [], relativeTo: nil, bookmarkDataIsStale: &stale)
+        let ok = url.startAccessingSecurityScopedResource()
+        defer { if ok { url.stopAccessingSecurityScopedResource() } }
+        return try body(url)
+    }
+
+    private func coordinatedRead(_ url: URL) throws -> String {
+        var err: NSError?
+        var out: Result<String, Error> = .failure(GitHubError(status: 0, message: url.lastPathComponent))
+        NSFileCoordinator().coordinate(readingItemAt: url, options: [], error: &err) { u in
+            out = Result { try String(contentsOf: u, encoding: .utf8) }
+        }
+        if let e = err { throw e }
+        return try out.get()
+    }
+
+    private func coordinatedWrite(_ url: URL, _ text: String) throws {
+        var err: NSError?
+        var out: Error?
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        NSFileCoordinator().coordinate(writingItemAt: url, options: .forReplacing, error: &err) { u in
+            do { try Data(text.utf8).write(to: u, options: .atomic) } catch { out = error }
+        }
+        if let e = err ?? out { throw e }
+    }
+
+    func fetchTree() async throws -> RepoTree {
+        try await Task.detached { () throws -> RepoTree in
+            try withFolder { (root: URL) throws -> RepoTree in
+                var files: [String: String] = [:]
+                let fm = FileManager.default
+                guard let en = fm.enumerator(at: root, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsPackageDescendants]) else {
+                    return RepoTree(sha: "", files: [:], commit: nil)
+                }
+                let rootPath = root.standardizedFileURL.path
+                for case let u as URL in en {
+                    var rel = String(u.standardizedFileURL.path.dropFirst(rootPath.count))
+                    while rel.hasPrefix("/") { rel.removeFirst() }
+                    if rel.split(separator: "/").first.map({ $0 == ".git" }) == true { en.skipDescendants(); continue }
+                    var real = u
+                    // iCloud placeholders not downloaded yet: ".name.bean.icloud"
+                    let n = u.lastPathComponent
+                    if n.hasPrefix("."), n.hasSuffix(".icloud") {
+                        let name = String(n.dropFirst().dropLast(7))
+                        real = u.deletingLastPathComponent().appendingPathComponent(name)
+                        rel = (rel as NSString).deletingLastPathComponent
+                        rel = rel.isEmpty ? name : rel + "/" + name
+                        try? fm.startDownloadingUbiquitousItem(at: real)
+                    }
+                    let values = try u.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey])
+                    guard values.isDirectory != true else { continue }
+                    if isDocumentFile(rel), !isLedgerFile(rel) {
+                        files[rel] = "document:\(values.fileSize ?? 0):\(values.contentModificationDate?.timeIntervalSince1970 ?? 0)"
+                        continue
+                    }
+                    guard isLedgerFile(rel) else { continue }
+                    let text = try coordinatedRead(real)
+                    let sha = gitBlobSHA(text)
+                    BlobCache.set(sha, text)
+                    files[rel] = sha
+                }
+                return RepoTree(sha: treeID(files), files: files, commit: nil)
+            }
+        }.value
+    }
+
+    func read(_ path: String, version: String) async throws -> String {
+        if let t = BlobCache.get(version) { return t }
+        return try await Task.detached { () throws -> String in try withFolder { (root: URL) throws -> String in try coordinatedRead(root.appendingPathComponent(path)) } }.value
+    }
+
+    func write(_ path: String, text: String, version: String?, message: String) async throws -> String {
+        try await Task.detached { () throws -> String in
+            try withFolder { (root: URL) throws -> String in
+                let url = root.appendingPathComponent(path)
+                let exists = FileManager.default.fileExists(atPath: url.path)
+                if exists || version != nil {
+                    let now = exists ? gitBlobSHA(try coordinatedRead(url)) : nil
+                    if now != version { throw GitHubError(status: 409, message: path) }
+                }
+                try coordinatedWrite(url, text)
+                return gitBlobSHA(text)
+            }
+        }.value
+    }
+
+    func delete(_ path: String, version: String, message: String) async throws {
+        try await Task.detached { () throws -> Void in
+            try withFolder { (root: URL) throws -> Void in
+                let url = root.appendingPathComponent(path)
+                guard FileManager.default.fileExists(atPath: url.path) else { return }
+                if gitBlobSHA(try coordinatedRead(url)) != version { throw GitHubError(status: 409, message: path) }
+                var err: NSError?
+                var out: Error?
+                NSFileCoordinator().coordinate(writingItemAt: url, options: .forDeleting, error: &err) { u in
+                    do { try FileManager.default.removeItem(at: u) } catch { out = error }
+                }
+                if let e = err ?? out { throw e }
+            }
+        }.value
+    }
+
+    func readData(_ path: String) async throws -> Data {
+        try await Task.detached { () throws -> Data in
+            try withFolder { (root: URL) throws -> Data in try Data(contentsOf: root.appendingPathComponent(path)) }
+        }.value
+    }
+    func writeData(_ path: String, data: Data, message: String) async throws {
+        try await Task.detached { () throws -> Void in
+            try withFolder { (root: URL) throws -> Void in
+                let url = root.appendingPathComponent(path)
+                try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                let temporary = url.deletingLastPathComponent().appendingPathComponent(".attachment-" + UUID().uuidString)
+                defer { try? FileManager.default.removeItem(at: temporary) }
+                try data.write(to: temporary, options: .atomic)
+                // Publishing a new attachment must fail if another writer claimed its name.
+                try FileManager.default.moveItem(at: temporary, to: url)
+            }
+        }.value
+    }
+
+    func check() async -> GitHub.CI? { nil }
+    func webURL(_ file: String, line: Int?) -> URL? { nil }
+    var repoURL: URL? { nil }
+}
+
+// MARK: - WebDAV (坚果云, Nextcloud, Synology, …)
+
+struct WebDAV: LedgerBackend {
+    let cfg: RepoConfig
+    private var base: URL? { URL(string: trimSlash(cfg.server) + "/") }
+
+    private func url(_ path: String) -> URL? { base.flatMap { URL(string: GitHub.encPath(path), relativeTo: $0)?.absoluteURL } }
+
+    private func send(_ u: URL, method: String, depth: String? = nil, body: Data? = nil, type: String? = nil,
+                      headers: [String: String] = [:]) async throws -> (Data, HTTPURLResponse) {
+        var r = URLRequest(url: u)
+        r.httpMethod = method
+        for (k, v) in headers { r.setValue(v, forHTTPHeaderField: k) }
+        if !cfg.username.isEmpty || !cfg.token.isEmpty {
+            r.setValue("Basic " + Data("\(cfg.username):\(cfg.token)".utf8).base64EncodedString(), forHTTPHeaderField: "Authorization")
+        }
+        if let d = depth { r.setValue(d, forHTTPHeaderField: "Depth") }
+        if let t = type { r.setValue(t, forHTTPHeaderField: "Content-Type") }
+        r.httpBody = body
+        let (data, resp) = try await httpSession.data(for: r)
+        guard let h = resp as? HTTPURLResponse else { throw GitHubError(status: 0, message: "no response") }
+        guard (200..<300).contains(h.statusCode) else { throw GitHubError(status: h.statusCode, message: u.path) }
+        return (data, h)
+    }
+
+    private static let propfind = Data("""
+    <?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/><d:getetag/><d:getlastmodified/><d:getcontentlength/></d:prop></d:propfind>
+    """.utf8)
+
+    /// `etag` identifies the version (quotes taken off; modification time and size when the server sends none);
+    /// `strong` is the ETag as sent, when it is a strong one the server can check in If-Match
+    struct Item { var href: String; var dir: Bool; var etag: String; var strong: String? = nil }
+
+    private func list(_ u: URL, depth: String) async throws -> [Item] {
+        let (d, _) = try await send(u, method: "PROPFIND", depth: depth, body: WebDAV.propfind, type: "application/xml; charset=utf-8")
+        return DAVParser.parse(d)
+    }
+
+    /// version token: path + ETag (or modification time and size when the server has no ETag)
+    private func version(_ path: String, _ etag: String) -> String { "dav|" + etag + "|" + path }
+
+    private func relative(_ href: String) -> String? {
+        guard let base = base else { return nil }
+        let basePath = base.path.removingPercentEncoding ?? base.path
+        var p = (URL(string: href, relativeTo: base)?.path ?? href).removingPercentEncoding ?? href
+        guard p.hasPrefix(trimSlash(basePath)) else { return nil }
+        p = String(p.dropFirst(trimSlash(basePath).count))
+        while p.hasPrefix("/") { p.removeFirst() }
+        return p
+    }
+
+    func fetchTree() async throws -> RepoTree {
+        guard let root = base else { throw GitHubError(status: 0, message: "bad url") }
+        var files: [String: String] = [:]
+        var queue: [URL] = [root]
+        var seen = Set<String>()
+        while let dir = queue.popLast(), seen.count < 200 {
+            if !seen.insert(dir.absoluteString).inserted { continue }
+            for it in try await list(dir, depth: "1") {
+                guard let rel = relative(it.href), !rel.isEmpty else { continue }
+                if rel.split(separator: "/").contains(where: { $0.hasPrefix(".") }) { continue }
+                if it.dir {
+                    if let u = url(rel.hasSuffix("/") ? rel : rel + "/"), u.absoluteString != dir.absoluteString { queue.append(u) }
+                } else if isLedgerFile(rel) || isDocumentFile(rel) {
+                    files[rel] = version(rel, it.etag)
+                }
+            }
+        }
+        return RepoTree(sha: treeID(files), files: files, commit: nil)
+    }
+
+    func read(_ path: String, version: String) async throws -> String {
+        guard let u = url(path) else { throw GitHubError(status: 0, message: path) }
+        let (d, _) = try await send(u, method: "GET")
+        return String(decoding: d, as: UTF8.self)
+    }
+
+    private func currentItem(_ path: String) async throws -> Item? {
+        guard let u = url(path) else { return nil }
+        do { return try await list(u, depth: "0").first } catch let e as GitHubError where e.status == 404 { return nil }
+    }
+    private func currentEtag(_ path: String) async throws -> String? { try await currentItem(path)?.etag }
+
+    /// the server refuses the write if the file changed after we looked (If-Match), or appeared (If-None-Match)
+    private func guardHeaders(_ now: Item?) -> [String: String] {
+        guard let now = now else { return ["If-None-Match": "*"] }
+        return now.strong.map { ["If-Match": $0] } ?? [:]
+    }
+
+    func write(_ path: String, text: String, version: String?, message: String) async throws -> String {
+        guard let u = url(path) else { throw GitHubError(status: 0, message: path) }
+        let item = try await currentItem(path)
+        if item.map({ self.version(path, $0.etag) }) != version { throw GitHubError(status: 409, message: path) }
+        let cond = guardHeaders(item)
+        do {
+            _ = try await send(u, method: "PUT", body: Data(text.utf8), type: "text/plain; charset=utf-8", headers: cond)
+        } catch let e as GitHubError where e.status == 412 {
+            throw GitHubError(status: 409, message: path)
+        } catch let e as GitHubError where e.status == 409 || e.status == 404 {
+            // parent folder missing: create it, then retry
+            var dir = ""
+            for part in path.split(separator: "/").dropLast() {
+                dir += part + "/"
+                if let du = url(dir) { _ = try? await send(du, method: "MKCOL") }
+            }
+            _ = try await send(u, method: "PUT", body: Data(text.utf8), type: "text/plain; charset=utf-8", headers: cond)
+        }
+        let et = try await currentEtag(path) ?? gitBlobSHA(text)
+        let v = self.version(path, et)
+        BlobCache.set(v, text)
+        return v
+    }
+
+    func delete(_ path: String, version: String, message: String) async throws {
+        guard let u = url(path) else { return }
+        guard let item = try await currentItem(path) else { return }
+        if self.version(path, item.etag) != version { throw GitHubError(status: 409, message: path) }
+        do {
+            _ = try await send(u, method: "DELETE", headers: guardHeaders(item))
+        } catch let e as GitHubError where e.status == 412 {
+            throw GitHubError(status: 409, message: path)
+        }
+    }
+
+    func readData(_ path: String) async throws -> Data {
+        guard let u = url(path) else { throw GitHubError(status: 0, message: path) }
+        return try await send(u, method: "GET").0
+    }
+    func writeData(_ path: String, data: Data, message: String) async throws {
+        guard let u = url(path) else { throw GitHubError(status: 0, message: path) }
+        var dir = ""
+        for part in path.split(separator: "/").dropLast() {
+            dir += part + "/"
+            if let du = url(dir) { _ = try? await send(du, method: "MKCOL") }
+        }
+        _ = try await send(u, method: "PUT", body: data, type: "application/octet-stream", headers: ["If-None-Match": "*"])
+    }
+
+    func check() async -> GitHub.CI? { nil }
+    func webURL(_ file: String, line: Int?) -> URL? { nil }
+    var repoURL: URL? { nil }
+}
+
+/// minimal PROPFIND multistatus parser
+final class DAVParser: NSObject, XMLParserDelegate {
+    private var items: [WebDAV.Item] = []
+    private var cur: WebDAV.Item?
+    private var text = ""
+    private var lastmod = ""
+    private var length = ""
+
+    static func parse(_ d: Data) -> [WebDAV.Item] {
+        let p = XMLParser(data: d)
+        let me = DAVParser()
+        p.shouldProcessNamespaces = true
+        p.delegate = me
+        p.parse()
+        return me.items
+    }
+
+    func parser(_ parser: XMLParser, didStartElement name: String, namespaceURI: String?, qualifiedName: String?, attributes: [String: String] = [:]) {
+        text = ""
+        if name == "response" { cur = WebDAV.Item(href: "", dir: false, etag: ""); lastmod = ""; length = "" }
+        if name == "collection" { cur?.dir = true }
+    }
+    func parser(_ parser: XMLParser, foundCharacters string: String) { text += string }
+    func parser(_ parser: XMLParser, didEndElement name: String, namespaceURI: String?, qualifiedName: String?) {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch name {
+        case "href": cur?.href = t
+        case "getetag":
+            cur?.etag = t.replacingOccurrences(of: "\"", with: "")
+            // weak tags (W/"…") never pass If-Match's strong comparison; quote a bare one as a header needs
+            if !t.isEmpty && !t.hasPrefix("W/") { cur?.strong = t.hasPrefix("\"") ? t : "\"" + t + "\"" }
+        case "getlastmodified": lastmod = t
+        case "getcontentlength": length = t
+        case "response":
+            if var c = cur {
+                if c.etag.isEmpty { c.etag = lastmod + "/" + length }
+                items.append(c)
+            }
+            cur = nil
+        default: break
+        }
+        text = ""
+    }
+}

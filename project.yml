@@ -1,0 +1,126 @@
+name: Ledger
+options:
+  bundleIdPrefix: com.iskerwin
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  developmentLanguage: zh-Hans
+packages:
+  LedgerKit:
+    path: LedgerKit
+targets:
+  Ledger:
+    type: application
+    platform: iOS
+    sources:
+      - path: Ledger
+        excludes:
+          - "Demo/**"
+    # the demo ledger: not kept in this repository; tools/ship.py copies ledger-demo into Ledger/Demo when it builds
+    # the release app, and this copies it into the bundle as a folder (its files keep their places). Without it (test
+    # and Xcode builds) the app simply has no built-in demo and downloads it when first opened.
+    postCompileScripts:
+      - name: Copy the built-in demo ledger
+        basedOnDependencyAnalysis: false
+        script: |
+          if [ -f "$SRCROOT/Ledger/Demo/main.bean" ]; then
+            dst="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Demo"
+            rm -rf "$dst" && mkdir -p "$dst"
+            rsync -a --exclude '.*' "$SRCROOT/Ledger/Demo/" "$dst/"
+          fi
+    dependencies:
+      - package: LedgerKit
+    info:
+      path: Ledger/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: zh_CN
+        CFBundleLocalizations: [zh-Hans, en]
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSFaceIDUsageDescription: 使用面容 ID 解锁账本
+        NSCameraUsageDescription: 拍摄票据作为交易附件
+        NSPhotoLibraryUsageDescription: 选择票据照片作为交易附件
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        # the ledgers kept on this phone show in the Files app (On My iPhone › Ledger X)
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        CFBundleURLTypes:
+          - CFBundleURLName: com.iskerwin.ledger
+            CFBundleURLSchemes: [ledgerx]
+        # the ledger-demo commit built in, and the mirror demo updates fall back to (both set by tools/ship.py)
+        LedgerDemoCommit: $(LEDGER_DEMO_COMMIT)
+        LedgerDemoMirror: $(LEDGER_DEMO_MIRROR)
+    settings:
+      base:
+        PRODUCT_NAME: Ledger
+        PRODUCT_BUNDLE_IDENTIFIER: com.iskerwin.ledger
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        LEDGER_DEMO_COMMIT: ""
+        LEDGER_DEMO_MIRROR: ""
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Ledger X
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.finance
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.0"
+        SWIFT_STRICT_CONCURRENCY: minimal
+        ENABLE_PREVIEWS: NO
+        CODE_SIGNING_ALLOWED: NO
+        # the demo copy script writes into the app bundle
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGN_IDENTITY: ""
+        DEVELOPMENT_TEAM: ""
+  LedgerTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: LedgerTests
+    dependencies:
+      - target: Ledger
+      - package: LedgerKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.iskerwin.ledger.tests
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Ledger.app/Ledger"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGNING_ALLOWED: NO
+        SWIFT_VERSION: "5.0"
+  LedgerUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: LedgerUITests
+        excludes: ["Fixtures/**"]
+    dependencies:
+      - target: Ledger
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.iskerwin.ledger.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Ledger
+        CODE_SIGNING_ALLOWED: NO
+        SWIFT_VERSION: "5.0"
+schemes:
+  Ledger:
+    build:
+      targets:
+        Ledger: all
+  LedgerInteractionTests:
+    build:
+      targets:
+        Ledger: all
+        LedgerTests: [test]
+        LedgerUITests: [test]
+    test:
+      targets:
+        - LedgerTests
+        - LedgerUITests

@@ -1,0 +1,21 @@
+2023-12-01 open Liabilities:CreditCard:SPDB CNY
+  name: "浦发信用卡"
+  statement_day: 1
+  due_day: 20
+  credit_limit: 30000
+
+2026-09-03 * "京东" "显示器"
+  Expenses:Shopping:Household                       1899.00 CNY
+  Liabilities:CreditCard:SPDB
+
+2026-09-18 * "海底捞" "聚餐"
+  Expenses:Food:Meals                                468.00 CNY
+  Liabilities:CreditCard:SPDB
+
+2026-09-26 * "全季酒店" "出差"
+  Expenses:Travel:Hotel                              689.00 CNY
+  Liabilities:CreditCard:SPDB
+
+2026-10-03 * "盒马" "买菜"
+  Expenses:Food:Meals                                156.80 CNY
+  Liabilities:CreditCard:SPDB

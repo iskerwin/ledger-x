@@ -1,0 +1,15 @@
+01:02円	：！！！今68
+Transactions
+丽娜超市｜示例区
+-HK$4.71
+Local Price	¥4.00
+Exchange Rate	1CNY=1.17828HKD
+Current Status	Successful
+Time of Payment	2026-09-29 08:45:55
+Payment Method	Visa（2468）
+Transaction No.	420000000120260929000000003
+3
+Merchant Order No.	Scan for refund at supported
+merchants
+10000000000000000000000000000066
+Report

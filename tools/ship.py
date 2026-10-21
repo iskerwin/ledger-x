@@ -1,0 +1,527 @@
+#!/usr/bin/env python3
+"""Validate, build and publish Ledger X on this Mac; nothing runs on GitHub Actions.
+
+  python3 tools/ship.py test                     full validation, publishes nothing
+  python3 tools/ship.py dev                      validate main, build, push main, publish the dev build
+  python3 tools/ship.py release                  publish the phone-accepted dev package as vX.Y.Z (same bytes)
+  python3 tools/ship.py version patch|minor|major|X.Y.Z
+                                                 commit a version bump and a new CHANGELOG section
+
+Any failed step stops before anything is pushed or published. Logs stay in the
+repository root (*.log, interaction-tests.xcresult); packages and evidence in dist/.
+"""
+from datetime import datetime, timezone
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import platform
+import plistlib
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import zipfile
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'tools/release'))  # release_notes
+DIST = ROOT / 'dist'
+FILES = ('Ledger.ipa', 'build-manifest.json', 'validation-evidence.json', 'release-notes.md')
+XCODE = '/Applications/Xcode.app/Contents/Developer'
+BEANCOUNT = ('/opt/homebrew/opt/beancount/libexec/bin/python', '/usr/local/opt/beancount/libexec/bin/python')
+SIM_NAME = 'Ledger Local Tests'
+PREFERRED = ('iPhone 17', 'iPhone 16', 'iPhone 17 Pro', 'iPhone 16 Pro', 'iPhone 15')
+SIM_PREFS = Path.home() / 'Library/Preferences/com.apple.iphonesimulator.plist'
+BOOT_TIMEOUT = 300
+TEST_TIMEOUT = 300   # per interaction test, as in the former CI
+
+
+class Failure(Exception):
+    pass
+
+
+def step(text):
+    print(f'\n▶ {text}', flush=True)
+
+
+def out(cmd, **kwargs):
+    return subprocess.run([str(c) for c in cmd], cwd=ROOT, check=True, capture_output=True, text=True, **kwargs).stdout.strip()
+
+
+def run(cmd, log=None, check=True, env=None, timeout=None):
+    """Run a command; with `log`, its output goes to that file and the tail is shown on failure."""
+    cmd = [str(c) for c in cmd]
+    if log is None:
+        result = subprocess.run(cmd, cwd=ROOT, env=env, timeout=timeout)
+    else:
+        with open(ROOT / log, 'w') as handle:
+            result = subprocess.run(cmd, cwd=ROOT, env=env, timeout=timeout, stdout=handle, stderr=subprocess.STDOUT)
+    if check and result.returncode:
+        if log:
+            print(''.join((ROOT / log).read_text(errors='replace').splitlines(True)[-40:]), file=sys.stderr)
+        raise Failure(f'{" ".join(cmd[:3])} 失败（退出码 {result.returncode}）' + (f'，完整日志见 {log}' if log else ''))
+    return result.returncode
+
+
+def git(*args):
+    return out(['git', *args])
+
+
+def gh_api(path):
+    return json.loads(out(['gh', 'api', path]))
+
+
+def repository():
+    return out(['gh', 'repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner'])
+
+
+def use_xcode():
+    """Use the full Xcode even while xcode-select still points at the Command Line Tools."""
+    if subprocess.run(['xcodebuild', '-version'], capture_output=True).returncode:
+        if not Path(XCODE).exists():
+            raise Failure('找不到 Xcode；请安装 Xcode 并执行 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer')
+        os.environ['DEVELOPER_DIR'] = XCODE
+    return ' '.join(out(['xcodebuild', '-version']).split())
+
+
+def demo_snapshot():
+    """The fixed public demo commit, read-only, in .demo-data."""
+    commit = json.loads((ROOT / 'tools/fixtures/manifest.json').read_text())['demoCommit']
+    path = ROOT / '.demo-data'
+    if not (path / '.git').exists():
+        run(['git', 'clone', '-q', 'https://github.com/iskerwin/ledger-demo', path])
+    if git('-C', path, 'rev-parse', 'HEAD') != commit:
+        run(['git', '-C', path, 'fetch', '-q', 'origin'])
+        run(['git', '-C', path, 'checkout', '-q', '--detach', commit])
+    return commit
+
+
+def beancount_python():
+    for candidate in (*BEANCOUNT, sys.executable):
+        if Path(candidate).exists() and subprocess.run([candidate, '-c', 'import beancount'], capture_output=True).returncode == 0:
+            return candidate
+    raise Failure('找不到 Beancount；请执行 brew install beancount')
+
+
+def executed(text):
+    """Total from the last XCTest summary line: (tests, failures)."""
+    found = re.findall(r'Executed (\d+) tests?, with (\d+) failures?', text)
+    if not found:
+        raise Failure('日志中没有测试汇总行')
+    return tuple(map(int, found[-1]))
+
+
+# Simulator: a fresh dedicated device each run; readiness is observed, never assumed after a delay.
+
+def select_device(runtimes, sdk):
+    ios = [r for r in runtimes if r.get('isAvailable') and (r.get('platform') == 'iOS' or r.get('name', '').startswith('iOS '))]
+    if not ios:
+        raise Failure('没有可用的 iOS 模拟器运行时；在 Xcode → Settings → Components 下载')
+    key = lambda r: tuple(int(p) for p in r['version'].split('.') if p.isdigit())
+    # A runtime may carry only unusual models (iOS 27.1: iPhone Duo); the UI tests expect a regular iPhone.
+    regular = [r for r in ios if any(d.get('name') in PREFERRED for d in r.get('supportedDeviceTypes', []))] or ios
+    matching = [r for r in regular if key(r)[:2] == tuple(int(p) for p in sdk.split('.')[:2])]
+    runtime = max(matching or regular, key=key)
+    phones = [d for d in runtime.get('supportedDeviceTypes', []) if d.get('name', '').startswith('iPhone')]
+    if not phones:
+        raise Failure(f'{runtime["name"]} 不支持任何 iPhone 机型')
+    phones.sort(key=lambda d: (PREFERRED.index(d['name']) if d['name'] in PREFERRED else len(PREFERRED), d['name']))
+    return runtime, phones[0]
+
+
+def disable_hardware_keyboard(udid):
+    # A connected hardware keyboard hides the software keyboard; XCUITest then never sees app.keyboards.
+    subprocess.run(['defaults', 'write', 'com.apple.iphonesimulator', 'ConnectHardwareKeyboard', '-bool', 'false'], check=True)
+    buddy = '/usr/libexec/PlistBuddy'
+    for entry in (':DevicePreferences dict', f':DevicePreferences:{udid} dict'):
+        subprocess.run([buddy, '-c', f'Add {entry}', str(SIM_PREFS)], capture_output=True)
+    subprocess.run([buddy, '-c', f'Delete :DevicePreferences:{udid}:ConnectHardwareKeyboard', str(SIM_PREFS)], capture_output=True)
+    subprocess.run([buddy, '-c', f'Add :DevicePreferences:{udid}:ConnectHardwareKeyboard bool false', str(SIM_PREFS)], check=True)
+    subprocess.run(['killall', 'cfprefsd'], capture_output=True)
+
+
+def fresh_simulator():
+    for group in json.loads(out(['xcrun', 'simctl', 'list', 'devices', '-j']))['devices'].values():
+        for device in group:
+            if device['name'] == SIM_NAME:
+                subprocess.run(['xcrun', 'simctl', 'delete', device['udid']], capture_output=True)
+    sdk = out(['xcrun', '--sdk', 'iphonesimulator', '--show-sdk-version'])
+    runtime, device = select_device(json.loads(out(['xcrun', 'simctl', 'list', 'runtimes', '-j']))['runtimes'], sdk)
+    udid = out(['xcrun', 'simctl', 'create', SIM_NAME, device['identifier'], runtime['identifier']])
+    disable_hardware_keyboard(udid)
+    try:
+        subprocess.run(['xcrun', 'simctl', 'boot', udid], check=True, capture_output=True, timeout=120)
+        subprocess.run(['xcrun', 'simctl', 'bootstatus', udid, '-b'], check=True, capture_output=True, timeout=BOOT_TIMEOUT)
+        # Only to watch the run; Xcode 27 no longer ships Simulator.app and the tests run headless.
+        subprocess.run(['open', '-b', 'com.apple.iphonesimulator', '--args', '-CurrentDeviceUDID', udid], capture_output=True)
+        subprocess.run(['xcrun', 'simctl', 'getenv', udid, 'HOME'], check=True, capture_output=True, timeout=60)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+        raise Failure(f'模拟器环境失败（测试尚未开始）：{error}。这不是测试结论，可直接重跑')
+    return udid, f'{device["name"]} · {runtime["name"]}'
+
+
+def validate():
+    """Everything the former CI app job ran, in the same order. Returns the evidence."""
+    xcode = use_xcode()
+    demo = demo_snapshot()
+    step('静态检查与流程回归')
+    run([sys.executable, 'tools/check_project.py'])
+    run([sys.executable, '-m', 'unittest', 'discover', '-s', 'tools/tests', '-p', 'test_*.py'], log='tools-tests.log')
+
+    step('LedgerKit 核心测试')
+    env = dict(os.environ, LEDGER_DEMO_PATH=str(ROOT / '.demo-data'), SAMPLE_OUT=str(ROOT / 'samples'))
+    run(['swift', 'test', '--package-path', 'LedgerKit'], log='swift-tests.log', env=env)
+    core, failed = executed((ROOT / 'swift-tests.log').read_text(errors='replace'))
+    if failed or not core:
+        raise Failure(f'核心测试 {failed} 项失败，见 swift-tests.log')
+    print(f'  {core} 项通过')
+
+    step('Beancount 报表对照')
+    run([beancount_python(), 'tools/fixtures/check_reports.py', 'LedgerKit/Tests/LedgerKitTests/Fixtures/realistic/main.bean',
+         'samples/reports.json'], log='reports-check.log')
+    reports = next((line for line in (ROOT / 'reports-check.log').read_text().splitlines() if line.startswith('Reports match')), None)
+    if not reports:
+        raise Failure('报表对照没有给出一致结论，见 reports-check.log')
+    print(f'  {reports}')
+
+    step('新建专用模拟器')
+    udid, simulator = fresh_simulator()
+    print(f'  {simulator}')
+
+    step('编译 App 与测试包（不含内置演示）')
+    shutil.rmtree(ROOT / 'Ledger/Demo', ignore_errors=True)
+    run(['xcodegen', 'generate', '--quiet'])
+    destination = f'platform=iOS Simulator,id={udid}'
+    run(['xcodebuild', 'build-for-testing', '-project', 'Ledger.xcodeproj', '-scheme', 'LedgerInteractionTests',
+         '-destination', destination, '-derivedDataPath', 'build-demo', 'CODE_SIGNING_ALLOWED=NO'], log='demo-build.log')
+
+    step('附件与交互测试（不并行，约 10 分钟）')
+    shutil.rmtree(ROOT / 'interaction-tests.xcresult', ignore_errors=True)
+    code = run(['xcodebuild', 'test-without-building', '-project', 'Ledger.xcodeproj', '-scheme', 'LedgerInteractionTests',
+                '-destination', destination, '-derivedDataPath', 'build-demo', '-parallel-testing-enabled', 'NO',
+                '-test-timeouts-enabled', 'YES', '-maximum-test-execution-time-allowance', str(TEST_TIMEOUT),
+                '-resultBundlePath', 'interaction-tests.xcresult'], log='interaction-tests.log', check=False)
+    text = (ROOT / 'interaction-tests.log').read_text(errors='replace')
+    failures = re.findall(r"Test Case '-\[(\S+ \S+)\]' failed", text)
+    if code or failures or not re.search(r'\*\* TEST (EXECUTE )?SUCCEEDED \*\*', text):
+        for name in failures:
+            print(f'  ✗ {name}', file=sys.stderr)
+        raise Failure('交互测试未通过，见 interaction-tests.log 与 interaction-tests.xcresult'
+                      + ('' if failures else '（没有失败的测试用例，可能是环境问题）'))
+    interaction = len(re.findall(r"Test Case '-\[\S+ \S+\]' passed", text))
+    print(f'  {interaction} 项通过')
+    subprocess.run(['xcrun', 'simctl', 'shutdown', udid], capture_output=True)
+
+    return dict(validator='local', validated_at=datetime.now(timezone.utc).isoformat(timespec='seconds'),
+                macos=platform.mac_ver()[0], xcode=xcode, simulator=simulator, demo_commit=demo,
+                core_tests=core, reports=reports, interaction_tests=interaction)
+
+
+# Packages, evidence and releases.
+
+def semver(value):
+    if not re.fullmatch(r'(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)', value):
+        raise ValueError('版本必须为 X.Y.Z，不含前缀、空白或前导零')
+    return tuple(map(int, value.split('.')))
+
+
+def next_version(current, choice):
+    major, minor, patch = semver(current)
+    result = {'patch': f'{major}.{minor}.{patch+1}', 'minor': f'{major}.{minor+1}.0',
+              'major': f'{major+1}.0.0'}.get(choice, choice)
+    if semver(result) <= (major, minor, patch):
+        raise ValueError('所选版本必须高于当前版本')
+    return result
+
+
+def next_build(releases):
+    """Build numbers keep rising across every dev and published release."""
+    builds = [int(m[1]) for r in releases if (m := re.search(r'构建 (\d+)', r.get('body') or ''))]
+    return str(max(builds, default=0) + 1)
+
+
+def verify_proof(proof, manifest):
+    if proof.get('source_sha') != manifest['source_sha'] or proof.get('tree') != manifest['tree']:
+        raise ValueError('验证记录与安装包的源码或文件树不一致')
+    if proof.get('validator') != 'local' or not proof.get('core_tests') or not proof.get('interaction_tests') \
+            or not str(proof.get('reports', '')).startswith('Reports match'):
+        raise ValueError('验证记录不完整：缺少核心测试、报表对照或交互测试结果')
+
+
+def verify_package(folder, manifest, proof, repo):
+    semver(manifest['version'])
+    if manifest['repository'] != repo:
+        raise ValueError('安装包清单的仓库不一致')
+    verify_proof(proof, manifest)
+    ipa = folder / 'Ledger.ipa'
+    if hashlib.sha256(ipa.read_bytes()).hexdigest() != manifest['sha256'] or ipa.stat().st_size != manifest['size']:
+        raise ValueError('安装包大小或 SHA256 不匹配')
+    with zipfile.ZipFile(ipa) as package:
+        if package.testzip():
+            raise ValueError('安装包 ZIP 校验失败')
+        info = plistlib.loads(package.read('Payload/Ledger.app/Info.plist'))
+        for key, value in [('CFBundleShortVersionString', manifest['version']),
+                           ('CFBundleVersion', manifest['build']), ('CFBundleIdentifier', 'com.iskerwin.ledger')]:
+            if info.get(key) != value:
+                raise ValueError(f'安装包 {key} 与清单不一致')
+        for name in ('Payload/Ledger.app/Demo/main.bean', 'Payload/Ledger.app/_CodeSignature/CodeResources'):
+            if name not in package.namelist():
+                raise ValueError(f'安装包缺少 {name}')
+
+
+def verify_source(repo, manifest):
+    """The package's source must be a pushed main commit with the recorded tree."""
+    sha = manifest['source_sha']
+    if gh_api(f'repos/{repo}/git/commits/{sha}')['tree']['sha'] != manifest['tree']:
+        raise ValueError('远端源码文件树不匹配')
+    run(['git', 'fetch', '-q', 'origin', 'main'])
+    if subprocess.run(['git', 'merge-base', '--is-ancestor', sha, 'FETCH_HEAD'], cwd=ROOT).returncode:
+        raise ValueError('安装包的源码提交不在 GitHub main 上')
+
+
+def build_ipa(version, build, demo):
+    step(f'编译 Release 安装包 {version}（构建 {build}，内置演示）')
+    bundled = ROOT / 'Ledger/Demo'
+    shutil.rmtree(bundled, ignore_errors=True)
+    shutil.copytree(ROOT / '.demo-data', bundled, ignore=shutil.ignore_patterns('.git', '.github'))
+    try:
+        if not (bundled / 'main.bean').is_file():
+            raise Failure('演示快照缺少 main.bean')
+        run(['xcodegen', 'generate', '--quiet'])
+        shutil.rmtree(ROOT / 'build', ignore_errors=True)
+        run(['xcodebuild', '-project', 'Ledger.xcodeproj', '-scheme', 'Ledger', '-configuration', 'Release',
+             '-sdk', 'iphoneos', '-destination', 'generic/platform=iOS', '-derivedDataPath', 'build',
+             f'MARKETING_VERSION={version}', f'CURRENT_PROJECT_VERSION={build}',
+             f'LEDGER_DEMO_COMMIT={demo}', 'LEDGER_DEMO_MIRROR=',
+             'CODE_SIGNING_ALLOWED=NO', 'CODE_SIGNING_REQUIRED=NO', 'CODE_SIGN_IDENTITY='], log='build.log')
+    finally:
+        shutil.rmtree(bundled, ignore_errors=True)
+    step('打包并校验安装包')
+    payload = ROOT / 'Payload'
+    shutil.rmtree(payload, ignore_errors=True)
+    payload.mkdir()
+    app = payload / 'Ledger.app'
+    run(['ditto', 'build/Build/Products/Release-iphoneos/Ledger.app', app])
+    run(['xattr', '-cr', payload])
+    if not (app / 'Demo/main.bean').is_file():
+        raise Failure('安装包缺少内置演示')
+    run(['codesign', '-f', '-s', '-', app])
+    run(['codesign', '-v', app])
+    info = plistlib.loads((app / 'Info.plist').read_bytes())
+    if info.get('CFBundleShortVersionString') != version or info.get('CFBundleVersion') != build:
+        raise Failure('安装包版本或构建号与预期不一致')
+    ipa = DIST / 'Ledger.ipa'
+    ipa.unlink(missing_ok=True)
+    run(['ditto', '-c', '-k', '--norsrc', '--noextattr', '--noqtn', '--keepParent', payload, ipa])
+    run(['unzip', '-tq', ipa])
+    if 'Payload/Ledger.app/_CodeSignature/CodeResources' not in zipfile.ZipFile(ipa).namelist():
+        raise Failure('安装包缺少签名资源')
+    shutil.rmtree(payload)
+    return ipa
+
+
+def download(repo, tag, folder, files=FILES):
+    for name in files:
+        run(['gh', 'release', 'download', tag, '--repo', repo, '--pattern', name, '--dir', folder])
+
+
+def release_for_tag(repo, tag):
+    result = subprocess.run(['gh', 'api', f'repos/{repo}/releases/tags/{tag}'], text=True, capture_output=True)
+    if result.returncode:
+        if 'HTTP 404' in result.stderr:
+            return None
+        raise RuntimeError(result.stderr)
+    return json.loads(result.stdout)
+
+
+def tag_sha(repo, tag):
+    obj = gh_api(f'repos/{repo}/git/ref/tags/{tag}')['object']
+    if obj['type'] != 'commit':
+        raise ValueError('发布标签必须直接指向源码提交')
+    return obj['sha']
+
+
+def tag_exists(repo, tag):
+    result = subprocess.run(['gh', 'api', f'repos/{repo}/git/ref/tags/{tag}'], text=True, capture_output=True)
+    if result.returncode and 'HTTP 404' not in result.stderr:
+        raise RuntimeError(result.stderr)
+    return result.returncode == 0
+
+
+def publish(repo, tag, folder, manifest, notes):
+    """Create the published release; an existing version is never moved or replaced."""
+    if release_for_tag(repo, tag) or tag_exists(repo, tag):
+        raise ValueError(f'{tag} 已发布；先用 python3 tools/ship.py version 选择新版本，再发布开发版')
+    run(['gh', 'release', 'create', tag, '--repo', repo, '--target', manifest['source_sha'], '--draft',
+         '--title', f'Ledger X {manifest["version"]}', '--notes-file', notes])
+    run(['gh', 'release', 'upload', tag, '--repo', repo, *[folder/name for name in FILES]])
+    run(['gh', 'release', 'edit', tag, '--repo', repo, '--draft=false', '--prerelease=false', '--latest'])
+
+
+def remote_has(branch):
+    return subprocess.run(['git', 'ls-remote', '--exit-code', 'origin', f'refs/heads/{branch}'],
+                          cwd=ROOT, capture_output=True).returncode == 0
+
+
+def update_sources(repo):
+    """Regenerate the IPA sources (dev.json, release.json and mirrors) and push them to the ipa branch."""
+    step('更新 IPA 源（ipa 分支）')
+    site = DIST / 'site'
+    shutil.rmtree(site, ignore_errors=True)
+    run([sys.executable, 'tools/release/ipa_source.py', repo, site])
+    with tempfile.TemporaryDirectory() as temp:
+        tree = Path(temp) / 'ipa'
+        if remote_has('ipa'):
+            run(['git', 'fetch', '-q', 'origin', 'ipa'])
+            run(['git', 'worktree', 'add', '-q', '--detach', tree, 'FETCH_HEAD'])
+        else:
+            # A new repository: the ipa branch starts empty, apart from the sources.
+            run(['git', 'worktree', 'add', '-q', '--orphan', '-b', 'ipa-sources', tree])
+        try:
+            (tree / 'mirror').mkdir(exist_ok=True)
+            for name in ('dev.json', 'release.json', 'mirror/dev.json', 'mirror/release.json'):
+                shutil.copy(site / name, tree / name)
+            run(['git', '-C', tree, 'add', 'dev.json', 'release.json', 'mirror/dev.json', 'mirror/release.json'])
+            if subprocess.run(['git', '-C', str(tree), 'diff', '--cached', '--quiet']).returncode:
+                run(['git', '-C', tree, 'commit', '-qm', 'Update installation sources'])
+                run(['git', '-C', tree, 'push', '-q', 'origin', 'HEAD:refs/heads/ipa'])
+        finally:
+            run(['git', 'worktree', 'remove', '--force', tree])
+            subprocess.run(['git', 'branch', '-D', 'ipa-sources'], cwd=ROOT, capture_output=True)
+
+
+def require_clean_main():
+    if git('branch', '--show-current') != 'main':
+        raise Failure('请在 main 分支上执行')
+    if git('status', '--porcelain'):
+        raise Failure('工作区有未提交的改动；先提交或还原后再发布')
+    if subprocess.run(['git', 'remote', 'get-url', 'origin'], cwd=ROOT, capture_output=True).returncode:
+        raise Failure('还没有 GitHub 仓库：先创建仓库并 git remote add origin <地址>')
+    if not remote_has('main'):
+        return  # first publication of a new repository
+    run(['git', 'fetch', '-q', 'origin', 'main'])
+    if subprocess.run(['git', 'merge-base', '--is-ancestor', 'FETCH_HEAD', 'HEAD'], cwd=ROOT).returncode:
+        raise Failure('本地 main 落后于或偏离 GitHub main；先 git pull 再发布')
+
+
+def ship_dev():
+    import release_notes
+    repo = repository()
+    require_clean_main()
+    sha = git('rev-parse', 'HEAD')
+    proof = validate()
+    version = re.search(r'MARKETING_VERSION: "([^"]+)"', (ROOT / 'project.yml').read_text())[1]
+    releases = [r for page in json.loads(out(['gh', 'api', '--paginate', '--slurp', f'repos/{repo}/releases?per_page=100']))
+                for r in page]
+    build = next_build(releases)
+    shutil.rmtree(DIST, ignore_errors=True)
+    DIST.mkdir()
+    ipa = build_ipa(version, build, proof['demo_commit'])
+    # Tests and the build must not have changed tracked files; the package is exactly this commit.
+    if git('rev-parse', 'HEAD') != sha or git('status', '--porcelain'):
+        raise Failure('验证或编译期间源码有变化：\n' + git('status', '--short') + '\n先还原（git checkout -- <文件>）后重新发布')
+    tree = git('rev-parse', f'{sha}^{{tree}}')
+    proof = dict(schema=2, source_sha=sha, tree=tree, **proof)
+    manifest = dict(schema=2, repository=repo, source_sha=sha, tree=tree, version=version, build=build,
+                    sha256=hashlib.sha256(ipa.read_bytes()).hexdigest(), size=ipa.stat().st_size,
+                    channel='self-signing', phone_acceptance='pending', xcode=proof['xcode'],
+                    built_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
+    (DIST / 'validation-evidence.json').write_text(json.dumps(proof, ensure_ascii=False, indent=2) + '\n')
+    (DIST / 'build-manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+    verify_package(DIST, manifest, proof, repo)
+
+    step('推送 main 到 GitHub')
+    run(['git', 'push', 'origin', 'HEAD:refs/heads/main'])
+
+    step('发布开发版')
+    notes = release_notes.render((ROOT / 'CHANGELOG.md').read_text(), release_notes.previous_changelog(repo),
+                                 repo, sha, version, build, proof)
+    (DIST / 'release-notes.md').write_text(notes)
+    assets = [DIST / name for name in FILES]
+    title = f'Ledger X {version} 开发版'
+    if release_for_tag(repo, 'dev'):
+        run(['gh', 'release', 'upload', 'dev', '--repo', repo, *assets, '--clobber'])
+        run(['gh', 'api', '-X', 'PATCH', f'repos/{repo}/git/refs/tags/dev', '-f', f'sha={sha}', '-F', 'force=true'])
+        run(['gh', 'release', 'edit', 'dev', '--repo', repo, '--prerelease', '--title', title, '--notes-file', DIST / 'release-notes.md'])
+    else:
+        run(['gh', 'release', 'create', 'dev', '--repo', repo, *assets, '--target', sha, '--prerelease',
+             '--title', title, '--notes-file', DIST / 'release-notes.md'])
+    update_sources(repo)
+    print(f'\n✓ 已发布 Ledger X {version} 开发版（构建 {build}），main {sha[:7]}'
+          f'\n  https://github.com/{repo}/releases/tag/dev\n  手机验收：待 Kerwin 执行')
+
+
+def ship_release():
+    """Publish the current dev package unchanged; it is what Kerwin accepted on the phone."""
+    import release_notes
+    repo = repository()
+    with tempfile.TemporaryDirectory() as temp:
+        folder = Path(temp)
+        download(repo, 'dev', folder)
+        manifest = json.loads((folder/'build-manifest.json').read_text())
+        proof = json.loads((folder/'validation-evidence.json').read_text())
+        verify_package(folder, manifest, proof, repo)
+        verify_source(repo, manifest)
+        if tag_sha(repo, 'dev') != manifest['source_sha']:
+            raise ValueError('开发版标签与安装包源码不一致')
+        tag = f'v{manifest["version"]}'
+        # Complete version notes from the exact source, not the rolling dev delta.
+        changelog = git('show', f'{manifest["source_sha"]}:CHANGELOG.md')
+        (folder/'release-notes.md').write_text(release_notes.render(
+            changelog, '', repo, manifest['source_sha'], manifest['version'], manifest['build'], proof, channel='release'))
+        publish(repo, tag, folder, manifest, folder/'release-notes.md')
+    update_sources(repo)
+    print(f'\n✓ 已发布正式版 {tag}（构建 {manifest["build"]}）\n  https://github.com/{repo}/releases/tag/{tag}')
+
+
+def select_version(choice):
+    require_clean_main()
+    project = ROOT / 'project.yml'
+    current = re.search(r'MARKETING_VERSION: "([^"]+)"', project.read_text())[1]
+    version = next_version(current, choice)
+    changelog = ROOT / 'CHANGELOG.md'
+    text = changelog.read_text()
+    if f'## {version}' in text:
+        raise ValueError('该版本的 CHANGELOG 已存在，请核对')
+    project.write_text(project.read_text().replace(f'MARKETING_VERSION: "{current}"', f'MARKETING_VERSION: "{version}"'))
+    position = text.index('## ')
+    changelog.write_text(text[:position] + f'## {version}（开发中）\n\n' + text[position:])
+    run([sys.executable, 'tools/check_project.py'])
+    run(['git', 'add', 'project.yml', 'CHANGELOG.md'])
+    run(['git', 'commit', '-qm', f'Prepare Ledger X {version}'])
+    print(f'✓ 已提交版本 {version}；下一次 python3 tools/ship.py dev 会推送并发布')
+
+
+def main(argv):
+    command = argv[1] if len(argv) > 1 else ''
+    usage = __doc__.split('\n\n')[1]
+    if command not in ('test', 'dev', 'release', 'version') or len(argv) != (3 if command == 'version' else 2):
+        print(usage, file=sys.stderr)
+        return 2
+    # One publication at a time on this Mac.
+    lock = open(Path(tempfile.gettempdir()) / 'ledger-x-ship.lock', 'w')
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        print('已有另一个 ship.py 在运行', file=sys.stderr)
+        return 1
+    try:
+        if command == 'test':
+            proof = validate()
+            print(f'\n✓ 全部通过：核心 {proof["core_tests"]} 项，交互 {proof["interaction_tests"]} 项；{proof["reports"]}')
+        elif command == 'dev':
+            ship_dev()
+        elif command == 'release':
+            ship_release()
+        else:
+            select_version(argv[2])
+    except (Failure, ValueError) as error:
+        print(f'\n✗ {error}\n未推送、未发布。', file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))

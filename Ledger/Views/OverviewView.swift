@@ -1,0 +1,893 @@
+import SwiftUI
+import Charts
+import LedgerKit
+
+struct OverviewView: View {
+    @EnvironmentObject var store: Store
+    @State private var path = NavigationPath()
+    @AppStorage("ledger.period") private var period = "month"
+    @State private var month = Day.ym(Day.today())
+    @State private var selCat: String?
+    @State private var selPay: String?
+    @State private var selLiab: String?
+    @State private var picked: String?
+    @State private var reimb: ReimbTarget?
+    @AppStorage(OverviewChart.styleKey) private var chartStyle = "list"
+    @AppStorage(OverviewChart.trendKey) private var trend = "exp"
+    @AppStorage("ledger.overview.payeeSort") private var payeeSort = "amount"
+    @State private var allCats = false
+    @State private var allPayees = false
+    /// the currency shown when several are chosen as booked
+    @State private var ovCur: String?
+
+    var body: some View {
+        NavigationStack(path: $path) {
+            Group {
+                if let L = store.L, let D = store.D { content(L, D) } else { ProgressView() }
+            }
+            .navigationTitle(LS("概览"))
+            .toolbar { StandardToolbar(currency: true) }
+            .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name).privacyToolbar() }
+            .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
+            .subscriptionDestinations()
+            .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
+            .navigationDestination(for: ErrorsDest.self) { _ in ErrorsView() }
+            .navigationDestination(for: ReconcileDest.self) { _ in ReconcileView().privacyToolbar() }
+            .navigationDestination(for: BudgetsDest.self) { _ in BudgetsView().privacyToolbar() }
+            .navigationDestination(for: SubscriptionsDest.self) { _ in SubscriptionsView().privacyToolbar() }
+            .navigationDestination(for: ForecastDest.self) { _ in ForecastView().privacyToolbar() }
+            .navigationDestination(for: CounterpartyDest.self) { _ in CounterpartyView().privacyToolbar() }
+            .navigationDestination(for: EventsDest.self) { _ in EventsView().privacyToolbar() }
+            .navigationDestination(for: EventDest.self) { EventDetailView(tag: $0.tag).privacyToolbar() }
+            .navigationDestination(for: AlertsDest.self) { _ in AlertsView().privacyToolbar() }
+            .navigationDestination(for: YearReviewDest.self) { YearReviewView(year: $0.year).privacyToolbar(currency: true) }
+            .navigationDestination(for: PayeeDest.self) { PayeeDetailView(name: $0.name).privacyToolbar() }
+            .navigationDestination(for: AnomalyDest.self) { AnomalyDetailView(id: $0.id).privacyToolbar() }
+        }
+        // on the stack itself: the pages it opens inherit what is set here, not what is set on its first page
+        .pushes(onto: $path)
+        .ledgerNavigation("overview", path: $path)
+        .ledgerControls("overview", value: Binding(get: {
+            var context = BrowseContext(); context.month = month; return context
+        }, set: { month = $0.month }))
+        .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
+        // 设置 → 账本检查 opens the check here, where every problem can be opened and fixed
+        .onChange(of: store.openCheck) { _, open in
+            guard open else { return }
+            store.openCheck = false
+            path = NavigationPath()
+            path.append(ErrorsDest())
+        }
+        .sheet(item: $reimb) { ReimbSheet(target: $0) }
+        .task {
+            if store.demoEnv["LEDGER_REIMB"] != nil { reimb = ReimbTarget(link: nil) }
+            if store.demo {
+                chartStyle = store.demoEnv["LEDGER_CHART"] ?? "list"
+                trend = store.demoEnv["LEDGER_TREND"] ?? "exp"
+                if store.demoEnv["LEDGER_LINK_ISSUES"] != nil, path.isEmpty { path.append(ErrorsDest()) }
+            }
+        }
+    }
+
+    private func sum(_ m: [String: Double], _ key: String) -> Double { m.reduce(0.0) { $0 + ($1.key.hasPrefix(key) ? $1.value : 0) } }
+
+    /// what the overview counts, in one currency: the default (every held currency in the operating currency) is
+    /// what Derived keeps; otherwise the chosen currencies, valued as chosen, in the currency picked here
+    struct Flows {
+        var exp: [String: Double]
+        var inc: [String: Double]
+        var cat: [String: [String: Double]]
+        var cur: String
+        /// what each transaction spent, when not the default (else classify() as before)
+        var txnExp: [Int: Double]?
+        /// the currencies there are to pick from (more than one only as booked, at cost or at market value)
+        var currencies: [String]
+        var netWorth: Double
+    }
+
+    private func flows(_ L: Ledger, _ D: Derived) -> Flows {
+        if store.cview.isDefault {
+            let w = netWorthNow(L, exclude: store.netWorthExclude)
+            return Flows(exp: D.monthExp, inc: D.monthInc, cat: D.monthCat, cur: L.base, txnExp: nil, currencies: [L.base],
+                         netWorth: w.assets + w.liabilities)
+        }
+        let mode = store.cmode, only = store.conly
+        let cs = viewCurrencies(L, mode: mode, only: only)
+        let cur = ovCur.flatMap { cs.contains($0) ? $0 : nil } ?? cs.first ?? L.base
+        let v = viewFlows(L, mode: mode, only: only, currency: cur)
+        let nw = netWorthValued(L, exclude: store.netWorthExclude, mode: mode, only: only).amounts[cur] ?? 0
+        return Flows(exp: v.monthExp, inc: v.monthInc, cat: v.monthCat, cur: cur, txnExp: v.txnExp, currencies: cs, netWorth: nw)
+    }
+
+    /// what a transaction spent in the overview's currency (nil: not an expense here)
+    private func spent(_ t: Entry, _ L: Ledger, _ F: Flows) -> Double? {
+        if let m = F.txnExp { return m[t.id] }
+        let c = classify(t, L)
+        return c.kind == .expense ? -c.amount : nil
+    }
+
+    struct Summary {
+        var yearMode: Bool
+        var key: String
+        var label: String
+        var months: [String]
+        var exp: Double
+        var inc: Double
+        var prev: Double
+        var prevLabel: String
+        var avg: Double
+        var nw: Double
+    }
+
+    private func summary(_ L: Ledger, _ F: Flows) -> Summary {
+        let yearMode = period == "year"
+        let key = yearMode ? String(month.prefix(4)) : month
+        let months: [String] = yearMode ? (1...12).map { String(format: "%@-%02d", key, $0) } : (0..<12).map { Day.addMonth(month, $0 - 11) }
+        let today = Day.today()
+        var prev = 0.0
+        var prevLabel = LS("上月")
+        if yearMode {
+            let thisYear = key == String(today.prefix(4))
+            let lastM = thisYear ? (Int(today.dropFirst(5).prefix(2)) ?? 12) : 12
+            let py = String((Int(key) ?? 2000) - 1)
+            for i in 1...lastM { prev += F.exp[String(format: "%@-%02d", py, i)] ?? 0 }
+            prevLabel = thisYear ? LS("去年同期") : LS("%@ 年", py)
+        } else {
+            prev = F.exp[Day.addMonth(month, -1)] ?? 0
+        }
+        var avg = 0.0
+        for m in months.prefix(11) { avg += F.exp[m] ?? 0 }
+        avg /= 11
+        return Summary(yearMode: yearMode, key: key, label: yearMode ? LS("%@年", key) : Day.monthLabel(month), months: months,
+                       exp: sum(F.exp, key), inc: sum(F.inc, key), prev: prev, prevLabel: prevLabel, avg: avg, nw: F.netWorth)
+    }
+
+    private func content(_ L: Ledger, _ D: Derived) -> some View {
+        let F = flows(L, D)
+        let s = summary(L, F)
+        return ScrollViewReader { proxy in
+        List {
+            if !store.cview.isDefault {
+                Section {
+                    CurrencyBanner()
+                    // several currencies as booked: the overview shows one at a time
+                    if F.currencies.count > 1 {
+                        ChipRow {
+                            ForEach(F.currencies, id: \.self) { c in
+                                Button { ovCur = c } label: { CurrencyChip(code: c, on: c == F.cur, held: true, picker: true) }.buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+            }
+            // (screenshots: the banner on the sample ledger)
+            if store.isDemo || store.demoEnv["LEDGER_DEMO_BANNER"] != nil { DemoBanner() }
+            heroSection(s, picked.map { monthSummary(F, $0) } ?? s, F.cur)
+            DemoEntryCard()
+            YearReviewOverviewSection()
+            ReconcileBanner()
+            AlertsOverviewSection()
+            EventsOverviewSection(L: L)
+            chartSection(s, F)
+            budgetSection(s, L)
+            CardDueSection(L: L).id("cards")
+            ForecastOverviewSection(L: L).id("forecast")
+            SubscriptionOverviewSection(L: L).id("subs")
+            categorySection(s, F).id("category")
+            payeeSection(s, L, F).id("payee")
+            reimbSection(L, D)
+            liabilitySection(L).id("liab")
+            checkSection(L)
+        }
+        .task {
+            // screenshots: scroll to a section and open the largest slice
+            guard let to = store.demoEnv["LEDGER_SCROLL"] else { return }
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            if store.demoEnv["LEDGER_DONUT"] != nil {
+                selCat = categoryGroups(F, s.key).first?.name
+                selLiab = liabilities(L).first?.a
+            }
+            proxy.scrollTo(to, anchor: .top)
+        }
+        .listSectionSpacing(.compact)
+        .onChange(of: picked) { _, _ in selCat = nil; selPay = nil }
+        .onChange(of: month) { _, _ in picked = nil; selCat = nil; selPay = nil }
+        .onChange(of: period) { _, _ in picked = nil; selCat = nil; selPay = nil }
+        .refreshable { await store.refresh() }
+        .environment(\.displayCurrency, F.cur)
+        }
+    }
+
+    /// one month, for the card when a bar of the chart is picked
+    private func monthSummary(_ F: Flows, _ m: String) -> Summary {
+        let before = (1...11).map { Day.addMonth(m, -$0) }
+        return Summary(yearMode: false, key: m, label: Day.monthLabel(m), months: [m], exp: F.exp[m] ?? 0, inc: F.inc[m] ?? 0,
+                       prev: F.exp[Day.addMonth(m, -1)] ?? 0, prevLabel: LS("上月"),
+                       avg: before.reduce(0.0) { $0 + (F.exp[$1] ?? 0) } / 11, nw: F.netWorth)
+    }
+
+    /// the period picker (for `head`, the page's period) and the card (for `c`: the page's period, or the month
+    /// picked on the chart)
+    private func heroSection(_ head: Summary, _ c: Summary, _ cur: String) -> some View {
+        let s = c
+        let net = s.inc - s.exp
+        let rate: Double? = s.inc > 0 ? net / s.inc * 100 : nil
+        let delta = s.exp - s.prev
+        return Group {
+            Section {
+                HStack(spacing: AppSpacing.control) {
+                    Picker(LS("周期"), selection: $period) {
+                        Text(LS("月")).tag("month")
+                        Text(LS("年")).tag("year")
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 110)
+                    Spacer()
+                    Button { month = head.yearMode ? Day.addMonth(month, -12) : Day.addMonth(month, -1) } label: { Image(systemName: "chevron.left") }
+                    Text(head.label).font(.headline).frame(minWidth: 96)
+                    Button { month = head.yearMode ? Day.addMonth(month, 12) : Day.addMonth(month, 1) } label: { Image(systemName: "chevron.right") }
+                }
+                .buttonStyle(.borderless)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: AppSpacing.detail, leading: AppSpacing.detail, bottom: AppSpacing.detail, trailing: AppSpacing.detail))
+            }
+            Section {
+                Card {
+                    VStack(alignment: .leading, spacing: AppSpacing.control) {
+                        VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                            HStack(spacing: AppSpacing.control) {
+                                Text(picked != nil ? LS("%@支出", s.label) : s.yearMode ? LS("本年支出") : LS("本月支出")).font(.subheadline).foregroundStyle(.secondary)
+                                Spacer()
+                                if picked != nil {
+                                    Button { withAnimation(.easeOut(duration: 0.15)) { picked = nil } } label: { Label(head.yearMode ? LS("回到全年") : LS("回到本月"), systemImage: "calendar").labelStyle(ControlLabelStyle()) }
+                                        .font(.caption.weight(.semibold)).buttonStyle(.borderless)
+                                }
+                            }
+                            Text(money(s.exp, cur)).font(.system(size: 40, weight: .bold, design: .rounded)).monospacedDigit()
+                                .contentTransition(.numericText()).sensitive()
+                            HStack(spacing: AppSpacing.icon) {
+                                if s.prev > 0 {
+                                    Label(money(abs(delta), cur), systemImage: delta > 0 ? "arrow.up.right" : "arrow.down.right").labelStyle(ControlLabelStyle())
+                                        .font(.caption.weight(.semibold).monospacedDigit())
+                                        .padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.detail)
+                                        .background((delta > 0 ? Color.loss : Color.gain).opacity(0.14), in: Capsule())
+                                        .foregroundStyle(delta > 0 ? Color.loss : Color.gain)
+                                    Text(LS("较") + s.prevLabel + LS("（") + money(s.prev, cur) + LS("）")).font(.caption).foregroundStyle(.secondary)
+                                } else {
+                                    Text(s.prevLabel + LS("无支出记录")).font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                            .sensitive()
+                            if !s.yearMode {
+                                Text(LS("前 11 个月月均 ") + money(s.avg, cur)).font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
+                            }
+                        }
+                        Divider()
+                        HStack(alignment: .top, spacing: AppSpacing.control) {
+                            Figure(label: LS("收入"), value: money(s.inc, cur, 0), color: .gain)
+                            Spacer()
+                            Figure(label: LS("结余") + (rate.map { String(format: " · %.0f%%", $0) } ?? ""), value: money(net, cur, 0), color: net < 0 ? Color.loss : Color.primary)
+                            Spacer()
+                            Figure(label: LS("净资产"), value: money(s.nw, cur, 0), alignment: .trailing)
+                        }
+                    }
+                }
+                .cardRow()
+            }
+        }
+    }
+
+    private func monthLabelShort(_ m: String) -> String { String(Int(m.suffix(2)) ?? 0) }
+
+    private func chartSection(_ s: Summary, _ F: Flows) -> some View {
+        let months = s.months
+        let shown = picked ?? (s.yearMode ? nil : month)
+        return Section {
+            Picker(LS("图表"), selection: $trend) {
+                Text(LS("支出")).tag("exp")
+                Text(LS("收支")).tag("flow")
+            }
+            .pickerStyle(.segmented)
+            Chart {
+                if trend == "flow" {
+                    // income and spending as two lines, the selected month marked
+                    ForEach(months, id: \.self) { m in
+                        LineMark(x: .value("月", monthLabelShort(m)), y: .value("金额", F.inc[m] ?? 0), series: .value("类型", "inc"))
+                            .foregroundStyle(Color.gain).interpolationMethod(.monotone).symbol(.circle).symbolSize(m == shown ? 60 : 18)
+                        LineMark(x: .value("月", monthLabelShort(m)), y: .value("金额", F.exp[m] ?? 0), series: .value("类型", "exp"))
+                            .foregroundStyle(Color.loss).interpolationMethod(.monotone).symbol(.circle).symbolSize(m == shown ? 60 : 18)
+                    }
+                    if let p = shown {
+                        RuleMark(x: .value("月", monthLabelShort(p))).foregroundStyle(Color.secondary.opacity(0.25))
+                    }
+                } else {
+                    ForEach(months, id: \.self) { m in
+                        BarMark(x: .value("月", monthLabelShort(m)), y: .value("支出", F.exp[m] ?? 0))
+                            .foregroundStyle(m == shown ? Color.jade : Color.jadeSoft)
+                            .cornerRadius(4)
+                    }
+                }
+            }
+            .chartLegend(.hidden)
+            .chartYAxis { AxisMarks(position: .trailing) }
+            .chartXAxis { AxisMarks { _ in AxisValueLabel().font(.caption2) } }
+            .chartOverlay { proxy in
+                GeometryReader { geo in
+                    Rectangle().fill(Color.clear).contentShape(Rectangle())
+                        .onTapGesture { location in
+                            guard let plot = proxy.plotFrame else { return }
+                            let x = location.x - geo[plot].origin.x
+                            guard let label: String = proxy.value(atX: x) else { return }
+                            let m = months.first { monthLabelShort($0) == label }
+                            withAnimation(.easeOut(duration: 0.15)) { picked = (m == picked) ? nil : m }
+                        }
+                }
+            }
+            .frame(height: 180)
+            .sensitive()
+            .padding(.vertical, AppSpacing.icon)
+            if trend == "flow" && shown == nil {
+                HStack(spacing: AppSpacing.control) {
+                    Label(LS("收入"), systemImage: "circle.fill").labelStyle(ControlLabelStyle()).foregroundStyle(Color.gain)
+                    Label(LS("支出"), systemImage: "circle.fill").labelStyle(ControlLabelStyle()).foregroundStyle(Color.loss)
+                }
+                .font(.caption).labelStyle(.titleAndIcon)
+            }
+            if let p = shown {
+                HStack(spacing: AppSpacing.control) {
+                    Text(Day.monthLabel(p) + "  " + (trend == "flow" ? flowLine(p, F) : money(F.exp[p] ?? 0, F.cur))).monospacedDigit().sensitive()
+                    Spacer()
+                    if p != month || s.yearMode {
+                        Button { month = p; period = "month"; picked = nil } label: { Label(LS("查看该月"), systemImage: "calendar").labelStyle(ControlLabelStyle()) }.buttonStyle(.borderless)
+                    }
+                }
+                .font(.footnote)
+            }
+        } header: {
+            HStack(spacing: AppSpacing.control) {
+                Text(trend == "flow" ? (s.yearMode ? LS("%@ 年月度收支", s.key) : LS("近 12 个月收支")) : (s.yearMode ? LS("%@ 年月度支出", s.key) : LS("近 12 个月支出")))
+                Spacer()
+                Text(LS("点按月份查看那个月")).textCase(nil)
+            }
+        }
+    }
+
+    private func flowLine(_ m: String, _ F: Flows) -> String {
+        let i = F.inc[m] ?? 0, e = F.exp[m] ?? 0
+        return LS("收入 %@ · 支出 %@ · 结余 %@", money(i, F.cur, 0), money(e, F.cur, 0), money(i - e, F.cur, 0))
+    }
+
+    @ViewBuilder
+    private func budgetSection(_ s: Summary, _ L: Ledger) -> some View {
+        let ps = budgetProgress(L, key: s.key)
+        if !ps.isEmpty {
+            let over = ps.filter { $0.over }.count
+            Section {
+                ForEach(ps.prefix(6)) { p in
+                    NavigationLink(value: BudgetsDest()) { BudgetRow(p: p) }
+                }
+            } header: {
+                HStack(spacing: AppSpacing.control) {
+                    Text(LS("预算"))
+                    if over > 0 { Text(LS("%@ 项超支", over)).foregroundStyle(Color.loss).textCase(nil) }
+                    Spacer()
+                    NavigationLink(value: BudgetsDest()) { Label(LS("管理"), systemImage: "slider.horizontal.3").labelStyle(ControlLabelStyle()) }.textCase(nil).font(.footnote)
+                }
+            }
+        }
+    }
+
+    /// the period the donuts show: a tapped bar wins over the header period
+    private func focus(_ s: Summary) -> (key: String, label: String) {
+        if let p = picked { return (p, Day.monthLabel(p)) }
+        return (s.key, s.label)
+    }
+
+    @ViewBuilder
+    private func categorySection(_ s: Summary, _ F: Flows) -> some View {
+        if chartStyle == "donut" { donutCategorySection(s, F) } else { listCategorySection(s, F) }
+    }
+
+    /// the months to compare with: the month before, or the same part of the year before
+    private func previous(_ key: String) -> (months: [String], label: String) {
+        if key.count == 7 { return ([Day.addMonth(key, -1)], LS("较上月")) }
+        let today = Day.today()
+        let py = (Int(key) ?? 2000) - 1
+        let thisYear = key == String(today.prefix(4))
+        let last = thisYear ? (Int(today.dropFirst(5).prefix(2)) ?? 12) : 12
+        return ((1...last).map { String(format: "%d-%02d", py, $0) }, thisYear ? LS("较去年同期") : LS("较上年"))
+    }
+
+    private func groupTotals(_ F: Flows, _ months: [String]) -> [String: Double] {
+        var out: [String: Double] = [:]
+        for m in months { for (a, v) in F.cat[m] ?? [:] { out[catOf(a), default: 0] += v } }
+        return out
+    }
+
+    private func listCategorySection(_ s: Summary, _ F: Flows) -> some View {
+        let f = focus(s)
+        let groups = categoryGroups(F, f.key).filter { abs($0.total) > 0.005 }
+        let prev = previous(f.key)
+        let before = groupTotals(F, prev.months)
+        let hasBefore = !before.isEmpty
+        let slices = DonutSlice.make(groups.map { (id: $0.name, label: acctZH($0.name) ?? leaf($0.name), value: $0.total) })
+        var colors: [String: Color] = [:]
+        for x in slices { colors[x.id] = x.color }
+        let total = groups.reduce(0.0) { $0 + max(0, $1.total) }
+        let shown = allCats ? groups : Array(groups.prefix(8))
+        return Section {
+            if groups.isEmpty {
+                Text(f.label + LS("暂无支出记录")).foregroundStyle(.secondary)
+            } else {
+                ShareBar(slices: slices).padding(.vertical, AppSpacing.icon)
+                ForEach(shown, id: \.name) { g in
+                    Button {
+                        withAnimation(.easeOut(duration: 0.15)) { selCat = selCat == g.name ? nil : g.name }
+                    } label: {
+                        CategoryListRow(color: colors[g.name] ?? Color(.systemGray3), name: acctZH(g.name) ?? leaf(g.name), value: g.total,
+                                        share: share(g.total, total), before: hasBefore ? (before[g.name] ?? 0) : nil, expanded: selCat == g.name)
+                    }
+                    .buttonStyle(.plain)
+                    if selCat == g.name {
+                        ForEach(g.leaves.filter { abs($0.1) > 0.005 }, id: \.0) { row in
+                            NavigationLink(value: AccountDest(name: row.0)) {
+                                CatBar(name: leafTitle(row.0).name, sub: leafTitle(row.0).sub, value: row.1, frac: row.1 / max(g.total, 1), share: share(row.1, g.total), chevron: nil)
+                            }
+                            .padding(.leading, AppSpacing.content)
+                        }
+                    }
+                }
+                if groups.count > 8 {
+                    Button { withAnimation { allCats.toggle() } } label: { Label(allCats ? LS("收起") : LS("显示全部 %@ 项", groups.count), systemImage: allCats ? "chevron.up" : "chevron.down").labelStyle(ControlLabelStyle()) }.font(.footnote)
+                }
+            }
+        } header: {
+            donutHeader(LS("支出构成"), f.label, hasBefore ? prev.label : LS("点按分类展开"))
+        }
+    }
+
+    private func donutCategorySection(_ s: Summary, _ F: Flows) -> some View {
+        let f = focus(s)
+        let groups = categoryGroups(F, f.key)
+        let slices = DonutSlice.make(groups.map { (id: $0.name, label: acctZH($0.name) ?? leaf($0.name), value: $0.total) })
+        let total = groups.reduce(0.0) { $0 + max(0, $1.total) }
+        return Section {
+            if slices.isEmpty {
+                Text(f.label + LS("暂无支出记录")).foregroundStyle(.secondary)
+            } else {
+                DonutChart(slices: slices, title: LS("总支出"), selected: $selCat)
+                if let sel = selCat {
+                    if sel == DonutSlice.otherID {
+                        let shown = Set(slices.map { $0.id })
+                        ForEach(groups.filter { !shown.contains($0.name) && $0.total > 0.005 }, id: \.name) { g in
+                            NavigationLink(value: AccountDest(name: g.name)) {
+                                CatBar(name: acctZH(g.name) ?? leaf(g.name), sub: g.name, value: g.total, frac: g.total / max(total, 1), share: share(g.total, total), chevron: nil)
+                            }
+                        }
+                    } else if let g = groups.first(where: { $0.name == sel }) {
+                        ForEach(g.leaves.filter { $0.1 > 0.005 }, id: \.0) { row in
+                            NavigationLink(value: AccountDest(name: row.0)) {
+                                CatBar(name: leafTitle(row.0).name, sub: leafTitle(row.0).sub, value: row.1, frac: row.1 / max(g.total, 1), share: share(row.1, g.total), chevron: nil)
+                            }
+                        }
+                    }
+                }
+            }
+        } header: {
+            donutHeader(LS("支出构成"), f.label, LS("点按扇区展开"))
+        }
+    }
+
+    /// a category's own name from the ledger (name: "咖啡饮品"), with the account leaf under it; else the leaf
+    private func leafTitle(_ a: String) -> (name: String, sub: String?) {
+        if let v = store.L?.accounts[a]?.meta["name"], let s = v.stringValue, !s.isEmpty { return (s, leaf(a)) }
+        return (leaf(a), acctZH(a))
+    }
+
+    private func share(_ v: Double, _ total: Double) -> Int? { total > 0 && v > 0 ? Int((v / total * 100).rounded()) : nil }
+
+    private func donutHeader(_ title: String, _ sub: String?, _ hint: String) -> some View {
+        HStack(spacing: AppSpacing.control) {
+            Text(title)
+            if let sub = sub { Text("· " + sub).textCase(nil) }
+            Spacer()
+            Text(hint).textCase(nil)
+        }
+    }
+
+    @ViewBuilder
+    private func payeeSection(_ s: Summary, _ L: Ledger, _ F: Flows) -> some View {
+        if chartStyle == "donut" { donutPayeeSection(s, L, F) } else { listPayeeSection(s, L, F) }
+    }
+
+    @ViewBuilder
+    private func listPayeeSection(_ s: Summary, _ L: Ledger, _ F: Flows) -> some View {
+        let f = focus(s)
+        let stats = payeeStats(L, f.key, F).sorted { payeeSort == "count" ? ($0.count != $1.count ? $0.count > $1.count : $0.value > $1.value) : $0.value > $1.value }
+        if !stats.isEmpty {
+            let top = stats.map { payeeSort == "count" ? Double($0.count) : $0.value }.max() ?? 1
+            let shown = Array(stats.prefix(allPayees ? 30 : 8))
+            Section {
+                Picker(LS("排序"), selection: $payeeSort) {
+                    Text(LS("按金额")).tag("amount")
+                    Text(LS("按次数")).tag("count")
+                }
+                .pickerStyle(.segmented)
+                ForEach(Array(shown.enumerated()), id: \.element.name) { i, p in
+                    Button {
+                        withAnimation(.easeOut(duration: 0.15)) { selPay = selPay == p.name ? nil : p.name }
+                    } label: {
+                        PayeeRankRow(rank: i + 1, name: p.name, value: p.value, count: p.count,
+                                     frac: (payeeSort == "count" ? Double(p.count) : p.value) / max(top, 0.01), expanded: selPay == p.name)
+                    }
+                    .buttonStyle(.plain)
+                    if selPay == p.name {
+                        ForEach(payeeTxns(L, f.key, p.name, F), id: \.id) { t in
+                            NavigationLink(value: TxDest(t)) { TxRow(t: t, showDate: true) }.padding(.leading, AppSpacing.content)
+                        }
+                    }
+                }
+                if stats.count > 8 {
+                    Button { withAnimation { allPayees.toggle() } } label: { Label(allPayees ? LS("收起") : LS("显示前 %@ 名", min(30, stats.count)), systemImage: allPayees ? "chevron.up" : "chevron.down").labelStyle(ControlLabelStyle()) }.font(.footnote)
+                }
+            } header: {
+                donutHeader(LS("商户支出排行"), f.label, LS("点按查看交易"))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func donutPayeeSection(_ s: Summary, _ L: Ledger, _ F: Flows) -> some View {
+        let f = focus(s)
+        let pay = topPayees(L, f.key, F)
+        if !pay.isEmpty {
+            let slices = DonutSlice.make(pay.map { (id: $0.0, label: $0.0, value: $0.1) })
+            let total = pay.reduce(0.0) { $0 + max(0, $1.1) }
+            Section {
+                DonutChart(slices: slices, title: LS("商户合计"), selected: $selPay)
+                if let sel = selPay {
+                    if sel == DonutSlice.otherID {
+                        let shown = Set(slices.map { $0.id })
+                        ForEach(pay.filter { !shown.contains($0.0) && $0.1 > 0.005 }.prefix(30), id: \.0) { row in
+                            CatBar(name: row.0, sub: nil, value: row.1, frac: row.1 / max(total, 1), share: share(row.1, total), chevron: nil)
+                        }
+                    } else {
+                        ForEach(payeeTxns(L, f.key, sel, F), id: \.id) { t in
+                            NavigationLink(value: TxDest(t)) { TxRow(t: t, showDate: true) }
+                        }
+                    }
+                }
+            } header: {
+                donutHeader(LS("商户支出排行"), f.label, LS("点按扇区展开"))
+            }
+        }
+    }
+
+    /// 往来: one line into 报销 (its own page in 报表), one into people and the company
+    @ViewBuilder
+    private func reimbSection(_ L: Ledger, _ D: Derived) -> some View {
+        let open = reimbBatches(L).filter { !$0.settled }.count
+        let others = !people(L).filter { !$0.settled }.isEmpty || !employerOpen(L).open.isEmpty
+        let recv = (L.final[D.receivable] ?? [:]).reduce(0.0) { $0 + (toCNY(L, $1.value, $1.key) ?? 0) }
+        let hasReimb = !D.unclaimed.isEmpty || open > 0 || abs(recv) > 0.005
+        if hasReimb || others {
+            Section {
+                if hasReimb {
+                    NavigationLink(value: ReimbursementsDest()) {
+                        BatchRowLabel(title: LS("报销"), caption: reimbCaption(D, open), amount: recv, currency: "CNY")
+                    }
+                }
+                CounterpartyOverviewRow(L: L)
+            } header: {
+                Text(LS("往来"))
+            }
+        }
+    }
+
+    struct LiabRow { let a: String; let c: String; let n: Double; var id: String { a + "|" + c } }
+
+    @ViewBuilder
+    private func liabilitySection(_ L: Ledger) -> some View {
+        if chartStyle == "donut" { donutLiabilitySection(L) } else { listLiabilitySection(L) }
+    }
+
+    private func listLiabilitySection(_ L: Ledger) -> some View {
+        let liab = liabilities(L)
+        let total = liab.reduce(0.0) { $0 + (toCNY(L, $1.n, $1.c) ?? 0) }
+        var cycles: [String: CardCycle] = [:]
+        for c in cardCycles(L) { cycles[c.account + "|" + c.currency] = c }
+        return Section {
+            if liab.isEmpty {
+                Text(LS("无负债")).foregroundStyle(.secondary)
+            } else {
+                ForEach(liab, id: \.id) { x in
+                    NavigationLink(value: AccountDest(name: x.a)) {
+                        LiabilityRow(L: L, account: x.a, n: x.n, currency: x.c,
+                                     limit: creditLimit(L.accounts[x.a]?.meta[creditLimitKey], x.c), cycle: cycles[x.a + "|" + x.c])
+                    }
+                }
+            }
+        } header: {
+            HStack(spacing: AppSpacing.control) {
+                Text(LS("负债"))
+                Spacer()
+                Text(money(total)).monospacedDigit().sensitive()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func donutLiabilitySection(_ L: Ledger) -> some View {
+        let liab = liabilities(L)
+        let total = liab.reduce(0.0) { $0 + (toCNY(L, $1.n, $1.c) ?? 0) }
+        Section {
+            if liab.isEmpty {
+                Text(LS("无负债")).foregroundStyle(.secondary)
+            } else {
+                // owed amounts are negative balances; the ring shows their size
+                let byAcct = liab.reduce(into: [String: Double]()) { $0[$1.a, default: 0] += -(toCNY(L, $1.n, $1.c) ?? 0) }
+                let slices = DonutSlice.make(byAcct.map { (id: $0.key, label: acctLabel($0.key), value: $0.value) })
+                if !slices.isEmpty { DonutChart(slices: slices, title: LS("负债合计"), selected: $selLiab) }
+                let shown = Set(slices.map { $0.id })
+                // overpaid cards (credit balance) are not in the ring; list them so they stay visible
+                let overpaid = liab.filter { (byAcct[$0.a] ?? 0) <= 0.005 }
+                let rows = slices.isEmpty ? liab
+                    : selLiab == nil ? overpaid
+                    : selLiab == DonutSlice.otherID ? liab.filter { !shown.contains($0.a) }
+                    : liab.filter { $0.a == selLiab }
+                ForEach(rows, id: \.id) { x in
+                    NavigationLink(value: AccountDest(name: x.a)) {
+                        HStack(spacing: AppSpacing.icon) {
+                            IconBadge(symbol: store.groupIcon(x.a).symbol, color: store.groupIcon(x.a).color, size: 28)
+                            Text(acctLabel(x.a))
+                            Spacer()
+                            Amount(n: x.n, c: x.c)
+                        }
+                    }
+                }
+            }
+        } header: {
+            HStack(spacing: AppSpacing.control) {
+                Text(LS("负债"))
+                Spacer()
+                Text(money(total)).monospacedDigit().sensitive()
+            }
+        }
+    }
+
+    private func liabilities(_ L: Ledger) -> [LiabRow] {
+        var liab: [LiabRow] = []
+        for (a, cs) in L.final where a.hasPrefix("Liabilities:") {
+            for (c, n) in cs where abs(n) > 0.005 { liab.append(LiabRow(a: a, c: c, n: n)) }
+        }
+        return liab.sorted { $0.n < $1.n }
+    }
+
+    private func checkSection(_ L: Ledger) -> some View {
+        Section(LS("账本检查")) {
+            NavigationLink(value: ErrorsDest()) { LedgerCheckRow() }
+            if store.cfg.kind == .github { CIRow() }
+        }
+    }
+
+    struct Group2 { let name: String; var total: Double; var leaves: [(String, Double)] }
+
+    private func categoryGroups(_ F: Flows, _ key: String) -> [Group2] {
+        var cm: [String: Double] = [:]
+        for (m, cats) in F.cat where m.hasPrefix(key) { for (a, v) in cats { cm[a, default: 0] += v } }
+        var groups: [String: Group2] = [:]
+        for (a, v) in cm {
+            let g = catOf(a)
+            if groups[g] == nil { groups[g] = Group2(name: g, total: 0, leaves: []) }
+            groups[g]!.total += v
+            groups[g]!.leaves.append((a, v))
+        }
+        return groups.values.map { g in var x = g; x.leaves.sort { $0.1 > $1.1 }; return x }.sorted { $0.total > $1.total }
+    }
+
+    private func topPayees(_ L: Ledger, _ key: String, _ F: Flows) -> [(String, Double)] {
+        var pay: [String: Double] = [:]
+        for t in L.txns where t.date.hasPrefix(key) {
+            if let v = spent(t, L, F) { pay[payeeKey(t), default: 0] += v }
+        }
+        return pay.sorted { $0.value > $1.value }.map { ($0.key, $0.value) }
+    }
+
+    struct PayeeStatRow { let name: String; var value: Double; var count: Int }
+
+    private func payeeStats(_ L: Ledger, _ key: String, _ F: Flows) -> [PayeeStatRow] {
+        var m: [String: PayeeStatRow] = [:]
+        for t in L.txns where t.date.hasPrefix(key) && !t.synthetic {
+            guard let v = spent(t, L, F) else { continue }
+            let k = payeeKey(t)
+            var r = m[k] ?? PayeeStatRow(name: k, value: 0, count: 0)
+            r.value += v
+            r.count += 1
+            m[k] = r
+        }
+        return m.values.filter { $0.value > 0.005 }.sorted { $0.value > $1.value }
+    }
+
+    private func payeeKey(_ t: Entry) -> String { !t.payee.isEmpty ? t.payee : !t.narration.isEmpty ? t.narration : "—" }
+
+    private func payeeTxns(_ L: Ledger, _ key: String, _ payee: String, _ F: Flows) -> [Entry] {
+        L.txns.filter { $0.date.hasPrefix(key) && payeeKey($0) == payee && spent($0, L, F) != nil }.sorted { $0.date > $1.date }.prefix(40).map { $0 }
+    }
+}
+
+struct ErrorsDest: Hashable {}
+
+struct CatBar: View {
+    let name: String
+    let sub: String?
+    let value: Double
+    let frac: Double
+    let share: Int?
+    let chevron: Bool?
+    @Environment(\.displayCurrency) private var cur
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.icon) {
+            HStack(spacing: AppSpacing.control) {
+                Text(name)
+                if let s = sub { Text(s).font(.caption).foregroundStyle(.secondary) }
+                Spacer()
+                Text(money(value, cur)).monospacedDigit().sensitive()
+                if let s = share { Text("\(s)%").font(.caption).foregroundStyle(.secondary).frame(minWidth: 30, alignment: .trailing) }
+                if let c = chevron { Image(systemName: c ? "chevron.up" : "chevron.down").font(.caption2).foregroundStyle(.tertiary) }
+            }
+            GeometryReader { g in
+                Capsule().fill(Color.jadeSoft).frame(width: max(2, g.size.width * max(0, min(1, frac))), height: 5)
+            }
+            .frame(height: 5)
+        }
+        .contentShape(Rectangle())
+        .padding(.vertical, AppSpacing.detail)
+    }
+}
+
+/// the one summary of everything the ledger check finds: Beancount errors (failed balances included) and link problems
+struct LedgerCheckRow: View {
+    @EnvironmentObject var store: Store
+    var body: some View {
+        if let L = store.L {
+            let links = store.linkProblems
+            let errors = L.errors.count + links.filter { $0.isError }.count
+            let warnings = links.filter { !$0.isError }.count
+            HStack(spacing: AppSpacing.control) {
+                if errors + warnings == 0 {
+                    Label(LS("账本检查通过"), systemImage: "checkmark.seal").labelStyle(ControlLabelStyle()).foregroundStyle(Color.gain)
+                } else {
+                    Label(errors > 0 && warnings > 0 ? LS("%@ 项错误 · %@ 项提醒", errors, warnings)
+                          : errors > 0 ? LS("%@ 项错误", errors) : LS("%@ 项提醒", warnings),
+                          systemImage: "exclamationmark.triangle").labelStyle(ControlLabelStyle())
+                        .foregroundStyle(errors > 0 ? Color.loss : Color.warn)
+                }
+                Spacer()
+                Text(LS("%@/%@ 余额断言", L.balanceResults.filter { $0.ok }.count, L.balanceResults.count)).font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+struct CIRow: View {
+    @EnvironmentObject var store: Store
+    var body: some View {
+        let ci = store.ci
+        let row = HStack(spacing: AppSpacing.control) {
+            switch ci?.state {
+            case .ok?: Label(LS("bean-check 校验通过"), systemImage: "checkmark.circle").labelStyle(ControlLabelStyle()).foregroundStyle(Color.gain)
+            case .fail?: Label(LS("bean-check 校验未通过"), systemImage: "xmark.circle").labelStyle(ControlLabelStyle()).foregroundStyle(Color.loss)
+            case .running?: Label(LS("bean-check 运行中…"), systemImage: "hourglass").labelStyle(ControlLabelStyle()).foregroundStyle(.secondary)
+            case .empty?: Label(LS("暂无 bean-check 运行记录"), systemImage: "circle.dashed").labelStyle(ControlLabelStyle()).foregroundStyle(.secondary)
+            case .noperm?: Label(LS("需为 Token 授予 Actions: Read-only 权限以显示 bean-check 结果"), systemImage: "lock").labelStyle(ControlLabelStyle()).foregroundStyle(.secondary)
+            default: Label(LS("正在获取 bean-check 状态"), systemImage: "circle.dashed").labelStyle(ControlLabelStyle()).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if let sha = ci?.sha, let head = store.tree?.commit, sha != head { Text(LS("尚未校验最新提交")).font(.caption).foregroundStyle(.secondary) }
+        }
+        .font(.subheadline)
+        if let u = ci?.url.flatMap(URL.init(string:)) { Link(destination: u) { row }.buttonStyle(.plain) } else { row }
+    }
+}
+
+/// the plugins main.bean declares: those the app runs, and those it doesn't (bean-check on a computer may differ)
+struct PluginsSection: View {
+    let L: Ledger
+    var body: some View {
+        let skipped = unexecutedPlugins(L)
+        let run = BuiltinPlugin.allCases.filter { p in L.plugins.contains { $0.0 == p.rawValue } }
+        Section {
+            ForEach(run, id: \.self) { p in
+                LabeledContent { Text(LS("App 执行")).foregroundStyle(Color.gain) } label: { Text(pluginShortName(p.rawValue)).font(.subheadline.monospaced()) }
+            }
+            ForEach(skipped, id: \.self) { n in
+                LabeledContent { Text(LS("App 不执行")).foregroundStyle(Color.warn) } label: { Text(pluginShortName(n)).font(.subheadline.monospaced()) }
+            }
+        } header: {
+            Text(LS("插件"))
+        } footer: {
+            if !skipped.isEmpty { Text(LS("App 不执行的插件：它们在电脑上 bean-check 报告的问题、生成的内容不会出现在这里，结果可能与电脑上不同。")) }
+        }
+    }
+}
+
+func pluginShortName(_ n: String) -> String {
+    n.hasPrefix("beancount.plugins.") ? String(n.dropFirst("beancount.plugins.".count)) : n
+}
+
+/// one tap to put an error right
+struct FixButton: View {
+    @EnvironmentObject var store: Store
+    let fix: LedgerFix
+    /// the day of the entry the error is on
+    let at: String?
+    var body: some View {
+        switch fix {
+        case .declareCommodity(let c):
+            Button { Task { await store.declareCommodity(c, firstUsed: at) } } label: { Label(LS("补上声明"), systemImage: "plus.circle").labelStyle(ControlLabelStyle()) }
+                .buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)
+        }
+    }
+}
+
+/// 账本检查: Beancount errors, link problems and bean-check in one place, each opening what needs fixing
+struct ErrorsView: View {
+    @EnvironmentObject var store: Store
+
+    private func transaction(for error: LedgerError, in ledger: Ledger) -> Entry? {
+        guard let file = error.file else { return nil }
+        return ledger.txns.first { entry in
+            entry.file == file && entry.line == error.line && !entry.synthetic
+        }
+    }
+
+    var body: some View {
+        List {
+            if let L = store.L {
+                let links = store.linkProblems
+                let linkErrors = links.filter { $0.isError }, linkWarnings = links.filter { !$0.isError }
+                let ignored = store.ignoredLinkIssues.count
+                Section {
+                    LedgerCheckRow()
+                } footer: {
+                    Text(LS("%@ 个文件 · %@ 笔交易", L.files.count, L.txns.count))
+                }
+                if !L.plugins.isEmpty { PluginsSection(L: L) }
+                if !L.errors.isEmpty {
+                    Section(LS("账本错误 · %@", L.errors.count)) {
+                        // those the app can put right with one tap first
+                        ForEach(Array((L.errors.filter { $0.fix != nil } + L.errors.filter { $0.fix == nil }).enumerated()), id: \.offset) { _, e in
+                            let t = transaction(for: e, in: L)
+                            let row = VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                                Text(e.msg).font(.subheadline)
+                                if let f = e.file, (e.line ?? 0) > 0 { Text("\(f):\(e.line!)").font(.caption.monospaced()).foregroundStyle(.secondary) }
+                                else if let f = e.file { Text(f).font(.caption.monospaced()).foregroundStyle(.secondary) }
+                            }
+                            if let fix = e.fix {
+                                HStack(alignment: .center, spacing: AppSpacing.control) {
+                                    row
+                                    Spacer(minLength: 8)
+                                    FixButton(fix: fix, at: e.entry?.date)
+                                }
+                            } else if let t = t { NavigationLink(value: TxDest(t)) { row } } else { row }
+                        }
+                    }
+                }
+                if !linkErrors.isEmpty {
+                    Section(LS("链接错误 · %@", linkErrors.count)) { ForEach(linkErrors) { LinkIssueRow(i: $0) } }
+                }
+                if !linkWarnings.isEmpty {
+                    Section(LS("链接提醒 · %@", linkWarnings.count)) { ForEach(linkWarnings) { LinkIssueRow(i: $0) } }
+                }
+                if store.cfg.kind == .github { Section { CIRow() } }
+                Section {
+                    if ignored > 0 { Button { store.clearIgnoredLinkIssues() } label: { Label(LS("恢复已忽略的 %@ 项", ignored), systemImage: "arrow.counterclockwise").labelStyle(ControlLabelStyle()) } }
+                } footer: {
+                    Text(LS("链接检查：退款、报销和订阅链接只剩一笔、找不到原交易或垫付、金额对不上、科目不一致，以及带 #refund / #reimbursement 却没有链接的交易。点按打开交易处理，左滑可忽略。"))
+                }
+            }
+        }
+        .navigationTitle(LS("账本检查"))
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}

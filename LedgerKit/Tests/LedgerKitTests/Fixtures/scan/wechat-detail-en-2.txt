@@ -1,0 +1,20 @@
+01:02円	39
+X	Transactions All transactions
+喜市多
+-7.20
+Current	Payment successful
+Status
+Payment	2026/10/13 08:46:30
+Time
+Products	C示例门市-pos1
+Merchant	广州喜市多便利连锁有限公司
+Acquirer	财付通支付科技有限公司
+Payment	BOC Depit Card（4321）
+Method
+支付说明	优先支付方式零钱余额不足，已自动更
+换支付方式完成支付
+Transaction 4200000001202610130000000022
+Order No.
+Merchant	You can get refund by scanning bar-
+Order No.	code at supporting merchant
+S1000000000088

@@ -1,0 +1,19 @@
+2023-12-01 open Assets:Bank:CGB CNY
+2023-12-01 open Assets:Bank:BOCHK HKD
+2023-12-01 open Assets:EWallet:Alipay CNY
+2023-12-01 open Assets:Brokerage:IBKR:Cash USD
+2023-12-01 open Assets:Brokerage:IBKR:Stock AAPL
+2023-12-01 open Assets:Receivable:Reimbursement
+2023-12-01 open Liabilities:CreditCard:CMB CNY
+2023-12-01 open Expenses:Food:Drinks
+2023-12-01 open Expenses:Food:Meals
+2023-12-01 open Expenses:Transit:Metro
+2023-12-01 open Expenses:Shopping:Household
+2023-12-01 open Expenses:Subscription:Phone
+2023-12-01 open Expenses:Housing:Rent
+2023-12-01 open Expenses:Travel:Hotel
+2023-12-01 open Expenses:Fee:Bank
+2023-12-01 open Income:Salary:Work
+2023-12-01 open Income:Invest:Gain
+2023-12-01 open Income:Invest:Interest
+2023-12-01 open Equity:Opening
