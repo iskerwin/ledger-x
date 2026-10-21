@@ -11,6 +11,8 @@ final class AppLock: ObservableObject {
     @Published private(set) var locked: Bool
     @Published private(set) var authenticating = false
     @Published var lastError: String?
+    /// biometry failed or was cancelled: the lock screen offers the device passcode directly
+    @Published private(set) var offerPasscode = false
     private var backgroundAt: Date?
 
     var enabled: Bool { UserDefaults.standard.bool(forKey: Self.enabledKey) }
@@ -35,7 +37,8 @@ final class AppLock: ObservableObject {
         }
     }
 
-    func unlock() async {
+    /// passcode: skip biometry and ask for the device passcode straight away
+    func unlock(passcode: Bool = false) async {
         guard locked, !authenticating else { return }
         authenticating = true
         defer { authenticating = false }
@@ -44,14 +47,29 @@ final class AppLock: ObservableObject {
         var err: NSError?
         // no passcode on the device: nothing to authenticate with, don't lock the user out
         guard ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err) else { locked = false; return }
+        let reason = LS("解锁以查看账本")
         do {
-            if try await ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: LS("解锁以查看账本")) {
+            let ok = passcode
+                ? try await Self.passcodeOnly(ctx, reason: reason)
+                : try await ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)
+            if ok {
                 withAnimation(.easeOut(duration: 0.2)) { locked = false }
                 lastError = nil
+                offerPasscode = false
             }
         } catch {
-            lastError = (error as? LAError)?.code == .userCancel ? nil : error.localizedDescription
+            let code = (error as? LAError)?.code
+            // Face ID only offers the passcode after a second failure; once it fails or is cancelled, offer it here
+            if code != .systemCancel && code != .appCancel { offerPasscode = true }
+            lastError = code == .userCancel || code == .systemCancel ? nil : error.localizedDescription
         }
+    }
+
+    /// the device passcode alone, without trying biometry first
+    private static func passcodeOnly(_ ctx: LAContext, reason: String) async throws -> Bool {
+        guard let acl = SecAccessControlCreateWithFlags(nil, kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, .devicePasscode, nil)
+        else { return try await ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) }
+        return try await ctx.evaluateAccessControl(acl, operation: .useItem, localizedReason: reason)
     }
 
     /// confirm before turning the lock on or off
@@ -100,7 +118,16 @@ struct LockScreen: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .disabled(lock.authenticating)
-            .padding(.bottom, 48)
+            .padding(.bottom, lock.offerPasscode && b.symbol != "lock" ? 0 : 48)
+            if lock.offerPasscode && b.symbol != "lock" {
+                Button(LS("使用%@解锁", LS("设备密码"))) {
+                    Task { await lock.unlock(passcode: true) }
+                }
+                .font(.subheadline)
+                .disabled(lock.authenticating)
+                .accessibilityIdentifier("unlockWithPasscode")
+                .padding(.bottom, 48)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
