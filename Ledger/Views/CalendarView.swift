@@ -120,7 +120,9 @@ struct MonthCalendar: View {
     var describe: (String) -> String? = { _ in nil }
     var pick: (String) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var forward = true
+    /// the page the pager is on; kept apart from `month` so a swipe in progress and a step from outside
+    /// (the arrows, 今天, a new search) each move the other without a loop
+    @State private var page: String?
 
     var body: some View {
         VStack(spacing: AppSpacing.icon) {
@@ -130,19 +132,38 @@ struct MonthCalendar: View {
                     Text(w).font(.caption2.weight(.medium)).foregroundStyle(.secondary).frame(maxWidth: .infinity)
                 }
             }
-            ZStack(alignment: .top) {
-                weeks
-                    .id(month)
-                    .transition(reduceMotion ? .opacity : .asymmetric(
-                        insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
-                        removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)))
+            // the months side by side, paged as the system's calendar is: the month follows the finger and snaps
+            // into place; built only near the one on screen. Six weeks high, so short months don't jump.
+            ScrollView(.horizontal) {
+                LazyHStack(alignment: .top, spacing: 0) {
+                    ForEach(months, id: \.self) { m in
+                        weeks(m).containerRelativeFrame(.horizontal)
+                    }
+                }
+                .scrollTargetLayout()
             }
-            .clipped()
-            .contentShape(Rectangle())
-            .gesture(DragGesture(minimumDistance: 30).onEnded { g in
-                if abs(g.translation.width) > abs(g.translation.height) { step(g.translation.width < 0 ? 1 : -1) }
-            })
+            .scrollTargetBehavior(.paging)
+            .scrollIndicators(.hidden)
+            .scrollPosition(id: $page)
+            .frame(height: 6 * Self.weekHeight + 5 * AppSpacing.detail)
+            .onAppear { if page == nil { page = month } }
+            .onChange(of: page) { _, p in if let p, p != month { month = p } }
+            .onChange(of: month) { _, m in
+                guard page != m else { return }
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) { page = m }
+            }
         }
+    }
+
+    /// a week's row: the day's disc and its dots
+    private static let weekHeight: CGFloat = 38
+
+    /// every month that can be shown, oldest first
+    private var months: [String] {
+        var out: [String] = [], m = Day.ym(first)
+        let end = Day.ym(last)
+        while m <= end { out.append(m); m = Day.addMonth(m, 1) }
+        return out
     }
 
     private var header: some View {
@@ -151,7 +172,7 @@ struct MonthCalendar: View {
             Text(Day.monthLabel(month)).font(.headline)
             // back to this month in one tap, shown only away from it
             if month != now, now >= Day.ym(first), now <= Day.ym(last) {
-                Button { forward = now > month; withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.24)) { month = now } } label: {
+                Button { month = now } label: {
                     Text(LS("今天")).font(.subheadline.weight(.semibold))
                         .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.detail)
                         .foregroundStyle(Color.jade)
@@ -175,8 +196,7 @@ struct MonthCalendar: View {
     private func step(_ k: Int) {
         let next = Day.addMonth(month, k)
         guard next >= Day.ym(first), next <= Day.ym(last) else { return }
-        forward = k > 0
-        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.24)) { month = next }
+        month = next
     }
 
     /// weekday names starting on the locale's first day of the week
@@ -186,8 +206,8 @@ struct MonthCalendar: View {
         return (0..<7).map { names[(start + $0) % 7] }
     }
 
-    /// the month's weeks, only as many rows as it needs
-    private var weeks: some View {
+    /// a month's weeks, only as many rows as it needs (at the top of its six-week page)
+    private func weeks(_ month: String) -> some View {
         let count = Int(Day.monthEnd(month).suffix(2)) ?? 30
         let wd = Day.date(month + "-01").map { Day.calendar.component(.weekday, from: $0) } ?? 1
         let lead = (wd - Calendar.current.firstWeekday + 7) % 7
