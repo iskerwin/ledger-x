@@ -286,7 +286,7 @@ struct SubscriptionCalendarView: View {
         let total = monthTotal(days.flatMap { byDate[$0] ?? [] })
         return List {
             Section {
-                MonthCalendar(marks: marks, month: $month, first: today, last: end) { d in day = d }
+                MonthCalendar(marks: marks, month: $month, selected: day, first: today, last: end) { d in day = d }
             }
             Section {
                 if days.isEmpty { Text(day == nil ? LS("这个月没有扣费") : LS("这一天没有扣费")).foregroundStyle(.secondary) }

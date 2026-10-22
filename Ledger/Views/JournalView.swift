@@ -437,7 +437,7 @@ struct JournalView: View {
             }
             if showCalendar {
                 Section {
-                    JournalCalendar(L: L, entries: matches, account: account) { d in
+                    JournalCalendar(L: L, entries: matches, account: account, picked: calendarDay?.day) { d in
                         calendarDay = CalendarDay(day: d)
                     }
                 }
