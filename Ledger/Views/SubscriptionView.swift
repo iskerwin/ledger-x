@@ -467,6 +467,9 @@ struct SubscriptionDetailView: View {
     @State private var linking = false
     @State private var confirmDelete = false
     @State private var undoing: SubTimelineItem?
+    /// the charges beyond the latest five, and the history: folded away like a transaction's postings
+    @State private var showAllCharges = false
+    @State private var showHistory = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -484,117 +487,51 @@ struct SubscriptionDetailView: View {
         let today = Day.today()
         let next = s.nextCharge(onOrAfter: today)
         let alerts = subscriptionAlerts(s, today: today)
-        let statusText = s.status.name + " · " + s.statusDate + (s.until.map { $0 >= today ? " · " + LS("可用至 %@", $0) : "" } ?? "")
+        let charges = Array(s.charges.reversed())
         return List {
-            Section {
-                Card {
-                    VStack(alignment: .leading, spacing: AppSpacing.control) {
-                        HStack(spacing: AppSpacing.control) {
-                            VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                                Text(money(s.amount, s.currency) + " / " + s.period.name).font(.title3.weight(.semibold)).sensitive()
-                                Text(s.status == .active ? LS(s.manual ? "下次续费 %@（%@）" : "下次扣费 %@（%@）", next, daysText(next, today: today)) : statusText)
-                                    .font(.subheadline).foregroundStyle(s.status == .active ? Color.secondary : Color.warn)
-                            }
-                            Spacer()
-                        }
-                        HStack(alignment: .top, spacing: AppSpacing.control) {
-                            Figure(label: LS("累计已付"), value: money(s.totalPaid, s.currency, 0))
-                            Spacer()
-                            Figure(label: LS("今年"), value: money(s.paid(in: String(today.prefix(4))), s.currency, 0))
-                            Spacer()
-                            Figure(label: LS("扣费次数"), value: "\(s.periodCharges.count)", alignment: .trailing)
-                        }
-                        Text([s.manual ? LS("手动续费") : LS("自动扣费"), s.variable ? LS("金额不固定") : nil].compactMap { $0 }.joined(separator: " · "))
-                            .font(.caption).foregroundStyle(.secondary)
-                        if !s.paymentAccount.isEmpty {
-                            Text(LS("付款账户：%@", acctDisplay(s.paymentAccount)) + (s.lastCharge.map { _ in LS("（按最近一次扣费）") } ?? ""))
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                .cardRow()
-            }
+            hero(s, today: today, next: next)
+            infoSection(s)
             if !alerts.isEmpty {
                 Section(LS("需要留意")) {
                     ForEach(alerts) { a in alertRow(a, s) }
                 }
             }
             Section {
-                if s.status == .active {
-                    Button { store.recordSubscription(s) } label: { Label(s.manual ? LS("记一笔续费") : LS("记一笔扣费"), systemImage: "plus.circle").labelStyle(ControlLabelStyle()) }
-                    Button { editing = SubDraft(s, mode: .change) } label: { Label(LS("调价或更改"), systemImage: "slider.horizontal.3").labelStyle(ControlLabelStyle()) }
-                    Button { editing = SubDraft(dueOf: s) } label: { Label(LS("调整到期日"), systemImage: "calendar.badge.clock").labelStyle(ControlLabelStyle()) }
-                    Button { skip(s, next) } label: { Label(LS("跳过下一期（%@）", next), systemImage: "forward.end").labelStyle(ControlLabelStyle()) }
-                    Button { stateChange = .paused } label: { Label(LS("暂停"), systemImage: "pause.circle").labelStyle(ControlLabelStyle()) }
-                    Button(role: .destructive) { stateChange = .cancelled } label: { Label(LS("取消订阅"), systemImage: "xmark.circle").labelStyle(ControlLabelStyle()) }
-                } else {
-                    Button { var d = SubDraft(s, mode: .change); d.status = .active; editing = d } label: { Label(LS("恢复订阅"), systemImage: "play.circle").labelStyle(ControlLabelStyle()) }
-                }
-                Button { linking = true } label: { Label(LS("关联已有交易"), systemImage: "link").labelStyle(ControlLabelStyle()) }
-            }
-            Section {
-                ForEach(subscriptionTimeline(s)) { item in
-                    HStack(alignment: .top, spacing: AppSpacing.icon) {
-                        Image(systemName: item.kind == .event ? icon(item.eventKind) : item.kind == .gap ? "pause.circle" : "creditcard")
-                            .foregroundStyle(item.kind == .gap ? Color.secondary : item.kind == .event ? Color.purple : Color.jade)
-                            .frame(width: 22)
-                        VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                            Text(item.title).font(.subheadline).sensitive()
-                            Text(item.to.map { item.from + " ~ " + $0 } ?? item.from).font(.caption).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        if !item.detail.isEmpty { Text(item.detail).font(.caption).foregroundStyle(.secondary).sensitive() }
+                if charges.isEmpty { Text(LS("还没有关联的扣费交易")).foregroundStyle(.secondary) }
+                ForEach(showAllCharges ? charges : Array(charges.prefix(5))) { c in chargeRow(c, s) }
+                if charges.count > 5 {
+                    Button { withAnimation { showAllCharges.toggle() } } label: {
+                        Label(showAllCharges ? LS("收起") : LS("查看全部 %@ 笔", charges.count), systemImage: showAllCharges ? "chevron.up" : "chevron.down")
+                            .labelStyle(ControlLabelStyle())
                     }
-                    .swipeActions {
-                        // a change, pause, resume, cancel or skip can be taken back (not the very first line)
-                        if item.kind == .event, item.eventKind != .start, item.entry != nil {
-                            Button { undoing = item } label: { Label(LS("撤销"), systemImage: "arrow.uturn.backward") }.tint(.orange)
-                        }
-                    }
-                }
-            } header: {
-                Text(LS("历史"))
-            } footer: {
-                Text(LS("左滑变更记录可撤销。"))
-            }
-            Section {
-                if s.charges.isEmpty { Text(LS("还没有关联的扣费交易")).foregroundStyle(.secondary) }
-                ForEach(s.charges.reversed()) { c in
-                    NavigationLink(value: TxDest(c.txn)) {
-                        VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                            TxRow(t: c.txn, showDate: true)
-                            if let note = chargeNote(c, s) {
-                                Text(note).font(.caption).foregroundStyle(.secondary).monospacedDigit().sensitive()
-                            }
-                        }
-                    }
-                        .swipeActions {
-                            // a top-up of the period before, or a period of its own (refunds and the first charge aside)
-                            if c.topup {
-                                Button { setTopup(c, false, s) } label: { Label(LS("改为单独一期"), systemImage: "calendar") }.tint(.purple)
-                            } else if !c.refund, s.charges.contains(where: { !$0.refund && !$0.topup && ($0.date < c.date || ($0.date == c.date && $0.id < c.id)) }) {
-                                Button { setTopup(c, true, s) } label: { Label(LS("并入上一期（补差）"), systemImage: "arrow.triangle.merge") }.tint(.purple)
-                            }
-                            if c.txn.links.contains(s.link) {
-                                Button {
-                                    if let op = store.unlinkOp(c.txn, link: s.link) { Task { await store.commit([op], word: LS("已取消关联")) } }
-                                } label: { Label(LS("取消关联"), systemImage: "link") }
-                                .tint(.gray)
-                            }
-                        }
                 }
             } header: {
                 Text(LS("扣费记录（%@）", s.charges.count))
             } footer: {
-                Text(LS("扣费交易带有链接 ^%@，在 Fava 中点链接即可查看全部扣费。左滑一笔扣费可「并入上一期（补差）」：计入累计已付，不算新的一期。", s.link))
+                Text(LS("左滑一笔扣费可「并入上一期（补差）」：计入累计已付，不算新的一期。"))
+            }
+            Section(LS("关联记录")) {
+                NavigationLink(value: LinkDest(link: s.link)) {
+                    HStack(spacing: AppSpacing.control) {
+                        Label(LS("扣费链接"), systemImage: "link").labelStyle(ControlLabelStyle())
+                        Spacer()
+                        Text("^" + s.link).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                }
             }
             Section {
-                Button { editing = SubDraft(s, mode: .correct) } label: { Label(LS("修正记录"), systemImage: "pencil").labelStyle(ControlLabelStyle()) }
-                Button(role: .destructive) { confirmDelete = true } label: { Label(LS("删除订阅"), systemImage: "trash").labelStyle(ControlLabelStyle()) }
+                DisclosureGroup(isExpanded: $showHistory) {
+                    ForEach(subscriptionTimeline(s)) { item in historyRow(item) }
+                } label: {
+                    Label(LS("历史"), systemImage: "clock.arrow.circlepath").labelStyle(ControlLabelStyle())
+                }
             } footer: {
-                Text(LS("「调价或更改」会新增一条带生效日期的记录，保留历史；「修正记录」直接修改最近一条，用于改正填错的内容。"))
+                Text(LS("左滑变更记录可撤销。「调价或更改」会新增一条带生效日期的记录，保留历史；「修正记录」直接修改最近一条，用于改正填错的内容。"))
             }
         }
+        .safeAreaInset(edge: .bottom) { actionBar(s) }
+        .toolbar(.hidden, for: .tabBar)
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { moreMenu(s, next: next) } }
         .listSectionSpacing(.compact)
         .confirmationDialog(LS("删除订阅「%@」？", name), isPresented: $confirmDelete, titleVisibility: .visible) {
             let n = s.charges.filter { $0.txn.links.contains(s.link) }.count
@@ -608,6 +545,143 @@ struct SubscriptionDetailView: View {
         } message: {
             Text(undoing.map { $0.from + " " + $0.title } ?? "")
         }
+    }
+
+    /// as a transaction's detail: the icon, the name, what it costs each period, where it stands, the totals
+    private func hero(_ s: Subscription, today: String, next: String) -> some View {
+        let statusText = s.status.name + " · " + s.statusDate + (s.until.map { $0 >= today ? " · " + LS("可用至 %@", $0) : "" } ?? "")
+        return Section {
+            VStack(spacing: AppSpacing.icon) {
+                Image(systemName: store.catIcon(catOf(s.account)))
+                    .font(.system(size: 26))
+                    .foregroundStyle(Color.jade)
+                    .frame(width: 60, height: 60)
+                    .background(Color.jade.opacity(0.13), in: Circle())
+                Text(s.name).font(.title3.weight(.semibold)).multilineTextAlignment(.center)
+                Text(money(s.amount, s.currency))
+                    .font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+                    .lineLimit(1).minimumScaleFactor(0.6)
+                    .sensitive()
+                Text(s.period.name).font(.footnote).foregroundStyle(.secondary)
+                Text(s.status == .active ? LS(s.manual ? "下次续费 %@（%@）" : "下次扣费 %@（%@）", next, daysText(next, today: today)) : statusText)
+                    .font(.subheadline).foregroundStyle(s.status == .active ? Color.secondary : Color.warn)
+                HStack(alignment: .top, spacing: AppSpacing.control) {
+                    Figure(label: LS("累计已付"), value: money(s.totalPaid, s.currency, 0))
+                    Spacer()
+                    Figure(label: LS("今年"), value: money(s.paid(in: String(today.prefix(4))), s.currency, 0))
+                    Spacer()
+                    Figure(label: LS("扣费次数"), value: "\(s.periodCharges.count)", alignment: .trailing)
+                }
+                .padding(.top, AppSpacing.icon)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, AppSpacing.content)
+            .padding(.horizontal, AppSpacing.content)
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .cardRow()
+        }
+    }
+
+    /// 分类, 付款账户, how it is paid, since when
+    private func infoSection(_ s: Subscription) -> some View {
+        Section {
+            if !s.account.isEmpty {
+                NavigationLink(value: AccountDest(name: s.account)) { LabeledContent(LS("分类"), value: acctDisplay(s.account)) }
+            }
+            if !s.paymentAccount.isEmpty {
+                NavigationLink(value: AccountDest(name: s.paymentAccount)) {
+                    LabeledContent(LS("付款账户"), value: acctDisplay(s.paymentAccount))
+                }
+            }
+            LabeledContent(LS("扣费方式"), value: [s.manual ? LS("手动续费") : LS("自动扣费"), s.variable ? LS("金额不固定") : nil].compactMap { $0 }.joined(separator: " · "))
+            LabeledContent(LS("开始于"), value: s.start)
+            if let t = s.trialEnd { LabeledContent(LS("试用到期"), value: t) }
+        } footer: {
+            if !s.paymentAccount.isEmpty, s.lastCharge != nil { Text(LS("付款账户按最近一次扣费。")) }
+        }
+    }
+
+    private func chargeRow(_ c: SubCharge, _ s: Subscription) -> some View {
+        NavigationLink(value: TxDest(c.txn)) {
+            VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                TxRow(t: c.txn, showDate: true)
+                if let note = chargeNote(c, s) {
+                    Text(note).font(.caption).foregroundStyle(.secondary).monospacedDigit().sensitive()
+                }
+            }
+        }
+        .swipeActions {
+            // a top-up of the period before, or a period of its own (refunds and the first charge aside)
+            if c.topup {
+                Button { setTopup(c, false, s) } label: { Label(LS("改为单独一期"), systemImage: "calendar") }.tint(.purple)
+            } else if !c.refund, s.charges.contains(where: { !$0.refund && !$0.topup && ($0.date < c.date || ($0.date == c.date && $0.id < c.id)) }) {
+                Button { setTopup(c, true, s) } label: { Label(LS("并入上一期（补差）"), systemImage: "arrow.triangle.merge") }.tint(.purple)
+            }
+            if c.txn.links.contains(s.link) {
+                Button {
+                    if let op = store.unlinkOp(c.txn, link: s.link) { Task { await store.commit([op], word: LS("已取消关联")) } }
+                } label: { Label(LS("取消关联"), systemImage: "link") }
+                .tint(.gray)
+            }
+        }
+    }
+
+    private func historyRow(_ item: SubTimelineItem) -> some View {
+        HStack(alignment: .top, spacing: AppSpacing.icon) {
+            Image(systemName: item.kind == .event ? icon(item.eventKind) : item.kind == .gap ? "pause.circle" : "creditcard")
+                .foregroundStyle(item.kind == .gap ? Color.secondary : item.kind == .event ? Color.purple : Color.jade)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                Text(item.title).font(.subheadline).sensitive()
+                Text(item.to.map { item.from + " ~ " + $0 } ?? item.from).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if !item.detail.isEmpty { Text(item.detail).font(.caption).foregroundStyle(.secondary).sensitive() }
+        }
+        .swipeActions {
+            // a change, pause, resume, cancel or skip can be taken back (not the very first line)
+            if item.kind == .event, item.eventKind != .start, item.entry != nil {
+                Button { undoing = item } label: { Label(LS("撤销"), systemImage: "arrow.uturn.backward") }.tint(.orange)
+            }
+        }
+    }
+
+    /// the everyday actions at the bottom, as on a transaction
+    private func actionBar(_ s: Subscription) -> some View {
+        let items: [ActionRow.Item] = s.status == .active ? [
+            ActionRow.Item(title: s.manual ? LS("记一笔续费") : LS("记一笔扣费"), systemImage: "plus.circle", emphasis: .primary) { store.recordSubscription(s) },
+            ActionRow.Item(title: LS("调价或更改"), systemImage: "slider.horizontal.3") { editing = SubDraft(s, mode: .change) },
+        ] : [
+            ActionRow.Item(title: LS("恢复订阅"), systemImage: "play.circle", emphasis: .primary) {
+                var d = SubDraft(s, mode: .change); d.status = .active; editing = d
+            },
+        ]
+        return ActionRow(size: .large, items: items)
+            .padding(.horizontal, AppSpacing.content)
+            .padding(.top, AppSpacing.icon)
+            .padding(.bottom, AppSpacing.icon)
+            .background(.bar)
+    }
+
+    /// everything else, as a transaction's ⋯
+    private func moreMenu(_ s: Subscription, next: String) -> some View {
+        Menu {
+            if s.status == .active {
+                Button { editing = SubDraft(dueOf: s) } label: { Label(LS("调整到期日"), systemImage: "calendar.badge.clock") }
+                Button { skip(s, next) } label: { Label(LS("跳过下一期（%@）", next), systemImage: "forward.end") }
+                Button { stateChange = .paused } label: { Label(LS("暂停"), systemImage: "pause.circle") }
+            }
+            Button { linking = true } label: { Label(LS("关联已有交易"), systemImage: "link") }
+            Button { editing = SubDraft(s, mode: .correct) } label: { Label(LS("修正记录"), systemImage: "pencil") }
+            Divider()
+            if s.status == .active {
+                Button(role: .destructive) { stateChange = .cancelled } label: { Label(LS("取消订阅"), systemImage: "xmark.circle") }
+            }
+            Button(role: .destructive) { confirmDelete = true } label: { Label(LS("删除订阅"), systemImage: "trash") }
+        } label: {
+            Image(systemName: "ellipsis")
+        }
+        .accessibilityLabel(LS("更多"))
     }
 
     private func icon(_ k: SubEvent.Kind?) -> String {
