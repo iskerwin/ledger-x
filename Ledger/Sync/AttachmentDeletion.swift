@@ -68,6 +68,24 @@ extension Store {
     /// Deletes the files whose records' removal has synced. Called after a delete and after each sync;
     /// a file a record points at again, or one changed in storage since it was copied, stays.
     func finishAttachmentDeletions() async {
+        // one run at a time: two runs deleted the same file, and between deleting a file and marking it deleted
+        // a restore read it as still waiting, skipped the upload and lost the file
+        while let running = attachmentDeletionRun { await running.value }
+        // the run clears itself as it ends: a waiter woken by it must not find it still there and spin on it
+        let run = Task { @MainActor in
+            await self.deletePendingAttachmentFiles()
+            self.attachmentDeletionRun = nil
+        }
+        attachmentDeletionRun = run
+        await run.value
+    }
+
+    /// Waits out a deletion in progress: what it is doing to a file is then written down.
+    private func waitForAttachmentDeletions() async {
+        while let running = attachmentDeletionRun { await running.value }
+    }
+
+    private func deletePendingAttachmentFiles() async {
         let ledgerID = cfg.id
         guard deletedAttachments(ledger: ledgerID).contains(where: { $0.state == .pending }) else { return }
         await waitForSavedSync()
@@ -99,21 +117,9 @@ extension Store {
 
     /// Before 撤回 of a removal that took its file: put the file back from the copy. False when it could not.
     func restoreDeletedAttachment(record: UUID) async -> Bool {
-        let ledgerID = cfg.id
-        guard let item = deletedAttachments(ledger: ledgerID).first(where: { $0.record == record }) else { return true }
-        if item.state == .deleted {
-            guard let data = RecoveryFiles.loadData(kind: Self.copyKind(item.id), ledger: ledgerID) else {
-                show(LS("本机副本已不存在，无法恢复 %@", (item.path as NSString).lastPathComponent))
-                return false
-            }
-            do { try await backend.writeData(item.path, data: data, message: LS("恢复附件：%@", item.path)) } catch {
-                Haptics.error()
-                show(LS("无法恢复文件，没有撤回：%@", error.localizedDescription))
-                return false
-            }
-        }
-        dropDeletedAttachment(item.id, ledger: ledgerID)
-        return true
+        await waitForAttachmentDeletions()
+        guard let item = deletedAttachments().first(where: { $0.record == record }) else { return true }
+        return await putBackDeletedFile(item, failure: LS("无法恢复文件，没有撤回：%@"))
     }
 
     /// 恢复 in 最近删除. Through its 最近改动 record while that is kept (file first, then the record); after the
@@ -147,8 +153,12 @@ extension Store {
 
     /// Uploads the copy (when the file had gone) and forgets the deletion at once. Left marked as pending, a sync
     /// before the record was written back deleted the restored file again: the same bytes have the same version.
-    func putBackDeletedFile(_ item: DeletedAttachment) async -> Bool {
+    func putBackDeletedFile(_ given: DeletedAttachment, failure: String = LS("无法恢复文件：%@")) async -> Bool {
         let ledgerID = cfg.id
+        // what has happened to the file is read after any deletion in progress, not from the caller's copy
+        await waitForAttachmentDeletions()
+        guard cfg.id == ledgerID else { return false }
+        guard let item = deletedAttachments(ledger: ledgerID).first(where: { $0.id == given.id }) else { return true }
         if item.state == .deleted {
             guard let data = RecoveryFiles.loadData(kind: Self.copyKind(item.id), ledger: ledgerID) else {
                 show(LS("本机副本已不存在，无法恢复 %@", (item.path as NSString).lastPathComponent))
@@ -156,7 +166,7 @@ extension Store {
             }
             do { try await backend.writeData(item.path, data: data, message: LS("恢复附件：%@", item.path)) } catch {
                 Haptics.error()
-                show(LS("无法恢复文件：%@", error.localizedDescription))
+                show(failure.replacingOccurrences(of: "%@", with: error.localizedDescription))
                 return false
             }
         }

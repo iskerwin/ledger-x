@@ -131,6 +131,26 @@ final class AttachmentDeletionTests: XCTestCase {
         XCTAssertTrue(store.deletedAttachments().isEmpty)
     }
 
+    /// 恢复 decides from what storage went through, not from a copy read while the file was being deleted:
+    /// a copy still saying "waiting" after the file had gone left the file deleted.
+    func testRestoreReadsWhatHappenedToTheFileNotAStaleCopy() async throws {
+        let (store, root) = try await fixture(documents: [document("2026-10-19")])
+        let file = root.appendingPathComponent(path)
+        let entry = try XCTUnwrap(store.L?.documents.first)
+        let deleted = await store.deleteDocument(entry, file: true, summary: "test")
+        XCTAssertTrue(deleted)
+        await store.waitForSavedSync()
+        // read while the deletion may still be running, as 最近删除 and 撤回 can
+        var stale = try XCTUnwrap(store.deletedAttachments().first)
+        stale.state = .pending
+        await store.finishAttachmentDeletions()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
+        let back = await store.putBackDeletedFile(stale)
+        XCTAssertTrue(back)
+        XCTAssertEqual(try Data(contentsOf: file), bytes)
+        XCTAssertTrue(store.deletedAttachments().isEmpty)
+    }
+
     func testAFileAnotherRecordStillUsesIsKept() async throws {
         let (store, root) = try await fixture(documents: [document("2026-10-19"), document("2026-10-20")])
         let entry = try XCTUnwrap(store.L?.documents.first)

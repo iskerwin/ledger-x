@@ -113,6 +113,8 @@ final class Store: ObservableObject {
     @Published var attachmentRevision = 0
     /// the attachment recovery jobs of one ledger, as last read or written (see attachmentJobs)
     var attachmentJobCache: (ledger: String, jobs: [AttachmentUpload])?
+    /// the one run of finishAttachmentDeletions in progress (see AttachmentDeletion.swift)
+    var attachmentDeletionRun: Task<Void, Never>?
     @Published var cfg: RepoConfig
     /// every ledger set up on this phone (tokens stripped; they live in the Keychain)
     @Published private(set) var sources: [RepoConfig]
