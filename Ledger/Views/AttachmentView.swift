@@ -364,7 +364,7 @@ struct AttachmentPathSheet: View {
         self.ledgerID = ledgerID
         let paying = documentPayingAccount(entry.postings)
         self.account = paying
-        let suggested = documentFolder(for: paying)
+        let suggested = transactionAttachmentFolder
         _folder = State(initialValue: suggested)
         _fileStem = State(initialValue: documentFileStem(
             preferredDocumentFileName(folder: suggested, date: entry.date, ext: normalizedExt, existingPaths: existingPaths), ext: normalizedExt))
@@ -387,7 +387,7 @@ struct AttachmentPathSheet: View {
                         .font(.caption).foregroundStyle(.secondary)
                     DocumentSaveToRow(
                         folder: $folder,
-                        suggestedFolder: documentFolder(for: account),
+                        suggestedFolder: transactionAttachmentFolder,
                         folders: documentFolders(in: takenPaths),
                         onCommit: { refreshDefaultName() }
                     )
@@ -470,6 +470,59 @@ struct AttachmentPathSheet: View {
 }
 
 struct DocItem: Identifiable { let path: String; var id: String { path } }
+
+struct TransactionAttachmentsDest: Hashable {}
+
+/// 交易附件: every transaction's attachments in one list, whichever account paid; account pages keep their statements
+struct TransactionAttachmentsView: View {
+    @EnvironmentObject var store: Store
+    @State private var viewing: DocItem?
+
+    var body: some View {
+        Group {
+            if let L = store.L { list(L) } else { ProgressView() }
+        }
+        .navigationTitle(LS("交易附件"))
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $viewing) { DocumentViewer(path: $0.path) }
+    }
+
+    private func list(_ L: Ledger) -> some View {
+        let docs = transactionAttachments(L)
+        // each attachment's transaction, by link
+        var byLink: [String: Entry] = [:]
+        for t in L.txns where !t.synthetic { for l in t.links where byLink[l] == nil { byLink[l] = t } }
+        return List {
+            Section {
+                if docs.isEmpty { Text(LS("还没有交易附件")).foregroundStyle(.secondary) }
+                ForEach(docs, id: \.id) { d in
+                    let txn = d.links.lazy.compactMap { byLink[$0] }.first
+                    Button {
+                        if let path = documentRepoPath(d) { viewing = DocItem(path: path) }
+                    } label: {
+                        HStack(spacing: AppSpacing.icon) {
+                            Image(systemName: "paperclip").foregroundStyle(Color.jade)
+                            VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                                Text(((d.path ?? "") as NSString).lastPathComponent).lineLimit(1)
+                                Text([d.date, txn.map { [$0.payee, $0.narration].filter { !$0.isEmpty }.joined(separator: " · ") } ?? ""]
+                                    .filter { !$0.isEmpty }.joined(separator: "  "))
+                                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(documentRepoPath(d) == nil)
+                    .entryActions(d)
+                }
+            } footer: {
+                Text(LS("在交易详情里添加的附件，默认存放在 documents/%@ 文件夹；账户的对账单仍在各账户页。", transactionAttachmentFolder))
+            }
+        }
+    }
+}
 
 /// downloads a file from the ledger storage and shows it with Quick Look
 struct DocumentViewer: View {

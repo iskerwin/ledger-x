@@ -35,6 +35,7 @@ struct AccountsView: View {
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
             .navigationDestination(for: AccountManagerDest.self) { _ in AccountManagerView() }
             .navigationDestination(for: CounterpartyDest.self) { _ in CounterpartyView().privacyToolbar() }
+            .navigationDestination(for: TransactionAttachmentsDest.self) { _ in TransactionAttachmentsView().privacyToolbar() }
             .navigationDestination(for: NetWorthSettingsDest.self) { _ in NetWorthSettingsView() }
             .navigationDestination(for: ReconcileDest.self) { _ in ReconcileView().privacyToolbar() }
         }
@@ -314,6 +315,12 @@ struct AccountsView: View {
             tilesSection(L)
             Section {
                 NavigationLink(value: CounterpartyDest()) { Label(LS("往来"), systemImage: "person.2").labelStyle(ControlLabelStyle()) }
+                NavigationLink(value: TransactionAttachmentsDest()) {
+                    LabeledContent {
+                        let n = transactionAttachments(L).count
+                        if n > 0 { Text(LS("%@ 个", n)) }
+                    } label: { Label(LS("交易附件"), systemImage: "paperclip").labelStyle(ControlLabelStyle()) }
+                }
             }
             Section {
                 Picker(LS("显示"), selection: $side) {
@@ -785,6 +792,8 @@ struct RegisterView: View {
         var bal: [String: Double] = [:]
         var order: [String] = []
         let pre = account + ":"
+        // a transaction's attachments are listed under 交易附件, not with this account's statements
+        let attached = Set(transactionAttachments(L).map { ObjectIdentifier($0) })
         for e in L.entries {
             switch e.type {
             case .txn:
@@ -796,7 +805,7 @@ struct RegisterView: View {
             case .balance:
                 if let a = e.account, a == account || a.hasPrefix(pre), let r = L.balanceResults.first(where: { $0.entry === e }) { items.append(.balance(r)) }
             case .document:
-                if e.account == account { items.append(.document(e)) }
+                if e.account == account && !attached.contains(ObjectIdentifier(e)) { items.append(.document(e)) }
             case .note:
                 if let a = e.account, a == account || a.hasPrefix(pre) { items.append(.note(e)) }
             default: break

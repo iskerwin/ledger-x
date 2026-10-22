@@ -2115,5 +2115,8 @@
  "App 不支持的插件：它们在电脑上 bean-check 报告的问题、生成的内容不会出现在这里，结果可能与电脑上不同。": "Plugins the app doesn't support: what they report or add in bean-check on a computer doesn't show here, so results there may differ.",
  "已重新加载": "Reloaded",
  "已清除缓存并重新下载": "Cache cleared and redownloaded",
- "重新下载失败：%@": "Redownload failed: %@"
+ "重新下载失败：%@": "Redownload failed: %@",
+ "交易附件": "Transaction Attachments",
+ "还没有交易附件": "No transaction attachments yet",
+ "在交易详情里添加的附件，默认存放在 documents/%@ 文件夹；账户的对账单仍在各账户页。": "Attachments added from a transaction are saved in documents/%@ by default; account statements stay on each account's page."
 }

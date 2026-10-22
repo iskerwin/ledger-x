@@ -152,3 +152,15 @@ public func documentFolders<S: Sequence>(in paths: S) -> [String] where S.Elemen
     }
     return names.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
 }
+
+/// Where a transaction's attachment is saved by default. Account statements go to the institution's folder
+/// (`documentFolder(for:)`); attachments stay apart from them.
+public let transactionAttachmentFolder = "receipts"
+
+/// Documents that share a link with a transaction (`^doc-…` on both): that transaction's attachments,
+/// newest first. Everything else is an account's own statement. Read from the link, not the folder,
+/// so attachments saved before `receipts/` existed are sorted the same way.
+public func transactionAttachments(_ L: Ledger) -> [Entry] {
+    let linked = Set(L.txns.lazy.filter { !$0.synthetic }.flatMap { $0.links })
+    return L.documents.filter { !linked.isDisjoint(with: $0.links) }.sorted { $0.date > $1.date }
+}
