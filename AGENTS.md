@@ -19,7 +19,13 @@
 ## 发布
 
 - `python3 tools/ship.py dev`：本机全部测试通过后编译 IPA、推送 main、更新开发版和 IPA 源。任何一步失败都不推送、不发布。
-- 正式版只由 Kerwin 在手机验收开发版后执行 `python3 tools/ship.py release`，发布的是同一个安装包；禁止未经验收转正。
+- 正式版只由 Kerwin 在手机验收开发版后执行 `python3 tools/ship.py release`（或 Kerwin 明确授权后代为执行），发布的是同一个安装包；禁止未经验收转正。
+- 一个版本的完整流程，按顺序：
+  1. 开始新版本：`python3 tools/ship.py version patch|minor|major|X.Y.Z`，在 CHANGELOG 顶部加「## X.Y.Z（开发中）」并提交。
+  2. 开发：每个功能或修复一个提交，CHANGELOG 写在「（开发中）」这一节的「新增 / 修复 / 改进」下。
+  3. 发开发版：`python3 tools/ship.py dev`，测试全过才推送和发布；Kerwin 装到手机按 06 验收，有问题回到第 2 步。
+  4. 转正式版：Kerwin 验收通过后执行（或授权执行）`python3 tools/ship.py release`。
+  5. 收尾：把 CHANGELOG 这一节标题从「（开发中）」改为「（YYYY-MM-DD 发布）」（北京时间的发布日期），单独提交并普通推送 main。下一次改动前回到第 1 步。
 - 禁止删除 Release、标签或分支，禁止强推或重写 main 历史。
 - 手机发现问题先报告，由 Kerwin 决定修复或撤回。未确认的结果一律写"待手机验收"。
 

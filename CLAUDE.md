@@ -23,6 +23,8 @@ python3 tools/ship.py release     # 仅 Kerwin 手机验收后执行：把当前
 python3 tools/ship.py version patch|minor|major|X.Y.Z
 ```
 
+版本流程（细节与授权见 AGENTS.md「发布」）：`version` 开新版本 → 开发并写 CHANGELOG「（开发中）」 → `dev` 发开发版 → Kerwin 手机验收 → `release` 转正式版 → CHANGELOG 标题改为「（YYYY-MM-DD 发布）」并提交推送。
+
 单独的快速检查：
 
 ```sh
