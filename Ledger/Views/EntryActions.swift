@@ -271,7 +271,8 @@ struct EntrySourceSheet: View {
             .navigationTitle(target.editing ? LS("编辑源文本") : LS("查看原文"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button { closeRequested = true } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.disabled(busy) }
+                // 关闭 ✕, not a second ✓ beside 保存: it only closes (asking first when the text has changed)
+                ToolbarItem(placement: .cancellationAction) { Button { closeRequested = true } label: { Label(LS("关闭"), systemImage: "xmark").labelStyle(ControlLabelStyle()) }.disabled(busy) }
                 if target.editing {
                     ToolbarItem(placement: .confirmationAction) {
                         Button { save() } label: { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.disabled(busy || original == nil || text.trimmed.isEmpty || text == original)

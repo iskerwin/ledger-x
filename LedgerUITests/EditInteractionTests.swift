@@ -422,6 +422,32 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue((source.value as? String ?? "").contains("Interaction test"))
     }
 
+    /// 编辑源文本 has 关闭 ✕ on the left and 保存 ✓ on the right, not two ✓ buttons.
+    func testSourceEditorClosesWithXNotASecondCheckmark() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures").path
+        app.launchEnvironment = ["LEDGER_DEMO": fixture, "LEDGER_TAB": "journal", "LEDGER_LANG": "zh"]
+        app.launchArguments = ["-AppleLanguages", "(zh-Hans)"]
+        app.launch()
+        let original = app.staticTexts["Coffee"].firstMatch
+        XCTAssertTrue(original.waitForExistence(timeout: 20))
+        original.press(forDuration: 1)
+        let sourceMenu = app.buttons["源文件"].firstMatch
+        XCTAssertTrue(sourceMenu.waitForExistence(timeout: 5))
+        sourceMenu.tap()
+        let edit = app.buttons["编辑源文本"].firstMatch
+        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        edit.tap()
+        let bar = app.navigationBars["编辑源文本"]
+        XCTAssertTrue(bar.waitForExistence(timeout: 5))
+        XCTAssertTrue(bar.buttons["关闭"].exists)
+        XCTAssertTrue(bar.buttons["保存"].exists)
+        XCTAssertFalse(bar.buttons["完成"].exists)
+        bar.buttons["关闭"].tap()
+        XCTAssertTrue(bar.waitForNonExistence(timeout: 5))
+    }
+
     func testReimbursementCurrencySeparatesAdvancesAndProtectsChanges() {
         continueAfterFailure = false
         let app = XCUIApplication()
