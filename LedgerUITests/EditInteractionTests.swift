@@ -61,6 +61,15 @@ final class EditInteractionTests: XCTestCase {
         element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
+    /// In an open account picker: search for the account and tap it. The picker opens on the recent and most used,
+    /// so an account further down is found by searching, as a person would.
+    private func pickAccount(_ app: XCUIApplication, _ account: String) {
+        let search = app.textFields["account.search"]
+        tapPoint(search, timeout: 5)
+        search.typeText(account)
+        tapPoint(app.buttons["account." + account].firstMatch, timeout: 5)
+    }
+
     private func tapKind(_ app: XCUIApplication, _ title: String) {
         tapPoint(app.segmentedControls.buttons[title].firstMatch, timeout: 5)
     }
@@ -259,7 +268,7 @@ final class EditInteractionTests: XCTestCase {
         let funding = app.buttons["field.付款账户"]
         for _ in 0..<5 { if funding.isHittable { break }; app.swipeUp() }
         XCTAssertTrue(funding.isHittable); funding.tap()
-        app.buttons["account.Assets:Cash"].firstMatch.tap()
+        pickAccount(app, "Assets:Cash")
         app.navigationBars.buttons["完成"].tap()
         let merchant = app.textFields["收付款方（如 便利店、淘宝）"]
         for _ in 0..<5 { if merchant.isHittable { break }; app.swipeDown() }
@@ -511,7 +520,7 @@ final class EditInteractionTests: XCTestCase {
         app.launch()
         let funding = app.buttons["import.funding"].firstMatch
         tapPoint(funding, timeout: 20)
-        tapPoint(app.buttons["account.Assets:Cash"].firstMatch, timeout: 5)
+        pickAccount(app, "Assets:Cash")
         app.navigationBars.buttons["完成"].tap()
         XCTAssertEqual(funding.value as? String, "Assets:Cash")
         app.navigationBars.buttons["保留进度并关闭"].tap()
