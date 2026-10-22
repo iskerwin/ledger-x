@@ -56,12 +56,27 @@ struct TxRow: View {
             let cat = t.postings.first { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") }
             HStack(alignment: .top, spacing: AppSpacing.icon) {
                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                    // who first, then the note; tags only where they fit whole (the first one and +N, else a
+                    // count like #2, else none), so a long tag no longer cuts the payee down to two characters
+                    let tags = t.tags.filter { $0 != "transfer" && $0 != "fx" }
+                    let who = Text(t.payee.isEmpty ? (t.narration.isEmpty ? LS("（无收付款方）") : t.narration) : t.payee).lineLimit(1)
+                    let note = (!t.payee.isEmpty && !t.narration.isEmpty) ? t.narration : nil
                     HStack(spacing: AppSpacing.icon) {
-                        Text(t.payee.isEmpty ? (t.narration.isEmpty ? LS("（无收付款方）") : t.narration) : t.payee).lineLimit(1)
-                        if !t.payee.isEmpty && !t.narration.isEmpty { Text(t.narration).foregroundStyle(.secondary).lineLimit(1) }
-                        if t.flag == "!" { Tag(text: LS("待确认"), warn: true) }
-                        if t.synthetic { Tag(text: "pad") }
-                        ForEach(t.tags.filter { $0 != "transfer" && $0 != "fx" }, id: \.self) { Tag(text: "#" + $0) }
+                        who.layoutPriority(3)
+                        if let note { Text(note).foregroundStyle(.secondary).lineLimit(1).layoutPriority(1) }
+                        if t.flag == "!" { Tag(text: LS("待确认"), warn: true).fixedSize().layoutPriority(2) }
+                        if t.synthetic { Tag(text: "pad").fixedSize().layoutPriority(2) }
+                        if !tags.isEmpty {
+                            ViewThatFits(in: .horizontal) {
+                                HStack(spacing: AppSpacing.icon) {
+                                    Tag(text: "#" + tags[0]).fixedSize()
+                                    if tags.count > 1 { Tag(text: "+\(tags.count - 1)").fixedSize() }
+                                }
+                                Tag(text: "#\(tags.count)").fixedSize()
+                                Color.clear.frame(width: 0, height: 0)
+                            }
+                            .layoutPriority(2)
+                        }
                     }
                     .font(.body)
                     Text((showDate ? t.date + "  " : "") + (cat.map { acctDisplay($0.account) } ?? moneyRoute(t).map { D.shortName($0) }.joined(separator: " → "))
