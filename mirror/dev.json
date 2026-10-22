@@ -20,11 +20,11 @@
       "versions": [
         {
           "version": "1.0.1",
-          "buildVersion": "4",
+          "buildVersion": "5",
           "date": "2026-10-21T17:58:29Z",
-          "localizedDescription": "# Ledger X 1.0.1 开发版\n\n版本 1.0.1 · 构建 4 · main ac8fbd8 。\n\n## 修复\n\n- 报表顶部的月份切换和「钱花在哪 / 比以前如何 / 还能用多久」两端圆角不再被裁切。\n- 编辑源文本页左上角改为「关闭」✕，不再和右上角的「保存」一样显示两个 ✓。\n\n## 改进\n\n- 添加交易附件和账户票据时说明支持的格式：JPG、PNG、HEIC、PDF 等常见格式，照片会转成 JPG；其他格式也能保存，但可能无法在 App 内预览。\n- 底部标签切换页面时淡入；明细的月历从左上角展开、收起时缩回左上角，不再一下子跳出来；系统开启「减少动态效果」时不播放。",
-          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.1-4",
-          "size": 10082302,
+          "localizedDescription": "# Ledger X 1.0.1 开发版\n\n版本 1.0.1 · 构建 5 · main 3b6f7c0 。\n\n## 新增\n\n- 删除交易附件或账户票据时可选「只移除引用」或「移除并删除文件」。删除文件前在本机保留副本 30 天，期间在「最近改动」撤回会把文件一起恢复；还被其他记录使用的文件不会删除。",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.1-5",
+          "size": 10112841,
           "minOSVersion": "17.0"
         },
         {
@@ -47,9 +47,9 @@
       },
       "version": "1.0.1",
       "versionDate": "2026-10-21T17:58:29Z",
-      "versionDescription": "# Ledger X 1.0.1 开发版\n\n版本 1.0.1 · 构建 4 · main ac8fbd8 。\n\n## 修复\n\n- 报表顶部的月份切换和「钱花在哪 / 比以前如何 / 还能用多久」两端圆角不再被裁切。\n- 编辑源文本页左上角改为「关闭」✕，不再和右上角的「保存」一样显示两个 ✓。\n\n## 改进\n\n- 添加交易附件和账户票据时说明支持的格式：JPG、PNG、HEIC、PDF 等常见格式，照片会转成 JPG；其他格式也能保存，但可能无法在 App 内预览。\n- 底部标签切换页面时淡入；明细的月历从左上角展开、收起时缩回左上角，不再一下子跳出来；系统开启「减少动态效果」时不播放。",
-      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.1-4",
-      "size": 10082302
+      "versionDescription": "# Ledger X 1.0.1 开发版\n\n版本 1.0.1 · 构建 5 · main 3b6f7c0 。\n\n## 新增\n\n- 删除交易附件或账户票据时可选「只移除引用」或「移除并删除文件」。删除文件前在本机保留副本 30 天，期间在「最近改动」撤回会把文件一起恢复；还被其他记录使用的文件不会删除。",
+      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.1-5",
+      "size": 10112841
     }
   ],
   "news": []
