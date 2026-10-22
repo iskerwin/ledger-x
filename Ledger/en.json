@@ -236,7 +236,6 @@
  "仅删除这一条记录。删除后可在「最近改动」里撤回。": "Only this entry is deleted. Undo it in Recent changes.",
  "仅导入已确认的 %@ 笔": "Import only the %@ ready",
  "仅显示前 %@ 行；导出 CSV 可获得完整结果。": "Showing the first %@ rows; export CSV for the full result.",
- "仅移除账本中的票据引用，保留实际附件文件。删除后可在「最近改动」里撤回。": "Only the document reference is removed. The attachment file is kept. Undo it in Recent changes.",
  "仅移除这一条余额断言，不删除交易。删除后可在「最近改动」里撤回。": "Only this balance assertion is removed. Transactions are kept. Undo it in Recent changes.",
  "今天": "Today",
  "今天到期": "Due today",
@@ -2120,5 +2119,17 @@
  "还没有交易附件": "No transaction attachments yet",
  "在交易详情里添加的附件，默认存放在 documents/%@ 文件夹；账户的对账单仍在各账户页。": "Attachments added from a transaction are saved in documents/%@ by default; account statements stay on each account's page.",
  "最新 %@": "Latest %@",
- "支持 JPG、PNG、HEIC、PDF 等常见格式；拍照和照片会转成 JPG。其他格式也能保存，但可能无法在 App 内预览。": "JPG, PNG, HEIC, PDF and other common formats are supported; photos are saved as JPG. Other files can be saved too, but may not preview in the app."
+ "支持 JPG、PNG、HEIC、PDF 等常见格式；拍照和照片会转成 JPG。其他格式也能保存，但可能无法在 App 内预览。": "JPG, PNG, HEIC, PDF and other common formats are supported; photos are saved as JPG. Other files can be saved too, but may not preview in the app.",
+ "只移除引用": "Remove Record Only",
+ "移除并删除文件": "Remove and Delete File",
+ "「只移除引用」保留存储里的文件。「移除并删除文件」同时删除存储里的文件，本机保留副本 30 天，期间可在「最近改动」里撤回并恢复文件；其他记录还在用的文件不会删除。": "Remove Record Only keeps the file in storage. Remove and Delete File also deletes it from storage; a copy stays on this device for 30 days, and undoing it in Recent Changes puts the file back. A file other records still use is never deleted.",
+ "文件还被其他 %@ 条记录使用，已保留文件": "The file is still used by %@ other records, so it was kept",
+ "存储里没有这个文件，只移除了引用": "The file isn't in storage; only the record was removed",
+ "无法下载文件，没有做任何改动：%@": "Couldn't download the file, nothing was changed: %@",
+ "无法在本机保存副本，没有做任何改动：%@": "Couldn't keep a copy on this device, nothing was changed: %@",
+ "删除附件：%@": "Delete attachment: %@",
+ "%@ 在存储里已被改动，没有删除": "%@ changed in storage, so it wasn't deleted",
+ "本机副本已不存在，无法恢复 %@": "The copy on this device is gone; %@ can't be restored",
+ "恢复附件：%@": "Restore attachment: %@",
+ "无法恢复文件，没有撤回：%@": "Couldn't restore the file, nothing was undone: %@"
 }

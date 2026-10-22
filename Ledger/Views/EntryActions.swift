@@ -22,12 +22,15 @@ struct EntryDeletion: Identifiable {
     let ledgerID: String
     let title: String
     let message: String
+    /// a document: remove the record only, or its file in storage too
+    let document: Bool
     let onDeleted: () -> Void
 
     init(_ entry: Entry, ledgerID: String, onDeleted: @escaping () -> Void = {}) {
         locator = EntryLocator(entry)
         self.ledgerID = ledgerID
         self.onDeleted = onDeleted
+        document = entry.type == .document
         title = LS("删除 %@ %@？", entry.date, entryActionName(entry))
         switch entry.type {
         case .txn:
@@ -35,7 +38,7 @@ struct EntryDeletion: Identifiable {
         case .balance:
             message = LS("仅移除这一条余额断言，不删除交易。删除后可在「最近改动」里撤回。")
         case .document:
-            message = LS("仅移除账本中的票据引用，保留实际附件文件。删除后可在「最近改动」里撤回。")
+            message = LS("「只移除引用」保留存储里的文件。「移除并删除文件」同时删除存储里的文件，本机保留副本 30 天，期间可在「最近改动」里撤回并恢复文件；其他记录还在用的文件不会删除。")
         case .custom where entry.name == "card-bill":
             message = LS("删除后恢复按账本估算账单；消费和还款记录保持不变。删除后可在「最近改动」里撤回。")
         default:
@@ -69,28 +72,36 @@ private struct EntryDeletionModifier: ViewModifier {
             .confirmationDialog(request?.title ?? "", isPresented: Binding(
                 get: { request != nil }, set: { if !$0 { request = nil } }
             ), titleVisibility: .visible, presenting: request) { target in
-                Button(role: .destructive) {
-                    guard !busy else { return }
-                    busy = true
-                    Task { @MainActor in
-                        defer { busy = false }
-                        guard store.cfg.id == target.ledgerID,
-                              let entry = target.locator.resolve(in: store.L?.entries ?? []) else {
-                            Haptics.error()
-                            store.show(LS("没有在文件里对上原来的文字，所以没有改动。"))
-                            return
-                        }
-                        // The Store also reparses pending file text before making the operation.
-                        if await store.deleteDirective(entry, summary: entryActionName(entry), pop: false) {
-                            target.onDeleted()
-                        }
-                    }
-                } label: { Text(LS("删除")) }
+                if target.document {
+                    Button(role: .destructive) { run(target, file: false) } label: { Text(LS("只移除引用")) }
+                    Button(role: .destructive) { run(target, file: true) } label: { Text(LS("移除并删除文件")) }
+                } else {
+                    Button(role: .destructive) { run(target, file: false) } label: { Text(LS("删除")) }
+                }
                 Button(role: .cancel) {} label: { Text(LS("取消")) }
             } message: { target in
                 Text(target.message)
             }
             .onChange(of: store.cfg.id) { _, _ in request = nil }
+    }
+
+    private func run(_ target: EntryDeletion, file: Bool) {
+        guard !busy else { return }
+        busy = true
+        Task { @MainActor in
+            defer { busy = false }
+            guard store.cfg.id == target.ledgerID,
+                  let entry = target.locator.resolve(in: store.L?.entries ?? []) else {
+                Haptics.error()
+                store.show(LS("没有在文件里对上原来的文字，所以没有改动。"))
+                return
+            }
+            // The Store also reparses pending file text before making the operation.
+            let done = target.document
+                ? await store.deleteDocument(entry, file: file, summary: entryActionName(entry))
+                : await store.deleteDirective(entry, summary: entryActionName(entry), pop: false)
+            if done { target.onDeleted() }
+        }
     }
 }
 

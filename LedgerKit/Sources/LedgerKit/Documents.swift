@@ -164,3 +164,41 @@ public func transactionAttachments(_ L: Ledger) -> [Entry] {
     let linked = Set(L.txns.lazy.filter { !$0.synthetic }.flatMap { $0.links })
     return L.documents.filter { !linked.isDisjoint(with: $0.links) }.sorted { $0.date > $1.date }
 }
+
+/// Every document that points at `path` (a repository path), whichever file it is written in.
+/// A file still in this list after a record is removed is in use and must not be deleted.
+public func documentReferences(_ L: Ledger, path: String) -> [Entry] {
+    L.documents.filter { e in e.path.flatMap { documentPath($0, from: e.file) } == path }
+}
+
+/// A document whose file was deleted from storage along with its record. The bytes are kept on this
+/// device (not here) so taking the change back can put the file back.
+public struct DeletedAttachment: Codable, Equatable, Identifiable, Sendable {
+    public enum State: String, Codable, Sendable {
+        /// the record is removed; the file goes once that removal has synced
+        case pending
+        /// the file is gone from storage; the local copy waits out `keep`
+        case deleted
+    }
+
+    /// how long a deleted file can still be taken back
+    public static let keep: TimeInterval = 30 * 86_400
+
+    public var id = UUID()
+    public var path: String
+    /// the file's version in storage when it was copied: only that version is deleted
+    public var version: String
+    /// the 最近改动 record that removed the document
+    public var record: UUID?
+    public var time: Date
+    public var state: State
+
+    public init(path: String, version: String, record: UUID?, time: Date, state: State = .pending) {
+        self.path = path; self.version = version; self.record = record; self.time = time; self.state = state
+    }
+
+    /// A pending deletion never expires: its file is still in storage and the copy is the only undo.
+    public func expired(now: Date) -> Bool {
+        state == .deleted && now.timeIntervalSince(time) > Self.keep
+    }
+}

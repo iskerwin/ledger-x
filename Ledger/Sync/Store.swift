@@ -529,6 +529,8 @@ final class Store: ObservableObject {
             syncError = ""
             lastSync = Date()
             Prefs.set(pk("lastSync"), lastSync)
+            pruneDeletedAttachments()
+            Task { await finishAttachmentDeletions() }
         } catch {
             fail(error)
             if L == nil && tree != nil { await rebuild(quietly: true) }
@@ -1341,6 +1343,8 @@ final class Store: ObservableObject {
             show(LS("无法撤回：%@ 中的这部分内容之后又被修改过", path))
             return false
         case .success(var ops):
+            // a removal that also deleted its file: the file goes back first, or nothing is taken back
+            guard await restoreDeletedAttachment(record: id) else { return false }
             if !ops.isEmpty {
                 for k in ops.indices { ops[k].label = LS("撤回：%@", r.label); if k > 0 { ops[k].silent = true } }
                 guard await commit(ops, word: LS("已撤回")) else { return false }

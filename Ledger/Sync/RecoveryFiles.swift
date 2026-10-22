@@ -25,6 +25,10 @@ enum RecoveryFiles {
     static func saveData(_ data: Data, kind: String, ledger: String) throws {
         try data.write(to: url(kind, ledger: ledger, ext: "bin"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
+    static func removeData(kind: String, ledger: String) throws {
+        let path = try url(kind, ledger: ledger, ext: "bin")
+        if FileManager.default.fileExists(atPath: path.path) { try FileManager.default.removeItem(at: path) }
+    }
     static func remove(kind: String, ledger: String) throws {
         let path = try url(kind, ledger: ledger)
         if FileManager.default.fileExists(atPath: path.path) { try FileManager.default.removeItem(at: path) }

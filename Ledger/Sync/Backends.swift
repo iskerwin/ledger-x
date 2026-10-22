@@ -388,6 +388,14 @@ struct FolderBackend: LedgerBackend {
         return try body(url)
     }
 
+    /// an attachment's version in the tree: its size and modification date
+    static func documentVersion(_ values: URLResourceValues) -> String {
+        "document:\(values.fileSize ?? 0):\(values.contentModificationDate?.timeIntervalSince1970 ?? 0)"
+    }
+    private func documentVersion(_ url: URL) -> String? {
+        (try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])).map(Self.documentVersion)
+    }
+
     private func coordinatedRead(_ url: URL) throws -> String {
         var err: NSError?
         var out: Result<String, Error> = .failure(GitHubError(status: 0, message: url.lastPathComponent))
@@ -434,7 +442,7 @@ struct FolderBackend: LedgerBackend {
                     let values = try u.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey])
                     guard values.isDirectory != true else { continue }
                     if isDocumentFile(rel), !isLedgerFile(rel) {
-                        files[rel] = "document:\(values.fileSize ?? 0):\(values.contentModificationDate?.timeIntervalSince1970 ?? 0)"
+                        files[rel] = Self.documentVersion(values)
                         continue
                     }
                     guard isLedgerFile(rel) else { continue }
@@ -473,7 +481,9 @@ struct FolderBackend: LedgerBackend {
             try withFolder { (root: URL) throws -> Void in
                 let url = root.appendingPathComponent(path)
                 guard FileManager.default.fileExists(atPath: url.path) else { return }
-                if gitBlobSHA(try coordinatedRead(url)) != version { throw GitHubError(status: 409, message: path) }
+                // an attachment is versioned by size and date (see tree), not by reading it as text
+                let now = version.hasPrefix("document:") ? documentVersion(url) : gitBlobSHA(try coordinatedRead(url))
+                if now != version { throw GitHubError(status: 409, message: path) }
                 var err: NSError?
                 var out: Error?
                 NSFileCoordinator().coordinate(writingItemAt: url, options: .forDeleting, error: &err) { u in
