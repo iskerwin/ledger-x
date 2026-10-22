@@ -128,7 +128,7 @@ struct RateSheet: View {
                     FeeFields(draft: feeBinding, L: L, D: D) { choosingFeePayer = true }
                 }
             }
-            .navigationTitle(LS("币种与汇率"))
+            .navigationTitle(d.kind == .expense || d.kind == .transfer ? LS("币种、汇率与手续费") : LS("币种与汇率"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button { focus = nil; hideKeyboard(); dismiss() } label: { Label(LS("取消"), systemImage: "xmark").labelStyle(ControlLabelStyle()) } }

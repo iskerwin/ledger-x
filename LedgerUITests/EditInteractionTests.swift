@@ -280,19 +280,22 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(app.buttons["快捷记账"].waitForExistence(timeout: 5))
     }
 
+    /// The fee is set in 币种、汇率与手续费 (no row of its own); once set, its line under the amount opens it again.
     func testTransferFeeCancelCompleteAndKeyboardDismissal() {
         let app = launch()
         tapKind(app, "转账")
         let fee = app.buttons["transfer.fee"]
-        tapPoint(fee, timeout: 5)
+        XCTAssertFalse(fee.exists)
+        tapPoint(app.buttons["币种与汇率"], timeout: 5)
         let input = app.textFields["transfer.fee.amount"]
         tapPoint(input, timeout: 5)
         assertCanType(app, into: input)
         input.typeText("2")
         tapPoint(app.buttons["收起键盘"], timeout: 5)
         app.navigationBars.buttons["取消"].tap()
-        XCTAssertEqual(fee.value as? String, "")
-        fee.tap()
+        XCTAssertTrue(app.buttons["币种与汇率"].waitForExistence(timeout: 5))
+        XCTAssertFalse(fee.exists)
+        app.buttons["币种与汇率"].tap()
         tapPoint(input, timeout: 5)
         assertCanType(app, into: input)
         input.typeText("2")

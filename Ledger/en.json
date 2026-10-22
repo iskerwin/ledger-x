@@ -2149,5 +2149,12 @@
  "其他交易": "Other entries",
  "上个月": "Previous Month",
  "下个月": "Next Month",
- "%@ 笔其他交易": "%@ other entries"
+ "%@ 笔其他交易": "%@ other entries",
+ "选择转出账户": "Choose the account to send from",
+ "选择转入账户": "Choose the account to send to",
+ "同账户换汇 %@ → %@": "Exchange in one account %@ → %@",
+ "欠款 ": "Owed ",
+ "余额 ": "Balance ",
+ "到账 %@": "Arrives in %@",
+ "币种、汇率与手续费": "Currency, Rate & Fee"
 }

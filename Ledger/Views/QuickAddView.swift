@@ -506,61 +506,114 @@ struct QuickAddView: View {
 
     // MARK: 转账
 
+    /// 转出 and 转入 as two account cards, 对调 between them; the fee is set in 币种、汇率与手续费 (its line shows under
+    /// the amount once there is one)
     private func transferPanel(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
-        VStack(spacing: 0) {
-            accountRow(LS("转出"), d.funding, L) { picking = .from }
-            Divider().padding(.leading, AppSpacing.content)
-            accountRow(LS("转入"), d.to, L) { picking = .to }
-            Divider().padding(.leading, AppSpacing.content)
-            Button { field = nil; writing = false; hideKeyboard(); feeEditing = true } label: {
-                HStack(spacing: AppSpacing.control) {
-                    Text(LS("手续费"))
-                    Spacer()
-                    Text(evalAmount(d.transferFee ?? "").map { money($0, d.feeCurrency ?? d.currency) } ?? LS("可不填"))
-                    Image(systemName: "chevron.right").font(.caption)
-                }.padding(AppSpacing.control).contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("transfer.fee")
-            .accessibilityValue(d.transferFee ?? "")
-            if !d.funding.isEmpty && !d.to.isEmpty {
-                Divider().padding(.leading, AppSpacing.content)
-                Button {
-                    var x = store.draft
-                    let outgoing = x.currency
-                    let incoming = conversionCurrency(x, L, D) ?? outgoing
-                    (x.funding, x.to) = (x.to, x.funding)
-                    x.currency = incoming
-                    x.targetCurrency = outgoing
-                    if incoming != outgoing { (x.amount, x.toAmount) = (x.toAmount, x.amount) }
-                    x.fxRate = nil
-                    x.edited = nil
-                    store.draft = x
-                } label: {
-                    Label(LS("对调"), systemImage: "arrow.up.arrow.down").labelStyle(ControlLabelStyle()).font(.subheadline)
-                        .frame(maxWidth: .infinity).padding(.vertical, AppSpacing.icon)
+        let incoming = d.to.isEmpty ? nil : (conversionCurrency(d, L, D) ?? d.currency)
+        let sent = evalAmount(d.amount)
+        let received = incoming == nil || incoming == d.currency ? sent : evalAmount(d.toAmount)
+        // the fee where it changes these two balances: charged on top from 转出, or taken off what 转入 receives
+        let fee = evalAmount(d.transferFee ?? "") ?? 0
+        let out = sent.map { $0 + (d.feeMode == .added && (d.feeCurrency ?? d.currency) == d.currency ? fee : 0) }
+        let into = received.map { $0 - (d.feeMode == .deducted && (d.feeCurrency ?? incoming) == incoming ? fee : 0) }
+        return VStack(spacing: AppSpacing.icon) {
+            transferCard(LS("转出"), d.funding, currency: d.currency, change: out.map { -$0 }, arriving: nil, L) { picking = .from }
+            ZStack {
+                if !d.funding.isEmpty && !d.to.isEmpty {
+                    Button { swapTransfer(L, D) } label: {
+                        Image(systemName: "arrow.up.arrow.down")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.onJade)
+                            .frame(width: 34, height: 34)
+                            .background(Color.jade, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(LS("对调"))
+                    .accessibilityIdentifier("transfer.swap")
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.jade)
+                // the same account, another currency: 换汇 within it
+                if !d.funding.isEmpty && d.funding == d.to, let c = incoming {
+                    HStack {
+                        Spacer()
+                        Text(LS("同账户换汇 %@ → %@", d.currency, c)).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
             }
+            .frame(height: d.funding.isEmpty || d.to.isEmpty ? 0 : 34)
+            transferCard(LS("转入"), d.to, currency: incoming ?? d.currency, change: into, arriving: incoming == d.currency ? nil : incoming, L) { picking = .to }
         }
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
     }
 
-    private func accountRow(_ label: String, _ a: String, _ L: Ledger, tap: @escaping () -> Void) -> some View {
+    private func swapTransfer(_ L: Ledger, _ D: Derived) {
+        var x = store.draft
+        let outgoing = x.currency
+        let incoming = conversionCurrency(x, L, D) ?? outgoing
+        (x.funding, x.to) = (x.to, x.funding)
+        x.currency = incoming
+        x.targetCurrency = outgoing
+        if incoming != outgoing { (x.amount, x.toAmount) = (x.toAmount, x.amount) }
+        x.fxRate = nil
+        x.edited = nil
+        store.draft = x
+        Haptics.selection()
+    }
+
+    /// one side of a transfer: the account's icon and name, its last digits and balance, the balance after this
+    /// transfer once there is an amount; a dashed card before one is chosen
+    private func transferCard(_ label: String, _ a: String, currency: String, change: Double?, arriving: String?, _ L: Ledger,
+                              tap: @escaping () -> Void) -> some View {
         Button(action: tap) {
             HStack(spacing: AppSpacing.control) {
-                Text(label).foregroundStyle(.secondary)
-                Spacer()
-                Text(a.isEmpty ? LS("选择") : accountTitle(L, a)).foregroundStyle(a.isEmpty ? Color.secondary : Color.primary).lineLimit(1)
+                if a.isEmpty {
+                    Image(systemName: "plus.circle.fill").font(.title3).foregroundStyle(Color.jade).frame(width: 36, height: 36)
+                    Text(label == LS("转出") ? LS("选择转出账户") : LS("选择转入账户")).foregroundStyle(Color.jade)
+                    Spacer()
+                } else {
+                    let mark = accountMark(store, a)
+                    Image(systemName: mark.symbol).font(.body.weight(.semibold)).foregroundStyle(mark.color)
+                        .frame(width: 36, height: 36)
+                        .background(mark.color.opacity(0.14), in: Circle())
+                    VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                        Text(accountTitle(L, a)).font(.body.weight(.medium)).foregroundStyle(.primary).lineLimit(1)
+                        Text(transferDetail(a, currency: currency, change: change, arriving: arriving, L))
+                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
+                            .sensitive()
+                    }
+                    Spacer(minLength: AppSpacing.icon)
+                    Text(label).font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                }
                 Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
             }
-            .padding(.horizontal, AppSpacing.content).padding(.vertical, AppSpacing.control)
+            .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
+            .frame(minHeight: 56)
+            .background {
+                if a.isEmpty {
+                    RoundedRectangle(cornerRadius: 14).strokeBorder(Color.jade.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+                } else {
+                    RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground))
+                }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("draft.account." + label)
         .accessibilityValue(a)
+    }
+
+    /// "尾号 6666 · 余额 ¥152,421 → ¥151,421", "欠款 ¥2,195 · 到账 HKD"
+    private func transferDetail(_ a: String, currency: String, change: Double?, arriving: String?, _ L: Ledger) -> String {
+        var parts: [String] = []
+        if let tail = store.repoConfig?.scanCards?.first(where: { $0.value == a && $0.key.count == 4 && $0.key.allSatisfy(\.isNumber) })?.key {
+            parts.append(LS("尾号 %@", tail))
+        }
+        let now = L.final[a]?[currency] ?? 0
+        let owing = a.hasPrefix("Liabilities:")
+        func show(_ v: Double) -> String { money(owing ? -v : v, currency, 0) }
+        var balance = (owing ? LS("欠款 ") : LS("余额 ")) + show(now)
+        if let c = change, abs(c) > 0.005 { balance += " → " + show(now + c) }
+        parts.append(balance)
+        if let c = arriving { parts.append(LS("到账 %@", c)) }
+        return parts.joined(separator: " · ")
     }
 
     @ViewBuilder
@@ -884,13 +937,13 @@ struct QuickAddView: View {
                 }
                 .buttonStyle(.plain)
             }
-            if d.kind == .expense, let fee = evalAmount(d.transferFee ?? ""), fee > 0 {
-                Button { field = nil; writing = false; hideKeyboard(); rating = true } label: {
+            if d.kind == .expense || d.kind == .transfer, let fee = evalAmount(d.transferFee ?? ""), fee > 0 {
+                Button { field = nil; writing = false; hideKeyboard(); feeEditing = true } label: {
                     Label(LS("手续费 %@", money(fee, d.feeCurrency ?? other ?? d.currency)), systemImage: "percent")
                         .labelStyle(ControlLabelStyle()).font(.footnote).foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
-                .accessibilityIdentifier("expense.fee")
+                .accessibilityIdentifier(d.kind == .transfer ? "transfer.fee" : "expense.fee")
                 .accessibilityValue(d.transferFee ?? "")
             }
             if !writing, let s = comboSummary(d, L) {

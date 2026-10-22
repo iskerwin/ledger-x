@@ -356,11 +356,11 @@ struct AddForm: View {
         return Section {
             AccountField(label: LS("转出"), prefixes: ["Assets:", "Liabilities:"], chips: ctx.funds, value: fromBinding).id(DraftIssueField.funding)
             AccountField(label: LS("转入"), prefixes: ["Assets:", "Liabilities:"], chips: toChips, value: field(\.to)).id(DraftIssueField.to)
-            Button { focus = nil; hideKeyboard(); rating = true } label: { Label(LS("币种与汇率"), systemImage: "arrow.left.arrow.right").labelStyle(ControlLabelStyle()) }
-            Button {
-                focus = nil; hideKeyboard(); feeEditing = true
-            } label: {
-                LabeledContent { Text(evalAmount(d.transferFee ?? "").map { money($0, d.feeCurrency ?? d.currency) } ?? LS("可不填")).foregroundStyle(.secondary) } label: { Label(LS("手续费"), systemImage: "percent").labelStyle(ControlLabelStyle()) }
+            // the fee is set with the currency and rate, in one sheet; what it is shows on the right
+            Button { focus = nil; hideKeyboard(); rating = true } label: {
+                LabeledContent {
+                    if let fee = evalAmount(d.transferFee ?? ""), fee > 0 { Text(LS("手续费 %@", money(fee, d.feeCurrency ?? d.currency))).foregroundStyle(.secondary) }
+                } label: { Label(LS("币种与汇率"), systemImage: "arrow.left.arrow.right").labelStyle(ControlLabelStyle()) }
             }.id(DraftIssueField.fee)
             if !d.to.isEmpty, let tc = ctx.tc, tc != d.currency {
                 LabeledContent(LS("入账金额 ") + tc) {
