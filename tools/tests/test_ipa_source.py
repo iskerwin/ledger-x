@@ -29,7 +29,7 @@ class IpaSourceTests(unittest.TestCase):
             if cmd[:2] == ['git', 'ls-remote']:
                 return TAGS
             raise AssertionError(cmd)
-        with patch.object(subprocess, 'check_output', side_effect=fake), \
+        with patch.object(subprocess, 'check_output', side_effect=fake), patch('time.sleep'), \
                 patch.object(sys, 'argv', ['ipa_source.py', 'example/ledger-x', out]):
             runpy.run_path(str(SCRIPT), run_name='__main__')
 
@@ -47,6 +47,22 @@ class IpaSourceTests(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 self.run_script(bare, out)
             self.assertEqual(list(Path(out).iterdir()), [])
+
+    def test_a_short_list_is_read_again_until_complete(self):
+        lists = [[], [release('dev', '版本 1.0.2 · 构建 11 ·', True), release('v1.0.1', '版本 1.0.1 · 构建 6 ·')]]
+        def fake(cmd, *args, **kwargs):
+            if cmd[:2] == ['git', 'hash-object']:
+                return 'f' * 40
+            if cmd[:3] == ['gh', 'api', '--paginate']:
+                return json.dumps([lists.pop(0) if len(lists) > 1 else lists[0]])
+            if cmd[:2] == ['git', 'ls-remote']:
+                return TAGS
+            raise AssertionError(cmd)
+        with tempfile.TemporaryDirectory() as out, patch.object(subprocess, 'check_output', side_effect=fake), patch('time.sleep'), \
+                patch.object(sys, 'argv', ['ipa_source.py', 'example/ledger-x', out]):
+            runpy.run_path(str(SCRIPT), run_name='__main__')
+            dev = json.loads((Path(out) / 'dev.json').read_text())
+            self.assertEqual([v['buildVersion'] for v in dev['apps'][0]['versions']], ['11', '6'])
 
     def test_published_versions_are_written(self):
         releases = [release('dev', '版本 1.0.2 · 构建 11 ·', True), release('v1.0.1', '版本 1.0.1 · 构建 6 ·')]

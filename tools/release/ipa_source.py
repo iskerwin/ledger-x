@@ -11,7 +11,7 @@ first, then the published versions.
 
 Usage: ipa_source.py <owner/repo> <out dir>   (needs `gh` with a token)
 """
-import json, os, re, subprocess, sys
+import json, os, re, subprocess, sys, time
 
 repo, out = sys.argv[1], sys.argv[2]
 raw = f"https://raw.githubusercontent.com/{repo}"
@@ -32,8 +32,18 @@ def source_url(kind, mirrored):
     path = f"{raw}/{BRANCH}/{'mirror/' if mirrored else ''}{kind}.json"
     return via_mirror(path) if mirrored else path
 
-pages = json.loads(subprocess.check_output(["gh", "api", "--paginate", "--slurp", f"repos/{repo}/releases?per_page=100"]))
-releases = [r for page in pages for r in page]
+# GitHub has answered with an empty release list about one time in three (2026-10-23): read it again, a little later
+# each time, while it lacks a release the tags name; the check further down still stops on a list that stays short.
+tags = subprocess.check_output(["git", "ls-remote", "--tags", f"https://github.com/{repo}.git"], text=True)
+tag_names = {line.split("refs/tags/")[-1].removesuffix("^{}") for line in tags.splitlines() if "refs/tags/" in line}
+wanted = {t for t in tag_names if t == "dev" or re.fullmatch(r"v\d+\.\d+\.\d+", t)}
+for attempt in range(6):
+    pages = json.loads(subprocess.check_output(["gh", "api", "--paginate", "--slurp", f"repos/{repo}/releases?per_page=100"]))
+    releases = [r for page in pages for r in page]
+    if wanted <= {r["tag_name"] for r in releases}:
+        break
+    if attempt < 5:
+        time.sleep(2 * (attempt + 1))
 
 
 def entry(r, version, desc):
@@ -78,8 +88,6 @@ for r in releases:
 # A source with no versions removes the app from every phone that follows it. GitHub's release list has come back
 # empty or without its assets for a moment (2026-10-22): check it against the tags, which git serves on its own,
 # and stop before anything is written, so the sources already published stay as they are.
-tags = subprocess.check_output(["git", "ls-remote", "--tags", f"https://github.com/{repo}.git"], text=True)
-tag_names = {line.split("refs/tags/")[-1].removesuffix("^{}") for line in tags.splitlines() if "refs/tags/" in line}
 missing = []
 if any(re.fullmatch(r"v\d+\.\d+\.\d+", t) for t in tag_names) and not published:
     missing.append("正式版")

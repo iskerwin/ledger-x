@@ -44,6 +44,34 @@ class ShipTests(unittest.TestCase):
         self.assertEqual(ship.next_build(releases), '13')
         self.assertEqual(ship.next_build([]), '1')
 
+    def test_build_numbers_rise_past_every_build_the_sources_listed(self):
+        # the dev release's notes were replaced by a build numbered 1; the sources' history still had 11
+        releases = [dict(tag_name='dev', body='版本 1.0.2 · 构建 1 · main abc'), dict(tag_name='v1.0.1', body='版本 1.0.1 · 构建 6 · main def')]
+        log = '-        "buildVersion": "11",\n+        "buildVersion": "1",\n         "buildVersion": "6",\n'
+        self.assertEqual(ship.source_builds(log), ['11', '1', '6'])
+        self.assertEqual(ship.next_build(releases, ship.source_builds(log)), '12')
+
+    def test_a_short_release_list_is_read_again(self):
+        full = json.dumps([[dict(tag_name='dev'), dict(tag_name='v1.0.1')]])
+        answers = [json.dumps([[]]), json.dumps([[]]), full]
+        with patch.object(ship, 'out', side_effect=lambda cmd: answers.pop(0)), patch.object(ship.time, 'sleep') as slept:
+            releases = ship.fetch_releases('example/ledger-x', {'dev', 'v1.0.1'})
+        self.assertEqual([r['tag_name'] for r in releases], ['dev', 'v1.0.1'])
+        self.assertEqual(slept.call_count, 2)
+        with patch.object(ship, 'out', return_value=json.dumps([[]])), patch.object(ship.time, 'sleep'):
+            with self.assertRaises(ship.Failure):
+                ship.fetch_releases('example/ledger-x', {'dev'})
+
+    def test_a_release_list_missing_a_tagged_release_stops_publishing(self):
+        tags = ship.release_tags('aaa\trefs/tags/dev\nbbb\trefs/tags/v1.0.1\nccc\trefs/tags/v1.0.1^{}\nddd\trefs/tags/other\n')
+        self.assertEqual(tags, {'dev', 'v1.0.1'})
+        with self.assertRaises(ship.Failure):
+            ship.check_release_list([], tags)
+        with self.assertRaises(ship.Failure):
+            ship.check_release_list([dict(tag_name='dev')], tags)
+        ship.check_release_list([dict(tag_name='dev'), dict(tag_name='v1.0.1')], tags)
+        ship.check_release_list([], set())
+
     def test_package_rejects_changed_bytes_identity_and_proof(self):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp)

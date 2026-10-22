@@ -23,6 +23,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -236,10 +237,46 @@ def next_version(current, choice):
     return result
 
 
-def next_build(releases):
-    """Build numbers keep rising across every dev and published release."""
+def next_build(releases, listed=()):
+    """Build numbers keep rising across every dev and published release, and every build the IPA sources have listed:
+    a dev release's notes are replaced on each publish, so they alone cannot hold the highest number."""
     builds = [int(m[1]) for r in releases if (m := re.search(r'构建 (\d+)', r.get('body') or ''))]
+    builds += [int(b) for b in listed]
     return str(max(builds, default=0) + 1)
+
+
+def release_tags(ls_remote):
+    """The dev and vX.Y.Z tags in `git ls-remote --tags` output."""
+    names = {line.split('refs/tags/')[-1].removesuffix('^{}') for line in ls_remote.splitlines() if 'refs/tags/' in line}
+    return {t for t in names if t == 'dev' or re.fullmatch(r'v\d+\.\d+\.\d+', t)}
+
+
+def check_release_list(releases, tags):
+    """GitHub's release list has come back empty for a moment (2026-10-22), which once restarted the build numbers
+    at 1: every tagged release must be in it before anything is numbered or published."""
+    have = {r.get('tag_name') for r in releases}
+    missing = sorted(tags - have)
+    if missing:
+        raise Failure(f'GitHub 返回的发布列表缺少 {"、".join(missing)}，没有编译和发布；稍后重试')
+
+
+def fetch_releases(repo, tags, attempts=6, wait=2.0):
+    """The release list, read again while it lacks a tagged release: GitHub has answered with an empty list about one
+    time in three (2026-10-23). Only a complete list is used; after `attempts` short ones nothing is published."""
+    for attempt in range(attempts):
+        releases = [r for page in json.loads(out(['gh', 'api', '--paginate', '--slurp', f'repos/{repo}/releases?per_page=100']))
+                    for r in page]
+        if tags <= {r.get('tag_name') for r in releases}:
+            return releases
+        if attempt + 1 < attempts:
+            time.sleep(wait * (attempt + 1))
+    check_release_list(releases, tags)
+    return releases
+
+
+def source_builds(log):
+    """Every build number in the history of the ipa branch's sources (`git log -p` of dev.json and release.json)."""
+    return re.findall(r'"buildVersion": "(\d+)"', log)
 
 
 def verify_proof(proof, manifest):
@@ -413,9 +450,12 @@ def ship_dev():
     sha = git('rev-parse', 'HEAD')
     proof = validate()
     version = re.search(r'MARKETING_VERSION: "([^"]+)"', (ROOT / 'project.yml').read_text())[1]
-    releases = [r for page in json.loads(out(['gh', 'api', '--paginate', '--slurp', f'repos/{repo}/releases?per_page=100']))
-                for r in page]
-    build = next_build(releases)
+    releases = fetch_releases(repo, release_tags(out(['git', 'ls-remote', '--tags', 'origin'])))
+    listed = []
+    if remote_has('ipa'):
+        run(['git', 'fetch', '-q', 'origin', 'ipa'])
+        listed = source_builds(out(['git', 'log', 'FETCH_HEAD', '-p', '--format=', '--', 'dev.json', 'release.json']))
+    build = next_build(releases, listed)
     shutil.rmtree(DIST, ignore_errors=True)
     DIST.mkdir()
     ipa = build_ipa(version, build, proof['demo_commit'])
