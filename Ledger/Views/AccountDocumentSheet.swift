@@ -120,7 +120,7 @@ struct AccountDocumentSheet: View {
                         Text(pathIssue).foregroundStyle(Color.loss)
                     }
                 } footer: {
-                    Text(LS("选择 PDF、图片或其他文件。可以改保存位置和文件名；右上角「保存」才写入，不会改变账户余额。键盘回车「完成」和「收起键盘」只收起键盘。"))
+                    Text(LS("选择 PDF、图片或其他文件。可以改保存位置和文件名；右上角「保存」才写入，不会改变账户余额。键盘回车「完成」和「收起键盘」只收起键盘。") + "\n" + LS(attachmentFormatsHint))
                 }
                 if let error = error { Section { Text(error).foregroundStyle(Color.loss) } }
             }

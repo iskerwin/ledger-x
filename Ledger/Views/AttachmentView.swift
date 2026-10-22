@@ -236,6 +236,9 @@ extension Store {
 }
 
 /// shrink a photo for the ledger repository
+/// what can be attached, and what the app can show
+let attachmentFormatsHint = "支持 JPG、PNG、HEIC、PDF 等常见格式；拍照和照片会转成 JPG。其他格式也能保存，但可能无法在 App 内预览。"
+
 func jpegForUpload(_ image: UIImage) -> Data? {
     let maxSide: CGFloat = 2000
     let s = image.size
@@ -285,6 +288,8 @@ struct AttachmentsSection: View {
                 if UIImagePickerController.isSourceTypeAvailable(.camera) { Button { showCamera = true } label: { Text(LS("拍照")) } }
                 Button { showPhotos = true } label: { Text(LS("从照片选择")) }
                 Button { showFiles = true } label: { Text(LS("从文件选择")) }
+            } message: {
+                Text(LS(attachmentFormatsHint))
             }
             .photosPicker(isPresented: $showPhotos, selection: $photo, matching: .images)
             .onChange(of: photo) { _, item in

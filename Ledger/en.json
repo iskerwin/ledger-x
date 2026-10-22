@@ -2119,5 +2119,6 @@
  "交易附件": "Transaction Attachments",
  "还没有交易附件": "No transaction attachments yet",
  "在交易详情里添加的附件，默认存放在 documents/%@ 文件夹；账户的对账单仍在各账户页。": "Attachments added from a transaction are saved in documents/%@ by default; account statements stay on each account's page.",
- "最新 %@": "Latest %@"
+ "最新 %@": "Latest %@",
+ "支持 JPG、PNG、HEIC、PDF 等常见格式；拍照和照片会转成 JPG。其他格式也能保存，但可能无法在 App 内预览。": "JPG, PNG, HEIC, PDF and other common formats are supported; photos are saved as JPG. Other files can be saved too, but may not preview in the app."
 }
