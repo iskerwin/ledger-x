@@ -4,6 +4,7 @@ import LedgerKit
 struct AccountsView: View {
     @EnvironmentObject var store: Store
     @State private var path = NavigationPath()
+    @State private var pricing = false
     @AppStorage("ledger.showClosed") private var showClosed = false
     /// account groups folded away on this page ("Assets:Bank", …)
     @AppStorage("ledger.accounts.collapsed") private var collapsedRaw = ""
@@ -39,6 +40,7 @@ struct AccountsView: View {
             .navigationDestination(for: NetWorthSettingsDest.self) { _ in NetWorthSettingsView() }
             .navigationDestination(for: ReconcileDest.self) { _ in ReconcileView().privacyToolbar() }
         }
+        .sheet(isPresented: $pricing) { PriceUpdateSheet() }
         // on the stack itself: the pages it opens inherit what is set here, not what is set on its first page
         .pushes(onto: $path)
         .ledgerNavigation("accounts", path: $path)
@@ -320,6 +322,17 @@ struct AccountsView: View {
                         let n = transactionAttachments(L).count
                         if n > 0 { Text(LS("%@ 个", n)) }
                     } label: { Label(LS("交易附件"), systemImage: "paperclip").labelStyle(ControlLabelStyle()) }
+                }
+                let prices = PriceUpdateSheet.items(L)
+                if !prices.isEmpty {
+                    // a row with its words: the icon on 投资持仓 alone was easy to miss, and there is none without holdings
+                    Button { pricing = true } label: {
+                        LabeledContent {
+                            let latest = prices.compactMap { $0.date }.max()
+                            if let d = latest { Text(LS("最新 %@", d)) }
+                        } label: { Label(LS("更新价格"), systemImage: "arrow.clockwise").labelStyle(ControlLabelStyle()) }
+                    }
+                    .accessibilityIdentifier("accounts.updatePrices")
                 }
             }
             Section {

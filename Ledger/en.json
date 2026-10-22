@@ -2118,5 +2118,6 @@
  "重新下载失败：%@": "Redownload failed: %@",
  "交易附件": "Transaction Attachments",
  "还没有交易附件": "No transaction attachments yet",
- "在交易详情里添加的附件，默认存放在 documents/%@ 文件夹；账户的对账单仍在各账户页。": "Attachments added from a transaction are saved in documents/%@ by default; account statements stay on each account's page."
+ "在交易详情里添加的附件，默认存放在 documents/%@ 文件夹；账户的对账单仍在各账户页。": "Attachments added from a transaction are saved in documents/%@ by default; account statements stay on each account's page.",
+ "最新 %@": "Latest %@"
 }
