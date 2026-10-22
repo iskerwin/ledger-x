@@ -90,7 +90,8 @@ final class AttachmentUploadTests: XCTestCase {
     func testSheetStartsWithAvailableFullNameAndKeepsManualNameAcrossTreeRefresh() async throws {
         let (store, entry) = try await fixture()
         defer { try? RecoveryFiles.remove(kind: "attachments", ledger: store.cfg.id) }
-        let base = "documents/demobank/demobank_20261019"
+        // a transaction attachment defaults to receipts/, apart from the bank's statements
+        let base = "documents/receipts/receipts_20261019"
         for suffix in [".jpg", "_1.jpg", "_2.pdf"] {
             try await store.backend.writeData(base + suffix, data: Data([1]), message: "test fixture")
         }
@@ -112,7 +113,7 @@ final class AttachmentUploadTests: XCTestCase {
         }, object: nil)
         await fulfillment(of: [probe], timeout: 10)
         let field = try XCTUnwrap(textField(in: controller.view))
-        XCTAssertEqual(field.text, "demobank_20261019_2")
+        XCTAssertEqual(field.text, "receipts_20261019_2")
         field.becomeFirstResponder()
         field.selectAll(nil)
         field.insertText("my_receipt")
