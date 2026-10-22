@@ -147,8 +147,10 @@ struct JournalView: View {
     @State private var selecting = false
     @State private var selected: Set<String> = []
     @State private var batch: BatchMode?
-    /// the month calendar opened above the list (remembered on this device)
-    @AppStorage("ledger.journal.calendar") private var showCalendar = false
+    /// the month calendar opened above the list, remembered on this device. A plain @State drives it:
+    /// an @AppStorage change loses the animation, and the calendar jumped in and out
+    @State private var showCalendar = UserDefaults.standard.bool(forKey: Self.calendarKey)
+    private static let calendarKey = "ledger.journal.calendar"
     /// a day picked on the calendar: its sheet
     @State private var calendarDay: CalendarDay?
     /// a transaction tapped in that sheet, opened once the sheet has gone
@@ -204,7 +206,10 @@ struct JournalView: View {
             .toolbar {
                 StandardToolbar()
                 ToolbarItemGroup(placement: .topBarLeading) {
-                    Button { withAnimation(reduceMotion ? nil : .spring(duration: 0.32, bounce: 0)) { showCalendar.toggle() } } label: {
+                    Button {
+                        withAnimation(reduceMotion ? nil : .spring(duration: 0.32, bounce: 0)) { showCalendar.toggle() }
+                        UserDefaults.standard.set(showCalendar, forKey: Self.calendarKey)
+                    } label: {
                         Image(systemName: showCalendar ? "calendar.circle.fill" : "calendar")
                     }
                     .accessibilityLabel(showCalendar ? LS("收起月历") : LS("月历"))

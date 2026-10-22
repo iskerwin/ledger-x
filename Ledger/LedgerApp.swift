@@ -66,11 +66,11 @@ struct RootView: View {
             } else {
                 // 记一笔 sits in the middle as a tab that never shows a page: it opens the card over the tab in use
                 TabView(selection: Binding(get: { store.tab }, set: { t in if t == .add { store.openAdd() } else { store.tab = t } })) {
-                    OverviewView().tabItem { Label(LS("概览"), systemImage: "chart.bar.xaxis") }.tag(Tab.overview)
-                    JournalView().tabItem { Label(LS("明细"), systemImage: "list.bullet.rectangle.portrait") }.tag(Tab.journal)
+                    OverviewView().tabFade().tabItem { Label(LS("概览"), systemImage: "chart.bar.xaxis") }.tag(Tab.overview)
+                    JournalView().tabFade().tabItem { Label(LS("明细"), systemImage: "list.bullet.rectangle.portrait") }.tag(Tab.journal)
                     Color.clear.tabItem { Label(Tab.add.title, systemImage: Tab.add.symbol) }.tag(Tab.add)
-                    AccountsView().tabItem { Label(LS("账户"), systemImage: "building.columns") }.tag(Tab.accounts)
-                    ReportsView().tabItem { Label(LS("报表"), systemImage: "doc.text.magnifyingglass") }.tag(Tab.reports)
+                    AccountsView().tabFade().tabItem { Label(LS("账户"), systemImage: "building.columns") }.tag(Tab.accounts)
+                    ReportsView().tabFade().tabItem { Label(LS("报表"), systemImage: "doc.text.magnifyingglass") }.tag(Tab.reports)
                 }
                 .minimizingTabBar()
             }
@@ -117,6 +117,22 @@ struct RootView: View {
         }
         .transaction { if reduceMotion { $0.animation = nil } }
     }
+}
+
+/// a tab fades in when it is switched to; the system switches tabs without any transition
+private struct TabFade: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown || reduceMotion ? 1 : 0)
+            .onAppear { withAnimation(.easeOut(duration: 0.2)) { shown = true } }
+            .onDisappear { shown = false }
+    }
+}
+
+private extension View {
+    func tabFade() -> some View { modifier(TabFade()) }
 }
 
 struct LoadingView: View {
