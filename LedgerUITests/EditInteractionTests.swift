@@ -295,16 +295,16 @@ final class EditInteractionTests: XCTestCase {
         tapKind(app, "转账")
         let fee = app.buttons["transfer.fee"]
         XCTAssertFalse(fee.exists)
-        tapPoint(app.buttons["币种与汇率"], timeout: 5)
+        tapPoint(app.buttons["draft.rate"], timeout: 5)
         let input = app.textFields["transfer.fee.amount"]
         tapPoint(input, timeout: 5)
         assertCanType(app, into: input)
         input.typeText("2")
         tapPoint(app.buttons["收起键盘"], timeout: 5)
         app.navigationBars.buttons["取消"].tap()
-        XCTAssertTrue(app.buttons["币种与汇率"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["draft.rate"].waitForExistence(timeout: 5))
         XCTAssertFalse(fee.exists)
-        app.buttons["币种与汇率"].tap()
+        app.buttons["draft.rate"].tap()
         tapPoint(input, timeout: 5)
         assertCanType(app, into: input)
         input.typeText("2")
@@ -319,7 +319,7 @@ final class EditInteractionTests: XCTestCase {
         app.buttons["draft.account.转入"].tap()
         tapPoint(app.buttons["account.Assets:Bank:ExampleFX"].firstMatch, timeout: 5)
         app.navigationBars.buttons["完成"].tap()
-        app.buttons["币种与汇率"].tap()
+        app.buttons["draft.rate"].tap()
         let picker = app.descendants(matching: .any)["rate.targetCurrency"].firstMatch
         tapPoint(picker, timeout: 5)
         tapPoint(app.buttons["GBP"].firstMatch, timeout: 5)
@@ -361,7 +361,7 @@ final class EditInteractionTests: XCTestCase {
         app.buttons["draft.account.转入"].tap()
         tapPoint(app.buttons["account.Assets:Bank:ExampleFX"].firstMatch, timeout: 5)
         app.navigationBars.buttons["完成"].tap()
-        app.buttons["币种与汇率"].tap()
+        app.buttons["draft.rate"].tap()
         tapPoint(app.descendants(matching: .any)["transfer.fee.mode"].firstMatch, timeout: 5)
         tapPoint(app.buttons["其他账户或币种单独支付"].firstMatch, timeout: 5)
         let payer = app.buttons["transfer.fee.account"]
@@ -547,7 +547,7 @@ final class EditInteractionTests: XCTestCase {
 
     func testExpenseRateAndFeeApplyTogetherAndCancelKeepsOriginal() {
         let app = openExistingExpense()
-        app.buttons["币种与汇率"].tap()
+        app.buttons["draft.rate"].tap()
         let fee = app.textFields["transfer.fee.amount"]
         XCTAssertTrue(fee.waitForExistence(timeout: 5))
         fee.tap()
@@ -557,7 +557,7 @@ final class EditInteractionTests: XCTestCase {
         app.navigationBars.buttons["取消"].tap()
         XCTAssertFalse(app.buttons["expense.fee"].exists)
         XCTAssertEqual(app.staticTexts["金额"].value as? String, "12")
-        app.buttons["币种与汇率"].tap()
+        app.buttons["draft.rate"].tap()
         XCTAssertTrue(fee.waitForExistence(timeout: 5))
         XCTAssertNotEqual(fee.value as? String, "2")
         fee.tap()

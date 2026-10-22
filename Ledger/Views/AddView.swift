@@ -337,8 +337,9 @@ struct AddForm: View {
             issueLabel(.amount)
             if d.kind == .expense {
                 Button { focus = nil; hideKeyboard(); rating = true } label: {
-                    Label(LS("币种与汇率"), systemImage: "arrow.left.arrow.right").labelStyle(ControlLabelStyle())
+                    Label(LS("币种、汇率与手续费"), systemImage: "arrow.left.arrow.right").labelStyle(ControlLabelStyle())
                 }
+                .accessibilityIdentifier("draft.rate")
             }
             DateField(value: field(\.date)).id(DraftIssueField.date)
         }
@@ -360,8 +361,10 @@ struct AddForm: View {
             Button { focus = nil; hideKeyboard(); rating = true } label: {
                 LabeledContent {
                     if let fee = evalAmount(d.transferFee ?? ""), fee > 0 { Text(LS("手续费 %@", money(fee, d.feeCurrency ?? d.currency))).foregroundStyle(.secondary) }
-                } label: { Label(LS("币种与汇率"), systemImage: "arrow.left.arrow.right").labelStyle(ControlLabelStyle()) }
-            }.id(DraftIssueField.fee)
+                } label: { Label(LS("币种、汇率与手续费"), systemImage: "arrow.left.arrow.right").labelStyle(ControlLabelStyle()) }
+            }
+            .accessibilityIdentifier("draft.rate")
+            .id(DraftIssueField.fee)
             if !d.to.isEmpty, let tc = ctx.tc, tc != d.currency {
                 LabeledContent(LS("入账金额 ") + tc) {
                     TextField(LS("实际入账金额"), text: field(\.toAmount))

@@ -926,8 +926,9 @@ struct QuickAddView: View {
                 }
                 .buttonStyle(.plain)
                 .fixedSize()
-                .accessibilityLabel(LS("币种与汇率"))
+                .accessibilityLabel(d.kind == .expense || d.kind == .transfer ? LS("币种、汇率与手续费") : LS("币种与汇率"))
                 .accessibilityValue(d.currency)
+                .accessibilityIdentifier("draft.rate")
             }
             if cross, let o = other {
                 // the rate as the draft has it ("1 USD = 6.70408 CNY"); the sheet fills it in
