@@ -1268,7 +1268,6 @@
  "暂停订阅": "Pause Subscription",
  "暂停订阅：%@": "Pause subscription: %@",
  "暂存本机": "Keep Local",
- "暂存的修改不会推送，可在 设置 → 同步队列 中确认后推送或删除。": "Kept changes are not pushed. Push or remove them later in Settings → Sync Queue.",
  "暂无 bean-check 运行记录": "No bean-check runs yet",
  "暂无以成本计价的持仓": "No positions held at cost",
  "暂无支出记录": ": no spending yet",
@@ -2157,5 +2156,6 @@
  "余额 ": "Balance ",
  "到账 %@": "Arrives in %@",
  "币种、汇率与手续费": "Currency, Rate & Fee",
- "同账户换汇": "Exchange within it"
+ "同账户换汇": "Exchange within it",
+ "暂存的修改不会推送，可在 设置 → 顶部账本卡片 →「待同步」中确认后推送或删除。": "Kept changes are not pushed. Push or remove them later in Settings → the ledger card at the top → Pending."
 }

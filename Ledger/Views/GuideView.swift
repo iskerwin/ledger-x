@@ -188,11 +188,11 @@ struct GuideView: View {
 
     static var faq: [QA] { [
         QA(q: tr("保存后显示「待同步」是什么意思？", "What does “waiting to sync” mean after saving?"),
-           a: tr("改动已经记在本机，正在或等待提交到仓库。联网后会自动提交；一直没提交的，到设置 → 同步队列点「立即同步」。",
-                 "The change is on this phone and is being or will be committed. It goes out once online; if it stays, tap Sync now under Settings → Sync queue.")),
+           a: tr("改动已经记在本机，正在或等待提交到仓库。联网后会自动提交；一直没提交的，到设置 → 顶部的账本卡片（账本同步），点底部的「重新同步」。",
+                 "The change is on this phone and is being or will be committed. It goes out once online; if it stays, open Settings → the ledger card at the top (Sync) and tap Sync now at the bottom.")),
         QA(q: tr("提交前检查拦下来了怎么办？", "The pre-save check stopped my entry. Now what?"),
-           a: tr("看提示里的原因：可以返回修改；确定没问题就「仍然提交」；暂时不确定可「暂存本机」，之后在同步队列里左滑推送或删除。提示「不平衡」时，各分录合计要恰好为 0：误差和 bean-check 一样只按写了小数的金额放宽（两位小数允许 0.005），写整数金额就必须完全相等。账户在开户日之前、关户日之后，或用了开户时没允许的币种，bean-check 一定会拒绝，这种情况不能「仍然提交」，只能返回修改或暂存。",
-                 "Read the reason: go back and fix it, submit anyway if you're sure, or keep it on this phone and later push or delete it from the sync queue. For “unbalanced”, the postings must add up to 0: as in bean-check, only amounts written with decimals allow a margin (0.005 for two decimals), and whole numbers must match exactly. An account used before it opened, after it closed or in a currency its open line doesn't allow is always rejected by bean-check, so that can't be submitted anyway: go back or keep it on this phone.")),
+           a: tr("看提示里的原因：可以返回修改；确定没问题就「仍然提交」；暂时不确定可「暂存本机」，之后在 设置 → 顶部账本卡片 →「待同步」里左滑推送或删除。提示「不平衡」时，各分录合计要恰好为 0：误差和 bean-check 一样只按写了小数的金额放宽（两位小数允许 0.005），写整数金额就必须完全相等。账户在开户日之前、关户日之后，或用了开户时没允许的币种，bean-check 一定会拒绝，这种情况不能「仍然提交」，只能返回修改或暂存。",
+                 "Read the reason: go back and fix it, submit anyway if you're sure, or keep it on this phone and later push or delete it under Settings → the ledger card at the top → Pending. For “unbalanced”, the postings must add up to 0: as in bean-check, only amounts written with decimals allow a margin (0.005 for two decimals), and whole numbers must match exactly. An account used before it opened, after it closed or in a currency its open line doesn't allow is always rejected by bean-check, so that can't be submitted anyway: go back or keep it on this phone.")),
         QA(q: tr("余额断言不符怎么办？", "A balance assertion fails."),
            a: tr("说明账本和银行对不上：在这个账户的明细里找漏记或记错的交易。确认银行余额后，可以用「余额核对」重新核对。",
                  "The ledger and the bank disagree: look in the account for a missing or wrong entry, then check the balance again.")),
