@@ -284,6 +284,17 @@ struct AddForm: View {
             if d.kind == .expense && store.ownedSubLinks.contains(d.link.trimmed) { topupSection(d) }
             if d.kind == .expense { reimbSection(d, D) }
             if d.kind == .expense && !d.reimb { aaSection(d, L) }
+            if d.kind == .refund, let fee = d.refundFee {
+                Section {
+                    Toggle(LS("同时退回手续费 %@", money(fee.amount, fee.currency)), isOn: Binding(
+                        get: { store.draft.refundFee?.on ?? false },
+                        set: { store.draft.refundFee?.on = $0; store.draft.edited = nil }))
+                        .tint(.jade)
+                        .accessibilityIdentifier("refund.fee")
+                } footer: {
+                    Text(LS("原交易有一笔银行手续费。商户退款一般不含手续费；银行也退回了才打开，手续费会退回到 %@。", acctDisplay(fee.account)))
+                }
+            }
             if d.kind == .refund {
                 Section(LS("关联")) {
                     TextField(LS("^refund-… 可留空"), text: field(\.link)).textInputAutocapitalization(.never).autocorrectionDisabled()

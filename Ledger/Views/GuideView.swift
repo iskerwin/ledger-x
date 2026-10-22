@@ -129,6 +129,8 @@ struct GuideView: View {
                "The calendar button at the top left opens the month: a dot in the theme colour under days with spending, a green one under days with income, both when there are both, a grey one when the day has only entries that are neither (transfers, reimbursements, advances); the month's spending, income and net are above. Swipe or use the arrows to change month, Today brings back this month, and tap a day for its entries. The subscription calendar looks the same, with a dot on each charge day and the month's charges below."),
             tr("点开一笔交易可以编辑源文本、复制为新交易、登记退款、调整当天顺序、加入订阅。",
                "Open an entry to edit its text, copy it as a new one, record a refund, reorder the day or make it a subscription."),
+            tr("退款默认只退商品金额；原交易有银行手续费、而且银行也退回了的，在退款表单打开「同时退回手续费」，手续费退回到当初付它的账户。",
+               "A refund takes back the goods only; if the original had a bank fee and the bank refunded it too, turn on Also refund the fee in the refund form, and it goes back to the account that paid it."),
         ]),
         Topic(symbol: "paperclip", title: tr("附件与票据", "Attachments and statements"), points: [
             tr("交易附件：打开一笔交易 →「附件」→「添加附件」，可拍照、从照片或文件选。照片会转成 JPG；支持 JPG、PNG、HEIC、PDF 等常见格式，其他格式能保存但可能无法在 App 内预览。",

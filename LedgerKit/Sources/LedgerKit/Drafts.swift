@@ -204,7 +204,22 @@ public struct Draft: Codable, Equatable {
     public var discountAccount = defaultDiscountAccount
     /// filled in from a screenshot: what it keeps of it (the card to remember, the rate to apply again)
     public var scan: ScanMemo? = nil
+    /// a refund of an expense that had a bank fee: that fee, which can be taken back with it (off unless chosen)
+    public var refundFee: RefundFee? = nil
     public init() {}
+}
+
+/// The bank fee of the expense a refund takes back, in the currency the account was charged. Merchants seldom
+/// refund the fee, so it is only written when `on`.
+public struct RefundFee: Codable, Equatable {
+    public var amount: Double
+    public var currency: String
+    /// the account that paid the fee, and gets it back
+    public var account: String
+    public var on: Bool
+    public init(amount: Double, currency: String, account: String, on: Bool = false) {
+        self.amount = amount; self.currency = currency; self.account = account; self.on = on
+    }
 }
 
 /// a discount applies to a plain expense; a reimbursed or shared one is entered at what was actually paid
@@ -368,6 +383,13 @@ public func isTransferTag(_ t: Entry) -> Bool { t.tags.contains("transfer") || t
 func draftTx(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
     guard var tx = draftTx0(d, L, D) else { return nil }
     if d.kind == .expense, !appendExpenseFee(&tx, draft: d, L, D) { return nil }
+    if d.kind == .refund, let f = d.refundFee, f.on, f.amount > 0 {
+        // the fee category back down, and the account that paid it back up
+        tx.postings.append(TxPosting(account: transferFeeAccount, amount: -f.amount, currency: f.currency))
+        if let i = tx.postings.firstIndex(where: { $0.account == f.account && $0.currency == f.currency && (Double($0.units ?? "") ?? 0) > 0 }) {
+            tx.postings[i].units = numText(roundMoney((Double(tx.postings[i].units ?? "") ?? 0) + f.amount, 2))
+        } else { tx.postings.append(TxPosting(account: f.account, amount: f.amount, currency: f.currency)) }
+    }
     if d.kind != .multi && !d.flag.isEmpty { tx.flag = d.flag }
     keepParts(&tx, d)
     return tx
@@ -1295,6 +1317,13 @@ public func isValidLink(_ l: String) -> Bool {
 public func refundDraft(_ t: Entry, _ L: Ledger, _ D: Derived, defaultFunding: String?) -> Draft {
     var d = draftFromTxn(t, kind: .refund, L, D, defaultFunding: defaultFunding)
     d.kind = .refund; d.date = Day.today(); d.reimb = false
+    // the expense's fee, offered to take back too when it was charged in the paying account's own currency
+    if var fee = expenseFeeDraft(t, L, D), (evalAmount(fee.transferFee ?? "") ?? 0) > 0 {
+        fee.kind = .expense
+        if let b = expenseFeeBreakdown(fee, L, D), b.feeCurrency == b.debitCurrency, b.fee > 0 {
+            d.refundFee = RefundFee(amount: b.fee, currency: b.feeCurrency, account: b.payer)
+        }
+    }
     let suffix = tr("退款", " (refund)")
     d.narration = !t.narration.isEmpty && !t.narration.hasSuffix(suffix) ? t.narration + suffix : t.narration
     let existing = t.links.first { $0.hasPrefix("refund") }
