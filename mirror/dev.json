@@ -19,12 +19,12 @@
       "category": "utilities",
       "versions": [
         {
-          "version": "1.0.1",
-          "buildVersion": "6",
+          "version": "1.0.2",
+          "buildVersion": "7",
           "date": "2026-10-21T17:58:29Z",
-          "localizedDescription": "# Ledger X 1.0.1 开发版\n\n版本 1.0.1 · 构建 6 · main e820952 。\n\n## 新增\n\n- 删除的附件更容易找回：账户页「交易附件」底部新增「最近删除」，列出 30 天内删掉文件的附件和对账单，点「恢复」即可把文件和记录一起找回（即使最近改动里已没有那条记录）；最近改动里对应的删除标出「可恢复文件 · 剩 N 天」。\n\n## 修复\n\n- 附件上传完成后的几秒内不再卡顿，提示动画恢复流畅：恢复副本的照片单独存放，界面刷新时不再反复读取整张照片。\n\n## 改进\n\n- 订阅详情改成和交易详情一样的样式：顶部卡片显示金额、周期、状态和累计，下面是详细信息、扣费记录和关联记录，历史折叠；「记一笔扣费」「调价或更改」放在底部，调整到期日、跳过、暂停、取消、关联、修正和删除收进右上角「⋯」。\n- 使用指南与常见问题跟上现在的用法：新增「附件与票据」（存放位置、统一入口、支持格式、删除与恢复）、账户页「更新价格」、锁定时改用设备密码、插件「App 支持 / 不支持」，并更正「最近改动」「待同步」的实际入口；新增问答「删掉的附件怎么恢复？」「附件打不开或一直在加载？」。\n- 底部标签切换页面时淡入，明细的月历展开 / 收起改为平滑过渡，不再一下子跳出来；系统开启「减少动态效果」时不播放。",
-          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.1-6",
-          "size": 10156625,
+          "localizedDescription": "# Ledger X 1.0.2 开发版\n\n版本 1.0.2 · 构建 7 · main a2ee7be 。\n\n## 修复\n\n- 借贷平衡检查与 Beancount 一致：在源文本或多行分录里写整数金额（如 100 CNY 对 -99.60 CNY）时，不再把差 0.40 的交易当作平衡保存，避免电脑上 bean-check 报错；账本设置的 inferred_tolerance_default 与 inferred_tolerance_multiplier 也会生效。\n- 在「最近删除」点「恢复」或在最近改动撤回时，如果写回记录之前恰好同步、删除文件正在进行，或在提交前检查里选了「返回修改」，刚恢复到仓库的文件不会再被删掉或漏传。",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.2-7",
+          "size": 10158696,
           "minOSVersion": "17.0"
         },
         {
@@ -54,11 +54,11 @@
           "NSPhotoLibraryUsageDescription": "选择票据照片作为交易附件"
         }
       },
-      "version": "1.0.1",
+      "version": "1.0.2",
       "versionDate": "2026-10-21T17:58:29Z",
-      "versionDescription": "# Ledger X 1.0.1 开发版\n\n版本 1.0.1 · 构建 6 · main e820952 。\n\n## 新增\n\n- 删除的附件更容易找回：账户页「交易附件」底部新增「最近删除」，列出 30 天内删掉文件的附件和对账单，点「恢复」即可把文件和记录一起找回（即使最近改动里已没有那条记录）；最近改动里对应的删除标出「可恢复文件 · 剩 N 天」。\n\n## 修复\n\n- 附件上传完成后的几秒内不再卡顿，提示动画恢复流畅：恢复副本的照片单独存放，界面刷新时不再反复读取整张照片。\n\n## 改进\n\n- 订阅详情改成和交易详情一样的样式：顶部卡片显示金额、周期、状态和累计，下面是详细信息、扣费记录和关联记录，历史折叠；「记一笔扣费」「调价或更改」放在底部，调整到期日、跳过、暂停、取消、关联、修正和删除收进右上角「⋯」。\n- 使用指南与常见问题跟上现在的用法：新增「附件与票据」（存放位置、统一入口、支持格式、删除与恢复）、账户页「更新价格」、锁定时改用设备密码、插件「App 支持 / 不支持」，并更正「最近改动」「待同步」的实际入口；新增问答「删掉的附件怎么恢复？」「附件打不开或一直在加载？」。\n- 底部标签切换页面时淡入，明细的月历展开 / 收起改为平滑过渡，不再一下子跳出来；系统开启「减少动态效果」时不播放。",
-      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.1-6",
-      "size": 10156625
+      "versionDescription": "# Ledger X 1.0.2 开发版\n\n版本 1.0.2 · 构建 7 · main a2ee7be 。\n\n## 修复\n\n- 借贷平衡检查与 Beancount 一致：在源文本或多行分录里写整数金额（如 100 CNY 对 -99.60 CNY）时，不再把差 0.40 的交易当作平衡保存，避免电脑上 bean-check 报错；账本设置的 inferred_tolerance_default 与 inferred_tolerance_multiplier 也会生效。\n- 在「最近删除」点「恢复」或在最近改动撤回时，如果写回记录之前恰好同步、删除文件正在进行，或在提交前检查里选了「返回修改」，刚恢复到仓库的文件不会再被删掉或漏传。",
+      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.2-7",
+      "size": 10158696
     }
   ],
   "news": []
