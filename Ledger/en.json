@@ -2156,5 +2156,6 @@
  "欠款 ": "Owed ",
  "余额 ": "Balance ",
  "到账 %@": "Arrives in %@",
- "币种、汇率与手续费": "Currency, Rate & Fee"
+ "币种、汇率与手续费": "Currency, Rate & Fee",
+ "同账户换汇": "Exchange within it"
 }

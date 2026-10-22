@@ -250,6 +250,8 @@ struct AccountPicker: View {
     let prefixes: [String]
     var current: String = ""
     var allowAny = false
+    /// a word beside some accounts ("同账户换汇" beside the account a transfer goes out of)
+    var hints: [String: String] = [:]
     let pick: (String) -> Void
     @State private var q = ""
     @FocusState private var searchFocused: Bool
@@ -269,9 +271,6 @@ struct AccountPicker: View {
                     if allowAny, !q.isEmpty, isAccountName(q), !(store.D?.openAccounts.contains(q) ?? false) {
                         Button { pending = q.trimmed; searchFocused = false; hideKeyboard(); Haptics.selection() } label: { Label(LS("使用 %@", q), systemImage: "plus.circle").labelStyle(ControlLabelStyle()) }
                     }
-                    if !selected.isEmpty {
-                        Section(LS("已选择")) { row(selected, full: true) }
-                    }
                     if q.trimmingCharacters(in: .whitespaces).isEmpty {
                         let gs = groups
                         if gs.count > 1 {
@@ -285,11 +284,13 @@ struct AccountPicker: View {
                                 }
                             } header: { Text(LS("分类")) }
                         }
-                        if !recentOrder.isEmpty {
-                            Section(LS("最近使用")) { ForEach(recentOrder, id: \.self) { row($0, full: true) } }
+                        // the one chosen is pinned above the list: these are the others to switch to
+                        let recent = recentOrder.filter { $0 != selected }
+                        if !recent.isEmpty {
+                            Section(LS("最近使用")) { ForEach(recent, id: \.self) { row($0, full: true) } }
                         }
                         if ranked.count > 8 {
-                            Section(LS("最常用")) { ForEach(Array(ranked.prefix(5)), id: \.self) { row($0, full: true) } }
+                            Section(LS("最常用")) { ForEach(Array(ranked.filter { $0 != selected }.prefix(5)), id: \.self) { row($0, full: true) } }
                         }
                         ForEach(gs) { g in
                             Section {
@@ -309,13 +310,11 @@ struct AccountPicker: View {
                         order = store.D?.rankAccounts(prefixes) ?? []
                         recentOrder = recentAccounts()
                     }
-                    // open on the group of the current choice
-                    if !current.isEmpty, let g = groups.first(where: { $0.accounts.contains(current) }) {
-                        DispatchQueue.main.async { proxy.scrollTo(g.id, anchor: .top) }
-                    }
+                    // opens at the top, on the recent and most used: whoever opens it again wants another account
                 }
             }
             .safeAreaInset(edge: .top, spacing: 0) {
+                VStack(spacing: 0) {
                 HStack(spacing: AppSpacing.icon) {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                     TextField(LS("搜索账户"), text: $q)
@@ -332,7 +331,10 @@ struct AccountPicker: View {
                 .padding(AppSpacing.icon)
                 .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 10))
                 .padding(.horizontal, AppSpacing.content).padding(.vertical, AppSpacing.icon)
+                .frame(maxWidth: .infinity)
                 .background(Color(.systemGroupedBackground))
+                if !selected.isEmpty { chosenBar }
+                }
             }
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
@@ -350,6 +352,25 @@ struct AccountPicker: View {
         }
     }
 
+    /// the account chosen, kept in sight under the search while the list scrolls
+    private var chosenBar: some View {
+        let mark = accountMark(store, selected)
+        return HStack(spacing: AppSpacing.icon) {
+            Text(LS("已选择")).font(.caption.weight(.medium)).foregroundStyle(.secondary)
+            ControlIcon(systemName: mark.symbol).foregroundStyle(mark.color)
+            Text(acctDisplay(selected)).lineLimit(1)
+            Spacer()
+            Image(systemName: "checkmark").foregroundStyle(Color.jade)
+        }
+        .padding(.horizontal, AppSpacing.content)
+        .frame(height: 52)
+        .frame(maxWidth: .infinity)
+        .background(Color(.secondarySystemGroupedBackground))
+        .overlay(alignment: .bottom) { Divider() }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("account.chosen")
+    }
+
     /// one account: in a group just what is below the group (Dining, ZABank:Cash) with its Chinese name
     private func row(_ a: String, full: Bool) -> some View {
         let mark = accountMark(store, a)
@@ -362,6 +383,7 @@ struct AccountPicker: View {
                     else if full { Text(a).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
                 }
                 Spacer()
+                if let h = hints[a] { Text(h).font(.caption).foregroundStyle(.secondary) }
                 if a == selected { Image(systemName: "checkmark").foregroundStyle(Color.jade) }
             }
             .contentShape(Rectangle())

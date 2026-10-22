@@ -632,7 +632,8 @@ struct QuickAddView: View {
                 store.draft.edited = nil
             }
         case .to:
-            AccountPicker(title: LS("转入"), prefixes: ["Assets:", "Liabilities:"], current: d.to) { a in
+            AccountPicker(title: LS("转入"), prefixes: ["Assets:", "Liabilities:"], current: d.to,
+                          hints: d.funding.isEmpty ? [:] : [d.funding: LS("同账户换汇")]) { a in
                 store.draft.to = a; store.draft.edited = nil
             }
         }
