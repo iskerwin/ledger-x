@@ -2139,5 +2139,6 @@
  "选「移除并删除文件」删掉的附件和对账单在这里保留 %@ 天，点「恢复」会把文件传回存储并恢复记录。": "Attachments and statements removed with Remove and Delete File stay here for %@ days; Restore puts the file back in storage and brings the record back.",
  "无法恢复文件：%@": "Couldn't restore the file: %@",
  "文件已恢复，但找不到原来的记录，请重新添加附件": "The file is back, but its record couldn't be found; add the attachment again",
- "已恢复": "Restored"
+ "已恢复": "Restored",
+ "文件已恢复，但记录没有写回，可重新添加附件": "The file is back, but its record wasn't written back; add the attachment again"
 }

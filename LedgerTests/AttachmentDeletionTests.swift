@@ -104,6 +104,33 @@ final class AttachmentDeletionTests: XCTestCase {
         XCTAssertTrue(store.deletedAttachments().isEmpty)
     }
 
+    /// A sync between putting the file back and writing its record back must not delete the file again.
+    func testARestoredFileIsNotDeletedAgainBeforeItsRecordIsBack() async throws {
+        let (store, root) = try await fixture(documents: [document("2026-10-19")])
+        let file = root.appendingPathComponent(path)
+        let entry = try XCTUnwrap(store.L?.documents.first)
+        let deleted = await store.deleteDocument(entry, file: true, summary: "test")
+        XCTAssertTrue(deleted)
+        await store.waitForSavedSync()
+        await store.finishAttachmentDeletions()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
+        let item = try XCTUnwrap(store.deletedAttachments().first)
+        let back = await store.putBackDeletedFile(item)
+        XCTAssertTrue(back)
+        // GitHub versions a file by its content: the restored file has the version that was deleted. The folder
+        // backend versions by date, so give any deletion still waiting the restored file's version, as GitHub would.
+        await store.refresh()
+        var waiting = store.deletedAttachments()
+        if let version = store.tree?.files[path] {
+            for i in waiting.indices { waiting[i].version = version }
+            if !waiting.isEmpty { try RecoveryFiles.save(waiting, kind: "deleted-attachments", ledger: store.cfg.id) }
+        }
+        // the sync that used to run here, before 恢复 had written the record back
+        await store.finishAttachmentDeletions()
+        XCTAssertEqual(try Data(contentsOf: file), bytes)
+        XCTAssertTrue(store.deletedAttachments().isEmpty)
+    }
+
     func testAFileAnotherRecordStillUsesIsKept() async throws {
         let (store, root) = try await fixture(documents: [document("2026-10-19"), document("2026-10-20")])
         let entry = try XCTUnwrap(store.L?.documents.first)

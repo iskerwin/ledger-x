@@ -124,10 +124,34 @@ extension Store {
         if let r = item.record, history.contains(where: { $0.id == r && $0.undone == nil }) {
             return await revert(r)
         }
+        guard await putBackDeletedFile(item), cfg.id == ledgerID, let L else { return false }
         let name = (item.path as NSString).lastPathComponent
+        guard documentReferences(L, path: item.path).isEmpty else { return true }
+        // the directive again, with its path relative to the file it now goes into
+        guard let text = item.text, let old = parseFile(text, file: item.file ?? main).entries.first(where: { $0.type == .document }),
+              let account = old.account else {
+            show(LS("文件已恢复，但找不到原来的记录，请重新添加附件"))
+            return false
+        }
+        let line = documentText(date: old.date, account: account, path: item.path) + old.links.map { " ^" + $0 }.joined()
+        guard var ops = makeOps(line, extra: OpExtra(label: LS("恢复附件：%@", name)), single: false) else { return false }
+        for i in ops.indices where ops[i].kind == .insert {
+            ops[i].text = ops[i].text?.replacingOccurrences(of: "\"\(item.path)\"", with: "\"\(relativePath(item.path, from: ops[i].path))\"")
+        }
+        guard await commit(ops, word: LS("已恢复")) else {
+            show(LS("文件已恢复，但记录没有写回，可重新添加附件"))
+            return false
+        }
+        return true
+    }
+
+    /// Uploads the copy (when the file had gone) and forgets the deletion at once. Left marked as pending, a sync
+    /// before the record was written back deleted the restored file again: the same bytes have the same version.
+    func putBackDeletedFile(_ item: DeletedAttachment) async -> Bool {
+        let ledgerID = cfg.id
         if item.state == .deleted {
             guard let data = RecoveryFiles.loadData(kind: Self.copyKind(item.id), ledger: ledgerID) else {
-                show(LS("本机副本已不存在，无法恢复 %@", name))
+                show(LS("本机副本已不存在，无法恢复 %@", (item.path as NSString).lastPathComponent))
                 return false
             }
             do { try await backend.writeData(item.path, data: data, message: LS("恢复附件：%@", item.path)) } catch {
@@ -135,27 +159,8 @@ extension Store {
                 show(LS("无法恢复文件：%@", error.localizedDescription))
                 return false
             }
-            guard cfg.id == ledgerID else { return false }
-            // the file is back: from here the copy is no longer needed, whatever happens to the record
-            var items = deletedAttachments(ledger: ledgerID)
-            if let i = items.firstIndex(where: { $0.id == id }) { items[i].state = .pending; saveDeletedAttachments(items, ledger: ledgerID) }
         }
-        guard let L else { return false }
-        if documentReferences(L, path: item.path).isEmpty {
-            // the directive again, with its path relative to the file it now goes into
-            guard let text = item.text, let old = parseFile(text, file: item.file ?? main).entries.first(where: { $0.type == .document }),
-                  let account = old.account else {
-                show(LS("文件已恢复，但找不到原来的记录，请重新添加附件"))
-                dropDeletedAttachment(item.id, ledger: ledgerID)
-                return false
-            }
-            let line = documentText(date: old.date, account: account, path: item.path) + old.links.map { " ^" + $0 }.joined()
-            guard var ops = makeOps(line, extra: OpExtra(label: LS("恢复附件：%@", name)), single: false) else { return false }
-            for i in ops.indices where ops[i].kind == .insert {
-                ops[i].text = ops[i].text?.replacingOccurrences(of: "\"\(item.path)\"", with: "\"\(relativePath(item.path, from: ops[i].path))\"")
-            }
-            guard await commit(ops, word: LS("已恢复")) else { return false }
-        }
+        guard cfg.id == ledgerID else { return false }
         dropDeletedAttachment(item.id, ledger: ledgerID)
         return true
     }
