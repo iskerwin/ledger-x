@@ -143,6 +143,7 @@ struct HoldingsView: View {
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(LS("总市值 · %@", L.base)).font(.subheadline).foregroundStyle(.secondary)
                         Text(money(value, L.base)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+                            .rollingNumber(value)
                             .lineLimit(1).minimumScaleFactor(0.6).sensitive()
                     }
                     HStack(alignment: .top, spacing: 0) {

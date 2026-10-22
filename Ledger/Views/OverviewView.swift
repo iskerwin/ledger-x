@@ -244,7 +244,7 @@ struct OverviewView: View {
                                 }
                             }
                             Text(money(s.exp, cur)).font(.system(size: 40, weight: .bold, design: .rounded)).monospacedDigit()
-                                .contentTransition(.numericText()).sensitive()
+                                .rollingNumber(s.exp).sensitive()
                             HStack(spacing: AppSpacing.icon) {
                                 if s.prev > 0 {
                                     Label(money(abs(delta), cur), systemImage: delta > 0 ? "arrow.up.right" : "arrow.down.right").labelStyle(ControlLabelStyle())

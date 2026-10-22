@@ -560,6 +560,7 @@ struct SubscriptionDetailView: View {
                 Text(s.name).font(.title3.weight(.semibold)).multilineTextAlignment(.center)
                 Text(money(s.amount, s.currency))
                     .font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+                    .rollingNumber(s.amount)
                     .lineLimit(1).minimumScaleFactor(0.6)
                     .sensitive()
                 Text(s.period.name).font(.footnote).foregroundStyle(.secondary)

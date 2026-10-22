@@ -906,6 +906,7 @@ struct QuickAddView: View {
                 Text(d.amount.isEmpty ? "0.00" : d.amount)
                     .font(.system(size: d.amount.count <= 10 ? 38 : d.amount.count <= 15 ? 28 : 21, weight: .bold, design: .rounded))
                     .monospacedDigit()
+                    .rollingNumber(d.amount, AppMotion.quick)
                     .foregroundStyle(d.amount.isEmpty ? Color.secondary.opacity(0.5) : kindColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)

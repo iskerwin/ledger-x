@@ -11,6 +11,13 @@ enum AppSpacing {
     static let spacious: CGFloat = 32
 }
 
+extension View {
+    /// a figure that rolls to its new value digit by digit instead of jumping (a month, a currency, a save changed it)
+    func rollingNumber<V: Equatable>(_ value: V, _ motion: Animation = AppMotion.standard) -> some View {
+        contentTransition(.numericText()).animation(motion, value: value)
+    }
+}
+
 /// The app's three motions, so everything moves alike. 减少动态效果 turns them all off at the root.
 enum AppMotion {
     /// a tap's answer: a filter, a chart's selection, a chosen category
