@@ -1,6 +1,7 @@
 import Foundation
 import LocalAuthentication
 import SwiftUI
+import LedgerKit
 
 /// Face ID / Touch ID / passcode lock, on launch and after the app has been in the background
 @MainActor
@@ -13,28 +14,31 @@ final class AppLock: ObservableObject {
     @Published var lastError: String?
     /// biometry failed or was cancelled: the lock screen offers the device passcode directly
     @Published private(set) var offerPasscode = false
-    private var backgroundAt: Date?
+    private var gate: LockGate
 
     var enabled: Bool { UserDefaults.standard.bool(forKey: Self.enabledKey) }
     var grace: TimeInterval { TimeInterval(UserDefaults.standard.integer(forKey: Self.graceKey)) }
 
     init() {
         let demo = ProcessInfo.processInfo.environment["LEDGER_DEMO"] != nil
-        locked = !demo && UserDefaults.standard.bool(forKey: Self.enabledKey)
+        let on = !demo && UserDefaults.standard.bool(forKey: Self.enabledKey)
+        locked = on
+        gate = LockGate(enabled: false, grace: 0, locked: on)
     }
 
+    /// asks by itself only on a return from the background: the Face ID panel's own inactive → active does not ask again
     func scenePhase(_ p: ScenePhase) {
+        let phase: LockPhase
         switch p {
-        case .background:
-            if backgroundAt == nil { backgroundAt = Date() }
-            if enabled && grace == 0 { locked = true }
-        case .active:
-            if !enabled { locked = false; backgroundAt = nil; return }
-            if let t = backgroundAt, Date().timeIntervalSince(t) >= grace { locked = true }
-            backgroundAt = nil
-            if locked { Task { await unlock() } }
-        default: break
+        case .background: phase = .background
+        case .active: phase = .active
+        default: phase = .inactive
         }
+        gate.enabled = enabled
+        gate.grace = grace
+        let ask = gate.phase(phase, now: Date())
+        if gate.locked != locked { locked = gate.locked }
+        if ask { Task { await unlock() } }
     }
 
     /// passcode: skip biometry and ask for the device passcode straight away
@@ -46,13 +50,14 @@ final class AppLock: ObservableObject {
         ctx.localizedFallbackTitle = LS("输入密码")
         var err: NSError?
         // no passcode on the device: nothing to authenticate with, don't lock the user out
-        guard ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err) else { locked = false; return }
+        guard ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err) else { gate.unlock(); locked = false; return }
         let reason = LS("解锁以查看账本")
         do {
             let ok = passcode
                 ? try await Self.passcodeOnly(ctx, reason: reason)
                 : try await ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)
             if ok {
+                gate.unlock()
                 withAnimation(.easeOut(duration: 0.2)) { locked = false }
                 lastError = nil
                 offerPasscode = false
