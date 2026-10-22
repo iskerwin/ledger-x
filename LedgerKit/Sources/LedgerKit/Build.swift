@@ -25,6 +25,17 @@ func decimalWeight(_ p: Posting) -> (n: Decimal, c: String)? {
     return (decimalOf(units), currency)
 }
 
+/// What a posting breaks of its account's open line: used before the account opened, after it closed, or in a
+/// currency the open line leaves out. The same check for the whole ledger and for a form before it is saved.
+func accountUseErrors(_ t: Entry, _ p: Posting, _ acc: Account) -> [LedgerError] {
+    var out: [LedgerError] = []
+    func add(_ msg: String) { var e = LedgerError(entry: t, msg: msg); e.accountMisuse = true; out.append(e) }
+    if let o = acc.open, t.date < o { add(tr("\(p.account) 在 \(o) 才开立", "\(p.account) is not open until \(o)")) }
+    else if let c = acc.close, t.date > c { add(tr("\(p.account) 已于 \(c) 关闭", "\(p.account) was closed on \(c)")) }
+    if !acc.currencies.isEmpty, let c = p.currency, !acc.currencies.contains(c) { add(tr("\(p.account) 不允许 \(c)", "\(p.account) does not allow \(c)")) }
+    return out
+}
+
 /// How far a transaction may be off balance in each currency, as Beancount works it out: only numbers written
 /// with decimals count (half the last digit, `inferred_tolerance_multiplier`); whole numbers set nothing. A currency
 /// with nothing to go by uses `inferred_tolerance_default` ("CNY:0.01", "*:0.005"), else it must balance exactly.
@@ -447,12 +458,12 @@ public func build(_ input: [Entry], files: [String] = [], options: [String: [Str
             interpolate(t, &L.errors)
             for p in t.postings {
                 if let acc = L.accounts[p.account] {
-                    if let o = acc.open, t.date < o { L.errors.append(LedgerError(entry: t, msg: tr("\(p.account) 在 \(o) 才开立", "\(p.account) is not open until \(o)"))) }
-                    else if let c = acc.close, t.date > c { L.errors.append(LedgerError(entry: t, msg: tr("\(p.account) 已于 \(c) 关闭", "\(p.account) was closed on \(c)"))) }
-                    if !acc.currencies.isEmpty, let c = p.currency, !acc.currencies.contains(c) { L.errors.append(LedgerError(entry: t, msg: tr("\(p.account) 不允许 \(c)", "\(p.account) does not allow \(c)"))) }
+                    L.errors += accountUseErrors(t, p, acc)
                 } else {
                     L.accounts[p.account] = Account(name: p.account, implicit: true)
-                    L.errors.append(LedgerError(entry: t, msg: tr("账户未开立：\(p.account)", "Account not opened: \(p.account)")))
+                    var e = LedgerError(entry: t, msg: tr("账户未开立：\(p.account)", "Account not opened: \(p.account)"))
+                    e.accountMisuse = true
+                    L.errors.append(e)
                 }
             }
             for (c, v) in balanceTolerance.unbalanced(t) {
@@ -649,8 +660,14 @@ public func checkText(_ text: String, _ L: Ledger?) -> CheckResult {
                 errors.append(LedgerError(entry: e, msg: tr("个人往来没有注明是谁（person:）", "Personal receivable without a person (person:)"), soft: true))
             }
             if let L = L {
-                for p in e.postings where L.accounts[p.account] == nil && !opened(p.account) {
-                    errors.append(LedgerError(entry: e, msg: tr("账户未开立：" + p.account, "Account not opened: " + p.account)))
+                for p in e.postings {
+                    if let acc = L.accounts[p.account] {
+                        errors += accountUseErrors(e, p, acc)
+                    } else if !opened(p.account) {
+                        var err = LedgerError(entry: e, msg: tr("账户未开立：" + p.account, "Account not opened: " + p.account))
+                        err.accountMisuse = true
+                        errors.append(err)
+                    }
                 }
             }
             applyInventory(e, &inv)

@@ -66,6 +66,7 @@ enum ChangeReview {
 struct ChangeReviewView: View {
     let issues: [ChangeIssue]
     let choose: (ReviewChoice) -> Void
+    private var blocked: Bool { issues.contains { $0.blocking } }
 
     var body: some View {
         NavigationStack {
@@ -84,7 +85,11 @@ struct ChangeReviewView: View {
                 } header: {
                     Text(LS("发现 %@ 个问题", issues.count))
                 } footer: {
-                    Text(LS("这些问题由本次修改引起。直接提交会让 bean-check 报错；请检查账户和金额是否填对。"))
+                    if blocked {
+                        Text(LS("账户的开户日期、关户日期或允许的币种不符，bean-check 一定会拒绝，不能直接提交；请返回修改账户、日期或币种。"))
+                    } else {
+                        Text(LS("这些问题由本次修改引起。直接提交会让 bean-check 报错；请检查账户和金额是否填对。"))
+                    }
                 }
             }
             .navigationTitle(LS("提交前检查"))
@@ -94,10 +99,9 @@ struct ChangeReviewView: View {
                     ActionRow(size: .large, items: [
                         ActionRow.Item(title: LS("返回修改"), systemImage: "pencil", emphasis: .primary) { choose(.edit) },
                     ])
-                    ActionRow(size: .large, items: [
-                        ActionRow.Item(title: LS("暂存本机"), systemImage: "internaldrive") { choose(.hold) },
-                        ActionRow.Item(title: LS("仍然提交"), systemImage: "exclamationmark.triangle", emphasis: .destructive) { choose(.force) },
-                    ])
+                    // an account used outside its open line is rejected whatever the reason: it can wait, not go
+                    ActionRow(size: .large, items: [ActionRow.Item(title: LS("暂存本机"), systemImage: "internaldrive") { choose(.hold) }]
+                              + (blocked ? [] : [ActionRow.Item(title: LS("仍然提交"), systemImage: "exclamationmark.triangle", emphasis: .destructive) { choose(.force) }]))
                     Text(LS("暂存的修改不会推送，可在 设置 → 同步队列 中确认后推送或删除。"))
                         .font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center)
                 }

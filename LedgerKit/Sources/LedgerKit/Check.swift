@@ -7,6 +7,8 @@ public struct ChangeIssue: Identifiable, Equatable {
     public let title: String
     public let detail: String
     public var account: String?
+    /// bean-check would reject it whatever the reason (an account used outside its open line): no 仍然提交
+    public var blocking = false
     public var id: String { kind.rawValue + "|" + title + "|" + detail }
 }
 
@@ -41,7 +43,9 @@ public func reviewChange(before: Ledger, after: Ledger) -> [ChangeIssue] {
         let k = norm(e.msg)
         if let n = seen[k], n > 0 { seen[k] = n - 1; continue }
         let at = e.entry.map { $0.date + " " + [$0.payee, $0.narration].filter { !$0.isEmpty }.joined(separator: " ") } ?? (e.file ?? "")
-        out.append(ChangeIssue(kind: .error, title: e.msg, detail: at.trimmingCharacters(in: .whitespaces)))
+        var issue = ChangeIssue(kind: .error, title: e.msg, detail: at.trimmingCharacters(in: .whitespaces))
+        issue.blocking = e.accountMisuse
+        out.append(issue)
     }
 
     // 3. Assets accounts going below zero, Liabilities beyond their credit limit — only on days the

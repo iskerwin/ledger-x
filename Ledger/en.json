@@ -2140,5 +2140,6 @@
  "无法恢复文件：%@": "Couldn't restore the file: %@",
  "文件已恢复，但找不到原来的记录，请重新添加附件": "The file is back, but its record couldn't be found; add the attachment again",
  "已恢复": "Restored",
- "文件已恢复，但记录没有写回，可重新添加附件": "The file is back, but its record wasn't written back; add the attachment again"
+ "文件已恢复，但记录没有写回，可重新添加附件": "The file is back, but its record wasn't written back; add the attachment again",
+ "账户的开户日期、关户日期或允许的币种不符，bean-check 一定会拒绝，不能直接提交；请返回修改账户、日期或币种。": "An account is used before it opened, after it closed or in a currency it doesn't allow. bean-check will reject that, so it can't be submitted as is; go back and change the account, date or currency."
 }
