@@ -112,6 +112,8 @@ struct RootView: View {
                 SettingsView()
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button { store.showSettings = false } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold) } }
             }
+            // the window's toast is under this sheet: what is done in 设置 says so here
+            .overlay(alignment: .bottom) { ToastView().animation(.spring(duration: 0.3), value: store.toast) }
         }
         .transaction { if reduceMotion { $0.animation = nil } }
     }

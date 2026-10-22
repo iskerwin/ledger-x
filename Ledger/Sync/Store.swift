@@ -1352,9 +1352,11 @@ final class Store: ObservableObject {
 
     func githubURL(_ file: String, line: Int? = nil) -> URL? { backend.webURL(file, line: line) }
 
-    func resetCache() async {
+    /// false when a save is still running and nothing was cleared
+    @discardableResult
+    func resetCache() async -> Bool {
         await waitForSavedSync()
-        guard !drafts.isSaving && !committing && !attachmentUploading else { show(LS("正在保存，请稍后切换账本")); return }
+        guard !drafts.isSaving && !committing && !attachmentUploading else { show(LS("正在保存，请稍后切换账本")); return false }
         builtServerFiles = nil
         builtLedger = nil
         builtLedgerComplete = false
@@ -1362,6 +1364,7 @@ final class Store: ObservableObject {
         tree = nil
         saveTree()
         await refresh()
+        return true
     }
 }
 

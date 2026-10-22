@@ -798,15 +798,16 @@ struct PluginsSection: View {
         let run = BuiltinPlugin.allCases.filter { p in L.plugins.contains { $0.0 == p.rawValue } }
         Section {
             ForEach(run, id: \.self) { p in
-                LabeledContent { Text(LS("App 执行")).foregroundStyle(Color.gain) } label: { Text(pluginShortName(p.rawValue)).font(.subheadline.monospaced()) }
+                // a status, not a button: an icon and secondary text
+                LabeledContent { Label(LS("App 支持"), systemImage: "checkmark.circle").labelStyle(ControlLabelStyle()).font(.subheadline).foregroundStyle(.secondary) } label: { Text(pluginShortName(p.rawValue)).font(.subheadline.monospaced()) }
             }
             ForEach(skipped, id: \.self) { n in
-                LabeledContent { Text(LS("App 不执行")).foregroundStyle(Color.warn) } label: { Text(pluginShortName(n)).font(.subheadline.monospaced()) }
+                LabeledContent { Label(LS("App 不支持"), systemImage: "exclamationmark.triangle").labelStyle(ControlLabelStyle()).font(.subheadline).foregroundStyle(Color.warn) } label: { Text(pluginShortName(n)).font(.subheadline.monospaced()) }
             }
         } header: {
             Text(LS("插件"))
         } footer: {
-            if !skipped.isEmpty { Text(LS("App 不执行的插件：它们在电脑上 bean-check 报告的问题、生成的内容不会出现在这里，结果可能与电脑上不同。")) }
+            if !skipped.isEmpty { Text(LS("App 不支持的插件：它们在电脑上 bean-check 报告的问题、生成的内容不会出现在这里，结果可能与电脑上不同。")) }
         }
     }
 }

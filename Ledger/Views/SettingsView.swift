@@ -6,7 +6,6 @@ struct SettingsView: View {
     var first = false
     @State private var cfg = RepoConfig()
     @State private var testing = false
-    @State private var confirmReset = false
     @State private var editingLedger: RepoConfig?
     @State private var demoLayout = false
     @State private var demoGuide = false
@@ -97,7 +96,7 @@ struct SettingsView: View {
                 securitySection
                 // 高级
                 Section {
-                    NavigationLink { AdvancedPage(confirmReset: $confirmReset) } label: { row("gearshape.2", LS("高级设置"), "") }
+                    NavigationLink { AdvancedPage() } label: { row("gearshape.2", LS("高级设置"), "") }
                     NavigationLink { GuideView() } label: { row("questionmark.circle", LS("使用指南与常见问题"), "") }
                     Toggle(isOn: $demoEntry) {
                         HStack(spacing: AppSpacing.icon) {
@@ -124,9 +123,6 @@ struct SettingsView: View {
         .task { if store.demoEnv["LEDGER_LAYOUT"] != nil { try? await Task.sleep(nanoseconds: 500_000_000); demoLayout = true } }
         .navigationTitle(first ? "" : LS("设置"))
         .onAppear { cfg = store.cfg }
-        .confirmationDialog(LS("清除本机缓存？同步队列中的变更将保留。"), isPresented: $confirmReset, titleVisibility: .visible) {
-            Button(role: .destructive) { Task { await store.resetCache() } } label: { Text(LS("清除并重新下载")) }
-        }
         .sheet(isPresented: $managingCats) { CategoryManager(root: "Expenses:") }
     }
 
@@ -308,14 +304,23 @@ struct BookkeepingPrefsPage: View {
 /// 高级设置: the repository's layout, its files, the cache
 struct AdvancedPage: View {
     @EnvironmentObject var store: Store
-    @Binding var confirmReset: Bool
+    @State private var confirmReset = false
+    /// what is running: the button shows it, and says how it went
+    @State private var reloading = false
+    @State private var resetting = false
     var body: some View {
         Form {
             Section {
                 NavigationLink { RepoLayoutView() } label: {
                     LabeledContent(LS("仓库结构与共用设置"), value: store.main)
                 }
-                Button { Task { await store.rebuild() } } label: { Label(LS("应用并重新加载"), systemImage: "arrow.clockwise").labelStyle(ControlLabelStyle()) }
+                Button { Task { await reload() } } label: {
+                    HStack(spacing: AppSpacing.control) {
+                        Label(LS("应用并重新加载"), systemImage: "arrow.clockwise").labelStyle(ControlLabelStyle())
+                        if reloading { Spacer(); ProgressView() }
+                    }
+                }
+                .disabled(reloading || resetting)
             } footer: {
                 Text(LS("主文件、各类记录写入哪个文件、记账偏好、统计范围等跟账本有关的设置都保存在仓库的 ledger-x.json，所有设备共用；主题、语言、提醒等只存在这台手机。"))
             }
@@ -331,12 +336,37 @@ struct AdvancedPage: View {
                 }
             }
             Section {
-                Button(role: .destructive) { confirmReset = true } label: { Label(LS("清除缓存并重新下载"), systemImage: "arrow.clockwise").labelStyle(ControlLabelStyle()) }
+                Button(role: .destructive) { confirmReset = true } label: {
+                    HStack(spacing: AppSpacing.control) {
+                        Label(LS("清除缓存并重新下载"), systemImage: "arrow.clockwise").labelStyle(ControlLabelStyle())
+                        if resetting { Spacer(); ProgressView() }
+                    }
+                }
+                .disabled(reloading || resetting)
             } footer: {
                 Text(LS("只清除这台手机上的副本，同步队列中的变更会保留。"))
             }
         }
         .navigationTitle(LS("高级设置"))
+        .confirmationDialog(LS("清除本机缓存？同步队列中的变更将保留。"), isPresented: $confirmReset, titleVisibility: .visible) {
+            Button(role: .destructive) { Task { await reset() } } label: { Text(LS("清除并重新下载")) }
+        }
+    }
+
+    private func reload() async {
+        reloading = true
+        defer { reloading = false }
+        await store.rebuild()
+        store.show(store.loadError ?? LS("已重新加载"))
+    }
+
+    private func reset() async {
+        resetting = true
+        defer { resetting = false }
+        guard await store.resetCache() else { return }
+        if let e = store.loadError { store.show(e) }
+        else if store.syncState == .error || store.syncState == .offline { store.show(LS("重新下载失败：%@", store.syncError)) }
+        else { store.show(LS("已清除缓存并重新下载")) }
     }
 }
 

@@ -130,9 +130,6 @@
  "90 天": "90 days",
  "AA 分摊": "Split with others",
  "AA 分摊…": "Split (AA)…",
- "App 不执行": "Not run by the app",
- "App 不执行的插件：它们在电脑上 bean-check 报告的问题、生成的内容不会出现在这里，结果可能与电脑上不同。": "Plugins the app doesn't run: what they report or add in bean-check on a computer doesn't show here, so results there may differ.",
- "App 执行": "Run by the app",
  "Apple Pay 自动记账": "Automatic entries from Apple Pay",
  "BQL 语法参考": "BQL Reference",
  "Beancount 余额断言在当日开始时校验；断言日期设为明天，即核对今日日终余额。": "Beancount checks a balance assertion at the start of its date; dating it tomorrow checks today's closing balance.",
@@ -2112,5 +2109,11 @@
  "付款账户合计扣款": "Total debit from paying account",
  "手续费 %@": "Fee %@",
  "附件上传已取消，可在待处理附件中重试": "Attachment upload cancelled. Retry from attachments to finish.",
- "附件恢复任务已不存在，请重新打开后核对": "This attachment recovery task no longer exists. Reopen and check before continuing."
+ "附件恢复任务已不存在，请重新打开后核对": "This attachment recovery task no longer exists. Reopen and check before continuing.",
+ "App 支持": "Supported by the app",
+ "App 不支持": "Not supported by the app",
+ "App 不支持的插件：它们在电脑上 bean-check 报告的问题、生成的内容不会出现在这里，结果可能与电脑上不同。": "Plugins the app doesn't support: what they report or add in bean-check on a computer doesn't show here, so results there may differ.",
+ "已重新加载": "Reloaded",
+ "已清除缓存并重新下载": "Cache cleared and redownloaded",
+ "重新下载失败：%@": "Redownload failed: %@"
 }
