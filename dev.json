@@ -20,11 +20,11 @@
       "versions": [
         {
           "version": "1.0.2",
-          "buildVersion": "8",
+          "buildVersion": "9",
           "date": "2026-10-21T17:58:29Z",
-          "localizedDescription": "# Ledger X 1.0.2 开发版\n\n版本 1.0.2 · 构建 8 · main 179a189 。\n\n## 修复\n\n- 记账表单和源文本在预览时就检查账户的允许币种、开户日和关户日，不用等到保存；这类会被 bean-check 拒绝的问题在提交前检查里不再提供「仍然提交」，只能返回修改或暂存本机。\n\n## 改进\n\n- 明细列表收付款方总是完整显示；标签只显示第一个和「+N」，放不下时显示数量（如 #2），不再把收付款方挤成两个字。",
+          "localizedDescription": "# Ledger X 1.0.2 开发版\n\n版本 1.0.2 · 构建 9 · main 9f37ec6 。\n\n## 改进\n\n- 月历统一为系统样式：明细月历在日期下用点表示当天有没有支出（主题色）和收入（绿色），上方保留当月支出、收入、结余；订阅日历也改成同样的月历，扣费日有点，下面列出当月扣费，点某天只看当天。",
           "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
-          "size": 10160629,
+          "size": 10144687,
           "minOSVersion": "17.0"
         },
         {
@@ -56,9 +56,9 @@
       },
       "version": "1.0.2",
       "versionDate": "2026-10-21T17:58:29Z",
-      "versionDescription": "# Ledger X 1.0.2 开发版\n\n版本 1.0.2 · 构建 8 · main 179a189 。\n\n## 修复\n\n- 记账表单和源文本在预览时就检查账户的允许币种、开户日和关户日，不用等到保存；这类会被 bean-check 拒绝的问题在提交前检查里不再提供「仍然提交」，只能返回修改或暂存本机。\n\n## 改进\n\n- 明细列表收付款方总是完整显示；标签只显示第一个和「+N」，放不下时显示数量（如 #2），不再把收付款方挤成两个字。",
+      "versionDescription": "# Ledger X 1.0.2 开发版\n\n版本 1.0.2 · 构建 9 · main 9f37ec6 。\n\n## 改进\n\n- 月历统一为系统样式：明细月历在日期下用点表示当天有没有支出（主题色）和收入（绿色），上方保留当月支出、收入、结余；订阅日历也改成同样的月历，扣费日有点，下面列出当月扣费，点某天只看当天。",
       "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
-      "size": 10160629
+      "size": 10144687
     }
   ],
   "news": []
