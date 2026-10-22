@@ -20,6 +20,8 @@ struct JournalCalendar: View {
     /// spending in the theme colour, income in the app's gain colour, everywhere on this calendar
     static var spend: Color { Color.jade }
     static var earn: Color { Color.gain }
+    /// a day with entries that are neither (transfers, advances, reimbursements): not shown as empty
+    static var other: Color { Color.secondary.opacity(0.6) }
 
     private var byDay: [String: DayTotal] {
         var m: [String: DayTotal] = [:]
@@ -45,7 +47,7 @@ struct JournalCalendar: View {
         var marks: [String: [Color]] = [:]
         for (d, x) in totals {
             let dots = [x.out > 0.005 ? Self.spend : nil, x.inn > 0.005 ? Self.earn : nil].compactMap { $0 }
-            if !dots.isEmpty { marks[d] = dots }
+            if !dots.isEmpty { marks[d] = dots } else if x.n > 0 { marks[d] = [Self.other] }
         }
         return VStack(spacing: AppSpacing.icon) {
             HStack(spacing: AppSpacing.control) {
@@ -79,6 +81,10 @@ struct JournalCalendar: View {
             HStack(spacing: AppSpacing.detail) {
                 Circle().fill(Self.earn).frame(width: 6, height: 6)
                 Text(LS("收入"))
+            }
+            HStack(spacing: AppSpacing.detail) {
+                Circle().fill(Self.other).frame(width: 6, height: 6)
+                Text(LS("其他交易"))
             }
             Spacer()
             Text(LS("点日期看当天明细"))
