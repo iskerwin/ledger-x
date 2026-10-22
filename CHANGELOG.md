@@ -4,6 +4,10 @@
 
 ## 1.0.2（开发中）
 
+### 修复
+
+- 借贷平衡检查与 Beancount 一致：在源文本或多行分录里写整数金额（如 100 CNY 对 -99.60 CNY）时，不再把差 0.40 的交易当作平衡保存，避免电脑上 bean-check 报错；账本设置的 inferred_tolerance_default 与 inferred_tolerance_multiplier 也会生效。
+
 ## 1.0.1（2026-10-22 发布）
 
 ### 新增

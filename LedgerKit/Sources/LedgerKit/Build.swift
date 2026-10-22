@@ -25,15 +25,35 @@ func decimalWeight(_ p: Posting) -> (n: Decimal, c: String)? {
     return (decimalOf(units), currency)
 }
 
-/// per-currency tolerance inferred from the precision of the numbers in the txn
-func tolerances(_ t: Entry) -> [String: Double] {
-    var tol: [String: Double] = [:]
-    for p in t.postings {
-        guard p.units != nil, let d = p.digits, !p.interpolated, let c = p.currency else { continue }
-        let v = 0.5 * pow(10, -Double(d))
-        tol[c] = max(tol[c] ?? 0, v)
+/// How far a transaction may be off balance in each currency, as Beancount works it out: only numbers written
+/// with decimals count (half the last digit, `inferred_tolerance_multiplier`); whole numbers set nothing. A currency
+/// with nothing to go by uses `inferred_tolerance_default` ("CNY:0.01", "*:0.005"), else it must balance exactly.
+struct BalanceTolerance {
+    var multiplier = 0.5
+    var defaults: [String: Double] = [:]
+
+    init(options: [String: [String?]]) {
+        if let m = (options["inferred_tolerance_multiplier"]?.first ?? nil).flatMap(Double.init) { multiplier = m }
+        for raw in options["inferred_tolerance_default"] ?? [] {
+            let parts = (raw ?? "").split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+            if parts.count == 2, let v = Double(parts[1]) { defaults[parts[0]] = v }
+        }
     }
-    return tol
+
+    func of(_ t: Entry) -> [String: Double] {
+        var tol: [String: Double] = [:]
+        for p in t.postings {
+            guard p.units != nil, let d = p.digits, d > 0, !p.interpolated, let c = p.currency else { continue }
+            tol[c] = max(tol[c] ?? 0, multiplier * pow(10, -Double(d)))
+        }
+        return tol
+    }
+
+    /// the residuals beyond what is allowed, per currency
+    func unbalanced(_ t: Entry) -> [(String, Double)] {
+        let tol = of(t)
+        return weightSums(t).filter { c, v in abs(v) > (tol[c] ?? defaults[c] ?? defaults["*"] ?? 0) + 1e-9 }
+    }
 }
 
 /// sums of weights per currency, in first-seen order
@@ -400,6 +420,7 @@ public func build(_ input: [Entry], files: [String] = [], options: [String: [Str
     var pending: [String: PadState] = [:]
     var synthetic: [Entry] = []
     let multiplier = Double((options["inferred_tolerance_multiplier"]?.first ?? nil) ?? "0.5") ?? 0.5
+    let balanceTolerance = BalanceTolerance(options: options)
 
     for e in entries {
         switch e.type {
@@ -434,8 +455,7 @@ public func build(_ input: [Entry], files: [String] = [], options: [String: [Str
                     L.errors.append(LedgerError(entry: t, msg: tr("账户未开立：\(p.account)", "Account not opened: \(p.account)")))
                 }
             }
-            let tol = tolerances(t)
-            for (c, v) in weightSums(t) where abs(v) > (tol[c] ?? 0.005) + 1e-9 {
+            for (c, v) in balanceTolerance.unbalanced(t) {
                 L.errors.append(LedgerError(entry: t, msg: tr("不平衡 \(fmtNum(v, 4)) \(c)", "Unbalanced by \(fmtNum(v, 4)) \(c)")))
             }
             applyInventory(t, &inv)
@@ -622,8 +642,7 @@ public func checkText(_ text: String, _ L: Ledger?) -> CheckResult {
             bookTxn(e, &inv, methodOf, &errs)
             interpolate(e, &errs)
             errors.append(contentsOf: errs)
-            let tol = tolerances(e)
-            for (c, v) in weightSums(e) where abs(v) > (tol[c] ?? 0.005) + 1e-9 {
+            for (c, v) in BalanceTolerance(options: L?.options ?? [:]).unbalanced(e) {
                 errors.append(LedgerError(entry: e, msg: tr("不平衡：差 \(fmtNum(v, 4)) \(c)", "Unbalanced by \(fmtNum(v, 4)) \(c)")))
             }
             for p in e.postings where p.account == personalAccount && postingPerson(p) == nil {
