@@ -200,7 +200,10 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(amount.waitForExistence(timeout: 5))
         assertCanType(app, into: amount)
         amount.typeText("25")
-        XCTAssertEqual(amount.value as? String, "25")
+        // Both keys reach the field, but while the form relays out (the error goes away after the first key)
+        // the value read straight after typing can still be the first key alone: wait for the exact value.
+        let typed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "25"), object: amount)
+        XCTAssertEqual(XCTWaiter().wait(for: [typed], timeout: 3), .completed, "value=\(amount.value ?? "nil")")
         XCTAssertFalse(app.descendants(matching: .any)["field.error.amount"].exists)
     }
 
