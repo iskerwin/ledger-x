@@ -12,7 +12,9 @@ struct ReportsInsights: View {
 
     var body: some View {
         if let L = store.L {
+            // in the header, not a row: a row is clipped to the section's larger corners, which cut the capsules' ends
             Section {
+            } header: {
                 VStack(spacing: AppSpacing.control) {
                     monthBar
                     Picker(LS("问题"), selection: $question) {
@@ -22,7 +24,9 @@ struct ReportsInsights: View {
                     }
                     .pickerStyle(.segmented)
                 }
-                .cardRow()
+                .textCase(nil)
+                .foregroundStyle(.primary)
+                .listRowInsets(EdgeInsets())
             }
             // screenshots: which question is open
             .onAppear { if let q = store.demoEnv["LEDGER_QUESTION"] { question = q } }
