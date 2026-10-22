@@ -111,6 +111,8 @@ final class Store: ObservableObject {
     @Published private(set) var committing = false
     @Published var attachmentUploading = false
     @Published var attachmentRevision = 0
+    /// the attachment recovery jobs of one ledger, as last read or written (see attachmentJobs)
+    var attachmentJobCache: (ledger: String, jobs: [AttachmentUpload])?
     @Published var cfg: RepoConfig
     /// every ledger set up on this phone (tokens stripped; they live in the Keychain)
     @Published private(set) var sources: [RepoConfig]

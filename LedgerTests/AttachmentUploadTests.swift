@@ -39,8 +39,52 @@ final class AttachmentUploadTests: XCTestCase {
         return (store, try XCTUnwrap(store.L?.txns.last))
     }
 
+    /// The recovery state on disk as a crash would leave it, read afresh as after a relaunch.
+    private func persist(_ jobs: [AttachmentUpload], _ store: Store) throws {
+        for job in jobs { try RecoveryFiles.saveData(job.data, kind: Store.attachmentDataKind(job.id), ledger: store.cfg.id) }
+        try RecoveryFiles.save(jobs, kind: "attachments", ledger: store.cfg.id)
+        store.attachmentJobCache = nil
+    }
+
     private func prepare(_ store: Store, _ entry: Entry) throws -> AttachmentUpload {
         try store.prepareAttachment(Data([1, 2, 3]), to: entry, ledgerID: store.cfg.id, path: path, account: "Assets:Bank:DemoBank")
+    }
+
+    /// The saved job list must not carry the photo: views read the list on every redraw.
+    func testJobListKeepsThePhotoInAFileOfItsOwn() async throws {
+        let (store, entry) = try await fixture()
+        let photo = Data((0..<1_500_000).map { UInt8(truncatingIfNeeded: $0 &* 31) })
+        let job = try store.prepareAttachment(photo, to: entry, ledgerID: store.cfg.id, path: path, account: "Assets:Bank:DemoBank")
+        defer { try? RecoveryFiles.removeData(kind: Store.attachmentDataKind(job.id), ledger: store.cfg.id) }
+        struct Saved: Decodable { let id: UUID; let data: Data? }
+        let saved = try XCTUnwrap(RecoveryFiles.load([Saved].self, kind: "attachments", ledger: store.cfg.id))
+        XCTAssertEqual(saved.map(\.id), [job.id])
+        XCTAssertNil(saved.first?.data)
+        XCTAssertEqual(RecoveryFiles.loadData(kind: Store.attachmentDataKind(job.id), ledger: store.cfg.id), photo)
+        // read afresh, as after a relaunch: the photo comes back with its job
+        store.attachmentJobCache = nil
+        XCTAssertEqual(store.attachmentJobs().first?.data, photo)
+    }
+
+    /// A list saved by an earlier version, photo inline, still recovers that photo and is moved to the new layout.
+    func testJobListSavedWithThePhotoInlineIsMovedOut() async throws {
+        let (store, entry) = try await fixture()
+        let job = try prepare(store, entry)
+        defer { try? RecoveryFiles.removeData(kind: Store.attachmentDataKind(job.id), ledger: store.cfg.id) }
+        struct Legacy: Encodable {
+            let id: UUID, ledgerID: String, source: String, sourceStartLine: Int?, sourceFileHash: String?
+            let file: String, date: String, account: String, path: String, link: String, data: Data, uploaded: Bool
+        }
+        let legacy = Legacy(id: job.id, ledgerID: job.ledgerID, source: job.source, sourceStartLine: job.sourceStartLine,
+                            sourceFileHash: job.sourceFileHash, file: job.file, date: job.date, account: job.account,
+                            path: job.path, link: job.link, data: Data([4, 5, 6]), uploaded: false)
+        try RecoveryFiles.removeData(kind: Store.attachmentDataKind(job.id), ledger: store.cfg.id)
+        try RecoveryFiles.save([legacy], kind: "attachments", ledger: store.cfg.id)
+        store.attachmentJobCache = nil
+        XCTAssertEqual(store.attachmentJobs().first?.data, Data([4, 5, 6]))
+        XCTAssertEqual(RecoveryFiles.loadData(kind: Store.attachmentDataKind(job.id), ledger: store.cfg.id), Data([4, 5, 6]))
+        struct Saved: Decodable { let data: Data? }
+        XCTAssertNil(try XCTUnwrap(RecoveryFiles.load([Saved].self, kind: "attachments", ledger: store.cfg.id)).first?.data)
     }
 
     func testAccountDocumentTreeRefreshDoesNotReportItsOwnSaveAsDuplicate() async throws {
@@ -234,18 +278,18 @@ final class AttachmentUploadTests: XCTestCase {
         var legacy = job
         legacy.sourceStartLine = nil
         legacy.sourceFileHash = nil
-        try RecoveryFiles.save([legacy], kind: "attachments", ledger: store.cfg.id)
+        try persist([legacy], store)
         do { try await store.uploadAttachment(legacy, destination: backend); XCTFail("Expected ambiguous legacy transaction rejection") } catch { }
         XCTAssertTrue(backend.paths.isEmpty)
         XCTAssertTrue(store.pending.isEmpty)
-        try RecoveryFiles.save([job], kind: "attachments", ledger: store.cfg.id)
+        try persist([job], store)
         try await store.uploadAttachment(job, destination: backend)
         let saved = try XCTUnwrap(store.L).txns.filter { $0.date == entry.date }
         XCTAssertFalse(try XCTUnwrap(saved.first).links.contains(job.link))
         XCTAssertTrue(try XCTUnwrap(saved.last).links.contains(job.link))
         var completed = job
         completed.uploaded = true
-        try RecoveryFiles.save([completed], kind: "attachments", ledger: store.cfg.id)
+        try persist([completed], store)
         try await store.uploadAttachment(job, destination: backend)
         XCTAssertTrue(store.attachmentJobs().isEmpty)
         XCTAssertEqual(backend.paths, [path])
@@ -304,7 +348,7 @@ final class AttachmentUploadTests: XCTestCase {
         let (store, entry) = try await fixture()
         var job = try prepare(store, entry)
         job.uploaded = true
-        try RecoveryFiles.save([job], kind: "attachments", ledger: store.cfg.id)
+        try persist([job], store)
         let backend = AttachmentTestBackend()
         backend.remote = Data([9])
         do { try await store.uploadAttachment(job, destination: backend); XCTFail("Expected changed file rejection") } catch { }
@@ -366,7 +410,7 @@ final class AttachmentUploadTests: XCTestCase {
         // Simulate a crash after the durable association but before recovery cleanup.
         var completed = job
         completed.uploaded = true
-        try RecoveryFiles.save([completed], kind: "attachments", ledger: store.cfg.id)
+        try persist([completed], store)
         XCTAssertTrue(store.attachmentTakenPaths().contains(path))
         XCTAssertFalse(store.attachmentTakenPaths(excluding: job.id).contains(path))
         try await store.uploadAttachment(job, destination: backend)
@@ -377,7 +421,7 @@ final class AttachmentUploadTests: XCTestCase {
         var unrelated = job
         unrelated.id = UUID()
         unrelated.link = "doc-unrelated-task"
-        try RecoveryFiles.save([unrelated], kind: "attachments", ledger: store.cfg.id)
+        try persist([unrelated], store)
         do { try await store.uploadAttachment(unrelated, destination: backend); XCTFail("Expected mismatched association") } catch { }
         XCTAssertEqual(store.attachmentJobs().first?.id, unrelated.id)
         XCTAssertEqual(backend.paths, [path])

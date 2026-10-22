@@ -28,8 +28,28 @@ extension Store {
         return L.entries.filter { $0.type == .document && !links.isDisjoint(with: $0.links) }
     }
 
+    static func attachmentDataKind(_ id: UUID) -> String { "attachment-" + id.uuidString }
+
+    /// Read from disk once per ledger, then from memory: views ask for this on every redraw, and reading it
+    /// with the photo inside took long enough to stall the frames around an upload.
     func attachmentJobs() -> [AttachmentUpload] {
-        RecoveryFiles.load([AttachmentUpload].self, kind: "attachments", ledger: cfg.id) ?? []
+        let ledger = cfg.id
+        if let cached = attachmentJobCache, cached.ledger == ledger { return cached.jobs }
+        var jobs = RecoveryFiles.load([AttachmentUpload].self, kind: "attachments", ledger: ledger) ?? []
+        var inline = false, moved = true
+        for i in jobs.indices {
+            if jobs[i].data.isEmpty {
+                jobs[i].data = RecoveryFiles.loadData(kind: Self.attachmentDataKind(jobs[i].id), ledger: ledger) ?? Data()
+            } else {
+                // saved before the bytes had a file of their own: move them out
+                inline = true
+                if (try? RecoveryFiles.saveData(jobs[i].data, kind: Self.attachmentDataKind(jobs[i].id), ledger: ledger)) == nil { moved = false }
+            }
+        }
+        // only once every photo is safely in its own file does the list lose its inline copy
+        if inline && moved { try? RecoveryFiles.save(jobs, kind: "attachments", ledger: ledger) }
+        attachmentJobCache = (ledger, jobs)
+        return jobs
     }
 
     func attachmentTakenPaths(excluding id: UUID? = nil) -> Set<String> {
@@ -52,9 +72,18 @@ extension Store {
 
     private func saveAttachmentJob(_ job: AttachmentUpload, remove: Bool = false) throws {
         guard job.ledgerID == cfg.id else { throw GitHubError(status: 0, message: LS("账本已变化，请返回原账本重试")) }
-        var jobs = attachmentJobs().filter { $0.id != job.id }
-        if !remove { jobs.append(job) }
+        let existing = attachmentJobs()
+        var jobs = existing.filter { $0.id != job.id }
+        if !remove {
+            // a job's bytes never change: written once, before the list that refers to them
+            if !existing.contains(where: { $0.id == job.id }) {
+                try RecoveryFiles.saveData(job.data, kind: Self.attachmentDataKind(job.id), ledger: cfg.id)
+            }
+            jobs.append(job)
+        }
         try RecoveryFiles.save(jobs, kind: "attachments", ledger: cfg.id)
+        if remove { try? RecoveryFiles.removeData(kind: Self.attachmentDataKind(job.id), ledger: cfg.id) }
+        attachmentJobCache = (cfg.id, jobs)
         attachmentRevision += 1
     }
 

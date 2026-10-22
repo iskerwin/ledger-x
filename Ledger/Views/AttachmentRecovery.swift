@@ -18,6 +18,49 @@ struct AttachmentUpload: Codable, Identifiable {
     var failure: String?
 }
 
+/// The bytes are not part of the saved list: they go to a file of their own (see Store.attachmentJobs), so the list
+/// stays a few KB to read and write. A list saved before that still has them inline and is read as before.
+extension AttachmentUpload {
+    enum CodingKeys: String, CodingKey {
+        case id, ledgerID, source, sourceStartLine, sourceFileHash, file, date, account, path, link, data, uploadStarted, uploaded, failure
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        ledgerID = try c.decode(String.self, forKey: .ledgerID)
+        source = try c.decode(String.self, forKey: .source)
+        sourceStartLine = try c.decodeIfPresent(Int.self, forKey: .sourceStartLine)
+        sourceFileHash = try c.decodeIfPresent(String.self, forKey: .sourceFileHash)
+        file = try c.decode(String.self, forKey: .file)
+        date = try c.decode(String.self, forKey: .date)
+        account = try c.decode(String.self, forKey: .account)
+        path = try c.decode(String.self, forKey: .path)
+        link = try c.decode(String.self, forKey: .link)
+        data = try c.decodeIfPresent(Data.self, forKey: .data) ?? Data()
+        uploadStarted = try c.decodeIfPresent(Bool.self, forKey: .uploadStarted)
+        uploaded = try c.decodeIfPresent(Bool.self, forKey: .uploaded) ?? false
+        failure = try c.decodeIfPresent(String.self, forKey: .failure)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(ledgerID, forKey: .ledgerID)
+        try c.encode(source, forKey: .source)
+        try c.encodeIfPresent(sourceStartLine, forKey: .sourceStartLine)
+        try c.encodeIfPresent(sourceFileHash, forKey: .sourceFileHash)
+        try c.encode(file, forKey: .file)
+        try c.encode(date, forKey: .date)
+        try c.encode(account, forKey: .account)
+        try c.encode(path, forKey: .path)
+        try c.encode(link, forKey: .link)
+        try c.encodeIfPresent(uploadStarted, forKey: .uploadStarted)
+        try c.encode(uploaded, forKey: .uploaded)
+        try c.encodeIfPresent(failure, forKey: .failure)
+    }
+}
+
 /// Used both next to a transaction and in ledger sync, so changed/deleted transactions do not hide recovery.
 struct AttachmentRecoveryRows: View {
     @EnvironmentObject private var store: Store
