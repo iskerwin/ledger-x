@@ -135,7 +135,7 @@ struct ThemePicker: View {
         LazyVGrid(columns: cols, spacing: AppSpacing.control) {
             ForEach(AppTheme.allCases) { t in
                 Button {
-                    withAnimation(.snappy) { theme = t.rawValue }
+                    withAnimation(AppMotion.quick) { theme = t.rawValue }
                     Haptics.selection()
                 } label: {
                     VStack(spacing: AppSpacing.icon) {

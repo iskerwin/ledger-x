@@ -95,7 +95,7 @@ struct CategoryManager: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button { withAnimation { editMode = editMode.isEditing ? .inactive : .active } } label: { Label(editMode.isEditing ? LS("排好了") : LS("排序"), systemImage: editMode.isEditing ? "checkmark" : "arrow.up.arrow.down").labelStyle(ControlLabelStyle()) }
+                    Button { withAnimation(AppMotion.standard) { editMode = editMode.isEditing ? .inactive : .active } } label: { Label(editMode.isEditing ? LS("排好了") : LS("排序"), systemImage: editMode.isEditing ? "checkmark" : "arrow.up.arrow.down").labelStyle(ControlLabelStyle()) }
                 }
                 ToolbarItem(placement: .confirmationAction) { Button { dismiss() } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold) }
             }

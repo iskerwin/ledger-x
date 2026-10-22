@@ -80,7 +80,7 @@ struct RootView: View {
         .environment(\.locale, AppLanguage.current.locale)
         // The open 记一笔 card draws the same toast itself. Showing both at once made one save appear twice.
         .overlay(alignment: .bottom) {
-            if !store.adding { ToastView().animation(.spring(duration: 0.3), value: store.toast) }
+            if !store.adding { ToastView().animation(AppMotion.emphasized, value: store.toast) }
         }
         .sheet(item: $store.scanResult) { r in
             ScanResultView(result: r)
@@ -113,7 +113,7 @@ struct RootView: View {
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button { store.showSettings = false } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold) } }
             }
             // the window's toast is under this sheet: what is done in 设置 says so here
-            .overlay(alignment: .bottom) { ToastView().animation(.spring(duration: 0.3), value: store.toast) }
+            .overlay(alignment: .bottom) { ToastView().animation(AppMotion.emphasized, value: store.toast) }
         }
         .transaction { if reduceMotion { $0.animation = nil } }
     }
@@ -126,7 +126,7 @@ private struct TabFade: ViewModifier {
     func body(content: Content) -> some View {
         content
             .opacity(shown || reduceMotion ? 1 : 0)
-            .onAppear { withAnimation(.easeOut(duration: 0.2)) { shown = true } }
+            .onAppear { withAnimation(AppMotion.quick) { shown = true } }
             .onDisappear { shown = false }
     }
 }

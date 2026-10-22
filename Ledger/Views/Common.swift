@@ -278,7 +278,7 @@ struct AccountPicker: View {
                                 ChipRow {
                                     ForEach(gs) { g in
                                         Chip(label: g.title, systemImage: store.groupIcon(g.id).symbol) {
-                                            withAnimation { proxy.scrollTo(g.id, anchor: .top) }
+                                            withAnimation(AppMotion.standard) { proxy.scrollTo(g.id, anchor: .top) }
                                         }
                                     }
                                 }

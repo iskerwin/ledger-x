@@ -193,7 +193,7 @@ struct HoldingsView: View {
     private func holdingCard(_ r: Holding) -> some View {
         let isOpen = open.contains(r.id)
         Button {
-            withAnimation(.easeInOut(duration: 0.2)) { if isOpen { open.remove(r.id) } else { open.insert(r.id) } }
+            withAnimation(AppMotion.standard) { if isOpen { open.remove(r.id) } else { open.insert(r.id) } }
         } label: {
             VStack(alignment: .leading, spacing: AppSpacing.icon) {
                 HStack(alignment: .center, spacing: AppSpacing.control) {

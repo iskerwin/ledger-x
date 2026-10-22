@@ -500,7 +500,7 @@ struct SubscriptionDetailView: View {
                 if charges.isEmpty { Text(LS("还没有关联的扣费交易")).foregroundStyle(.secondary) }
                 ForEach(showAllCharges ? charges : Array(charges.prefix(5))) { c in chargeRow(c, s) }
                 if charges.count > 5 {
-                    Button { withAnimation { showAllCharges.toggle() } } label: {
+                    Button { withAnimation(AppMotion.standard) { showAllCharges.toggle() } } label: {
                         Label(showAllCharges ? LS("收起") : LS("查看全部 %@ 笔", charges.count), systemImage: showAllCharges ? "chevron.up" : "chevron.down")
                             .labelStyle(ControlLabelStyle())
                     }

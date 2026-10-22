@@ -125,7 +125,7 @@ struct AccountsView: View {
         } header: {
             // tap to fold the group away (remembered on this device); its total stays in sight
             Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(AppMotion.standard) {
                     var s = collapsed
                     if shut { s.remove(key) } else { s.insert(key) }
                     collapsedRaw = s.sorted().joined(separator: ",")
@@ -662,7 +662,7 @@ struct RegisterView: View {
         let isIE = account.hasPrefix("Expenses") || account.hasPrefix("Income")
         let on = open(m, first: first)
         return Button {
-            withAnimation(.easeInOut(duration: 0.2)) { opened[m.ym] = !on }
+            withAnimation(AppMotion.standard) { opened[m.ym] = !on }
         } label: {
             HStack(alignment: .center, spacing: AppSpacing.icon) {
                 VStack(alignment: .leading, spacing: AppSpacing.detail) {

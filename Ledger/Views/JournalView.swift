@@ -222,14 +222,14 @@ struct JournalView: View {
                 StandardToolbar()
                 ToolbarItemGroup(placement: .topBarLeading) {
                     Button {
-                        withAnimation(reduceMotion ? nil : .spring(duration: 0.32, bounce: 0)) { showCalendar.toggle() }
+                        withAnimation(reduceMotion ? nil : AppMotion.standard) { showCalendar.toggle() }
                         UserDefaults.standard.set(showCalendar, forKey: Self.calendarKey)
                     } label: {
                         Image(systemName: showCalendar ? "calendar.circle.fill" : "calendar")
                     }
                     .accessibilityLabel(showCalendar ? LS("收起月历") : LS("月历"))
                     Button {
-                        withAnimation { selecting.toggle(); selected = [] }
+                        withAnimation(AppMotion.standard) { selecting.toggle(); selected = [] }
                     } label: { Label(selecting ? LS("完成") : LS("选择"), systemImage: selecting ? "checkmark" : "checkmark.circle").labelStyle(ControlLabelStyle()) }
                 }
             }
@@ -403,7 +403,7 @@ struct JournalView: View {
                         ForEach(QuickFilter.allCases) { f in
                             let on = quick.contains(f)
                             Button {
-                                withAnimation(.easeInOut(duration: 0.15)) { if on { quick.removeAll { $0 == f } } else { quick.append(f) } }
+                                withAnimation(AppMotion.quick) { if on { quick.removeAll { $0 == f } } else { quick.append(f) } }
                             } label: {
                                 HStack(spacing: AppSpacing.icon) { Image(systemName: f.icon); Text(f.title) }
                                     .font(.subheadline.weight(on ? .semibold : .regular))
@@ -424,12 +424,12 @@ struct JournalView: View {
                         FlowChips(items: conditionChips())
                         Spacer(minLength: 4)
                         if store.journalReturn != nil {
-                            Button { withAnimation { restoreBrowse() } } label: { Label(LS("回到刚才的筛选"), systemImage: "arrow.uturn.backward").labelStyle(ControlLabelStyle()) }
+                            Button { withAnimation(AppMotion.standard) { restoreBrowse() } } label: { Label(LS("回到刚才的筛选"), systemImage: "arrow.uturn.backward").labelStyle(ControlLabelStyle()) }
                                 .font(.subheadline.weight(.medium)).foregroundStyle(Color.jade).buttonStyle(.plain)
                                 .accessibilityIdentifier("journal.restore")
                         }
                         if filtered {
-                            Button { withAnimation { quick = []; account = nil; q = "" } } label: { Label(LS("清除"), systemImage: "xmark.circle").labelStyle(ControlLabelStyle()) }
+                            Button { withAnimation(AppMotion.standard) { quick = []; account = nil; q = "" } } label: { Label(LS("清除"), systemImage: "xmark.circle").labelStyle(ControlLabelStyle()) }
                                 .font(.subheadline.weight(.medium)).foregroundStyle(Color.jade).buttonStyle(.plain)
                         }
                     }

@@ -37,7 +37,7 @@ struct AddCard: View {
             }
         }
         .sheet(isPresented: $recovering) { DraftRecoverySheet() }
-        .overlay(alignment: .top) { ToastView(top: true).padding(.top, AppSpacing.icon).animation(.spring(duration: 0.3), value: store.toast) }
+        .overlay(alignment: .top) { ToastView(top: true).padding(.top, AppSpacing.icon).animation(AppMotion.emphasized, value: store.toast) }
         .sheet(item: $store.subSuggestion) { c in SubEditSheet(draft: SubDraft(c)) }
         .onDisappear { store.persistActiveDraft() }
         .onAppear(perform: route)
@@ -1348,7 +1348,7 @@ struct AllCategoriesView: View {
     private func cell(_ g: CategoryGroup) -> some View {
         let on = group == g.id
         return Button {
-            withAnimation(.easeInOut(duration: 0.15)) { choose(g, nil) }
+            withAnimation(AppMotion.quick) { choose(g, nil) }
             Haptics.selection()
         } label: {
             VStack(spacing: AppSpacing.icon) {

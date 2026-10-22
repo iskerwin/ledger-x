@@ -239,7 +239,7 @@ struct OverviewView: View {
                                 Text(picked != nil ? LS("%@支出", s.label) : s.yearMode ? LS("本年支出") : LS("本月支出")).font(.subheadline).foregroundStyle(.secondary)
                                 Spacer()
                                 if picked != nil {
-                                    Button { withAnimation(.easeOut(duration: 0.15)) { picked = nil } } label: { Label(head.yearMode ? LS("回到全年") : LS("回到本月"), systemImage: "calendar").labelStyle(ControlLabelStyle()) }
+                                    Button { withAnimation(AppMotion.quick) { picked = nil } } label: { Label(head.yearMode ? LS("回到全年") : LS("回到本月"), systemImage: "calendar").labelStyle(ControlLabelStyle()) }
                                         .font(.caption.weight(.semibold)).buttonStyle(.borderless)
                                 }
                             }
@@ -319,7 +319,7 @@ struct OverviewView: View {
                             let x = location.x - geo[plot].origin.x
                             guard let label: String = proxy.value(atX: x) else { return }
                             let m = months.first { monthLabelShort($0) == label }
-                            withAnimation(.easeOut(duration: 0.15)) { picked = (m == picked) ? nil : m }
+                            withAnimation(AppMotion.quick) { picked = (m == picked) ? nil : m }
                         }
                 }
             }
@@ -422,7 +422,7 @@ struct OverviewView: View {
                 ShareBar(slices: slices).padding(.vertical, AppSpacing.icon)
                 ForEach(shown, id: \.name) { g in
                     Button {
-                        withAnimation(.easeOut(duration: 0.15)) { selCat = selCat == g.name ? nil : g.name }
+                        withAnimation(AppMotion.quick) { selCat = selCat == g.name ? nil : g.name }
                     } label: {
                         CategoryListRow(color: colors[g.name] ?? Color(.systemGray3), name: acctZH(g.name) ?? leaf(g.name), value: g.total,
                                         share: share(g.total, total), before: hasBefore ? (before[g.name] ?? 0) : nil, expanded: selCat == g.name)
@@ -438,7 +438,7 @@ struct OverviewView: View {
                     }
                 }
                 if groups.count > 8 {
-                    Button { withAnimation { allCats.toggle() } } label: { Label(allCats ? LS("收起") : LS("显示全部 %@ 项", groups.count), systemImage: allCats ? "chevron.up" : "chevron.down").labelStyle(ControlLabelStyle()) }.font(.footnote)
+                    Button { withAnimation(AppMotion.standard) { allCats.toggle() } } label: { Label(allCats ? LS("收起") : LS("显示全部 %@ 项", groups.count), systemImage: allCats ? "chevron.up" : "chevron.down").labelStyle(ControlLabelStyle()) }.font(.footnote)
                 }
             }
         } header: {
@@ -515,7 +515,7 @@ struct OverviewView: View {
                 .pickerStyle(.segmented)
                 ForEach(Array(shown.enumerated()), id: \.element.name) { i, p in
                     Button {
-                        withAnimation(.easeOut(duration: 0.15)) { selPay = selPay == p.name ? nil : p.name }
+                        withAnimation(AppMotion.quick) { selPay = selPay == p.name ? nil : p.name }
                     } label: {
                         PayeeRankRow(rank: i + 1, name: p.name, value: p.value, count: p.count,
                                      frac: (payeeSort == "count" ? Double(p.count) : p.value) / max(top, 0.01), expanded: selPay == p.name)
@@ -528,7 +528,7 @@ struct OverviewView: View {
                     }
                 }
                 if stats.count > 8 {
-                    Button { withAnimation { allPayees.toggle() } } label: { Label(allPayees ? LS("收起") : LS("显示前 %@ 名", min(30, stats.count)), systemImage: allPayees ? "chevron.up" : "chevron.down").labelStyle(ControlLabelStyle()) }.font(.footnote)
+                    Button { withAnimation(AppMotion.standard) { allPayees.toggle() } } label: { Label(allPayees ? LS("收起") : LS("显示前 %@ 名", min(30, stats.count)), systemImage: allPayees ? "chevron.up" : "chevron.down").labelStyle(ControlLabelStyle()) }.font(.footnote)
                 }
             } header: {
                 donutHeader(LS("商户支出排行"), f.label, LS("点按查看交易"))

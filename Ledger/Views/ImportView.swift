@@ -271,7 +271,7 @@ struct ImportView: View {
                         Text(fileName).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
                     Spacer()
-                    Button { withAnimation { showSettings.toggle() } } label: {
+                    Button { withAnimation(AppMotion.standard) { showSettings.toggle() } } label: {
                         Image(systemName: "slider.horizontal.3").font(.body)
                     }
                     .buttonStyle(.borderless)
@@ -433,7 +433,7 @@ struct ImportView: View {
         return Group {
             HStack(alignment: .top, spacing: AppSpacing.icon) {
                 Button {
-                    if let i = items.firstIndex(where: { $0.id == it.id }) { withAnimation { items[i].include.toggle() } }
+                    if let i = items.firstIndex(where: { $0.id == it.id }) { withAnimation(AppMotion.standard) { items[i].include.toggle() } }
                 } label: {
                     Image(systemName: it.include ? "checkmark.circle.fill" : "circle")
                         .font(.title3)

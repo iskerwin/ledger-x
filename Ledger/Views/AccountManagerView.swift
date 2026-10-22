@@ -112,7 +112,7 @@ struct AccountManagerView: View {
     private func groupRow(_ g: String, _ n: Int, open: Bool) -> some View {
         let icon = groupIcon(g)
         return Button {
-            withAnimation(.easeInOut(duration: 0.2)) { if open { openGroups.remove(g) } else { openGroups.insert(g) } }
+            withAnimation(AppMotion.standard) { if open { openGroups.remove(g) } else { openGroups.insert(g) } }
         } label: {
             HStack(spacing: AppSpacing.icon) {
                 IconBadge(symbol: icon.0, color: icon.1, size: 28)

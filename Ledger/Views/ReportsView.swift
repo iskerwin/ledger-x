@@ -255,7 +255,7 @@ struct AccountTreeRows: View {
                     if depth > 0 { Color.clear.frame(width: CGFloat(depth) * 14, height: 1) }
                     if !node.children.isEmpty {
                         Button {
-                            withAnimation(.snappy(duration: 0.2)) {
+                            withAnimation(AppMotion.quick) {
                                 if expanded.contains(node.name) { expanded.remove(node.name) } else { expanded.insert(node.name) }
                             }
                         } label: {
@@ -493,7 +493,7 @@ struct PeriodChips: View {
     var body: some View {
         ChipRow {
             ForEach(ReportPeriod.allCases) { p in
-                Chip(label: p.name, selected: p == period) { withAnimation(.snappy) { period = p } }
+                Chip(label: p.name, selected: p == period) { withAnimation(AppMotion.quick) { period = p } }
             }
         }
         .listRowInsets(EdgeInsets(top: AppSpacing.icon, leading: AppSpacing.control, bottom: AppSpacing.icon, trailing: AppSpacing.control))
@@ -574,7 +574,7 @@ struct IncomeExpenseChart: View {
                             guard let plot = proxy.plotFrame else { return }
                             let x = location.x - geo[plot].origin.x
                             guard let m: String = proxy.value(atX: x) else { return }
-                            withAnimation(.easeOut(duration: 0.15)) { picked = picked == m ? nil : m }
+                            withAnimation(AppMotion.quick) { picked = picked == m ? nil : m }
                         }
                 }
             }
@@ -780,7 +780,7 @@ struct WorthCharts: View {
                         .onTapGesture { location in
                             guard let plot = proxy.plotFrame else { return }
                             guard let d: Date = proxy.value(atX: location.x - geo[plot].origin.x) else { return }
-                            withAnimation(.easeOut(duration: 0.15)) {
+                            withAnimation(AppMotion.quick) {
                                 if let p = picked, abs(p.timeIntervalSince(d)) < 86400 * 15 { picked = nil } else { picked = d }
                             }
                         }
@@ -860,7 +860,7 @@ struct BalanceSheetView: View {
             Section {
                 ChipRow {
                     ForEach(AsOf.allCases) { a in
-                        Chip(label: a.name, selected: a == asOf) { withAnimation(.snappy) { asOf = a } }
+                        Chip(label: a.name, selected: a == asOf) { withAnimation(AppMotion.quick) { asOf = a } }
                     }
                 }
                 .listRowInsets(EdgeInsets(top: AppSpacing.icon, leading: AppSpacing.control, bottom: AppSpacing.icon, trailing: AppSpacing.control))
@@ -1005,7 +1005,7 @@ struct NetWorthChart: View {
                         .onTapGesture { location in
                             guard let plot = proxy.plotFrame else { return }
                             guard let d: Date = proxy.value(atX: location.x - geo[plot].origin.x) else { return }
-                            withAnimation(.easeOut(duration: 0.15)) {
+                            withAnimation(AppMotion.quick) {
                                 if let p = picked, abs(p.timeIntervalSince(d)) < 86400 * 15 { picked = nil } else { picked = d }
                             }
                         }

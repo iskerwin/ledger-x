@@ -118,7 +118,7 @@ struct AddForm: View {
         }
         .onChange(of: errorTarget) { _, target in
             guard let target = target else { return }
-            withAnimation(.easeInOut(duration: 0.2)) { proxy.scrollTo(target, anchor: .center) }
+            withAnimation(AppMotion.standard) { proxy.scrollTo(target, anchor: .center) }
         }
         .onChange(of: focus) { _, new in
             // Payee, narration, and the other text fields are a deliberate choice.
@@ -942,7 +942,7 @@ struct RowEditor: View {
                     Text(row.currency).font(.subheadline.weight(.medium)).padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.icon)
                         .background(Color(.tertiarySystemFill), in: Capsule())
                 }
-                Button { withAnimation { showMore.toggle() } } label: {
+                Button { withAnimation(AppMotion.standard) { showMore.toggle() } } label: {
                     Image(systemName: showMore || !row.cost.isEmpty || !row.price.isEmpty ? "chevron.up.circle.fill" : "ellipsis.circle")
                 }
                 .buttonStyle(.plain)

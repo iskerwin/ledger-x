@@ -150,7 +150,7 @@ struct MonthCalendar: View {
             .onChange(of: page) { _, p in if let p, p != month { month = p } }
             .onChange(of: month) { _, m in
                 guard page != m else { return }
-                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) { page = m }
+                withAnimation(reduceMotion ? nil : AppMotion.standard) { page = m }
             }
         }
     }

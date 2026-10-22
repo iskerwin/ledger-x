@@ -86,7 +86,7 @@ struct DonutChart: View {
                     }
             }
         }
-        .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: selected)
+        .animation(reduceMotion ? nil : AppMotion.quick, value: selected)
         .sensitive()
     }
 
@@ -120,7 +120,7 @@ struct DonutChart: View {
 
     private func pick(_ id: String?) {
         Haptics.selection()
-        withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { selected = id }
+        withAnimation(reduceMotion ? nil : AppMotion.quick) { selected = id }
     }
 
     private var legend: some View {

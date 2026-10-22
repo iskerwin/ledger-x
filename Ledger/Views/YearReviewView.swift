@@ -39,7 +39,7 @@ struct YearReviewView: View {
             Section {
                 ChipRow {
                     ForEach(years, id: \.self) { y in
-                        Chip(label: LS("%@年", y), selected: y == year) { withAnimation(.snappy) { year = y; picked = nil } }
+                        Chip(label: LS("%@年", y), selected: y == year) { withAnimation(AppMotion.quick) { year = y; picked = nil } }
                     }
                 }
                 .listRowInsets(EdgeInsets(top: AppSpacing.icon, leading: AppSpacing.control, bottom: AppSpacing.icon, trailing: AppSpacing.control))

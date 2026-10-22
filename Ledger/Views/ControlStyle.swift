@@ -11,6 +11,16 @@ enum AppSpacing {
     static let spacious: CGFloat = 32
 }
 
+/// The app's three motions, so everything moves alike. 减少动态效果 turns them all off at the root.
+enum AppMotion {
+    /// a tap's answer: a filter, a chart's selection, a chosen category
+    static let quick = Animation.easeOut(duration: 0.2)
+    /// something opening, closing or moving to another place: a group, the calendar, the month, a scroll
+    static let standard = Animation.spring(duration: 0.35, bounce: 0)
+    /// a moment to notice: a notice coming in, something just saved
+    static let emphasized = Animation.spring(duration: 0.35, bounce: 0.15)
+}
+
 /// Keep the icon beside its title, including in toolbars and wide bordered buttons.
 /// The title keeps its original accessibility name; decorative symbols are not read twice.
 /// The symbol sits in a square that scales with the text, so a taller glyph cannot

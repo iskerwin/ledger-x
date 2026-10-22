@@ -51,7 +51,7 @@ struct PayeesView: View {
         .searchable(text: $q, prompt: LS("搜索收付款方"))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button { withAnimation { selecting.toggle(); picked = [] } } label: { Label(selecting ? LS("完成") : LS("选择"), systemImage: selecting ? "checkmark" : "checkmark.circle").labelStyle(ControlLabelStyle()) }
+                Button { withAnimation(AppMotion.standard) { selecting.toggle(); picked = [] } } label: { Label(selecting ? LS("完成") : LS("选择"), systemImage: selecting ? "checkmark" : "checkmark.circle").labelStyle(ControlLabelStyle()) }
             }
         }
         .safeAreaInset(edge: .bottom) {
