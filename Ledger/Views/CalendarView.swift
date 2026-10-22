@@ -2,26 +2,22 @@ import SwiftUI
 import Charts
 import LedgerKit
 
-/// 明细's month calendar, opened above the list: each day's spending (darker = more) and income, the month's totals;
-/// tap a day for its sheet. It counts what the list shows (the same search and account filter).
+/// 明细's month calendar, opened above the list: the month's totals, then the days, a dot in the theme colour on
+/// those with spending and a green one on those with income; tap a day for its sheet. It counts what the list shows
+/// (the same search and account filter).
 struct JournalCalendar: View {
     @EnvironmentObject var store: Store
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var forward = true
     let L: Ledger
     /// the transactions the list would show, newest first
     let entries: [Entry]
     /// filtered to one account: amounts on that account instead of spending / income
     let account: String?
-    /// the day opened (its sheet), outlined in the grid
-    let picked: String?
     let pick: (String) -> Void
     @State private var month = Day.ym(Day.today())
 
     struct DayTotal { var out = 0.0; var inn = 0.0; var n = 0 }
 
-    /// spending in the theme colour (the cell's wash too, deeper on bigger days); income in the app's gain colour with a
-    /// plus sign; the day number plain, so the three never look alike
+    /// spending in the theme colour, income in the app's gain colour, everywhere on this calendar
     static var spend: Color { Color.jade }
     static var earn: Color { Color.gain }
 
@@ -43,25 +39,25 @@ struct JournalCalendar: View {
         return m
     }
 
-    /// the month: its totals, then the grid (swiped sideways to change the month); a part of the journal's list
     var body: some View {
         let totals = byDay
         let out = totals.values.reduce(0) { $0 + $1.out }, inn = totals.values.reduce(0) { $0 + $1.inn }
-        let top = max(1, totals.values.map { $0.out }.max() ?? 1)
-        VStack(spacing: AppSpacing.icon) {
-            header(out: out, inn: inn)
-            ZStack(alignment: .top) {
-                grid(totals, top: top)
-                    .id(month)
-                    .transition(reduceMotion ? .opacity : .asymmetric(
-                        insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
-                        removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)))
+        var marks: [String: [Color]] = [:]
+        for (d, x) in totals {
+            let dots = [x.out > 0.005 ? Self.spend : nil, x.inn > 0.005 ? Self.earn : nil].compactMap { $0 }
+            if !dots.isEmpty { marks[d] = dots }
+        }
+        return VStack(spacing: AppSpacing.icon) {
+            HStack(spacing: AppSpacing.control) {
+                Figure(label: LS("支出"), value: money(out, L.base, 0), color: Self.spend)
+                Spacer()
+                Figure(label: LS("收入"), value: money(inn, L.base, 0), color: Self.earn)
+                Spacer()
+                Figure(label: LS("结余"), value: money(inn - out, L.base, 0), color: inn - out < 0 ? Color.loss : Color.primary, alignment: .trailing)
             }
-            .clipped()
-            .contentShape(Rectangle())
-            .gesture(DragGesture(minimumDistance: 30).onEnded { g in
-                if abs(g.translation.width) > abs(g.translation.height) { step(g.translation.width < 0 ? 1 : -1) }
-            })
+            .padding(.vertical, AppSpacing.detail)
+            MonthCalendar(marks: marks, month: $month, last: Day.today(), pick: pick)
+            legend
         }
         .onAppear(perform: follow)
         .onChange(of: entries.first?.date) { _, _ in follow() }
@@ -73,142 +69,136 @@ struct JournalCalendar: View {
         month = Day.ym(latest.date)
     }
 
-    private func step(_ k: Int) {
-        let next = Day.addMonth(month, k)
-        guard next <= Day.ym(Day.today()) else { return }
-        changeMonth(next)
-    }
-
-    private func changeMonth(_ next: String) {
-        guard next != month else { return }
-        forward = next > month
-        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.24)) { month = next }
-    }
-
-    private func header(out: Double, inn: Double) -> some View {
-        VStack(spacing: AppSpacing.icon) {
-            HStack(spacing: AppSpacing.control) {
-                Button { step(-1) } label: { Image(systemName: "chevron.left") }.buttonStyle(.borderless)
-                Spacer()
-                Button {
-                    changeMonth(Day.ym(Day.today()))
-                } label: { Text(Day.monthLabel(month)).font(.headline).foregroundStyle(.primary) }
-                .buttonStyle(.borderless)
-                Spacer()
-                Button { step(1) } label: { Image(systemName: "chevron.right") }.buttonStyle(.borderless)
-                    .disabled(month >= Day.ym(Day.today()))
-            }
-            HStack(spacing: AppSpacing.control) {
-                Figure(label: LS("支出"), value: money(out, L.base, 0), color: Self.spend)
-                Spacer()
-                Figure(label: LS("收入"), value: money(inn, L.base, 0), color: Self.earn)
-                Spacer()
-                Figure(label: LS("结余"), value: money(inn - out, L.base, 0), color: inn - out < 0 ? Color.loss : Color.primary, alignment: .trailing)
-            }
-        }
-        .padding(.vertical, AppSpacing.detail)
-    }
-
-    /// weekday names starting on the locale's first day of the week
-    private var weekdays: [String] {
-        let names = KitLocale.chinese ? Array("日一二三四五六").map(String.init) : ["S", "M", "T", "W", "T", "F", "S"]
-        let first = Calendar.current.firstWeekday - 1
-        return (0..<7).map { names[(first + $0) % 7] }
-    }
-
-    private func grid(_ totals: [String: DayTotal], top: Double) -> some View {
-        let first = month + "-01"
-        let count = Int(Day.monthEnd(month).suffix(2)) ?? 30
-        let wd = Day.date(first).map { Day.calendar.component(.weekday, from: $0) } ?? 1
-        let lead = (wd - Calendar.current.firstWeekday + 7) % 7
-        // Six weeks keep the journal's rows still when switching between short and long months.
-        let days: [String?] = (1...count).map { month + String(format: "-%02d", $0) }
-        let cells: [String?] = Array(repeating: nil, count: lead) + days + Array(repeating: nil, count: 42 - lead - count)
-        let today = Day.today()
-        // a line for income only in a month that has some, so the spending sits right under the day
-        let hasIncome = cells.contains { d in d.map { (totals[$0]?.inn ?? 0) > 0.005 } ?? false }
-        return VStack(spacing: AppSpacing.detail) {
-            HStack(spacing: AppSpacing.detail) {
-                ForEach(Array(weekdays.enumerated()), id: \.offset) { _, w in
-                    Text(w).font(.caption2.weight(.medium)).foregroundStyle(.secondary).frame(maxWidth: .infinity)
-                }
-            }
-            // weeks as plain rows of square cells (a lazy grid inside a List row can be measured too short and
-            // clip everything under the day number): as short as the width allows, leaving room for the list below
-            let weeks = stride(from: 0, to: cells.count, by: 7).map { Array(cells[$0..<min($0 + 7, cells.count)]) }
-            ForEach(weeks.indices, id: \.self) { w in
-                HStack(spacing: AppSpacing.detail) {
-                    ForEach(0..<7, id: \.self) { i in
-                        if i < weeks[w].count, let d = weeks[w][i] {
-                            cell(d, totals[d], top: top, today: d == today, incomeRow: hasIncome)
-                        } else {
-                            Color.clear.frame(maxWidth: .infinity).aspectRatio(1, contentMode: .fit)
-                        }
-                    }
-                }
-            }
-            legend
-        }
-    }
-
-    /// what the colours mean, under the grid
+    /// what the dots mean, under the days
     private var legend: some View {
         HStack(spacing: AppSpacing.control) {
             HStack(spacing: AppSpacing.detail) {
-                RoundedRectangle(cornerRadius: 3).fill(Self.spend.opacity(0.35)).frame(width: 12, height: 12)
-                Text(LS("支出（越深越多）"))
+                Circle().fill(Self.spend).frame(width: 6, height: 6)
+                Text(LS("支出"))
             }
             HStack(spacing: AppSpacing.detail) {
-                Text("+").fontWeight(.bold).foregroundStyle(Self.earn)
+                Circle().fill(Self.earn).frame(width: 6, height: 6)
                 Text(LS("收入"))
             }
             Spacer()
+            Text(LS("点日期看当天明细"))
         }
         .font(.caption2)
         .foregroundStyle(.secondary)
-        .padding(.top, AppSpacing.detail)
+    }
+}
+
+
+/// One month calendar for the whole app: the system's (as the date pickers), each day with up to two dots in its
+/// colours, swiped or stepped from month to month. Days are "YYYY-MM-DD", months "YYYY-MM".
+struct MonthCalendar: UIViewRepresentable {
+    /// the dots under each day, left to right (spending in the theme colour, then income in green)
+    var marks: [String: [Color]]
+    /// the month on screen; changed here to move the calendar, set by it when the user swipes
+    @Binding var month: String
+    /// the first and last days that can be shown (the journal goes back years and up to today; coming charges
+    /// start today)
+    var first: String = "2000-01-01"
+    var last: String
+    var pick: (String) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIView(context: Context) -> UICalendarView {
+        let v = UICalendarView()
+        v.calendar = Day.calendar
+        v.locale = AppLanguage.current.locale
+        v.fontDesign = .rounded
+        v.tintColor = Self.tint(context)
+        v.delegate = context.coordinator
+        v.selectionBehavior = UICalendarSelectionSingleDate(delegate: context.coordinator)
+        v.setContentHuggingPriority(.required, for: .vertical)
+        context.coordinator.apply(self, to: v, animated: false)
+        return v
     }
 
-    private func cell(_ d: String, _ x: DayTotal?, top: Double, today: Bool, incomeRow: Bool) -> some View {
-        let out = x?.out ?? 0, inn = x?.inn ?? 0
-        // a wash of the theme colour, deeper on the bigger days, light enough for the numbers on it
-        let shade = out > 0.005 ? 0.08 + 0.22 * min(1, out / top) : 0
-        let chosen = picked == d
-        let future = d > Day.today()
-        return Button { pick(d) } label: {
-            // the day and its amounts as one block in the middle of the cell (today's day in a theme-coloured circle);
-            // every cell has the same lines, so the days line up across a week and the amounts across a row
-            VStack(spacing: 0) {
-                Text(String(Int(d.suffix(2)) ?? 0))
-                    .font(.system(size: 12.5, weight: today ? .bold : .medium).monospacedDigit())
-                    .foregroundStyle(today ? Color.onJade : future ? Color.secondary.opacity(0.45) : Color.primary)
-                    .frame(width: 20, height: 20)
-                    .background(today ? Color.jade : Color.clear, in: Circle())
-                Group {
-                    Text(out > 0.005 ? short(out) : " ")
-                        .font(.system(size: 10, weight: .bold).monospacedDigit()).foregroundStyle(Self.spend)
-                    if incomeRow {
-                        Text(inn > 0.005 ? "+" + short(inn) : " ")
-                            .font(.system(size: 9, weight: .semibold).monospacedDigit()).foregroundStyle(Self.earn)
-                    }
-                }
-                .lineLimit(1).minimumScaleFactor(0.7)
-                .sensitive()
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .aspectRatio(1, contentMode: .fit)
-            .background(Self.spend.opacity(shade), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(chosen ? Color.jade : .clear, lineWidth: 2))
+    func updateUIView(_ v: UICalendarView, context: Context) {
+        v.tintColor = Self.tint(context)
+        context.coordinator.apply(self, to: v, animated: true)
+    }
+
+    /// the theme colour as this screen draws it (light or dark), for today, the selected day and the arrows
+    private static func tint(_ context: Context) -> UIColor {
+        UIColor(cgColor: Color.jade.resolve(in: context.environment).cgColor)
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UICalendarView, context: Context) -> CGSize? {
+        let width = proposal.width ?? 320
+        let fit = uiView.systemLayoutSizeFitting(CGSize(width: width, height: UIView.layoutFittingCompressedSize.height),
+                                                 withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel)
+        return CGSize(width: width, height: fit.height)
+    }
+
+    final class Coordinator: NSObject, UICalendarViewDelegate, UICalendarSelectionSingleDateDelegate {
+        var parent: MonthCalendar
+        private var shown: [String: [Color]] = [:]
+        init(_ parent: MonthCalendar) { self.parent = parent }
+
+        private static func components(_ day: String) -> DateComponents? {
+            let p = day.split(separator: "-").compactMap { Int($0) }
+            guard p.count >= 2 else { return nil }
+            return DateComponents(calendar: Day.calendar, year: p[0], month: p[1], day: p.count > 2 ? p[2] : 1)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Day.dayLabel(d) + (out > 0.005 ? " " + LS("支出 ") + money(out) : "") + (inn > 0.005 ? " " + LS("收入 ") + money(inn) : ""))
-    }
 
-    /// 86, 1.2k, 12k (hidden like every amount when 隐藏金额 is on)
-    private func short(_ v: Double) -> String {
-        if v < 1000 { return masked(String(Int(v.rounded()))) }
-        if v < 10000 { return masked(String(format: "%.1fk", v / 1000)) }
-        return masked(String(format: "%.0fk", v / 1000))
+        private static func day(_ c: DateComponents) -> String? {
+            guard let y = c.year, let m = c.month, let d = c.day else { return nil }
+            return String(format: "%04d-%02d-%02d", y, m, d)
+        }
+
+        func apply(_ next: MonthCalendar, to v: UICalendarView, animated: Bool) {
+            parent = next
+            if let start = Day.date(next.first), let end = Day.date(next.last) {
+                v.availableDateRange = DateInterval(start: start, end: max(start, end))
+            }
+            // only the days whose dots changed are drawn again
+            let changed = Set(shown.keys).union(next.marks.keys).filter { shown[$0] != next.marks[$0] }
+            shown = next.marks
+            let comps = changed.compactMap(Self.components)
+            if !comps.isEmpty { v.reloadDecorations(forDateComponents: comps, animated: animated) }
+            let visible = v.visibleDateComponents
+            if let want = Self.components(next.month + "-01"), visible.year != want.year || visible.month != want.month {
+                v.setVisibleDateComponents(want, animated: animated)
+            }
+        }
+
+        func calendarView(_ calendarView: UICalendarView, decorationFor dateComponents: DateComponents) -> UICalendarView.Decoration? {
+            guard let d = Self.day(dateComponents), let colors = shown[d], !colors.isEmpty else { return nil }
+            if colors.count == 1 { return .default(color: UIColor(colors[0]), size: .small) }
+            return .customView {
+                let dots = colors.map { c -> UIView in
+                    let v = UIView()
+                    v.backgroundColor = UIColor(c)
+                    v.layer.cornerRadius = 2.5
+                    v.translatesAutoresizingMaskIntoConstraints = false
+                    NSLayoutConstraint.activate([v.widthAnchor.constraint(equalToConstant: 5), v.heightAnchor.constraint(equalToConstant: 5)])
+                    return v
+                }
+                let stack = UIStackView(arrangedSubviews: dots)
+                stack.axis = .horizontal
+                stack.spacing = 3
+                return stack
+            }
+        }
+
+        func calendarView(_ calendarView: UICalendarView, didChangeVisibleDateComponentsFrom previous: DateComponents) {
+            let c = calendarView.visibleDateComponents
+            guard let y = c.year, let m = c.month else { return }
+            let month = String(format: "%04d-%02d", y, m)
+            if month != parent.month { DispatchQueue.main.async { self.parent.month = month } }
+        }
+
+        /// A tap only picks the day: the system marks a selected day in black, not in the theme colour, so the
+        /// mark is taken off at once and the screen says which day is open (its sheet, or the list's heading).
+        func dateSelection(_ selection: UICalendarSelectionSingleDate, didSelectDate dateComponents: DateComponents?) {
+            guard let d = dateComponents.flatMap(Self.day) else { return }
+            selection.setSelected(nil, animated: true)
+            parent.pick(d)
+        }
     }
 }
 
@@ -260,7 +250,7 @@ struct CalendarDaySheet: View {
                         HStack(spacing: AppSpacing.control) {
                             Figure(label: LS("收入"), value: money(inn, L.base), color: .gain)
                             Spacer()
-                            Figure(label: LS("支出"), value: money(out, L.base), color: .loss)
+                            Figure(label: LS("支出"), value: money(out, L.base), color: JournalCalendar.spend)
                             Spacer()
                             Figure(label: LS("纯利"), value: money(inn - out, L.base), color: inn - out < 0 ? Color.loss : Color.primary, alignment: .trailing)
                         }
@@ -332,7 +322,8 @@ struct FlowBars: View {
             }
             RuleMark(x: .value("零", 0)).foregroundStyle(Color.secondary.opacity(0.5))
         }
-        .chartForegroundStyleScale([inc: Color.gain, exp: Color.loss, net: Color.jade])
+        // the calendar's colours: spending in the theme colour, income green, the net a plain line
+        .chartForegroundStyleScale([inc: JournalCalendar.earn, exp: JournalCalendar.spend, net: Color.primary.opacity(0.6)])
         .chartLegend(position: .bottom, alignment: .leading)
         .chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) { _ in AxisGridLine(); AxisValueLabel() } }
         .frame(height: CGFloat(flows.count) * 64 + 44)

@@ -263,56 +263,66 @@ struct SubPickSheet: View {
 }
 
 /// the next two months of charges, day by day
+/// 订阅日历: the charges of the next two months on the app's month calendar (a dot in the theme colour on each
+/// charge day), the month's charges under it; tap a day for just that day's.
 struct SubscriptionCalendarView: View {
     @EnvironmentObject var store: Store
+    @State private var month = Day.ym(Day.today())
+    @State private var day: String?
 
     var body: some View {
         let today = Day.today()
         let end = Day.shift(today, 62)
-        var byDate: [String: [(Subscription, String)]] = [:]
+        var byDate: [String: [Subscription]] = [:]
         for s in store.subs where s.status == .active {
             var d = s.nextCharge(onOrAfter: today), n = 0
             while d <= end && n < 70 {
-                if s.trialEnd.map({ d > $0 }) ?? true { byDate[d, default: []].append((s, d)) }
+                if s.trialEnd.map({ d > $0 }) ?? true { byDate[d, default: []].append(s) }
                 d = s.nextCharge(onOrAfter: Day.shift(d, 1)); n += 1
             }
         }
-        let months = Dictionary(grouping: byDate.keys.sorted(), by: { Day.ym($0) }).sorted { $0.key < $1.key }
+        let marks = byDate.mapValues { _ in [JournalCalendar.spend] }
+        let days = byDate.keys.filter { key in day.map { key == $0 } ?? key.hasPrefix(month) }.sorted()
+        let total = monthTotal(days.flatMap { byDate[$0] ?? [] })
         return List {
-            if byDate.isEmpty { Text(LS("近两个月没有扣费")).foregroundStyle(.secondary) }
-            ForEach(months, id: \.key) { m in
-                let total = monthTotal(m.value.flatMap { byDate[$0] ?? [] }.map { $0.0 })
-                Section {
-                    ForEach(m.value, id: \.self) { d in
-                        ForEach(Array((byDate[d] ?? []).enumerated()), id: \.offset) { _, pair in
-                            NavigationLink(value: SubDetailDest(name: pair.0.name)) {
-                                HStack(spacing: AppSpacing.control) {
-                                    VStack(spacing: 0) {
-                                        Text(String(d.suffix(2))).font(.headline.monospacedDigit())
-                                        Text(daysText(d, today: today)).font(.caption2).foregroundStyle(.secondary)
-                                    }
-                                    .frame(width: 52)
-                                    VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                                        Text(pair.0.name)
-                                        Text((pair.0.manual ? LS("手动续费") : LS("自动扣费")) + " · " + acctLabel(pair.0.paymentAccount))
-                                            .font(.caption).foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    Text(money(pair.0.amount, pair.0.currency)).monospacedDigit().sensitive()
+            Section {
+                MonthCalendar(marks: marks, month: $month, first: today, last: end) { d in day = d }
+            }
+            Section {
+                if days.isEmpty { Text(day == nil ? LS("这个月没有扣费") : LS("这一天没有扣费")).foregroundStyle(.secondary) }
+                ForEach(days, id: \.self) { d in
+                    ForEach(Array((byDate[d] ?? []).enumerated()), id: \.offset) { _, s in
+                        NavigationLink(value: SubDetailDest(name: s.name)) {
+                            HStack(spacing: AppSpacing.control) {
+                                VStack(spacing: 0) {
+                                    Text(String(d.suffix(2))).font(.headline.monospacedDigit())
+                                    Text(daysText(d, today: today)).font(.caption2).foregroundStyle(.secondary)
                                 }
+                                .frame(width: 52)
+                                VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                                    Text(s.name)
+                                    Text((s.manual ? LS("手动续费") : LS("自动扣费")) + " · " + acctLabel(s.paymentAccount))
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(money(s.amount, s.currency)).monospacedDigit().sensitive()
                             }
                         }
                     }
-                } header: {
-                    HStack(spacing: AppSpacing.control) {
-                        Text(Day.monthLabel(m.key))
-                        Spacer()
-                        Text(money(total, store.L?.base ?? "CNY", 0)).monospacedDigit().sensitive()
-                    }
+                }
+                if day != nil {
+                    Button { day = nil } label: { Label(LS("显示整月"), systemImage: "calendar").labelStyle(ControlLabelStyle()) }
+                }
+            } header: {
+                HStack(spacing: AppSpacing.control) {
+                    Text(day.map { Day.dayLabel($0) } ?? Day.monthLabel(month))
+                    Spacer()
+                    Text(money(total, store.L?.base ?? "CNY", 0)).monospacedDigit().sensitive()
                 }
             }
         }
         .listSectionSpacing(.compact)
+        .onChange(of: month) { _, m in if let d = day, !d.hasPrefix(m) { day = nil } }
         .navigationTitle(LS("订阅日历"))
         .navigationBarTitleDisplayMode(.inline)
     }
