@@ -956,7 +956,7 @@
  "总市值 · %@": "Market value · %@",
  "总支出": "Total spending",
  "总额": "Total",
- "恢复": "resumed",
+ "恢复": "Restore",
  "恢复 %@ 项已隐藏": "Restore %@ Hidden",
  "恢复已忽略的 %@ 项": "Restore %@ ignored",
  "恢复已忽略的链接问题": "Bring back ignored link problems",
@@ -2131,5 +2131,13 @@
  "%@ 在存储里已被改动，没有删除": "%@ changed in storage, so it wasn't deleted",
  "本机副本已不存在，无法恢复 %@": "The copy on this device is gone; %@ can't be restored",
  "恢复附件：%@": "Restore attachment: %@",
- "无法恢复文件，没有撤回：%@": "Couldn't restore the file, nothing was undone: %@"
+ "无法恢复文件，没有撤回：%@": "Couldn't restore the file, nothing was undone: %@",
+ "可恢复文件 · 剩 %@ 天": "File can be restored · %@ days left",
+ "同步后删除文件": "File deleted after sync",
+ "删除于 %@ · 剩 %@ 天": "Deleted %@ · %@ days left",
+ "最近删除": "Recently Deleted",
+ "选「移除并删除文件」删掉的附件和对账单在这里保留 %@ 天，点「恢复」会把文件传回存储并恢复记录。": "Attachments and statements removed with Remove and Delete File stay here for %@ days; Restore puts the file back in storage and brings the record back.",
+ "无法恢复文件：%@": "Couldn't restore the file: %@",
+ "文件已恢复，但找不到原来的记录，请重新添加附件": "The file is back, but its record couldn't be found; add the attachment again",
+ "已恢复": "Restored"
 }

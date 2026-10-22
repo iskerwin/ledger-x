@@ -192,9 +192,20 @@ public struct DeletedAttachment: Codable, Equatable, Identifiable, Sendable {
     public var record: UUID?
     public var time: Date
     public var state: State
+    /// the document directive as it was, and the file it was in: restoring writes it back there
+    /// when its 最近改动 record is no longer kept
+    public var text: String?
+    public var file: String?
 
-    public init(path: String, version: String, record: UUID?, time: Date, state: State = .pending) {
+    public init(path: String, version: String, record: UUID?, time: Date, state: State = .pending, text: String? = nil, file: String? = nil) {
         self.path = path; self.version = version; self.record = record; self.time = time; self.state = state
+        self.text = text; self.file = file
+    }
+
+    /// Whole days left to take it back: 30 while the file is still in storage, then counting down from its deletion.
+    public func daysLeft(now: Date) -> Int {
+        guard state == .deleted else { return Int(Self.keep / 86_400) }
+        return max(0, Int(ceil((Self.keep - now.timeIntervalSince(time)) / 86_400)))
     }
 
     /// A pending deletion never expires: its file is still in storage and the copy is the only undo.

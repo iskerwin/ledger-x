@@ -511,6 +511,8 @@ struct TransactionAttachmentsDest: Hashable {}
 struct TransactionAttachmentsView: View {
     @EnvironmentObject var store: Store
     @State private var viewing: DocItem?
+    /// 最近删除 being restored
+    @State private var recovering: UUID?
 
     var body: some View {
         Group {
@@ -553,6 +555,42 @@ struct TransactionAttachmentsView: View {
                 }
             } footer: {
                 Text(LS("在交易详情里添加的附件，默认存放在 documents/%@ 文件夹；账户的对账单仍在各账户页。", transactionAttachmentFolder))
+            }
+            recentlyDeleted()
+        }
+    }
+
+    /// files deleted with their record (attachments and statements alike), each with 恢复 while its copy is kept
+    @ViewBuilder
+    private func recentlyDeleted() -> some View {
+        let items = store.deletedAttachments().sorted { $0.time > $1.time }
+        if !items.isEmpty {
+            Section {
+                ForEach(items) { d in
+                    HStack(spacing: AppSpacing.icon) {
+                        Image(systemName: "trash").foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                            Text((d.path as NSString).lastPathComponent).lineLimit(1)
+                            Text(d.state == .deleted
+                                 ? LS("删除于 %@ · 剩 %@ 天", Day.string(d.time), d.daysLeft(now: Date()))
+                                 : LS("同步后删除文件"))
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button {
+                            recovering = d.id
+                            Task { _ = await store.recoverDeletedAttachment(d.id); recovering = nil }
+                        } label: {
+                            if recovering == d.id { ProgressView() } else { Text(LS("恢复")) }
+                        }
+                        .buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)
+                        .disabled(recovering != nil || store.committing)
+                    }
+                }
+            } header: {
+                Text(LS("最近删除"))
+            } footer: {
+                Text(LS("选「移除并删除文件」删掉的附件和对账单在这里保留 %@ 天，点「恢复」会把文件传回存储并恢复记录。", Int(DeletedAttachment.keep / 86_400)))
             }
         }
     }

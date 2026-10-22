@@ -47,7 +47,7 @@ extension Store {
             return false
         }
         guard cfg.id == ledgerID else { return false }
-        var item = DeletedAttachment(path: path, version: version, record: nil, time: Date())
+        var item = DeletedAttachment(path: path, version: version, record: nil, time: Date(), text: e.src, file: e.file)
         do { try RecoveryFiles.saveData(data, kind: Self.copyKind(item.id), ledger: ledgerID) } catch {
             Haptics.error()
             show(LS("无法在本机保存副本，没有做任何改动：%@", error.localizedDescription))
@@ -111,6 +111,50 @@ extension Store {
                 show(LS("无法恢复文件，没有撤回：%@", error.localizedDescription))
                 return false
             }
+        }
+        dropDeletedAttachment(item.id, ledger: ledgerID)
+        return true
+    }
+
+    /// 恢复 in 最近删除. Through its 最近改动 record while that is kept (file first, then the record); after the
+    /// record has dropped out of the last 100, the file is uploaded again and the directive written back.
+    func recoverDeletedAttachment(_ id: UUID) async -> Bool {
+        let ledgerID = cfg.id
+        guard let item = deletedAttachments(ledger: ledgerID).first(where: { $0.id == id }) else { return false }
+        if let r = item.record, history.contains(where: { $0.id == r && $0.undone == nil }) {
+            return await revert(r)
+        }
+        let name = (item.path as NSString).lastPathComponent
+        if item.state == .deleted {
+            guard let data = RecoveryFiles.loadData(kind: Self.copyKind(item.id), ledger: ledgerID) else {
+                show(LS("本机副本已不存在，无法恢复 %@", name))
+                return false
+            }
+            do { try await backend.writeData(item.path, data: data, message: LS("恢复附件：%@", item.path)) } catch {
+                Haptics.error()
+                show(LS("无法恢复文件：%@", error.localizedDescription))
+                return false
+            }
+            guard cfg.id == ledgerID else { return false }
+            // the file is back: from here the copy is no longer needed, whatever happens to the record
+            var items = deletedAttachments(ledger: ledgerID)
+            if let i = items.firstIndex(where: { $0.id == id }) { items[i].state = .pending; saveDeletedAttachments(items, ledger: ledgerID) }
+        }
+        guard let L else { return false }
+        if documentReferences(L, path: item.path).isEmpty {
+            // the directive again, with its path relative to the file it now goes into
+            guard let text = item.text, let old = parseFile(text, file: item.file ?? main).entries.first(where: { $0.type == .document }),
+                  let account = old.account else {
+                show(LS("文件已恢复，但找不到原来的记录，请重新添加附件"))
+                dropDeletedAttachment(item.id, ledger: ledgerID)
+                return false
+            }
+            let line = documentText(date: old.date, account: account, path: item.path) + old.links.map { " ^" + $0 }.joined()
+            guard var ops = makeOps(line, extra: OpExtra(label: LS("恢复附件：%@", name)), single: false) else { return false }
+            for i in ops.indices where ops[i].kind == .insert {
+                ops[i].text = ops[i].text?.replacingOccurrences(of: "\"\(item.path)\"", with: "\"\(relativePath(item.path, from: ops[i].path))\"")
+            }
+            guard await commit(ops, word: LS("已恢复")) else { return false }
         }
         dropDeletedAttachment(item.id, ledger: ledgerID)
         return true

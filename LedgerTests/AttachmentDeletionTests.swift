@@ -63,6 +63,47 @@ final class AttachmentDeletionTests: XCTestCase {
         XCTAssertTrue(store.deletedAttachments().isEmpty)
     }
 
+    func testRecentlyDeletedRestoresThroughItsRecord() async throws {
+        let (store, root) = try await fixture(documents: [document("2026-10-19")])
+        let entry = try XCTUnwrap(store.L?.documents.first)
+        let deleted = await store.deleteDocument(entry, file: true, summary: "test")
+        XCTAssertTrue(deleted)
+        await store.waitForSavedSync()
+        await store.finishAttachmentDeletions()
+        let item = try XCTUnwrap(store.deletedAttachments().first)
+        let recovered = await store.recoverDeletedAttachment(item.id)
+        XCTAssertTrue(recovered)
+        await store.waitForSavedSync()
+        await store.refresh()
+        XCTAssertEqual(try Data(contentsOf: root.appendingPathComponent(path)), bytes)
+        XCTAssertEqual(store.L?.documents.count, 1)
+        XCTAssertTrue(store.deletedAttachments().isEmpty)
+        XCTAssertNotNil(store.history.first { $0.id == item.record }?.undone)
+    }
+
+    /// 最近改动 keeps 100 records: once this one has gone, 恢复 still brings back the file and the directive.
+    func testRecentlyDeletedRestoresAfterItsRecordIsGone() async throws {
+        let (store, root) = try await fixture(documents: [document("2026-10-19")])
+        let entry = try XCTUnwrap(store.L?.documents.first)
+        let deleted = await store.deleteDocument(entry, file: true, summary: "test")
+        XCTAssertTrue(deleted)
+        await store.waitForSavedSync()
+        await store.finishAttachmentDeletions()
+        var items = store.deletedAttachments()
+        items[0].record = nil
+        try RecoveryFiles.save(items, kind: "deleted-attachments", ledger: store.cfg.id)
+        let recovered = await store.recoverDeletedAttachment(items[0].id)
+        XCTAssertTrue(recovered)
+        await store.waitForSavedSync()
+        await store.refresh()
+        XCTAssertEqual(try Data(contentsOf: root.appendingPathComponent(path)), bytes)
+        let restored = try XCTUnwrap(store.L?.documents.first)
+        XCTAssertEqual(documentRepoPath(restored), path)
+        XCTAssertEqual(restored.date, "2026-10-19")
+        XCTAssertEqual(restored.account, "Assets:Bank:DemoBank")
+        XCTAssertTrue(store.deletedAttachments().isEmpty)
+    }
+
     func testAFileAnotherRecordStillUsesIsKept() async throws {
         let (store, root) = try await fixture(documents: [document("2026-10-19"), document("2026-10-20")])
         let entry = try XCTUnwrap(store.L?.documents.first)

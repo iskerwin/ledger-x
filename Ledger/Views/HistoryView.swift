@@ -12,8 +12,9 @@ struct HistoryView: View {
                 if store.history.isEmpty {
                     Text(LS("还没有在本机做过修改")).foregroundStyle(.secondary)
                 }
+                let deleted = Dictionary(store.deletedAttachments().compactMap { d in d.record.map { ($0, d) } }, uniquingKeysWith: { a, _ in a })
                 ForEach(store.history) { r in
-                    NavigationLink { HistoryDetailView(id: r.id) } label: { HistoryRow(r: r) }
+                    NavigationLink { HistoryDetailView(id: r.id) } label: { HistoryRow(r: r, deleted: deleted[r.id]) }
                         .swipeActions {
                             if r.undone == nil { Button { confirming = r } label: { Label(LS("撤回"), systemImage: "arrow.uturn.backward") }.tint(.orange) }
                         }
@@ -35,6 +36,8 @@ struct HistoryView: View {
 
 private struct HistoryRow: View {
     let r: ChangeRecord
+    /// this removal also deleted its file: 撤回 brings the file back too
+    var deleted: DeletedAttachment?
     var body: some View {
         VStack(alignment: .leading, spacing: AppSpacing.detail) {
             Text(r.label).font(.subheadline).lineLimit(2)
@@ -45,6 +48,9 @@ private struct HistoryRow: View {
                 if r.undone != nil { Text(LS("已撤回")).foregroundStyle(Color.warn) }
             }
             .font(.caption).foregroundStyle(.secondary)
+            if r.undone == nil, let d = deleted {
+                Tag(text: d.state == .deleted ? LS("可恢复文件 · 剩 %@ 天", d.daysLeft(now: Date())) : LS("同步后删除文件"))
+            }
         }
         .padding(.vertical, AppSpacing.detail)
     }
