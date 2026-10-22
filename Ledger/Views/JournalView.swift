@@ -151,9 +151,6 @@ struct JournalView: View {
     /// an @AppStorage change loses the animation, and the calendar jumped in and out
     @State private var showCalendar = UserDefaults.standard.bool(forKey: Self.calendarKey)
     private static let calendarKey = "ledger.journal.calendar"
-    /// the calendar's content at full size: it grows out of the 月历 button (top left) and shrinks back into it
-    /// before its row leaves the list
-    @State private var calendarOpen = UserDefaults.standard.bool(forKey: Self.calendarKey)
     /// a day picked on the calendar: its sheet
     @State private var calendarDay: CalendarDay?
     /// a transaction tapped in that sheet, opened once the sheet has gone
@@ -209,10 +206,13 @@ struct JournalView: View {
             .toolbar {
                 StandardToolbar()
                 ToolbarItemGroup(placement: .topBarLeading) {
-                    Button { toggleCalendar() } label: {
-                        Image(systemName: calendarOpen ? "calendar.circle.fill" : "calendar")
+                    Button {
+                        withAnimation(reduceMotion ? nil : .spring(duration: 0.32, bounce: 0)) { showCalendar.toggle() }
+                        UserDefaults.standard.set(showCalendar, forKey: Self.calendarKey)
+                    } label: {
+                        Image(systemName: showCalendar ? "calendar.circle.fill" : "calendar")
                     }
-                    .accessibilityLabel(calendarOpen ? LS("收起月历") : LS("月历"))
+                    .accessibilityLabel(showCalendar ? LS("收起月历") : LS("月历"))
                     Button {
                         withAnimation { selecting.toggle(); selected = [] }
                     } label: { Label(selecting ? LS("完成") : LS("选择"), systemImage: selecting ? "checkmark" : "checkmark.circle").labelStyle(ControlLabelStyle()) }
@@ -373,30 +373,6 @@ struct JournalView: View {
         nonmutating set { store.journalAccount = newValue }
     }
 
-    private var calendarMotion: Animation? { reduceMotion ? nil : .spring(duration: 0.32, bounce: 0) }
-
-    /// Open: add the row, its content grows from the top left. Close: the content shrinks back to the top left
-    /// first, and the row leaves once that has finished (the animation's own completion, not a delay).
-    private func toggleCalendar() {
-        let open = !calendarOpen
-        UserDefaults.standard.set(open, forKey: Self.calendarKey)
-        if open && showCalendar {
-            // still shrinking: grow it back in place
-            withAnimation(calendarMotion) { calendarOpen = true }
-        } else if open {
-            withAnimation(calendarMotion) { showCalendar = true }
-        } else if reduceMotion {
-            calendarOpen = false
-            showCalendar = false
-        } else {
-            withAnimation(calendarMotion, completionCriteria: .logicallyComplete) { calendarOpen = false } completion: {
-                // opened again while it was closing: keep the row
-                guard !calendarOpen else { return }
-                withAnimation(.easeOut(duration: 0.2)) { showCalendar = false }
-            }
-        }
-    }
-
     @ViewBuilder
     private func list(_ L: Ledger) -> some View {
         let matches = search(L)
@@ -449,12 +425,8 @@ struct JournalView: View {
                     JournalCalendar(L: L, entries: matches, account: account, picked: calendarDay?.day) { d in
                         calendarDay = CalendarDay(day: d)
                     }
-                    .scaleEffect(calendarOpen || reduceMotion ? 1 : 0.05, anchor: .topLeading)
-                    .opacity(calendarOpen ? 1 : 0)
-                    // inserted small, then grown: the first frame has to be drawn at the button's size
-                    .onAppear { if !calendarOpen { withAnimation(calendarMotion) { calendarOpen = true } } }
                 }
-                .transition(.opacity)
+                .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
             }
             if filtered {
                 resultCard(matches, sums)
