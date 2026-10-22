@@ -76,7 +76,7 @@ class ReleaseNotesTests(unittest.TestCase):
         release = dict(tag_name='dev', body=body, published_at='2026-10-20T00:00:00Z', assets=[
             dict(name='Ledger.ipa', browser_download_url=ipa, size=123)])
         with tempfile.TemporaryDirectory() as folder, patch('sys.argv', ['ipa_source.py', 'example/ledger-x', folder]), \
-             patch('subprocess.check_output', side_effect=['abcdef012345', json.dumps([[release]])]), patch('builtins.print'):
+             patch('subprocess.check_output', side_effect=['abcdef012345', json.dumps([[release]]), 'abc\trefs/tags/dev\n']), patch('builtins.print'):
             runpy.run_path(str(ROOT / 'tools/release/ipa_source.py'))
             source = json.loads(Path(folder, 'dev.json').read_text())
             mirror = json.loads(Path(folder, 'mirror/dev.json').read_text())

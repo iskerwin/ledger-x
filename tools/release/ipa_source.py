@@ -75,6 +75,19 @@ for r in releases:
             if e:
                 dev.append(e)
 
+# A source with no versions removes the app from every phone that follows it. GitHub's release list has come back
+# empty or without its assets for a moment (2026-10-22): check it against the tags, which git serves on its own,
+# and stop before anything is written, so the sources already published stay as they are.
+tags = subprocess.check_output(["git", "ls-remote", "--tags", f"https://github.com/{repo}.git"], text=True)
+tag_names = {line.split("refs/tags/")[-1].removesuffix("^{}") for line in tags.splitlines() if "refs/tags/" in line}
+missing = []
+if any(re.fullmatch(r"v\d+\.\d+\.\d+", t) for t in tag_names) and not published:
+    missing.append("正式版")
+if "dev" in tag_names and not dev:
+    missing.append("开发版")
+if missing:
+    sys.exit(f"GitHub 返回的发布列表里找不到{'、'.join(missing)}的安装包，没有写入 IPA 源（已发布的源保持不变）；稍后重试")
+
 about = ("原生 SwiftUI 的 Beancount 记账 / 查账 App。账本放在你自己的 Git 仓库或文件夹里，"
          "手机上记账、对账、看报表、跑 BQL 查询。")
 
