@@ -20,11 +20,11 @@
       "versions": [
         {
           "version": "1.0.2",
-          "buildVersion": "10",
+          "buildVersion": "11",
           "date": "2026-10-21T17:58:29Z",
-          "localizedDescription": "# Ledger X 1.0.2 开发版\n\n版本 1.0.2 · 构建 10 · main 60e5cc4 。\n\n## 改进\n\n- 月历统一为系统样式：明细月历在日期下用点表示当天有没有支出（主题色）和收入（绿色），只有转账、报销这类不算收支的交易时显示灰点，上方保留当月支出、收入、结余；订阅日历也改成同样的月历，扣费日有点，下面列出当月扣费，点某天只看当天。",
-          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.2-10",
-          "size": 10145477,
+          "localizedDescription": "# Ledger X 1.0.2 开发版\n\n版本 1.0.2 · 构建 11 · main 4b6b961 。\n\n## 改进\n\n- 月历统一为紧凑样式（外观仿系统，一个月约占屏幕三分之一，日期数字用主题色，翻到别的月份可点「今天」回到本月）：明细月历在日期下用点表示当天有没有支出（主题色）和收入（绿色），只有转账、报销这类不算收支的交易时显示灰点，上方保留当月支出、收入、结余；订阅日历也改成同样的月历，扣费日有点，下面列出当月扣费，点某天只看当天。",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.2-11",
+          "size": 10163699,
           "minOSVersion": "17.0"
         },
         {
@@ -56,9 +56,9 @@
       },
       "version": "1.0.2",
       "versionDate": "2026-10-21T17:58:29Z",
-      "versionDescription": "# Ledger X 1.0.2 开发版\n\n版本 1.0.2 · 构建 10 · main 60e5cc4 。\n\n## 改进\n\n- 月历统一为系统样式：明细月历在日期下用点表示当天有没有支出（主题色）和收入（绿色），只有转账、报销这类不算收支的交易时显示灰点，上方保留当月支出、收入、结余；订阅日历也改成同样的月历，扣费日有点，下面列出当月扣费，点某天只看当天。",
-      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.2-10",
-      "size": 10145477
+      "versionDescription": "# Ledger X 1.0.2 开发版\n\n版本 1.0.2 · 构建 11 · main 4b6b961 。\n\n## 改进\n\n- 月历统一为紧凑样式（外观仿系统，一个月约占屏幕三分之一，日期数字用主题色，翻到别的月份可点「今天」回到本月）：明细月历在日期下用点表示当天有没有支出（主题色）和收入（绿色），只有转账、报销这类不算收支的交易时显示灰点，上方保留当月支出、收入、结余；订阅日历也改成同样的月历，扣费日有点，下面列出当月扣费，点某天只看当天。",
+      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.2-11",
+      "size": 10163699
     }
   ],
   "news": []
