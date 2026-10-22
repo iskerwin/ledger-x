@@ -226,6 +226,7 @@ struct JournalView: View {
                         UserDefaults.standard.set(showCalendar, forKey: Self.calendarKey)
                     } label: {
                         Image(systemName: showCalendar ? "calendar.circle.fill" : "calendar")
+                            .contentTransition(.symbolEffect(.replace))
                     }
                     .accessibilityLabel(showCalendar ? LS("收起月历") : LS("月历"))
                     Button {

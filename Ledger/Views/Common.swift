@@ -59,6 +59,8 @@ struct PrivacyButton: View {
         let on = AppSettings.shared.privacy
         Button { AppSettings.shared.privacy.toggle() } label: {
             Image(systemName: on ? "eye.slash" : "eye")
+                .contentTransition(.symbolEffect(.replace))
+                .animation(AppMotion.quick, value: on)
         }
         .accessibilityLabel(on ? LS("显示金额") : LS("隐藏金额"))
     }
@@ -102,21 +104,41 @@ struct SyncBadge: View {
             HStack(spacing: AppSpacing.detail) {
                 // synced, kept on this phone (waiting or offline), or something to look at
                 let problem = store.pending.contains { $0.failed != nil || $0.held != nil }
-                switch store.syncState {
-                case .syncing: ProgressView().controlSize(.small)
-                case .offline: Image(systemName: "icloud.slash").foregroundStyle(.orange)
-                case .error: Image(systemName: "exclamationmark.icloud").foregroundStyle(.orange)
-                case .idle:
-                    if problem { Image(systemName: "exclamationmark.icloud").foregroundStyle(.orange) }
-                    else if store.pending.isEmpty { Image(systemName: "checkmark.icloud").foregroundStyle(.secondary) }
-                    else { Image(systemName: "icloud.and.arrow.up").foregroundStyle(.orange) }
+                // one icon whose symbol changes in place (the system's replace transition), turning while it syncs
+                // (iOS 18; a spinner before that)
+                let state: (symbol: String, color: Color) = {
+                    switch store.syncState {
+                    case .syncing: return ("arrow.triangle.2.circlepath.icloud", .secondary)
+                    case .offline: return ("icloud.slash", .orange)
+                    case .error: return ("exclamationmark.icloud", .orange)
+                    case .idle:
+                        if problem { return ("exclamationmark.icloud", .orange) }
+                        return store.pending.isEmpty ? ("checkmark.icloud", .secondary) : ("icloud.and.arrow.up", .orange)
+                    }
+                }()
+                if store.syncState == .syncing, #unavailable(iOS 18.0) {
+                    ProgressView().controlSize(.small)
+                } else {
+                    syncIcon(state.symbol, syncing: store.syncState == .syncing)
+                        .foregroundStyle(state.color)
+                        .contentTransition(.symbolEffect(.replace))
+                        .animation(AppMotion.quick, value: state.symbol)
                 }
                 let n = store.pending.filter { $0.failed == nil && $0.held == nil }.count
-                if n > 0 { Text("\(n)").font(.caption.monospacedDigit()).foregroundStyle(.orange) }
+                if n > 0 { Text("\(n)").font(.caption.monospacedDigit()).foregroundStyle(.orange).rollingNumber(n, AppMotion.quick) }
             }
         }
         .accessibilityLabel(statusText)
     }
+    @ViewBuilder
+    private func syncIcon(_ symbol: String, syncing: Bool) -> some View {
+        if #available(iOS 18.0, *) {
+            Image(systemName: symbol).symbolEffect(.rotate, isActive: syncing)
+        } else {
+            Image(systemName: symbol)
+        }
+    }
+
     var statusText: String {
         switch store.syncState {
         case .syncing: return LS("同步中")
