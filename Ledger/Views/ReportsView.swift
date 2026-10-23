@@ -267,6 +267,7 @@ struct AccountTreeRows: View {
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.borderless)
+                        .accessibilityLabel(expanded.contains(node.name) ? LS("收起 %@", node.name) : LS("展开 %@", node.name))
                     } else {
                         Color.clear.frame(width: 18, height: 1)
                     }

@@ -1539,6 +1539,7 @@ private struct MarkEditor: View {
                                 Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel(LS("删除标签 %@", "#" + t))
                         }
                     }
                     HStack(spacing: AppSpacing.control) {

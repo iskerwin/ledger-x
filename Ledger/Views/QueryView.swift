@@ -158,6 +158,7 @@ struct QueryEditorView: View {
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
+            .accessibilityLabel(LS("更多"))
         }
     }
 

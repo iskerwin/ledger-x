@@ -237,8 +237,10 @@ struct OverviewView: View {
                     .frame(width: 110)
                     Spacer()
                     Button { monthForward = false; month = head.yearMode ? Day.addMonth(month, -12) : Day.addMonth(month, -1) } label: { Image(systemName: "chevron.left") }
+                        .accessibilityLabel(head.yearMode ? LS("上一年") : LS("上个月"))
                     SlidingTitle(text: head.label, forward: monthForward).font(.headline).frame(minWidth: 96)
                     Button { monthForward = true; month = head.yearMode ? Day.addMonth(month, 12) : Day.addMonth(month, 1) } label: { Image(systemName: "chevron.right") }
+                        .accessibilityLabel(head.yearMode ? LS("下一年") : LS("下个月"))
                 }
                 .buttonStyle(.borderless)
                 .listRowBackground(Color.clear)

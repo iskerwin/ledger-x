@@ -2131,5 +2131,10 @@
  "开始于": "Started",
  "试用到期": "Trial ends",
  "付款账户按最近一次扣费。": "Paid From follows the latest charge.",
- "收付款方、摘要、金额、日期": "Payee, narration, amount, date"
+ "收付款方、摘要、金额、日期": "Payee, narration, amount, date",
+ "收起 %@": "Collapse %@",
+ "展开 %@": "Expand %@",
+ "删除标签 %@": "Remove tag %@",
+ "上一年": "Previous year",
+ "下一年": "Next year"
 }

@@ -802,9 +802,12 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(hero.staticTexts["本年支出"].waitForNonExistence(timeout: 5))
         let income = hero.staticTexts["收入"]
         XCTAssertTrue(income.exists)
+        // the arrows are read for what they do (they were read as 返回 / 前进)
+        XCTAssertTrue(app.buttons["上个月"].exists && app.buttons["下个月"].exists)
         let before = income.frame.minY
         app.buttons["年"].tap()
         XCTAssertTrue(hero.staticTexts["本年支出"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["上一年"].exists && app.buttons["下一年"].exists)
         XCTAssertEqual(income.frame.minY, before, accuracy: 0.5)
     }
 

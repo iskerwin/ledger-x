@@ -50,10 +50,12 @@ struct ReportsInsights: View {
         return HStack(spacing: AppSpacing.icon) {
             HStack(spacing: AppSpacing.control) {
                 Button { monthForward = false; month = Day.addMonth(month, -1) } label: { Image(systemName: "chevron.left") }
+                    .accessibilityLabel(LS("上个月"))
                 Spacer()
                 SlidingTitle(text: Day.monthLabel(month), forward: monthForward).font(.headline)
                 Spacer()
                 Button { monthForward = true; month = Day.addMonth(month, 1) } label: { Image(systemName: "chevron.right") }
+                    .accessibilityLabel(LS("下个月"))
                     .disabled(month >= now)
             }
             .buttonStyle(.plain)

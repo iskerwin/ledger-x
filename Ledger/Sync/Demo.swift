@@ -185,6 +185,7 @@ struct DemoBanner: View {
                     Menu {
                         Button(role: .destructive) { confirmReset = true } label: { Label(LS("重置演示账本"), systemImage: "arrow.counterclockwise") }
                     } label: { Image(systemName: "ellipsis.circle").foregroundStyle(.secondary) }
+                    .accessibilityLabel(LS("更多"))
                 }
                 if store.demoBusy { ProgressView(LS("正在下载演示账本…")) }
                 else if store.demoUpdate != nil {
