@@ -98,3 +98,6 @@ class ReleaseNotesTests(unittest.TestCase):
         self.assertTrue(mirror['iconURL'].startswith('https://gh-proxy.com/https://raw.githubusercontent.com/'))
         self.assertEqual(mirror['identifier'], 'com.example.ledger-x.dev.mirror')
         self.assertNotIn('gh-proxy', json.dumps(source))
+    def test_notes_give_the_ipa_sha256(self):
+        text = notes.render(BASE, '', 'example/ledger-x', 'a' * 40, '1.0.0', '7.2', PROOF, 'dev', ipa_sha256='b' * 64)
+        self.assertIn('安装包 SHA256：`' + 'b' * 64 + '`', text)

@@ -44,7 +44,7 @@
 
 ## 安装
 
-Ledger X 通过 IPA 源安装：在 SideStore、AltStore 或 Zeus 等工具里添加下面任一地址，用你自己的 Apple ID 签名（不经 App Store / TestFlight）。国内网络建议用镜像，安装包也会经镜像下载。镜像由第三方代理（gh-proxy.com）转发，信任程度低于 GitHub 直连；能直连时优先用 GitHub 地址。
+Ledger X 通过 IPA 源安装：在 SideStore、AltStore 或 Zeus 等工具里添加下面任一地址，用你自己的 Apple ID 签名（不经 App Store / TestFlight）。国内网络建议用镜像，安装包也会经镜像下载。镜像由第三方代理（gh-proxy.com）转发，信任程度低于 GitHub 直连；能直连时优先用 GitHub 地址。两种源里每个版本都带着安装包的 SHA256（与 Release 页面和发布说明里的一致），安装工具会据此核对下载的安装包。
 
 用免费 Apple ID 签名的 App 每 7 天到期，到期后打不开。在 SideStore / AltStore 里刷新（Refresh）即可继续用，账本、草稿和设置都留在手机上，不会丢；保持刷新工具在后台自动刷新，就不用手动处理。
 

@@ -49,7 +49,7 @@ def changes(current, previous, version):
     return result
 
 
-def render(current, previous, repo, sha, version, build, proof, channel="dev"):
+def render(current, previous, repo, sha, version, build, proof, channel="dev", ipa_sha256=None):
     label = {"dev": "开发版", "release": "正式版"}[channel]
     updates = changes(current, previous, version)
     parts = [f'# Ledger X {version} {label}', f'版本 {version} · 构建 {build} · main {sha[:7]} 。']
@@ -68,6 +68,7 @@ def render(current, previous, repo, sha, version, build, proof, channel="dev"):
               f'{proof["interaction_tests"]} 项（{proof["xcode"]}，{proof["simulator"]}）；'
               'iOS 设备 Release 编译、签名与安装包完整性检查已通过。'
               + ('手机验收已由 Kerwin 完成。' if channel == 'release' else '手机验收待 Kerwin 执行。'),
+              *([f'- 安装包 SHA256：`{ipa_sha256}`（经镜像下载时可用它核对，IPA 源里也带着同一个值）'] if ipa_sha256 else []),
               f'- [源码提交](https://github.com/{repo}/commit/{sha})',
               f'安装更新前先备份并确认未同步内容；安装后按 [手机验收清单](https://github.com/{repo}/blob/{sha}/docs/development/06-手机验收清单.md) 验证。']
     return '\n\n'.join(parts) + '\n'

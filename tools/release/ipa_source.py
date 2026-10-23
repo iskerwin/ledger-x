@@ -51,7 +51,7 @@ def entry(r, version, desc):
     if not ipa:
         return None
     m = re.search(r"构建 (\d+(?:\.\d+)*)", r.get("body") or "")
-    return {
+    version = {
         "version": version,
         "buildVersion": m.group(1) if m else "",
         "date": r.get("published_at") or r["created_at"],
@@ -60,6 +60,12 @@ def entry(r, version, desc):
         "size": ipa["size"],
         "minOSVersion": "17.0",
     }
+    # GitHub's own digest of the uploaded IPA: the installer checks the download against it, so a proxy (the
+    # mirror) cannot hand out another package unnoticed
+    digest = ipa.get("digest") or ""
+    if digest.startswith("sha256:"):
+        version["sha256"] = digest.removeprefix("sha256:")
+    return version
 
 
 def notes(body):

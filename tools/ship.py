@@ -570,7 +570,7 @@ def ship_dev():
 
     step('发布开发版')
     notes = release_notes.render((ROOT / 'CHANGELOG.md').read_text(), release_notes.previous_changelog(repo),
-                                 repo, sha, version, build, proof)
+                                 repo, sha, version, build, proof, ipa_sha256=manifest['sha256'])
     (DIST / 'release-notes.md').write_text(notes)
     assets = [DIST / name for name in FILES]
     title = f'Ledger X {version} 开发版'
@@ -604,7 +604,8 @@ def ship_release():
         # Complete version notes from the exact source, not the rolling dev delta.
         changelog = git('show', f'{manifest["source_sha"]}:CHANGELOG.md')
         (folder/'release-notes.md').write_text(release_notes.render(
-            changelog, '', repo, manifest['source_sha'], manifest['version'], manifest['build'], proof, channel='release'))
+            changelog, '', repo, manifest['source_sha'], manifest['version'], manifest['build'], proof, channel='release',
+            ipa_sha256=manifest['sha256']))
         step(f'发布正式版 {tag}')
         publish(repo, tag, folder, manifest, folder/'release-notes.md')
     update_sources(repo)

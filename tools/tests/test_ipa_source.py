@@ -16,7 +16,8 @@ TAGS = 'aaa\trefs/tags/dev\nbbb\trefs/tags/v1.0.1\nccc\trefs/tags/v1.0.1^{}\n'
 def release(tag, body, prerelease=False):
     return {'tag_name': tag, 'draft': False, 'prerelease': prerelease, 'body': body,
             'published_at': '2026-10-22T00:00:00Z', 'created_at': '2026-10-22T00:00:00Z',
-            'assets': [{'name': 'Ledger.ipa', 'browser_download_url': f'https://example.invalid/{tag}/Ledger.ipa', 'size': 1}]}
+            'assets': [{'name': 'Ledger.ipa', 'browser_download_url': f'https://example.invalid/{tag}/Ledger.ipa', 'size': 1,
+                        'digest': 'sha256:' + tag.encode().hex().ljust(64, '0')}]}
 
 
 class IpaSourceTests(unittest.TestCase):
@@ -73,6 +74,16 @@ class IpaSourceTests(unittest.TestCase):
             self.assertEqual(versions, [('1.0.2', '11'), ('1.0.1', '6')])
             release_source = json.loads((Path(out) / 'mirror/release.json').read_text())
             self.assertEqual([v['version'] for v in release_source['apps'][0]['versions']], ['1.0.1'])
+
+    def test_every_version_carries_the_ipa_sha256(self):
+        # the installer checks the downloaded package against it, so a proxy (the mirror) cannot swap the IPA unseen
+        releases = [release('dev', '版本 1.0.2 · 构建 11 ·', True), release('v1.0.1', '版本 1.0.1 · 构建 6 ·')]
+        with tempfile.TemporaryDirectory() as out:
+            self.run_script(releases, out)
+            for name in ('dev.json', 'release.json', 'mirror/dev.json', 'mirror/release.json'):
+                for v in json.loads((Path(out) / name).read_text())['apps'][0]['versions']:
+                    tag = 'dev' if v['buildVersion'] == '11' else 'v1.0.1'
+                    self.assertEqual(v['sha256'], tag.encode().hex().ljust(64, '0'), name)
 
 
 if __name__ == '__main__':
