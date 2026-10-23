@@ -493,7 +493,7 @@ struct TemplateChip: View {
                 .accessibilityLabel(LS("直接入账：%@", x.label))
             }
         }
-        .background(x.due ? Color.warn.opacity(0.12) : Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: AppRadius.control))
+        .background(x.due ? Color.warn.soft : Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: AppRadius.control))
     }
 }
 

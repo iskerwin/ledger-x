@@ -317,7 +317,7 @@ struct ImportView: View {
                         }
                         .font(.subheadline)
                         .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.control)
-                        .background(Color.warn.opacity(0.12), in: RoundedRectangle(cornerRadius: AppRadius.panel, style: .continuous))
+                        .background(Color.warn.soft, in: RoundedRectangle(cornerRadius: AppRadius.panel, style: .continuous))
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)

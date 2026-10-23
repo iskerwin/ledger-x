@@ -250,7 +250,7 @@ struct DemoEntryCard: View {
                     Image(systemName: "sparkles")
                         .font(.system(size: 18, weight: .semibold)).foregroundStyle(Color.jade)
                         .frame(width: 40, height: 40)
-                        .background(Color.jade.opacity(0.13), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                        .background(Color.jade.soft, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(LS("演示账本")).font(.subheadline.weight(.semibold))
                         Text(LS("看看完整功能用起来的样子，数据均为虚构")).font(.caption).foregroundStyle(.secondary).lineLimit(2)

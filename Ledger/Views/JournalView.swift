@@ -787,7 +787,7 @@ struct TxDetailView: View {
                     .font(.system(size: 26))
                     .foregroundStyle(Color.jade)
                     .frame(width: 60, height: 60)
-                    .background(Color.jade.opacity(0.13), in: Circle())
+                    .background(Color.jade.soft, in: Circle())
                 Text(t.payee.isEmpty ? (t.narration.isEmpty ? LS("交易") : t.narration) : t.payee)
                     .font(.title3.weight(.semibold)).multilineTextAlignment(.center)
                 Group {
@@ -1157,7 +1157,7 @@ struct FlowChips: View {
                     .font(.footnote.weight(.medium))
                     .padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.icon)
                     .foregroundStyle(Color.jade)
-                    .background(Color.jade.opacity(0.12), in: Capsule())
+                    .background(Color.jade.soft, in: Capsule())
                 }
                 .buttonStyle(.plain)
             }

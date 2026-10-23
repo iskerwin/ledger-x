@@ -201,7 +201,7 @@ struct MonthCalendar: View {
         Text(LS("今天")).font(.subheadline.weight(.semibold))
             .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.detail)
             .foregroundStyle(Color.jade)
-            .background(Color.jade.opacity(0.14), in: Capsule())
+            .background(Color.jade.soft, in: Capsule())
     }
 
     private func step(_ k: Int) {
@@ -247,7 +247,7 @@ struct MonthCalendar: View {
                     // the days in the theme colour; today on a light disc, the open day on a full one, the rest greyed
                     .foregroundStyle(isSelected ? Color.onJade : open ? Color.jade : Color.secondary.opacity(0.45))
                     .frame(width: 30, height: 30)
-                    .background(isSelected ? Color.jade : isToday ? Color.jade.opacity(0.15) : Color.clear, in: Circle())
+                    .background(isSelected ? Color.jade : isToday ? Color.jade.soft : Color.clear, in: Circle())
                 HStack(spacing: 3) {
                     ForEach(Array(dots.prefix(3).enumerated()), id: \.offset) { _, c in Circle().fill(c).frame(width: 5, height: 5) }
                 }

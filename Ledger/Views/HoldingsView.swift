@@ -163,7 +163,7 @@ struct HoldingsView: View {
                                     Text(String(format: "%@%.1f%%", up ? "+" : "", (value - cost) / cost * 100))
                                         .font(.caption.weight(.semibold).monospacedDigit())
                                         .padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.detail)
-                                        .background((up ? Color.gain : Color.loss).opacity(0.14), in: Capsule())
+                                        .background((up ? Color.gain : Color.loss).soft, in: Capsule())
                                         .foregroundStyle(up ? Color.gain : Color.loss)
                                 }
                             }
@@ -204,7 +204,7 @@ struct HoldingsView: View {
                         .lineLimit(1).minimumScaleFactor(0.6)
                         .foregroundStyle(Color.jade)
                         .frame(width: 40, height: 40)
-                        .background(Color.jade.opacity(0.12), in: Circle())
+                        .background(Color.jade.soft, in: Circle())
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(r.c).font(.headline)
                         Text(acctLabel(r.acct) + " · " + Self.marketName(r.q)).font(.caption).foregroundStyle(.secondary).lineLimit(1)

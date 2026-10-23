@@ -135,7 +135,7 @@ struct SettingsView: View {
                         .font(.system(size: 26))
                         .foregroundStyle(Color.jade)
                         .frame(width: 54, height: 54)
-                        .background(Color.jade.opacity(0.13), in: RoundedRectangle(cornerRadius: AppRadius.panel, style: .continuous))
+                        .background(Color.jade.soft, in: RoundedRectangle(cornerRadius: AppRadius.panel, style: .continuous))
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(store.cfg.title).font(.headline)
                         Text(store.cfg.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)

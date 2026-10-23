@@ -120,7 +120,7 @@ struct SyncView: View {
                     if !store.pending.isEmpty { Text(LS("%@ 项变更等待同步", store.pending.count)).font(.subheadline).foregroundStyle(.secondary) }
                     if store.syncState == .offline {
                         Text(LS("离线")).font(.caption.weight(.semibold)).padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.detail)
-                            .foregroundStyle(Color.warn).background(Color.warn.opacity(0.15), in: Capsule())
+                            .foregroundStyle(Color.warn).background(Color.warn.soft, in: Capsule())
                     }
                     if let d = store.lastSync {
                         Text(LS("上次同步 %@", d.formatted(date: .abbreviated, time: .shortened))).font(.caption).foregroundStyle(.secondary)
@@ -167,7 +167,7 @@ struct SyncView: View {
                 VStack(alignment: .trailing, spacing: AppSpacing.detail) {
                     if let a = o.amountText, !a.isEmpty { Text(masked(a)).monospacedDigit().foregroundStyle(.primary).sensitive() }
                     Text(state.0).font(.caption2.weight(.semibold)).padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.detail)
-                        .foregroundStyle(state.1).background(state.1.opacity(0.14), in: Capsule())
+                        .foregroundStyle(state.1).background(state.1.soft, in: Capsule())
                 }
             }
             .contentShape(Rectangle())

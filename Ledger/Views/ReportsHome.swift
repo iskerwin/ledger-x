@@ -66,7 +66,7 @@ struct ReportsInsights: View {
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
                     .foregroundStyle(Color.jade)
-                    .background(Color.jade.opacity(0.14), in: Capsule())
+                    .background(Color.jade.soft, in: Capsule())
                     .buttonStyle(.plain)
             }
         }
@@ -196,7 +196,7 @@ struct ReportsInsights: View {
                             .font(.subheadline.weight(.medium))
                             .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
                             .foregroundStyle(Color.jade)
-                            .background(Color.jade.opacity(0.14), in: Capsule())
+                            .background(Color.jade.soft, in: Capsule())
                             .buttonStyle(.plain)
                         }
                     }

@@ -111,6 +111,11 @@ extension Color {
 }
 
 /// a round-rect SF Symbol badge, like the Settings app
+extension Color {
+    /// the light tint behind a badge, a chip or a notice in this colour: one strength everywhere (it was 0.12–0.15)
+    var soft: Color { opacity(0.14) }
+}
+
 struct IconBadge: View {
     let symbol: String
     var color: Color = .jade

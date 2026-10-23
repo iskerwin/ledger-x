@@ -51,7 +51,7 @@ struct CardHeroSection: View {
                             .font(.caption.weight(.semibold))
                             .padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.icon)
                             .foregroundStyle(look.color)
-                            .background(look.color.opacity(0.14), in: Capsule())
+                            .background(look.color.soft, in: Capsule())
                         Text(LS("还款日 %@", (c.dueEstimated ? "≈ " : "") + shortDay(c.due))).font(.caption).foregroundStyle(.secondary)
                     }
                 }

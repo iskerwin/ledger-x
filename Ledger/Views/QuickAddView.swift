@@ -389,7 +389,7 @@ struct QuickAddView: View {
                             .font(.footnote)
                             .padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.icon)
                             .foregroundStyle(x.due ? Color.warn : Color.primary)
-                            .background(x.due ? Color.warn.opacity(0.14) : Color(.secondarySystemGroupedBackground), in: Capsule())
+                            .background(x.due ? Color.warn.soft : Color(.secondarySystemGroupedBackground), in: Capsule())
                         }
                         .buttonStyle(PressStyle())
                         .contextMenu {
@@ -572,7 +572,7 @@ struct QuickAddView: View {
                     let mark = accountMark(store, a)
                     Image(systemName: mark.symbol).font(.body.weight(.semibold)).foregroundStyle(mark.color)
                         .frame(width: 36, height: 36)
-                        .background(mark.color.opacity(0.14), in: Circle())
+                        .background(mark.color.soft, in: Circle())
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(accountTitle(L, a)).font(.body.weight(.medium)).foregroundStyle(.primary).lineLimit(1)
                         Text(transferDetail(a, currency: currency, change: change, arriving: arriving, L))

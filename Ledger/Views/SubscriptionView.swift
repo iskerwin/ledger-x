@@ -557,7 +557,7 @@ struct SubscriptionDetailView: View {
                     .font(.system(size: 26))
                     .foregroundStyle(Color.jade)
                     .frame(width: 60, height: 60)
-                    .background(Color.jade.opacity(0.13), in: Circle())
+                    .background(Color.jade.soft, in: Circle())
                 Text(s.name).font(.title3.weight(.semibold)).multilineTextAlignment(.center)
                 Text(money(s.amount, s.currency))
                     .heroAmount().monospacedDigit()

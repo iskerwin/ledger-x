@@ -295,7 +295,7 @@ struct AccountsView: View {
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(color)
                 .frame(width: 40, height: 40)
-                .background(color.opacity(0.13), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                .background(color.soft, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
             VStack(alignment: .leading, spacing: AppSpacing.detail) {
                 Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).lineLimit(1).minimumScaleFactor(0.75)
                 Text(line).font(.caption.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.75)
@@ -441,12 +441,12 @@ struct AccountRow: View {
                             Text(look.text)
                                 .font(.caption2.weight(.semibold)).foregroundStyle(look.color)
                                 .padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.detail)
-                                .background(look.color.opacity(0.15), in: RoundedRectangle(cornerRadius: AppRadius.mini))
+                                .background(look.color.soft, in: RoundedRectangle(cornerRadius: AppRadius.mini))
                         } else if days >= 0 && days <= 7 {
                             Text(days == 0 ? LS("今天") : LS("%@天后", days))
                                 .font(.caption2.weight(.semibold)).foregroundStyle(Color.warn)
                                 .padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.detail)
-                                .background(Color.warn.opacity(0.15), in: RoundedRectangle(cornerRadius: AppRadius.mini))
+                                .background(Color.warn.soft, in: RoundedRectangle(cornerRadius: AppRadius.mini))
                         }
                     } else {
                         Text(subtitle(leafName)).lineLimit(1)
