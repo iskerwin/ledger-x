@@ -1613,6 +1613,9 @@ struct KeyCap: View {
     var soft = false
     let tap: () -> Void
     var hold: (() -> Void)? = nil
+    /// a finger on the key: its face darkens a step while held. Colour only — the keys never move or change size,
+    /// so fast typing lands where it aims.
+    @State private var pressed = false
 
     private var color: Color { tint ?? Color.jade }
     private var ink: Color {
@@ -1639,11 +1642,12 @@ struct KeyCap: View {
         .frame(height: 50)
         .foregroundStyle(ink)
         .background(fill, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(pressed ? 0.1 : 0)))
         .contentShape(RoundedRectangle(cornerRadius: 12))
         .onTapGesture(perform: tap)
         .onLongPressGesture(minimumDuration: 0.45) {
             if let h = hold { Haptics.selection(); h() } else { tap() }
-        }
+        } onPressingChanged: { pressed = $0 }
         .accessibilityElement()
         .accessibilityLabel(label ?? text ?? "")
         .accessibilityAddTraits(.isButton)

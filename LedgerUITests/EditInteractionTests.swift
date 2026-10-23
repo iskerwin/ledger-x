@@ -922,4 +922,16 @@ final class EditInteractionTests: XCTestCase {
         app.sheets.buttons["移除"].firstMatch.tap()
         XCTAssertTrue(row.waitForNonExistence(timeout: 5))
     }
+
+    /// The keypad's long presses still work with the keys' pressed look: hold + for ×, hold ⌫ to clear
+    func testKeypadLongPressesStillTypeAndClear() {
+        let app = launch()   // 12 typed
+        let amount = app.staticTexts["金额"]
+        XCTAssertTrue(amount.waitForExistence(timeout: 5))
+        app.buttons["加，长按为乘"].press(forDuration: 0.8)
+        app.buttons["3"].tap()
+        XCTAssertEqual(amount.value as? String, "12×3")
+        app.buttons["退格"].press(forDuration: 0.8)
+        XCTAssertEqual(amount.value as? String, "0")
+    }
 }
