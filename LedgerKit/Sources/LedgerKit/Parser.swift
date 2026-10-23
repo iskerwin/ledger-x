@@ -56,18 +56,21 @@ public func parseFile(_ text: String, file: String) -> ParseResult {
     let rawScalars = raw.map(scalars)
 
     // logical lines (join multi-line strings)
-    struct LL { var s: [US]; var start: Int; var end: Int }
+    // A string left open is not carried past the next dated line (or the end of the file): that entry is reported
+    // and left out, and everything after it is still read. Joining on until a line with an odd number of quotes
+    // swallowed every entry in between.
+    struct LL { var s: [US]; var start: Int; var end: Int; var unclosed = false }
     var lines: [LL] = []
     var i = 0
     while i < rawScalars.count {
         var s = rawScalars[i]
         let start = i
-        while quoteOpen(s) && i + 1 < rawScalars.count {
+        while quoteOpen(s) && i + 1 < rawScalars.count && dateAt(rawScalars[i + 1], 0) == nil {
             i += 1
             s.append("\n")
             s.append(contentsOf: rawScalars[i])
         }
-        lines.append(LL(s: s, start: start, end: i))
+        lines.append(LL(s: s, start: start, end: i, unclosed: quoteOpen(s)))
         i += 1
     }
 
@@ -88,6 +91,11 @@ public func parseFile(_ text: String, file: String) -> ParseResult {
     for ln in lines {
         let full = ln.s
         if isBlank(full) { flush(); continue }
+        if ln.unclosed {
+            flush()
+            err(ln, tr("引号没有闭合，这一条没有读入", "A quote is not closed; this entry was left out"))
+            continue
+        }
         let indented = full[0] == " " || full[0] == "\t"
         if !indented {
             flush()
