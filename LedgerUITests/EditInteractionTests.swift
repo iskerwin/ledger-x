@@ -103,8 +103,11 @@ final class EditInteractionTests: XCTestCase {
     func testSwipeToDismissOffersTheSameUnsavedChangesChoices() {
         let app = launch()
         XCTAssertTrue(app.buttons["关闭"].waitForExistence(timeout: 20))
-        // Anchor the drag to the visible sheet, not a background navigation bar.
-        let start = app.buttons["关闭"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        // Drag the sheet by its grabber. Starting on 关闭 was sometimes taken as holding that button, and the sheet
+        // never moved (one full run in a few).
+        let grabber = app.buttons["表单控制柄"]
+        XCTAssertTrue(grabber.waitForExistence(timeout: 5))
+        let start = grabber.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9))
         start.press(forDuration: 0.15, thenDragTo: end)
         let confirmation = app.buttons["继续编辑"].waitForExistence(timeout: 5)
