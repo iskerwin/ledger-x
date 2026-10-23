@@ -441,12 +441,12 @@ struct AccountRow: View {
                             Text(look.text)
                                 .font(.caption2.weight(.semibold)).foregroundStyle(look.color)
                                 .padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.detail)
-                                .background(look.color.opacity(0.15), in: RoundedRectangle(cornerRadius: 4))
+                                .background(look.color.opacity(0.15), in: RoundedRectangle(cornerRadius: AppRadius.mini))
                         } else if days >= 0 && days <= 7 {
                             Text(days == 0 ? LS("今天") : LS("%@天后", days))
                                 .font(.caption2.weight(.semibold)).foregroundStyle(Color.warn)
                                 .padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.detail)
-                                .background(Color.warn.opacity(0.15), in: RoundedRectangle(cornerRadius: 4))
+                                .background(Color.warn.opacity(0.15), in: RoundedRectangle(cornerRadius: AppRadius.mini))
                         }
                     } else {
                         Text(subtitle(leafName)).lineLimit(1)
@@ -955,7 +955,7 @@ struct CheckSheet: View {
                     actual = t.hasPrefix("-") ? String(t.dropFirst()) : "-" + t
                     armed = false
                 } label: {
-                    Text("±").font(.title3).frame(width: 38, height: 34).background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 8))
+                    Text("±").font(.title3).frame(width: 38, height: 34).background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: AppRadius.tile))
                 }
                 .buttonStyle(.plain)
                 TextField(account.hasPrefix("Liabilities") ? LS("负债以负数填写，如 -1200") : LS("金融机构显示的实际余额"), text: $actual)

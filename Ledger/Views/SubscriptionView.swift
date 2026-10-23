@@ -579,7 +579,7 @@ struct SubscriptionDetailView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, AppSpacing.content)
             .padding(.horizontal, AppSpacing.content)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
             .cardRow()
         }
     }

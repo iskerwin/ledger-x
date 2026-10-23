@@ -21,7 +21,7 @@ struct SettingsView: View {
             if first {
                 Section {
                     VStack(alignment: .leading, spacing: AppSpacing.icon) {
-                        Image("Logo").resizable().frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: 14))
+                        Image("Logo").resizable().frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: AppRadius.panel))
                         Text("Ledger X").font(.largeTitle.bold())
                         Text(LS("连接你的 Beancount 账本：GitHub、GitLab、Gitea 仓库，「文件」App 中的文件夹，或 WebDAV。账本数据只在本机与你选择的存储之间传输。")).foregroundStyle(.secondary)
                     }
@@ -135,7 +135,7 @@ struct SettingsView: View {
                         .font(.system(size: 26))
                         .foregroundStyle(Color.jade)
                         .frame(width: 54, height: 54)
-                        .background(Color.jade.opacity(0.13), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(Color.jade.opacity(0.13), in: RoundedRectangle(cornerRadius: AppRadius.panel, style: .continuous))
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(store.cfg.title).font(.headline)
                         Text(store.cfg.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)

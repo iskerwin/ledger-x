@@ -936,7 +936,7 @@ struct RowEditor: View {
                     let a = row.amount.trimmed
                     row.amount = a.hasPrefix("-") ? String(a.dropFirst()) : "-" + a
                 } label: {
-                    Text("±").font(.headline).frame(width: 34, height: 30).background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 8))
+                    Text("±").font(.headline).frame(width: 34, height: 30).background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: AppRadius.tile))
                 }
                 .buttonStyle(.plain)
                 TextField(LS("自动补平"), text: $row.amount)

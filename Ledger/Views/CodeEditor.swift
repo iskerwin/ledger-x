@@ -349,7 +349,7 @@ struct CodeThemePicker: View {
             .fixedSize(horizontal: false, vertical: true)
             .padding(AppSpacing.icon)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(t.background.map { Color(uiColor: $0) } ?? Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 8))
+            .background(t.background.map { Color(uiColor: $0) } ?? Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: AppRadius.tile))
             .environment(\.colorScheme, t.forcesDark ? .dark : colorScheme)
     }
     @Environment(\.colorScheme) private var colorScheme

@@ -198,7 +198,7 @@ struct DemoBanner: View {
                             .buttonStyle(.bordered).tint(.jade).controlSize(.small)
                     }
                     .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
-                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous))
                 }
                 Text(LS("数据均为虚构，可以随意记账、修改，随时重置。觉得合适，就用它的账户和分类新建一个空账本。"))
                     .font(.footnote).foregroundStyle(.secondary)
@@ -220,8 +220,8 @@ struct DemoBanner: View {
                 .font(.subheadline.weight(.semibold))
             }
             .padding(AppSpacing.content)
-            .background(Color.jade.opacity(0.08), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Color.jade.opacity(0.25), lineWidth: 1))
+            .background(Color.jade.opacity(0.08), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous).stroke(Color.jade.opacity(0.25), lineWidth: 1))
             .cardRow()
         }
         .confirmationDialog(LS("重置演示账本？会下载最新版本（连不上时恢复为 App 内置的版本），在里面记的和改的都会清除。"), isPresented: $confirmReset, titleVisibility: .visible) {

@@ -143,7 +143,7 @@ struct Tag: View {
     var warn = false
     var body: some View {
         Text(text).font(.caption2.weight(.medium)).padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.detail)
-            .background(warn ? Color.warn.opacity(0.18) : Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 4))
+            .background(warn ? Color.warn.opacity(0.18) : Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: AppRadius.mini))
             .foregroundStyle(warn ? Color.warn : Color.secondary)
             .lineLimit(1)
     }
@@ -817,7 +817,7 @@ struct TxDetailView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, AppSpacing.content)
             .padding(.horizontal, AppSpacing.content)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
             .cardRow()
         }
     }

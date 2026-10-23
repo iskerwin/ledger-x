@@ -98,7 +98,7 @@ struct ScanBanner: View {
         }
         .padding(AppSpacing.control)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.panel))
         .sheet(isPresented: $showText) { ScanResultView(result: ScanResult(boxes: info.boxes)) }
     }
 }

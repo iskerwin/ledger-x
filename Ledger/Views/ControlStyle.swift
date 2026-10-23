@@ -11,6 +11,15 @@ enum AppSpacing {
     static let content: CGFloat = 16
 }
 
+/// Corner radii: a card 22, a panel inside one 14, a key or a control 12, a tile 8, a tiny mark 4
+enum AppRadius {
+    static let card: CGFloat = 22
+    static let panel: CGFloat = 14
+    static let control: CGFloat = 12
+    static let tile: CGFloat = 8
+    static let mini: CGFloat = 4
+}
+
 extension View {
     /// a figure that rolls to its new value digit by digit instead of jumping (a month, a currency, a save changed it)
     func rollingNumber<V: Equatable>(_ value: V, _ motion: Animation = AppMotion.standard) -> some View {

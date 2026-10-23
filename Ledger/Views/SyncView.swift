@@ -129,7 +129,7 @@ struct SyncView: View {
                 Spacer(minLength: 0)
             }
             .padding(AppSpacing.content)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
             .cardRow()
         }
     }
@@ -149,7 +149,7 @@ struct SyncView: View {
                     .font(.subheadline).foregroundStyle(Color.warn)
                     .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.control)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.warn.opacity(0.1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(Color.warn.opacity(0.1), in: RoundedRectangle(cornerRadius: AppRadius.panel, style: .continuous))
                     .cardRow()
             }
         }

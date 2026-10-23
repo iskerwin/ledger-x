@@ -653,7 +653,7 @@ struct MonoText: View {
         }
         // a chosen theme: its own background, as a code block
         .padding(.vertical, theme == .system ? 0 : 4)
-        .background(theme.background.map { Color(uiColor: $0) } ?? .clear, in: RoundedRectangle(cornerRadius: 8))
+        .background(theme.background.map { Color(uiColor: $0) } ?? .clear, in: RoundedRectangle(cornerRadius: AppRadius.tile))
         .environment(\.colorScheme, theme.forcesDark ? .dark : colorScheme)
         .sensitive()
     }

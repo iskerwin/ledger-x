@@ -94,8 +94,8 @@ struct CardHeroSection: View {
                     .clipped()
             }
             .padding(AppSpacing.content)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
             .cardRow()
             .listRowSeparator(.hidden, edges: .bottom)
             .background {
@@ -147,7 +147,7 @@ struct CardHeroSection: View {
                 Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
             }
             .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.control)
-            .background(Color.warn.opacity(0.1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(Color.warn.opacity(0.1), in: RoundedRectangle(cornerRadius: AppRadius.panel, style: .continuous))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

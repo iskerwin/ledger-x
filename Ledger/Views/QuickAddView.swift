@@ -363,7 +363,7 @@ struct QuickAddView: View {
         }
         .padding(AppSpacing.content)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.panel))
     }
 
     // MARK: 常用交易
@@ -588,9 +588,9 @@ struct QuickAddView: View {
             .frame(minHeight: 56)
             .background {
                 if a.isEmpty {
-                    RoundedRectangle(cornerRadius: 14).strokeBorder(Color.jade.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+                    RoundedRectangle(cornerRadius: AppRadius.panel).strokeBorder(Color.jade.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
                 } else {
-                    RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground))
+                    RoundedRectangle(cornerRadius: AppRadius.panel).fill(Color(.secondarySystemGroupedBackground))
                 }
             }
             .contentShape(Rectangle())
@@ -1641,9 +1641,9 @@ struct KeyCap: View {
         .frame(maxWidth: .infinity)
         .frame(height: 50)
         .foregroundStyle(ink)
-        .background(fill, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(pressed ? 0.1 : 0)))
-        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .background(fill, in: RoundedRectangle(cornerRadius: AppRadius.control))
+        .overlay(RoundedRectangle(cornerRadius: AppRadius.control).fill(Color.primary.opacity(pressed ? 0.1 : 0)))
+        .contentShape(RoundedRectangle(cornerRadius: AppRadius.control))
         .onTapGesture(perform: tap)
         .onLongPressGesture(minimumDuration: 0.45) {
             if let h = hold { Haptics.selection(); h() } else { tap() }

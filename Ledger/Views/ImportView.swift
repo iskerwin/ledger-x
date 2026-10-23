@@ -56,7 +56,7 @@ struct ImportView: View {
                 } else { PageLoading() }
             }
             .disabled(saving || parsing)
-            .overlay { if parsing { ProgressView(LS("正在读取账单…")).padding(AppSpacing.content).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }
+            .overlay { if parsing { ProgressView(LS("正在读取账单…")).padding(AppSpacing.content).background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppRadius.control)) } }
             .interactiveDismissDisabled(saving)
             .navigationTitle(LS("导入账单"))
             .navigationBarTitleDisplayMode(.inline)
@@ -317,7 +317,7 @@ struct ImportView: View {
                         }
                         .font(.subheadline)
                         .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.control)
-                        .background(Color.warn.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(Color.warn.opacity(0.12), in: RoundedRectangle(cornerRadius: AppRadius.panel, style: .continuous))
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
