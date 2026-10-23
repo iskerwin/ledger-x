@@ -385,6 +385,7 @@ struct SubscriptionsView: View {
             }
             statsSection(all, L, today)
         }
+        .listChanges(store.version)
         .listSectionSpacing(.compact)
     }
 

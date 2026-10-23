@@ -50,6 +50,7 @@ struct SyncView: View {
                 }
             }
         }
+        .listChanges(store.pending.map(\.id))
         .listSectionSpacing(.compact)
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: AppSpacing.icon) {

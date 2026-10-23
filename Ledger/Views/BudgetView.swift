@@ -155,6 +155,7 @@ struct BudgetsView: View {
                 }
             }
         }
+        .listChanges(store.version)
         .listSectionSpacing(.compact)
     }
 

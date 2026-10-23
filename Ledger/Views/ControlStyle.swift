@@ -286,6 +286,20 @@ extension View {
     }
 }
 
+/// Rows coming into or leaving a list (a change saved, removed, synced) slide in and out in step, the same on
+/// every list, instead of the list jumping; 减少动态效果 changes it at once
+private struct ListChanges<V: Equatable>: ViewModifier {
+    let value: V
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    func body(content: Content) -> some View {
+        content.animation(reduceMotion ? nil : AppMotion.standard, value: value)
+    }
+}
+
+extension View {
+    func listChanges(_ value: some Equatable) -> some View { modifier(ListChanges(value: value)) }
+}
+
 /// The ˅ of 显示全部 / 收起: one arrow turning where it is, with the rows it opens, instead of two arrows swapped
 struct TurningChevron: View {
     let open: Bool
