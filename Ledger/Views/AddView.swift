@@ -727,7 +727,7 @@ struct AddForm: View {
                     Label(v.warnings.isEmpty ? LS("校验通过") : v.warnings[0].msg, systemImage: v.warnings.isEmpty ? "checkmark.circle" : "exclamationmark.triangle").labelStyle(ControlLabelStyle())
                         .font(.footnote).foregroundStyle(v.warnings.isEmpty ? Color.gain : Color.warn)
                 } else if let m = v.msg {
-                    Label(m, systemImage: "xmark.octagon").labelStyle(ControlLabelStyle()).font(.footnote).foregroundStyle(Color.loss)
+                    ValidationRow(message: m)
                 }
             }
         } header: {

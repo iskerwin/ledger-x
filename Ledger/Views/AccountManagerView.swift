@@ -263,7 +263,7 @@ struct AccountEditView: View {
                     Label(LS("账户名需以五大类开头，各级以冒号分隔，每级首字母大写，如 Assets:Bank:CMB"), systemImage: "exclamationmark.triangle").labelStyle(ControlLabelStyle())
                         .font(.footnote).foregroundStyle(Color.warn)
                 } else if exists {
-                    Label(LS("该账户已存在"), systemImage: "exclamationmark.triangle").labelStyle(ControlLabelStyle()).font(.footnote).foregroundStyle(Color.warn)
+                    ValidationRow(message: LS("该账户已存在"), warning: true)
                 }
                 parentChips(L)
             } else {

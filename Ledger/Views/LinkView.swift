@@ -287,7 +287,7 @@ struct LinkConfirmView: View {
                             .multilineTextAlignment(.trailing).textInputAutocapitalization(.never).autocorrectionDisabled()
                             .font(.callout.monospaced())
                     }
-                    if !problem.isEmpty { Text(problem).font(.footnote).foregroundStyle(Color.loss) }
+                    if !problem.isEmpty { ValidationRow(message: problem) }
                 } else {
                     LabeledContent(LS("链接"), value: "^" + link)
                 }

@@ -1004,7 +1004,7 @@ struct EditTxView: View {
                     CodeTextView(text: $text, language: .beancount, fontSize: 12.5, fitsContent: true)
                         .frame(minHeight: 200)
                     if v.ok { Label(LS("校验通过"), systemImage: "checkmark.circle").labelStyle(ControlLabelStyle()).font(.footnote).foregroundStyle(Color.gain) }
-                    else if let m = v.msg { Label(m, systemImage: "xmark.octagon").labelStyle(ControlLabelStyle()).font(.footnote).foregroundStyle(Color.loss) }
+                    else if let m = v.msg { ValidationRow(message: m) }
                 } header: {
                     Text(LS("所在文件：%@。改了日期会移到新日期那一天的最后（跨年时移到那一年的文件）；日期不变则留在原位。", path)).textCase(nil)
                 }

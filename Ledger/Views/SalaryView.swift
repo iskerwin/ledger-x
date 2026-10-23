@@ -174,7 +174,7 @@ struct PayslipSheet: View {
                 if text.isEmpty { Text(LS("填写应发金额和收款账户后生成")).font(.footnote).foregroundStyle(.secondary) }
                 else {
                     MonoText(text: text)
-                    if let m = v?.msg, v?.ok == false { Text(m).font(.footnote).foregroundStyle(Color.loss) }
+                    if let m = v?.msg, v?.ok == false { ValidationRow(message: m) }
                 }
             }
             Section {

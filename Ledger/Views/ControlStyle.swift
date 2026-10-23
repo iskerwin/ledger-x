@@ -93,6 +93,18 @@ extension View {
     }
 }
 
+/// What is wrong with a form, under what it would write: an error (red, ✕) blocks saving, a warning (orange, △)
+/// only tells. One look in every form.
+struct ValidationRow: View {
+    let message: String
+    var warning = false
+
+    var body: some View {
+        Label(message, systemImage: warning ? "exclamationmark.triangle" : "xmark.octagon").labelStyle(ControlLabelStyle())
+            .font(.footnote).foregroundStyle(warning ? Color.warn : Color.loss)
+    }
+}
+
 /// A page waiting for the ledger to load: one view, so a better placeholder later changes every page at once
 struct PageLoading: View {
     var body: some View { ProgressView() }

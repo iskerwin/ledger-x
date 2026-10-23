@@ -378,7 +378,7 @@ struct LoanSheet: View {
                     Text(LS("填好对方、金额和账户后生成")).font(.footnote).foregroundStyle(.secondary)
                 } else {
                     MonoText(text: text)
-                    if let m = v?.msg, v?.ok == false { Text(m).font(.footnote).foregroundStyle(Color.loss) }
+                    if let m = v?.msg, v?.ok == false { ValidationRow(message: m) }
                 }
             }
             Section {
@@ -514,7 +514,7 @@ struct SettleSheet: View {
                 if text.isEmpty { Text(LS("选择差额账户后生成")).font(.footnote).foregroundStyle(.secondary) }
                 else {
                     MonoText(text: text)
-                    if let m = v?.msg, v?.ok == false { Text(m).font(.footnote).foregroundStyle(Color.loss) }
+                    if let m = v?.msg, v?.ok == false { ValidationRow(message: m) }
                 }
             }
             Section {
