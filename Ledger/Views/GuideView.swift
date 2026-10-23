@@ -163,6 +163,8 @@ struct GuideView: View {
         Topic(symbol: "chart.bar.xaxis", title: tr("报表", "Reports"), points: [
             tr("报表页有损益表、资产负债表、试算平衡表、预算、现金流预测、订阅、报销、工资、事件、收付款方和值得留意。",
                "Reports has the income statement, balance sheet, trial balance, budgets, forecast, subscriptions, reimbursements, salary, events, payees and things to check."),
+            tr("概览和报表顶部的月份条可以左右滑动换月（向右是上个月），和点箭头一样。趋势图、月度收支图、净资产图和现金流预测图上点按选中一个月（预测图是一天），按住左右滑动依次查看。",
+               "Swipe the month bar at the top of the overview and reports to change month (to the right goes back), as the arrows do. On the trend, monthly, net worth and forecast charts, tap a month (a day on the forecast) to pick it, or hold and slide sideways to go through them."),
             tr("报表、概览、账户页导航栏的币种按钮：上面选看哪些币种（可多选，长按只看一种），下面选原币、按成本、按市值或折算为某种货币，所有页面一起变。对账用原币加单个币种，看总数用折算。",
                "The currency button on reports, the overview and accounts: pick which currencies to see (several, or press and hold for one) and how to value them: units, at cost, at market value or converted to one currency. Every page follows. Use units and one currency to reconcile, converted to see the total."),
             tr("订阅：后来补交的差价左滑那笔扣费选「并入上一期（补差）」，计入累计已付但不算新的一期；服务商延长了期限，就在订阅详情右上角「⋯」→「调整到期日」。",
