@@ -283,32 +283,85 @@ enum BlobCache {
 
 enum Keychain {
     static let service = "ledger.github"
+    /// SecItemAdd; tests stand in a keychain that refuses, as a sideloaded build without a keychain group does
+    static var add: (CFDictionary) -> OSStatus = { SecItemAdd($0, nil) }
 
+    private static func base(_ account: String) -> [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: account]
+    }
+
+    /// Kept on this phone only: not carried to another device by a backup. When the keychain refuses (a sideloaded
+    /// build without a keychain group), the token goes to a protected file of the app's own that backups leave out —
+    /// never into the settings (UserDefaults), where it sat in plain text.
     static func save(_ value: String, account: String = "token") {
-        let base: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: account]
-        SecItemDelete(base as CFDictionary)
-        var add = base
-        add[kSecValueData as String] = Data(value.utf8)
-        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        let st = SecItemAdd(add as CFDictionary, nil)
-        // sideloaded builds can lack a keychain group; fall back to app storage
-        if st != errSecSuccess { UserDefaults.standard.set(value, forKey: "ledger.fallback." + account) }
-        else { UserDefaults.standard.removeObject(forKey: "ledger.fallback." + account) }
+        SecItemDelete(base(account) as CFDictionary)
+        var item = base(account)
+        item[kSecValueData as String] = Data(value.utf8)
+        item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        if add(item as CFDictionary) == errSecSuccess {
+            Fallback.remove(account)
+        } else {
+            Fallback.write(value, account)
+        }
+        UserDefaults.standard.removeObject(forKey: Fallback.legacyKey(account))
     }
 
     static func load(account: String = "token") -> String? {
-        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: account,
-                                kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
+        var q = base(account)
+        q[kSecReturnData as String] = true
+        q[kSecReturnAttributes as String] = true
+        q[kSecMatchLimit as String] = kSecMatchLimitOne
         var out: AnyObject?
-        if SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let d = out as? Data { return String(decoding: d, as: UTF8.self) }
-        guard let v = UserDefaults.standard.string(forKey: "ledger.fallback." + account) else { return nil }
-        // kept outside the Keychain earlier: move it in now if the Keychain works (save removes the copy)
-        if !v.isEmpty { save(v, account: account) }
+        if SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let item = out as? [String: Any], let d = item[kSecValueData as String] as? Data {
+            let v = String(decoding: d, as: UTF8.self)
+            // saved before it was kept to this phone: saved again so a backup no longer carries it
+            if (item[kSecAttrAccessible as String] as? String) != (kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String) { save(v, account: account) }
+            return v
+        }
+        // outside the keychain (a file now, the settings before): moved in now if the keychain works
+        guard let v = Fallback.read(account) ?? UserDefaults.standard.string(forKey: Fallback.legacyKey(account)) else { return nil }
+        save(v, account: account)
         return v
     }
 
-    /// the token could not go into the Keychain and sits unencrypted in the app's settings
+    /// a ledger removed: its token goes, from wherever it was kept
+    static func delete(account: String) {
+        SecItemDelete(base(account) as CFDictionary)
+        Fallback.remove(account)
+        UserDefaults.standard.removeObject(forKey: Fallback.legacyKey(account))
+    }
+
+    /// the token could not go into the keychain and sits in the app's protected file instead
     static func inFallback(account: String = "token") -> Bool {
-        !(UserDefaults.standard.string(forKey: "ledger.fallback." + account) ?? "").isEmpty
+        !(Fallback.read(account) ?? "").isEmpty
+    }
+
+    /// Application Support/Credentials: file protection until first unlock, excluded from backups
+    enum Fallback {
+        static func legacyKey(_ account: String) -> String { "ledger.fallback." + account }
+
+        static func url(_ account: String) -> URL? {
+            guard var dir = try? FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+                .appendingPathComponent("Credentials", isDirectory: true) else { return nil }
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            var keep = URLResourceValues()
+            keep.isExcludedFromBackup = true
+            try? dir.setResourceValues(keep)
+            return dir.appendingPathComponent(account.replacingOccurrences(of: "/", with: "_"))
+        }
+
+        static func write(_ value: String, _ account: String) {
+            guard let u = url(account) else { return }
+            try? Data(value.utf8).write(to: u, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        }
+
+        static func read(_ account: String) -> String? {
+            guard let u = url(account), let d = try? Data(contentsOf: u) else { return nil }
+            return String(decoding: d, as: UTF8.self)
+        }
+
+        static func remove(_ account: String) {
+            if let u = url(account) { try? FileManager.default.removeItem(at: u) }
+        }
     }
 }

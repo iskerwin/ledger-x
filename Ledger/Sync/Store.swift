@@ -396,7 +396,7 @@ final class Store: ObservableObject {
         guard id != cfg.id else { return }
         sources.removeAll { $0.id == id }
         persistSources()
-        Keychain.save("", account: id == "default" ? "token" : "token." + id)
+        Keychain.delete(account: id == "default" ? "token" : "token." + id)
         // everything kept per ledger on this phone (see pk(_:))
         for k in ["pending", "tree", "lastSync", "ci", "history", "draftWorkspace", "pageContexts", "mainFile", "journalPattern", "receivable", "subsFile",
                   "sub.ignored", "link.ignored", "remind.cards", "alerts.dismissed", "alerts.seen", "backup.last", "config.migrated"] {

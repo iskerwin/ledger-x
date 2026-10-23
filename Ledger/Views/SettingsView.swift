@@ -260,7 +260,7 @@ struct LedgersPage: View {
             LedgersSection(editing: $editing)
             if store.sources.contains(where: { Keychain.inFallback(account: $0.keychainAccount) }) {
                 Section {
-                    Label(LS("访问令牌未能存入钥匙串，目前未加密保存在本机。通常是安装包的签名缺少钥匙串权限，换用带钥匙串权限的签名重新安装后会自动移入钥匙串。"), systemImage: "exclamationmark.lock").labelStyle(ControlLabelStyle())
+                    Label(LS("访问令牌未能存入钥匙串，目前保存在 App 自己受保护的文件里（不随备份带走）。通常是安装包的签名缺少钥匙串权限，换用带钥匙串权限的签名重新安装后会自动移入钥匙串。"), systemImage: "exclamationmark.lock").labelStyle(ControlLabelStyle())
                         .font(.footnote).foregroundStyle(Color.warn)
                 }
             }

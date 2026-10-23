@@ -1715,7 +1715,7 @@
  "设置保存在仓库根目录的 %@ 中，换手机或多台设备共用同一套规则。修改后需保存才会生效；整理按已保存的规则进行。": "Saved in %@ at the repository root, shared by every device. Changes apply once saved; reorganizing uses the saved rules.",
  "设置保存在仓库根目录的 %@ 中，换手机或多台设备共用同一套规则。目前仓库中还没有这个文件，保存后才会生效。": "Saved in %@ at the repository root, shared by every device. The file isn't in the repository yet; the settings apply once saved.",
  "设置已移入 %@，各设备共用": "Settings moved into %@, shared by every device",
- "访问令牌未能存入钥匙串，目前未加密保存在本机。通常是安装包的签名缺少钥匙串权限，换用带钥匙串权限的签名重新安装后会自动移入钥匙串。": "The access token could not be stored in the Keychain and is kept unencrypted on this device. This usually means the app's signature lacks Keychain access; after reinstalling with a signature that has it, the token moves into the Keychain on its own.",
+ "访问令牌未能存入钥匙串，目前保存在 App 自己受保护的文件里（不随备份带走）。通常是安装包的签名缺少钥匙串权限，换用带钥匙串权限的签名重新安装后会自动移入钥匙串。": "The access token couldn't go into the Keychain and is kept in the app's own protected file instead (not included in backups). The install's signature usually lacks Keychain access; reinstalling with a signature that has it moves the token into the Keychain automatically.",
  "证券与外币": "Securities & Currencies",
  "识别付款截图，在 App 中确认": "Read a payment screenshot, confirm in the app",
  "识别出 %@ 行": "%@ rows read",
