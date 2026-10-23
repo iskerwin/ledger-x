@@ -234,6 +234,7 @@ struct ReimbSheet: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(selected.contains(i) ? .isSelected : [])
                 .accessibilityIdentifier("reimbursement.row." + it.currency)
             }
             if p.isEmpty { Text(LS("近 180 天无待报销垫款")).foregroundStyle(.secondary) }
@@ -428,6 +429,7 @@ struct FloatSheet: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityAddTraits(selected.contains(i) ? .isSelected : [])
                 }
                 if p.isEmpty { Text(LS("没有待报销的垫付")).foregroundStyle(.secondary) }
             } header: {

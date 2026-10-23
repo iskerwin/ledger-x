@@ -99,6 +99,7 @@ struct ReconcileView: View {
                 } label: {
                     Label(LS("一致"), systemImage: matched.contains(r.id) ? "checkmark.circle.fill" : "circle").labelStyle(ControlLabelStyle())
                 }
+                .accessibilityAddTraits(matched.contains(r.id) ? .isSelected : [])
             } else {
                 Label(LS("一致"), systemImage: "checkmark.circle.fill").labelStyle(ControlLabelStyle()).foregroundStyle(Color.gain)
             }

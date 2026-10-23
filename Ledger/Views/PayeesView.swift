@@ -91,6 +91,7 @@ struct PayeesView: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityAddTraits(picked.contains(p.name) ? .isSelected : [])
                     } else {
                         NavigationLink(value: PayeeDest(name: p.name)) { PayeeRow(p: p) }
                     }

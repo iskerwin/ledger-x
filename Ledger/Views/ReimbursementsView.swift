@@ -332,6 +332,7 @@ struct AddAdvancesSheet: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityAddTraits(picked.contains(k) ? .isSelected : [])
                     }
                 } footer: {
                     Text(LS("所选交易将添加 #reimbursed ^%@。", link))

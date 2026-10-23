@@ -290,6 +290,7 @@ struct EventCandidatesSheet: View {
                                 }
                             }
                             .buttonStyle(.plain)
+                            .accessibilityAddTraits(picked.contains(t.id) ? .isSelected : [])
                         }
                     } header: {
                         HStack(spacing: AppSpacing.control) {

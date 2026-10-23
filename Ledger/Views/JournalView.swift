@@ -631,6 +631,7 @@ struct JournalView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityAddTraits(selected.contains(key) ? .isSelected : [])
                     .disabled(t.synthetic)
                 } else {
                     NavigationLink(value: TxDest(t)) { TxRow(t: t, account: account) }

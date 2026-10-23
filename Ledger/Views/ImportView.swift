@@ -440,6 +440,7 @@ struct ImportView: View {
                         .foregroundStyle(it.include ? Color.jade : Color.secondary)
                 }
                 .buttonStyle(.borderless)
+                .accessibilityAddTraits(it.include ? .isSelected : [])
                 .accessibilityLabel(it.include ? LS("跳过这笔") : LS("导入这笔"))
                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
                     HStack(alignment: .firstTextBaseline, spacing: AppSpacing.control) {

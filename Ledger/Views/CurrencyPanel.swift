@@ -171,6 +171,9 @@ struct CurrencyChip: View {
         .background(Color(.tertiarySystemFill), in: Capsule())
         .overlay(Capsule().stroke(picker && on ? currencyColor(code) : Color.clear, lineWidth: 1.5))
         .contentShape(Capsule())
+        // read as one control that is chosen or not (its tick is only a picture)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
     }
 }
 

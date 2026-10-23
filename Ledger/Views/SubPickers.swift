@@ -114,6 +114,7 @@ struct TxPicker: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(picked.contains(i.id) ? .isSelected : [])
     }
 
     private var summary: some View {
