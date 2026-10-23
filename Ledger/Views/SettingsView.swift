@@ -161,14 +161,7 @@ struct SettingsView: View {
 
     /// a settings row: an icon in the theme's colour, the name, what is set on the right
     private func row(_ icon: String, _ title: String, _ value: String, chevron: Bool = false) -> some View {
-        HStack(spacing: AppSpacing.icon) {
-            Image(systemName: icon).font(.body).foregroundStyle(Color.jade).frame(width: 26)
-            Text(title).foregroundStyle(.primary)
-            Spacer()
-            if !value.isEmpty { Text(value).foregroundStyle(.secondary).lineLimit(1) }
-            if chevron { Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary) }
-        }
-        .contentShape(Rectangle())
+        SettingsRow(symbol: icon, title: title, value: value, chevron: chevron)
     }
 
     private func connect() async {

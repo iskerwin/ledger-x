@@ -124,6 +124,31 @@ struct IconBadge: View {
     }
 }
 
+/// One row of 设置 (and the pages under it): the symbol on its badge, the title (with a line under it when there is
+/// one), the value on the right, a chevron where the row opens something that isn't a navigation link
+struct SettingsRow: View {
+    let symbol: String
+    let title: String
+    var detail: String = ""
+    var value: String = ""
+    var color: Color = .jade
+    var chevron = false
+
+    var body: some View {
+        HStack(spacing: AppSpacing.control) {
+            IconBadge(symbol: symbol, color: color, size: 28)
+            VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                Text(title).foregroundStyle(.primary)
+                if !detail.isEmpty { Text(detail).font(.caption).foregroundStyle(.secondary) }
+            }
+            Spacer()
+            if !value.isEmpty { Text(value).foregroundStyle(.secondary).lineLimit(1) }
+            if chevron { Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary) }
+        }
+        .contentShape(Rectangle())
+    }
+}
+
 /// grid of colour swatches for 设置 → 外观
 struct ThemePicker: View {
     private var theme: String {

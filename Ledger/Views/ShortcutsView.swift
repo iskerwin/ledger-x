@@ -86,13 +86,7 @@ struct ShortcutsSettingsView: View {
     }
 
     private func row(_ symbol: String, _ title: String, _ detail: String) -> some View {
-        HStack(spacing: AppSpacing.icon) {
-            IconBadge(symbol: symbol, color: .indigo, size: 28)
-            VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                Text(title)
-                Text(detail).font(.caption).foregroundStyle(.secondary)
-            }
-        }
+        SettingsRow(symbol: symbol, title: title, detail: detail, color: .indigo)
     }
 }
 
