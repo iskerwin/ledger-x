@@ -97,6 +97,7 @@ struct Amount: View {
 
 struct SyncBadge: View {
     @EnvironmentObject var store: Store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         Button {
             store.showSync = true
@@ -122,6 +123,8 @@ struct SyncBadge: View {
                     syncIcon(state.symbol, syncing: store.syncState == .syncing)
                         .foregroundStyle(state.color)
                         .contentTransition(.symbolEffect(.replace))
+                        // a sync that didn't go through gives one bounce, to be noticed
+                        .symbolEffect(.bounce, value: reduceMotion ? false : state.symbol == "exclamationmark.icloud")
                         .animation(AppMotion.quick, value: state.symbol)
                 }
                 let n = store.pending.filter { $0.failed == nil && $0.held == nil }.count
