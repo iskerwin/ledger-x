@@ -1485,7 +1485,6 @@
  "点按打开或关掉，长按只看这一种（再长按恢复）。没有持有的默认关掉。": "Tap to switch on or off; press and hold to see only that one (again to undo). Currencies not held are off by default.",
  "点按文本可编辑": "Tap text to edit",
  "点按查看交易": "Tap to see transactions",
- "点按柱形查看当月明细": "Tap a bar for that month",
  "点按编辑源文本": "Tap to edit source",
  "点按触感强度": "Tap feedback strength",
  "照银行账单填写。填了以后，这一期的应还和最低还款以它为准（分期只算本期应还的部分）；还到最低还款额就不算逾期。": "Copy these from the bank's statement. They then stand for this cycle (for instalments, only this month's part); paying at least the minimum is not overdue.",
@@ -2144,5 +2143,6 @@
  "还没有订阅。也可以在交易详情里选择「加入订阅管理」。": "No subscriptions yet. You can also choose “Add to Subscriptions” in a transaction's details.",
  "还没有个人往来。借给别人或向别人借的钱记在这里，还款时一键结清。": "No personal loans yet. Money lent to or borrowed from people goes here, and is settled in one tap when repaid.",
  "主要是「%@」%@": "mostly “%@” %@",
- "点按或左右滑动查看月份": "Tap or slide to see a month"
+ "点按或左右滑动查看月份": "Tap or slide to see a month",
+ "点按或左右滑动查看各月": "Tap or slide to see each month"
 }

@@ -547,11 +547,13 @@ struct IncomeExpenseChart: View {
                         .position(by: .value("类别", LS("收入")))
                         .cornerRadius(3)
                         .opacity(picked == nil || picked == m ? 1 : 0.35)
+                        .accessibilityLabel(Day.monthLabel(m) + " " + LS("收入")).accessibilityValue(money(inc[m] ?? 0, currency))
                     BarMark(x: .value("月份", m), y: .value("金额", exp[m] ?? 0))
                         .foregroundStyle(by: .value("类别", LS("支出")))
                         .position(by: .value("类别", LS("支出")))
                         .cornerRadius(3)
                         .opacity(picked == nil || picked == m ? 1 : 0.35)
+                        .accessibilityLabel(Day.monthLabel(m) + " " + LS("支出")).accessibilityValue(money(exp[m] ?? 0, currency))
                 }
             }
             .chartForegroundStyleScale([LS("收入"): Color.gain, LS("支出"): Color.jade])
@@ -569,17 +571,8 @@ struct IncomeExpenseChart: View {
                     }
                 }
             }
-            .chartOverlay { proxy in
-                GeometryReader { geo in
-                    Rectangle().fill(Color.clear).contentShape(Rectangle())
-                        .onTapGesture { location in
-                            guard let plot = proxy.plotFrame else { return }
-                            let x = location.x - geo[plot].origin.x
-                            guard let m: String = proxy.value(atX: x) else { return }
-                            withAnimation(AppMotion.quick) { picked = picked == m ? nil : m }
-                        }
-                }
-            }
+            .chartPick(String.self, tap: { m in withAnimation(AppMotion.quick) { picked = picked == m ? nil : m } },
+                       slide: { m in picked = m })
             .frame(height: compact ? 130 : 190)
             .sensitive()
             if let m = picked {
@@ -596,7 +589,7 @@ struct IncomeExpenseChart: View {
                 .minimumScaleFactor(0.7)
                 .sensitive()
             } else if !compact {
-                Text(LS("点按柱形查看当月明细")).font(.caption).foregroundStyle(.secondary)
+                Text(LS("点按或左右滑动查看各月")).font(.caption).foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, AppSpacing.icon)
@@ -765,6 +758,8 @@ struct WorthCharts: View {
                         .foregroundStyle(Color.primary.opacity(0.75))
                         .lineStyle(StrokeStyle(lineWidth: 1.6, lineCap: .round))
                         .interpolationMethod(.monotone)
+                        .accessibilityLabel(Day.monthLabel(p.month) + LS("末"))
+                        .accessibilityValue(unitText(p.netWorth, c))
                 }
                 if let s = sel {
                     RuleMark(x: .value("月份", date(s.month), unit: .month))
@@ -776,18 +771,11 @@ struct WorthCharts: View {
             .chartYScale(domain: stackRange(c, srcs))
             .chartLegend(position: .top, alignment: .leading)
             .chartYAxis { AxisMarks(position: .trailing) }
-            .chartOverlay { proxy in
-                GeometryReader { geo in
-                    Rectangle().fill(Color.clear).contentShape(Rectangle())
-                        .onTapGesture { location in
-                            guard let plot = proxy.plotFrame else { return }
-                            guard let d: Date = proxy.value(atX: location.x - geo[plot].origin.x) else { return }
-                            withAnimation(AppMotion.quick) {
-                                if let p = picked, abs(p.timeIntervalSince(d)) < 86400 * 15 { picked = nil } else { picked = d }
-                            }
-                        }
+            .chartPickMonth(tap: { d in
+                withAnimation(AppMotion.quick) {
+                    if let p = picked, abs(p.timeIntervalSince(d)) < 86400 * 15 { picked = nil } else { picked = d }
                 }
-            }
+            }, slide: { d in picked = d })
             .frame(height: 200)
             .sensitive()
             if let s = sel {
@@ -990,6 +978,8 @@ struct NetWorthChart: View {
                     .foregroundStyle(tint)
                     .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round))
                     .interpolationMethod(.monotone)
+                    .accessibilityLabel(Day.monthLabel(p.month) + LS("末"))
+                    .accessibilityValue(unitText(p.netWorth, currency))
                 if let s = sel, s.month == p.month {
                     PointMark(x: .value("月份", date(p.month), unit: .month), y: .value("净资产", p.netWorth))
                         .foregroundStyle(tint)
@@ -1001,18 +991,11 @@ struct NetWorthChart: View {
             }
             .chartYScale(domain: (lo - pad)...(hi + pad))
             .chartYAxis { AxisMarks(position: .trailing) }
-            .chartOverlay { proxy in
-                GeometryReader { geo in
-                    Rectangle().fill(Color.clear).contentShape(Rectangle())
-                        .onTapGesture { location in
-                            guard let plot = proxy.plotFrame else { return }
-                            guard let d: Date = proxy.value(atX: location.x - geo[plot].origin.x) else { return }
-                            withAnimation(AppMotion.quick) {
-                                if let p = picked, abs(p.timeIntervalSince(d)) < 86400 * 15 { picked = nil } else { picked = d }
-                            }
-                        }
+            .chartPickMonth(tap: { d in
+                withAnimation(AppMotion.quick) {
+                    if let p = picked, abs(p.timeIntervalSince(d)) < 86400 * 15 { picked = nil } else { picked = d }
                 }
-            }
+            }, slide: { d in picked = d })
             .frame(height: compact ? 110 : 180)
             .sensitive()
         }

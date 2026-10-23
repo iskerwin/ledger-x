@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import LedgerKit
 
 /// Shared rhythm for controls, supporting text and page content. Chart geometry and keypad sizes
 /// are independent of these gaps; changing spacing must not change the meaning of an input.
@@ -36,6 +37,8 @@ struct HeroAmount: ViewModifier {
 struct ChartPick<X: Plottable & Equatable>: ViewModifier {
     let tap: (X) -> Void
     let slide: (X) -> Void
+    /// two values that are the same point (dates within one month): no new tick between them
+    var same: (X, X) -> Bool = { $0 == $1 }
     @State private var last: X?
 
     func body(content: Content) -> some View {
@@ -47,7 +50,8 @@ struct ChartPick<X: Plottable & Equatable>: ViewModifier {
                     }
                     .simultaneousGesture(DragGesture(minimumDistance: 8)
                         .onChanged { g in
-                            guard abs(g.translation.width) > abs(g.translation.height), let x = value(proxy, geo, g.location), x != last else { return }
+                            guard abs(g.translation.width) > abs(g.translation.height), let x = value(proxy, geo, g.location),
+                                  !(last.map { same($0, x) } ?? false) else { return }
                             last = x
                             slide(x)
                             Haptics.selection()
@@ -66,6 +70,10 @@ struct ChartPick<X: Plottable & Equatable>: ViewModifier {
 extension View {
     func chartPick<X: Plottable & Equatable>(_ type: X.Type, tap: @escaping (X) -> Void, slide: @escaping (X) -> Void) -> some View {
         modifier(ChartPick(tap: tap, slide: slide))
+    }
+    /// dates picked by the month they fall in
+    func chartPickMonth(tap: @escaping (Date) -> Void, slide: @escaping (Date) -> Void) -> some View {
+        modifier(ChartPick<Date>(tap: tap, slide: slide, same: { Day.ym(Day.string($0)) == Day.ym(Day.string($1)) }))
     }
 }
 
