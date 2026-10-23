@@ -96,10 +96,19 @@ extension Store {
     }
 }
 
+/// Shortcuts and Siri reach the ledger without the app's own screen, so its lock does not stand in their way:
+/// they run only on an unlocked phone, and with the app lock on they neither read amounts out nor write to the ledger.
+enum IntentLock {
+    static var appLockOn: Bool { UserDefaults.standard.bool(forKey: AppLock.enabledKey) }
+    /// the answer instead of amounts, with the app lock on
+    static var readReply: String? { appLockOn ? LS("已开启 App 锁：请打开 Ledger X 解锁后查看") : nil }
+}
+
 struct QuickRecordIntent: AppIntent {
     static var title: LocalizedStringResource = "快速记一笔"
     static var description = IntentDescription("按商户自动选择分类并直接入账；分类不确定或提交前检查发现问题时，发通知请你确认。适合钱包「交易」自动化：金额、商户、卡片分别填入快捷指令输入的对应项。")
     static var openAppWhenRun = false
+    static var authenticationPolicy = IntentAuthenticationPolicy.requiresAuthentication
 
     @Parameter(title: "金额") var amount: String
     @Parameter(title: "商户") var merchant: String?
@@ -126,6 +135,11 @@ struct QuickRecordIntent: AppIntent {
             return .result(value: "", dialog: IntentDialog(stringLiteral: LS("账本尚未加载，请先打开 App")))
         }
         let x = store.intentDraft(amount: a, merchant: merchant ?? "", card: card, note: note, category: category)
+        // the app lock is on: kept as a draft for you to confirm in the app, not written to the ledger from here
+        if IntentLock.appLockOn {
+            await store.askToConfirm(x, why: LS("已开启 App 锁"))
+            return .result(value: "", dialog: IntentDialog(stringLiteral: LS("已开启 App 锁：这笔已存为草稿并发送通知，请在 App 中确认")))
+        }
         if x.account.isEmpty || x.funding.isEmpty {
             await store.askToConfirm(x, why: x.account.isEmpty ? LS("未能确定分类") : LS("未能确定付款账户"))
             return .result(value: "", dialog: IntentDialog(stringLiteral: LS("已发送通知，请在 App 中确认分类")))
@@ -178,9 +192,11 @@ struct OpenRecordIntent: AppIntent {
 struct MonthSpendIntent: AppIntent {
     static var title: LocalizedStringResource = "本月支出"
     static var description = IntentDescription("本月支出、与上月同期相比，以及预算剩余。")
+    static var authenticationPolicy = IntentAuthenticationPolicy.requiresAuthentication
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<Double> {
+        if let locked = IntentLock.readReply { return .result(value: 0, dialog: IntentDialog(stringLiteral: locked)) }
         let store = Store.shared
         await store.ensureLoaded()
         guard let L = store.L, let D = store.D else { return .result(value: 0, dialog: IntentDialog(stringLiteral: LS("账本尚未加载，请先打开 App"))) }
@@ -208,9 +224,11 @@ struct MonthSpendIntent: AppIntent {
 struct UpcomingIntent: AppIntent {
     static var title: LocalizedStringResource = "待付款项"
     static var description = IntentDescription("待记账的订阅、7 天内的订阅扣费和信用卡还款，以及可用资金预测。")
+    static var authenticationPolicy = IntentAuthenticationPolicy.requiresAuthentication
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        if let locked = IntentLock.readReply { return .result(dialog: IntentDialog(stringLiteral: locked)) }
         let store = Store.shared
         await store.ensureLoaded()
         guard let L = store.L else { return .result(dialog: IntentDialog(stringLiteral: LS("账本尚未加载，请先打开 App"))) }

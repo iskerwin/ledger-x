@@ -2139,5 +2139,8 @@
  "这个地址用 http：访问令牌和账本会以明文传输，同一网络里的人可以看到或篡改。只在自己家里的网络用；能用 https 时请改用 https。": "This address uses http: the access token and the ledger travel unencrypted, and anyone on the same network can read or change them. Use it only on your home network, and switch to https when you can.",
  "移除这项改动？": "Remove this change?",
  "这项改动还没有推送到仓库，移除后不能恢复。": "This change hasn't been pushed to the repository yet; once removed it can't be brought back.",
- "这个 WebDAV 服务器不支持防覆盖检查：两台设备同时修改同一个文件时，后保存的会盖掉先保存的。请不要在多台设备上同时记账；需要多设备同时用时，建议改用 Git 仓库。": "This WebDAV server can't check for overwrites: when two devices change the same file at once, the later save replaces the earlier one. Avoid recording on several devices at the same time; for that, a Git repository is the better fit."
+ "这个 WebDAV 服务器不支持防覆盖检查：两台设备同时修改同一个文件时，后保存的会盖掉先保存的。请不要在多台设备上同时记账；需要多设备同时用时，建议改用 Git 仓库。": "This WebDAV server can't check for overwrites: when two devices change the same file at once, the later save replaces the earlier one. Avoid recording on several devices at the same time; for that, a Git repository is the better fit.",
+ "已开启 App 锁：请打开 Ledger X 解锁后查看": "App lock is on: open Ledger X and unlock it to see this.",
+ "已开启 App 锁": "App lock is on",
+ "已开启 App 锁：这笔已存为草稿并发送通知，请在 App 中确认": "App lock is on: this one is saved as a draft and a notification was sent; confirm it in the app."
 }
