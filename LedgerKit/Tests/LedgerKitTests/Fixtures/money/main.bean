@@ -71,6 +71,17 @@ option "booking_method" "FIFO"
   Expenses:Food                                    10.00 CNY
   Assets:Wallet                                   -10.00 CNY
 
+; no amount in USD written with decimals: Beancount fills the income in exactly (-0.6872790), not -0.69
+2024-07-02 * "IBKR" "Stock award"
+  Income:Gains
+  Assets:Broker:Stock                              0.002 TSLA {343.6395 USD}
+
+; whole numbers set no tolerance: the fee is filled in as 9.616 and the rest must balance exactly
+2024-07-03 * "IBKR" "Whole dollars against a price"
+  Assets:Broker:Cash                                   3 HKD @ 0.128 USD
+  Assets:Broker:Cash                                 -10 USD
+  Expenses:Fees
+
 2024-03-01 price USD                              7.1000 CNY
 2024-06-30 price USD                              7.2500 CNY
 2024-06-30 price USD                              7.2600 CNY

@@ -75,8 +75,9 @@ final class YearReviewTests: XCTestCase {
     func testEdgeSampleByHand() {
         let L = loadSet("money")
         let r = yearReview(L, year: "2024", mode: .units, currency: "USD", today: "2024-07-31")
-        // the fee is the only USD expense; the gains from selling VOO are investment income
-        XCTAssertEqual(r.expenses, 1.00, accuracy: 1e-9)
+        // the fees are the only USD expenses: 1.00, and 10 USD less 3 HKD at 0.128 USD = 9.616, 10.616 shown to
+        // the cent; the gains from selling VOO and the stock award are investment income
+        XCTAssertEqual(r.expenses, 10.62, accuracy: 1e-9)
         XCTAssertEqual(r.investment.first?.account, "Income:Gains")
         XCTAssertEqual(r.investment.first?.amount ?? 0, r.income, accuracy: cent)
         let cny = yearReview(L, year: "2024", mode: .units, currency: "CNY", today: "2024-07-31")

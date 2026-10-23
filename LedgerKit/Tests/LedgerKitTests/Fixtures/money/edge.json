@@ -73,11 +73,12 @@
     "HKD": 25060.0
    },
    "Assets:Broker:Cash": {
-    "USD": 16839.47
+    "HKD": 3.0,
+    "USD": 16829.47
    },
    "Assets:Broker:Stock": {
     "HSBC": 400.0,
-    "TSLA": 10.0,
+    "TSLA": 10.002,
     "VOO": 4.5
    },
    "Assets:Wallet": {
@@ -89,14 +90,14 @@
     "USD": -20000.0
    },
    "Expenses:Fees": {
-    "USD": 1.0
+    "USD": 10.616
    },
    "Expenses:Food": {
     "CNY": 198.8,
     "HKD": 58.0
    },
    "Income:Gains": {
-    "USD": -597.2
+    "USD": -597.887279
    },
    "Income:Salary": {
     "CNY": -23456.78
@@ -128,7 +129,7 @@
   },
   {
    "account": "Assets:Broker:Stock",
-   "cost": 1753.33,
+   "cost": 1754.017279,
    "cost_currency": "USD",
    "currency": "TSLA",
    "lots": [
@@ -136,9 +137,14 @@
      "cost": 175.333,
      "date": "2024-05-01",
      "units": 10.0
+    },
+    {
+     "cost": 343.6395,
+     "date": "2024-07-02",
+     "units": 0.002
     }
    ],
-   "units": 10.0
+   "units": 10.002
   },
   {
    "account": "Assets:Broker:Stock",
@@ -180,10 +186,10 @@
  "tree": {
   "Assets": {
    "CNY": 123768.23,
-   "HKD": 25060.0,
+   "HKD": 25063.0,
    "HSBC": 400.0,
-   "TSLA": 10.0,
-   "USD": 16839.47,
+   "TSLA": 10.002,
+   "USD": 16829.47,
    "VOO": 4.5
   },
   "Assets:Bank": {
@@ -197,17 +203,19 @@
    "HKD": 25060.0
   },
   "Assets:Broker": {
+   "HKD": 3.0,
    "HSBC": 400.0,
-   "TSLA": 10.0,
-   "USD": 16839.47,
+   "TSLA": 10.002,
+   "USD": 16829.47,
    "VOO": 4.5
   },
   "Assets:Broker:Cash": {
-   "USD": 16839.47
+   "HKD": 3.0,
+   "USD": 16829.47
   },
   "Assets:Broker:Stock": {
    "HSBC": 400.0,
-   "TSLA": 10.0,
+   "TSLA": 10.002,
    "VOO": 4.5
   },
   "Assets:Wallet": {
@@ -226,10 +234,10 @@
   "Expenses": {
    "CNY": 198.8,
    "HKD": 58.0,
-   "USD": 1.0
+   "USD": 10.616
   },
   "Expenses:Fees": {
-   "USD": 1.0
+   "USD": 10.616
   },
   "Expenses:Food": {
    "CNY": 198.8,
@@ -237,10 +245,10 @@
   },
   "Income": {
    "CNY": -23456.78,
-   "USD": -597.2
+   "USD": -597.887279
   },
   "Income:Gains": {
-   "USD": -597.2
+   "USD": -597.887279
   },
   "Income:Salary": {
    "CNY": -23456.78
