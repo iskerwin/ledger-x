@@ -200,6 +200,29 @@ extension View {
     }
 }
 
+/// A short side-to-side shake each time `trigger` goes up: a save that was turned back points at why.
+/// 减少动态效果 keeps it still.
+private struct ShakeEffect: GeometryEffect {
+    var travel: CGFloat
+    var animatableData: CGFloat { get { travel } set { travel = newValue } }
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        ProjectionTransform(CGAffineTransform(translationX: 6 * sin(travel * .pi * 4), y: 0))
+    }
+}
+
+private struct Shake: ViewModifier {
+    let trigger: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    func body(content: Content) -> some View {
+        content.modifier(ShakeEffect(travel: reduceMotion ? 0 : CGFloat(trigger)))
+            .animation(reduceMotion ? nil : .linear(duration: 0.4), value: trigger)
+    }
+}
+
+extension View {
+    func shake(_ trigger: Int) -> some View { modifier(Shake(trigger: trigger)) }
+}
+
 /// The ˅ of 显示全部 / 收起: one arrow turning where it is, with the rows it opens, instead of two arrows swapped
 struct TurningChevron: View {
     let open: Bool

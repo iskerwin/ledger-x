@@ -84,6 +84,8 @@ struct QuickAddView: View {
     @State private var pettyCash = false
     @State private var saving = false
     @State private var attemptedSave = false
+    /// goes up at each save turned back, to shake the reason
+    @State private var blockedSaves = 0
     /// editing an entry: 删除这笔交易 asked, waiting for the confirmation
     @State private var confirmDelete = false
     /// 组合付款与优惠
@@ -965,6 +967,7 @@ struct QuickAddView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
+                .shake(blockedSaves)
                 .accessibilityIdentifier("quick.validation")
             }
             Divider()
@@ -1180,6 +1183,7 @@ struct QuickAddView: View {
         attemptedSave = true
         if store.draft.edited == nil, let L = store.L, let D = store.D, let issue = draftIssue(store.draft, L, D) {
             Haptics.error(); store.show(issue.message)
+            blockedSaves += 1
             locate(issue)
             return
         }
