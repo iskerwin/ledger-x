@@ -349,7 +349,7 @@ struct QuickAddView: View {
             Label(d.split ? LS("这笔是 AA 分摊") : LS("这笔是「%@」", d.kind.label), systemImage: "list.bullet.rectangle").labelStyle(ControlLabelStyle())
                 .font(.headline)
             if !d.payee.trimmed.isEmpty { LabeledContent(LS("收付款方"), value: d.payee) }
-            if !d.narration.trimmed.isEmpty { LabeledContent(LS("备注"), value: d.narration) }
+            if !d.narration.trimmed.isEmpty { LabeledContent(LS("摘要"), value: d.narration) }
             Text(LS("这类交易在完整表单里填写。")).font(.subheadline).foregroundStyle(.secondary)
             ActionRow(size: .small, items: [
                 ActionRow.Item(title: LS("继续填写"), systemImage: "pencil", emphasis: .primary) { openFull() },
@@ -987,7 +987,7 @@ struct QuickAddView: View {
                 Image(systemName: icon).foregroundStyle(.secondary).frame(width: 22)
                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
                     if summary.isEmpty {
-                        Text(d.kind == .income ? LS("付款方 · 备注") : LS("收付款方 · 备注")).foregroundStyle(.secondary)
+                        Text(d.kind == .income ? LS("付款方 · 摘要") : LS("收付款方 · 摘要")).foregroundStyle(.secondary)
                     } else {
                         if !d.payee.trimmed.isEmpty { Text(d.payee).lineLimit(2) }
                         if !d.narration.trimmed.isEmpty { Text(d.narration).font(.subheadline).foregroundStyle(.secondary).lineLimit(2) }
@@ -1000,7 +1000,7 @@ struct QuickAddView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PressStyle())
-        .accessibilityLabel(LS("收付款方与备注"))
+        .accessibilityLabel(LS("收付款方与摘要"))
         .accessibilityValue(summary)
     }
 
@@ -1031,7 +1031,7 @@ struct QuickAddView: View {
                 .submitLabel(.next)
                 .onSubmit { applyPayee(store.draft.payee.trimmed, onlyBlanks: false); field = .narration }
         }
-        labeled(LS("备注")) {
+        labeled(LS("摘要")) {
             TextField(narrs.first.map { LS("如 %@，可不填", $0) } ?? LS("买了什么、做什么用，可不填"),
                       text: Binding(get: { store.draft.narration }, set: { updateText(\.narration, $0) }))
                 .focused($field, equals: .narration)

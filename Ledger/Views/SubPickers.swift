@@ -62,7 +62,7 @@ struct TxPicker: View {
                 if q.trimmed.isEmpty { Toggle(LS("只看相关的交易"), isOn: $onlyRelated) }
                 Toggle(LS("包含两年前的交易"), isOn: $allTime)
             } footer: {
-                Text(LS("相关：同收付款方、同科目或金额相近（±30%）。搜索可输入收付款方、说明、科目、金额（如 21、>20）或日期（如 2025-06）。"))
+                Text(LS("相关：同收付款方、同科目或金额相近（±30%）。搜索可输入收付款方、摘要、科目、金额（如 21、>20）或日期（如 2025-06）。"))
             }
             if items.isEmpty {
                 Text(LS("没有符合条件的交易")).foregroundStyle(.secondary)
@@ -91,7 +91,7 @@ struct TxPicker: View {
             }
         }
         .listSectionSpacing(.compact)
-        .searchable(text: $q, placement: .navigationBarDrawer(displayMode: .always), prompt: LS("收付款方、说明、金额、日期"))
+        .searchable(text: $q, placement: .navigationBarDrawer(displayMode: .always), prompt: LS("收付款方、摘要、金额、日期"))
         .safeAreaInset(edge: .bottom) { summary }
     }
 

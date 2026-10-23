@@ -495,7 +495,7 @@ struct JournalView: View {
             ("\(prev) \(month)", LS("两个月份之间（也可写 %@）", prev + "~" + month)),
             ("\(month) 科目:餐饮", LS("这个月、某个科目：几个条件用空格隔开，要同时满足")),
             ("账户:招商 >100", LS("某个账户里大于 100 的（账户名或显示名称都行）")),
-            ("payee:滴滴 -加班", LS("收付款方是滴滴，排除备注里有「加班」的")),
+            ("payee:滴滴 -加班", LS("收付款方是滴滴，排除摘要里有「加班」的")),
             ("\(Day.today().prefix(4))-Q3", LS("一个季度；也可只写年份 %@", String(Day.today().prefix(4)))),
             ("对方:王五", LS("和某人的往来")),
             ("#trip", LS("带某个标签；^ 开头找链接，! 找待确认")),
@@ -859,7 +859,7 @@ struct TxDetailView: View {
                     Button { push?(AccountDest(name: a)) } label: { Label(LS("查看该分类明细"), systemImage: "list.bullet") }
                 }
             }
-            if !t.payee.isEmpty && !t.narration.isEmpty { LabeledContent(LS("备注"), value: t.narration) }
+            if !t.payee.isEmpty && !t.narration.isEmpty { LabeledContent(LS("摘要"), value: t.narration) }
         }
     }
 

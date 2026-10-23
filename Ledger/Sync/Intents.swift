@@ -113,7 +113,7 @@ struct QuickRecordIntent: AppIntent {
     @Parameter(title: "金额") var amount: String
     @Parameter(title: "收付款方") var merchant: String?
     @Parameter(title: "卡片或付款方式") var card: String?
-    @Parameter(title: "备注") var note: String?
+    @Parameter(title: "摘要") var note: String?
     @Parameter(title: "分类（科目或关键词，可选）") var category: String?
 
     static var parameterSummary: some ParameterSummary {
@@ -170,7 +170,7 @@ struct OpenRecordIntent: AppIntent {
     @Parameter(title: "金额") var amount: String?
     @Parameter(title: "收付款方") var merchant: String?
     @Parameter(title: "卡片或付款方式") var card: String?
-    @Parameter(title: "备注") var note: String?
+    @Parameter(title: "摘要") var note: String?
 
     @MainActor
     func perform() async throws -> some IntentResult {

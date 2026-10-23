@@ -428,7 +428,7 @@ final class EditInteractionTests: XCTestCase {
         if !appeared { print(app.debugDescription) }
         XCTAssertTrue(appeared)
         duplicate.tap()
-        let summary = app.buttons["收付款方与备注"]
+        let summary = app.buttons["收付款方与摘要"]
         XCTAssertTrue(summary.waitForExistence(timeout: 5))
         XCTAssertTrue((summary.value as? String ?? "").contains("Coffee"))
         XCTAssertTrue((summary.value as? String ?? "").contains("Interaction test"))
@@ -488,7 +488,7 @@ final class EditInteractionTests: XCTestCase {
 
     func testQuickCandidatesStayAboveKeyboardAndRemainTappable() {
         let app = openExistingExpense()
-        app.buttons["收付款方与备注"].tap()
+        app.buttons["收付款方与摘要"].tap()
         let note = app.textFields["quick.narration"]
         XCTAssertTrue(note.waitForExistence(timeout: 5))
         let keyboard = app.keyboards.firstMatch
@@ -511,7 +511,7 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertEqual(note.value as? String, "Interaction test updated")
         app.buttons["quick.text.done"].tap()
         XCTAssertTrue(keyboard.waitForNonExistence(timeout: 5))
-        XCTAssertTrue((app.buttons["收付款方与备注"].value as? String ?? "").contains("updated"))
+        XCTAssertTrue((app.buttons["收付款方与摘要"].value as? String ?? "").contains("updated"))
     }
 
     func testImportKeepsFundingChoiceAfterClosingAndReopening() {

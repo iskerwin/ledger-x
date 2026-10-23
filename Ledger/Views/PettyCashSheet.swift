@@ -56,7 +56,7 @@ struct PettyCashSheet: View {
                 }
                 AccountField(label: LS("收款账户"), prefixes: ["Assets:"],
                              chips: Array(D.rankAccounts(["Assets:"]).filter { !$0.hasPrefix("Assets:Receivable") }.prefix(6)), value: $account)
-                TextField(LS("备注（可选）"), text: $note)
+                TextField(LS("摘要（可选）"), text: $note)
             } footer: {
                 Text(LS("领取时增加收款账户余额，同时记为负的报销应收；垫付时选择这笔备用金即可冲抵。"))
             }

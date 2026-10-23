@@ -1159,7 +1159,7 @@ struct SubEditSheet: View {
                             LabeledContent(LS("关联交易"), value: draft.picked.isEmpty ? LS("选择") : LS("%@ 笔", draft.picked.count))
                         }
                     } footer: {
-                        Text(LS("把过去的扣费交易关联到这个订阅，可搜索收付款方、说明、金额或日期。"))
+                        Text(LS("把过去的扣费交易关联到这个订阅，可搜索收付款方、摘要、金额或日期。"))
                     }
                 }
                 if let t = draft.text {

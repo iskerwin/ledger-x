@@ -371,7 +371,7 @@ struct LoanSheet: View {
                 AccountField(label: d.kind.incoming ? LS("收款账户") : LS("付款账户"), prefixes: ["Assets:", "Liabilities:"],
                              chips: Array(D.rankAccounts(["Assets:", "Liabilities:CreditCard"]).filter { !$0.hasPrefix("Assets:Receivable") }.prefix(6)),
                              value: $d.account)
-                TextField(LS("备注（可选）"), text: $d.note)
+                TextField(LS("摘要（可选）"), text: $d.note)
             }
             Section(LS("将写入")) {
                 if text.isEmpty {

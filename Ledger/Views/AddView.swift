@@ -666,7 +666,7 @@ struct AddForm: View {
             DateField(value: field(\.date))
             TextField(LS("收付款方"), text: field(\.payee)).focused($focus, equals: .payee).onSubmit { store.applyPayee(store.draft.payee.trimmed) }
             if focus == .payee { payeeSuggestions(store.draft.payee, D) }
-            TextField(LS("说明"), text: field(\.narration))
+            TextField(LS("摘要"), text: field(\.narration))
             TextField(LS("#标签 ^链接"), text: field(\.tagsText)).textInputAutocapitalization(.never).autocorrectionDisabled()
             Toggle(LS("! 待确认"), isOn: Binding(get: { store.draft.flag == "!" }, set: { store.draft.flag = $0 ? "!" : "*"; store.draft.edited = nil })).tint(Color.warn)
         }
