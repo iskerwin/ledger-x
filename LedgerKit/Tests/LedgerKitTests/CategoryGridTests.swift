@@ -68,4 +68,13 @@ final class CategoryGridTests: XCTestCase {
         XCTAssertEqual(defaultCategoryIcon("Expenses:Zzz"), "square.grid.2x2")
         XCTAssertEqual(defaultCategoryIcon("Income:Zzz"), "yensign.circle")
     }
+
+    /// Subscriptions in one category tell apart by their own account's icon where it has one; an account with
+    /// none of its own, or the category itself, leaves it to the category's
+    func testAnAccountBelowItsCategoryHasItsOwnIconWhereThereIsOne() {
+        XCTAssertEqual(ownCategoryIcon("Expenses:Subscription:Cloud"), "icloud")
+        XCTAssertEqual(ownCategoryIcon("Expenses:Subscription:Phone"), "iphone")
+        XCTAssertNil(ownCategoryIcon("Expenses:Subscription:Zzz"))
+        XCTAssertNil(ownCategoryIcon("Expenses:Subscription"))
+    }
 }

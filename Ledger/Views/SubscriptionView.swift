@@ -35,6 +35,13 @@ func daysText(_ date: String, today: String = Day.today()) -> String {
 // MARK: - store helpers
 
 extension Store {
+    /// a subscription's icon: its own account's where that has one of its own (Cloud, Phone…), so subscriptions
+    /// in one category tell apart; otherwise the category's, as the user set it
+    func subIcon(_ s: Subscription) -> String {
+        if let own = ownCategoryIcon(s.account), Symbols.valid(own) { return own }
+        return catIcon(catOf(s.account))
+    }
+
     /// subscriptions and candidates for the current ledger, computed once per rebuild
     var subs: [Subscription] {
         guard let L = L else { return [] }
@@ -281,6 +288,7 @@ struct SubDueRow: View {
 
 struct SubscriptionsView: View {
     @EnvironmentObject var store: Store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var editing: SubDraft?
     @State private var demoDetail: String?
 
@@ -398,11 +406,15 @@ struct SubscriptionsView: View {
         }
         let count = s.periodCharges.count
         let countLine = LS("已扣 %@ 期 · 累计 %@", count, money(s.totalPaid, s.currency, 0))
-        let icon = s.status == .active ? "repeat" : s.status == .paused ? "pause" : "xmark"
+        // each by its category's icon (as on its detail page), so they tell apart at a glance; paused or ended grey
+        let icon = s.status == .active ? store.subIcon(s) : s.status == .paused ? "pause" : "xmark"
         let tint: Color = s.status == .active ? .purple : .gray
+        // charged today or tomorrow: the icon breathes
+        let dueSoon = s.status == .active && next >= today && next <= Day.shift(today, 1)
         return NavigationLink(value: SubDetailDest(name: s.name)) {
             HStack(spacing: AppSpacing.icon) {
                 IconBadge(symbol: icon, color: tint, size: 30)
+                    .symbolEffect(.pulse, options: .repeating, isActive: dueSoon && !reduceMotion)
                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
                     HStack(spacing: AppSpacing.detail) {
                         Text(s.name)
@@ -553,7 +565,7 @@ struct SubscriptionDetailView: View {
         let statusText = s.status.name + " · " + s.statusDate + (s.until.map { $0 >= today ? " · " + LS("可用至 %@", $0) : "" } ?? "")
         return Section {
             VStack(spacing: AppSpacing.icon) {
-                Image(systemName: store.catIcon(catOf(s.account)))
+                Image(systemName: store.subIcon(s))
                     .font(.system(size: 26))
                     .foregroundStyle(Color.jade)
                     .frame(width: 60, height: 60)

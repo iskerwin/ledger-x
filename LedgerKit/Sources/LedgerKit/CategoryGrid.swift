@@ -74,6 +74,13 @@ public func defaultCategoryIcon(_ account: String) -> String {
     return income ? "yensign.circle" : "square.grid.2x2"
 }
 
+/// the icon of an account below its category when it has one of its own (Expenses:Subscription:Cloud → icloud), nil
+/// when it would only repeat the category's (Expenses:Subscription:Zzz)
+public func ownCategoryIcon(_ account: String) -> String? {
+    let own = defaultCategoryIcon(account)
+    return own != defaultCategoryIcon(catOf(account)) ? own : nil
+}
+
 /// symbols every iOS 17 has; keys are lowercase English account names
 let CATEGORY_ICONS: [String: String] = [
     // food
