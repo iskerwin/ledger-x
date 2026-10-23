@@ -34,7 +34,7 @@ struct SourceFilesView: View {
                 Text(LS("这里显示的是包含待同步修改后的内容。保存时只提交改动的部分，并先做提交前检查；同一处在别处被改过时不会覆盖。"))
             }
         }
-        .searchable(text: $query, prompt: LS("文件名"))
+        .appSearchable(text: $query, prompt: LS("文件名"))
         .navigationTitle(LS("源文件"))
         .navigationBarTitleDisplayMode(.inline)
     }

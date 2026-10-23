@@ -246,7 +246,7 @@ struct JournalView: View {
             .sheet(item: $batch) { m in
                 BatchEditSheet(entries: selectedEntries, mode: m) { selecting = false; selected = [] }
             }
-            .searchable(text: $typing, placement: .navigationBarDrawer(displayMode: .always), prompt: LS("收付款方、摘要、科目、对方、#标签、金额、2026-09"))
+            .appSearchable(text: $typing, prompt: LS("收付款方、摘要、科目、对方、#标签、金额、2026-09"))
             .searchSuggestions { if typing.isEmpty { searchHelp } }
             .onSubmit(of: .search) { q = typing }
             .onChange(of: typing) { _, text in if text.trimmed.isEmpty && !q.isEmpty { q = "" } }

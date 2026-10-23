@@ -34,7 +34,7 @@ struct AccountManagerView: View {
         .task { if let g = store.demoEnv["LEDGER_MANAGE_OPEN"] { openGroups.insert(g) } }
         .sheet(item: $iconFor) { GroupIconSheet(group: $0.group).pickerSheet() }
         .navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $q, prompt: LS("搜索账户"))
+        .appSearchable(text: $q, prompt: LS("搜索账户"))
         .textInputAutocapitalization(.never)
         .autocorrectionDisabled()
         .toolbar {

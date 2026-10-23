@@ -91,7 +91,7 @@ struct TxPicker: View {
             }
         }
         .listSectionSpacing(.compact)
-        .searchable(text: $q, placement: .navigationBarDrawer(displayMode: .always), prompt: LS("收付款方、摘要、金额、日期"))
+        .appSearchable(text: $q, prompt: LS("收付款方、摘要、金额、日期"))
         .safeAreaInset(edge: .bottom) { summary }
     }
 
@@ -229,7 +229,7 @@ struct SubPickSheet: View {
                 }
             }
             .disabled(saving)
-            .searchable(text: $q, prompt: LS("搜索订阅"))
+            .appSearchable(text: $q, prompt: LS("搜索订阅"))
             .navigationTitle(LS("加入订阅管理"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button { dismiss() } label: { Label(LS("取消"), systemImage: "xmark").labelStyle(ControlLabelStyle()) }.disabled(saving) } }

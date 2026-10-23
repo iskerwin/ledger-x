@@ -528,7 +528,7 @@ struct RegisterView: View {
         }, set: { opened = $0.opened; query = $0.query }))
         .navigationTitle(acctLabel(account).isEmpty ? account : acctLabel(account))
         .navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: LS("收付款方、摘要、金额、日期"))
+        .appSearchable(text: $query, prompt: LS("收付款方、摘要、金额、日期"))
         .sheet(item: $checking) { p in CheckSheet(account: account, preset: p) }
         .sheet(item: $noting) { NoteSheet(account: account, note: $0.note) }
         .sheet(item: $viewing) { DocumentViewer(path: $0.path) }

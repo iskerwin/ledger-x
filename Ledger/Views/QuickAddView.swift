@@ -1327,7 +1327,7 @@ struct AllCategoriesView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .background(Color(.systemGroupedBackground))
-        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: LS("搜索分类"))
+        .appSearchable(text: $query, prompt: LS("搜索分类"))
         .navigationTitle(LS("全部分类"))
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
@@ -1564,7 +1564,7 @@ private struct MarkEditor: View {
                     Text(LS("金额或分类还要核对的，记为待确认；明细里用 ! 可以找出来。"))
                 }
             }
-            .searchable(text: $query, prompt: LS("搜索标签"))
+            .appSearchable(text: $query, prompt: LS("搜索标签"))
             .navigationTitle(LS("标记"))
             .navigationBarTitleDisplayMode(.inline)
             .interactiveDismissDisabled(!newTag.trimmed.isEmpty || !sameDraftContent(draft, store.draft))

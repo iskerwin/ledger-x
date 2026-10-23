@@ -883,6 +883,20 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(row.isHittable)
     }
 
+    /// Every list's search sits under the title like the journal's and stays there while scrolling: the guide,
+    /// accounts, payees and others had it at the bottom of the screen (the system's default on iOS 26)
+    func testAListsSearchStaysInSightWhileScrolling() {
+        let app = launchTab("settings")
+        let guide = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "使用指南")).firstMatch
+        for _ in 0..<6 { if guide.exists && guide.isHittable { break }; app.swipeUp() }
+        guide.tap()
+        let search = app.searchFields["搜索指南和问题"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        for _ in 0..<3 { app.swipeUp() }
+        XCTAssertTrue(search.isHittable)
+        XCTAssertLessThan(search.frame.minY, app.windows.firstMatch.frame.height / 3)
+    }
+
     private var heightExtra: String {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/height-extra.bean").path
     }

@@ -49,7 +49,7 @@ struct PayeesView: View {
         .refreshable { await store.refresh() }
         .navigationTitle(LS("收付款方"))
         .navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $q, prompt: LS("搜索收付款方"))
+        .appSearchable(text: $q, prompt: LS("搜索收付款方"))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { withAnimation(AppMotion.standard) { selecting.toggle(); picked = [] } } label: { Label(selecting ? LS("完成") : LS("选择"), systemImage: selecting ? "checkmark" : "checkmark.circle").labelStyle(ControlLabelStyle()) }

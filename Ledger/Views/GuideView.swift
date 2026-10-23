@@ -58,7 +58,7 @@ struct GuideView: View {
                 Text(LS("没有找到相关内容")).foregroundStyle(.secondary)
             }
         }
-        .searchable(text: $q, prompt: LS("搜索指南和问题"))
+        .appSearchable(text: $q, prompt: LS("搜索指南和问题"))
         .navigationTitle(LS("使用指南"))
         .navigationBarTitleDisplayMode(.inline)
     }

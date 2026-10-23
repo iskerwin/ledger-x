@@ -87,6 +87,11 @@ extension View {
 }
 
 extension View {
+    /// every list's search: always shown under the title, like the journal's; floats as glass while scrolling (iOS 26)
+    func appSearchable(text: Binding<String>, prompt: String) -> some View {
+        searchable(text: text, placement: .navigationBarDrawer(displayMode: .always), prompt: prompt)
+    }
+
     /// the page's main action at the bottom: the filled theme button, large, semibold — one look everywhere
     func primaryButton(tint: Color = .jade) -> some View {
         buttonStyle(.borderedProminent).tint(tint).controlSize(.large).fontWeight(.semibold)
