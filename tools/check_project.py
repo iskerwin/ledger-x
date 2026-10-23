@@ -67,7 +67,16 @@ require('release delete' not in ship and '--force' not in ship.replace("'--force
         'Publication must not delete releases or force-push')
 require(ship.index('validate()') < ship.index("'git', 'push'"), 'main is pushed only after local validation passed')
 
+# every Chinese text shown through LS has its English; every English entry is still shown somewhere
+english = json.loads((ROOT/'Ledger/en.json').read_text())
+sources = ''.join(p.read_text() for d in ('Ledger', 'LedgerKit/Sources') for p in (ROOT/d).rglob('*.swift'))
+shown = {m.replace('\\"', '"').replace('\\n', '\n') for m in re.findall(r'LS\(\s*"((?:[^"\\]|\\.)*)"', sources)}
+for key in sorted(shown):
+    require(key in english or not re.search(r'[\u3000-\u303f\u4e00-\u9fff\uff00-\uffef]', key), f'Ledger/en.json: no English for {key!r}')
+for key in english:
+    require(key in shown or '"' + key.replace('"', '\\"').replace('\n', '\\n') + '"' in sources, f'Ledger/en.json: {key!r} is no longer used')
+
 if errors:
     print('\n'.join(errors), file=sys.stderr)
     sys.exit(1)
-print(f'Project boundaries, documentation links, {len(manifest["fixtureSHA256"])} frozen fixtures and local publication rules match.')
+print(f'Project boundaries, documentation links, {len(manifest["fixtureSHA256"])} frozen fixtures, {len(english)} English texts and local publication rules match.')
