@@ -102,7 +102,7 @@ struct ChangeReviewView: View {
                     // an account used outside its open line is rejected whatever the reason: it can wait, not go
                     ActionRow(size: .large, items: [ActionRow.Item(title: LS("暂存本机"), systemImage: "internaldrive") { choose(.hold) }]
                               + (blocked ? [] : [ActionRow.Item(title: LS("仍然提交"), systemImage: "exclamationmark.triangle", emphasis: .destructive) { choose(.force) }]))
-                    Text(LS("暂存的修改不会推送，可在 设置 → 顶部账本卡片 →「待同步」中确认后推送或删除。"))
+                    Text(LS("暂存的修改不会推送，可在 设置 →「同步与最近改动」→「待同步」中确认后推送或移除。"))
                         .font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center)
                 }
                 .padding(.horizontal, AppSpacing.content)
