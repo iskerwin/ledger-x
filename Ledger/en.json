@@ -2161,5 +2161,6 @@
  "同时退回手续费 %@": "Also refund the fee %@",
  "原交易有一笔银行手续费。商户退款一般不含手续费；银行也退回了才打开，手续费会退回到 %@。": "The original expense had a bank fee. Merchant refunds usually leave it out; turn this on only if it was refunded too, and the fee goes back to %@.",
  "月均 %@ · %@ 个月": "Monthly average %@ · %@ months",
- "月均 —": "Monthly average —"
+ "月均 —": "Monthly average —",
+ "%@ 天内余额保持在 0 以上": "Balance stays above 0 for %@ days"
 }

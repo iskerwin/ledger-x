@@ -193,11 +193,15 @@ struct AccountsView: View {
                             .rollingNumber(income - spent)
                             .foregroundStyle(income - spent < 0 ? Color.loss : Color.primary).sensitive()
                     }
+                    // the same rows as 净资产's card (three figures, then a bar), so switching tabs keeps the height
                     HStack(alignment: .top, spacing: AppSpacing.control) {
                         Figure(label: LS("收入"), value: money(income, L.base), color: .gain)
                         Spacer()
-                        Figure(label: LS("支出"), value: money(spent, L.base), alignment: .trailing)
+                        Figure(label: LS("支出"), value: money(spent, L.base))
+                        Spacer()
+                        Figure(label: LS("储蓄率"), value: income > 0.005 ? String(format: "%.1f%%", (income - spent) / income * 100) : "—", alignment: .trailing)
                     }
+                    RatioBar(parts: [(max(0, income - spent), Color.jade), (spent, Color.loss)])
                 }
             }
             .cardRow()

@@ -108,9 +108,13 @@ struct ForecastView: View {
                             Figure(label: LS("最低 · %@", low.date), value: money(low.value, f.currency, 0), color: low.value < 0 ? .loss : .primary, alignment: .trailing)
                         }
                         chart(f)
+                        // a line either way, so 30 / 60 / 90 天 keep the card's height
                         if let b = below {
                             Label(LS("预计 %@ 余额降到 0 以下，请提前安排资金", b.date), systemImage: "exclamationmark.triangle.fill").labelStyle(ControlLabelStyle())
                                 .font(.footnote).foregroundStyle(Color.loss)
+                        } else {
+                            Label(LS("%@ 天内余额保持在 0 以上", days), systemImage: "checkmark.circle").labelStyle(ControlLabelStyle())
+                                .font(.footnote).foregroundStyle(.secondary)
                         }
                     }
                 }

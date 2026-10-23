@@ -808,6 +808,20 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertEqual(income.frame.minY, before, accuracy: 0.5)
     }
 
+    /// 全部 and 收支 on the accounts page: the 收支 card was shorter, so the switch under it moved away from the finger
+    func testAccountsCardKeepsItsHeightBetweenTabs() {
+        let app = launchTab("accounts")
+        let flows = app.buttons["收支"]
+        XCTAssertTrue(flows.waitForExistence(timeout: 20))
+        // the tab is remembered: start from 全部
+        app.buttons["全部"].tap()
+        XCTAssertTrue(app.staticTexts["资产负债率"].waitForExistence(timeout: 5))
+        let before = flows.frame.minY
+        flows.tap()
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "年结余")).firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(flows.frame.minY, before, accuracy: 0.5)
+    }
+
     /// At the largest text size the card's figures are not shrunk to fit one row: they stack, one a line, and the
     /// card grows
     func testOverviewFiguresStackAtAccessibilityTextSize() {

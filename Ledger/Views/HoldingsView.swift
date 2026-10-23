@@ -507,10 +507,15 @@ struct KLineSheet: View {
                     .pickerStyle(.segmented)
                 }
                 Section {
-                    if loading { HStack(spacing: AppSpacing.control) { Spacer(); ProgressView(); Spacer() }.frame(height: 260) }
-                    else if let e = error { Text(e).foregroundStyle(.secondary).frame(height: 120) }
-                    else if candles.isEmpty { Text(LS("没有数据")).foregroundStyle(.secondary) }
-                    else if let r = row { chart(r).frame(height: 300) }
+                    // one height whatever is in it; a new range keeps the last chart under the spinner until it loads
+                    ZStack {
+                        if let e = error, !loading { Text(e).foregroundStyle(.secondary) }
+                        else if candles.isEmpty { if !loading { Text(LS("没有数据")).foregroundStyle(.secondary) } }
+                        else if let r = row { chart(r).opacity(loading ? 0.3 : 1) }
+                        if loading { ProgressView() }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 300)
                 } footer: {
                     if let r = row, let L = store.L {
                         Text(LS("数据来自 Yahoo Finance（%@），绿涨红跌；虚线为持仓均价 %@，圆点为买入批次。", PriceFetch.symbol(r.c, r.q, L).0, fmtNum(r.avg, 2)))
@@ -528,6 +533,8 @@ struct KLineSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button { dismiss() } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) } } }
             .task(id: selected + range) { await load() }
+            // another stock's chart is not kept under the spinner
+            .onChange(of: selected) { _, _ in candles = [] }
         }
     }
 
@@ -536,13 +543,17 @@ struct KLineSheet: View {
         let iv = Self.ranges.first { $0.0 == range }?.1 ?? "1d"
         loading = true
         error = nil
-        defer { loading = false }
         do {
-            candles = try await PriceFetch.candles(PriceFetch.symbol(r.c, r.q, L).0, range: range, interval: iv)
+            let got = try await PriceFetch.candles(PriceFetch.symbol(r.c, r.q, L).0, range: range, interval: iv)
+            // a newer range or stock took over: its own load answers
+            guard !Task.isCancelled else { return }
+            candles = got
         } catch {
+            guard !Task.isCancelled else { return }
             candles = []
             self.error = LS("获取行情失败：%@", error.localizedDescription)
         }
+        loading = false
     }
 
     private func chart(_ r: Holding) -> some View {
