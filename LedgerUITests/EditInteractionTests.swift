@@ -832,4 +832,31 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(income.exists && net.exists)
         XCTAssertGreaterThan(net.frame.minY, income.frame.maxY)
     }
+
+    /// The account picker keeps the chosen account and the groups under the search: scrolling the list or searching
+    /// does not take them away, and a group picked while searching clears the search and goes to that group
+    func testAccountPickerKeepsGroupsInSight() {
+        let app = launch()
+        openFull(app)
+        let funding = app.buttons["field.付款账户"]
+        for _ in 0..<5 { if funding.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(funding.isHittable); funding.tap()
+        let search = app.textFields["account.search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["account.chosen"].exists)
+        // the first group: the row scrolls sideways, so its chip may show only in part
+        let chip = app.buttons["account.group.Assets:Bank"], row = app.buttons["account.Assets:Bank:CGB"]
+        XCTAssertTrue(chip.exists)
+        let top = chip.frame.minY
+        app.swipeUp()
+        XCTAssertEqual(chip.frame.minY, top, accuracy: 0.5)
+        tapPoint(search, timeout: 5)
+        search.typeText("Cash")
+        XCTAssertTrue(row.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(chip.frame.minY, top, accuracy: 1)
+        chip.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)).tap()
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        XCTAssertEqual(search.value as? String ?? "", "搜索账户")
+        XCTAssertTrue(row.isHittable)
+    }
 }

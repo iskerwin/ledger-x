@@ -279,6 +279,8 @@ struct AccountPicker: View {
     @State private var q = ""
     @FocusState private var searchFocused: Bool
     @State private var pending: String?
+    /// a group to scroll to once the search is cleared
+    @State private var jump: String?
     @State private var order: [String]?
     @State private var recentOrder: [String] = []
     private var selected: String { pending ?? current }
@@ -296,18 +298,7 @@ struct AccountPicker: View {
                     }
                     if q.trimmingCharacters(in: .whitespaces).isEmpty {
                         let gs = groups
-                        if gs.count > 1 {
-                            Section {
-                                ChipRow {
-                                    ForEach(gs) { g in
-                                        Chip(label: g.title, systemImage: store.groupIcon(g.id).symbol) {
-                                            withAnimation(AppMotion.standard) { proxy.scrollTo(g.id, anchor: .top) }
-                                        }
-                                    }
-                                }
-                            } header: { Text(LS("分类")) }
-                        }
-                        // the one chosen is pinned above the list: these are the others to switch to
+                        // the one chosen is in the bar above the list: these are the others to switch to
                         let recent = recentOrder.filter { $0 != selected }
                         if !recent.isEmpty {
                             Section(LS("最近使用")) { ForEach(recent, id: \.self) { row($0, full: true) } }
@@ -335,28 +326,36 @@ struct AccountPicker: View {
                     }
                     // opens at the top, on the recent and most used: whoever opens it again wants another account
                 }
-            }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                VStack(spacing: 0) {
-                HStack(spacing: AppSpacing.icon) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField(LS("搜索账户"), text: $q)
-                        .textFieldStyle(.plain)
-                        .focused($searchFocused)
-                        .submitLabel(.search)
-                        .onSubmit { searchFocused = false }
-                        .accessibilityIdentifier("account.search")
-                    if !q.isEmpty {
-                        Button { q = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
-                            .accessibilityLabel(LS("清除搜索"))
-                    }
+                // a group picked while searching: the search is cleared first, and the jump made once the
+                // groups are back in the list
+                .task(id: jump) {
+                    guard let g = jump else { return }
+                    await Task.yield()
+                    withAnimation(AppMotion.standard) { proxy.scrollTo(g, anchor: .top) }
+                    jump = nil
                 }
-                .padding(AppSpacing.icon)
-                .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 10))
-                .padding(.horizontal, AppSpacing.content).padding(.vertical, AppSpacing.icon)
-                .frame(maxWidth: .infinity)
-                .background(Color(.systemGroupedBackground))
-                if !selected.isEmpty { chosenBar }
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    VStack(spacing: 0) {
+                        HStack(spacing: AppSpacing.icon) {
+                            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                            TextField(LS("搜索账户"), text: $q)
+                                .textFieldStyle(.plain)
+                                .focused($searchFocused)
+                                .submitLabel(.search)
+                                .onSubmit { searchFocused = false }
+                                .accessibilityIdentifier("account.search")
+                            if !q.isEmpty {
+                                Button { q = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                                    .accessibilityLabel(LS("清除搜索"))
+                            }
+                        }
+                        .padding(AppSpacing.icon)
+                        .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 10))
+                        .padding(.horizontal, AppSpacing.content).padding(.top, AppSpacing.icon)
+                        shortcuts(proxy)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .background(Color(.systemGroupedBackground))
                 }
             }
             .textInputAutocapitalization(.never)
@@ -375,23 +374,59 @@ struct AccountPicker: View {
         }
     }
 
-    /// the account chosen, kept in sight under the search while the list scrolls
-    private var chosenBar: some View {
-        let mark = accountMark(store, selected)
-        return HStack(spacing: AppSpacing.icon) {
-            Text(LS("已选择")).font(.caption.weight(.medium)).foregroundStyle(.secondary)
-            ControlIcon(systemName: mark.symbol).foregroundStyle(mark.color)
-            Text(acctDisplay(selected)).lineLimit(1)
-            Spacer()
-            Image(systemName: "checkmark").foregroundStyle(Color.jade)
+    /// under the search, always in sight: the account chosen, then the groups to jump to
+    @ViewBuilder
+    private func shortcuts(_ proxy: ScrollViewProxy) -> some View {
+        let gs = groups
+        if !selected.isEmpty || gs.count > 1 {
+            ChipRow {
+                if !selected.isEmpty {
+                    chosen(proxy, gs)
+                    if gs.count > 1 { Divider().frame(height: 20) }
+                }
+                if gs.count > 1 {
+                    ForEach(gs) { g in
+                        Chip(label: g.title, systemImage: store.groupIcon(g.id).symbol) { go(g.id, proxy) }
+                            .accessibilityIdentifier("account.group." + g.id)
+                    }
+                }
+            }
+            .contentMargins(.horizontal, AppSpacing.content, for: .scrollContent)
+            .padding(.vertical, AppSpacing.detail)
         }
-        .padding(.horizontal, AppSpacing.content)
-        .frame(height: 52)
-        .frame(maxWidth: .infinity)
-        .background(Color(.secondarySystemGroupedBackground))
-        .overlay(alignment: .bottom) { Divider() }
+    }
+
+    /// the account chosen, as a selected chip; a tap goes to its group
+    private func chosen(_ proxy: ScrollViewProxy, _ gs: [Group]) -> some View {
+        let mark = accountMark(store, selected)
+        return Button { if let g = gs.first(where: { $0.accounts.contains(selected) }) { go(g.id, proxy) } } label: {
+            HStack(spacing: AppSpacing.icon) {
+                ControlIcon(systemName: mark.symbol)
+                Text(acctDisplay(selected)).lineLimit(1).truncationMode(.middle)
+                Image(systemName: "checkmark").font(.caption.weight(.bold))
+            }
+            .font(.subheadline)
+            .frame(maxWidth: 240)
+            .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
+            .background(Color.jade, in: Capsule())
+            .foregroundStyle(Color.onJade)
+            .animation(AppMotion.quick, value: selected)
+        }
+        .buttonStyle(PressStyle())
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(LS("已选择") + " " + acctDisplay(selected))
         .accessibilityIdentifier("account.chosen")
+    }
+
+    /// to a group: at once, or after clearing the search that hides the groups
+    private func go(_ group: String, _ proxy: ScrollViewProxy) {
+        if q.trimmingCharacters(in: .whitespaces).isEmpty {
+            withAnimation(AppMotion.standard) { proxy.scrollTo(group, anchor: .top) }
+        } else {
+            q = ""
+            searchFocused = false
+            jump = group
+        }
     }
 
     /// one account: in a group just what is below the group (Dining, ZABank:Cash) with its Chinese name
