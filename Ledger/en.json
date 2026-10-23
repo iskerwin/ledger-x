@@ -2159,5 +2159,7 @@
  "同账户换汇": "Exchange within it",
  "暂存的修改不会推送，可在 设置 → 顶部账本卡片 →「待同步」中确认后推送或删除。": "Kept changes are not pushed. Push or remove them later in Settings → the ledger card at the top → Pending.",
  "同时退回手续费 %@": "Also refund the fee %@",
- "原交易有一笔银行手续费。商户退款一般不含手续费；银行也退回了才打开，手续费会退回到 %@。": "The original expense had a bank fee. Merchant refunds usually leave it out; turn this on only if it was refunded too, and the fee goes back to %@."
+ "原交易有一笔银行手续费。商户退款一般不含手续费；银行也退回了才打开，手续费会退回到 %@。": "The original expense had a bank fee. Merchant refunds usually leave it out; turn this on only if it was refunded too, and the fee goes back to %@.",
+ "月均 %@ · %@ 个月": "Monthly average %@ · %@ months",
+ "月均 —": "Monthly average —"
 }

@@ -206,3 +206,51 @@ struct Figure: View {
         }
     }
 }
+
+/// The figures under a summary card's headline (收入 · 结余 · 净资产), side by side in equal columns, each label
+/// over its amount. Amounts are never shrunk: when they no longer fit side by side (a long amount, a large text
+/// size) the figures stack, each label over its amount, and the card grows instead.
+struct FigureRow: View {
+    struct Item {
+        var label: String
+        var value: String
+        var color: Color = .primary
+    }
+
+    let items: [Item]
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            if !typeSize.isAccessibilitySize {
+                HStack(alignment: .top, spacing: AppSpacing.control) {
+                    ForEach(items.indices, id: \.self) { i in
+                        VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                            label(items[i])
+                            value(items[i])
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+            VStack(alignment: .leading, spacing: AppSpacing.control) {
+                ForEach(items.indices, id: \.self) { i in
+                    VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                        label(items[i])
+                        value(items[i])
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    private func label(_ x: Item) -> some View {
+        Text(x.label).font(.caption).foregroundStyle(.secondary)
+    }
+
+    private func value(_ x: Item) -> some View {
+        Text(x.value).font(.subheadline.weight(.semibold)).monospacedDigit().foregroundStyle(x.color).sensitive()
+    }
+}

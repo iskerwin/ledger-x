@@ -26,7 +26,8 @@ struct SlidingTitle: View {
 
     var body: some View {
         ZStack {
-            Text(text).id(text)
+            // one line: a large text size shrinks the name a little rather than breaking "2026年" in two
+            Text(text).lineLimit(1).minimumScaleFactor(0.5).id(text)
                 .transition(.asymmetric(insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity), removal: .opacity))
         }
         .clipped()

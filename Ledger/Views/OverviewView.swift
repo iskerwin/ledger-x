@@ -117,7 +117,10 @@ struct OverviewView: View {
         var inc: Double
         var prev: Double
         var prevLabel: String
+        /// spending a month: over the 11 months before (a month), or over the months gone so far (a year)
         var avg: Double
+        /// the months `avg` is over in a year (0 for a year still to come)
+        var avgMonths = 11
         var nw: Double
     }
 
@@ -138,10 +141,18 @@ struct OverviewView: View {
             prev = F.exp[Day.addMonth(month, -1)] ?? 0
         }
         var avg = 0.0
-        for m in months.prefix(11) { avg += F.exp[m] ?? 0 }
-        avg /= 11
+        var avgMonths = 11
+        if yearMode {
+            // the year so far: this year up to this month, a past year all twelve
+            let thisYear = String(today.prefix(4))
+            avgMonths = key < thisYear ? 12 : key == thisYear ? Int(today.dropFirst(5).prefix(2)) ?? 12 : 0
+            avg = avgMonths > 0 ? sum(F.exp, key) / Double(avgMonths) : 0
+        } else {
+            for m in months.prefix(11) { avg += F.exp[m] ?? 0 }
+            avg /= 11
+        }
         return Summary(yearMode: yearMode, key: key, label: yearMode ? LS("%@年", key) : Day.monthLabel(month), months: months,
-                       exp: sum(F.exp, key), inc: sum(F.inc, key), prev: prev, prevLabel: prevLabel, avg: avg, nw: F.netWorth)
+                       exp: sum(F.exp, key), inc: sum(F.inc, key), prev: prev, prevLabel: prevLabel, avg: avg, avgMonths: avgMonths, nw: F.netWorth)
     }
 
     private func content(_ L: Ledger, _ D: Derived) -> some View {
@@ -247,36 +258,41 @@ struct OverviewView: View {
                             }
                             Text(money(s.exp, cur)).font(.system(size: 40, weight: .bold, design: .rounded)).monospacedDigit()
                                 .rollingNumber(s.exp).sensitive()
-                            HStack(spacing: AppSpacing.icon) {
+                            // how it compares, quieter than the figure: the change in its colour, the rest grey; one
+                            // text, so a large size wraps it like a sentence
+                            Group {
                                 if s.prev > 0 {
-                                    Label(money(abs(delta), cur), systemImage: delta > 0 ? "arrow.up.right" : "arrow.down.right").labelStyle(ControlLabelStyle())
-                                        .font(.caption.weight(.semibold).monospacedDigit())
-                                        .padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.detail)
-                                        .background((delta > 0 ? Color.loss : Color.gain).opacity(0.14), in: Capsule())
-                                        .foregroundStyle(delta > 0 ? Color.loss : Color.gain)
-                                    Text(LS("较") + s.prevLabel + LS("（") + money(s.prev, cur) + LS("）")).font(.caption).foregroundStyle(.secondary)
+                                    Text(Image(systemName: delta > 0 ? "arrow.up.right" : "arrow.down.right")).foregroundColor(delta > 0 ? Color.loss : Color.gain)
+                                        + Text(money(abs(delta), cur)).fontWeight(.semibold).foregroundColor(delta > 0 ? Color.loss : Color.gain)
+                                        + Text(" " + LS("较") + s.prevLabel + LS("（") + money(s.prev, cur) + LS("）")).foregroundColor(.secondary)
                                 } else {
-                                    Text(s.prevLabel + LS("无支出记录")).font(.caption).foregroundStyle(.secondary)
+                                    Text(s.prevLabel + LS("无支出记录")).foregroundStyle(.secondary)
                                 }
                             }
+                            .font(.caption.monospacedDigit())
                             .sensitive()
-                            if !s.yearMode {
-                                Text(LS("前 11 个月月均 ") + money(s.avg, cur)).font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
-                            }
+                            // a line in both views, so switching 月 / 年 keeps the card's height
+                            Text(averageLine(s, cur)).font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
                         }
                         Divider()
-                        HStack(alignment: .top, spacing: AppSpacing.control) {
-                            Figure(label: LS("收入"), value: money(s.inc, cur, 0), color: .gain)
-                            Spacer()
-                            Figure(label: LS("结余") + (rate.map { String(format: " · %.0f%%", $0) } ?? ""), value: money(net, cur, 0), color: net < 0 ? Color.loss : Color.primary)
-                            Spacer()
-                            Figure(label: LS("净资产"), value: money(s.nw, cur, 0), alignment: .trailing)
-                        }
+                        FigureRow(items: [
+                            .init(label: LS("收入"), value: money(s.inc, cur, 0), color: .gain),
+                            .init(label: LS("结余") + (rate.map { String(format: " · %.0f%%", $0) } ?? ""), value: money(net, cur, 0), color: net < 0 ? Color.loss : Color.primary),
+                            .init(label: LS("净资产"), value: money(s.nw, cur, 0)),
+                        ])
                     }
                 }
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("overview.hero")
                 .cardRow()
             }
         }
+    }
+
+    /// a month: the 11 months before it; a year: the months gone so far
+    private func averageLine(_ s: Summary, _ cur: String) -> String {
+        guard s.yearMode else { return LS("前 11 个月月均 ") + money(s.avg, cur) }
+        return s.avgMonths > 0 ? LS("月均 %@ · %@ 个月", money(s.avg, cur), s.avgMonths) : LS("月均 —")
     }
 
     private func monthLabelShort(_ m: String) -> String { String(Int(m.suffix(2)) ?? 0) }

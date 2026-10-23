@@ -779,4 +779,43 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(today.waitForExistence(timeout: 5))
         XCTAssertEqual(weekday.frame.minY, before, accuracy: 0.5)
     }
+
+    private func launchTab(_ tab: String, accessibility: Bool = false) -> XCUIApplication {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures").path
+        app.launchEnvironment = ["LEDGER_DEMO": fixture, "LEDGER_TAB": tab, "LEDGER_LANG": "zh"]
+        app.launchArguments = ["-AppleLanguages", "(zh-Hans)"]
+            + (accessibility ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : [])
+        app.launch()
+        return app
+    }
+
+    /// 月 and 年 on the overview's card: the year had no average line, so the card was a line shorter and
+    /// everything under it jumped when switching
+    func testOverviewCardKeepsItsHeightBetweenMonthAndYear() {
+        let app = launchTab("overview")
+        let hero = app.otherElements["overview.hero"]
+        XCTAssertTrue(hero.waitForExistence(timeout: 20))
+        // the period is remembered: start from 月
+        app.buttons["月"].tap()
+        XCTAssertTrue(hero.staticTexts["本年支出"].waitForNonExistence(timeout: 5))
+        let income = hero.staticTexts["收入"]
+        XCTAssertTrue(income.exists)
+        let before = income.frame.minY
+        app.buttons["年"].tap()
+        XCTAssertTrue(hero.staticTexts["本年支出"].waitForExistence(timeout: 5))
+        XCTAssertEqual(income.frame.minY, before, accuracy: 0.5)
+    }
+
+    /// At the largest text size the card's figures are not shrunk to fit one row: they stack, one a line, and the
+    /// card grows
+    func testOverviewFiguresStackAtAccessibilityTextSize() {
+        let app = launchTab("overview", accessibility: true)
+        let hero = app.otherElements["overview.hero"]
+        XCTAssertTrue(hero.waitForExistence(timeout: 20))
+        let income = hero.staticTexts["收入"], net = hero.staticTexts["净资产"]
+        XCTAssertTrue(income.exists && net.exists)
+        XCTAssertGreaterThan(net.frame.minY, income.frame.maxY)
+    }
 }
