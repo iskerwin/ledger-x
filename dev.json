@@ -19,12 +19,12 @@
       "category": "utilities",
       "versions": [
         {
-          "version": "1.0.2",
-          "buildVersion": "14",
+          "version": "1.0.3",
+          "buildVersion": "15",
           "date": "2026-10-21T17:58:29Z",
-          "localizedDescription": "# Ledger X 1.0.2 开发版\n\n版本 1.0.2 · 构建 14 · main 273d8bc 。\n\n## 修复\n\n- 省略金额由 App 自动补的分录，补出的金额与 Beancount 一致：交易里该币种没有写带小数的金额时按精确值补，不再先取两位小数。例如 `0.002 AAPL {343.6395 USD}` 配一行不写金额的收入，以前补成 -0.69 USD 并报「不平衡 -0.0027 USD」，现在补成 -0.687279 USD；有 0.00 这类金额时仍按最粗的小数位四舍六入五成双。账本为某币种单独设的 inferred_tolerance_default 会放宽该币种的平衡误差，与 Beancount 相同。",
+          "localizedDescription": "# Ledger X 1.0.3 开发版\n\n版本 1.0.3 · 构建 15 · main 0908f64 。\n\n## 改进\n\n- 震动和动画同时发生：保存、删除、暂存本机后的震动改为在底部提示出现的那一刻触发，不再在记账卡片还在收起时提前震；记一笔切换支出 / 收入 / 转账时轻震一下。仍遵守设置里的触感开关和强度。\n- 月份切换有方向：概览和报表顶部点 › 时新的月份名从右边滑进来，点 ‹ 从左边进来；按年看时同样。下面的内容照常更新，大号金额仍逐位滚动。系统开启「减少动态效果」时直接切换。",
           "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
-          "size": 10227423,
+          "size": 10236506,
           "minOSVersion": "17.0"
         },
         {
@@ -63,11 +63,11 @@
           "NSPhotoLibraryUsageDescription": "选择票据照片作为交易附件"
         }
       },
-      "version": "1.0.2",
+      "version": "1.0.3",
       "versionDate": "2026-10-21T17:58:29Z",
-      "versionDescription": "# Ledger X 1.0.2 开发版\n\n版本 1.0.2 · 构建 14 · main 273d8bc 。\n\n## 修复\n\n- 省略金额由 App 自动补的分录，补出的金额与 Beancount 一致：交易里该币种没有写带小数的金额时按精确值补，不再先取两位小数。例如 `0.002 AAPL {343.6395 USD}` 配一行不写金额的收入，以前补成 -0.69 USD 并报「不平衡 -0.0027 USD」，现在补成 -0.687279 USD；有 0.00 这类金额时仍按最粗的小数位四舍六入五成双。账本为某币种单独设的 inferred_tolerance_default 会放宽该币种的平衡误差，与 Beancount 相同。",
+      "versionDescription": "# Ledger X 1.0.3 开发版\n\n版本 1.0.3 · 构建 15 · main 0908f64 。\n\n## 改进\n\n- 震动和动画同时发生：保存、删除、暂存本机后的震动改为在底部提示出现的那一刻触发，不再在记账卡片还在收起时提前震；记一笔切换支出 / 收入 / 转账时轻震一下。仍遵守设置里的触感开关和强度。\n- 月份切换有方向：概览和报表顶部点 › 时新的月份名从右边滑进来，点 ‹ 从左边进来；按年看时同样。下面的内容照常更新，大号金额仍逐位滚动。系统开启「减少动态效果」时直接切换。",
       "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
-      "size": 10227423
+      "size": 10236506
     }
   ],
   "news": []
