@@ -443,6 +443,11 @@ final class Store: ObservableObject {
         let env = ProcessInfo.processInfo.environment
         let base = URL(fileURLWithPath: dir)
         demoDir = base
+        // the screens as they are while a ledger loads: it never finishes
+        if env["LEDGER_LOADING"] != nil {
+            if let t = env["LEDGER_TAB"], let tab = Tab(rawValue: t) { self.tab = tab }
+            return
+        }
         let result: (Ledger, Derived) = await Task.detached {
             let extra = env["LEDGER_EXTRA"]
             let list = { (try? FileManager.default.subpathsOfDirectory(atPath: base.path)) ?? [] }

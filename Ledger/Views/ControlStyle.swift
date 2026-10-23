@@ -125,6 +125,57 @@ struct PageLoading: View {
     var body: some View { ProgressView() }
 }
 
+/// A page's shape in grey while the ledger loads (概览: the card, then rows; 明细: rows), in place of a spinner on
+/// an empty page. It breathes softly; 减少动态效果 keeps it still.
+struct PageSkeleton: View {
+    var card = true
+    var rows = 8
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var dim = false
+
+    var body: some View {
+        List {
+            if card {
+                Section {
+                    VStack(alignment: .leading, spacing: AppSpacing.control) {
+                        bar(70, 12)
+                        bar(180, 34)
+                        bar(220, 10)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 150, alignment: .leading)
+                }
+            }
+            Section {
+                ForEach(0..<rows, id: \.self) { i in
+                    HStack(spacing: AppSpacing.icon) {
+                        RoundedRectangle(cornerRadius: AppRadius.tile, style: .continuous).fill(.quaternary).frame(width: 30, height: 30)
+                        VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                            bar(i.isMultiple(of: 2) ? 140 : 110, 12)
+                            bar(80, 10)
+                        }
+                        Spacer()
+                        bar(60, 12)
+                    }
+                    .padding(.vertical, AppSpacing.detail)
+                }
+            }
+        }
+        .scrollDisabled(true)
+        .opacity(dim ? 0.45 : 1)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { dim = true }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(LS("正在加载账本…"))
+        .accessibilityIdentifier("page.skeleton")
+    }
+
+    private func bar(_ w: CGFloat, _ h: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: AppRadius.mini, style: .continuous).fill(.quaternary).frame(width: w, height: h)
+    }
+}
+
 /// A button's title while its work runs: the spinner in its place, the same size, so the button doesn't jump
 struct BusyLabel: View {
     let busy: Bool

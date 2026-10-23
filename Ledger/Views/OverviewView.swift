@@ -25,7 +25,7 @@ struct OverviewView: View {
     var body: some View {
         NavigationStack(path: $path) {
             Group {
-                if let L = store.L, let D = store.D { content(L, D) } else { PageLoading() }
+                if let L = store.L, let D = store.D { content(L, D) } else { PageSkeleton() }
             }
             .navigationTitle(LS("概览"))
             .toolbar { StandardToolbar(currency: true) }

@@ -921,6 +921,18 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(now.waitForNonExistence(timeout: 5))
     }
 
+    /// While the ledger loads, the tabs are there and 概览 and 明细 show their shape in grey, rather than a page
+    /// with a spinner alone
+    func testPagesShowTheirShapeWhileTheLedgerLoads() {
+        var app = launchTab("overview", env: ["LEDGER_LOADING": "1"])
+        let skeleton = app.descendants(matching: .any)["page.skeleton"].firstMatch
+        XCTAssertTrue(skeleton.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.tabBars.buttons["明细"].exists)
+        app.terminate()
+        app = launchTab("journal", env: ["LEDGER_LOADING": "1"])
+        XCTAssertTrue(app.descendants(matching: .any)["page.skeleton"].firstMatch.waitForExistence(timeout: 20))
+    }
+
     private var heightExtra: String {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/height-extra.bean").path
     }

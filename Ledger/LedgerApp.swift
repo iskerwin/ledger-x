@@ -59,7 +59,8 @@ struct RootView: View {
         Group {
             if !store.connected {
                 NavigationStack { SettingsView(first: true) }
-            } else if store.L == nil {
+            } else if store.L == nil && LoadingView.problem(store) != nil {
+                // a ledger that couldn't load: why, and what to do; while it loads the pages show their shape instead
                 NavigationStack { LoadingView() }
             } else if hsize == .regular {
                 SplitRoot()
@@ -137,10 +138,15 @@ private extension View {
 
 struct LoadingView: View {
     @EnvironmentObject var store: Store
+    /// why the ledger didn't load, if it didn't
+    static func problem(_ store: Store) -> String? {
+        guard let e = store.loadError ?? (store.syncState == .error || store.syncState == .offline ? store.syncError : nil), !e.isEmpty else { return nil }
+        return e
+    }
     var body: some View {
         VStack(spacing: AppSpacing.content) {
             Image("Logo").resizable().frame(width: 72, height: 72).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            if let e = store.loadError ?? (store.syncState == .error || store.syncState == .offline ? store.syncError : nil), !e.isEmpty {
+            if let e = Self.problem(store) {
                 Text(e).multilineTextAlignment(.center).foregroundStyle(.secondary).padding(.horizontal, AppSpacing.content)
                 Button { Task { await store.refresh() } } label: { Label(LS("重试"), systemImage: "arrow.clockwise").labelStyle(ControlLabelStyle()) }.buttonStyle(.borderedProminent)
                 NavigationLink { SettingsView() } label: { Label(LS("设置"), systemImage: "gearshape").labelStyle(ControlLabelStyle()) }

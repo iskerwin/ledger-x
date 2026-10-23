@@ -215,7 +215,7 @@ struct JournalView: View {
             Group {
                 if let L = store.L {
                     list(L)
-                } else { PageLoading() }
+                } else { PageSkeleton(card: false, rows: 10) }
             }
             .refreshable { await store.refresh() }
             .navigationTitle(LS("明细"))
