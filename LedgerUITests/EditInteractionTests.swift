@@ -522,6 +522,9 @@ final class EditInteractionTests: XCTestCase {
         app.launchArguments = ["-AppleLanguages", "(zh-Hans)"]
         app.launch()
         let funding = app.buttons["import.funding"].firstMatch
+        // a run before kept its progress on this simulator (this test ends by resuming it): carry on from there
+        let resume = app.buttons["继续上次导入"]
+        if !funding.waitForExistence(timeout: 20), resume.exists { resume.tap() }
         tapPoint(funding, timeout: 20)
         pickAccount(app, "Assets:Cash")
         app.navigationBars.buttons["完成"].tap()
