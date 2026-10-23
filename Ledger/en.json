@@ -2135,5 +2135,6 @@
  "展开 %@": "Expand %@",
  "删除标签 %@": "Remove tag %@",
  "上一年": "Previous year",
- "下一年": "Next year"
+ "下一年": "Next year",
+ "这个地址用 http：访问令牌和账本会以明文传输，同一网络里的人可以看到或篡改。只在自己家里的网络用；能用 https 时请改用 https。": "This address uses http: the access token and the ledger travel unencrypted, and anyone on the same network can read or change them. Use it only on your home network, and switch to https when you can."
 }

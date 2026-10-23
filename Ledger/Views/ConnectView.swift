@@ -53,10 +53,20 @@ struct ConnectionSections: View {
         }
     }
 
+    @ViewBuilder private var plainTextWarning: some View {
+        if cfg.sendsInPlainText {
+            Label(LS("这个地址用 http：访问令牌和账本会以明文传输，同一网络里的人可以看到或篡改。只在自己家里的网络用；能用 https 时请改用 https。"), systemImage: "exclamationmark.triangle.fill")
+                .labelStyle(ControlLabelStyle())
+                .font(.footnote).foregroundStyle(Color.loss)
+                .accessibilityIdentifier("connect.plainText")
+        }
+    }
+
     private var gitSection: some View {
         Section {
             if cfg.kind != .github {
                 field(LS("服务器"), cfg.kind == .gitlab ? "https://gitlab.com" : "https://codeberg.org", $cfg.server, url: true)
+                plainTextWarning
             }
             field(LS("用户"), cfg.kind == .gitlab ? LS("用户或群组") : LS("用户名"), $cfg.owner)
             field(LS("仓库"), LS("账本仓库名"), $cfg.repo)
@@ -106,6 +116,7 @@ struct ConnectionSections: View {
     private var davSection: some View {
         Section {
             field(LS("地址"), "https://dav.jianguoyun.com/dav/ledger/", $cfg.server, url: true)
+            plainTextWarning
             field(LS("用户"), LS("账号"), $cfg.username)
             field(LS("密码"), LS("应用密码"), $cfg.token, secure: true)
         } header: {

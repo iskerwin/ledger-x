@@ -64,6 +64,12 @@ struct RepoConfig: Codable, Hashable, Identifiable {
         token = try c.decodeIfPresent(String.self, forKey: .token) ?? ""
     }
 
+    /// a server reached over plain http (allowed, for a server on the home network): the token and the ledger
+    /// travel unencrypted, so the connection form says so
+    var sendsInPlainText: Bool {
+        [.gitlab, .gitea, .webdav].contains(kind) && server.trimmingCharacters(in: .whitespaces).lowercased().hasPrefix("http://")
+    }
+
     var isComplete: Bool {
         switch kind {
         case .github: return !owner.isEmpty && !repo.isEmpty && !branch.isEmpty && !token.isEmpty
