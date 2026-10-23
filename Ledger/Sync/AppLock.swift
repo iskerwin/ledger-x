@@ -48,9 +48,12 @@ final class AppLock: ObservableObject {
         defer { authenticating = false }
         let ctx = LAContext()
         ctx.localizedFallbackTitle = LS("输入密码")
-        var err: NSError?
-        // no passcode on the device: nothing to authenticate with, don't lock the user out
-        guard ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err) else { gate.unlock(); locked = false; return }
+        // the passcode was taken off the phone after the lock was turned on: stay locked (letting anyone in would
+        // make the lock pointless) and say how to get back in
+        guard Self.canAuthenticate(ctx) else {
+            lastError = LS("这台 iPhone 没有设置密码，无法解锁。请在系统「设置 › 面容 ID 与密码」里设置密码后再打开。")
+            return
+        }
         let reason = LS("解锁以查看账本")
         do {
             let ok = passcode
@@ -68,6 +71,12 @@ final class AppLock: ObservableObject {
             if code != .systemCancel && code != .appCancel { offerPasscode = true }
             lastError = code == .userCancel || code == .systemCancel ? nil : error.localizedDescription
         }
+    }
+
+    /// whether the phone has anything to authenticate with (a passcode); tests stand in a phone without one
+    static var canAuthenticate: (LAContext) -> Bool = { ctx in
+        var err: NSError?
+        return ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err)
     }
 
     /// the device passcode alone, without trying biometry first
