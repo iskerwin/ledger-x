@@ -7,8 +7,6 @@ enum AppSpacing {
     static let icon: CGFloat = 8
     static let control: CGFloat = 12
     static let content: CGFloat = 16
-    static let section: CGFloat = 24
-    static let spacious: CGFloat = 32
 }
 
 extension View {
@@ -108,23 +106,6 @@ struct ControlIcon: View {
             .font(.system(size: side * 0.72))
             .frame(width: side, height: side)
             .accessibilityHidden(true)
-    }
-}
-
-/// Keep action titles readable when their combined width exceeds a small screen or large font.
-struct ActionGroup<Content: View>: View {
-    @Environment(\.dynamicTypeSize) private var typeSize
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        ViewThatFits(in: .horizontal) {
-            if !typeSize.isAccessibilitySize {
-                HStack(spacing: AppSpacing.control) { content }
-                    .fixedSize(horizontal: true, vertical: false)
-            }
-            VStack(alignment: .leading, spacing: AppSpacing.control) { content }
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
     }
 }
 
