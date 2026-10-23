@@ -36,10 +36,13 @@ struct Toast: Identifiable, Equatable {
     var id: UUID
     var text: String
     var action: String?
-    init(id: UUID = UUID(), text: String, action: String? = nil) {
+    /// something was saved: the notice leads with a check
+    var success = false
+    init(id: UUID = UUID(), text: String, action: String? = nil, success: Bool = false) {
         self.id = id
         self.text = text
         self.action = action
+        self.success = success
     }
 }
 
@@ -1267,7 +1270,7 @@ final class Store: ObservableObject {
         toastActions = toastActions.filter { live.contains($0.key) }
         if let visible = toastSchedule.visible {
             if toast?.id != visible.id || toast?.text != visible.text || toast?.action != visible.action {
-                toast = Toast(id: visible.id, text: visible.text, action: visible.action)
+                toast = Toast(id: visible.id, text: visible.text, action: visible.action, success: visible.feedback == .success)
             }
             toastAction = toastActions[visible.id]
             switch toastSchedule.announce()?.feedback {

@@ -182,6 +182,7 @@ struct ToastView: View {
     var body: some View {
         if let t = store.toast {
             HStack(spacing: AppSpacing.control) {
+                if t.success { SavedCheck() }
                 Text(t.text).font(.subheadline.weight(.medium)).lineLimit(2)
                     .accessibilityIdentifier("toast.message")
                 if let a = t.action {
@@ -199,6 +200,21 @@ struct ToastView: View {
             .transition(.move(edge: top ? .top : .bottom).combined(with: .opacity))
             .id(t.id)
         }
+    }
+}
+
+/// the check in front of a saved notice: it pops in once (no pop under 减少动态效果)
+private struct SavedCheck: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
+    var body: some View {
+        Image(systemName: "checkmark.circle.fill")
+            .font(.body.weight(.semibold))
+            .foregroundStyle(Color.jade)
+            .symbolEffect(.bounce, value: shown)
+            .onAppear { if !reduceMotion { shown = true } }
+            .accessibilityHidden(true)
+            .accessibilityIdentifier("toast.saved")
     }
 }
 
