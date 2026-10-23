@@ -388,8 +388,8 @@ struct QuickAddView: View {
                             }
                             .font(.footnote)
                             .padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.icon)
-                            .foregroundStyle(x.due ? Color.orange : Color.primary)
-                            .background(x.due ? Color.orange.opacity(0.14) : Color(.secondarySystemGroupedBackground), in: Capsule())
+                            .foregroundStyle(x.due ? Color.warn : Color.primary)
+                            .background(x.due ? Color.warn.opacity(0.14) : Color(.secondarySystemGroupedBackground), in: Capsule())
                         }
                         .buttonStyle(PressStyle())
                         .contextMenu {
@@ -938,7 +938,7 @@ struct QuickAddView: View {
                 Button { field = nil; writing = false; hideKeyboard(); rating = true } label: {
                     Label(draftRate(d).map { "1 \(d.currency) = \(rateString($0)) \(o)" } ?? LS("填汇率…"), systemImage: "arrow.left.arrow.right").labelStyle(ControlLabelStyle())
                         .font(.footnote)
-                        .foregroundStyle(draftRate(d) == nil ? Color.orange : Color.secondary)
+                        .foregroundStyle(draftRate(d) == nil ? Color.warn : Color.secondary)
                 }
                 .buttonStyle(.plain)
             }
@@ -954,7 +954,7 @@ struct QuickAddView: View {
             if !writing, let s = comboSummary(d, L) {
                 let issue = comboIssue(d, L, D)
                 Label(issue ?? s, systemImage: issue == nil ? "square.split.2x1" : "exclamationmark.triangle").labelStyle(ControlLabelStyle())
-                    .font(.footnote).foregroundStyle(issue == nil ? Color.secondary : Color.orange)
+                    .font(.footnote).foregroundStyle(issue == nil ? Color.secondary : Color.warn)
                     .lineLimit(2)
                     .onTapGesture { splittingPay = true }
             }

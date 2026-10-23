@@ -39,7 +39,7 @@ struct SyncView: View {
                         .accessibilityIdentifier("sync.unguarded")
                 }
                 LabeledContent {
-                    Text(store.syncState == .offline ? LS("未连接") : LS("已连接")).foregroundStyle(store.syncState == .offline ? Color.orange : Color.secondary)
+                    Text(store.syncState == .offline ? LS("未连接") : LS("已连接")).foregroundStyle(store.syncState == .offline ? Color.warn : Color.secondary)
                 } label: { Label(LS("网络"), systemImage: store.syncState == .offline ? "wifi.slash" : "wifi").labelStyle(ControlLabelStyle()) }
                 LabeledContent { Text(store.cfg.title) } label: { Label(LS("账本"), systemImage: "book.closed").labelStyle(ControlLabelStyle()) }
                 LabeledContent { Text(store.cfg.kind.name) } label: { Label(LS("存储"), systemImage: store.cfg.kind.symbol).labelStyle(ControlLabelStyle()) }
@@ -101,7 +101,7 @@ struct SyncView: View {
             switch s {
             case .synced: return ("checkmark.icloud", .jade, LS("已同步"))
             case .local: return ("iphone", .jade, LS("已保存到本机"))
-            case .failed: return ("exclamationmark.icloud", .orange, LS("同步没有完成"))
+            case .failed: return ("exclamationmark.icloud", Color.warn, LS("同步没有完成"))
             case .syncing: return ("arrow.triangle.2.circlepath.icloud", .jade, LS("正在同步"))
             }
         }()
@@ -120,7 +120,7 @@ struct SyncView: View {
                     if !store.pending.isEmpty { Text(LS("%@ 项变更等待同步", store.pending.count)).font(.subheadline).foregroundStyle(.secondary) }
                     if store.syncState == .offline {
                         Text(LS("离线")).font(.caption.weight(.semibold)).padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.detail)
-                            .foregroundStyle(Color.orange).background(Color.orange.opacity(0.15), in: Capsule())
+                            .foregroundStyle(Color.warn).background(Color.warn.opacity(0.15), in: Capsule())
                     }
                     if let d = store.lastSync {
                         Text(LS("上次同步 %@", d.formatted(date: .abbreviated, time: .shortened))).font(.caption).foregroundStyle(.secondary)
@@ -146,17 +146,17 @@ struct SyncView: View {
         if let t = text {
             Section {
                 Label(t, systemImage: "exclamationmark.circle").labelStyle(ControlLabelStyle())
-                    .font(.subheadline).foregroundStyle(Color.orange)
+                    .font(.subheadline).foregroundStyle(Color.warn)
                     .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.control)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(Color.warn.opacity(0.1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .cardRow()
             }
         }
     }
 
     private func opRow(_ o: Op) -> some View {
-        let state: (String, Color) = o.failed != nil ? (LS("未提交"), .loss) : o.held != nil ? (LS("暂存本机"), .orange) : (LS("等待上传"), .orange)
+        let state: (String, Color) = o.failed != nil ? (LS("未提交"), .loss) : o.held != nil ? (LS("暂存本机"), Color.warn) : (LS("等待上传"), Color.warn)
         return Button { if o.failed != nil || o.held != nil { why = o } } label: {
             HStack(alignment: .top, spacing: AppSpacing.control) {
                 VStack(alignment: .leading, spacing: AppSpacing.detail) {

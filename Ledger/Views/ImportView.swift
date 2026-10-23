@@ -284,7 +284,7 @@ struct ImportView: View {
                 HStack(spacing: 0) {
                     stat(ready.count, LS("可导入"), .primary)
                     Divider().frame(height: 30)
-                    stat(pending.count, LS("待确认"), pending.isEmpty ? .primary : .orange)
+                    stat(pending.count, LS("待确认"), pending.isEmpty ? .primary : Color.warn)
                     Divider().frame(height: 30)
                     stat(skipped.count + (table?.skipped ?? 0), LS("已跳过"), .secondary)
                 }
@@ -309,15 +309,15 @@ struct ImportView: View {
                 Section {
                     Button { next() } label: {
                         HStack(spacing: AppSpacing.icon) {
-                            Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Color.orange)
-                            Text(LS("还有 %@ 笔需要补充信息", pending.count)).foregroundStyle(Color.orange)
+                            Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Color.warn)
+                            Text(LS("还有 %@ 笔需要补充信息", pending.count)).foregroundStyle(Color.warn)
                             Spacer()
-                            Text(LS("处理这 %@ 笔", pending.count)).fontWeight(.semibold).foregroundStyle(Color.orange)
-                            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(Color.orange)
+                            Text(LS("处理这 %@ 笔", pending.count)).fontWeight(.semibold).foregroundStyle(Color.warn)
+                            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(Color.warn)
                         }
                         .font(.subheadline)
                         .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.control)
-                        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(Color.warn.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -489,7 +489,7 @@ struct ImportView: View {
                 if let v = value {
                     Text(v).foregroundStyle(.primary).lineLimit(1)
                 } else {
-                    Label(missing, systemImage: "exclamationmark.circle.fill").labelStyle(ControlLabelStyle()).foregroundStyle(Color.orange)
+                    Label(missing, systemImage: "exclamationmark.circle.fill").labelStyle(ControlLabelStyle()).foregroundStyle(Color.warn)
                 }
                 Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
             }

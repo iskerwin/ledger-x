@@ -433,7 +433,7 @@ struct AddForm: View {
                 Button { splittingPay = true } label: {
                     LabeledContent {
                         Text(comboIssue(d, L, D) ?? comboSummary(d, L) ?? LS("未使用"))
-                            .foregroundStyle(comboIssue(d, L, D) != nil ? Color.orange : Color.secondary).lineLimit(2)
+                            .foregroundStyle(comboIssue(d, L, D) != nil ? Color.warn : Color.secondary).lineLimit(2)
                     } label: { Label(LS("组合付款与优惠"), systemImage: "square.stack.3d.up").labelStyle(ControlLabelStyle()) }
                 }
                 .buttonStyle(.plain)
@@ -668,7 +668,7 @@ struct AddForm: View {
             if focus == .payee { payeeSuggestions(store.draft.payee, D) }
             TextField(LS("说明"), text: field(\.narration))
             TextField(LS("#标签 ^链接"), text: field(\.tagsText)).textInputAutocapitalization(.never).autocorrectionDisabled()
-            Toggle(LS("! 待确认"), isOn: Binding(get: { store.draft.flag == "!" }, set: { store.draft.flag = $0 ? "!" : "*"; store.draft.edited = nil })).tint(.orange)
+            Toggle(LS("! 待确认"), isOn: Binding(get: { store.draft.flag == "!" }, set: { store.draft.flag = $0 ? "!" : "*"; store.draft.edited = nil })).tint(Color.warn)
         }
         Section {
             ForEach(rowsBinding) { $row in
@@ -725,7 +725,7 @@ struct AddForm: View {
             if let v = v {
                 if v.ok {
                     Label(v.warnings.isEmpty ? LS("校验通过") : v.warnings[0].msg, systemImage: v.warnings.isEmpty ? "checkmark.circle" : "exclamationmark.triangle").labelStyle(ControlLabelStyle())
-                        .font(.footnote).foregroundStyle(v.warnings.isEmpty ? Color.gain : Color.orange)
+                        .font(.footnote).foregroundStyle(v.warnings.isEmpty ? Color.gain : Color.warn)
                 } else if let m = v.msg {
                     Label(m, systemImage: "xmark.octagon").labelStyle(ControlLabelStyle()).font(.footnote).foregroundStyle(Color.loss)
                 }
@@ -755,7 +755,7 @@ struct AddForm: View {
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         HStack(spacing: AppSpacing.icon) {
                             Text(o.summary ?? o.label ?? "").lineLimit(1)
-                            Text(o.failed != nil ? LS("未提交") : o.held != nil ? LS("暂存本机") : LS("待同步")).font(.caption2.weight(.semibold)).foregroundStyle(o.failed != nil ? Color.loss : Color.orange)
+                            Text(o.failed != nil ? LS("未提交") : o.held != nil ? LS("暂存本机") : LS("待同步")).font(.caption2.weight(.semibold)).foregroundStyle(o.failed != nil ? Color.loss : Color.warn)
                         }
                         Text(o.date ?? "").font(.caption).foregroundStyle(.secondary)
                     }
@@ -925,7 +925,7 @@ struct RowEditor: View {
                 Spacer()
                 Button { row.flag = row.flag == "!" ? "" : "!" } label: {
                     Text("!").font(.subheadline.weight(.bold)).frame(width: 26, height: 26)
-                        .background(row.flag == "!" ? Color.orange : Color(.tertiarySystemFill), in: Circle())
+                        .background(row.flag == "!" ? Color.warn : Color(.tertiarySystemFill), in: Circle())
                         .foregroundStyle(row.flag == "!" ? Color.white : Color.secondary)
                 }
                 .buttonStyle(.plain)

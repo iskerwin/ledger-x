@@ -187,7 +187,7 @@ struct RateSheet: View {
                         let expected = solveTransferRate(.converted, draft: candidate, amount: a, rate: perUnit(r), received: c)
                         Text(LS("转出金额与实际到账按所选扣费方式计算。")).font(.caption)
                         if let expected = expected, abs(expected - c) > 0.011 {
-                            Text(LS("银行报价与实际金额存在差异，请核对；已填金额不会被自动覆盖。")).foregroundStyle(Color.orange)
+                            Text(LS("银行报价与实际金额存在差异，请核对；已填金额不会被自动覆盖。")).foregroundStyle(Color.warn)
                         }
                     } else {
                         Text("\(toFixed(a, 2)) \(currency) × \(rateString(perUnit(r))) ≈ \(toFixed(c, 2)) \(fc)").monospacedDigit()

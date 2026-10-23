@@ -474,7 +474,7 @@ struct TemplateChip: View {
                     }
                     HStack(spacing: AppSpacing.detail) {
                         Text(x.fixed.map { money($0, x.currency) } ?? LS("金额待填")).font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
-                        if x.due { Text(LS("本月未入账")).font(.caption2.weight(.semibold)).foregroundStyle(.orange) }
+                        if x.due { Text(LS("本月未入账")).font(.caption2.weight(.semibold)).foregroundStyle(Color.warn) }
                     }
                 }
                 .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
@@ -493,7 +493,7 @@ struct TemplateChip: View {
                 .accessibilityLabel(LS("直接入账：%@", x.label))
             }
         }
-        .background(x.due ? Color.orange.opacity(0.12) : Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 12))
+        .background(x.due ? Color.warn.opacity(0.12) : Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 12))
     }
 }
 

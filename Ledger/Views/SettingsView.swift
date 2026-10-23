@@ -141,7 +141,7 @@ struct SettingsView: View {
                         Text(store.cfg.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         HStack(spacing: AppSpacing.icon) {
                             Image(systemName: store.pending.isEmpty && store.syncState != .error ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                                .foregroundStyle(store.pending.isEmpty && store.syncState != .error ? Color.jade : Color.orange)
+                                .foregroundStyle(store.pending.isEmpty && store.syncState != .error ? Color.jade : Color.warn)
                             Text(syncSummary).font(.caption).foregroundStyle(.secondary)
                         }
                     }

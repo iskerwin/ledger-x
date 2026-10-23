@@ -12,10 +12,10 @@ struct CardStatusLook {
         let days = daysBetween(today, c.due)
         switch c.status(today: today) {
         case .settled: (text, color, icon) = (LS("已还清"), .gain, "checkmark.circle")
-        case .minimumPaid: (text, color, icon) = (LS("已还最低"), .orange, "checkmark.circle")
+        case .minimumPaid: (text, color, icon) = (LS("已还最低"), Color.warn, "checkmark.circle")
         case .overdue: (text, color, icon) = (LS("已逾期"), .loss, "exclamationmark.circle")
         case .due:
-            (text, color, icon) = (days == 0 ? LS("今天到期") : LS("%@天后到期", days), days <= 7 ? .orange : .secondary, "clock")
+            (text, color, icon) = (days == 0 ? LS("今天到期") : LS("%@天后到期", days), days <= 7 ? Color.warn : .secondary, "clock")
         }
     }
 }
@@ -140,14 +140,14 @@ struct CardHeroSection: View {
         let on = Reminders.enabled
         return Button { store.showSettings = true } label: {
             HStack(spacing: AppSpacing.icon) {
-                Image(systemName: on ? "calendar.badge.clock" : "bell.slash").foregroundStyle(Color.orange)
+                Image(systemName: on ? "calendar.badge.clock" : "bell.slash").foregroundStyle(Color.warn)
                 Text(on ? LS("已开启还款提醒 · 提前 %@ 天", Reminders.billDays) : LS("还款提醒未开启"))
                     .font(.subheadline).foregroundStyle(.primary)
                 Spacer()
                 Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
             }
             .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.control)
-            .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(Color.warn.opacity(0.1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -253,7 +253,7 @@ struct CardDueSection: View {
                     HStack(spacing: AppSpacing.control) {
                         NavigationLink(value: AccountDest(name: c.account)) {
                             HStack(spacing: AppSpacing.icon) {
-                                IconBadge(symbol: "creditcard.fill", color: c.overdue(today: today) ? .red : .orange, size: 28)
+                                IconBadge(symbol: "creditcard.fill", color: c.overdue(today: today) ? .red : Color.warn, size: 28)
                                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
                                     Text(accountTitle(L, c.account)).lineLimit(1)
                                     Text(dueLine(c, today))

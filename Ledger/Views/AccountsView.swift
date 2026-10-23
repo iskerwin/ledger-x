@@ -266,7 +266,7 @@ struct AccountsView: View {
                         tile(icon: "checkmark.seal", color: .gain, title: LS("核对完成"), line: LS("账户都已核对"),
                              sub: nil, subColor: .secondary, dot: false)
                     } else {
-                        tile(icon: "doc.text.magnifyingglass", color: .orange, title: LS("待核对 · %@ 个", open),
+                        tile(icon: "doc.text.magnifyingglass", color: Color.warn, title: LS("待核对 · %@ 个", open),
                              line: [dueAccounts.isEmpty ? nil : LS("%@ 个到核对日", dueAccounts.count),
                                     failingAccounts.isEmpty ? nil : LS("%@ 个断言不符", failingAccounts.count)].compactMap { $0 }.joined(separator: " · "),
                              sub: nil, subColor: .secondary, dot: true)
@@ -308,7 +308,7 @@ struct AccountsView: View {
         .frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(alignment: .topTrailing) {
-            if dot { Circle().fill(Color.orange).frame(width: 8, height: 8).padding(AppSpacing.icon) }
+            if dot { Circle().fill(Color.warn).frame(width: 8, height: 8).padding(AppSpacing.icon) }
         }
         .contentShape(Rectangle())
     }
@@ -444,9 +444,9 @@ struct AccountRow: View {
                                 .background(look.color.opacity(0.15), in: RoundedRectangle(cornerRadius: 4))
                         } else if days >= 0 && days <= 7 {
                             Text(days == 0 ? LS("今天") : LS("%@天后", days))
-                                .font(.caption2.weight(.semibold)).foregroundStyle(Color.orange)
+                                .font(.caption2.weight(.semibold)).foregroundStyle(Color.warn)
                                 .padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.detail)
-                                .background(Color.orange.opacity(0.15), in: RoundedRectangle(cornerRadius: 4))
+                                .background(Color.warn.opacity(0.15), in: RoundedRectangle(cornerRadius: 4))
                         }
                     } else {
                         Text(subtitle(leafName)).lineLimit(1)
@@ -749,7 +749,7 @@ struct RegisterView: View {
         let closedNote = L.accounts[account]?.close.map { LS(" · 已于 %@ 关闭", $0) } ?? ""
         let check = canCheck(L)
         let k = store.groupIcon(account)
-        let isIEIcon = account.hasPrefix("Income") ? ("arrow.down.circle.fill", Color.green) : ("arrow.up.circle.fill", Color.gray)
+        let isIEIcon = account.hasPrefix("Income") ? ("arrow.down.circle.fill", Color.gain) : ("arrow.up.circle.fill", Color.gray)
         return Section {
             Card {
                 VStack(alignment: .leading, spacing: AppSpacing.icon) {
@@ -998,7 +998,7 @@ struct CheckSheet: View {
                 LabeledContent(LS("%@ 已存在余额断言", date)) {
                     Text(money(o.entry.number, currency) + (o.ok ? LS("（相符）") : LS("（不符）"))).monospacedDigit().sensitive()
                 }
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color.warn)
             }
             if let a = a {
                 MonoText(text: balanceLine(date, account, a, currency))
@@ -1026,7 +1026,7 @@ struct CheckSheet: View {
                 Label(title, systemImage: "checkmark.seal").labelStyle(ControlLabelStyle()).frame(maxWidth: .infinity).fontWeight(.semibold)
             }
             .buttonStyle(.borderedProminent)
-            .tint(old != nil ? Color.orange : Color.jade)
+            .tint(old != nil ? Color.warn : Color.jade)
             .controlSize(.large)
             .disabled(a == nil)
             .listRowBackground(Color.clear)

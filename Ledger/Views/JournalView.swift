@@ -143,8 +143,8 @@ struct Tag: View {
     var warn = false
     var body: some View {
         Text(text).font(.caption2.weight(.medium)).padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.detail)
-            .background(warn ? Color.orange.opacity(0.18) : Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 4))
-            .foregroundStyle(warn ? Color.orange : Color.secondary)
+            .background(warn ? Color.warn.opacity(0.18) : Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 4))
+            .foregroundStyle(warn ? Color.warn : Color.secondary)
             .lineLimit(1)
     }
 }

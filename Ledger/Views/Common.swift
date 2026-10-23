@@ -109,11 +109,11 @@ struct SyncBadge: View {
                 let state: (symbol: String, color: Color) = {
                     switch store.syncState {
                     case .syncing: return ("arrow.triangle.2.circlepath.icloud", .secondary)
-                    case .offline: return ("icloud.slash", .orange)
-                    case .error: return ("exclamationmark.icloud", .orange)
+                    case .offline: return ("icloud.slash", Color.warn)
+                    case .error: return ("exclamationmark.icloud", Color.warn)
                     case .idle:
-                        if problem { return ("exclamationmark.icloud", .orange) }
-                        return store.pending.isEmpty ? ("checkmark.icloud", .secondary) : ("icloud.and.arrow.up", .orange)
+                        if problem { return ("exclamationmark.icloud", Color.warn) }
+                        return store.pending.isEmpty ? ("checkmark.icloud", .secondary) : ("icloud.and.arrow.up", Color.warn)
                     }
                 }()
                 if store.syncState == .syncing, #unavailable(iOS 18.0) {
@@ -125,7 +125,7 @@ struct SyncBadge: View {
                         .animation(AppMotion.quick, value: state.symbol)
                 }
                 let n = store.pending.filter { $0.failed == nil && $0.held == nil }.count
-                if n > 0 { Text("\(n)").font(.caption.monospacedDigit()).foregroundStyle(.orange).rollingNumber(n, AppMotion.quick) }
+                if n > 0 { Text("\(n)").font(.caption.monospacedDigit()).foregroundStyle(Color.warn).rollingNumber(n, AppMotion.quick) }
             }
         }
         .accessibilityLabel(statusText)

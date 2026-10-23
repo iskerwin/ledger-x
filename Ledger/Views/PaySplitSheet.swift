@@ -83,7 +83,7 @@ struct PaySplitSheet: View {
             }
         }
         if let issue = comboIssue(d, L, D) {
-            Section { Label(issue, systemImage: "exclamationmark.triangle").labelStyle(ControlLabelStyle()).foregroundStyle(Color.orange).font(.footnote) }
+            Section { Label(issue, systemImage: "exclamationmark.triangle").labelStyle(ControlLabelStyle()).foregroundStyle(Color.warn).font(.footnote) }
         }
     }
 

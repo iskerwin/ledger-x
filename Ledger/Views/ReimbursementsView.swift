@@ -136,9 +136,9 @@ struct ReimbLineRow: View {
                 } else {
                     (Text(l.date + " · ")
                      + Text(l.category.isEmpty ? LS("未填支出类型") : l.category + (l.guessed ? LS("（推测）") : ""))
-                        .foregroundColor(l.category.isEmpty || l.guessed ? .orange : .secondary)
+                        .foregroundColor(l.category.isEmpty || l.guessed ? Color.warn : .secondary)
                      + Text(" · ")
-                     + Text(l.voucher.isEmpty ? LS("凭证未填") : l.voucher).foregroundColor(l.voucher.isEmpty ? .orange : .secondary))
+                     + Text(l.voucher.isEmpty ? LS("凭证未填") : l.voucher).foregroundColor(l.voucher.isEmpty ? Color.warn : .secondary))
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
