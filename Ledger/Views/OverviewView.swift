@@ -7,6 +7,8 @@ struct OverviewView: View {
     @State private var path = NavigationPath()
     @AppStorage("ledger.period") private var period = "month"
     @State private var month = Day.ym(Day.today())
+    /// which way the month last moved, for the side its name comes in from
+    @State private var monthForward = true
     @State private var selCat: String?
     @State private var selPay: String?
     @State private var selLiab: String?
@@ -223,9 +225,9 @@ struct OverviewView: View {
                     .pickerStyle(.segmented)
                     .frame(width: 110)
                     Spacer()
-                    Button { month = head.yearMode ? Day.addMonth(month, -12) : Day.addMonth(month, -1) } label: { Image(systemName: "chevron.left") }
-                    Text(head.label).font(.headline).frame(minWidth: 96)
-                    Button { month = head.yearMode ? Day.addMonth(month, 12) : Day.addMonth(month, 1) } label: { Image(systemName: "chevron.right") }
+                    Button { monthForward = false; month = head.yearMode ? Day.addMonth(month, -12) : Day.addMonth(month, -1) } label: { Image(systemName: "chevron.left") }
+                    SlidingTitle(text: head.label, forward: monthForward).font(.headline).frame(minWidth: 96)
+                    Button { monthForward = true; month = head.yearMode ? Day.addMonth(month, 12) : Day.addMonth(month, 1) } label: { Image(systemName: "chevron.right") }
                 }
                 .buttonStyle(.borderless)
                 .listRowBackground(Color.clear)
@@ -338,7 +340,7 @@ struct OverviewView: View {
                     Text(Day.monthLabel(p) + "  " + (trend == "flow" ? flowLine(p, F) : money(F.exp[p] ?? 0, F.cur))).monospacedDigit().sensitive()
                     Spacer()
                     if p != month || s.yearMode {
-                        Button { month = p; period = "month"; picked = nil } label: { Label(LS("查看该月"), systemImage: "calendar").labelStyle(ControlLabelStyle()) }.buttonStyle(.borderless)
+                        Button { monthForward = p >= month; month = p; period = "month"; picked = nil } label: { Label(LS("查看该月"), systemImage: "calendar").labelStyle(ControlLabelStyle()) }.buttonStyle(.borderless)
                     }
                 }
                 .font(.footnote)

@@ -8,6 +8,8 @@ struct ReportsInsights: View {
     @EnvironmentObject var store: Store
     @Binding var path: NavigationPath
     @State private var month = Day.ym(Day.today())
+    /// which way the month last moved, for the side its name comes in from
+    @State private var monthForward = true
     @AppStorage("ledger.reports.question") private var question = "where"
 
     var body: some View {
@@ -47,18 +49,18 @@ struct ReportsInsights: View {
         let now = Day.ym(Day.today())
         return HStack(spacing: AppSpacing.icon) {
             HStack(spacing: AppSpacing.control) {
-                Button { month = Day.addMonth(month, -1) } label: { Image(systemName: "chevron.left") }
+                Button { monthForward = false; month = Day.addMonth(month, -1) } label: { Image(systemName: "chevron.left") }
                 Spacer()
-                Text(Day.monthLabel(month)).font(.headline)
+                SlidingTitle(text: Day.monthLabel(month), forward: monthForward).font(.headline)
                 Spacer()
-                Button { month = Day.addMonth(month, 1) } label: { Image(systemName: "chevron.right") }
+                Button { monthForward = true; month = Day.addMonth(month, 1) } label: { Image(systemName: "chevron.right") }
                     .disabled(month >= now)
             }
             .buttonStyle(.plain)
             .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
             .background(Color(.secondarySystemGroupedBackground), in: Capsule())
             if month != now {
-                Button { month = now } label: { Label(LS("本月"), systemImage: "calendar").labelStyle(ControlLabelStyle()) }
+                Button { monthForward = now > month; month = now } label: { Label(LS("本月"), systemImage: "calendar").labelStyle(ControlLabelStyle()) }
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
                     .foregroundStyle(Color.jade)

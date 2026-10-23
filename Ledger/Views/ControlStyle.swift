@@ -18,6 +18,22 @@ extension View {
     }
 }
 
+/// A month's (or year's) name that slides in from the side it was moved towards: › brings it in from the right,
+/// ‹ from the left. The old name only fades, so turning round never sends it out the wrong way.
+struct SlidingTitle: View {
+    let text: String
+    let forward: Bool
+
+    var body: some View {
+        ZStack {
+            Text(text).id(text)
+                .transition(.asymmetric(insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity), removal: .opacity))
+        }
+        .clipped()
+        .animation(AppMotion.standard, value: text)
+    }
+}
+
 /// The app's three motions, so everything moves alike. 减少动态效果 turns them all off at the root.
 enum AppMotion {
     /// a tap's answer: a filter, a chart's selection, a chosen category
