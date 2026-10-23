@@ -52,12 +52,12 @@ struct JournalCalendar: View {
             if !dots.isEmpty { marks[d] = dots } else if x.n > 0 { marks[d] = [Self.other] }
         }
         return VStack(spacing: AppSpacing.icon) {
-            // equal columns: a month's longer amounts don't push 收入 sideways
+            // equal columns, each centred: a month's longer amounts don't push 收入 sideways
             FigureRow(items: [
                 .init(label: LS("支出"), value: money(out, L.base, 0), color: Self.spend),
                 .init(label: LS("收入"), value: money(inn, L.base, 0), color: Self.earn),
                 .init(label: LS("结余"), value: money(inn - out, L.base, 0), color: inn - out < 0 ? Color.loss : Color.primary),
-            ])
+            ], alignment: .center)
             .padding(.vertical, AppSpacing.detail)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("calendar.figures")

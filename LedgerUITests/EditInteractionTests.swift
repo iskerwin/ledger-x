@@ -873,7 +873,7 @@ final class EditInteractionTests: XCTestCase {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/height-extra.bean").path
     }
 
-    /// The calendar's 支出 · 收入 · 结余 sit in equal columns: a month's wide income no longer pushes 收入 aside
+    /// The calendar's 支出 · 收入 · 结余 sit centred in equal columns: a month's wide income no longer pushes 收入 aside
     func testCalendarFiguresSitInEqualColumns() {
         let app = launchTab("journal", env: ["LEDGER_EXTRA": heightExtra, "LEDGER_CALENDAR": "1"])
         let calendar = app.otherElements["calendar.month"]
@@ -884,7 +884,9 @@ final class EditInteractionTests: XCTestCase {
         let figures = app.otherElements["calendar.figures"]
         let spent = figures.staticTexts["支出"], income = figures.staticTexts["收入"], net = figures.staticTexts["结余"]
         XCTAssertTrue(spent.exists && income.exists && net.exists)
-        XCTAssertEqual(income.frame.minX - spent.frame.minX, net.frame.minX - income.frame.minX, accuracy: 1)
+        // each column centred: 收入 in the middle of the row, the three centres evenly apart
+        XCTAssertEqual(income.frame.midX, app.windows.firstMatch.frame.midX, accuracy: 1)
+        XCTAssertEqual(income.frame.midX - spent.frame.midX, net.frame.midX - income.frame.midX, accuracy: 1)
     }
 
     /// A long condition is cut short on its own line; it never runs under 清除 (or 回到刚才的筛选)

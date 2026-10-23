@@ -225,6 +225,9 @@ struct FigureRow: View {
     }
 
     let items: [Item]
+    /// where each column's label and amount sit in it: leading under a card's headline, centred when the row
+    /// stands alone (the calendar's 支出 · 收入 · 结余)
+    var alignment: HorizontalAlignment = .leading
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
@@ -232,11 +235,11 @@ struct FigureRow: View {
             if !typeSize.isAccessibilitySize {
                 HStack(alignment: .top, spacing: AppSpacing.control) {
                     ForEach(items.indices, id: \.self) { i in
-                        VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                        VStack(alignment: alignment, spacing: AppSpacing.detail) {
                             label(items[i])
                             value(items[i])
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: Alignment(horizontal: alignment, vertical: .center))
                     }
                 }
             }
