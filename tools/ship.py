@@ -6,6 +6,7 @@
   python3 tools/ship.py release                  publish the phone-accepted dev package as vX.Y.Z (same bytes)
   python3 tools/ship.py version patch|minor|major|X.Y.Z
                                                  commit a version bump and a new CHANGELOG section
+  python3 tools/ship.py watch                    follow the running (or the last) test / dev / release from any terminal
 
 Any failed step stops before anything is pushed or published. Logs stay in the
 repository root (*.log, interaction-tests.xcresult); packages and evidence in dist/.
@@ -37,14 +38,105 @@ PREFERRED = ('iPhone 17', 'iPhone 16', 'iPhone 17 Pro', 'iPhone 16 Pro', 'iPhone
 SIM_PREFS = Path.home() / 'Library/Preferences/com.apple.iphonesimulator.plist'
 BOOT_TIMEOUT = 300
 TEST_TIMEOUT = 300   # per interaction test, as in the former CI
+STATUS = ROOT / '.ship/status.json'     # the run in progress (or the last one), for `watch`
+HISTORY = ROOT / '.ship/history.json'   # totals of the last passing run, to show "41 / 64"
+
+# the stages of each command, as step() names them (the start is enough), for `watch` to list what is still to come
+PLAN = {
+    'test': ('静态检查与流程回归', 'LedgerKit 核心测试', 'Beancount 报表对照', '新建专用模拟器', '编译 App 与测试包', '附件与交互测试'),
+    'release': ('下载并校验开发版', '发布正式版', '更新 IPA 源'),
+}
+PLAN['dev'] = PLAN['test'] + ('编译 Release 安装包', '打包并校验安装包', '推送 main 到 GitHub', '发布开发版', '更新 IPA 源')
 
 
 class Failure(Exception):
     pass
 
 
+class Progress:
+    """What this run is doing, written to .ship/status.json at every stage, so `ship.py watch` in another terminal
+    can follow a run started anywhere. Only a record: nothing here decides or changes what the run does."""
+
+    def __init__(self):
+        self.state = None
+
+    def begin(self, command):
+        self.state = dict(command=command, pid=os.getpid(), started=time.time(), stages=[], log=None,
+                          result=None, message='')
+        self.save()
+
+    def enter(self, name):
+        if self.state is None:
+            return
+        now = time.time()
+        for stage in self.state['stages']:
+            stage.setdefault('ended', now)
+        self.state['stages'].append(dict(name=name, started=now))
+        self.state['log'] = None
+        self.save()
+
+    def logging(self, log):
+        if self.state is not None and log:
+            self.state['log'] = log
+            self.save()
+
+    def note(self, text):
+        if self.state is not None and self.state['stages']:
+            self.state['stages'][-1]['note'] = text
+            self.save()
+
+    def finish(self, ok, message=None, totals=None):
+        if self.state is None:
+            return
+        now = time.time()
+        for stage in self.state['stages']:
+            stage.setdefault('ended', now)
+        if not ok and self.state['stages']:
+            self.state['stages'][-1]['failed'] = True
+        self.state.update(result='passed' if ok else 'failed', ended=now)
+        if message is not None:
+            self.state['message'] = message
+        self.save()
+        if ok and totals:
+            write_json(HISTORY, {**read_json(HISTORY), **totals})
+
+    def save(self):
+        write_json(STATUS, self.state)
+
+
+progress = Progress()
+
+
+def read_json(path):
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def write_json(path, value):
+    path.parent.mkdir(exist_ok=True)
+    temp = path.with_suffix('.tmp')
+    temp.write_text(json.dumps(value, ensure_ascii=False, indent=1))
+    temp.replace(path)
+
+
 def step(text):
     print(f'\n▶ {text}', flush=True)
+    progress.enter(text)
+
+
+def done(text):
+    """The run's closing line, on screen and kept for `watch`."""
+    print(text)
+    if progress.state is not None:
+        progress.state['message'] = text.strip()
+
+
+def report(text):
+    """A stage's result line ("333 项通过"), on screen and for `watch`."""
+    print(f'  {text}')
+    progress.note(text)
 
 
 def out(cmd, **kwargs):
@@ -54,6 +146,7 @@ def out(cmd, **kwargs):
 def run(cmd, log=None, check=True, env=None, timeout=None):
     """Run a command; with `log`, its output goes to that file and the tail is shown on failure."""
     cmd = [str(c) for c in cmd]
+    progress.logging(log)
     if log is None:
         result = subprocess.run(cmd, cwd=ROOT, env=env, timeout=timeout)
     else:
@@ -177,7 +270,7 @@ def validate():
     core, failed = executed((ROOT / 'swift-tests.log').read_text(errors='replace'))
     if failed or not core:
         raise Failure(f'核心测试 {failed} 项失败，见 swift-tests.log')
-    print(f'  {core} 项通过')
+    report(f'{core} 项通过')
 
     step('Beancount 报表对照')
     run([beancount_python(), 'tools/fixtures/check_reports.py', 'LedgerKit/Tests/LedgerKitTests/Fixtures/realistic/main.bean',
@@ -185,11 +278,11 @@ def validate():
     reports = next((line for line in (ROOT / 'reports-check.log').read_text().splitlines() if line.startswith('Reports match')), None)
     if not reports:
         raise Failure('报表对照没有给出一致结论，见 reports-check.log')
-    print(f'  {reports}')
+    report(reports)
 
     step('新建专用模拟器')
     udid, simulator = fresh_simulator()
-    print(f'  {simulator}')
+    report(simulator)
 
     step('编译 App 与测试包（不含内置演示）')
     shutil.rmtree(ROOT / 'Ledger/Demo', ignore_errors=True)
@@ -212,7 +305,7 @@ def validate():
         raise Failure('交互测试未通过，见 interaction-tests.log 与 interaction-tests.xcresult'
                       + ('' if failures else '（没有失败的测试用例，可能是环境问题）'))
     interaction = len(re.findall(r"Test Case '-\[\S+ \S+\]' passed", text))
-    print(f'  {interaction} 项通过')
+    report(f'{interaction} 项通过')
     subprocess.run(['xcrun', 'simctl', 'shutdown', udid], capture_output=True)
 
     return dict(validator='local', validated_at=datetime.now(timezone.utc).isoformat(timespec='seconds'),
@@ -489,8 +582,8 @@ def ship_dev():
         run(['gh', 'release', 'create', 'dev', '--repo', repo, *assets, '--target', sha, '--prerelease',
              '--title', title, '--notes-file', DIST / 'release-notes.md'])
     update_sources(repo)
-    print(f'\n✓ 已发布 Ledger X {version} 开发版（构建 {build}），main {sha[:7]}'
-          f'\n  https://github.com/{repo}/releases/tag/dev\n  手机验收：待 Kerwin 执行')
+    done(f'\n✓ 已发布 Ledger X {version} 开发版（构建 {build}），main {sha[:7]}'
+         f'\n  https://github.com/{repo}/releases/tag/dev\n  手机验收：待 Kerwin 执行')
 
 
 def ship_release():
@@ -499,6 +592,7 @@ def ship_release():
     repo = repository()
     with tempfile.TemporaryDirectory() as temp:
         folder = Path(temp)
+        step('下载并校验开发版')
         download(repo, 'dev', folder)
         manifest = json.loads((folder/'build-manifest.json').read_text())
         proof = json.loads((folder/'validation-evidence.json').read_text())
@@ -511,9 +605,10 @@ def ship_release():
         changelog = git('show', f'{manifest["source_sha"]}:CHANGELOG.md')
         (folder/'release-notes.md').write_text(release_notes.render(
             changelog, '', repo, manifest['source_sha'], manifest['version'], manifest['build'], proof, channel='release'))
+        step(f'发布正式版 {tag}')
         publish(repo, tag, folder, manifest, folder/'release-notes.md')
     update_sources(repo)
-    print(f'\n✓ 已发布正式版 {tag}（构建 {manifest["build"]}）\n  https://github.com/{repo}/releases/tag/{tag}')
+    done(f'\n✓ 已发布正式版 {tag}（构建 {manifest["build"]}）\n  https://github.com/{repo}/releases/tag/{tag}')
 
 
 def select_version(choice):
@@ -534,9 +629,135 @@ def select_version(choice):
     print(f'✓ 已提交版本 {version}；下一次 python3 tools/ship.py dev 会推送并发布')
 
 
+# Watching a run: reads .ship/status.json and the stage's log; never writes, never locks.
+
+TITLES = {'test': '本机全部测试（test）', 'dev': '发布开发版（dev）', 'release': '发布正式版（release）'}
+TESTS = ('swift-tests.log', 'interaction-tests.log')
+
+
+def log_progress(name, text):
+    """What a stage's log says so far: for tests (passed, failed, the one running), for builds (steps, the last)."""
+    if name in TESTS:
+        done = re.findall(r"Test Case '-\[(\S+ \S+)\]' (passed|failed)", text)
+        finished = {case for case, _ in done}
+        started = [case for case in re.findall(r"Test Case '-\[(\S+ \S+)\]' started", text) if case not in finished]
+        return dict(passed=sum(r == 'passed' for _, r in done), failed=[c for c, r in done if r == 'failed'],
+                    current=started[-1] if started else None)
+    actions = re.findall(r'^([A-Z][A-Za-z]+) (.*)$', text, re.M)
+    last = None
+    if actions:
+        verb, rest = actions[-1]
+        files = re.findall(r'[\w.+-]+\.(?:swift|m|c|plist|xcassets|app|json)\b', rest)
+        last = f'{verb} {files[-1]}' if files else verb
+    return dict(steps=len(actions), last=last)
+
+
+def width(text):
+    import unicodedata
+    return sum(2 if unicodedata.east_asian_width(ch) in 'WF' else 1 for ch in text)
+
+
+def clock(seconds):
+    seconds = int(max(seconds, 0))
+    return f'{seconds // 3600}:{seconds // 60 % 60:02d}:{seconds % 60:02d}' if seconds >= 3600 else f'{seconds // 60}:{seconds % 60:02d}'
+
+
+def render(state, history, logs, now, alive=True):
+    """The watch screen for one moment. `logs` maps log names to their text so far; `alive`: the run's process exists."""
+    if not state:
+        return '还没有 ship.py 的运行记录；执行 python3 tools/ship.py test 或 dev 后再看。'
+    command = state.get('command', '')
+    stages = state.get('stages', [])
+    result = state.get('result')
+    end = state.get('ended', now)
+    if result == 'passed':
+        status = f'✓ 完成，用时 {clock(end - state["started"])}'
+    elif result == 'failed':
+        status = f'✗ 失败，用时 {clock(end - state["started"])}'
+    elif not alive:
+        status = '✗ 已中断（进程不在了）'
+    else:
+        status = f'进行中，已用 {clock(now - state["started"])}'
+    lines = [f'Ledger X · {TITLES.get(command, command)} · {status}', '']
+    names = [stage['name'] for stage in stages]
+    pending = [p for p in PLAN.get(command, ()) if not any(n.startswith(p) for n in names)]
+    pad = max([width(n) for n in names + pending] or [0]) + 2
+    for i, stage in enumerate(stages):
+        unfinished = i == len(stages) - 1 and 'ended' not in stage and result is None
+        running = unfinished and alive
+        mark = '✗' if stage.get('failed') or (unfinished and not alive) else '▶' if running else '✓'
+        spent = clock(stage.get('ended', now) - stage['started'])
+        detail = stage.get('note', '')
+        log = state.get('log') if i == len(stages) - 1 else None
+        extra = None
+        if log and log in logs and not detail:
+            info = log_progress(log, logs[log])
+            expected = history.get(log)
+            if log in TESTS:
+                count = f'{info["passed"]} / {expected}' if expected else f'{info["passed"]}'
+                detail = f'{count} 通过 · {len(info["failed"])} 失败'
+                if info['current'] and running:
+                    extra = f'当前：{info["current"]}'
+                if info['failed']:
+                    extra = '失败：' + '、'.join(info['failed'][-3:]) + (f'\n      当前：{info["current"]}' if info['current'] and running else '')
+            else:
+                detail = f'{info["steps"]} / {expected} 步' if expected else f'{info["steps"]} 步'
+                if info['last'] and running:
+                    extra = f'最近：{info["last"]}'
+        lines.append(f'  {mark} {stage["name"]}{" " * (pad - width(stage["name"]))}{spent:>7}  {detail}'.rstrip())
+        if extra:
+            lines.append(f'      {extra}')
+    for name in pending if result is None and alive else ():
+        lines.append(f'  ○ {name}')
+    if state.get('log') and result is None:
+        lines += ['', f'日志：{state["log"]}']
+    if state.get('message'):
+        lines += ['', state['message']]
+    return '\n'.join(lines)
+
+
+def alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
+def watch(once=False):
+    """Follow the run in .ship/status.json until it ends (or show the last one), redrawn every second."""
+    tty = sys.stdout.isatty() and not once
+    while True:
+        state = read_json(STATUS)
+        logs = {}
+        if state.get('log') and (ROOT / state['log']).exists() and (ROOT / state['log']).stat().st_mtime >= state['started']:
+            logs[state['log']] = (ROOT / state['log']).read_text(errors='replace')
+        running = bool(state) and state.get('result') is None and alive(state.get('pid', 0))
+        screen = render(state, read_json(HISTORY), logs, time.time(), alive=running or bool(state.get('result')))
+        print(('\033[H\033[J' if tty else '') + screen, flush=True)
+        if once or not running:
+            return 0
+        time.sleep(1)
+
+
+def run_totals(started):
+    """Test and build-step counts of the logs this run wrote, kept for the next run's "41 / 64"."""
+    totals = {}
+    for name in (*TESTS, 'demo-build.log', 'build.log'):
+        path = ROOT / name
+        if path.exists() and path.stat().st_mtime >= started:
+            info = log_progress(name, path.read_text(errors='replace'))
+            totals[name] = info['passed'] if name in TESTS else info['steps']
+    return totals
+
+
 def main(argv):
     command = argv[1] if len(argv) > 1 else ''
     usage = __doc__.split('\n\n')[1]
+    if command == 'watch' and argv[2:] in ([], ['--once']):
+        return watch(once=argv[2:] == ['--once'])
     if command not in ('test', 'dev', 'release', 'version') or len(argv) != (3 if command == 'version' else 2):
         print(usage, file=sys.stderr)
         return 2
@@ -547,10 +768,12 @@ def main(argv):
     except BlockingIOError:
         print('已有另一个 ship.py 在运行', file=sys.stderr)
         return 1
+    if command != 'version':
+        progress.begin(command)
     try:
         if command == 'test':
             proof = validate()
-            print(f'\n✓ 全部通过：核心 {proof["core_tests"]} 项，交互 {proof["interaction_tests"]} 项；{proof["reports"]}')
+            done(f'\n✓ 全部通过：核心 {proof["core_tests"]} 项，交互 {proof["interaction_tests"]} 项；{proof["reports"]}')
         elif command == 'dev':
             ship_dev()
         elif command == 'release':
@@ -559,7 +782,12 @@ def main(argv):
             select_version(argv[2])
     except (Failure, ValueError) as error:
         print(f'\n✗ {error}\n未推送、未发布。', file=sys.stderr)
+        progress.finish(False, f'✗ {error}\n未推送、未发布。')
         return 1
+    except BaseException as error:
+        progress.finish(False, f'✗ 中断：{type(error).__name__} {error}'.strip())
+        raise
+    progress.finish(True, totals=progress.state and run_totals(progress.state['started']))
     return 0
 
 

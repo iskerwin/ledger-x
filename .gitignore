@@ -16,5 +16,6 @@ __pycache__/
 *.pyc
 .demo-data/
 samples/
+.ship/
 *.xcresult/
 .DS_Store

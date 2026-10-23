@@ -21,6 +21,7 @@ python3 tools/ship.py test        # 静态检查 → LedgerKit 核心测试 → 
 python3 tools/ship.py dev         # test 全过后编译 IPA、推送 main、更新开发版与 IPA 源
 python3 tools/ship.py release     # 仅 Kerwin 手机验收后执行：把当前开发版原样发布为正式版
 python3 tools/ship.py version patch|minor|major|X.Y.Z
+python3 tools/ship.py watch       # 另开终端看正在跑（或最近一次）的进度：阶段、用时、测试通过/失败数、当前用例
 ```
 
 版本流程（细节与授权见 AGENTS.md「发布」）：`version` 开新版本 → 开发并写 CHANGELOG「（开发中）」 → `dev` 发开发版 → Kerwin 手机验收 → `release` 转正式版 → CHANGELOG 标题改为「（YYYY-MM-DD 发布）」并提交推送。

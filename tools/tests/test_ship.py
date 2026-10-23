@@ -1,5 +1,6 @@
 """Local validation and publication safety; fake archives and APIs, never real ledgers or builds."""
 import hashlib
+import io
 import json
 from pathlib import Path
 import plistlib
@@ -170,6 +171,95 @@ class ShipTests(unittest.TestCase):
         for argv in (['ship.py'], ['ship.py', 'deploy'], ['ship.py', 'version'], ['ship.py', 'dev', 'extra']):
             with self.subTest(argv=argv):
                 self.assertEqual(ship.main(argv), 2)
+
+
+class WatchTests(unittest.TestCase):
+    """`ship.py watch`: what a run records and how its progress is read back; fake logs, no builds."""
+
+    TESTS_LOG = ("Test Case '-[UITests.Edit testA]' started.\n"
+                 "Test Case '-[UITests.Edit testA]' passed (1.0 seconds).\n"
+                 "Test Case '-[UITests.Edit testB]' started.\n"
+                 "Test Case '-[UITests.Edit testB]' failed (2.0 seconds).\n"
+                 "Test Case '-[UITests.Edit testC]' started.\n")
+
+    def test_test_logs_give_passed_failed_and_the_running_case(self):
+        info = ship.log_progress('interaction-tests.log', self.TESTS_LOG)
+        self.assertEqual((info['passed'], info['failed'], info['current']), (1, ['UITests.Edit testB'], 'UITests.Edit testC'))
+
+    def test_build_logs_give_the_steps_and_the_last_file(self):
+        log = ('note: Using global toolchain override\n'
+               'SwiftCompile normal arm64 Compiling\\ Store.swift /tmp/Ledger/Sync/Store.swift\n'
+               '    cd /tmp\n'
+               'Ld /tmp/Ledger.app/Ledger normal\n'
+               'SwiftCompile normal arm64 /tmp/Ledger/Views/OverviewView.swift\n')
+        self.assertEqual(ship.log_progress('build.log', log), dict(steps=3, last='SwiftCompile OverviewView.swift'))
+
+    def state(self, **extra):
+        state = dict(command='dev', pid=1, started=1000.0, log='interaction-tests.log', result=None, message='',
+                     stages=[dict(name='静态检查与流程回归', started=1000.0, ended=1003.0),
+                             dict(name='LedgerKit 核心测试', started=1003.0, ended=1130.0, note='333 项通过'),
+                             dict(name='附件与交互测试（不并行，约 10 分钟）', started=1130.0)])
+        state.update(extra)
+        return state
+
+    def test_a_running_dev_shows_done_current_and_coming_stages(self):
+        screen = ship.render(self.state(), {'interaction-tests.log': 64}, {'interaction-tests.log': self.TESTS_LOG}, 1530.0)
+        self.assertIn('发布开发版（dev） · 进行中，已用 8:50', screen)
+        self.assertIn('✓ LedgerKit 核心测试', screen)
+        self.assertIn('333 项通过', screen)
+        self.assertIn('▶ 附件与交互测试', screen)
+        self.assertIn('1 / 64 通过 · 1 失败', screen)
+        self.assertIn('失败：UITests.Edit testB', screen)
+        self.assertIn('当前：UITests.Edit testC', screen)
+        # stages not reached yet are listed; those already passed are not listed twice
+        self.assertIn('○ 编译 Release 安装包', screen)
+        self.assertIn('○ 更新 IPA 源', screen)
+        self.assertNotIn('○ 静态检查', screen)
+        self.assertIn('日志：interaction-tests.log', screen)
+
+    def test_a_finished_run_shows_its_result_and_nothing_still_to_come(self):
+        failed = self.state(result='failed', ended=1600.0, message='✗ 交互测试未通过\n未推送、未发布。')
+        failed['stages'][-1].update(ended=1600.0, failed=True)
+        screen = ship.render(failed, {}, {}, 9999.0)
+        self.assertIn('✗ 失败，用时 10:00', screen)
+        self.assertIn('✗ 附件与交互测试', screen)
+        self.assertIn('未推送、未发布。', screen)
+        self.assertNotIn('○', screen)
+        self.assertNotIn('日志：', screen)
+
+    def test_a_run_whose_process_is_gone_is_shown_as_interrupted(self):
+        screen = ship.render(self.state(), {}, {}, 1200.0, alive=False)
+        self.assertIn('已中断', screen)
+        self.assertIn('✗ 附件与交互测试', screen)
+
+    def test_a_run_records_its_stages_result_and_totals(self):
+        with tempfile.TemporaryDirectory() as temp, \
+                patch.object(ship, 'STATUS', Path(temp)/'status.json'), patch.object(ship, 'HISTORY', Path(temp)/'history.json'):
+            run = ship.Progress()
+            run.begin('test')
+            run.enter('LedgerKit 核心测试')
+            run.logging('swift-tests.log')
+            run.note('333 项通过')
+            run.enter('附件与交互测试')
+            run.finish(True, totals={'swift-tests.log': 333})
+            state = json.loads((Path(temp)/'status.json').read_text())
+            self.assertEqual(state['result'], 'passed')
+            self.assertEqual([s['name'] for s in state['stages']], ['LedgerKit 核心测试', '附件与交互测试'])
+            self.assertTrue(all('ended' in s for s in state['stages']))
+            self.assertEqual(state['stages'][0]['note'], '333 项通过')
+            self.assertEqual(json.loads((Path(temp)/'history.json').read_text()), {'swift-tests.log': 333})
+            # a failed run keeps the totals of the last passing one
+            run.begin('test')
+            run.enter('LedgerKit 核心测试')
+            run.finish(False, '✗ 核心测试失败', totals={'swift-tests.log': 1})
+            self.assertTrue(json.loads((Path(temp)/'status.json').read_text())['stages'][-1]['failed'])
+            self.assertEqual(json.loads((Path(temp)/'history.json').read_text()), {'swift-tests.log': 333})
+
+    def test_watch_without_any_run_says_so(self):
+        with tempfile.TemporaryDirectory() as temp, patch.object(ship, 'STATUS', Path(temp)/'none.json'), \
+                patch('sys.stdout', new_callable=io.StringIO) as screen:
+            self.assertEqual(ship.main(['ship.py', 'watch', '--once']), 0)
+        self.assertIn('还没有 ship.py 的运行记录', screen.getvalue())
 
 
 if __name__ == '__main__':
