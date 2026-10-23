@@ -216,9 +216,7 @@ struct QueryEditorView: View {
     }
 
     private func csv(_ r: QueryResult) -> String {
-        func esc(_ s: String) -> String {
-            s.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" }) ? "\"" + s.replacingOccurrences(of: "\"", with: "\"\"") + "\"" : s
-        }
+        let esc = csvCell
         var lines = [r.columns.map(esc).joined(separator: ",")]
         for row in r.rows { lines.append(row.map { esc($0.text) }.joined(separator: ",")) }
         return lines.joined(separator: "\n") + "\n"
