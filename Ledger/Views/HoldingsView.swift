@@ -79,8 +79,8 @@ struct HoldingsView: View {
                     HStack(spacing: AppSpacing.icon) {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: AppSpacing.icon) {
-                                Chip(label: LS("全部"), selected: market == nil) { market = nil }
-                                ForEach(markets, id: \.self) { m in Chip(label: Self.marketName(m), selected: market == m) { market = market == m ? nil : m } }
+                                Chip(label: LS("全部"), selected: market == nil) { market = nil; Haptics.selection() }
+                                ForEach(markets, id: \.self) { m in Chip(label: Self.marketName(m), selected: market == m) { market = market == m ? nil : m; Haptics.selection() } }
                             }
                         }
                         sortMenu

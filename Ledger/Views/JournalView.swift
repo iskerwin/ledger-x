@@ -406,6 +406,7 @@ struct JournalView: View {
                             Button {
                                 // the list changes at once; only the chip's colours fade
                                 if on { quick.removeAll { $0 == f } } else { quick.append(f) }
+                                Haptics.selection()
                             } label: {
                                 HStack(spacing: AppSpacing.icon) { Image(systemName: f.icon); Text(f.title) }
                                     .font(.subheadline.weight(on ? .semibold : .regular))
@@ -417,7 +418,7 @@ struct JournalView: View {
                             .buttonStyle(PressStyle())
                         }
                         ForEach(["#refund", "#transfer", "#fx", "#reimbursed"], id: \.self) { x in
-                            Chip(label: x, selected: q.trimmed == x) { q = q.trimmed == x ? "" : x }
+                            Chip(label: x, selected: q.trimmed == x) { q = q.trimmed == x ? "" : x; Haptics.selection() }
                         }
                     }
                 }
@@ -541,7 +542,7 @@ struct JournalView: View {
                 .accessibilityIdentifier("journal.restore")
         }
         if filtered {
-            Button { quick = []; account = nil; q = "" } label: { Label(LS("清除"), systemImage: "xmark.circle").labelStyle(ControlLabelStyle()) }
+            Button { quick = []; account = nil; q = ""; Haptics.selection() } label: { Label(LS("清除"), systemImage: "xmark.circle").labelStyle(ControlLabelStyle()) }
                 .font(.subheadline.weight(.medium)).foregroundStyle(Color.jade).buttonStyle(.plain)
         }
     }

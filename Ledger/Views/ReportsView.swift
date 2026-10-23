@@ -495,7 +495,7 @@ struct PeriodChips: View {
     var body: some View {
         ChipRow {
             ForEach(ReportPeriod.allCases) { p in
-                Chip(label: p.name, selected: p == period) { withAnimation(AppMotion.quick) { period = p } }
+                Chip(label: p.name, selected: p == period) { withAnimation(AppMotion.quick) { period = p }; Haptics.selection() }
             }
         }
         .listRowInsets(EdgeInsets(top: AppSpacing.icon, leading: AppSpacing.control, bottom: AppSpacing.icon, trailing: AppSpacing.control))
@@ -862,7 +862,7 @@ struct BalanceSheetView: View {
             Section {
                 ChipRow {
                     ForEach(AsOf.allCases) { a in
-                        Chip(label: a.name, selected: a == asOf) { withAnimation(AppMotion.quick) { asOf = a } }
+                        Chip(label: a.name, selected: a == asOf) { withAnimation(AppMotion.quick) { asOf = a }; Haptics.selection() }
                     }
                 }
                 .listRowInsets(EdgeInsets(top: AppSpacing.icon, leading: AppSpacing.control, bottom: AppSpacing.icon, trailing: AppSpacing.control))
