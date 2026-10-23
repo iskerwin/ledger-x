@@ -392,6 +392,11 @@ final class Store: ObservableObject {
         if adding, drafts.initialized { openAdd(full: needsFullForm(draft)) }
     }
 
+    /// a ledger kept on this phone (本机): its files are in the app's Documents, open in the Files app and over a
+    /// cable, which the app lock does not cover
+    var hasLedgerInFiles: Bool { Store.hasLedgerInFiles(sources) }
+    static func hasLedgerInFiles(_ sources: [RepoConfig]) -> Bool { sources.contains { $0.kind == .local } }
+
     func removeLedger(_ id: String) {
         guard id != cfg.id else { return }
         sources.removeAll { $0.id == id }

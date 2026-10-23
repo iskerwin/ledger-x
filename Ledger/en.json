@@ -2142,5 +2142,6 @@
  "这个 WebDAV 服务器不支持防覆盖检查：两台设备同时修改同一个文件时，后保存的会盖掉先保存的。请不要在多台设备上同时记账；需要多设备同时用时，建议改用 Git 仓库。": "This WebDAV server can't check for overwrites: when two devices change the same file at once, the later save replaces the earlier one. Avoid recording on several devices at the same time; for that, a Git repository is the better fit.",
  "已开启 App 锁：请打开 Ledger X 解锁后查看": "App lock is on: open Ledger X and unlock it to see this.",
  "已开启 App 锁": "App lock is on",
- "已开启 App 锁：这笔已存为草稿并发送通知，请在 App 中确认": "App lock is on: this one is saved as a draft and a notification was sent; confirm it in the app."
+ "已开启 App 锁：这笔已存为草稿并发送通知，请在 App 中确认": "App lock is on: this one is saved as a draft and a notification was sent; confirm it in the app.",
+ "锁定只保护 App 的界面：本机账本存在「文件」App › 我的 iPhone › Ledger X 里，在那里或用数据线连电脑时仍然可以直接打开。": "The lock only covers the app's screens: a ledger on this phone lives in Files › On My iPhone › Ledger X, where it (and over a cable, on a computer) can still be opened directly."
 }

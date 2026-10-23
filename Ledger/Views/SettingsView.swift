@@ -245,6 +245,10 @@ extension SettingsView {
             PrivacyToggle()
         } header: {
             Text(LS("安全"))
+        } footer: {
+            if lockOn && store.hasLedgerInFiles {
+                Text(LS("锁定只保护 App 的界面：本机账本存在「文件」App › 我的 iPhone › Ledger X 里，在那里或用数据线连电脑时仍然可以直接打开。"))
+            }
         }
     }
 }
