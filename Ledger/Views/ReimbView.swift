@@ -397,9 +397,9 @@ struct FloatSheet: View {
                         Spacer()
                         Text(money(x.amount, f.currency)).monospacedDigit().sensitive()
                     }
-                    .swipeActions {
+                    .rowActions {
                         if x.amount > 0 {
-                            Button { unlinking = x.t } label: { Label(LS("取消冲抵"), systemImage: "arrow.uturn.backward") }.tint(.orange)
+                            Button { unlinking = x.t } label: { Label(LS("取消冲抵"), systemImage: "arrow.uturn.backward") }.tint(Color.warn)
                         }
                     }
                 }

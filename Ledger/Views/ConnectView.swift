@@ -217,9 +217,9 @@ struct LedgersSection: View {
                         if active { Image(systemName: "checkmark").fontWeight(.semibold).foregroundStyle(Color.jade) }
                     }
                 }
-                .swipeActions {
+                .swipeActions(allowsFullSwipe: false) {
                     if !active { Button(role: .destructive) { removing = s } label: { Label(LS("删除"), systemImage: "trash") } }
-                    Button { editing = s } label: { Label(LS("编辑"), systemImage: "pencil") }.tint(.orange)
+                    Button { editing = s } label: { Label(LS("编辑"), systemImage: "pencil") }.tint(Color.warn)
                 }
                 .contextMenu {
                     Button { editing = s } label: { Label(LS("编辑连接"), systemImage: "pencil") }

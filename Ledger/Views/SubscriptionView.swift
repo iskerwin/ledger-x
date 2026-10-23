@@ -358,7 +358,7 @@ struct SubscriptionsView: View {
                             Text(money(c.amount, c.currency)).monospacedDigit().sensitive()
                             Button { editing = SubDraft(c) } label: { Label(LS("加入"), systemImage: "plus").labelStyle(ControlLabelStyle()) }.buttonStyle(.bordered).controlSize(.small)
                         }
-                        .swipeActions { Button { store.ignoreCandidate(c) } label: { Label(LS("忽略"), systemImage: "eye.slash") }.tint(.gray) }
+                        .rowActions { Button { store.ignoreCandidate(c) } label: { Label(LS("忽略"), systemImage: "eye.slash") }.tint(.gray) }
                     }
                 } header: {
                     Text(LS("发现可能的订阅"))
@@ -421,7 +421,7 @@ struct SubscriptionsView: View {
                 .sensitive()
             }
         }
-        .swipeActions(edge: .leading) {
+        .rowActions(edge: .leading) {
             if s.status == .active {
                 Button { store.recordSubscription(s) } label: { Label(LS("记一笔"), systemImage: "plus.circle") }.tint(Color.jade)
             }
@@ -612,12 +612,12 @@ struct SubscriptionDetailView: View {
                 }
             }
         }
-        .swipeActions {
+        .rowActions {
             // a top-up of the period before, or a period of its own (refunds and the first charge aside)
             if c.topup {
-                Button { setTopup(c, false, s) } label: { Label(LS("改为单独一期"), systemImage: "calendar") }.tint(.purple)
+                Button { setTopup(c, false, s) } label: { Label(LS("改为单独一期"), systemImage: "calendar") }.tint(Color.warn)
             } else if !c.refund, s.charges.contains(where: { !$0.refund && !$0.topup && ($0.date < c.date || ($0.date == c.date && $0.id < c.id)) }) {
-                Button { setTopup(c, true, s) } label: { Label(LS("并入上一期（补差）"), systemImage: "arrow.triangle.merge") }.tint(.purple)
+                Button { setTopup(c, true, s) } label: { Label(LS("并入上一期（补差）"), systemImage: "arrow.triangle.merge") }.tint(Color.warn)
             }
             if c.txn.links.contains(s.link) {
                 Button {
@@ -640,10 +640,10 @@ struct SubscriptionDetailView: View {
             Spacer()
             if !item.detail.isEmpty { Text(item.detail).font(.caption).foregroundStyle(.secondary).sensitive() }
         }
-        .swipeActions {
+        .rowActions {
             // a change, pause, resume, cancel or skip can be taken back (not the very first line)
             if item.kind == .event, item.eventKind != .start, item.entry != nil {
-                Button { undoing = item } label: { Label(LS("撤销"), systemImage: "arrow.uturn.backward") }.tint(.orange)
+                Button { undoing = item } label: { Label(LS("撤销"), systemImage: "arrow.uturn.backward") }.tint(Color.warn)
             }
         }
     }

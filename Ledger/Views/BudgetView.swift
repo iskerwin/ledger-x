@@ -119,7 +119,7 @@ struct BudgetsView: View {
                         } label: { Label(LS("查看对应明细"), systemImage: "list.bullet.rectangle").labelStyle(ControlLabelStyle()) }
                             .buttonStyle(.plain).font(.subheadline).foregroundStyle(Color.jade)
                     }
-                    .swipeActions {
+                    .rowActions {
                         Button(role: .destructive) { stop(p.budget) } label: { Label(LS("停用"), systemImage: "pause.circle") }
                     }
                 }
@@ -139,7 +139,7 @@ struct BudgetsView: View {
                             Spacer()
                             Text(b.amount > 0 ? money(b.amount, b.currency) : LS("停用")).monospacedDigit().foregroundStyle(b.amount > 0 ? Color.primary : Color.secondary).sensitive()
                         }
-                        .swipeActions {
+                        .rowActions {
                             if let e = b.entry {
                                 Button(role: .destructive) { remove(e) } label: { Label(LS("删除"), systemImage: "trash") }
                             }

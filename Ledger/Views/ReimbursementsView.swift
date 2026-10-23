@@ -167,12 +167,12 @@ struct ReimbLinesSection: View {
             if lines.isEmpty { Text(LS("没有交易")).foregroundStyle(.secondary) }
             ForEach(lines) { l in
                 NavigationLink(value: TxDest(l.entry)) { ReimbLineRow(l: l) }
-                    .swipeActions(edge: .trailing) {
+                    .rowActions(edge: .trailing) {
                         if !l.income && editable(l.entry) {
-                            Button { typing = l.entry } label: { Label(LS("类型"), systemImage: "tag") }.tint(.indigo)
-                            Button { voucherFor = l.entry } label: { Label(LS("凭证"), systemImage: "doc.text") }.tint(.teal)
+                            Button { typing = l.entry } label: { Label(LS("类型"), systemImage: "tag") }.tint(Color.warn)
+                            Button { voucherFor = l.entry } label: { Label(LS("凭证"), systemImage: "doc.text") }.tint(Color.warn)
                         }
-                        if !l.income, link != nil { Button { removing = l.entry } label: { Label(LS("移出"), systemImage: "minus.circle") }.tint(.orange) }
+                        if !l.income, link != nil { Button { removing = l.entry } label: { Label(LS("移出"), systemImage: "minus.circle") }.tint(Color.warn) }
                     }
             }
         } header: {

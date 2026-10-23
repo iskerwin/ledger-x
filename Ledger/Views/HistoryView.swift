@@ -15,8 +15,8 @@ struct HistoryView: View {
                 let deleted = Dictionary(store.deletedAttachments().compactMap { d in d.record.map { ($0, d) } }, uniquingKeysWith: { a, _ in a })
                 ForEach(store.history) { r in
                     NavigationLink { HistoryDetailView(id: r.id) } label: { HistoryRow(r: r, deleted: deleted[r.id]) }
-                        .swipeActions {
-                            if r.undone == nil { Button { confirming = r } label: { Label(LS("撤回"), systemImage: "arrow.uturn.backward") }.tint(.orange) }
+                        .rowActions {
+                            if r.undone == nil { Button { confirming = r } label: { Label(LS("撤回"), systemImage: "arrow.uturn.backward") }.tint(Color.warn) }
                         }
                 }
             } footer: {

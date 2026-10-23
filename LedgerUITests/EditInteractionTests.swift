@@ -918,7 +918,8 @@ final class EditInteractionTests: XCTestCase {
     /// A change not pushed yet, swiped away on 账本同步: asked first, since nothing can bring it back
     func testRemovingAPendingChangeAsksFirst() {
         let app = launchTab("overview", env: ["LEDGER_SYNC": "1", "LEDGER_HELD": "1"])
-        let row = app.buttons.matching(identifier: "sync.pending").firstMatch
+        // the change LEDGER_HELD kept (other tests' saves may be waiting in the queue too)
+        let row = app.buttons.matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "sync.pending", "Held cafe")).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 20))
         let count = app.buttons.matching(identifier: "sync.pending").count
         row.swipeLeft()
@@ -973,5 +974,21 @@ final class EditInteractionTests: XCTestCase {
         from.press(forDuration: 0.05, thenDragTo: to)
         let picked = app.otherElements["overview.hero"].staticTexts.matching(NSPredicate(format: "label MATCHES %@", "\\d{4}年\\d{1,2}月支出")).firstMatch
         XCTAssertTrue(picked.waitForExistence(timeout: 5))
+    }
+
+    /// What a row offers on a swipe is also in its long-press menu (and so in VoiceOver's actions)
+    func testARowsSwipeActionsAreInItsLongPressMenu() {
+        let app = launchTab("overview", env: ["LEDGER_SYNC": "1", "LEDGER_HELD": "1"])
+        // the change LEDGER_HELD kept (other tests' saves may be waiting in the queue too)
+        let row = app.buttons.matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "sync.pending", "Held cafe")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 20))
+        row.press(forDuration: 1.2)
+        XCTAssertTrue(app.buttons["推送"].waitForExistence(timeout: 5))
+        let remove = app.buttons["移除"]
+        XCTAssertTrue(remove.exists)
+        // and it leaves the test ledger as it was
+        remove.tap()
+        app.sheets.buttons["移除"].firstMatch.tap()
+        XCTAssertTrue(row.waitForNonExistence(timeout: 5))
     }
 }

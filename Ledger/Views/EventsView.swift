@@ -394,11 +394,11 @@ struct AnomalyRow: View {
     var confirmed = false
     var body: some View {
         NavigationLink(value: AnomalyDest(id: a.id)) { AnomalyLabel(a: a, confirmed: confirmed) }
-            .swipeActions {
+            .rowActions {
                 if confirmed {
-                    Button { store.unconfirmAlert(a.id) } label: { Label(LS("重新核对"), systemImage: "arrow.clockwise") }.tint(.orange)
+                    Button { store.unconfirmAlert(a.id) } label: { Label(LS("重新核对"), systemImage: "arrow.clockwise") }.tint(Color.warn)
                 } else {
-                    Button { store.confirmAlert(a.id) } label: { Label(LS("核对无误"), systemImage: "checkmark.seal") }.tint(.jade)
+                    Button { store.confirmAlert(a.id) } label: { Label(LS("核对无误"), systemImage: "checkmark.seal") }.tint(Color.jade)
                 }
             }
     }
@@ -559,7 +559,7 @@ struct LifeEventsSections: View {
                             Spacer()
                             if sp.end == nil { Text(LS("当前")).font(.caption).foregroundStyle(Color.jade) }
                         }
-                        .swipeActions(edge: .trailing) {
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button(role: .destructive) { Task { _ = await store.deleteDirective(sp.entry, summary: "event \(t.type)") } } label: { Label(LS("删除"), systemImage: "trash") }
                         }
                         .contextMenu {

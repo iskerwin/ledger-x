@@ -127,7 +127,7 @@ private struct EntryActions: ViewModifier {
             }
             .swipeActions(edge: .leading, allowsFullSwipe: false) {
                 if writable {
-                    Button { openEdit() } label: { Label(LS("编辑"), systemImage: "pencil") }.tint(.orange)
+                    Button { openEdit() } label: { Label(LS("编辑"), systemImage: "pencil") }.tint(Color.warn)
                 }
             }
             .contextMenu {

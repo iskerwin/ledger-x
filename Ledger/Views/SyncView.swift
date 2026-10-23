@@ -174,7 +174,7 @@ struct SyncView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("sync.pending")
-        .swipeActions(allowsFullSwipe: false) {
+        .rowActions {
             Button(role: .destructive) { removing = o } label: { Label(LS("移除"), systemImage: "trash") }
             if o.held != nil { Button { Task { await store.release(o) } } label: { Label(LS("推送"), systemImage: "icloud.and.arrow.up") }.tint(Color.jade) }
         }

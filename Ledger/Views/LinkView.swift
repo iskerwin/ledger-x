@@ -403,6 +403,6 @@ struct LinkIssueRow: View {
                 }
             }
         }
-        .swipeActions { Button { store.ignoreLinkIssue(i) } label: { Label(LS("忽略"), systemImage: "eye.slash") }.tint(.gray) }
+        .rowActions { Button { store.ignoreLinkIssue(i) } label: { Label(LS("忽略"), systemImage: "eye.slash") }.tint(.gray) }
     }
 }

@@ -1008,7 +1008,7 @@ struct TemplateManager: View {
                             } label: { Label(x.pinned ? LS("已置顶") : LS("置顶"), systemImage: x.pinned ? "pin.fill" : "pin").labelStyle(ControlLabelStyle()) }
                             .buttonStyle(.bordered).tint(x.pinned ? .jade : .gray).controlSize(.small)
                         }
-                        .swipeActions {
+                        .rowActions {
                             Button(role: .destructive) {
                                 store.hideTemplate(x.id)
                             } label: { Label(LS("隐藏"), systemImage: "eye.slash") }

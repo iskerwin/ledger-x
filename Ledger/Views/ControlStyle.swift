@@ -105,6 +105,16 @@ struct ValidationRow: View {
     }
 }
 
+extension View {
+    /// A row's actions: on a swipe from `edge` (never a full swipe that runs one by itself) and in the long-press
+    /// menu, the same buttons — so a long press and VoiceOver's actions reach them too. Colours: delete red (its
+    /// role), change orange (`Color.warn`), confirm the theme colour, set aside grey.
+    func rowActions<A: View>(edge: HorizontalEdge = .trailing, @ViewBuilder _ actions: () -> A) -> some View {
+        let a = actions()
+        return swipeActions(edge: edge, allowsFullSwipe: false) { a }.contextMenu { a }
+    }
+}
+
 /// A page waiting for the ledger to load: one view, so a better placeholder later changes every page at once
 struct PageLoading: View {
     var body: some View { ProgressView() }
