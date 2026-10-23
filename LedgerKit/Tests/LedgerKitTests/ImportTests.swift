@@ -85,6 +85,22 @@ final class ImportTests: XCTestCase {
         XCTAssertNil(findDuplicate(row, funding: p.account, L))
     }
 
+    /// A bill archive is read only within limits: an entry claiming to unpack to hundreds of megabytes, or thousands
+    /// of entries, is refused instead of allocated (a damaged or hostile file could exhaust the phone's memory).
+    func testOversizedArchivesAreRefused() {
+        var zip = storedZip(["xl/sharedStrings.xml": Data("<sst/>".utf8)])
+        XCTAssertNotNil(unzip(zip))
+        // the central directory's "uncompressed size" of the one entry, set to 200 MB
+        let eocd = zip.count - 22
+        let central = Int(zip[eocd + 16]) | Int(zip[eocd + 17]) << 8 | Int(zip[eocd + 18]) << 16 | Int(zip[eocd + 19]) << 24
+        let huge = 200 << 20
+        for k in 0..<4 { zip[central + 24 + k] = UInt8((huge >> (8 * k)) & 0xff) }
+        XCTAssertNil(unzip(zip))
+        var many: [String: Data] = [:]
+        for i in 0..<300 { many["f\(i).xml"] = Data("x".utf8) }
+        XCTAssertNil(unzip(storedZip(many)))
+    }
+
     /// a stored (uncompressed) zip with a tiny worksheet
     func testXLSX() throws {
         let shared = #"<sst><si><t>交易时间</t></si><si><t>交易对方</t></si><si><t>收/支</t></si><si><t>金额(元)</t></si><si><t>美团</t></si><si><t>支出</t></si></sst>"#

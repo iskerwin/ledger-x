@@ -70,6 +70,10 @@ struct ImportView: View {
                 guard case .success(let url) = result else { return }
                 let ok = url.startAccessingSecurityScopedResource()
                 defer { if ok { url.stopAccessingSecurityScopedResource() } }
+                // a bill export is a few megabytes; a much larger file is not read into memory at all
+                if let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > 20 << 20 {
+                    store.show(LS("文件超过 20 MB，不像是账单导出；请导出较短时间范围的账单再试")); return
+                }
                 guard let d = try? Data(contentsOf: url) else { store.show(LS("无法读取文件")); return }
                 load(d, name: url.lastPathComponent)
             }

@@ -111,7 +111,11 @@ public func parseXLSX(_ data: Data) -> [[String]]? {
     return XLSXSheet.parse(sheet, shared: shared)
 }
 
-/// entries of a ZIP archive (stored or deflated)
+/// A bill export is a few files of a few megabytes: a larger archive is refused rather than unpacked into memory
+/// (a damaged or hostile file claiming gigabytes would otherwise be allocated as asked).
+public let unzipLimits = (entries: 256, entry: 50 << 20, total: 100 << 20)
+
+/// entries of a ZIP archive (stored or deflated); nil when it is malformed or beyond `unzipLimits`
 public func unzip(_ data: Data) -> [String: Data]? {
     let b = [UInt8](data)
     func u16(_ o: Int) -> Int { o + 1 < b.count ? Int(b[o]) | Int(b[o + 1]) << 8 : 0 }
@@ -126,12 +130,16 @@ public func unzip(_ data: Data) -> [String: Data]? {
     }
     guard eocd >= 0 else { return nil }
     let count = u16(eocd + 10)
+    guard count <= unzipLimits.entries else { return nil }
     var p = u32(eocd + 16)
     var out: [String: Data] = [:]
+    var total = 0
     for _ in 0..<count {
-        guard u32(p) == 0x02014b50 else { return nil }
+        guard p + 46 <= b.count, u32(p) == 0x02014b50 else { return nil }
         let method = u16(p + 10)
         let csize = u32(p + 20), usize = u32(p + 24)
+        total += usize
+        guard usize <= unzipLimits.entry, total <= unzipLimits.total else { return nil }
         let nlen = u16(p + 28), xlen = u16(p + 30), clen = u16(p + 32)
         let local = u32(p + 42)
         let name = String(decoding: b[(p + 46)..<min(b.count, p + 46 + nlen)], as: UTF8.self)
@@ -168,6 +176,7 @@ final class XLSXStrings: NSObject, XMLParserDelegate {
     static func parse(_ d: Data) -> [String] {
         let me = XLSXStrings()
         let p = XMLParser(data: d)
+        p.shouldResolveExternalEntities = false
         p.delegate = me
         p.parse()
         return me.out
@@ -197,6 +206,7 @@ final class XLSXSheet: NSObject, XMLParserDelegate {
         let me = XLSXSheet()
         me.shared = shared
         let p = XMLParser(data: d)
+        p.shouldResolveExternalEntities = false
         p.delegate = me
         p.parse()
         return me.rows
