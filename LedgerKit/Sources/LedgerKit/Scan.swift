@@ -266,6 +266,15 @@ func dateAt(_ s: [US], _ i: Int) -> String? {
     return str(s[i..<i + 4]) + "-" + str(s[i + 5..<i + 7]) + "-" + str(s[i + 8..<i + 10])
 }
 
+/// a "YYYY-MM-DD" that is a real day of the Gregorian calendar (not 02-30, not month 13)
+func isCalendarDate(_ d: String) -> Bool {
+    let p = d.split(separator: "-").compactMap { Int($0) }
+    guard p.count == 3, (1...12).contains(p[1]), p[2] >= 1 else { return false }
+    let leap = p[0] % 4 == 0 && (p[0] % 100 != 0 || p[0] % 400 == 0)
+    let days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][p[1] - 1]
+    return p[2] <= days
+}
+
 /// remove a ; comment outside of strings
 func stripComment(_ s: [US]) -> [US] {
     var q = false

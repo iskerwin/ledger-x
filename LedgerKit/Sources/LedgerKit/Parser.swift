@@ -129,6 +129,12 @@ public func parseFile(_ text: String, file: String) -> ParseResult {
                 err(ln, tr("无法识别：" + String(str(line).prefix(60)), "Unrecognized: " + String(str(line).prefix(60))))
                 continue
             }
+            // 2026-02-30 has the shape of a date but is no day: Beancount refuses the entry, so it is left out here too
+            // (otherwise it sorts as written but Calendar rolls it into March)
+            guard isCalendarDate(date) else {
+                err(ln, tr("日期不存在：\(date)", "No such date: \(date)"))
+                continue
+            }
             sc.ws()
             func base(_ type: EntryType) -> Entry {
                 let e = Entry(type: type, date: date, file: file, line: ln.start + 1, startLine: ln.start, endLine: ln.end)
