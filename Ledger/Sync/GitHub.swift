@@ -106,6 +106,9 @@ struct RepoTree: Codable, Equatable {
     var sha: String
     var files: [String: String]   // path -> blob sha
     var commit: String?
+    /// the host can't refuse a write over a change made since it was read (a WebDAV server without strong ETags):
+    /// two devices saving the same file at once, the later one wins
+    var unguarded: Bool? = nil
 }
 
 struct GitHubError: LocalizedError {

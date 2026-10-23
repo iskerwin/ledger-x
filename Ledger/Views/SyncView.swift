@@ -33,6 +33,11 @@ struct SyncView: View {
                 Text(LS("最近的改动可以在这里撤回。"))
             }
             Section(LS("连接状态")) {
+                if store.tree?.unguarded == true {
+                    Label(LS("这个 WebDAV 服务器不支持防覆盖检查：两台设备同时修改同一个文件时，后保存的会盖掉先保存的。请不要在多台设备上同时记账；需要多设备同时用时，建议改用 Git 仓库。"), systemImage: "exclamationmark.triangle")
+                        .labelStyle(ControlLabelStyle()).font(.footnote).foregroundStyle(Color.warn)
+                        .accessibilityIdentifier("sync.unguarded")
+                }
                 LabeledContent {
                     Text(store.syncState == .offline ? LS("未连接") : LS("已连接")).foregroundStyle(store.syncState == .offline ? Color.orange : Color.secondary)
                 } label: { Label(LS("网络"), systemImage: store.syncState == .offline ? "wifi.slash" : "wifi").labelStyle(ControlLabelStyle()) }

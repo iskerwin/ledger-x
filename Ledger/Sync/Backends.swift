@@ -551,6 +551,11 @@ struct WebDAV: LedgerBackend {
     /// `strong` is the ETag as sent, when it is a strong one the server can check in If-Match
     struct Item { var href: String; var dir: Bool; var etag: String; var strong: String? = nil }
 
+    /// ledger files the server can't guard with If-Match (weak or no ETag): its writes can't refuse a newer change
+    static func unguarded(_ items: [(path: String, item: Item)]) -> Bool {
+        items.contains { !$0.item.dir && isLedgerFile($0.path) && $0.item.strong == nil }
+    }
+
     private func list(_ u: URL, depth: String) async throws -> [Item] {
         let (d, _) = try await send(u, method: "PROPFIND", depth: depth, body: WebDAV.propfind, type: "application/xml; charset=utf-8")
         return DAVParser.parse(d)
@@ -572,6 +577,7 @@ struct WebDAV: LedgerBackend {
     func fetchTree() async throws -> RepoTree {
         guard let root = base else { throw GitHubError(status: 0, message: "bad url") }
         var files: [String: String] = [:]
+        var listed: [(path: String, item: Item)] = []
         var queue: [URL] = [root]
         var seen = Set<String>()
         while let dir = queue.popLast(), seen.count < 200 {
@@ -583,10 +589,11 @@ struct WebDAV: LedgerBackend {
                     if let u = url(rel.hasSuffix("/") ? rel : rel + "/"), u.absoluteString != dir.absoluteString { queue.append(u) }
                 } else if isLedgerFile(rel) || isDocumentFile(rel) {
                     files[rel] = version(rel, it.etag)
+                    listed.append((rel, it))
                 }
             }
         }
-        return RepoTree(sha: treeID(files), files: files, commit: nil)
+        return RepoTree(sha: treeID(files), files: files, commit: nil, unguarded: WebDAV.unguarded(listed))
     }
 
     func read(_ path: String, version: String) async throws -> String {
