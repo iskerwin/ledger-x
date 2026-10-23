@@ -852,7 +852,7 @@ struct AddForm: View {
             Task { await save(L, D); saving = false }
         }]
         if !replacing {
-            items.append(ActionRow.Item(title: LS("保存后再记一笔"), systemImage: "plus.circle") {
+            items.append(ActionRow.Item(title: LS("保存再记"), systemImage: "plus.circle") {
                 guard !saving else { return }
                 saveAgain = true
                 saving = true
