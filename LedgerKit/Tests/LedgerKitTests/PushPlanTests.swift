@@ -145,4 +145,23 @@ final class PushPlanTests: XCTestCase {
         let retry = planPush([b], bases: ["a.bean": serverA, "b.bean": absent])
         XCTAssertEqual(retry.changes.map { $0.path }, ["b.bean"])
     }
+
+    /// A link for an entry another device has since changed (a refund's ^link on its purchase, a reimbursement, an
+    /// attachment): the entry is not there as it was, so the link stays in the queue as failed, as an edit does.
+    /// Before, it counted as pushed and left the queue, and the link was silently lost.
+    func testALinkForAnEntryChangedElsewhereIsNotDroppedSilently() {
+        func link(_ header: String) -> Op {
+            var o = Op(kind: .link, path: path); o.header = header; o.headerLine = 1; o.link = "refund-1"; o.add = " ^refund-1"; return o
+        }
+        let gone = link("2026-10-01 * \"食堂\" \"早饭\"")
+        let plan = planPush([gone], bases: [path: lunch + "\n"])
+        XCTAssertNotNil(plan.failed[gone.id])
+        XCTAssertFalse(plan.included.contains(gone.id))
+        XCTAssertTrue(plan.changes.isEmpty)
+        // the entry as it was: linked
+        let there = link("2026-10-01 * \"食堂\" \"午饭\"")
+        let ok = planPush([there], bases: [path: lunch + "\n"])
+        XCTAssertTrue(ok.failed.isEmpty)
+        XCTAssertTrue(ok.changes.first?.text?.contains("\"午饭\" ^refund-1") ?? false)
+    }
 }

@@ -76,6 +76,13 @@ public func planPush(_ ops: [Op], bases: [String: String?]) -> PushPlan {
                         i += 1
                     }
                 }
+            case .link:
+                // the entry to link must still be there as it was; otherwise the link would be lost without a word
+                if let r = addLinkToHeader(text ?? "", o) {
+                    text = r; touched = true; ok.append(o.id)
+                } else {
+                    plan.failed[o.id] = tr("原交易已在别处被修改，关联没有加上", "The entry was changed elsewhere; the link was not added")
+                }
             default:
                 text = (try? applyOps(text ?? "", path: path, ops: [o])) ?? text
                 touched = true
