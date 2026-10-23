@@ -161,7 +161,7 @@ struct EventSheet: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let L = store.L { form(L) } else { ProgressView() }
+                if let L = store.L { form(L) } else { PageLoading() }
             }
             .keyboardDone()
             .navigationTitle(event?.entry == nil ? LS("新建事件") : LS("编辑事件"))
@@ -215,7 +215,7 @@ struct EventSheet: View {
                 Button {
                     Task { await save(L, t) }
                 } label: {
-                    HStack(spacing: AppSpacing.control) { Spacer(); if saving { ProgressView() } else { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()).fontWeight(.semibold) }; Spacer() }
+                    HStack(spacing: AppSpacing.control) { Spacer(); BusyLabel(busy: saving, title: LS("保存"), systemImage: "checkmark").fontWeight(.semibold); Spacer() }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.jade)

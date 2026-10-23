@@ -286,7 +286,7 @@ struct SubscriptionsView: View {
 
     var body: some View {
         Group {
-            if let L = store.L { list(L) } else { ProgressView() }
+            if let L = store.L { list(L) } else { PageLoading() }
         }
         .refreshable { await store.refresh() }
         .navigationTitle(LS("订阅管理"))
@@ -832,7 +832,7 @@ struct SubStateSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button { closeRequested = true } label: { Label(LS("取消"), systemImage: "xmark").labelStyle(ControlLabelStyle()) } }
-                ToolbarItem(placement: .confirmationAction) { Button { save() } label: { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold).disabled(saving) }
+                ToolbarItem(placement: .confirmationAction) { Button { save() } label: { SaveLabel() }.disabled(saving) }
             }
         }
         .formSheet()
@@ -886,7 +886,7 @@ struct SubLinkSheet: View {
                                 Button { save(L, s) } label: { Label(LS("关联 %@ 笔", picked.count), systemImage: "link").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold).disabled(picked.isEmpty || saving)
                             }
                         }
-                } else { ProgressView() }
+                } else { PageLoading() }
             }
             .disabled(saving)
             .protectUnsavedChanges(dirty: baseline.map { $0 != state } ?? false, busy: saving,
@@ -1179,7 +1179,7 @@ struct SubEditSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button { closeRequested = true } label: { Label(LS("取消"), systemImage: "xmark").labelStyle(ControlLabelStyle()) } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button { save() } label: { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold)
+                    Button { save() } label: { SaveLabel() }
                         .disabled(saving || draft.sub == nil || nameTaken || (draft.dueOnly && (draft.next <= draft.date || draft.next == current)))
                 }
             }

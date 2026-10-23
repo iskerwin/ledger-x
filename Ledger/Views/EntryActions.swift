@@ -286,7 +286,7 @@ struct EntrySourceSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button { closeRequested = true } label: { Label(LS("关闭"), systemImage: "xmark").labelStyle(ControlLabelStyle()) }.disabled(busy) }
                 if target.editing {
                     ToolbarItem(placement: .confirmationAction) {
-                        Button { save() } label: { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.disabled(busy || original == nil || text.trimmed.isEmpty || text == original)
+                        Button { save() } label: { SaveLabel() }.disabled(busy || original == nil || text.trimmed.isEmpty || text == original)
                     }
                 }
             }

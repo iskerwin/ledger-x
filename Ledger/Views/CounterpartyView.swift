@@ -288,7 +288,7 @@ struct LoanSheet: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let L = store.L, let D = store.D { form(L, D) } else { ProgressView() }
+                if let L = store.L, let D = store.D { form(L, D) } else { PageLoading() }
             }
             .keyboardDone()
             .navigationTitle(target.name == nil ? LS("新的往来") : d.kind.label)
@@ -385,7 +385,7 @@ struct LoanSheet: View {
                 Button {
                     Task { await save(text) }
                 } label: {
-                    HStack(spacing: AppSpacing.control) { Spacer(); if saving { ProgressView() } else { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()).fontWeight(.semibold) }; Spacer() }
+                    HStack(spacing: AppSpacing.control) { Spacer(); BusyLabel(busy: saving, title: LS("保存"), systemImage: "checkmark").fontWeight(.semibold); Spacer() }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.jade)
@@ -458,7 +458,7 @@ struct SettleSheet: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let L = store.L { form(L) } else { ProgressView() }
+                if let L = store.L { form(L) } else { PageLoading() }
             }
             .keyboardDone()
             .navigationTitle(target.title)
@@ -523,7 +523,7 @@ struct SettleSheet: View {
                 Button {
                     Task { await save(text) }
                 } label: {
-                    HStack(spacing: AppSpacing.control) { Spacer(); if saving { ProgressView() } else { Label(moving == nil ? LS("结清") : LS("保存"), systemImage: "checkmark.circle").labelStyle(ControlLabelStyle()).fontWeight(.semibold) }; Spacer() }
+                    HStack(spacing: AppSpacing.control) { Spacer(); BusyLabel(busy: saving, title: moving == nil ? LS("结清") : LS("保存"), systemImage: "checkmark.circle").fontWeight(.semibold); Spacer() }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.jade)

@@ -86,7 +86,7 @@ struct CurrencySheet: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let L = store.L { form(L) } else { ProgressView() }
+                if let L = store.L { form(L) } else { PageLoading() }
             }
             .navigationTitle(LS("币种与换算"))
             .navigationBarTitleDisplayMode(.inline)

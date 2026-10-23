@@ -19,7 +19,7 @@ struct HoldingsView: View {
 
     var body: some View {
         Group {
-            if let L = store.L { page(L) } else { ProgressView() }
+            if let L = store.L { page(L) } else { PageLoading() }
         }
         .refreshable { await store.refresh() }
         .navigationTitle(LS("持仓"))
@@ -358,7 +358,7 @@ struct PriceUpdateSheet: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let L = store.L { form(L) } else { ProgressView() }
+                if let L = store.L { form(L) } else { PageLoading() }
             }
             .keyboardDone()
             .navigationTitle(LS("更新价格"))
@@ -366,7 +366,7 @@ struct PriceUpdateSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button { dismiss() } label: { Label(LS("取消"), systemImage: "xmark").labelStyle(ControlLabelStyle()) } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button { save() } label: { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold).disabled(lines().isEmpty)
+                    Button { save() } label: { SaveLabel() }.disabled(lines().isEmpty)
                 }
             }
         }

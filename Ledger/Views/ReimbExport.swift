@@ -25,7 +25,7 @@ struct ReimbExportSheet: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let L = store.L, let D = store.D { form(report(L, D)) } else { ProgressView() }
+                if let L = store.L, let D = store.D { form(report(L, D)) } else { PageLoading() }
             }
             .navigationTitle(LS("导出报销单"))
             .navigationBarTitleDisplayMode(.inline)

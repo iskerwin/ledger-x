@@ -53,7 +53,7 @@ struct ImportView: View {
             Group {
                 if let L = store.L, let D = store.D {
                     if table == nil { start } else { list(L, D) }
-                } else { ProgressView() }
+                } else { PageLoading() }
             }
             .disabled(saving || parsing)
             .overlay { if parsing { ProgressView(LS("正在读取账单…")).padding(AppSpacing.content).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }

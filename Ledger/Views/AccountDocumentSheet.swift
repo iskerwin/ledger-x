@@ -134,7 +134,7 @@ struct AccountDocumentSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button { save() } label: {
-                        if busy { ProgressView() } else { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }
+                        BusyLabel(busy: busy, title: LS("保存"), systemImage: "checkmark")
                     }
                     .disabled(data == nil || busy || pathIssue != nil)
                     .accessibilityIdentifier("document.save")

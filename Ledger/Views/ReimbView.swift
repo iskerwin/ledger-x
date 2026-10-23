@@ -35,7 +35,7 @@ struct ReimbSheet: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let L = store.L, let D = store.D { form(L, D) } else { ProgressView() }
+                if let L = store.L, let D = store.D { form(L, D) } else { PageLoading() }
             }
             .keyboardDone()
             .disabled(saving)
@@ -193,7 +193,7 @@ struct ReimbSheet: View {
                 Button {
                     Task { await save(L, D, t) }
                 } label: {
-                    HStack(spacing: AppSpacing.control) { Spacer(); if saving { ProgressView() } else { Label(LS("登记回款"), systemImage: "arrow.down.left").labelStyle(ControlLabelStyle()).fontWeight(.semibold) }; Spacer() }
+                    HStack(spacing: AppSpacing.control) { Spacer(); BusyLabel(busy: saving, title: LS("登记回款"), systemImage: "arrow.down.left").fontWeight(.semibold); Spacer() }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.jade)
@@ -441,7 +441,7 @@ struct FloatSheet: View {
                 Button {
                     Task { await save(p) }
                 } label: {
-                    HStack(spacing: AppSpacing.control) { Spacer(); if saving { ProgressView() } else { Label(LS("冲抵"), systemImage: "arrow.left.arrow.right").labelStyle(ControlLabelStyle()).fontWeight(.semibold) }; Spacer() }
+                    HStack(spacing: AppSpacing.control) { Spacer(); BusyLabel(busy: saving, title: LS("冲抵"), systemImage: "arrow.left.arrow.right").fontWeight(.semibold); Spacer() }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.jade)

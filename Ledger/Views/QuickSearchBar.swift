@@ -95,7 +95,7 @@ struct QuickSearchSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button { dismiss() } label: { Label(LS("取消"), systemImage: "xmark").labelStyle(ControlLabelStyle()) } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button { save() } label: { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold)
+                    Button { save() } label: { SaveLabel() }
                         .disabled(edit.name.trimmed.isEmpty || edit.query.trimmed.isEmpty)
                 }
             }

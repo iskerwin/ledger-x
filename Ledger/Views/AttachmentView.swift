@@ -446,7 +446,7 @@ struct AttachmentPathSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button { save() } label: {
-                        if busy { ProgressView() } else { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }
+                        BusyLabel(busy: busy, title: LS("保存"), systemImage: "checkmark")
                     }
                     .disabled(busy || pathIssue != nil)
                     .accessibilityIdentifier("attachment.save")
@@ -516,7 +516,7 @@ struct TransactionAttachmentsView: View {
 
     var body: some View {
         Group {
-            if let L = store.L { list(L) } else { ProgressView() }
+            if let L = store.L { list(L) } else { PageLoading() }
         }
         .navigationTitle(LS("交易附件"))
         .navigationBarTitleDisplayMode(.inline)
@@ -616,7 +616,7 @@ struct DocumentViewer: View {
                         Button { retry += 1 } label: { Label(LS("重试"), systemImage: "arrow.clockwise").labelStyle(ControlLabelStyle()) }
                     }.padding(AppSpacing.content)
                 }
-                else { ProgressView() }
+                else { PageLoading() }
             }
             .navigationTitle((path as NSString).lastPathComponent)
             .navigationBarTitleDisplayMode(.inline)

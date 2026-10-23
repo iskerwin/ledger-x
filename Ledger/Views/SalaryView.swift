@@ -107,7 +107,7 @@ struct PayslipSheet: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let L = store.L, let D = store.D, d != nil { form(L, D) } else { ProgressView() }
+                if let L = store.L, let D = store.D, d != nil { form(L, D) } else { PageLoading() }
             }
             .keyboardDone()
             .navigationTitle(LS("%@ 工资", template.employer))
@@ -179,7 +179,7 @@ struct PayslipSheet: View {
             }
             Section {
                 Button { Task { await save(text) } } label: {
-                    HStack(spacing: AppSpacing.control) { Spacer(); if saving { ProgressView() } else { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()).fontWeight(.semibold) }; Spacer() }
+                    HStack(spacing: AppSpacing.control) { Spacer(); BusyLabel(busy: saving, title: LS("保存"), systemImage: "checkmark").fontWeight(.semibold); Spacer() }
                 }
                 .buttonStyle(.borderedProminent).tint(.jade).controlSize(.large)
                 .disabled(text.isEmpty || v?.ok != true || saving)
@@ -297,7 +297,7 @@ struct PayslipTemplateSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button { dismiss() } label: { Label(LS("取消"), systemImage: "xmark").labelStyle(ControlLabelStyle()) } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button { Task { await save() } } label: { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }
+                    Button { Task { await save() } } label: { SaveLabel() }
                         .disabled(t.employer.trimmed.isEmpty || t.items.contains { $0.name.trimmed.isEmpty || !isAccountName($0.account) })
                 }
             }

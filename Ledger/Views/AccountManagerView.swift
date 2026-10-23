@@ -28,7 +28,7 @@ struct AccountManagerView: View {
 
     var body: some View {
         Group {
-            if let L = store.L { list(L) } else { ProgressView() }
+            if let L = store.L { list(L) } else { PageLoading() }
         }
         .navigationTitle(only == nil ? LS("管理账户") : LS("科目管理"))
         .task { if let g = store.demoEnv["LEDGER_MANAGE_OPEN"] { openGroups.insert(g) } }
@@ -192,7 +192,7 @@ struct AccountEditView: View {
 
     var body: some View {
         Group {
-            if let L = store.L { form(L) } else { ProgressView() }
+            if let L = store.L { form(L) } else { PageLoading() }
         }
         .keyboardDone()
         .navigationTitle(isNew ? LS("新建账户") : acctLabel(name ?? ""))

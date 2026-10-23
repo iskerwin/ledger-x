@@ -72,7 +72,7 @@ struct SourceFileView: View {
                     Button { if text != original { confirmDiscard = true } else { editing = false } } label: { Label(LS("取消"), systemImage: "xmark").labelStyle(ControlLabelStyle()) }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button { Task { await save() } } label: { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.disabled(text == original || saving)
+                    Button { Task { await save() } } label: { SaveLabel() }.disabled(text == original || saving)
                 }
             } else if original != nil {
                 ToolbarItem(placement: .primaryAction) { Button { editing = true } label: { Label(LS("编辑"), systemImage: "pencil").labelStyle(ControlLabelStyle()) } }

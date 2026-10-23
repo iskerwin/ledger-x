@@ -15,7 +15,7 @@ struct AccountsView: View {
     var body: some View {
         NavigationStack(path: $path) {
             Group {
-                if let L = store.L { list(L) } else { ProgressView() }
+                if let L = store.L { list(L) } else { PageLoading() }
             }
             .navigationTitle(LS("账户"))
             .toolbar {
@@ -520,7 +520,7 @@ struct RegisterView: View {
 
     var body: some View {
         Group {
-            if let L = store.L { page(L) } else { ProgressView() }
+            if let L = store.L { page(L) } else { PageLoading() }
         }
 
         .ledgerControls("register." + account, value: Binding(get: {
@@ -897,7 +897,7 @@ struct CheckSheet: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let L = store.L, let D = store.D { form(L, D) } else { ProgressView() }
+                if let L = store.L, let D = store.D { form(L, D) } else { PageLoading() }
             }
             .disabled(busy)
             .protectUnsavedChanges(dirty: baseline.map { $0 != [date, currency, actual] } ?? false,

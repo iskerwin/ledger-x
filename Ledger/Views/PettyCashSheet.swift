@@ -15,7 +15,7 @@ struct PettyCashSheet: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let L = store.L, let D = store.D { form(L, D) } else { ProgressView() }
+                if let L = store.L, let D = store.D { form(L, D) } else { PageLoading() }
             }
             .keyboardDone()
             .navigationTitle(LS("领取备用金"))
@@ -79,7 +79,7 @@ struct PettyCashSheet: View {
                         if ok { dismiss() }
                     }
                 } label: {
-                    if saving { ProgressView() } else { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }
+                    BusyLabel(busy: saving, title: LS("保存"), systemImage: "checkmark")
                 }
                 .disabled(full.isEmpty || validation?.ok != true || saving)
             }

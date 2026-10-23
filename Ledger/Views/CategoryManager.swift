@@ -166,7 +166,7 @@ struct CategoryStyleSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button { dismiss() } label: { Label(LS("取消"), systemImage: "xmark").labelStyle(ControlLabelStyle()) } }
-                ToolbarItem(placement: .confirmationAction) { Button { save(); dismiss() } label: { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold) }
+                ToolbarItem(placement: .confirmationAction) { Button { save(); dismiss() } label: { SaveLabel() } }
             }
             .onAppear {
                 title = store.catStyle.titles[target.group.id] ?? ""
@@ -278,7 +278,7 @@ struct GroupIconSheet: View {
                         s.icons[group] = icon.isEmpty || icon == builtIn ? nil : icon
                         store.catStyle = s
                         dismiss()
-                    } label: { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }
+                    } label: { SaveLabel() }
                     .fontWeight(.semibold)
                 }
             }

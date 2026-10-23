@@ -77,6 +77,28 @@ extension View {
     }
 }
 
+/// A page waiting for the ledger to load: one view, so a better placeholder later changes every page at once
+struct PageLoading: View {
+    var body: some View { ProgressView() }
+}
+
+/// A button's title while its work runs: the spinner in its place, the same size, so the button doesn't jump
+struct BusyLabel: View {
+    let busy: Bool
+    let title: String
+    let systemImage: String
+
+    var body: some View {
+        if busy { ProgressView() } else { Label(title, systemImage: systemImage).labelStyle(ControlLabelStyle()) }
+    }
+}
+
+/// 保存 in a sheet's bar: the one title, symbol and weight everywhere
+struct SaveLabel: View {
+    var title = LS("保存")
+    var body: some View { Label(title, systemImage: "checkmark").labelStyle(ControlLabelStyle()).fontWeight(.semibold) }
+}
+
 /// Sheets come in three sizes. A picker (an account, a currency, a day, a tag, an icon, a quick look) opens at half
 /// the screen with its grabber showing, and drags up to full; a form to fill in, and content to read, take the whole
 /// screen (the system's own default, said where a sheet once chose otherwise).

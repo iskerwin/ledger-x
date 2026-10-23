@@ -121,7 +121,7 @@ struct QuickAddView: View {
 
     var body: some View {
         Group {
-            if let L = store.L, let D = store.D { content(L, D) } else { ProgressView() }
+            if let L = store.L, let D = store.D { content(L, D) } else { PageLoading() }
         }
         .navigationBarTitleDisplayMode(.inline)
         .task { if store.demoEnv["LEDGER_IMPORT"] != nil { importing = true } }

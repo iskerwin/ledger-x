@@ -79,7 +79,7 @@ struct ForecastView: View {
 
     var body: some View {
         Group {
-            if let f = store.forecastCached(days: days, daily: daily) { content(f) } else { ProgressView() }
+            if let f = store.forecastCached(days: days, daily: daily) { content(f) } else { PageLoading() }
         }
         .navigationTitle(LS("现金流预测"))
         .navigationBarTitleDisplayMode(.inline)

@@ -15,7 +15,7 @@ struct YearReviewView: View {
 
     var body: some View {
         Group {
-            if let L = store.L { content(L) } else { ProgressView() }
+            if let L = store.L { content(L) } else { PageLoading() }
         }
         .navigationTitle(LS("年度回顾"))
         .navigationBarTitleDisplayMode(.inline)

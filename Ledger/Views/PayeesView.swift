@@ -44,7 +44,7 @@ struct PayeesView: View {
 
     var body: some View {
         Group {
-            if let L = store.L { list(L) } else { ProgressView() }
+            if let L = store.L { list(L) } else { PageLoading() }
         }
         .refreshable { await store.refresh() }
         .navigationTitle(LS("收付款方"))
@@ -176,7 +176,7 @@ struct PayeeRenameSheet: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let L = store.L { form(L) } else { ProgressView() }
+                if let L = store.L { form(L) } else { PageLoading() }
             }
             .navigationTitle(target.names.count > 1 ? LS("合并收付款方") : LS("重命名收付款方"))
             .navigationBarTitleDisplayMode(.inline)
@@ -221,7 +221,7 @@ struct PayeeRenameSheet: View {
                 Button {
                     Task { await save() }
                 } label: {
-                    HStack(spacing: AppSpacing.control) { Spacer(); if saving { ProgressView() } else { Label(target.names.count > 1 ? LS("合并") : LS("重命名"), systemImage: target.names.count > 1 ? "arrow.triangle.merge" : "pencil").labelStyle(ControlLabelStyle()).fontWeight(.semibold) }; Spacer() }
+                    HStack(spacing: AppSpacing.control) { Spacer(); BusyLabel(busy: saving, title: target.names.count > 1 ? LS("合并") : LS("重命名"), systemImage: target.names.count > 1 ? "arrow.triangle.merge" : "pencil").fontWeight(.semibold); Spacer() }
                 }
                 .buttonStyle(.borderedProminent).tint(.jade).controlSize(.large)
                 .disabled(newName.isEmpty || (target.names == [newName]) || lines == 0 || saving)

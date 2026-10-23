@@ -78,7 +78,7 @@ struct BudgetsView: View {
 
     var body: some View {
         Group {
-            if let L = store.L { list(L) } else { ProgressView() }
+            if let L = store.L { list(L) } else { PageLoading() }
         }
         .refreshable { await store.refresh() }
         .navigationTitle(LS("预算"))
@@ -246,7 +246,7 @@ struct BudgetEditSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button { closeRequested = true } label: { Label(LS("取消"), systemImage: "xmark").labelStyle(ControlLabelStyle()) }.disabled(saving) }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button { save() } label: { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold).disabled(saving || draft.account.isEmpty || evalAmount(draft.amount) == nil)
+                    Button { save() } label: { SaveLabel() }.disabled(saving || draft.account.isEmpty || evalAmount(draft.amount) == nil)
                 }
             }
             .sheet(isPresented: $picking) {

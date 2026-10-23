@@ -71,7 +71,7 @@ struct NoteSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button { closeRequested = true } label: { Label(LS("取消"), systemImage: "xmark").labelStyle(ControlLabelStyle()) } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button { save() } label: { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.disabled(text.trimmed.isEmpty || busy)
+                    Button { save() } label: { SaveLabel() }.disabled(text.trimmed.isEmpty || busy)
                 }
             }
             .protectUnsavedChanges(dirty: baseline.map { $0 != [date, text] } ?? false,
@@ -152,7 +152,7 @@ struct LifeEventSheet: View {
                             busy = false
                             if ok { dismiss() }
                         }
-                    } label: { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }
+                    } label: { SaveLabel() }
                     .disabled(kind.trimmed.isEmpty || value.trimmed.isEmpty || busy)
                 }
             }

@@ -403,7 +403,7 @@ struct IncomeStatementView: View {
 
     var body: some View {
         Group {
-            if let L = store.L, let D = store.D { content(L, D) } else { ProgressView() }
+            if let L = store.L, let D = store.D { content(L, D) } else { PageLoading() }
         }
         .navigationTitle(LS("损益表"))
         .navigationBarTitleDisplayMode(.inline)
@@ -827,7 +827,7 @@ struct BalanceSheetView: View {
 
     var body: some View {
         Group {
-            if let L = store.L { content(L) } else { ProgressView() }
+            if let L = store.L { content(L) } else { PageLoading() }
         }
         .navigationTitle(LS("资产负债表"))
         .navigationBarTitleDisplayMode(.inline)
@@ -1010,7 +1010,7 @@ struct TrialBalanceView: View {
 
     var body: some View {
         Group {
-            if let L = store.L { content(L) } else { ProgressView() }
+            if let L = store.L { content(L) } else { PageLoading() }
         }
         .navigationTitle(LS("试算平衡表"))
         .navigationBarTitleDisplayMode(.inline)

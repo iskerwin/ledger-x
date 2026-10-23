@@ -215,7 +215,7 @@ struct JournalView: View {
             Group {
                 if let L = store.L {
                     list(L)
-                } else { ProgressView() }
+                } else { PageLoading() }
             }
             .refreshable { await store.refresh() }
             .navigationTitle(LS("明细"))
@@ -1111,7 +1111,7 @@ struct DayOrderSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button { dismiss() } label: { Label(LS("取消"), systemImage: "xmark").labelStyle(ControlLabelStyle()) } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button { Task { await save() } } label: { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.disabled(items.map { $0.id } == original || saving)
+                    Button { Task { await save() } } label: { SaveLabel() }.disabled(items.map { $0.id } == original || saving)
                 }
             }
             .onAppear {

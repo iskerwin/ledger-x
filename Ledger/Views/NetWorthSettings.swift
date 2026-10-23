@@ -87,7 +87,7 @@ struct NetWorthSettingsView: View {
                         if await store.saveExclusions(netWorth: Array(nw), balance: Array(bs)) { dismiss() }
                         saving = false
                     }
-                } label: { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }
+                } label: { SaveLabel() }
                 .fontWeight(.semibold)
                 .disabled(saving || (nw == Set(store.netWorthExclude) && bs == Set(store.balanceExclude)))
             }

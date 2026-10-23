@@ -336,7 +336,7 @@ struct CardBillSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button { closeRequested = true } label: { Label(LS("取消"), systemImage: "xmark").labelStyle(ControlLabelStyle()) } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button { save() } label: { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold).disabled(text == nil || saving)
+                    Button { save() } label: { SaveLabel() }.disabled(text == nil || saving)
                 }
             }
             .entryDeletion($deletion)
@@ -429,7 +429,7 @@ struct RepaySheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button { closeRequested = true } label: { Label(LS("取消"), systemImage: "xmark").labelStyle(ControlLabelStyle()) } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button { save() } label: { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold).disabled((evalAmount(amount) ?? 0) <= 0 || from.isEmpty || saving)
+                    Button { save() } label: { SaveLabel() }.disabled((evalAmount(amount) ?? 0) <= 0 || from.isEmpty || saving)
                 }
             }
             .onAppear {
