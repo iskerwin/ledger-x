@@ -147,65 +147,72 @@ struct AccountsView: View {
         }
     }
 
-    /// 净资产 as chosen: one figure, or a line per currency
-    private func heroSection(_ L: Ledger, assets: Inventory, liab: Inventory) -> some View {
-        let a1 = assets.single(base: L.base), l1 = (-liab).single(base: L.base)
-        let one = a1 != nil && l1 != nil && (a1!.currency == l1!.currency || abs(l1!.amount) < 0.005)
+    /// The page's card: 净资产, or (收支) this year's income and spending. Both are laid out in the one card and
+    /// only the tab's is shown, so the card is as tall as the taller one and the tabs below never move when
+    /// switching, whatever the ledger's currencies or left-out accounts make 净资产 take.
+    private func heroSection(_ L: Ledger, assets: Inventory, liab: Inventory, year: String) -> some View {
+        let flows = side == "flows"
         return Section {
             Card {
-                VStack(alignment: .leading, spacing: AppSpacing.control) {
-                    VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                        Text(LS("净资产")).font(.subheadline).foregroundStyle(.secondary)
-                        InventoryHeadline(inv: assets + liab, base: L.base)
-                    }
-                    HStack(alignment: .top, spacing: AppSpacing.control) {
-                        InventoryFigure(label: LS("资产"), inv: assets, base: L.base)
-                        Spacer()
-                        InventoryFigure(label: LS("负债"), inv: -liab, base: L.base)
-                        Spacer()
-                        Figure(label: LS("资产负债率"), value: one && a1!.amount > 0 && l1!.amount > 0.005 ? String(format: "%.1f%%", l1!.amount / a1!.amount * 100) : "—", alignment: .trailing)
-                    }
-                    if one, let a = a1?.amount, let l = l1?.amount {
-                        RatioBar(parts: [(max(0, a - max(0, l)), Color.jade), (max(0, l), Color.loss)])
-                    }
-                    if !store.netWorthExclude.isEmpty {
-                        NavigationLink(value: NetWorthSettingsDest()) {
-                            Text(LS("不计入 %@ 个账户", store.netWorthExclude.count)).font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
+                ZStack(alignment: .topLeading) {
+                    netWorth(L, assets: assets, liab: liab).concealed(flows)
+                    yearFlows(L, year).concealed(!flows)
                 }
             }
             .cardRow()
         }
     }
 
+    /// 净资产 as chosen: one figure, or a line per currency
+    private func netWorth(_ L: Ledger, assets: Inventory, liab: Inventory) -> some View {
+        let a1 = assets.single(base: L.base), l1 = (-liab).single(base: L.base)
+        let one = a1 != nil && l1 != nil && (a1!.currency == l1!.currency || abs(l1!.amount) < 0.005)
+        return VStack(alignment: .leading, spacing: AppSpacing.control) {
+            VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                Text(LS("净资产")).font(.subheadline).foregroundStyle(.secondary)
+                InventoryHeadline(inv: assets + liab, base: L.base)
+            }
+            HStack(alignment: .top, spacing: AppSpacing.control) {
+                InventoryFigure(label: LS("资产"), inv: assets, base: L.base)
+                Spacer()
+                InventoryFigure(label: LS("负债"), inv: -liab, base: L.base)
+                Spacer()
+                Figure(label: LS("资产负债率"), value: one && a1!.amount > 0 && l1!.amount > 0.005 ? String(format: "%.1f%%", l1!.amount / a1!.amount * 100) : "—", alignment: .trailing)
+            }
+            if one, let a = a1?.amount, let l = l1?.amount {
+                RatioBar(parts: [(max(0, a - max(0, l)), Color.jade), (max(0, l), Color.loss)])
+            }
+            if !store.netWorthExclude.isEmpty {
+                NavigationLink(value: NetWorthSettingsDest()) {
+                    Text(LS("不计入 %@ 个账户", store.netWorthExclude.count)).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     /// this year's income, spending and what is left, for 收支
-    private func flowsHero(_ L: Ledger, _ year: String) -> some View {
+    private func yearFlows(_ L: Ledger, _ year: String) -> some View {
         let ie = ytd(L, year)
         let income = -ie.filter { $0.0.hasPrefix("Income") }.reduce(0.0) { $0 + $1.1 }
         let spent = ie.filter { $0.0.hasPrefix("Expenses") }.reduce(0.0) { $0 + $1.1 }
-        return Section {
-            Card {
-                VStack(alignment: .leading, spacing: AppSpacing.control) {
-                    VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                        Text(LS("%@ 年结余", year)).font(.subheadline).foregroundStyle(.secondary)
-                        Text(money(income - spent, L.base)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
-                            .rollingNumber(income - spent)
-                            .foregroundStyle(income - spent < 0 ? Color.loss : Color.primary).sensitive()
-                    }
-                    // the same rows as 净资产's card (three figures, then a bar), so switching tabs keeps the height
-                    HStack(alignment: .top, spacing: AppSpacing.control) {
-                        Figure(label: LS("收入"), value: money(income, L.base), color: .gain)
-                        Spacer()
-                        Figure(label: LS("支出"), value: money(spent, L.base))
-                        Spacer()
-                        Figure(label: LS("储蓄率"), value: income > 0.005 ? String(format: "%.1f%%", (income - spent) / income * 100) : "—", alignment: .trailing)
-                    }
-                    RatioBar(parts: [(max(0, income - spent), Color.jade), (spent, Color.loss)])
-                }
+        return VStack(alignment: .leading, spacing: AppSpacing.control) {
+            VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                Text(LS("%@ 年结余", year)).font(.subheadline).foregroundStyle(.secondary)
+                Text(money(income - spent, L.base)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+                    .rollingNumber(income - spent)
+                    .foregroundStyle(income - spent < 0 ? Color.loss : Color.primary).sensitive()
             }
-            .cardRow()
+            HStack(alignment: .top, spacing: AppSpacing.control) {
+                Figure(label: LS("收入"), value: money(income, L.base), color: .gain)
+                Spacer()
+                Figure(label: LS("支出"), value: money(spent, L.base))
+                Spacer()
+                Figure(label: LS("储蓄率"), value: income > 0.005 ? String(format: "%.1f%%", (income - spent) / income * 100) : "—", alignment: .trailing)
+            }
+            RatioBar(parts: [(max(0, income - spent), Color.jade), (spent, Color.loss)])
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// 收支: this year's income categories, then the spending ones, each group with its total
@@ -318,7 +325,7 @@ struct AccountsView: View {
         return List {
             if !store.cview.isDefault { Section { CurrencyBanner() } }
             // the hero follows the tab (收支: this year's income and spending); 待核对, 投资持仓 and 往来 stay in every tab
-            if side == "flows" { flowsHero(L, year) } else { heroSection(L, assets: assets, liab: liab) }
+            heroSection(L, assets: assets, liab: liab, year: year)
             tilesSection(L)
             Section {
                 NavigationLink(value: CounterpartyDest()) { Label(LS("往来"), systemImage: "person.2").labelStyle(ControlLabelStyle()) }

@@ -192,6 +192,13 @@ extension View {
     }
 }
 
+extension View {
+    /// laid out but not shown, read or tapped: keeps its place for a sibling shown in its stead
+    @ViewBuilder func concealed(_ on: Bool) -> some View {
+        if on { hidden() } else { self }
+    }
+}
+
 /// small "label: value" figure used in summary cards
 struct Figure: View {
     let label: String

@@ -810,12 +810,15 @@ final class EditInteractionTests: XCTestCase {
 
     /// 全部 and 收支 on the accounts page: the 收支 card was shorter, so the switch under it moved away from the finger
     func testAccountsCardKeepsItsHeightBetweenTabs() {
-        let app = launchTab("accounts")
+        // a second currency puts net worth on two lines: taller than the year's flows
+        let app = launchTab("accounts", env: ["LEDGER_EXTRA": heightExtra])
         let flows = app.buttons["收支"]
         XCTAssertTrue(flows.waitForExistence(timeout: 20))
         // the tab is remembered: start from 全部
         app.buttons["全部"].tap()
         XCTAssertTrue(app.staticTexts["资产负债率"].waitForExistence(timeout: 5))
+        // the other tab's card keeps its place unseen: VoiceOver does not read it
+        XCTAssertFalse(app.staticTexts["储蓄率"].exists)
         let before = flows.frame.minY
         flows.tap()
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "年结余")).firstMatch.waitForExistence(timeout: 5))
