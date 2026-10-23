@@ -54,6 +54,7 @@
     "LedgerKit/Tests/LedgerKitTests/Fixtures/scan/wechat-qr-transfer-zh-1.txt": "696353b6d3c2196d843a9cc90ac0070a66133a5a574e95217f5098a9b064fcd0",
     "LedgerKit/Tests/LedgerKitTests/Fixtures/scan/wechat-success-zh-1.txt": "f801411f77973db0bab044b503a682602b8dab3b38926459fe653493c757b775",
     "LedgerUITests/Fixtures/card-extra.bean": "b492ed071447e9fe8278e2d5297929d508d258abb26a5349f15bd3dcfe38d128",
+    "LedgerUITests/Fixtures/height-extra.bean": "ccad4df01806258721cb50b9b0f2ae19c411dae775310550bae80f4c2024cece",
     "LedgerUITests/Fixtures/main.bean": "af796bffb518c629954c0239ca580c31ca5fffc65da8de1e620e0d422f45ae27",
     "LedgerUITests/Fixtures/recovery.csv": "7fa6d80ad1f51fdcf1cec6d19e0c389d328d4c38847ece0ad7450e6810976003"
   }

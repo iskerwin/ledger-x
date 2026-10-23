@@ -52,14 +52,15 @@ struct JournalCalendar: View {
             if !dots.isEmpty { marks[d] = dots } else if x.n > 0 { marks[d] = [Self.other] }
         }
         return VStack(spacing: AppSpacing.icon) {
-            HStack(spacing: AppSpacing.control) {
-                Figure(label: LS("支出"), value: money(out, L.base, 0), color: Self.spend)
-                Spacer()
-                Figure(label: LS("收入"), value: money(inn, L.base, 0), color: Self.earn)
-                Spacer()
-                Figure(label: LS("结余"), value: money(inn - out, L.base, 0), color: inn - out < 0 ? Color.loss : Color.primary, alignment: .trailing)
-            }
+            // equal columns: a month's longer amounts don't push 收入 sideways
+            FigureRow(items: [
+                .init(label: LS("支出"), value: money(out, L.base, 0), color: Self.spend),
+                .init(label: LS("收入"), value: money(inn, L.base, 0), color: Self.earn),
+                .init(label: LS("结余"), value: money(inn - out, L.base, 0), color: inn - out < 0 ? Color.loss : Color.primary),
+            ])
             .padding(.vertical, AppSpacing.detail)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("calendar.figures")
             MonthCalendar(marks: marks, month: $month, selected: picked, last: Day.today(), describe: { d in
                 totals[d].flatMap { x in
                     let parts = [x.out > 0.005 ? LS("支出 ") + money(x.out) : nil, x.inn > 0.005 ? LS("收入 ") + money(x.inn) : nil].compactMap { $0 }

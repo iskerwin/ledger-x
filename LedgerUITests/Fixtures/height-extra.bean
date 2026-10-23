@@ -1,0 +1,11 @@
+; for the layout tests: a large income this month (a wide amount in the calendar's middle column) and a balance
+; in a second currency (net worth on two lines, taller than the year's flows)
+2026-01-01 open Equity:Opening-Balances
+
+2026-10-05 * "Example employer" "Salary"
+  Assets:Bank:CGB  123456.00 CNY
+  Income:Salary
+
+2026-10-06 * "Example bank" "Opening balance"
+  Assets:Bank:ExampleFX  500.00 HKD
+  Equity:Opening-Balances

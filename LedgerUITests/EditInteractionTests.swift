@@ -780,11 +780,11 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertEqual(weekday.frame.minY, before, accuracy: 0.5)
     }
 
-    private func launchTab(_ tab: String, accessibility: Bool = false) -> XCUIApplication {
+    private func launchTab(_ tab: String, accessibility: Bool = false, env: [String: String] = [:]) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
         let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures").path
-        app.launchEnvironment = ["LEDGER_DEMO": fixture, "LEDGER_TAB": tab, "LEDGER_LANG": "zh"]
+        app.launchEnvironment = ["LEDGER_DEMO": fixture, "LEDGER_TAB": tab, "LEDGER_LANG": "zh"].merging(env) { $1 }
         app.launchArguments = ["-AppleLanguages", "(zh-Hans)"]
             + (accessibility ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : [])
         app.launch()
@@ -858,5 +858,23 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 5))
         XCTAssertEqual(search.value as? String ?? "", "搜索账户")
         XCTAssertTrue(row.isHittable)
+    }
+
+    private var heightExtra: String {
+        URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/height-extra.bean").path
+    }
+
+    /// The calendar's 支出 · 收入 · 结余 sit in equal columns: a month's wide income no longer pushes 收入 aside
+    func testCalendarFiguresSitInEqualColumns() {
+        let app = launchTab("journal", env: ["LEDGER_EXTRA": heightExtra, "LEDGER_CALENDAR": "1"])
+        let calendar = app.otherElements["calendar.month"]
+        XCTAssertTrue(calendar.waitForExistence(timeout: 20))
+        let today = app.buttons["calendar.today"]
+        if today.exists { today.tap() }
+        XCTAssertTrue(today.waitForNonExistence(timeout: 5))
+        let figures = app.otherElements["calendar.figures"]
+        let spent = figures.staticTexts["支出"], income = figures.staticTexts["收入"], net = figures.staticTexts["结余"]
+        XCTAssertTrue(spent.exists && income.exists && net.exists)
+        XCTAssertEqual(income.frame.minX - spent.frame.minX, net.frame.minX - income.frame.minX, accuracy: 1)
     }
 }
