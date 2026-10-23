@@ -941,6 +941,19 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertEqual(income.frame.midX - spent.frame.midX, net.frame.midX - income.frame.midX, accuracy: 1)
     }
 
+    /// The overview card's 收入 · 结余 · 净资产 sit centred in equal columns, like the calendar's: they were set at
+    /// each column's left edge, so the row looked pushed to the left
+    func testOverviewFiguresSitCentredInEqualColumns() {
+        let app = launchTab("overview")
+        let hero = app.otherElements["overview.hero"]
+        XCTAssertTrue(hero.waitForExistence(timeout: 20))
+        let income = hero.staticTexts["收入"], worth = hero.staticTexts["净资产"]
+        let net = hero.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "结余")).firstMatch
+        XCTAssertTrue(income.exists && net.exists && worth.exists)
+        XCTAssertEqual(net.frame.midX, hero.frame.midX, accuracy: 1)
+        XCTAssertEqual(net.frame.midX - income.frame.midX, worth.frame.midX - net.frame.midX, accuracy: 1)
+    }
+
     /// A long condition is cut short on its own line; it never runs under 清除 (or 回到刚才的筛选)
     func testLongFilterConditionDoesNotRunUnderItsActions() {
         let long = "一段很长很长的搜索文字，用来检查筛选条件放不下时的排布"

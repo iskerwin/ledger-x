@@ -255,8 +255,8 @@ struct FigureRow: View {
     }
 
     let items: [Item]
-    /// where each column's label and amount sit in it: leading under a card's headline, centred when the row
-    /// stands alone (the calendar's 支出 · 收入 · 结余)
+    /// where each column's label and amount sit in it: centred for a row of figures side by side (the calendar's
+    /// 支出 · 收入 · 结余, the overview card's 收入 · 结余 · 净资产)
     var alignment: HorizontalAlignment = .leading
     @Environment(\.dynamicTypeSize) private var typeSize
 

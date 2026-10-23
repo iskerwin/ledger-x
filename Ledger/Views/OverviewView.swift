@@ -284,7 +284,7 @@ struct OverviewView: View {
                             .init(label: LS("收入"), value: money(s.inc, cur, 0), color: .gain),
                             .init(label: LS("结余") + (rate.map { String(format: " · %.0f%%", $0) } ?? ""), value: money(net, cur, 0), color: net < 0 ? Color.loss : Color.primary),
                             .init(label: LS("净资产"), value: money(s.nw, cur, 0)),
-                        ])
+                        ], alignment: .center)
                     }
                 }
                 .accessibilityElement(children: .contain)
