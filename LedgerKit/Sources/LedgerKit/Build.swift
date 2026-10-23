@@ -37,34 +37,63 @@ func accountUseErrors(_ t: Entry, _ p: Posting, _ acc: Account) -> [LedgerError]
 }
 
 /// How far a transaction may be off balance in each currency, as Beancount works it out: only numbers written
-/// with decimals count (half the last digit, `inferred_tolerance_multiplier`); whole numbers set nothing. A currency
-/// with nothing to go by uses `inferred_tolerance_default` ("CNY:0.01", "*:0.005"), else it must balance exactly.
+/// with decimals count (half the last digit, `inferred_tolerance_multiplier`); whole numbers set nothing. A
+/// currency's own `inferred_tolerance_default` ("CNY:0.01") counts as well when the transaction uses it, the larger
+/// one wins; a currency with nothing to go by uses "*:0.005" if set, else it must balance exactly.
 struct BalanceTolerance {
-    var multiplier = 0.5
-    var defaults: [String: Double] = [:]
+    var multiplier: Decimal = 0.5
+    var defaults: [String: Decimal] = [:]
 
     init(options: [String: [String?]]) {
-        if let m = (options["inferred_tolerance_multiplier"]?.first ?? nil).flatMap(Double.init) { multiplier = m }
+        let posix = Locale(identifier: "en_US_POSIX")
+        if let m = (options["inferred_tolerance_multiplier"]?.first ?? nil).flatMap({ Decimal(string: $0, locale: posix) }) { multiplier = m }
         for raw in options["inferred_tolerance_default"] ?? [] {
             let parts = (raw ?? "").split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
-            if parts.count == 2, let v = Double(parts[1]) { defaults[parts[0]] = v }
+            if parts.count == 2, let v = Decimal(string: parts[1], locale: posix) { defaults[parts[0]] = v }
         }
     }
 
-    func of(_ t: Entry) -> [String: Double] {
-        var tol: [String: Double] = [:]
+    func of(_ t: Entry) -> [String: Decimal] {
+        var tol: [String: Decimal] = [:]
+        for p in t.postings {
+            for c in [p.units != nil ? p.currency : nil, p.cost?.currency, p.price?.currency].compactMap({ $0 }) {
+                if let v = defaults[c] { tol[c] = v }
+            }
+        }
         for p in t.postings {
             guard p.units != nil, let d = p.digits, d > 0, !p.interpolated, let c = p.currency else { continue }
-            tol[c] = max(tol[c] ?? 0, multiplier * pow(10, -Double(d)))
+            tol[c] = max(tol[c] ?? 0, multiplier * Decimal(sign: .plus, exponent: -d, significand: 1))
         }
         return tol
     }
 
+    func of(_ t: Entry, _ c: String) -> Decimal { of(t)[c] ?? defaults["*"] ?? 0 }
+
     /// the residuals beyond what is allowed, per currency
     func unbalanced(_ t: Entry) -> [(String, Double)] {
-        let tol = of(t)
-        return weightSums(t).filter { c, v in abs(v) > (tol[c] ?? defaults[c] ?? defaults["*"] ?? 0) + 1e-9 }
+        weightSums(t).filter { c, v in abs(v) > doubleOf(of(t, c)) + 1e-9 }
     }
+
+    /// The decimal places Beancount rounds an amount it fills in to: those of twice the tolerance (0.005 → 0.01),
+    /// half to even. Nil when there is no tolerance, or it isn't a short number like one a person would write: the
+    /// amount is then filled in exactly (0.002 AAPL at 343.6395 USD leaves 0.687279 USD, not 0.69).
+    func fillPlaces(_ t: Entry, _ c: String) -> Int? {
+        let tol = of(t, c)
+        guard tol > 0 else { return nil }
+        let q = significantDigits(2 * tol)
+        return q.digits < 5 ? q.places : nil
+    }
+}
+
+/// `x` without its trailing zeros: how many significant digits it has and the decimal places it goes to
+/// (0.010 → 1 digit, 2 places; 20 → 1 digit, -1 places)
+func significantDigits(_ x: Decimal) -> (digits: Int, places: Int) {
+    let parts = x.magnitude.description.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
+    var whole = parts[0], frac = parts.count > 1 ? parts[1] : ""
+    while frac.hasSuffix("0") { frac.removeLast() }
+    var places = frac.count
+    if frac.isEmpty { while whole.count > 1 && whole.hasSuffix("0") { whole.removeLast(); places -= 1 } }
+    return (max((whole + frac).drop { $0 == "0" }.count, 1), places)
 }
 
 /// sums of weights per currency, in first-seen order
@@ -80,7 +109,7 @@ func weightSums(_ t: Entry) -> [(String, Double)] {
 }
 
 // fill one unknown per weight currency: missing units, price number or cost number
-func interpolate(_ t: Entry, _ errors: inout [LedgerError]) {
+func interpolate(_ t: Entry, _ tolerance: BalanceTolerance, _ errors: inout [LedgerError]) {
     enum What { case units, cost, price }
     var unknown: [(p: Posting, what: What)] = []
     for p in t.postings {
@@ -91,19 +120,20 @@ func interpolate(_ t: Entry, _ errors: inout [LedgerError]) {
     if unknown.isEmpty { return }
     var resOrder: [String] = []
     var res: [String: Double] = [:]
-    // the residual again on the decimal numbers: a filled-in amount is rounded from it, half to even, as Beancount
-    // does (10.00 - 2.675 leaves 7.325, filled in as 7.32)
+    // the residual again on the decimal numbers: a filled-in amount is rounded from it as Beancount does
+    // (10.00 - 2.675 leaves 7.325, filled in as 7.32), or kept exact when there is nothing to round to
     var resD: [String: Decimal] = [:]
-    var dig: [String: Int] = [:]
     for p in t.postings {
         guard let w = weight(p) else { continue }
         if res[w.c] == nil { resOrder.append(w.c) }
         res[w.c, default: 0] += w.n
         if let wd = decimalWeight(p) { resD[wd.c, default: 0] += wd.n }
-        if let d = p.digits, p.currency == w.c { dig[w.c] = max(dig[w.c] ?? 0, d) }
     }
-    func filled(_ c: String) -> Double {
-        doubleOf(rounded(-(resD[c] ?? decimalOf(res[c] ?? 0)), min(dig[c] ?? 2, 8), .halfEven))
+    func filled(_ c: String) -> (units: Double, digits: Int) {
+        let x = -(resD[c] ?? decimalOf(res[c] ?? 0))
+        // rounded, it keeps the places it was rounded to (-35.00, which noduplicates tells from -35)
+        if let n = tolerance.fillPlaces(t, c) { return (doubleOf(rounded(x, n, .halfEven)), max(n, 0)) }
+        return (doubleOf(x), max(significantDigits(x).places, 0))
     }
     let spread = unknown.filter { $0.what == .units && $0.p.currency == nil }
     let fixed = unknown.filter { !($0.what == .units && $0.p.currency == nil) }
@@ -119,7 +149,7 @@ func interpolate(_ t: Entry, _ errors: inout [LedgerError]) {
         switch u.what {
         case .units:
             if p.cost != nil || p.price != nil { errors.append(LedgerError(entry: t, msg: tr("缺数量的分录不能带成本或价格", "A posting without units cannot have a cost or price"))); continue }
-            p.units = filled(c); p.interpolated = true; p.digits = dig[c] ?? 2
+            (p.units, p.digits) = filled(c); p.interpolated = true
         case .cost:
             p.cost!.number = abs(-r / p.units!); p.cost!.interpolated = true
         case .price:
@@ -136,9 +166,8 @@ func interpolate(_ t: Entry, _ errors: inout [LedgerError]) {
         let ccys = resOrder.filter { abs(res[$0] ?? 0) > EPS }
         let fill: [Posting] = ccys.map { c in
             let x = m.shallowCopy()
-            x.units = filled(c)
+            (x.units, x.digits) = filled(c)
             x.currency = c
-            x.digits = dig[c] ?? 2
             x.interpolated = true
             return x
         }
@@ -455,7 +484,7 @@ public func build(_ input: [Entry], files: [String] = [], options: [String: [Str
             let t = e
             if !t.bad.isEmpty { L.errors.append(LedgerError(entry: t, msg: tr("无法解析：\(t.bad.joined(separator: " | "))", "Cannot parse: \(t.bad.joined(separator: " | "))"))) }
             bookTxn(t, &inv, methodOf, &L.errors)
-            interpolate(t, &L.errors)
+            interpolate(t, balanceTolerance, &L.errors)
             for p in t.postings {
                 if let acc = L.accounts[p.account] {
                     L.errors += accountUseErrors(t, p, acc)
@@ -643,6 +672,7 @@ public func checkText(_ text: String, _ L: Ledger?) -> CheckResult {
         if let lots = L?.inventory[a] { inv[a] = lots.map { $0.clone() } }
     }
     let defaultBooking = ((L?.options["booking_method"]?.first ?? nil) ?? "STRICT")
+    let balanceTolerance = BalanceTolerance(options: L?.options ?? [:])
     func methodOf(_ a: String) -> String { (L?.accounts[a]?.booking ?? defaultBooking).uppercased() }
     func opened(_ a: String) -> Bool { r.entries.contains { $0.type == .open && $0.account == a } }
     for e in r.entries {
@@ -651,9 +681,9 @@ public func checkText(_ text: String, _ L: Ledger?) -> CheckResult {
             if e.postings.isEmpty { errors.append(LedgerError(entry: e, msg: tr("交易至少需要一条分录", "A transaction needs at least one posting"))) }
             var errs: [LedgerError] = []
             bookTxn(e, &inv, methodOf, &errs)
-            interpolate(e, &errs)
+            interpolate(e, balanceTolerance, &errs)
             errors.append(contentsOf: errs)
-            for (c, v) in BalanceTolerance(options: L?.options ?? [:]).unbalanced(e) {
+            for (c, v) in balanceTolerance.unbalanced(e) {
                 errors.append(LedgerError(entry: e, msg: tr("不平衡：差 \(fmtNum(v, 4)) \(c)", "Unbalanced by \(fmtNum(v, 4)) \(c)")))
             }
             for p in e.postings where p.account == personalAccount && postingPerson(p) == nil {
