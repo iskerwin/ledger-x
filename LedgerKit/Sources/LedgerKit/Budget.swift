@@ -102,8 +102,9 @@ public func budgetProgress(_ L: Ledger, key: String, today: String = Day.today()
         for t in L.txns where t.date >= from && t.date <= to {
             for p in t.postings where p.account == b.account || p.account.hasPrefix(b.account + ":") {
                 guard let u = p.units, let c = p.currency else { continue }
-                if c == b.currency { spent += u * sign }
-                else if b.currency == L.base, let v = toCNY(L, u, c, t.date) { spent += v * sign }
+                // any other currency converted into the budget's on the day (through the base currency, so a USD
+                // budget sees CNY and EUR spending too)
+                if let v = convert(L, u, c, b.currency, t.date) { spent += v * sign }
             }
         }
         out.append(BudgetProgress(budget: b, limit: roundTo(limit, 2), spent: roundTo(spent, 2), elapsed: elapsed))
