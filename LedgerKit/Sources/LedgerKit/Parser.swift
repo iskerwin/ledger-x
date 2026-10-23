@@ -328,7 +328,9 @@ func parsePosting(_ line: [US]) -> Posting? {
         let pn = sc.number()
         let pc = sc.currency()
         let price = PriceSpec(number: nil, currency: pc, total: total, raw: pn?.value)
-        if let pn = pn, let u = p.units { price.number = total ? abs(pn.value / u) : pn.value }
+        // a total over zero units has no per-unit price: Beancount takes 0 (and the transaction is then out of
+        // balance), never 100 / 0
+        if let pn = pn, let u = p.units { price.number = total ? (u == 0 ? 0 : abs(pn.value / u)) : pn.value }
         p.price = price
     }
     if !sc.eof() { return nil }

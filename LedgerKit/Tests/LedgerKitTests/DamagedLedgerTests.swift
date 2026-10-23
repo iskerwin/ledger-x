@@ -60,4 +60,20 @@ final class DamagedLedgerTests: XCTestCase {
         XCTAssertEqual(multi.txns.first?.narration, "two\nlines")
         XCTAssertTrue(multi.errors.isEmpty)
     }
+
+    /// `0 VOO @@ 100.00 USD`: Beancount takes the per-unit price as 0, so the transaction is 100.00 USD out of balance.
+    /// Before, the price was 100 / 0 = inf, and the balance check saw nothing wrong.
+    func testATotalPriceOnZeroUnitsIsAnUnbalancedTransaction() {
+        let L = loadLedger(root: "main.bean") { _ in """
+        2026-01-01 open Assets:Cash
+        2026-01-01 open Assets:Broker
+        2026-01-02 * "Broker" "Zero units total price"
+          Assets:Broker   0 VOO @@ 100.00 USD
+          Assets:Cash   -100.00 USD
+        """ }
+        let p = L.txns.first?.postings.first
+        XCTAssertEqual(p?.price?.number, 0)
+        XCTAssertTrue(L.errors.contains { $0.line == 3 && $0.msg.contains("100") })
+        XCTAssertTrue(L.errors.allSatisfy { !$0.msg.contains("inf") && !$0.msg.contains("nan") })
+    }
 }
