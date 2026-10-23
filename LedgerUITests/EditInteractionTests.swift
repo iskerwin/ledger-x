@@ -877,4 +877,16 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(spent.exists && income.exists && net.exists)
         XCTAssertEqual(income.frame.minX - spent.frame.minX, net.frame.minX - income.frame.minX, accuracy: 1)
     }
+
+    /// A long condition is cut short on its own line; it never runs under 清除 (or 回到刚才的筛选)
+    func testLongFilterConditionDoesNotRunUnderItsActions() {
+        let long = "一段很长很长的搜索文字，用来检查筛选条件放不下时的排布"
+        let app = launchTab("journal", env: ["LEDGER_QUERY": long])
+        let clear = app.buttons["清除"]
+        XCTAssertTrue(clear.waitForExistence(timeout: 20))
+        let chip = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "一段很长")).firstMatch
+        XCTAssertTrue(chip.exists)
+        XCTAssertFalse(chip.frame.intersects(clear.frame))
+        XCTAssertLessThanOrEqual(chip.frame.maxX, app.windows.firstMatch.frame.maxX)
+    }
 }

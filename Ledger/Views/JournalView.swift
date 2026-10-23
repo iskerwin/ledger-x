@@ -423,17 +423,19 @@ struct JournalView: View {
                 }
                 if filtered || store.journalReturn != nil {
                     // what is on, each with its ✕, and 清除 for all of it
-                    HStack(alignment: .top, spacing: AppSpacing.control) {
-                        FlowChips(items: conditionChips())
-                        Spacer(minLength: 4)
-                        if store.journalReturn != nil {
-                            Button { restoreBrowse() } label: { Label(LS("回到刚才的筛选"), systemImage: "arrow.uturn.backward").labelStyle(ControlLabelStyle()) }
-                                .font(.subheadline.weight(.medium)).foregroundStyle(Color.jade).buttonStyle(.plain)
-                                .accessibilityIdentifier("journal.restore")
+                    // beside the conditions when all fit on one line; otherwise on a line of their own under them
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .top, spacing: AppSpacing.control) {
+                            FlowChips(items: conditionChips()).fixedSize()
+                            Spacer(minLength: 4)
+                            filterActions(filtered)
                         }
-                        if filtered {
-                            Button { quick = []; account = nil; q = "" } label: { Label(LS("清除"), systemImage: "xmark.circle").labelStyle(ControlLabelStyle()) }
-                                .font(.subheadline.weight(.medium)).foregroundStyle(Color.jade).buttonStyle(.plain)
+                        VStack(alignment: .leading, spacing: AppSpacing.icon) {
+                            FlowChips(items: conditionChips())
+                            HStack(spacing: AppSpacing.control) {
+                                Spacer(minLength: 0)
+                                filterActions(filtered)
+                            }
                         }
                     }
                 }
@@ -529,6 +531,19 @@ struct JournalView: View {
         for f in quick { out.append((f == .large ? LS("超过 %@", money(store.largeExpense, store.L?.base ?? "CNY", 0)) : f.title, { quick.removeAll { $0 == f } })) }
         if !q.trimmed.isEmpty { out.append(("“\(q.trimmed)”", { q = "" })) }
         return out
+    }
+
+    /// 回到刚才的筛选 and 清除, by the conditions
+    @ViewBuilder private func filterActions(_ filtered: Bool) -> some View {
+        if store.journalReturn != nil {
+            Button { restoreBrowse() } label: { Label(LS("回到刚才的筛选"), systemImage: "arrow.uturn.backward").labelStyle(ControlLabelStyle()) }
+                .font(.subheadline.weight(.medium)).foregroundStyle(Color.jade).buttonStyle(.plain)
+                .accessibilityIdentifier("journal.restore")
+        }
+        if filtered {
+            Button { quick = []; account = nil; q = "" } label: { Label(LS("清除"), systemImage: "xmark.circle").labelStyle(ControlLabelStyle()) }
+                .font(.subheadline.weight(.medium)).foregroundStyle(Color.jade).buttonStyle(.plain)
+        }
     }
 
     /// 筛选结果: how many, spent and received, over which days; saved as a quick search from here
@@ -1155,7 +1170,7 @@ struct FlowLayout: Layout {
         let width = proposal.width ?? .infinity
         var x: CGFloat = 0, y: CGFloat = 0, row: CGFloat = 0, widest: CGFloat = 0
         for v in subviews {
-            let s = v.sizeThatFits(.unspecified)
+            let s = size(v, width)
             if x > 0 && x + s.width > width { y += row + spacing; x = 0; row = 0 }
             x += s.width + spacing
             row = max(row, s.height)
@@ -1166,11 +1181,19 @@ struct FlowLayout: Layout {
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         var x = bounds.minX, y = bounds.minY, row: CGFloat = 0
         for v in subviews {
-            let s = v.sizeThatFits(.unspecified)
+            let s = size(v, bounds.width)
             if x > bounds.minX && x + s.width > bounds.maxX { y += row + spacing; x = bounds.minX; row = 0 }
             v.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(s))
             x += s.width + spacing
             row = max(row, s.height)
         }
+    }
+
+    /// a child at its own width, but never wider than a row: a long one is cut short instead of drawn over its
+    /// neighbours
+    private func size(_ v: LayoutSubview, _ width: CGFloat) -> CGSize {
+        let s = v.sizeThatFits(.unspecified)
+        guard s.width > width, width.isFinite else { return s }
+        return v.sizeThatFits(ProposedViewSize(width: width, height: nil))
     }
 }
