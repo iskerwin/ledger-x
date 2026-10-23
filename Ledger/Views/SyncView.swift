@@ -7,6 +7,8 @@ struct SyncView: View {
     @EnvironmentObject var store: Store
     /// a pending change opened to see why it was not sent
     @State private var why: Op?
+    /// a pending change swiped away: asked first, it is not in the ledger's storage yet and can't be brought back
+    @State private var removing: Op?
     @State private var recoveryCount = 0
 
     private var waiting: [Op] { store.pending.filter { $0.failed == nil && $0.held == nil } }
@@ -63,6 +65,12 @@ struct SyncView: View {
         .task(id: store.cfg.id + String(store.attachmentRevision)) { recoveryCount = store.attachmentJobs().count }
         .navigationTitle(LS("账本同步"))
         .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog(LS("移除这项改动？"), isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
+                            titleVisibility: .visible, presenting: removing) { o in
+            Button(role: .destructive) { Task { await store.dropPending(o) } } label: { Text(LS("移除")) }
+        } message: { _ in
+            Text(LS("这项改动还没有推送到仓库，移除后不能恢复。"))
+        }
         .alert(LS("没有提交的原因"), isPresented: Binding(get: { why != nil }, set: { if !$0 { why = nil } }), presenting: why) { o in
             if o.held != nil { Button { Task { await store.release(o) } } label: { Text(LS("推送")) } }
             Button(role: .destructive) { Task { await store.dropPending(o) } } label: { Text(LS("移除这项改动")) }
@@ -160,8 +168,9 @@ struct SyncView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .swipeActions {
-            Button(role: .destructive) { Task { await store.dropPending(o) } } label: { Label(LS("移除"), systemImage: "trash") }
+        .accessibilityIdentifier("sync.pending")
+        .swipeActions(allowsFullSwipe: false) {
+            Button(role: .destructive) { removing = o } label: { Label(LS("移除"), systemImage: "trash") }
             if o.held != nil { Button { Task { await store.release(o) } } label: { Label(LS("推送"), systemImage: "icloud.and.arrow.up") }.tint(Color.jade) }
         }
     }

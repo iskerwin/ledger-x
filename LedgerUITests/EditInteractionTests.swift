@@ -900,4 +900,19 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertFalse(chip.frame.intersects(clear.frame))
         XCTAssertLessThanOrEqual(chip.frame.maxX, app.windows.firstMatch.frame.maxX)
     }
+
+    /// A change not pushed yet, swiped away on 账本同步: asked first, since nothing can bring it back
+    func testRemovingAPendingChangeAsksFirst() {
+        let app = launchTab("overview", env: ["LEDGER_SYNC": "1", "LEDGER_HELD": "1"])
+        let row = app.buttons.matching(identifier: "sync.pending").firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 20))
+        let count = app.buttons.matching(identifier: "sync.pending").count
+        row.swipeLeft()
+        tapPoint(app.buttons["trash"].firstMatch, timeout: 5)
+        XCTAssertTrue(app.staticTexts["移除这项改动？"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons.matching(identifier: "sync.pending").count, count)
+        // confirmed, it goes (and leaves the test ledger as it was)
+        app.sheets.buttons["移除"].firstMatch.tap()
+        XCTAssertTrue(row.waitForNonExistence(timeout: 5))
+    }
 }

@@ -483,6 +483,14 @@ final class Store: ObservableObject {
             draft.extraFunds = [ExtraFund(account: other, amount: "1000")]
             draft.discount = "50"
         }
+        // interaction tests: one change kept on this phone, as 暂存本机 leaves it (once; the test removes it again)
+        if env["LEDGER_HELD"] != nil, !pending.contains(where: { $0.held != nil }) {
+            var o = Op(kind: .insert, path: "main.bean")
+            o.text = "2026-10-20 * \"Held cafe\" \"Kept on this phone\"\n  Expenses:Food  1.00 CNY\n  Assets:Cash"
+            o.date = "2026-10-20"; o.summary = "Held cafe"; o.label = "Held cafe"; o.held = "Interaction test"
+            pending.append(o)
+            savePending()
+        }
         if env["LEDGER_TAB"] == "add" {
             openAdd(full: env["LEDGER_EDIT_TEXT"] != nil || env["LEDGER_ADD_FULL"] != nil ? true : nil)
         } else if let t = env["LEDGER_TAB"], let tab = Tab(rawValue: t) { self.tab = tab }
