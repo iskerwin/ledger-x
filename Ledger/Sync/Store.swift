@@ -173,6 +173,8 @@ final class Store: ObservableObject {
     /// 设置 → 账本检查: open the check once the settings sheet has gone
     var openCheckAfterSettings = false
     @Published var toast: Toast?
+    /// the text just written from the form (as `normEntryText`), for a moment: 明细 lights its row up
+    @Published var justSaved: String?
     /// Notices waiting to become visible, and the clock for the one on screen.
     private var toastSchedule = ToastSchedule()
     private var toastActions: [UUID: () async -> Void] = [:]

@@ -635,8 +635,12 @@ struct JournalView: View {
                     .accessibilityAddTraits(selected.contains(key) ? .isSelected : [])
                     .disabled(t.synthetic)
                 } else {
+                    let just = store.justSaved != nil && store.justSaved == normEntryText(t.src)
                     NavigationLink(value: TxDest(t)) { TxRow(t: t, account: account) }
                         .entryActions(t)
+                        // just saved from the form: the row lights up for a moment, then settles
+                        .listRowBackground(just ? Color.jade.soft : nil)
+                        .animation(AppMotion.standard, value: just)
                 }
             }
         } header: {

@@ -370,14 +370,14 @@ extension Store {
             // editing: nothing changed, nothing written
             if text == r.baseline { finishDraft(with: newDraftFor(.expense)); return true }
             guard let ops = await replaceOps(old: r.old, path: r.path, date: r.date, summary: r.summary, newText: text, anchorLine: r.line) else { return false }
-            return await commit(ops, word: LS("已更新"), checked: true, onQueued: { queued(self.newDraftFor(.expense)) })
+            return markSaved(text, await commit(ops, word: LS("已更新"), checked: true, onQueued: { queued(self.newDraftFor(.expense)) }))
         }
         if d.kind == .multi {
             guard let ops0 = makeOps(text, single: true), let ops = await review(ops0) else { return false }
             var nd = newDraftFor(.multi)
             nd.date = d.date
             nd.rows = d.rows.map { r in var x = r; x.amount = ""; x.id = UUID(); return x }
-            return await commit(ops, checked: true, onQueued: { queued(nd) })
+            return markSaved(text, await commit(ops, checked: true, onQueued: { queued(nd) }))
         }
         guard var ops = makeOps(text, single: draftIsSingle(d, L)) else { return false }
         // the original purchase gets the refund link that is actually in the saved text (it may have been edited)
@@ -412,7 +412,19 @@ extension Store {
             nd.events = d.eventsTouched ? d.events : autoEvents(on: nd.date)
             nd.eventsTouched = d.eventsTouched
         }
-        return await commit(checked, word: word, checked: true, onQueued: { queued(nd) })
+        return markSaved(text, await commit(checked, word: word, checked: true, onQueued: { queued(nd) }))
+    }
+
+    /// after a save from the form: its row in 明细 lights up for a moment
+    private func markSaved(_ text: String, _ ok: Bool) -> Bool {
+        guard ok else { return false }
+        let saved = normEntryText(text)
+        justSaved = saved
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(2.5))
+            if self?.justSaved == saved { self?.justSaved = nil }
+        }
+        return true
     }
 
     // MARK: - 常用交易
