@@ -23,8 +23,8 @@ struct PaySplitSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button { dismiss() } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold) }
-                ToolbarItemGroup(placement: .keyboard) { Spacer(); Button { hideKeyboard() } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold) }
             }
+            .keyboardDone()
             .sheet(item: $picking) { p in picker(p) }
         }
     }

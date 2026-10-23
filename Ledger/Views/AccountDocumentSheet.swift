@@ -29,10 +29,7 @@ extension View {
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    Button { hideKeyboard() } label: {
-                        Label(LS("收起键盘"), systemImage: "keyboard.chevron.compact.down").labelStyle(ControlLabelStyle())
-                    }
-                    .accessibilityIdentifier("document.hideKeyboard")
+                    HideKeyboardButton().accessibilityIdentifier("document.hideKeyboard")
                 }
             }
     }

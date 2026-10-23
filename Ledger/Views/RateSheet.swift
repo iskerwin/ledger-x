@@ -137,7 +137,7 @@ struct RateSheet: View {
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    Button { focus = nil; hideKeyboard() } label: { Label(LS("收起键盘"), systemImage: "keyboard.chevron.compact.down").labelStyle(ControlLabelStyle()) }
+                    HideKeyboardButton { focus = nil }
                 }
             }
             // on the Form, not inside the fee section: there it would be copied onto every row

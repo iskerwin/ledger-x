@@ -165,15 +165,15 @@ struct AddForm: View {
                 Button(op) { appendToFocused(op == "−" ? "-" : op) }.font(.title3)
             }
             Spacer()
-            Button { focus = nil; hideKeyboard() } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold)
+            HideKeyboardButton { focus = nil }
         case .row(let id)?:
             Button("±") { toggleSign(row: id) }.font(.title3)
             Button("+") { appendRow(id, "+") }.font(.title3)
             Spacer()
-            Button { focus = nil; hideKeyboard() } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold)
+            HideKeyboardButton { focus = nil }
         default:
             Spacer()
-            Button { focus = nil; hideKeyboard() } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold)
+            HideKeyboardButton { focus = nil }
         }
     }
 

@@ -281,7 +281,7 @@ final class EditInteractionTests: XCTestCase {
         }
         assertCanType(app, into: merchant)
         merchant.typeText("Coffee\n")
-        let done = app.buttons["完成"].firstMatch
+        let done = app.buttons["收起键盘"].firstMatch
         if done.exists { done.tap() }
         for _ in 0..<5 { if funding.exists { break }; app.swipeUp() }
         XCTAssertEqual(funding.value as? String, "Assets:Cash")

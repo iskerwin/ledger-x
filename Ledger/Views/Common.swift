@@ -610,6 +610,18 @@ struct DateField: View {
     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
 }
 
+/// The one button above the keyboard that puts it away. Called 收起键盘, not 完成, so it is never mistaken for a
+/// sheet's own 完成 (by eye, by VoiceOver or by a test).
+struct HideKeyboardButton: View {
+    var action: () -> Void = {}
+    var body: some View {
+        Button { action(); hideKeyboard() } label: {
+            Label(LS("收起键盘"), systemImage: "keyboard.chevron.compact.down").labelStyle(ControlLabelStyle())
+        }
+        .fontWeight(.semibold)
+    }
+}
+
 struct KeyboardDone: ViewModifier {
     func body(content: Content) -> some View {
         content
@@ -617,14 +629,14 @@ struct KeyboardDone: ViewModifier {
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    Button { hideKeyboard() } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold)
+                    HideKeyboardButton()
                 }
             }
     }
 }
 
 extension View {
-    /// a 完成 button above the keyboard
+    /// 收起键盘 above the keyboard (the only way this app writes it)
     func keyboardDone() -> some View { modifier(KeyboardDone()) }
 }
 
