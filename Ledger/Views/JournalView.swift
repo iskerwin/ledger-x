@@ -309,8 +309,7 @@ struct JournalView: View {
             afterSheet = TxDest(t)
             calendarDay = nil
         }
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .pickerSheet()
         .presentationContentInteraction(.scrolls)
     }
 
@@ -740,7 +739,7 @@ struct TxDetailView: View {
             .task { if store.demoEnv["LEDGER_EDIT_SOURCE"] != nil { try? await Task.sleep(nanoseconds: 700_000_000); editSource() } }
             .sheet(item: $subDraft) { SubEditSheet(draft: $0) }
             .sheet(item: $ordering) { DayOrderSheet(date: $0.date, file: $0.file) }
-            .sheet(item: $linkPick) { LinkPickSheet(pick: $0) }
+            .sheet(item: $linkPick) { LinkPickSheet(pick: $0).pickerSheet() }
             .sheet(item: $recategorizing) { r in
                 AccountPicker(title: LS("分类"), prefixes: [r.from.hasPrefix("Income:") ? "Income:" : "Expenses:"], current: r.from) { to in
                     guard to != r.from else { return }

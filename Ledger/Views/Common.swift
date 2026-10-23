@@ -279,6 +279,7 @@ struct AccountPicker: View {
     @State private var q = ""
     @FocusState private var searchFocused: Bool
     @State private var pending: String?
+    @State private var detent = PresentationDetent.medium
     /// a group to scroll to once the search is cleared
     @State private var jump: String?
     @State private var order: [String]?
@@ -372,6 +373,8 @@ struct AccountPicker: View {
                 }
             }
         }
+        .pickerSheet($detent)
+        .onChange(of: searchFocused) { _, typing in if typing { detent = .large } }
     }
 
     /// under the search, always in sight: the account chosen, then the groups to jump to

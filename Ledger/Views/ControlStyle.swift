@@ -29,6 +29,18 @@ struct HeroAmount: ViewModifier {
     }
 }
 
+/// Sheets come in three sizes. A picker (an account, a currency, a day, a tag, an icon, a quick look) opens at half
+/// the screen with its grabber showing, and drags up to full; a form to fill in, and content to read, take the whole
+/// screen (the system's own default, said where a sheet once chose otherwise).
+extension View {
+    func pickerSheet() -> some View { presentationDetents([.medium, .large]).presentationDragIndicator(.visible) }
+    /// a picker with a search field: `detent` goes to full when typing starts, so the keyboard doesn't cover the results
+    func pickerSheet(_ detent: Binding<PresentationDetent>) -> some View {
+        presentationDetents([.medium, .large], selection: detent).presentationDragIndicator(.visible)
+    }
+    func formSheet() -> some View { presentationDetents([.large]) }
+}
+
 extension View {
     /// a page's headline amount; 40 for the overview's, 22 for one line among several currencies
     func heroAmount(_ base: CGFloat = 34) -> some View { modifier(HeroAmount(base)) }

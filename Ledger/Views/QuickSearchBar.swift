@@ -101,7 +101,7 @@ struct QuickSearchSheet: View {
             }
             .onAppear { focused = true }
         }
-        .presentationDetents([.medium])
+        .formSheet()
     }
 
     private func save() {

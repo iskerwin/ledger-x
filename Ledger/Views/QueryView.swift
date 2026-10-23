@@ -368,7 +368,7 @@ struct QueryReference: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button { dismiss() } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) } } }
         }
-        .presentationDetents([.medium, .large])
+        .pickerSheet()
     }
 
     private func row(_ code: String, _ desc: String) -> some View {

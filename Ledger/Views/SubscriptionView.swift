@@ -834,7 +834,7 @@ struct SubStateSheet: View {
                 ToolbarItem(placement: .confirmationAction) { Button { save() } label: { Label(LS("保存"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold).disabled(saving) }
             }
         }
-        .presentationDetents([.medium, .large])
+        .formSheet()
         .onAppear {
             guard !loaded else { return }
             loaded = true

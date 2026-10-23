@@ -222,13 +222,13 @@ struct QuickAddView: View {
         }
         .sheet(item: $picking) { p in accountPicker(p) }
         .navigationDestination(isPresented: $allCategories) { allCategoriesPage(L, D) }
-        .sheet(item: $styling) { CategoryStyleSheet(target: $0) }
+        .sheet(item: $styling) { CategoryStyleSheet(target: $0).pickerSheet() }
         .sheet(isPresented: $managingCats) { CategoryManager(root: Store.categoryRoot(store.draft.kind)) }
         .sheet(isPresented: $managingTemplates) { TemplateManager() }
         .sheet(isPresented: $splittingPay) { PaySplitSheet() }
         .sheet(isPresented: $rating) { RateSheet(L: L, D: D) }
         .sheet(isPresented: $feeEditing) { TransferFeeSheet() }
-        .sheet(isPresented: $marking) { MarkSheet(L: L).presentationDetents([.medium, .large]) }
+        .sheet(isPresented: $marking) { MarkSheet(L: L).pickerSheet() }
         .sheet(isPresented: $importing) { ImportView() }
         .sheet(isPresented: $pettyCash) { PettyCashSheet() }
         .confirmationDialog(store.draft.replacing.map { LS("删除 %@ %@？", $0.date, $0.summary) } ?? "",
@@ -465,7 +465,7 @@ struct QuickAddView: View {
                     pickedCategory = true
                     subPicking = nil
                 }
-                .presentationDetents([.height(min(120 + CGFloat(g.accounts.count) * 46, 460))])
+                .pickerSheet()
             }
         }
     }
@@ -749,7 +749,9 @@ struct QuickAddView: View {
                 .frame(maxWidth: .infinity)
                 .sheet(isPresented: $dating) {
                     DaySheet(date: Binding(get: { store.draft.date }, set: { store.draft.date = $0; store.draft.edited = nil })) { dating = false }
-                        .presentationDetents([.height(500)])
+                        // a picker, but the month and its quick days need 500 pt: half a phone cuts the days off
+                        .presentationDetents([.height(500), .large])
+                        .presentationDragIndicator(.visible)
                 }
                 if showsLedger {
                     Divider().frame(height: 26)

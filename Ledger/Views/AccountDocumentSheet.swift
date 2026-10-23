@@ -222,6 +222,7 @@ struct DocumentSaveToRow: View {
                 folder = name
                 onCommit()
             }
+            .pickerSheet()
         }
     }
 

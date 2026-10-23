@@ -99,7 +99,7 @@ struct CategoryManager: View {
                 }
                 ToolbarItem(placement: .confirmationAction) { Button { dismiss() } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold) }
             }
-            .sheet(item: $styling) { CategoryStyleSheet(target: $0) }
+            .sheet(item: $styling) { CategoryStyleSheet(target: $0).pickerSheet() }
             .navigationDestination(for: CategoryAccountsDest.self) { AccountManagerView(only: $0.root) }
             .navigationDestination(for: AccountEditDest.self) { AccountEditView(name: $0.name) }
         }

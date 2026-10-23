@@ -32,7 +32,7 @@ struct AccountManagerView: View {
         }
         .navigationTitle(only == nil ? LS("管理账户") : LS("科目管理"))
         .task { if let g = store.demoEnv["LEDGER_MANAGE_OPEN"] { openGroups.insert(g) } }
-        .sheet(item: $iconFor) { GroupIconSheet(group: $0.group) }
+        .sheet(item: $iconFor) { GroupIconSheet(group: $0.group).pickerSheet() }
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $q, prompt: LS("搜索账户"))
         .textInputAutocapitalization(.never)

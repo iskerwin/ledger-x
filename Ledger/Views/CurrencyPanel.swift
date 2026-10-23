@@ -94,7 +94,7 @@ struct CurrencySheet: View {
                 ToolbarItem(placement: .confirmationAction) { Button { dismiss() } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold) }
             }
         }
-        .presentationDetents([.medium, .large])
+        .pickerSheet()
     }
 
     private func form(_ L: Ledger) -> some View {

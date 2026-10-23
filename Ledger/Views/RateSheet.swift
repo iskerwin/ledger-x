@@ -159,7 +159,7 @@ struct RateSheet: View {
             }
             }
         }
-        .presentationDetents([.large])
+        .formSheet()
     }
 
     @ViewBuilder

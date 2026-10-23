@@ -858,6 +858,11 @@ final class EditInteractionTests: XCTestCase {
         // the first group: the row scrolls sideways, so its chip may show only in part
         let chip = app.buttons["account.group.Assets:Bank"], row = app.buttons["account.Assets:Bank:CGB"]
         XCTAssertTrue(chip.exists)
+        // a picker opens at half the screen; dragged up, it fills it
+        let height = app.windows.firstMatch.frame.height
+        XCTAssertGreaterThan(chip.frame.minY, height / 3)
+        app.swipeUp()
+        XCTAssertLessThan(chip.frame.minY, height / 3)
         let top = chip.frame.minY
         app.swipeUp()
         XCTAssertEqual(chip.frame.minY, top, accuracy: 0.5)
