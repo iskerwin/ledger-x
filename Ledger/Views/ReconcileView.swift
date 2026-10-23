@@ -39,7 +39,7 @@ struct ReconcileView: View {
                             Label(items.isEmpty ? LS("一致的账户才会写入断言") : LS("写入 %@ 条余额断言", items.count), systemImage: "checkmark.seal").labelStyle(ControlLabelStyle())
                                 .frame(maxWidth: .infinity).fontWeight(.semibold)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .primaryButton()
                         .disabled(items.isEmpty || saving)
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets())

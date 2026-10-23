@@ -195,9 +195,7 @@ struct ReimbSheet: View {
                 } label: {
                     HStack(spacing: AppSpacing.control) { Spacer(); BusyLabel(busy: saving, title: LS("登记回款"), systemImage: "arrow.down.left").fontWeight(.semibold); Spacer() }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.jade)
-                .controlSize(.large)
+                .primaryButton()
                 .disabled(t.isEmpty || saving)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
@@ -443,9 +441,7 @@ struct FloatSheet: View {
                 } label: {
                     HStack(spacing: AppSpacing.control) { Spacer(); BusyLabel(busy: saving, title: LS("冲抵"), systemImage: "arrow.left.arrow.right").fontWeight(.semibold); Spacer() }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.jade)
-                .controlSize(.large)
+                .primaryButton()
                 .disabled(selected.isEmpty || saving)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())

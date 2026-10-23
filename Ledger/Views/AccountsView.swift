@@ -1025,9 +1025,7 @@ struct CheckSheet: View {
             } label: {
                 Label(title, systemImage: "checkmark.seal").labelStyle(ControlLabelStyle()).frame(maxWidth: .infinity).fontWeight(.semibold)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(old != nil ? Color.warn : Color.jade)
-            .controlSize(.large)
+            .primaryButton(tint: old != nil ? Color.warn : Color.jade)
             .disabled(a == nil)
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets())

@@ -334,7 +334,7 @@ struct LinkConfirmView: View {
             } label: {
                 Label(saving ? LS("提交中…") : LS("确认关联"), systemImage: "link").labelStyle(ControlLabelStyle()).frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent).controlSize(.large).padding(AppSpacing.content).disabled(saving || targets.isEmpty || !problem.isEmpty)
+            .primaryButton().padding(AppSpacing.content).disabled(saving || targets.isEmpty || !problem.isEmpty)
             .background(.bar)
         }
         .interactiveDismissDisabled(saving)

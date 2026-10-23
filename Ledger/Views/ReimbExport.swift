@@ -84,7 +84,7 @@ struct ReimbExportSheet: View {
                         }
                         .fontWeight(.semibold)
                     }
-                    .buttonStyle(.borderedProminent).tint(.jade).controlSize(.large)
+                    .primaryButton()
                     .disabled(working || r.lines.isEmpty)
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets())
@@ -98,7 +98,7 @@ struct ReimbExportSheet: View {
                         }
                         .fontWeight(.semibold)
                     }
-                    .buttonStyle(.borderedProminent).tint(.jade).controlSize(.large)
+                    .primaryButton()
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets())
                 }

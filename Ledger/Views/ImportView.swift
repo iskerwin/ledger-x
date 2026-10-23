@@ -384,7 +384,7 @@ struct ImportView: View {
         VStack(spacing: AppSpacing.icon) {
             if !pending.isEmpty {
                 Button { next() } label: { Label(LS("处理下一项"), systemImage: "arrow.right").labelStyle(ControlLabelStyle()).frame(maxWidth: .infinity) }
-                    .buttonStyle(.borderedProminent)
+                    .primaryButton()
                 if !ready.isEmpty {
                     Button { save() } label: { Label(LS("仅导入已确认的 %@ 笔", ready.count), systemImage: "square.and.arrow.down").labelStyle(ControlLabelStyle()).frame(maxWidth: .infinity) }
                         .buttonStyle(.bordered)
@@ -392,7 +392,7 @@ struct ImportView: View {
                 }
             } else {
                 Button { save() } label: { Label(ready.isEmpty ? LS("没有可导入的记录") : LS("导入 %@ 笔", ready.count), systemImage: "square.and.arrow.down").labelStyle(ControlLabelStyle()).frame(maxWidth: .infinity) }
-                    .buttonStyle(.borderedProminent)
+                    .primaryButton()
                     .disabled(ready.isEmpty)
             }
         }

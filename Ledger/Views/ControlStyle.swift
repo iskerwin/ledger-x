@@ -77,6 +77,13 @@ extension View {
     }
 }
 
+extension View {
+    /// the page's main action at the bottom: the filled theme button, large, semibold — one look everywhere
+    func primaryButton(tint: Color = .jade) -> some View {
+        buttonStyle(.borderedProminent).tint(tint).controlSize(.large).fontWeight(.semibold)
+    }
+}
+
 /// A page waiting for the ledger to load: one view, so a better placeholder later changes every page at once
 struct PageLoading: View {
     var body: some View { ProgressView() }

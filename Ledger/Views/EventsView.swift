@@ -217,9 +217,7 @@ struct EventSheet: View {
                 } label: {
                     HStack(spacing: AppSpacing.control) { Spacer(); BusyLabel(busy: saving, title: LS("保存"), systemImage: "checkmark").fontWeight(.semibold); Spacer() }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.jade)
-                .controlSize(.large)
+                .primaryButton()
                 .disabled(t.isEmpty || clash || saving)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
@@ -471,7 +469,7 @@ struct AnomalyDetailView: View {
                                 Spacer(minLength: 0)
                             }
                         }
-                        .buttonStyle(.borderedProminent).tint(.jade).controlSize(.large)
+                        .primaryButton()
                         .listRowBackground(Color.clear).listRowInsets(EdgeInsets())
                     }
                 } footer: {

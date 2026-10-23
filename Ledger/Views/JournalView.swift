@@ -1010,7 +1010,7 @@ struct EditTxView: View {
                 }
                 Section {
                     Button { Task { await save(old, L) } } label: { Label(LS("保存修改"), systemImage: "checkmark").labelStyle(ControlLabelStyle()).frame(maxWidth: .infinity).fontWeight(.semibold) }
-                        .buttonStyle(.borderedProminent).tint(.jade).controlSize(.large)
+                        .primaryButton()
                         .disabled(!v.ok || aligned.trimmed == old.trimmed)
                         .listRowBackground(Color.clear).listRowInsets(EdgeInsets())
                 }

@@ -308,7 +308,7 @@ struct AccountEditView: View {
             } label: {
                 Label(isNew ? LS("开立账户") : LS("保存修改"), systemImage: "checkmark").labelStyle(ControlLabelStyle()).frame(maxWidth: .infinity).fontWeight(.semibold)
             }
-            .buttonStyle(.borderedProminent)
+            .primaryButton()
             .disabled(isNew ? (!valid || exists) : fields == initialFields)
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets())

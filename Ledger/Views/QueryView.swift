@@ -61,8 +61,7 @@ struct QueryEditorView: View {
                     }
                     .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .primaryButton()
                 .disabled(running || text.trimmed.isEmpty)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())

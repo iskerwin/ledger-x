@@ -223,7 +223,7 @@ struct PayeeRenameSheet: View {
                 } label: {
                     HStack(spacing: AppSpacing.control) { Spacer(); BusyLabel(busy: saving, title: target.names.count > 1 ? LS("合并") : LS("重命名"), systemImage: target.names.count > 1 ? "arrow.triangle.merge" : "pencil").fontWeight(.semibold); Spacer() }
                 }
-                .buttonStyle(.borderedProminent).tint(.jade).controlSize(.large)
+                .primaryButton()
                 .disabled(newName.isEmpty || (target.names == [newName]) || lines == 0 || saving)
                 .listRowBackground(Color.clear).listRowInsets(EdgeInsets())
             }

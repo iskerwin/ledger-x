@@ -387,9 +387,7 @@ struct LoanSheet: View {
                 } label: {
                     HStack(spacing: AppSpacing.control) { Spacer(); BusyLabel(busy: saving, title: LS("保存"), systemImage: "checkmark").fontWeight(.semibold); Spacer() }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.jade)
-                .controlSize(.large)
+                .primaryButton()
                 .disabled(text.isEmpty || v?.ok != true || saving)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
@@ -525,9 +523,7 @@ struct SettleSheet: View {
                 } label: {
                     HStack(spacing: AppSpacing.control) { Spacer(); BusyLabel(busy: saving, title: moving == nil ? LS("结清") : LS("保存"), systemImage: "checkmark.circle").fontWeight(.semibold); Spacer() }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.jade)
-                .controlSize(.large)
+                .primaryButton()
                 .disabled(text.isEmpty || v?.ok != true || saving)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())

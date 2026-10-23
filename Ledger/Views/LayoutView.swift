@@ -261,7 +261,7 @@ struct ReorganizeView: View {
                 } label: {
                     Label(saving ? LS("提交中…") : LS("移动 %@ 条记录（一次提交）", moves.count), systemImage: "folder").labelStyle(ControlLabelStyle()).frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent).controlSize(.large).padding(AppSpacing.content).disabled(saving)
+                .primaryButton().padding(AppSpacing.content).disabled(saving)
                 .background(.bar)
             }
         }

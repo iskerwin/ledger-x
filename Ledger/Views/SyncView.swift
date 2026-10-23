@@ -60,7 +60,7 @@ struct SyncView: View {
                     }
                     .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent).tint(.jade).controlSize(.large).fontWeight(.semibold)
+                .primaryButton()
                 .disabled(store.syncState == .syncing || store.committing || store.attachmentUploading)
                 Text(LS("同步成功后，电脑上 git pull 即可看到这些记录。")).font(.caption2).foregroundStyle(.secondary)
             }

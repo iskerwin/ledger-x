@@ -129,8 +129,7 @@ struct LockScreen: View {
                     .frame(maxWidth: 280)
                     .padding(.vertical, AppSpacing.icon)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .primaryButton()
             .disabled(lock.authenticating)
             .padding(.bottom, lock.offerPasscode && b.symbol != "lock" ? 0 : 48)
             if lock.offerPasscode && b.symbol != "lock" {

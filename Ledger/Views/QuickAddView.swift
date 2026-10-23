@@ -1398,7 +1398,7 @@ struct AllCategoriesView: View {
                 Label(LS("使用「%@」", store.catTitle(g, L) + (g.single || account == nil ? "" : " · " + leaf(account!))), systemImage: "checkmark").labelStyle(ControlLabelStyle())
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent).tint(.jade).controlSize(.large).fontWeight(.semibold)
+            .primaryButton()
             .disabled(account == nil)
         }
         .padding(AppSpacing.content)
