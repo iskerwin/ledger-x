@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 /// Shared rhythm for controls, supporting text and page content. Chart geometry and keypad sizes
 /// are independent of these gaps; changing spacing must not change the meaning of an input.
@@ -26,6 +27,45 @@ struct HeroAmount: ViewModifier {
 
     func body(content: Content) -> some View {
         content.font(.system(size: size, weight: .bold, design: .rounded)).lineLimit(1).minimumScaleFactor(0.5)
+    }
+}
+
+/// Picking an x value (a month, a day) on a chart by finger. A tap picks it, or lets it go when it is the one picked;
+/// a finger drawn sideways follows it, with a light tick at each new value, and the last one stays picked. An
+/// up-and-down drag is left to the page, so the chart never takes the scroll.
+struct ChartPick<X: Plottable & Equatable>: ViewModifier {
+    let tap: (X) -> Void
+    let slide: (X) -> Void
+    @State private var last: X?
+
+    func body(content: Content) -> some View {
+        content.chartOverlay { proxy in
+            GeometryReader { geo in
+                Rectangle().fill(Color.clear).contentShape(Rectangle())
+                    .onTapGesture { location in
+                        if let x = value(proxy, geo, location) { tap(x) }
+                    }
+                    .simultaneousGesture(DragGesture(minimumDistance: 8)
+                        .onChanged { g in
+                            guard abs(g.translation.width) > abs(g.translation.height), let x = value(proxy, geo, g.location), x != last else { return }
+                            last = x
+                            slide(x)
+                            Haptics.selection()
+                        }
+                        .onEnded { _ in last = nil })
+            }
+        }
+    }
+
+    private func value(_ proxy: ChartProxy, _ geo: GeometryProxy, _ location: CGPoint) -> X? {
+        guard let plot = proxy.plotFrame else { return nil }
+        return proxy.value(atX: location.x - geo[plot].origin.x)
+    }
+}
+
+extension View {
+    func chartPick<X: Plottable & Equatable>(_ type: X.Type, tap: @escaping (X) -> Void, slide: @escaping (X) -> Void) -> some View {
+        modifier(ChartPick(tap: tap, slide: slide))
     }
 }
 

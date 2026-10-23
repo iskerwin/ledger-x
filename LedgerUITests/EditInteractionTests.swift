@@ -947,4 +947,24 @@ final class EditInteractionTests: XCTestCase {
         add.tap()
         XCTAssertTrue(app.navigationBars["添加预算"].waitForExistence(timeout: 5))
     }
+
+    /// The overview's trend chart is read month by month by VoiceOver, and a finger slid sideways along it picks
+    /// months (the last one stays picked, with 查看该月)
+    func testTheTrendChartIsReadAndSlidAlong() {
+        let app = launchTab("overview")
+        app.buttons["月"].tap()
+        let chart = app.otherElements["overview.trend"]
+        XCTAssertTrue(chart.waitForExistence(timeout: 20))
+        for _ in 0..<4 { if chart.isHittable { break }; app.swipeUp() }
+        // each month a mark of its own, read with its amount (the chart was one image before)
+        let month = chart.otherElements.matching(NSPredicate(format: "label ENDSWITH %@", "月 支出")).firstMatch
+        XCTAssertTrue(month.exists)
+        XCTAssertTrue((month.value as? String ?? "").hasPrefix("¥"))
+        // slid from right to left: the month under the finger last is the one picked, shown on the card above
+        let from = chart.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
+        let to = chart.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.5))
+        from.press(forDuration: 0.05, thenDragTo: to)
+        let picked = app.otherElements["overview.hero"].staticTexts.matching(NSPredicate(format: "label MATCHES %@", "\\d{4}年\\d{1,2}月支出")).firstMatch
+        XCTAssertTrue(picked.waitForExistence(timeout: 5))
+    }
 }

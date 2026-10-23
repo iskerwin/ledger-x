@@ -311,11 +311,15 @@ struct OverviewView: View {
             Chart {
                 if trend == "flow" {
                     // income and spending as two lines, the selected month marked
+                    // told apart by more than colour: income a solid line with dots, spending a dashed one with squares
                     ForEach(months, id: \.self) { m in
                         LineMark(x: .value("月", monthLabelShort(m)), y: .value("金额", F.inc[m] ?? 0), series: .value("类型", "inc"))
                             .foregroundStyle(Color.gain).interpolationMethod(.monotone).symbol(.circle).symbolSize(m == shown ? 60 : 18)
+                            .accessibilityLabel(Day.monthLabel(m) + " " + LS("收入")).accessibilityValue(money(F.inc[m] ?? 0, F.cur))
                         LineMark(x: .value("月", monthLabelShort(m)), y: .value("金额", F.exp[m] ?? 0), series: .value("类型", "exp"))
-                            .foregroundStyle(Color.loss).interpolationMethod(.monotone).symbol(.circle).symbolSize(m == shown ? 60 : 18)
+                            .foregroundStyle(Color.loss).interpolationMethod(.monotone).symbol(.square).symbolSize(m == shown ? 60 : 18)
+                            .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 3]))
+                            .accessibilityLabel(Day.monthLabel(m) + " " + LS("支出")).accessibilityValue(money(F.exp[m] ?? 0, F.cur))
                     }
                     if let p = shown {
                         RuleMark(x: .value("月", monthLabelShort(p))).foregroundStyle(Color.secondary.opacity(0.25))
@@ -325,31 +329,27 @@ struct OverviewView: View {
                         BarMark(x: .value("月", monthLabelShort(m)), y: .value("支出", F.exp[m] ?? 0))
                             .foregroundStyle(m == shown ? Color.jade : Color.jadeSoft)
                             .cornerRadius(4)
+                            .accessibilityLabel(Day.monthLabel(m) + " " + LS("支出")).accessibilityValue(money(F.exp[m] ?? 0, F.cur))
                     }
                 }
             }
             .chartLegend(.hidden)
             .chartYAxis { AxisMarks(position: .trailing) }
             .chartXAxis { AxisMarks { _ in AxisValueLabel().font(.caption2) } }
-            .chartOverlay { proxy in
-                GeometryReader { geo in
-                    Rectangle().fill(Color.clear).contentShape(Rectangle())
-                        .onTapGesture { location in
-                            guard let plot = proxy.plotFrame else { return }
-                            let x = location.x - geo[plot].origin.x
-                            guard let label: String = proxy.value(atX: x) else { return }
-                            let m = months.first { monthLabelShort($0) == label }
-                            withAnimation(AppMotion.quick) { picked = (m == picked) ? nil : m }
-                        }
-                }
-            }
+            .chartPick(String.self, tap: { label in
+                let m = months.first { monthLabelShort($0) == label }
+                withAnimation(AppMotion.quick) { picked = (m == picked) ? nil : m }
+            }, slide: { label in
+                if let m = months.first(where: { monthLabelShort($0) == label }) { picked = m }
+            })
+            .accessibilityIdentifier("overview.trend")
             .frame(height: 180)
             .sensitive()
             .padding(.vertical, AppSpacing.icon)
             if trend == "flow" && shown == nil {
                 HStack(spacing: AppSpacing.control) {
                     Label(LS("收入"), systemImage: "circle.fill").labelStyle(ControlLabelStyle()).foregroundStyle(Color.gain)
-                    Label(LS("支出"), systemImage: "circle.fill").labelStyle(ControlLabelStyle()).foregroundStyle(Color.loss)
+                    Label(LS("支出"), systemImage: "square.fill").labelStyle(ControlLabelStyle()).foregroundStyle(Color.loss)
                 }
                 .font(.caption).labelStyle(.titleAndIcon)
             }
@@ -367,7 +367,7 @@ struct OverviewView: View {
             HStack(spacing: AppSpacing.control) {
                 Text(trend == "flow" ? (s.yearMode ? LS("%@ 年月度收支", s.key) : LS("近 12 个月收支")) : (s.yearMode ? LS("%@ 年月度支出", s.key) : LS("近 12 个月支出")))
                 Spacer()
-                Text(LS("点按月份查看那个月")).textCase(nil)
+                Text(LS("点按或左右滑动查看月份")).textCase(nil)
             }
         }
     }

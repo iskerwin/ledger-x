@@ -1484,7 +1484,6 @@
  "点按扇区展开": "Tap a slice for details",
  "点按打开或关掉，长按只看这一种（再长按恢复）。没有持有的默认关掉。": "Tap to switch on or off; press and hold to see only that one (again to undo). Currencies not held are off by default.",
  "点按文本可编辑": "Tap text to edit",
- "点按月份查看那个月": "Tap a month to see it",
  "点按查看交易": "Tap to see transactions",
  "点按柱形查看当月明细": "Tap a bar for that month",
  "点按编辑源文本": "Tap to edit source",
@@ -2144,5 +2143,6 @@
  "还没有预算。为支出分类设置每月或每年的额度，记账时就能看到还剩多少。": "No budgets yet. Set a monthly or yearly limit for a spending category and see what's left as you record.",
  "还没有订阅。也可以在交易详情里选择「加入订阅管理」。": "No subscriptions yet. You can also choose “Add to Subscriptions” in a transaction's details.",
  "还没有个人往来。借给别人或向别人借的钱记在这里，还款时一键结清。": "No personal loans yet. Money lent to or borrowed from people goes here, and is settled in one tap when repaid.",
- "主要是「%@」%@": "mostly “%@” %@"
+ "主要是「%@」%@": "mostly “%@” %@",
+ "点按或左右滑动查看月份": "Tap or slide to see a month"
 }
