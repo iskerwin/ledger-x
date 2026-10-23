@@ -253,6 +253,8 @@ struct ReportsInsights: View {
                         .chartXAxis(.hidden).chartYAxis(.hidden)
                         .frame(width: 130, height: 56)
                         .sensitive()
+                        // a picture of the numbers read out beside it
+                        .accessibilityHidden(true)
                     }
                     Text(LS("从今天的可用余额 %@ 起，计入工资、订阅、信用卡账单和日常开销（日均 %@）。", money(f.start, L.base), money(f.dailySpend, L.base)))
                         .font(.caption).foregroundStyle(.secondary).sensitive()

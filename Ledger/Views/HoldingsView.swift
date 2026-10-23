@@ -574,6 +574,8 @@ struct KLineSheet: View {
                     .lineStyle(StrokeStyle(lineWidth: 1))
                 RectangleMark(x: .value("d", c.date), yStart: .value("o", c.open), yEnd: .value("c", c.close == c.open ? c.open + (hi - lo) * 0.002 : c.close), width: .ratio(0.6))
                     .foregroundStyle(c.close >= c.open ? up : down)
+                    .accessibilityLabel(c.date.formatted(date: .abbreviated, time: .omitted))
+                    .accessibilityValue(LS("开 %@，收 %@，%@", fmtNum(c.open, 2), fmtNum(c.close, 2), c.close >= c.open ? LS("涨") : LS("跌")))
             }
             if r.avg > 0 {
                 RuleMark(y: .value("avg", r.avg))

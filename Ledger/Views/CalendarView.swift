@@ -374,12 +374,15 @@ struct FlowBars: View {
                     .foregroundStyle(by: .value("类型", inc))
                     .position(by: .value("类型", inc), axis: .vertical)
                     .annotation(position: .trailing) { label(f.income) }
+                    .accessibilityLabel(f.currency + " " + inc).accessibilityValue(money(f.income, f.currency))
                 BarMark(x: .value("金额", f.expenses), y: .value("币种", f.currency), height: .ratio(0.32))
                     .foregroundStyle(by: .value("类型", exp))
                     .position(by: .value("类型", exp), axis: .vertical)
                     .annotation(position: .trailing) { label(f.expenses) }
+                    .accessibilityLabel(f.currency + " " + exp).accessibilityValue(money(f.expenses, f.currency))
                 BarMark(x: .value("金额", f.net), y: .value("币种", f.currency), height: .fixed(3))
                     .foregroundStyle(by: .value("类型", net))
+                    .accessibilityLabel(f.currency + " " + net).accessibilityValue(money(f.net, f.currency))
             }
             RuleMark(x: .value("零", 0)).foregroundStyle(Color.secondary.opacity(0.5))
         }

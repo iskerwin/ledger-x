@@ -2144,5 +2144,8 @@
  "还没有个人往来。借给别人或向别人借的钱记在这里，还款时一键结清。": "No personal loans yet. Money lent to or borrowed from people goes here, and is settled in one tap when repaid.",
  "主要是「%@」%@": "mostly “%@” %@",
  "点按或左右滑动查看月份": "Tap or slide to see a month",
- "点按或左右滑动查看各月": "Tap or slide to see each month"
+ "点按或左右滑动查看各月": "Tap or slide to see each month",
+ "开 %@，收 %@，%@": "open %@, close %@, %@",
+ "涨": "up",
+ "跌": "down"
 }

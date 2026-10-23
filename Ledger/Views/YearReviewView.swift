@@ -157,6 +157,7 @@ struct YearReviewView: View {
                             .foregroundStyle(Color.jade)
                         PointMark(x: .value(LS("月份"), p.month), y: .value(LS("净资产"), p.value))
                             .symbolSize(18).foregroundStyle(Color.jade)
+                            .accessibilityLabel(Day.monthLabel(p.month) + LS("末")).accessibilityValue(money(p.value, r.currency))
                     }
                     .chartXAxis {
                         AxisMarks(values: r.worthByMonth.map { $0.month }.filter { ((Int($0.suffix(2)) ?? 1) - 1) % 3 == 0 }) { v in
