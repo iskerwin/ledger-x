@@ -21,6 +21,7 @@ struct HoldingsView: View {
         Group {
             if let L = store.L { page(L) } else { ProgressView() }
         }
+        .refreshable { await store.refresh() }
         .navigationTitle(LS("持仓"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

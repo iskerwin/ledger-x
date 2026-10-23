@@ -46,6 +46,7 @@ struct PayeesView: View {
         Group {
             if let L = store.L { list(L) } else { ProgressView() }
         }
+        .refreshable { await store.refresh() }
         .navigationTitle(LS("收付款方"))
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $q, prompt: LS("搜索收付款方"))

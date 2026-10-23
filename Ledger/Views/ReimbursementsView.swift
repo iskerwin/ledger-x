@@ -83,6 +83,7 @@ struct ReimbursementsView: View {
                 }
             }
         }
+        .refreshable { await store.refresh() }
         .navigationTitle(LS("报销"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

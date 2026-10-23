@@ -44,6 +44,7 @@ struct CounterpartyView: View {
                 peopleSection(ps)
             }
         }
+        .refreshable { await store.refresh() }
         .navigationTitle(LS("往来"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

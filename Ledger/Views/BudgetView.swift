@@ -50,6 +50,7 @@ struct BudgetsView: View {
         Group {
             if let L = store.L { list(L) } else { ProgressView() }
         }
+        .refreshable { await store.refresh() }
         .navigationTitle(LS("预算"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

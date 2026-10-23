@@ -288,6 +288,7 @@ struct SubscriptionsView: View {
         Group {
             if let L = store.L { list(L) } else { ProgressView() }
         }
+        .refreshable { await store.refresh() }
         .navigationTitle(LS("订阅管理"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

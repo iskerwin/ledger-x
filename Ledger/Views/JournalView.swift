@@ -217,6 +217,7 @@ struct JournalView: View {
                     list(L)
                 } else { ProgressView() }
             }
+            .refreshable { await store.refresh() }
             .navigationTitle(LS("明细"))
             .toolbar {
                 StandardToolbar()

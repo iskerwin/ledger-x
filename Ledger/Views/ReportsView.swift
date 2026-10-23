@@ -99,6 +99,7 @@ struct ReportsView: View {
                 }
             }
             .listSectionSpacing(.compact)
+            .refreshable { await store.refresh() }
             .navigationTitle(LS("报表"))
             .toolbar { StandardToolbar() }
             .navigationDestination(for: ReportKind.self) { k in

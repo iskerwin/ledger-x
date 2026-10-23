@@ -40,6 +40,7 @@ struct EventsView: View {
                 }
             }
         }
+        .refreshable { await store.refresh() }
         .navigationTitle(LS("事件"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
