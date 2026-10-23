@@ -74,6 +74,8 @@ struct ForecastView: View {
     @EnvironmentObject var store: Store
     @AppStorage(ForecastPrefs.dailyKey) private var daily = true
     @AppStorage(ForecastPrefs.daysKey) private var days = 90
+    /// a day picked on the chart, its balance shown under it
+    @State private var pickedDay: String?
 
     var body: some View {
         Group {
@@ -170,6 +172,13 @@ struct ForecastView: View {
                 LineMark(x: .value(LS("日期"), Day.date(p.date) ?? Date(), unit: .day), y: .value(LS("余额"), p.value))
                     .foregroundStyle(Color.jade)
                     .interpolationMethod(.linear)
+                    .accessibilityLabel(Day.dayLabel(p.date)).accessibilityValue(money(p.value, f.currency, 0))
+            }
+            if let d = pickedDay, let p = f.points.first(where: { $0.date == d }) {
+                RuleMark(x: .value(LS("日期"), Day.date(d) ?? Date(), unit: .day)).foregroundStyle(Color.secondary.opacity(0.4))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                PointMark(x: .value(LS("日期"), Day.date(d) ?? Date(), unit: .day), y: .value(LS("余额"), p.value))
+                    .foregroundStyle(Color.jade).symbolSize(60)
             }
             if low.value < 0 {
                 RuleMark(y: .value("0", 0)).foregroundStyle(Color.loss.opacity(0.6)).lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
@@ -181,8 +190,22 @@ struct ForecastView: View {
         .chartYScale(domain: minV...maxV)
         .chartYAxis { AxisMarks(position: .trailing) }
         .chartXAxis { AxisMarks(values: .stride(by: .day, count: days > 30 ? 30 : 7)) { _ in AxisGridLine(); AxisValueLabel(format: .dateTime.month(.defaultDigits).day()) } }
+        .modifier(ChartPick<Date>(tap: { d in
+            let day = Day.string(d)
+            withAnimation(AppMotion.quick) { pickedDay = pickedDay == day ? nil : day }
+        }, slide: { d in pickedDay = Day.string(d) }, same: { Day.string($0) == Day.string($1) }))
         .frame(height: 190)
         .sensitive()
+        .overlay(alignment: .topLeading) {
+            // the picked day's balance, over the chart's top left
+            if let d = pickedDay, let p = f.points.first(where: { $0.date == d }) {
+                Text(Day.dayLabel(d) + "  " + money(p.value, f.currency, 0))
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.detail)
+                    .background(.regularMaterial, in: Capsule())
+                    .sensitive()
+            }
+        }
     }
 
     private func symbol(_ k: ForecastEvent.Kind) -> String {
