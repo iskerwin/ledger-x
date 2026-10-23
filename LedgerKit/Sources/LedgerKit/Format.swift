@@ -90,7 +90,8 @@ public func formatTxn(_ tx: TxDraft) -> String {
         var sfx: [String] = []
         if let c = p.cost, !c.isEmpty { sfx.append(c.hasPrefix("{") ? c : "{\(c)}") }
         if let pr = p.price, !pr.isEmpty { sfx.append(pr.hasPrefix("@") ? pr : "@ \(pr)") }
-        if let pt = p.priceTotal { sfx.append("@@ \(toFixed(pt, 2)) \(p.priceCcy ?? "")") }
+        // written with the places it has (12.345 KWD stays 12.345), at least two, as an amount is
+        if let pt = p.priceTotal { sfx.append("@@ \(numText(pt)) \(p.priceCcy ?? "")") }
         if let s = p.suffix, !s.isEmpty { sfx.append(s) }
         lines.append(fmtPostingLine(p.account, p.units, p.currency, sfx.joined(separator: " "), flag: p.flag))
         for (k, v) in p.meta { lines.append(metaLine("    ", k, v)) }
@@ -469,7 +470,7 @@ public func removeBlock(_ text: String, _ old: String, anchorLine: Int? = nil) -
 
 public func balanceLine(_ date: String, _ account: String, _ amount: Double, _ currency: String) -> String {
     let left = "\(date) balance \(account)"
-    let ns = toFixed(amount, 2)
+    let ns = numText(amount)
     return left + String(repeating: " ", count: max(1, NUM_END - jsLen(left) - jsLen(ns))) + ns + " " + currency
 }
 

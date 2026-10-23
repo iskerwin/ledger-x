@@ -76,4 +76,23 @@ final class PostingOrderTests: XCTestCase {
         XCTAssertTrue(lines[2].hasPrefix("  Assets:Bank"))
         XCTAssertEqual(lines[3], "    note: \"x\"")
     }
+
+    /// A total price and a balance amount are written with the places they have: 12.345 KWD stays 12.345 (it was
+    /// rounded to 12.35 and the transaction no longer weighed what was entered), whole and two-place amounts keep
+    /// two places as before.
+    func testTotalPricesAndBalancesKeepTheirPlaces() {
+        func total(_ v: Double) -> String {
+            var tx = TxDraft(date: "2026-10-24")
+            var fx = TxPosting(account: "Assets:Bank:Kuwait", units: "10.000", currency: "KWD")
+            fx.priceTotal = v
+            fx.priceCcy = "USD"
+            tx.postings = [fx, TxPosting(account: "Assets:Bank:Usd", units: "-12.345", currency: "USD")]
+            return formatTxn(tx)
+        }
+        XCTAssertTrue(total(12.345).contains("@@ 12.345 USD"), total(12.345))
+        XCTAssertTrue(total(1000).contains("@@ 1000.00 USD"))
+        XCTAssertTrue(total(32.5).contains("@@ 32.50 USD"))
+        XCTAssertTrue(balanceLine("2026-10-24", "Assets:Bank:Kuwait", 1.234, "KWD").hasSuffix(" 1.234 KWD"))
+        XCTAssertTrue(balanceLine("2026-10-24", "Assets:Bank:Demo", 100, "CNY").hasSuffix(" 100.00 CNY"))
+    }
 }
