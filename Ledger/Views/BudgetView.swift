@@ -6,6 +6,9 @@ struct BudgetsDest: Hashable {}
 /// a budget's progress bar row
 struct BudgetRow: View {
     let p: BudgetProgress
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// the bar fills from empty when the row comes in; 减少动态效果 shows it full at once
+    @State private var filled = false
     var body: some View {
         let color: Color = p.over ? .loss : p.ahead ? .warn : .jade
         VStack(alignment: .leading, spacing: AppSpacing.icon) {
@@ -19,15 +22,17 @@ struct BudgetRow: View {
                     .font(.subheadline.monospacedDigit()).sensitive()
             }
             GeometryReader { g in
+                let grown = filled || reduceMotion
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color(.tertiarySystemFill))
-                    Capsule().fill(color.gradient).frame(width: max(4, g.size.width * min(1, p.ratio)))
+                    Capsule().fill(color.gradient).frame(width: grown ? max(4, g.size.width * min(1, p.ratio)) : 4)
                     // over budget the bar is full: the part beyond the budget is hatched, in proportion, so how far
                     // over shows without telling red from green
                     if p.over {
                         let beyond = g.size.width * (p.ratio - 1) / p.ratio
                         Hatching().frame(width: beyond).frame(maxWidth: .infinity, alignment: .trailing)
                             .clipShape(Capsule())
+                            .opacity(grown ? 1 : 0)
                             .accessibilityHidden(true)
                     }
                     if p.elapsed > 0 && p.elapsed < 1 {
@@ -36,6 +41,8 @@ struct BudgetRow: View {
                 }
             }
             .frame(height: 8)
+            .animation(reduceMotion ? nil : AppMotion.standard, value: p.ratio)
+            .onAppear { withAnimation(reduceMotion ? nil : AppMotion.standard.delay(0.1)) { filled = true } }
             HStack(spacing: AppSpacing.control) {
                 Text(p.over ? LS("超支 %@", money(-p.remaining, p.budget.currency)) : LS("剩余 %@", money(p.remaining, p.budget.currency)))
                     .foregroundStyle(p.over ? Color.loss : Color.secondary)
