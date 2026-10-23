@@ -125,7 +125,7 @@ struct CounterpartyView: View {
         let done = ps.filter { $0.settled && !$0.closed }
         Section {
             if ps.isEmpty {
-                Text(LS("还没有个人往来。点右上角记一笔借出或借入。")).foregroundStyle(.secondary)
+                EmptyAdd(text: LS("还没有个人往来。借给别人或向别人借的钱记在这里，还款时一键结清。"), title: LS("新的往来")) { loan = LoanTarget(name: nil, kind: .lend) }
             }
             ForEach(open) { p in personRow(p) }
             if !done.isEmpty {

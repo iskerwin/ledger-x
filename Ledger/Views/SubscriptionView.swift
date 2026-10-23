@@ -367,7 +367,7 @@ struct SubscriptionsView: View {
                 }
             }
             Section {
-                if active.isEmpty { Text(LS("还没有订阅。点右上角 +，或在交易详情里选择「加入订阅管理」。")).foregroundStyle(.secondary) }
+                if active.isEmpty { EmptyAdd(text: LS("还没有订阅。也可以在交易详情里选择「加入订阅管理」。"), title: LS("添加订阅")) { editing = SubDraft(currency: store.L?.base ?? "CNY") } }
                 ForEach(active) { s in row(s, L, today) }
             } header: {
                 Text(LS("订阅中"))

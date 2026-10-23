@@ -78,7 +78,7 @@ struct BudgetsView: View {
                 .listRowInsets(EdgeInsets())
             }
             Section {
-                if progress.isEmpty { Text(LS("还没有预算。点右上角 + 为支出分类设置每月或每年的额度。")).foregroundStyle(.secondary) }
+                if progress.isEmpty { EmptyAdd(text: LS("还没有预算。为支出分类设置每月或每年的额度，记账时就能看到还剩多少。"), title: LS("添加预算")) { editing = BudgetDraft(currency: store.L?.base ?? "CNY") } }
                 ForEach(progress) { p in
                     VStack(alignment: .leading, spacing: AppSpacing.icon) {
                         Button { editing = BudgetDraft(p.budget, today: today) } label: { BudgetRow(p: p) }

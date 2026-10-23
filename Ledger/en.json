@@ -1862,14 +1862,11 @@
  "还款日 %@": "Due %@",
  "还款日已过，最低还款还差 %@。": "Past the due date; %@ short of the minimum.",
  "还没填完整": "Not filled in yet",
- "还没有个人往来。点右上角记一笔借出或借入。": "No one yet. Use the button at the top to lend or borrow.",
  "还没有事件。出差、旅行、装修、搬家……新建一个事件，期间记的每一笔会自动带上它的 #标签，事件页汇总一共花了多少。": "No events yet. For a trip, a renovation or a move, create an event: entries made while it goes on get its #tag, and the event page adds up what it cost.",
  "还没有交易": "No transactions yet",
  "还没有关联的扣费交易": "No linked charges yet",
  "还没有在本机做过修改": "No changes made on this device yet",
  "还没有票据，可添加银行对账单或其他文件": "No documents yet. Add a bank statement or another file.",
- "还没有订阅。点右上角 +，或在交易详情里选择「加入订阅管理」。": "No subscriptions yet. Tap + or choose “Add to Subscriptions” on a transaction.",
- "还没有预算。点右上角 + 为支出分类设置每月或每年的额度。": "No budgets yet. Tap + to set a monthly or yearly limit for a category.",
  "还能用多久": "How long",
  "这一天没有交易": "No transactions on this day",
  "这一年没有记录。": "Nothing recorded this year.",
@@ -2143,5 +2140,8 @@
  "锁定只保护 App 的界面：本机账本存在「文件」App › 我的 iPhone › Ledger X 里，在那里或用数据线连电脑时仍然可以直接打开。": "The lock only covers the app's screens: a ledger on this phone lives in Files › On My iPhone › Ledger X, where it (and over a cable, on a computer) can still be opened directly.",
  "这台 iPhone 没有设置密码，无法解锁。请在系统「设置 › 面容 ID 与密码」里设置密码后再打开。": "This iPhone has no passcode, so it can't be unlocked. Set a passcode in Settings › Face ID & Passcode, then open the app again.",
  "文件超过 20 MB，不像是账单导出；请导出较短时间范围的账单再试": "The file is over 20 MB, too large for a bill export; export a shorter period and try again.",
- "商户": "Merchant"
+ "商户": "Merchant",
+ "还没有预算。为支出分类设置每月或每年的额度，记账时就能看到还剩多少。": "No budgets yet. Set a monthly or yearly limit for a spending category and see what's left as you record.",
+ "还没有订阅。也可以在交易详情里选择「加入订阅管理」。": "No subscriptions yet. You can also choose “Add to Subscriptions” in a transaction's details.",
+ "还没有个人往来。借给别人或向别人借的钱记在这里，还款时一键结清。": "No personal loans yet. Money lent to or borrowed from people goes here, and is settled in one tap when repaid."
 }

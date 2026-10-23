@@ -229,6 +229,24 @@ struct Chip: View {
     }
 }
 
+/// An empty list that is for adding things to (budgets, people, events, subscriptions): what goes here, and a
+/// button that adds the first one, the same as + in the bar
+struct EmptyAdd: View {
+    let text: String
+    let title: String
+    let add: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.control) {
+            Text(text).foregroundStyle(.secondary)
+            Button(action: add) { Label(title, systemImage: "plus.circle").labelStyle(ControlLabelStyle()) }
+                .buttonStyle(.borderless).fontWeight(.semibold).tint(Color.jade)
+                .accessibilityIdentifier("empty.add")
+        }
+        .padding(.vertical, AppSpacing.detail)
+    }
+}
+
 /// Symbol and colour of one account. Expense and income accounts use their own icon, unless that
 /// guess is the generic grid, in which case the group icon is used. Everything else uses the group icon.
 /// Store's icon lookup is main-actor-only, and this is only called from views.

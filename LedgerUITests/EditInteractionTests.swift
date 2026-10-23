@@ -934,4 +934,17 @@ final class EditInteractionTests: XCTestCase {
         app.buttons["退格"].press(forDuration: 0.8)
         XCTAssertEqual(amount.value as? String, "0")
     }
+
+    /// An empty list of things to add (here budgets) has its own add button, opening the same form as + in the bar
+    func testAnEmptyBudgetListOffersToAddOne() {
+        let app = launchTab("reports")
+        let budgets = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "预算")).firstMatch
+        XCTAssertTrue(budgets.waitForExistence(timeout: 20))
+        for _ in 0..<5 { if budgets.isHittable { break }; app.swipeUp() }
+        budgets.tap()
+        let add = app.buttons["empty.add"]
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        add.tap()
+        XCTAssertTrue(app.navigationBars["添加预算"].waitForExistence(timeout: 5))
+    }
 }

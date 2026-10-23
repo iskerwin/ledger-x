@@ -26,8 +26,7 @@ struct EventsView: View {
                 let past = evs.filter { !$0.ongoing(today) }
                 if evs.isEmpty {
                     Section {
-                        Text(LS("还没有事件。出差、旅行、装修、搬家……新建一个事件，期间记的每一笔会自动带上它的 #标签，事件页汇总一共花了多少。"))
-                            .foregroundStyle(.secondary)
+                        EmptyAdd(text: LS("还没有事件。出差、旅行、装修、搬家……新建一个事件，期间记的每一笔会自动带上它的 #标签，事件页汇总一共花了多少。"), title: LS("新建事件")) { editing = EventEdit(event: nil) }
                     }
                 }
                 if !on.isEmpty { Section(LS("进行中")) { ForEach(on) { row($0, L) } } }
