@@ -35,6 +35,14 @@ struct SlidingTitle: View {
     }
 }
 
+/// The ˅ of 显示全部 / 收起: one arrow turning where it is, with the rows it opens, instead of two arrows swapped
+struct TurningChevron: View {
+    let open: Bool
+    var body: some View {
+        Image(systemName: "chevron.down").rotationEffect(.degrees(open ? 180 : 0))
+    }
+}
+
 /// The app's three motions, so everything moves alike. 减少动态效果 turns them all off at the root.
 enum AppMotion {
     /// a tap's answer: a filter, a chart's selection, a chosen category
@@ -43,6 +51,15 @@ enum AppMotion {
     static let standard = Animation.spring(duration: 0.35, bounce: 0)
     /// a moment to notice: a notice coming in, something just saved
     static let emphasized = Animation.spring(duration: 0.35, bounce: 0.15)
+}
+
+/// A light answer to a finger on a drawn control (a card, a chip, a category): it shrinks a little and dims while
+/// held, and settles back on release. The scale is drawing only; the layout and the place that takes the tap stay
+/// put. 减少动态效果 keeps the dimming without the scale.
+struct PressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.modifier(PressedLook(pressed: configuration.isPressed))
+    }
 }
 
 /// Keep the icon beside its title, including in toolbars and wide bordered buttons.
@@ -184,7 +201,21 @@ private struct ActionCapsuleStyle: ButtonStyle {
             .background(Capsule().fill(filled ? tint : Color.clear))
             .overlay(Capsule().strokeBorder(filled ? Color.clear : tint, lineWidth: 1))
             .contentShape(Capsule())
-            .opacity(!enabled ? 0.45 : (configuration.isPressed ? 0.55 : 1))
+            .opacity(enabled ? 1 : 0.45)
+            .modifier(PressedLook(pressed: configuration.isPressed))
+    }
+}
+
+/// `PressStyle`'s look, also for a style that draws its own button
+private struct PressedLook: ViewModifier {
+    let pressed: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(pressed && !reduceMotion ? 0.98 : 1)
+            .opacity(pressed ? 0.8 : 1)
+            .animation(AppMotion.quick, value: pressed)
     }
 }
 

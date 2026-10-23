@@ -404,15 +404,17 @@ struct JournalView: View {
                         ForEach(QuickFilter.allCases) { f in
                             let on = quick.contains(f)
                             Button {
-                                withAnimation(AppMotion.quick) { if on { quick.removeAll { $0 == f } } else { quick.append(f) } }
+                                // the list changes at once; only the chip's colours fade
+                                if on { quick.removeAll { $0 == f } } else { quick.append(f) }
                             } label: {
                                 HStack(spacing: AppSpacing.icon) { Image(systemName: f.icon); Text(f.title) }
                                     .font(.subheadline.weight(on ? .semibold : .regular))
                                     .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
                                     .foregroundStyle(on ? Color.onJade : Color.primary)
                                     .background(on ? Color.jade : Color(.tertiarySystemFill), in: Capsule())
+                                    .animation(AppMotion.quick, value: on)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(PressStyle())
                         }
                         ForEach(["#refund", "#transfer", "#fx", "#reimbursed"], id: \.self) { x in
                             Chip(label: x, selected: q.trimmed == x) { q = q.trimmed == x ? "" : x }
@@ -425,12 +427,12 @@ struct JournalView: View {
                         FlowChips(items: conditionChips())
                         Spacer(minLength: 4)
                         if store.journalReturn != nil {
-                            Button { withAnimation(AppMotion.standard) { restoreBrowse() } } label: { Label(LS("回到刚才的筛选"), systemImage: "arrow.uturn.backward").labelStyle(ControlLabelStyle()) }
+                            Button { restoreBrowse() } label: { Label(LS("回到刚才的筛选"), systemImage: "arrow.uturn.backward").labelStyle(ControlLabelStyle()) }
                                 .font(.subheadline.weight(.medium)).foregroundStyle(Color.jade).buttonStyle(.plain)
                                 .accessibilityIdentifier("journal.restore")
                         }
                         if filtered {
-                            Button { withAnimation(AppMotion.standard) { quick = []; account = nil; q = "" } } label: { Label(LS("清除"), systemImage: "xmark.circle").labelStyle(ControlLabelStyle()) }
+                            Button { quick = []; account = nil; q = "" } label: { Label(LS("清除"), systemImage: "xmark.circle").labelStyle(ControlLabelStyle()) }
                                 .font(.subheadline.weight(.medium)).foregroundStyle(Color.jade).buttonStyle(.plain)
                         }
                     }

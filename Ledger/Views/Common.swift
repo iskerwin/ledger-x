@@ -215,8 +215,9 @@ struct Chip: View {
                 .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
                 .background(selected ? Color.jade : Color(.tertiarySystemFill), in: Capsule())
                 .foregroundStyle(selected ? Color.onJade : Color.primary)
+                .animation(AppMotion.quick, value: selected)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressStyle())
     }
 
     @ViewBuilder private var chipLabel: some View {

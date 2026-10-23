@@ -391,7 +391,7 @@ struct QuickAddView: View {
                             .foregroundStyle(x.due ? Color.orange : Color.primary)
                             .background(x.due ? Color.orange.opacity(0.14) : Color(.secondarySystemGroupedBackground), in: Capsule())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(PressStyle())
                         .contextMenu {
                             if x.fixed != nil {
                                 Button {
@@ -527,7 +527,7 @@ struct QuickAddView: View {
                             .frame(width: 34, height: 34)
                             .background(Color.jade, in: Circle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PressStyle())
                     .accessibilityLabel(LS("对调"))
                     .accessibilityIdentifier("transfer.swap")
                 }
@@ -595,7 +595,7 @@ struct QuickAddView: View {
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressStyle())
         .accessibilityIdentifier("draft.account." + label)
         .accessibilityValue(a)
     }
@@ -745,7 +745,7 @@ struct QuickAddView: View {
                     .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.control)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressStyle())
                 .frame(maxWidth: .infinity)
                 .sheet(isPresented: $dating) {
                     DaySheet(date: Binding(get: { store.draft.date }, set: { store.draft.date = $0; store.draft.edited = nil })) { dating = false }
@@ -764,7 +764,7 @@ struct QuickAddView: View {
                     Button { splittingPay = true } label: {
                         mark(v > 0 ? LS("优惠 %@", money(v, d.currency)) : LS("优惠"), icon: "gift", on: v > 0)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PressStyle())
                     Divider().frame(height: 20)
                 }
                 markChip(d, L)
@@ -854,7 +854,7 @@ struct QuickAddView: View {
         return Button { marking = true } label: {
             mark(parts.isEmpty ? LS("标签") : parts.joined(separator: " "), icon: "tag", on: !parts.isEmpty)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressStyle())
     }
 
     /// 报销: off, paid from a petty cash (the newest with money left, by default), or advanced by oneself
@@ -997,7 +997,7 @@ struct QuickAddView: View {
             .font(.body)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressStyle())
         .accessibilityLabel(LS("收付款方与备注"))
         .accessibilityValue(summary)
     }
@@ -1256,8 +1256,10 @@ struct CategoryGridView: View, Equatable {
             }
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
+            // only the cell's own colours fade; the form around it does not move
+            .animation(AppMotion.quick, value: selected)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressStyle())
         .accessibilityIdentifier("category." + c.id)
         .accessibilityAddTraits(selected ? .isSelected : [])
         .contextMenu { menu(c.id) }
@@ -1365,7 +1367,7 @@ struct AllCategoriesView: View {
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressStyle())
         .contextMenu { menu(g) }
     }
 

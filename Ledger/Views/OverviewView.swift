@@ -456,7 +456,7 @@ struct OverviewView: View {
                     }
                 }
                 if groups.count > 8 {
-                    Button { withAnimation(AppMotion.standard) { allCats.toggle() } } label: { Label(allCats ? LS("收起") : LS("显示全部 %@ 项", groups.count), systemImage: allCats ? "chevron.up" : "chevron.down").labelStyle(ControlLabelStyle()) }.font(.footnote)
+                    Button { withAnimation(AppMotion.standard) { allCats.toggle() } } label: { Label { Text(allCats ? LS("收起") : LS("显示全部 %@ 项", groups.count)) } icon: { TurningChevron(open: allCats) }.labelStyle(ControlLabelStyle()) }.font(.footnote)
                 }
             }
         } header: {
@@ -546,7 +546,7 @@ struct OverviewView: View {
                     }
                 }
                 if stats.count > 8 {
-                    Button { withAnimation(AppMotion.standard) { allPayees.toggle() } } label: { Label(allPayees ? LS("收起") : LS("显示前 %@ 名", min(30, stats.count)), systemImage: allPayees ? "chevron.up" : "chevron.down").labelStyle(ControlLabelStyle()) }.font(.footnote)
+                    Button { withAnimation(AppMotion.standard) { allPayees.toggle() } } label: { Label { Text(allPayees ? LS("收起") : LS("显示前 %@ 名", min(30, stats.count))) } icon: { TurningChevron(open: allPayees) }.labelStyle(ControlLabelStyle()) }.font(.footnote)
                 }
             } header: {
                 donutHeader(LS("商户支出排行"), f.label, LS("点按查看交易"))

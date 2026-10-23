@@ -70,7 +70,7 @@ struct CategoryListRow: View {
                 if let b = before { DeltaText(now: value, before: b) }
             }
             Text(share.map { "\($0)%" } ?? "").font(.caption).foregroundStyle(.secondary).frame(minWidth: 32, alignment: .trailing)
-            Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.caption2).foregroundStyle(.tertiary)
+            Image(systemName: "chevron.down").font(.caption2).foregroundStyle(.tertiary).rotationEffect(.degrees(expanded ? 180 : 0))
         }
         .contentShape(Rectangle())
     }
@@ -105,7 +105,7 @@ struct PayeeRankRow: View {
                         .frame(width: 104, alignment: .trailing).sensitive()
                 }
             }
-            Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.caption2).foregroundStyle(.tertiary)
+            Image(systemName: "chevron.down").font(.caption2).foregroundStyle(.tertiary).rotationEffect(.degrees(expanded ? 180 : 0))
         }
         .contentShape(Rectangle())
     }
