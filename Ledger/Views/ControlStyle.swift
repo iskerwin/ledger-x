@@ -274,6 +274,18 @@ extension View {
     func shake(_ trigger: Int) -> some View { modifier(Shake(trigger: trigger)) }
 }
 
+extension View {
+    /// a row whose page opens out of it (iOS 18's zoom; before that, the usual push)
+    @ViewBuilder func zoomSource(_ id: some Hashable, in ns: Namespace.ID) -> some View {
+        if #available(iOS 18.0, *) { matchedTransitionSource(id: id, in: ns) } else { self }
+    }
+
+    /// the page opened from a `zoomSource` row; 减少动态效果 makes the system fade it in instead
+    @ViewBuilder func zoomed(from id: some Hashable, in ns: Namespace.ID) -> some View {
+        if #available(iOS 18.0, *) { navigationTransition(.zoom(sourceID: id, in: ns)) } else { self }
+    }
+}
+
 /// The ˅ of 显示全部 / 收起: one arrow turning where it is, with the rows it opens, instead of two arrows swapped
 struct TurningChevron: View {
     let open: Bool

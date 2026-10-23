@@ -153,6 +153,8 @@ struct JournalView: View {
     @EnvironmentObject var store: Store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var path = NavigationPath()
+    /// a transaction's page opens out of its row
+    @Namespace private var zoom
     /// the search that is applied: set when typing is finished (搜索 on the keyboard), by chips and quick searches
     @State private var q = ""
     /// what is in the search box while typing. Searching every keystroke (and every pinyin letter) redraws the
@@ -253,7 +255,7 @@ struct JournalView: View {
             .onChange(of: q) { _, applied in if typing != applied { typing = applied } }
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
-            .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
+            .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar().zoomed(from: $0, in: zoom) }
             .subscriptionDestinations()
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name).privacyToolbar() }
@@ -637,6 +639,7 @@ struct JournalView: View {
                 } else {
                     let just = store.justSaved != nil && store.justSaved == normEntryText(t.src)
                     NavigationLink(value: TxDest(t)) { TxRow(t: t, account: account) }
+                        .zoomSource(TxDest(t), in: zoom)
                         .entryActions(t)
                         // just saved from the form: the row lights up for a moment, then settles
                         .listRowBackground(just ? Color.jade.soft : nil)
