@@ -372,7 +372,9 @@ struct AccountPicker: View {
                     withAnimation(AppMotion.standard) { proxy.scrollTo(g, anchor: .top) }
                     jump = nil
                 }
-                .safeAreaInset(edge: .top, spacing: 0) {
+                // its own field, so 取消 / 完成 stay on the bar while typing (the system's search hides them),
+                // drawn as the system's; the list scrolls under it like under every other search
+                .topBar {
                     VStack(spacing: 0) {
                         HStack(spacing: AppSpacing.icon) {
                             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
@@ -387,13 +389,13 @@ struct AccountPicker: View {
                                     .accessibilityLabel(LS("清除搜索"))
                             }
                         }
-                        .padding(AppSpacing.icon)
-                        .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 10))
+                        .padding(.horizontal, AppSpacing.content)
+                        .frame(minHeight: 44)
+                        .searchFieldLook()
                         .padding(.horizontal, AppSpacing.content).padding(.top, AppSpacing.icon)
                         shortcuts(proxy)
                     }
                     .frame(maxWidth: .infinity)
-                    .background(Color(.systemGroupedBackground))
                 }
             }
             .textInputAutocapitalization(.never)
@@ -751,6 +753,15 @@ struct PersonField: View {
 }
 
 extension View {
+    /// a search field of the app's own, drawn as the system's: a capsule, glass on iOS 26, a fill before
+    @ViewBuilder func searchFieldLook() -> some View {
+        if #available(iOS 26.0, *) {
+            glassEffect(.regular.interactive(), in: Capsule())
+        } else {
+            background(Color(.tertiarySystemFill), in: Capsule())
+        }
+    }
+
     /// a row under the navigation bar that the list scrolls beneath: on iOS 26 it shares the bar's soft edge
     /// (no background of its own); before that a bar material of its own height
     @ViewBuilder func topBar<C: View>(@ViewBuilder _ content: () -> C) -> some View {
