@@ -363,7 +363,7 @@ struct SubscriptionsView: View {
                 } header: {
                     Text(LS("发现可能的订阅"))
                 } footer: {
-                    Text(LS("同一商户按固定周期扣费的交易。加入后会把这些交易关联到订阅；左滑可忽略。"))
+                    Text(LS("同一收付款方按固定周期扣费的交易。加入后会把这些交易关联到订阅；左滑可忽略。"))
                 }
             }
             Section {
@@ -1081,7 +1081,7 @@ struct SubEditSheet: View {
                                 .textInputAutocapitalization(.characters).autocorrectionDisabled().foregroundStyle(.secondary)
                         }
                     }
-                    LabeledContent(LS("商户")) {
+                    LabeledContent(LS("收付款方")) {
                         TextField(LS("可选"), text: $draft.payee).multilineTextAlignment(.trailing)
                     }
                 } footer: {
@@ -1145,7 +1145,7 @@ struct SubEditSheet: View {
                     }
                     .foregroundStyle(.primary)
                 } footer: {
-                    Text(LS("新记的交易科目、商户一致且金额相近时，会自动关联到这个订阅。付款账户只是默认值，每次扣费用哪个账户以交易为准，「记一笔」时沿用最近一次扣费的账户。"))
+                    Text(LS("新记的交易科目、收付款方一致且金额相近时，会自动关联到这个订阅。付款账户只是默认值，每次扣费用哪个账户以交易为准，「记一笔」时沿用最近一次扣费的账户。"))
                 }
                 if draft.mode == .new {
                     Section {
@@ -1159,7 +1159,7 @@ struct SubEditSheet: View {
                             LabeledContent(LS("关联交易"), value: draft.picked.isEmpty ? LS("选择") : LS("%@ 笔", draft.picked.count))
                         }
                     } footer: {
-                        Text(LS("把过去的扣费交易关联到这个订阅，可搜索商户、说明、金额或日期。"))
+                        Text(LS("把过去的扣费交易关联到这个订阅，可搜索收付款方、说明、金额或日期。"))
                     }
                 }
                 if let t = draft.text {

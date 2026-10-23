@@ -178,7 +178,7 @@ struct ReimbLinesSection: View {
         } header: {
             Text(title)
         } footer: {
-            Text(LS("左滑一笔可改支出类型、凭证类型") + (link != nil ? LS("，或移出这张单子（回到待报销）") : "") + LS("；点开可编辑交易本身。橙色是还没填或按商户推测的。"))
+            Text(LS("左滑一笔可改支出类型、凭证类型") + (link != nil ? LS("，或移出这张单子（回到待报销）") : "") + LS("；点开可编辑交易本身。橙色是还没填或按收付款方推测的。"))
         }
         .sheet(item: $typing) { t in
             AccountPicker(title: LS("支出类型"), prefixes: ["Expenses:"], current: advanceCategoryText(t)) { a in

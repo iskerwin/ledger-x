@@ -551,7 +551,7 @@ struct OverviewView: View {
                     Button { withAnimation(AppMotion.standard) { allPayees.toggle() } } label: { Label { Text(allPayees ? LS("收起") : LS("显示前 %@ 名", min(30, stats.count))) } icon: { TurningChevron(open: allPayees) }.labelStyle(ControlLabelStyle()) }.font(.footnote)
                 }
             } header: {
-                donutHeader(LS("商户支出排行"), f.label, LS("点按查看交易"))
+                donutHeader(LS("收付款方支出排行"), f.label, LS("点按查看交易"))
             }
         }
     }
@@ -564,7 +564,7 @@ struct OverviewView: View {
             let slices = DonutSlice.make(pay.map { (id: $0.0, label: $0.0, value: $0.1) })
             let total = pay.reduce(0.0) { $0 + max(0, $1.1) }
             Section {
-                DonutChart(slices: slices, title: LS("商户合计"), selected: $selPay)
+                DonutChart(slices: slices, title: LS("收付款方合计"), selected: $selPay)
                 if let sel = selPay {
                     if sel == DonutSlice.otherID {
                         let shown = Set(slices.map { $0.id })
@@ -578,7 +578,7 @@ struct OverviewView: View {
                     }
                 }
             } header: {
-                donutHeader(LS("商户支出排行"), f.label, LS("点按扇区展开"))
+                donutHeader(LS("收付款方支出排行"), f.label, LS("点按扇区展开"))
             }
         }
     }

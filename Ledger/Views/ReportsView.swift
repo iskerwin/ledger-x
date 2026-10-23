@@ -47,7 +47,7 @@ struct ReportsView: View {
                         ReportRow(symbol: "flag", color: .pink, title: LS("事件"), detail: LS("出差、旅行等按 #标签汇总的花费"))
                     }
                     NavigationLink(value: PayeesDest()) {
-                        ReportRow(symbol: "person.2", color: .brown, title: LS("收付款方"), detail: LS("使用次数与金额，重命名、合并商户"))
+                        ReportRow(symbol: "person.2", color: .brown, title: LS("收付款方"), detail: LS("使用次数与金额，重命名、合并收付款方"))
                     }
                     NavigationLink(value: AlertsDest()) {
                         ReportRow(symbol: "exclamationmark.triangle", color: .orange, title: LS("值得留意"), detail: LS("重复扣款、大额支出、分类超常、订阅调价"))

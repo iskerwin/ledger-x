@@ -987,7 +987,7 @@ struct QuickAddView: View {
                 Image(systemName: icon).foregroundStyle(.secondary).frame(width: 22)
                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
                     if summary.isEmpty {
-                        Text(d.kind == .income ? LS("付款方 · 备注") : LS("商户 · 备注")).foregroundStyle(.secondary)
+                        Text(d.kind == .income ? LS("付款方 · 备注") : LS("收付款方 · 备注")).foregroundStyle(.secondary)
                     } else {
                         if !d.payee.trimmed.isEmpty { Text(d.payee).lineLimit(2) }
                         if !d.narration.trimmed.isEmpty { Text(d.narration).font(.subheadline).foregroundStyle(.secondary).lineLimit(2) }

@@ -106,18 +106,18 @@ enum IntentLock {
 
 struct QuickRecordIntent: AppIntent {
     static var title: LocalizedStringResource = "快速记一笔"
-    static var description = IntentDescription("按商户自动选择分类并直接入账；分类不确定或提交前检查发现问题时，发通知请你确认。适合钱包「交易」自动化：金额、商户、卡片分别填入快捷指令输入的对应项。")
+    static var description = IntentDescription("按收付款方自动选择分类并直接入账；分类不确定或提交前检查发现问题时，发通知请你确认。适合钱包「交易」自动化：金额、商户（填进收付款方）、卡片分别填入快捷指令输入的对应项。")
     static var openAppWhenRun = false
     static var authenticationPolicy = IntentAuthenticationPolicy.requiresAuthentication
 
     @Parameter(title: "金额") var amount: String
-    @Parameter(title: "商户") var merchant: String?
+    @Parameter(title: "收付款方") var merchant: String?
     @Parameter(title: "卡片或付款方式") var card: String?
     @Parameter(title: "备注") var note: String?
     @Parameter(title: "分类（科目或关键词，可选）") var category: String?
 
     static var parameterSummary: some ParameterSummary {
-        Summary("记一笔 \(\.$amount) 商户 \(\.$merchant)") {
+        Summary("记一笔 \(\.$amount) 收付款方 \(\.$merchant)") {
             \.$card
             \.$note
             \.$category
@@ -164,11 +164,11 @@ struct QuickRecordIntent: AppIntent {
 
 struct OpenRecordIntent: AppIntent {
     static var title: LocalizedStringResource = "记一笔（在 App 中确认）"
-    static var description = IntentDescription("打开记账页并预填金额、商户和分类，核对后保存。")
+    static var description = IntentDescription("打开记账页并预填金额、收付款方和分类，核对后保存。")
     static var openAppWhenRun = true
 
     @Parameter(title: "金额") var amount: String?
-    @Parameter(title: "商户") var merchant: String?
+    @Parameter(title: "收付款方") var merchant: String?
     @Parameter(title: "卡片或付款方式") var card: String?
     @Parameter(title: "备注") var note: String?
 

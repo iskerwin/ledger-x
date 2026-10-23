@@ -244,7 +244,7 @@ struct GuideView: View {
            a: tr("附件每次打开都从仓库下载，网络慢时会等一会儿，失败会显示「无法下载」并可重试。JPG、PNG、HEIC、PDF 等常见格式都能预览，其他格式能保存但可能无法在 App 内预览，可用右上角分享到别的 App 打开。",
                  "An attachment is downloaded from the repository each time it opens, so a slow network takes a moment; a failure says it couldn't download, with Retry. JPG, PNG, HEIC, PDF and other common formats preview; other files may not, so share them to another app from the top corner.")),
         QA(q: tr("换手机后设置还在吗？", "Do my settings survive a new phone?"),
-           a: tr("跟账本有关的都在仓库的 ledger-x.json 里，所有设备共用：主文件、文件规则、记账偏好（默认付款账户、币种）、统计范围、大额支出、已核对和已忽略的提示、常用交易置顶与隐藏、工资条模板、商户拼音；保存的查询在 queries/ 里。主题、语言、宫格图标、提醒、面容 ID 只存在这台手机。账本的访问令牌也只留在这台手机，换手机后要在账本管理里重新填一次。设置 → 仓库结构与共用设置可以一页看全。",
+           a: tr("跟账本有关的都在仓库的 ledger-x.json 里，所有设备共用：主文件、文件规则、记账偏好（默认付款账户、币种）、统计范围、大额支出、已核对和已忽略的提示、常用交易置顶与隐藏、工资条模板、收付款方拼音；保存的查询在 queries/ 里。主题、语言、宫格图标、提醒、面容 ID 只存在这台手机。账本的访问令牌也只留在这台手机，换手机后要在账本管理里重新填一次。设置 → 仓库结构与共用设置可以一页看全。",
                  "Everything about the ledger is in ledger-x.json in the repository and shared by every device: main file, file rules, entry defaults, what's counted, the large-expense threshold, checked and ignored notices, pinned and hidden frequent entries, payslip templates and payee spellings; saved queries are in queries/. Theme, language, grid icons, reminders and Face ID stay on each phone. Access tokens stay on this phone too: enter them again in Ledgers on a new phone. Settings → Repository & shared settings shows it all.")),
     ] }
 }

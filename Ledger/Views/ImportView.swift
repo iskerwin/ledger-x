@@ -448,7 +448,7 @@ struct ImportView: View {
                 .accessibilityLabel(it.include ? LS("跳过这笔") : LS("导入这笔"))
                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
                     HStack(alignment: .firstTextBaseline, spacing: AppSpacing.control) {
-                        Text(r.payee.isEmpty ? LS("商户未知") : r.payee).font(.headline).lineLimit(1)
+                        Text(r.payee.isEmpty ? LS("收付款方未知") : r.payee).font(.headline).lineLimit(1)
                         Spacer()
                         Text(sign + money(r.amount)).font(.headline.monospacedDigit())
                             .foregroundStyle(r.direction == .income ? Color.gain : Color.primary).sensitive()
@@ -473,7 +473,7 @@ struct ImportView: View {
                 .accessibilityValue(it.funding)
             if !it.account.isEmpty && same > 1 && !r.payee.isEmpty {
                 Button { applyToSame(it) } label: {
-                    Label(LS("应用到同类商户（%@ 笔）", same), systemImage: "square.on.square").labelStyle(ControlLabelStyle()).font(.subheadline).frame(maxWidth: .infinity)
+                    Label(LS("应用到同一收付款方（%@ 笔）", same), systemImage: "square.on.square").labelStyle(ControlLabelStyle()).font(.subheadline).frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderless)
             }

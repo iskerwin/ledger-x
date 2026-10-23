@@ -480,7 +480,7 @@ struct AddForm: View {
     private func reimbSection(_ d: Draft, _ D: Derived) -> some View {
         let links = Array(D.openLinks.filter { $0.link.hasPrefix("reimburse") }.suffix(4))
         let floats = D.floats.filter { $0.left > 0.005 }
-        let hint = LS("关联 ^link，如 reimburse-商户拼音-") + Day.today().replacingOccurrences(of: "-", with: "")
+        let hint = LS("关联 ^link，如 reimburse-收付款方拼音-") + Day.today().replacingOccurrences(of: "-", with: "")
         let reimb = Binding<Bool>(get: { store.draft.reimb }, set: { on in
             store.draft.reimb = on
             // the newest petty cash with money left pays it, unless a link was already given
@@ -664,7 +664,7 @@ struct AddForm: View {
     private func multiSection(_ L: Ledger, _ D: Derived) -> some View {
         Section {
             DateField(value: field(\.date))
-            TextField(LS("商户"), text: field(\.payee)).focused($focus, equals: .payee).onSubmit { store.applyPayee(store.draft.payee.trimmed) }
+            TextField(LS("收付款方"), text: field(\.payee)).focused($focus, equals: .payee).onSubmit { store.applyPayee(store.draft.payee.trimmed) }
             if focus == .payee { payeeSuggestions(store.draft.payee, D) }
             TextField(LS("说明"), text: field(\.narration))
             TextField(LS("#标签 ^链接"), text: field(\.tagsText)).textInputAutocapitalization(.never).autocorrectionDisabled()

@@ -110,15 +110,15 @@ struct RepoLayoutView: View {
                 }
                 .onDelete { idx in let ks = c.slugs.keys.sorted(); for i in idx { c.slugs[ks[i]] = nil } }
                 HStack(spacing: AppSpacing.control) {
-                    TextField(LS("商户名"), text: $newSlugName)
+                    TextField(LS("收付款方名称"), text: $newSlugName)
                     TextField("pinyin", text: $newSlug).textInputAutocapitalization(.never).autocorrectionDisabled().font(.callout.monospaced())
                     Button { c.slugs[newSlugName.trimmed] = newSlug.trimmed; newSlugName = ""; newSlug = "" } label: { Label(LS("添加"), systemImage: "plus").labelStyle(ControlLabelStyle()) }
                         .disabled(newSlugName.trimmed.isEmpty || newSlug.trimmed.isEmpty)
                 }
             } header: {
-                Text(LS("商户拼音"))
+                Text(LS("收付款方拼音"))
             } footer: {
-                Text(LS("生成 ^refund-、^reimburse- 这类链接时，商户名转成拼音；读音不对的在这里指定，如「岭南通 羊城通」→ yangchengtong。左滑删除。"))
+                Text(LS("生成 ^refund-、^reimburse- 这类链接时，收付款方名称转成拼音；读音不对的在这里指定，如「岭南通 羊城通」→ yangchengtong。左滑删除。"))
             }
 
             // the rest of ledger-x.json, changed where it is used
