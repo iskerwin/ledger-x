@@ -117,4 +117,23 @@ final class BalanceToleranceTests: XCTestCase {
         XCTAssertEqual(filled(body).errors, [])
         XCTAssertEqual(filled(body, options: "option \"inferred_tolerance_default\" \"USD:0.005\"\n").units, 6.66)
     }
+
+    /// A missing price or per-unit cost is the residual over the units, in decimal as Beancount does: 1.001 / 11 is
+    /// 0.091 (Beancount 3.2.3), not 0.09099999999999998 from binary floating point. Zero units leave nothing to divide by:
+    /// an error, never inf (Beancount itself stops on that line).
+    func testAFilledInPriceOrCostIsDividedInDecimal() {
+        func posting(_ body: String) -> (Posting?, [String]) {
+            let L = loadLedger(root: "main.bean") { _ in "2020-01-01 open Assets:HKD\n2020-01-01 open Assets:Stock\n2020-01-01 open Assets:Cash\n" + body }
+            return (L.entries.last?.postings.first, L.errors.map(\.msg))
+        }
+        let price = posting("2026-01-02 * \"FX\"\n  Assets:HKD   11 HKD @ CNY\n  Assets:Cash  -1.001 CNY\n")
+        XCTAssertEqual(price.0?.price?.number, 0.091)
+        XCTAssertEqual(price.1, [])
+        let cost = posting("2026-01-03 * \"Buy\"\n  Assets:Stock   11 STK {CNY}\n  Assets:Cash  -1.001 CNY\n")
+        XCTAssertEqual(cost.0?.cost?.number, 0.091)
+        XCTAssertEqual(cost.1, [])
+        let zero = posting("2026-01-04 * \"FX\"\n  Assets:HKD   0 HKD @ CNY\n  Assets:Cash  -1.00 CNY\n")
+        XCTAssertTrue(zero.0?.price?.number.map(\.isFinite) ?? true)
+        XCTAssertFalse(zero.1.isEmpty)
+    }
 }

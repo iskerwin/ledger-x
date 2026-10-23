@@ -150,12 +150,22 @@ func interpolate(_ t: Entry, _ tolerance: BalanceTolerance, _ errors: inout [Led
         case .units:
             if p.cost != nil || p.price != nil { errors.append(LedgerError(entry: t, msg: tr("缺数量的分录不能带成本或价格", "A posting without units cannot have a cost or price"))); continue }
             (p.units, p.digits) = filled(c); p.interpolated = true
-        case .cost:
-            p.cost!.number = abs(-r / p.units!); p.cost!.interpolated = true
-        case .price:
-            p.price!.number = abs(-r / p.units!)
-            p.price!.raw = p.price!.total ? abs(r) : p.price!.number
-            p.price!.interpolated = true
+        case .cost, .price:
+            // the residual over the units, in decimal as Beancount divides (1.001 / 11 is 0.091, not 0.0909999…);
+            // zero units leave nothing to divide by
+            guard let units = p.units, units != 0 else {
+                errors.append(LedgerError(entry: t, msg: tr("数量为 0，无法推算单价或成本", "Zero units: the price or cost cannot be worked out")))
+                continue
+            }
+            let total = abs(resD[c] ?? decimalOf(r))
+            let per = doubleOf(total / abs(decimalOf(units)))
+            if u.what == .cost {
+                p.cost!.number = per; p.cost!.interpolated = true
+            } else {
+                p.price!.number = per
+                p.price!.raw = p.price!.total ? doubleOf(total) : per
+                p.price!.interpolated = true
+            }
         }
         if res[c] == nil { resOrder.append(c) }
         res[c] = 0
