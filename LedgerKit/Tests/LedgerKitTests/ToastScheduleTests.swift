@@ -18,6 +18,22 @@ final class ToastScheduleTests: XCTestCase {
         XCTAssertTrue(schedule.isQuiescent)
     }
 
+    /// The tap after a save is felt when 已入账 appears, after the card has closed, not while it is still closing.
+    func testFeedbackComesWithTheNoticeOnScreenOnce() {
+        var schedule = ToastSchedule()
+        schedule.enqueue(ToastNotice(text: "已入账", feedback: .success), now: start, settle: true)
+        XCTAssertNil(schedule.announce(), "the card is still closing")
+        schedule.advance(now: start.addingTimeInterval(0.49))
+        XCTAssertNil(schedule.announce())
+        schedule.advance(now: start.addingTimeInterval(0.5))
+        XCTAssertEqual(schedule.announce()?.feedback, .success)
+        XCTAssertNil(schedule.announce(), "felt once")
+        schedule.enqueue(ToastNotice(text: "已复制"), now: start.addingTimeInterval(1), settle: false)
+        XCTAssertNil(schedule.announce(), "waits behind the notice on screen")
+        schedule.dismissVisible(now: start.addingTimeInterval(1))
+        XCTAssertEqual(schedule.announce()?.text, "已复制")
+    }
+
     func testUndoToastLastsSixSecondsAndBusyTimeDoesNotCount() {
         var schedule = ToastSchedule()
         schedule.enqueue(ToastNotice(text: "已入账", action: "撤销"), now: start, settle: false)

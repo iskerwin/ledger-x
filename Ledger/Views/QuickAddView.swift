@@ -197,7 +197,7 @@ struct QuickAddView: View {
             }
             ToolbarItem(placement: .principal) {
                 Picker(LS("类型"), selection: Binding(get: { Self.kinds.contains(store.draft.kind) ? store.draft.kind : .expense },
-                                                     set: { k in store.setKind(k) })) {
+                                                     set: { k in if k != store.draft.kind && store.setKind(k) { Haptics.selection() } })) {
                     ForEach(Self.kinds) { k in Text(k.label).tag(k) }
                 }
                 .pickerStyle(.segmented)

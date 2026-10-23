@@ -1,15 +1,22 @@
 import Foundation
 
+/// The tap felt with a notice, as it comes on screen.
+public enum ToastFeedback: Sendable {
+    case success, selection
+}
+
 /// One line of transient feedback. An action (such as 撤销) stays up longer than plain text.
 public struct ToastNotice: Equatable, Identifiable, Sendable {
     public var id: UUID
     public var text: String
     public var action: String?
+    public var feedback: ToastFeedback?
 
-    public init(id: UUID = UUID(), text: String, action: String? = nil) {
+    public init(id: UUID = UUID(), text: String, action: String? = nil, feedback: ToastFeedback? = nil) {
         self.id = id
         self.text = text
         self.action = action
+        self.feedback = feedback
     }
 
     public var duration: TimeInterval {
@@ -33,6 +40,7 @@ public struct ToastSchedule: Equatable, Sendable {
     private var tickingFrom: Date?
     private var presentAfter: Date?
     private var busy = false
+    private var unannounced: UUID?
 
     public init() {}
 
@@ -100,6 +108,14 @@ public struct ToastSchedule: Equatable, Sendable {
         return changed
     }
 
+    /// The notice that has just come on screen, once: its feedback is felt now, with the notice, not when it was
+    /// queued (a save waits for the card to close first).
+    public mutating func announce() -> ToastNotice? {
+        guard let visible, visible.id == unannounced else { return nil }
+        unannounced = nil
+        return visible
+    }
+
     /// The user took the action, or the notice was cleared. The next queued notice can come up.
     public mutating func dismissVisible(now: Date) {
         guard visible != nil else { return }
@@ -111,6 +127,7 @@ public struct ToastSchedule: Equatable, Sendable {
 
     private mutating func begin(_ notice: ToastNotice, now: Date) {
         visible = notice
+        unannounced = notice.id
         elapsed = 0
         tickingFrom = busy ? nil : now
     }

@@ -859,8 +859,7 @@ final class Store: ObservableObject {
         // dismissal finishes; 保存再记 leaves the card open and can show at once.
         let cardClosed = !adding
         if held {
-            show(LS("已暂存在本机，未推送"), settle: cardClosed)
-            Haptics.selection()
+            show(LS("已暂存在本机，未推送"), settle: cardClosed, feedback: .selection)
             await rebuild()
             return true
         }
@@ -871,10 +870,9 @@ final class Store: ObservableObject {
         if !demo && connected { shown += LS(" · 待同步") }
         // the balances of the accounts the change touched, included before the toast exists
         shown = saveConfirmation(shown, balance: balanceNote(ops))
-        if let undo = undo { show(shown, action: LS("撤销"), settle: cardClosed, undo) }
-        else if let r = record { show(shown, action: LS("撤销"), settle: cardClosed) { [weak self] in _ = await self?.revert(r.id) } }
-        else { show(shown, settle: cardClosed) }
-        Haptics.success()
+        if let undo = undo { show(shown, action: LS("撤销"), settle: cardClosed, feedback: .success, undo) }
+        else if let r = record { show(shown, action: LS("撤销"), settle: cardClosed, feedback: .success) { [weak self] in _ = await self?.revert(r.id) } }
+        else { show(shown, settle: cardClosed, feedback: .success) }
         if subNames.isEmpty { suggestSubscription(after: ops) }
         requestSavedSync()
         timing.record("foreground-save-finished")
@@ -1193,8 +1191,8 @@ final class Store: ObservableObject {
         }
     }
 
-    func show(_ text: String, action: String? = nil, settle: Bool = false, _ fn: (() async -> Void)? = nil) {
-        let notice = ToastNotice(text: text, action: action)
+    func show(_ text: String, action: String? = nil, settle: Bool = false, feedback: ToastFeedback? = nil, _ fn: (() async -> Void)? = nil) {
+        let notice = ToastNotice(text: text, action: action, feedback: feedback)
         if let fn { toastActions[notice.id] = fn }
         toastSchedule.enqueue(notice, now: Date(), settle: settle)
         driveToasts()
@@ -1234,6 +1232,11 @@ final class Store: ObservableObject {
                 toast = Toast(id: visible.id, text: visible.text, action: visible.action)
             }
             toastAction = toastActions[visible.id]
+            switch toastSchedule.announce()?.feedback {
+            case .success: Haptics.success()
+            case .selection: Haptics.selection()
+            case nil: break
+            }
         } else if toast != nil || toastAction != nil {
             toast = nil
             toastAction = nil
