@@ -861,7 +861,11 @@ final class EditInteractionTests: XCTestCase {
         // a picker opens at half the screen; dragged up, it fills it
         let height = app.windows.firstMatch.frame.height
         XCTAssertGreaterThan(chip.frame.minY, height / 3)
-        app.swipeUp()
+        // dragged up by its grabber (a swipe from the middle of the screen can start on the dimmed page above it)
+        let grabber = app.buttons["表单控制柄"].firstMatch
+        XCTAssertTrue(grabber.exists)
+        grabber.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05)))
         XCTAssertLessThan(chip.frame.minY, height / 3)
         let top = chip.frame.minY
         app.swipeUp()
