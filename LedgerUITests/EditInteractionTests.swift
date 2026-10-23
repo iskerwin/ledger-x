@@ -897,6 +897,30 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertLessThan(search.frame.minY, app.windows.firstMatch.frame.height / 3)
     }
 
+    /// The month bars of 概览 and 报表 swipe like their arrows: to the right goes back a month, to the left on again
+    func testAMonthBarSwipesToTheNextMonth() {
+        var app = launchTab("overview")
+        let period = app.staticTexts["overview.period"]
+        XCTAssertTrue(period.waitForExistence(timeout: 20))
+        let first = period.label
+        period.swipeRight()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", first), object: period)], timeout: 5), .completed)
+        period.swipeLeft()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", first), object: period)], timeout: 5), .completed)
+
+        app.terminate()
+        app = launchTab("reports")
+        let bar = app.descendants(matching: .any)["reports.monthbar"].firstMatch
+        XCTAssertTrue(bar.waitForExistence(timeout: 20))
+        let now = app.buttons["本月"]
+        if now.exists { now.tap() }
+        XCTAssertTrue(now.waitForNonExistence(timeout: 5))
+        bar.swipeRight()
+        XCTAssertTrue(now.waitForExistence(timeout: 5))
+        bar.swipeLeft()
+        XCTAssertTrue(now.waitForNonExistence(timeout: 5))
+    }
+
     private var heightExtra: String {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/height-extra.bean").path
     }

@@ -176,6 +176,30 @@ struct SlidingTitle: View {
     }
 }
 
+/// A month bar swiped sideways steps the month, like its arrows: a finger drawn to the left goes on to the next one,
+/// to the right back to the one before, with a light tick. An up-and-down drag is left to the page.
+struct MonthSwipe: ViewModifier {
+    let back: () -> Void
+    let forward: (() -> Void)?
+
+    func body(content: Content) -> some View {
+        content.contentShape(Rectangle()).gesture(
+            DragGesture(minimumDistance: 20).onEnded { v in
+                let dx = v.translation.width
+                guard abs(dx) > 40, abs(dx) > abs(v.translation.height) * 1.5 else { return }
+                if dx > 0 { back(); Haptics.selection() } else if let forward { forward(); Haptics.selection() }
+            }
+        )
+    }
+}
+
+extension View {
+    /// `forward` nil when there is no later month to go to
+    func monthSwipe(back: @escaping () -> Void, forward: (() -> Void)?) -> some View {
+        modifier(MonthSwipe(back: back, forward: forward))
+    }
+}
+
 /// The ˅ of 显示全部 / 收起: one arrow turning where it is, with the rows it opens, instead of two arrows swapped
 struct TurningChevron: View {
     let open: Bool

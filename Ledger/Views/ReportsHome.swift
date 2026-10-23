@@ -61,6 +61,9 @@ struct ReportsInsights: View {
             .buttonStyle(.plain)
             .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
             .background(Color(.secondarySystemGroupedBackground), in: Capsule())
+            .monthSwipe(back: { monthForward = false; month = Day.addMonth(month, -1) },
+                        forward: month >= now ? nil : { monthForward = true; month = Day.addMonth(month, 1) })
+            .accessibilityElement(children: .contain).accessibilityIdentifier("reports.monthbar")
             if month != now {
                 Button { monthForward = now > month; month = now } label: { Label(LS("本月"), systemImage: "calendar").labelStyle(ControlLabelStyle()) }
                     .font(.subheadline.weight(.semibold))

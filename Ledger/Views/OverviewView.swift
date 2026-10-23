@@ -239,10 +239,13 @@ struct OverviewView: View {
                     Button { monthForward = false; month = head.yearMode ? Day.addMonth(month, -12) : Day.addMonth(month, -1) } label: { Image(systemName: "chevron.left") }
                         .accessibilityLabel(head.yearMode ? LS("上一年") : LS("上个月"))
                     SlidingTitle(text: head.label, forward: monthForward).font(.headline).frame(minWidth: 96)
+                        .accessibilityIdentifier("overview.period")
                     Button { monthForward = true; month = head.yearMode ? Day.addMonth(month, 12) : Day.addMonth(month, 1) } label: { Image(systemName: "chevron.right") }
                         .accessibilityLabel(head.yearMode ? LS("下一年") : LS("下个月"))
                 }
                 .buttonStyle(.borderless)
+                .monthSwipe(back: { monthForward = false; month = Day.addMonth(month, head.yearMode ? -12 : -1) },
+                            forward: { monthForward = true; month = Day.addMonth(month, head.yearMode ? 12 : 1) })
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: AppSpacing.detail, leading: AppSpacing.detail, bottom: AppSpacing.detail, trailing: AppSpacing.detail))
             }
