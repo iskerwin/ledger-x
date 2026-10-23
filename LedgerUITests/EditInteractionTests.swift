@@ -754,5 +754,29 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(close.waitForNonExistence(timeout: 5))
         XCTAssertFalse(app.buttons["放弃修改并关闭"].exists)
     }
-}
 
+    /// 今天 appears in the calendar's header away from this month. It must not make the header taller: the whole
+    /// calendar grew by a few points as the month changed, and paging stuttered.
+    func testCalendarKeepsItsHeightAwayFromThisMonth() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures").path
+        app.launchEnvironment = ["LEDGER_DEMO": fixture, "LEDGER_TAB": "journal", "LEDGER_LANG": "zh"]
+        app.launchArguments = ["-AppleLanguages", "(zh-Hans)"]
+        app.launch()
+        let calendar = app.otherElements["calendar.month"]
+        if !calendar.waitForExistence(timeout: 5) { tapPoint(app.buttons["月历"], timeout: 20) }
+        XCTAssertTrue(calendar.waitForExistence(timeout: 5))
+        // the calendar opens on the month last looked at: start from this month
+        let today = app.buttons["calendar.today"]
+        if today.exists { today.tap() }
+        XCTAssertTrue(today.waitForNonExistence(timeout: 5))
+        // the weekday names sit right under the header: a taller header pushes them, and the month, down
+        let weekday = calendar.staticTexts["一"]
+        XCTAssertTrue(weekday.exists)
+        let before = weekday.frame.minY
+        app.buttons["上个月"].tap()
+        XCTAssertTrue(today.waitForExistence(timeout: 5))
+        XCTAssertEqual(weekday.frame.minY, before, accuracy: 0.5)
+    }
+}

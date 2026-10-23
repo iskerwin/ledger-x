@@ -153,6 +153,8 @@ struct MonthCalendar: View {
                 withAnimation(reduceMotion ? nil : AppMotion.standard) { page = m }
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("calendar.month")
     }
 
     /// a week's row: the day's disc and its dots
@@ -170,17 +172,18 @@ struct MonthCalendar: View {
         let now = Day.ym(Day.today())
         return HStack(spacing: AppSpacing.control) {
             Text(Day.monthLabel(month)).font(.headline)
-            // back to this month in one tap, shown only away from it
-            if month != now, now >= Day.ym(first), now <= Day.ym(last) {
-                Button { month = now } label: {
-                    Text(LS("今天")).font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.detail)
-                        .foregroundStyle(Color.jade)
-                        .background(Color.jade.opacity(0.14), in: Capsule())
+            // back to this month in one tap, shown only away from it. Its place is always kept (the hidden capsule
+            // under it), so the header, and the calendar under it, keep their height when it comes and goes.
+            ZStack {
+                todayCapsule.hidden()
+                if month != now, now >= Day.ym(first), now <= Day.ym(last) {
+                    Button { month = now } label: { todayCapsule }
+                        .buttonStyle(.plain)
+                        .transition(.opacity)
+                        .accessibilityIdentifier("calendar.today")
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("calendar.today")
             }
+            .animation(AppMotion.quick, value: month == now)
             Spacer()
             Button { step(-1) } label: { Image(systemName: "chevron.left").font(.body.weight(.semibold)) }
                 .disabled(Day.addMonth(month, -1) < Day.ym(first))
@@ -191,6 +194,13 @@ struct MonthCalendar: View {
         }
         .buttonStyle(.borderless)
         .tint(Color.jade)
+    }
+
+    private var todayCapsule: some View {
+        Text(LS("今天")).font(.subheadline.weight(.semibold))
+            .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.detail)
+            .foregroundStyle(Color.jade)
+            .background(Color.jade.opacity(0.14), in: Capsule())
     }
 
     private func step(_ k: Int) {
