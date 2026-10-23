@@ -70,6 +70,15 @@ public struct BudgetProgress: Identifiable {
     public var over: Bool { spent > limit + 0.005 }
     /// spending faster than the calendar
     public var ahead: Bool { !over && elapsed < 1 && ratio > elapsed + 0.1 }
+    /// the biggest transaction in the span, to say what an overspend mostly was
+    public var biggest: BudgetSpend? = nil
+}
+
+/// one transaction's spending under a budget: its payee (or narration), day and amount in the budget's currency
+public struct BudgetSpend: Equatable {
+    public let what: String
+    public let date: String
+    public let amount: Double
 }
 
 private func daysIn(_ from: String, _ to: String) -> Double {
@@ -98,16 +107,24 @@ public func budgetProgress(_ L: Ledger, key: String, today: String = Day.today()
         case (.yearly, .year): limit = b.amount
         }
         var spent = 0.0
+        var biggest: BudgetSpend?
         let sign = b.account.hasPrefix("Income") || b.account.hasPrefix("Liabilities") ? -1.0 : 1.0
         for t in L.txns where t.date >= from && t.date <= to {
+            var here = 0.0
             for p in t.postings where p.account == b.account || p.account.hasPrefix(b.account + ":") {
                 guard let u = p.units, let c = p.currency else { continue }
                 // any other currency converted into the budget's on the day (through the base currency, so a USD
                 // budget sees CNY and EUR spending too)
-                if let v = convert(L, u, c, b.currency, t.date) { spent += v * sign }
+                if let v = convert(L, u, c, b.currency, t.date) { here += v * sign }
+            }
+            spent += here
+            if here > (biggest?.amount ?? 0) {
+                biggest = BudgetSpend(what: t.payee.isEmpty ? t.narration : t.payee, date: t.date, amount: roundTo(here, 2))
             }
         }
-        out.append(BudgetProgress(budget: b, limit: roundTo(limit, 2), spent: roundTo(spent, 2), elapsed: elapsed))
+        var progress = BudgetProgress(budget: b, limit: roundTo(limit, 2), spent: roundTo(spent, 2), elapsed: elapsed)
+        progress.biggest = biggest
+        out.append(progress)
     }
     return out.sorted { $0.ratio > $1.ratio }
 }

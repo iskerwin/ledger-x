@@ -2143,5 +2143,6 @@
  "商户": "Merchant",
  "还没有预算。为支出分类设置每月或每年的额度，记账时就能看到还剩多少。": "No budgets yet. Set a monthly or yearly limit for a spending category and see what's left as you record.",
  "还没有订阅。也可以在交易详情里选择「加入订阅管理」。": "No subscriptions yet. You can also choose “Add to Subscriptions” in a transaction's details.",
- "还没有个人往来。借给别人或向别人借的钱记在这里，还款时一键结清。": "No personal loans yet. Money lent to or borrowed from people goes here, and is settled in one tap when repaid."
+ "还没有个人往来。借给别人或向别人借的钱记在这里，还款时一键结清。": "No personal loans yet. Money lent to or borrowed from people goes here, and is settled in one tap when repaid.",
+ "主要是「%@」%@": "mostly “%@” %@"
 }

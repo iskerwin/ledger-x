@@ -26,4 +26,25 @@ final class BudgetTests: XCTestCase {
         let food = try XCTUnwrap(budgetProgress(L, key: "2026-09", today: "2026-09-30").first)
         XCTAssertEqual(food.spent, 27, accuracy: 0.005)
     }
+
+    /// Over budget, the page says which spending did most of it: the biggest transaction in the span, by payee
+    /// (or the narration when there is none), in the budget's currency.
+    func testAnOverspentBudgetKnowsItsBiggestSpending() throws {
+        let L = loadLedger(root: "main.bean") { _ in """
+        2026-01-01 open Assets:Cash
+        2026-01-01 open Expenses:Home
+        2026-01-01 custom "budget" Expenses:Home "monthly" 3000.00 CNY
+        2026-10-01 * "房东" "十月房租"
+          Expenses:Home   4500.00 CNY
+          Assets:Cash
+        2026-10-05 * "" "灯泡"
+          Expenses:Home     36.00 CNY
+          Assets:Cash
+        """ }
+        let home = try XCTUnwrap(budgetProgress(L, key: "2026-10", today: "2026-10-31").first)
+        XCTAssertTrue(home.over)
+        XCTAssertEqual(home.biggest?.what, "房东")
+        XCTAssertEqual(home.biggest?.amount, 4500)
+        XCTAssertEqual(home.biggest?.date, "2026-10-01")
+    }
 }

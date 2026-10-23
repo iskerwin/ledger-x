@@ -10,8 +10,10 @@ struct BudgetRow: View {
         let color: Color = p.over ? .loss : p.ahead ? .warn : .jade
         VStack(alignment: .leading, spacing: AppSpacing.icon) {
             HStack(alignment: .firstTextBaseline, spacing: AppSpacing.control) {
-                Label(acctLabel(p.budget.account), systemImage: "chart.pie").labelStyle(ControlLabelStyle()).lineLimit(1)
-                if let zh = acctZH(p.budget.account) { Text(zh).font(.caption).foregroundStyle(.secondary) }
+                // the category's Chinese name first where it has one, the account name beside it, as in other lists
+                let zh = acctZH(p.budget.account)
+                Label(zh ?? acctLabel(p.budget.account), systemImage: "chart.pie").labelStyle(ControlLabelStyle()).lineLimit(1)
+                if zh != nil { Text(acctLabel(p.budget.account)).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
                 Spacer()
                 Text(money(p.spent, p.budget.currency) + " / " + money(p.limit, p.budget.currency, 0))
                     .font(.subheadline.monospacedDigit()).sensitive()
@@ -29,6 +31,10 @@ struct BudgetRow: View {
             HStack(spacing: AppSpacing.control) {
                 Text(p.over ? LS("超支 %@", money(-p.remaining, p.budget.currency)) : LS("剩余 %@", money(p.remaining, p.budget.currency)))
                     .foregroundStyle(p.over ? Color.loss : Color.secondary)
+                // what the overspend mostly was, rather than the verdict alone
+                if p.over, let b = p.biggest, !b.what.isEmpty {
+                    Text(LS("主要是「%@」%@", b.what, money(b.amount, p.budget.currency))).foregroundStyle(.secondary).lineLimit(1)
+                }
                 if p.ahead { Text(LS("· 花得比时间快")).foregroundStyle(Color.warn) }
                 Spacer()
                 Text(String(format: "%.0f%%", p.ratio * 100)).foregroundStyle(.secondary)
