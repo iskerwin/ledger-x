@@ -159,6 +159,9 @@ struct AccountManagerView: View {
 
 /// new account, or edit / close / reopen / rename / merge an existing one
 struct AccountEditView: View {
+    /// return moves on: account name → display name → currencies
+    private enum Field { case account, display, currencies }
+    @FocusState private var field: Field?
     @EnvironmentObject var store: Store
     @Environment(\.dismiss) private var dismiss
     let name: String?
@@ -259,6 +262,7 @@ struct AccountEditView: View {
                 TextField("Expenses:Food:Coffee", text: $account)
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
                     .font(.body.monospaced())
+                    .focused($field, equals: .account).submitLabel(.next).onSubmit { field = .display }
                 if !account.trimmed.isEmpty && !valid {
                     Label(LS("账户名需以五大类开头，各级以冒号分隔，每级首字母大写，如 Assets:Bank:CMB"), systemImage: "exclamationmark.triangle").labelStyle(ControlLabelStyle())
                         .font(.footnote).foregroundStyle(Color.warn)
@@ -272,10 +276,12 @@ struct AccountEditView: View {
             DatePicker(LS("开立日期"), selection: dateBinding($openDate), displayedComponents: .date)
             LabeledContent(LS("显示名称")) {
                 TextField(LS("可选，如「招商银行储蓄卡」"), text: $display).multilineTextAlignment(.trailing)
+                    .focused($field, equals: .display).submitLabel(.next).onSubmit { field = .currencies }
             }
             LabeledContent(LS("限定币种")) {
                 TextField(LS("可选，如 CNY,USD"), text: $currencies)
                     .multilineTextAlignment(.trailing).textInputAutocapitalization(.characters).autocorrectionDisabled()
+                    .focused($field, equals: .currencies).submitLabel(.done)
             }
             Picker(LS("批次方法"), selection: $booking) {
                 ForEach(Self.bookings, id: \.self) { b in Text(b.isEmpty ? LS("默认") : b).tag(b) }

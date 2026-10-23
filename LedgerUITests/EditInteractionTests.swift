@@ -991,4 +991,21 @@ final class EditInteractionTests: XCTestCase {
         app.sheets.buttons["移除"].firstMatch.tap()
         XCTAssertTrue(row.waitForNonExistence(timeout: 5))
     }
+
+    /// In a form of several text fields, return moves to the next one (here a new subscription: name → currency)
+    func testReturnMovesToTheNextField() {
+        let app = launchTab("reports")
+        let subs = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "订阅管理")).firstMatch
+        XCTAssertTrue(app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "年度回顾")).firstMatch.waitForExistence(timeout: 20))
+        // further down the list: not built until scrolled to
+        for _ in 0..<6 { if subs.exists && subs.isHittable { break }; app.swipeUp() }
+        subs.tap()
+        tapPoint(app.buttons["empty.add"], timeout: 5)
+        let name = app.textFields["如 iCloud+、Netflix"]
+        tapPoint(name, timeout: 5)
+        name.typeText("Demo\n")
+        let currency = app.textFields["CNY"]
+        let focused = NSPredicate(format: "hasKeyboardFocus == true")
+        XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: focused, object: currency)], timeout: 3), .completed)
+    }
 }

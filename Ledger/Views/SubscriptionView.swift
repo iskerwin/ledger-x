@@ -1045,6 +1045,9 @@ struct SubDraft: Identifiable {
 }
 
 struct SubEditSheet: View {
+    /// return moves on: name → currency → payee (the amount has a number pad, without a return key)
+    private enum Field { case name, currency, payee }
+    @FocusState private var field: Field?
     @EnvironmentObject var store: Store
     @Environment(\.dismiss) private var dismiss
     @State var draft: SubDraft
@@ -1073,16 +1076,19 @@ struct SubEditSheet: View {
                     LabeledContent(LS("名称")) {
                         TextField(LS("如 iCloud+、Netflix"), text: $draft.name).multilineTextAlignment(.trailing)
                             .disabled(draft.mode == .change)
+                            .focused($field, equals: .name).submitLabel(.next).onSubmit { field = .currency }
                     }
                     LabeledContent(LS("金额")) {
                         HStack(spacing: AppSpacing.icon) {
                             TextField("0.00", text: $draft.amount).keyboardType(.decimalPad).multilineTextAlignment(.trailing).font(.body.monospacedDigit())
                             TextField("CNY", text: $draft.currency).frame(width: 52).multilineTextAlignment(.trailing)
                                 .textInputAutocapitalization(.characters).autocorrectionDisabled().foregroundStyle(.secondary)
+                                .focused($field, equals: .currency).submitLabel(.next).onSubmit { field = .payee }
                         }
                     }
                     LabeledContent(LS("收付款方")) {
                         TextField(LS("可选"), text: $draft.payee).multilineTextAlignment(.trailing)
+                            .focused($field, equals: .payee).submitLabel(.done)
                     }
                 } footer: {
                     if nameTaken { Text(LS("已有同名订阅，请换一个名称")).foregroundStyle(Color.warn) }
