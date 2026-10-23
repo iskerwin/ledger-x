@@ -22,6 +22,14 @@ struct BudgetRow: View {
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color(.tertiarySystemFill))
                     Capsule().fill(color.gradient).frame(width: max(4, g.size.width * min(1, p.ratio)))
+                    // over budget the bar is full: the part beyond the budget is hatched, in proportion, so how far
+                    // over shows without telling red from green
+                    if p.over {
+                        let beyond = g.size.width * (p.ratio - 1) / p.ratio
+                        Hatching().frame(width: beyond).frame(maxWidth: .infinity, alignment: .trailing)
+                            .clipShape(Capsule())
+                            .accessibilityHidden(true)
+                    }
                     if p.elapsed > 0 && p.elapsed < 1 {
                         Rectangle().fill(Color.primary.opacity(0.35)).frame(width: 1.5).offset(x: g.size.width * p.elapsed)
                     }
@@ -43,6 +51,22 @@ struct BudgetRow: View {
             .sensitive()
         }
         .padding(.vertical, AppSpacing.detail)
+    }
+}
+
+/// white diagonal stripes, laid over a bar's overspent part
+struct Hatching: View {
+    var body: some View {
+        Canvas { ctx, size in
+            var path = Path()
+            var x = -size.height
+            while x < size.width {
+                path.move(to: CGPoint(x: x, y: size.height))
+                path.addLine(to: CGPoint(x: x + size.height, y: 0))
+                x += 5
+            }
+            ctx.stroke(path, with: .color(.white.opacity(0.7)), lineWidth: 1.5)
+        }
     }
 }
 
