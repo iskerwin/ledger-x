@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 // MARK: - turning the pending queue into one commit
 //
@@ -11,6 +12,35 @@ import Foundation
 public struct PlannedChange: Equatable {
     public let path: String
     public let text: String?
+}
+
+/// One push, written down on this phone before it goes out. If the app is killed after the host took the commit
+/// but before the queue was saved without these ops, the next push finds the files already exactly as planned and
+/// drops the ops instead of writing them a second time (an entry recorded twice).
+public struct InFlightPush: Codable, Equatable {
+    public var ids: [UUID]
+    /// each file's planned text as a sha256 (nil: the file deleted)
+    public var files: [String: String?]
+
+    public init(ids: [UUID], changes: [PlannedChange]) {
+        self.ids = ids
+        var files: [String: String?] = [:]
+        for c in changes { files[c.path] = .some(c.text.map(InFlightPush.digest)) }
+        self.files = files
+    }
+
+    /// whether the files on the host are now exactly as this push would have left them (`current`: path → text,
+    /// nil when the file isn't there)
+    public func landed(_ current: [String: String?]) -> Bool {
+        !files.isEmpty && files.allSatisfy { path, planned in
+            guard let now = current[path] else { return false }
+            return now.map(InFlightPush.digest) == planned
+        }
+    }
+
+    static func digest(_ text: String) -> String {
+        SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
 }
 
 public struct PushPlan: Equatable {

@@ -397,6 +397,7 @@ final class Store: ObservableObject {
         sources.removeAll { $0.id == id }
         persistSources()
         Keychain.delete(account: id == "default" ? "token" : "token." + id)
+        try? RecoveryFiles.remove(kind: "inflight", ledger: id)
         // everything kept per ledger on this phone (see pk(_:))
         for k in ["pending", "tree", "lastSync", "ci", "history", "draftWorkspace", "pageContexts", "mainFile", "journalPattern", "receivable", "subsFile",
                   "sub.ignored", "link.ignored", "remind.cards", "alerts.dismissed", "alerts.seen", "backup.last", "config.migrated"] {
@@ -948,6 +949,7 @@ final class Store: ObservableObject {
     /// push everything that can go, as ONE commit (one per host request where the host can't),
     /// so bean-check on the server never sees half of a change
     private func pushOnce() async throws {
+        try await settleInFlight()
         for _ in 0..<3 {   // repeat for ops queued while pushing
             let ops = pending.filter { $0.failed == nil && $0.held == nil }
             if ops.isEmpty { return }
@@ -972,9 +974,12 @@ final class Store: ObservableObject {
             let message = commitMessage(included, path: paths.count == 1 ? paths[0] : LS("%@ 个文件", paths.count))
             let changes = plan.changes.map { FileChange(path: $0.path, text: $0.text, version: tree?.files[$0.path]) }
             let versions: [String: String]
+            // written down before it goes out: if the app is killed once the host has it, the next push knows
+            try? RecoveryFiles.save(InFlightPush(ids: plan.included, changes: plan.changes), kind: "inflight", ledger: cfg.id)
             do {
                 versions = try await backend.writeMany(changes, message: message)
             } catch let e as PartialWriteError {
+                try? RecoveryFiles.remove(kind: "inflight", ledger: cfg.id)
                 // the files already written take their edits out of the queue; the rest stay and are retried
                 for (path, v) in e.written {
                     if let v = v, let t = plan.changes.first(where: { $0.path == path })?.text { BlobCache.set(v, t) }
@@ -998,9 +1003,29 @@ final class Store: ObservableObject {
             let ids = Set(plan.included)
             pending.removeAll { ids.contains($0.id) }
             savePending()
+            try? RecoveryFiles.remove(kind: "inflight", ledger: cfg.id)
             tree = try await backend.fetchTree()
             saveTree()
         }
+    }
+
+    /// A push written down but never seen through (the app killed after the host took it, a reply lost): when the
+    /// files on the host are exactly as it planned, its ops already landed and leave the queue instead of being
+    /// written again. Read against a fresh tree: the one kept here may be from before that push.
+    private func settleInFlight() async throws {
+        guard let flight = RecoveryFiles.load(InFlightPush.self, kind: "inflight", ledger: cfg.id) else { return }
+        tree = try await backend.fetchTree()
+        saveTree()
+        var current: [String: String?] = [:]
+        for path in flight.files.keys {
+            if let sha = tree?.files[path] { current[path] = .some(try await blobText(path, sha)) } else { current[path] = .some(nil) }
+        }
+        if flight.landed(current) {
+            let ids = Set(flight.ids)
+            pending.removeAll { ids.contains($0.id) }
+            savePending()
+        }
+        try? RecoveryFiles.remove(kind: "inflight", ledger: cfg.id)
     }
 
     private func markFailed(_ id: UUID, _ why: String) {

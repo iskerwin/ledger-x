@@ -164,4 +164,22 @@ final class PushPlanTests: XCTestCase {
         XCTAssertTrue(ok.failed.isEmpty)
         XCTAssertTrue(ok.changes.first?.text?.contains("\"午饭\" ^refund-1") ?? false)
     }
+
+    /// A push written down before it went out: it landed when every file is exactly as planned (a deleted file
+    /// gone), and not when any file differs or was never written.
+    func testAPushInFlightLandedOnlyWhenEveryFileIsAsPlanned() {
+        let op = insert(coffee, "2026-10-02")
+        let plan = planPush([op], bases: [path: lunch + "\n"])
+        let flight = InFlightPush(ids: plan.included, changes: plan.changes)
+        XCTAssertEqual(flight.ids, [op.id])
+        let written = plan.changes[0].text
+        XCTAssertTrue(flight.landed([path: written]))
+        XCTAssertFalse(flight.landed([path: lunch + "\n"]), "not written")
+        XCTAssertFalse(flight.landed([path: written.map { $0 + dinner }]), "changed again since")
+        XCTAssertFalse(flight.landed([:]), "file not read")
+        let removal = InFlightPush(ids: [UUID()], changes: [PlannedChange(path: "old.bean", text: nil)])
+        let gone: [String: String?] = ["old.bean": nil]
+        XCTAssertTrue(removal.landed(gone))
+        XCTAssertFalse(removal.landed(["old.bean": "still here"]))
+    }
 }
