@@ -330,7 +330,7 @@ struct AddForm: View {
                         .background(Color(.tertiarySystemFill), in: Capsule())
                 }
                 TextField("0.00", text: field(\.amount))
-                    .font(.system(size: 34, weight: .semibold, design: .rounded))
+                    .heroAmount()
                     .monospacedDigit()
                     .keyboardType(.decimalPad)
                     .focused($focus, equals: .amount)

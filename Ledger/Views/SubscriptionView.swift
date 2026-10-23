@@ -559,7 +559,7 @@ struct SubscriptionDetailView: View {
                     .background(Color.jade.opacity(0.13), in: Circle())
                 Text(s.name).font(.title3.weight(.semibold)).multilineTextAlignment(.center)
                 Text(money(s.amount, s.currency))
-                    .font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+                    .heroAmount().monospacedDigit()
                     .rollingNumber(s.amount)
                     .lineLimit(1).minimumScaleFactor(0.6)
                     .sensitive()

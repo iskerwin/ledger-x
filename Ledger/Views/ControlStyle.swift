@@ -18,6 +18,24 @@ extension View {
     }
 }
 
+/// The big amount at the top of a page (本月支出, 净资产, a card's balance): rounded bold, one size everywhere, and it
+/// grows with the text size like the rest of the page. Only when a long amount would not fit on one line does it
+/// shrink, down to half.
+struct HeroAmount: ViewModifier {
+    @ScaledMetric private var size: CGFloat
+
+    init(_ base: CGFloat) { _size = ScaledMetric(wrappedValue: base, relativeTo: .largeTitle) }
+
+    func body(content: Content) -> some View {
+        content.font(.system(size: size, weight: .bold, design: .rounded)).lineLimit(1).minimumScaleFactor(0.5)
+    }
+}
+
+extension View {
+    /// a page's headline amount; 40 for the overview's, 22 for one line among several currencies
+    func heroAmount(_ base: CGFloat = 34) -> some View { modifier(HeroAmount(base)) }
+}
+
 /// A month's (or year's) name that slides in from the side it was moved towards: › brings it in from the right,
 /// ‹ from the left. The old name only fades, so turning round never sends it out the wrong way.
 struct SlidingTitle: View {

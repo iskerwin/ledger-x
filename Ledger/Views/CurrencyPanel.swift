@@ -233,7 +233,7 @@ struct InventoryHeadline: View {
         let xs = inv.byCurrency(base: base)
         if xs.count <= 1 {
             let x = xs.first ?? CurrencyAmount(base, 0)
-            Text(unitText(x.amount, x.currency)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+            Text(unitText(x.amount, x.currency)).heroAmount().monospacedDigit()
                 .rollingNumber(x.amount)
                 .foregroundStyle(x.amount < -0.005 ? Color.loss : Color.primary).sensitive()
         } else {
@@ -241,7 +241,7 @@ struct InventoryHeadline: View {
                 ForEach(xs) { x in
                     HStack(spacing: AppSpacing.icon) {
                         Circle().fill(currencyColor(x.currency)).frame(width: 8, height: 8)
-                        Text(unitText(x.amount, x.currency)).font(.system(size: 22, weight: .bold, design: .rounded)).monospacedDigit()
+                        Text(unitText(x.amount, x.currency)).heroAmount(22).monospacedDigit()
                             .rollingNumber(x.amount)
                             .foregroundStyle(x.amount < -0.005 ? Color.loss : Color.primary).sensitive()
                     }

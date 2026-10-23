@@ -796,7 +796,7 @@ struct TxDetailView: View {
                         ForEach(own, id: \.0) { x in Text(signedMoney(x.1, x.0)).foregroundStyle(x.1 >= 0 ? Color.gain : Color.primary) }
                     }
                 }
-                .font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+                .heroAmount().monospacedDigit()
                 .lineLimit(1).minimumScaleFactor(0.6)
                 .sensitive()
                 if c.kind != .transfer {

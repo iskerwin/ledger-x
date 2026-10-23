@@ -840,6 +840,8 @@ final class EditInteractionTests: XCTestCase {
         let income = hero.staticTexts["收入"], net = hero.staticTexts["净资产"]
         XCTAssertTrue(income.exists && net.exists)
         XCTAssertGreaterThan(net.frame.minY, income.frame.maxY)
+        // the headline amount grows with the text size too (it stayed 40 pt: about 48 pt tall at every size)
+        XCTAssertGreaterThan(hero.staticTexts["overview.spent"].frame.height, 64)
     }
 
     /// The account picker keeps the chosen account and the groups under the search: scrolling the list or searching

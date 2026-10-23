@@ -186,7 +186,7 @@ struct ReportsInsights: View {
                     let count = (now.byCatPayee[up.0] ?? [:]).values.reduce(0) { $0 + $1.1 }
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(LS("%@比上月同期多", catLabel(up.0))).font(.subheadline)
-                        Text(money(up.1, L.base)).font(.system(size: 30, weight: .bold, design: .rounded)).foregroundStyle(Color.orange).monospacedDigit().rollingNumber(up.1).sensitive()
+                        Text(money(up.1, L.base)).heroAmount().foregroundStyle(Color.orange).monospacedDigit().rollingNumber(up.1).sensitive()
                         HStack(spacing: AppSpacing.control) {
                             if let w = who { Text(LS("主要来自%@ · 共 %@ 笔", w.0, count)).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
                             Spacer()
@@ -241,7 +241,7 @@ struct ReportsInsights: View {
                     cardTitle(LS("未来 30 天可用资金"), "wallet.bifold")
                     HStack(alignment: .bottom, spacing: AppSpacing.control) {
                         VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                            Text(money(f.end, L.base)).font(.system(size: 30, weight: .bold, design: .rounded)).monospacedDigit().rollingNumber(f.end).sensitive()
+                            Text(money(f.end, L.base)).heroAmount().monospacedDigit().rollingNumber(f.end).sensitive()
                             Text(LS("预计最低 %@（%@）", money(f.lowest.value, L.base), Day.dayLabel(f.lowest.date)))
                                 .font(.caption).foregroundStyle(.secondary).sensitive()
                         }

@@ -258,7 +258,7 @@ struct OverviewView: View {
                                         .font(.caption.weight(.semibold)).buttonStyle(.borderless)
                                 }
                             }
-                            Text(money(s.exp, cur)).font(.system(size: 40, weight: .bold, design: .rounded)).monospacedDigit()
+                            Text(money(s.exp, cur)).heroAmount(40).monospacedDigit().accessibilityIdentifier("overview.spent")
                                 .rollingNumber(s.exp).sensitive()
                             // how it compares, quieter than the figure: the change in its colour, the rest grey; one
                             // text, so a large size wraps it like a sentence

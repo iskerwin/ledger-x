@@ -199,7 +199,7 @@ struct AccountsView: View {
         return VStack(alignment: .leading, spacing: AppSpacing.control) {
             VStack(alignment: .leading, spacing: AppSpacing.detail) {
                 Text(LS("%@ 年结余", year)).font(.subheadline).foregroundStyle(.secondary)
-                Text(money(income - spent, L.base)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+                Text(money(income - spent, L.base)).heroAmount().monospacedDigit()
                     .rollingNumber(income - spent)
                     .foregroundStyle(income - spent < 0 ? Color.loss : Color.primary).sensitive()
             }

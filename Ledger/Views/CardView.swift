@@ -41,7 +41,7 @@ struct CardHeroSection: View {
                 HStack(alignment: .top, spacing: AppSpacing.control) {
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(LS("剩余应还")).font(.subheadline).foregroundStyle(.secondary)
-                        Text(money(c.remaining, c.currency)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+                        Text(money(c.remaining, c.currency)).heroAmount().monospacedDigit()
                             .rollingNumber(c.remaining)
                             .lineLimit(1).minimumScaleFactor(0.6).sensitive()
                     }
