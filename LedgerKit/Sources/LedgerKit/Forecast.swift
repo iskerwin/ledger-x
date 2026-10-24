@@ -6,13 +6,15 @@ import Foundation
 
 public struct ForecastEvent: Identifiable {
     public enum Kind: String { case income, recurring, subscription, card }
-    public var id: String { kind.rawValue + "|" + title + "|" + date + "|" + (account ?? "") + "|\(amount)" }
+    /// its place in the forecast: two payments alike in every way are still two
+    public var id: String { kind.rawValue + "|" + title + "|" + date + "|" + (account ?? "") + "|\(seq)" }
     public let date: String
     public let title: String
     /// in the base currency; positive = money coming in
     public let amount: Double
     public let kind: Kind
     public var account: String?
+    var seq = 0
 }
 
 public struct ForecastPoint: Identifiable {
@@ -257,8 +259,7 @@ public func forecast(_ L: Ledger, today: String = Day.today(), days: Int = 90, i
 
     // day by day
     events.sort { $0.date != $1.date ? $0.date < $1.date : $0.amount > $1.amount }
-    var seenIDs = Set<String>()
-    events = events.filter { seenIDs.insert($0.id).inserted }
+    for i in events.indices { events[i].seq = i }
     var byDay: [String: Double] = [:]
     for e in events { byDay[e.date, default: 0] += e.amount }
     var points = [ForecastPoint(date: today, value: roundTo(start, 2))]

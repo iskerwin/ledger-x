@@ -134,6 +134,23 @@ final class PlanTests: XCTestCase {
         XCTAssertEqual(cardBills(L).map { $0.minimum }, [30])
     }
 
+    /// Two payments that look alike (one payee, one day, one amount, from one account, to two categories) are two
+    /// payments in the forecast; they were kept as one
+    func testForecastKeepsLookAlikePayments() {
+        var t = base + "2025-01-01 open Expenses:Housing:Fee CNY\n2025-01-01 open Expenses:Car:Parking CNY\n"
+        for m in 6...9 {
+            t += "2026-0\(m)-05 * \"物业\" \"物业费\"\n  Expenses:Housing:Fee  300.00 CNY\n  Assets:Bank:CMB\n"
+            t += "2026-0\(m)-05 * \"物业\" \"停车费\"\n  Expenses:Car:Parking  300.00 CNY\n  Assets:Bank:CMB\n"
+        }
+        let L = ledger(t)
+        XCTAssertTrue(L.errors.isEmpty, L.errors.map { $0.msg }.joined(separator: "; "))
+        let f = forecast(L, today: "2026-10-01", days: 30, includeDaily: false)
+        let fees = f.events.filter { $0.title == "物业" }
+        XCTAssertEqual(fees.map(\.date), ["2026-10-05", "2026-10-05"])
+        XCTAssertEqual(Set(f.events.map(\.id)).count, f.events.count)
+        XCTAssertEqual(f.end, f.start + f.events.reduce(0) { $0 + $1.amount }, accuracy: 0.01)
+    }
+
     func testForecast() throws {
         var t = base
         // salary on the 10th, rent on the 1st, for six months
