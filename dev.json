@@ -20,13 +20,13 @@
       "versions": [
         {
           "version": "1.0.5",
-          "buildVersion": "24",
+          "buildVersion": "25",
           "date": "2026-10-21T17:58:29Z",
-          "localizedDescription": "# Ledger X 1.0.5 开发版\n\n版本 1.0.5 · 构建 24 · main 84f0ad1 。\n\n## 修复\n\n- 概览的趋势图和报表的月度收支、净资产、现金流预测图上，手指从图上起手上下滑动又能滚动页面了；上一个开发版里从图上起手滑不动页面，只能从图外起手。左右滑动看各月、点按选中照旧。",
+          "localizedDescription": "# Ledger X 1.0.5 开发版\n\n版本 1.0.5 · 构建 25 · main d035fab 。\n\n## 改进\n\n- 设置页各行的图标改为主题色圆角徽标，和快捷指令页同一种样式，与系统「设置」的观感一致；语言、面容 ID 锁定、隐藏金额、概览显示演示账本入口这几行也一样（隐藏金额以前没有图标）。",
           "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
-          "size": 10488518,
+          "size": 10485305,
           "minOSVersion": "17.0",
-          "sha256": "4fad44f74e6e225dba73976488c1cefccd5dd3e904abe4c9cc04b5fc5c66c1bd"
+          "sha256": "90ec92c9bb0e452be4173b36704c4844d5e0338828dc6f96061d0d3ae9ee68e1"
         },
         {
           "version": "1.0.4",
@@ -89,9 +89,9 @@
       },
       "version": "1.0.5",
       "versionDate": "2026-10-21T17:58:29Z",
-      "versionDescription": "# Ledger X 1.0.5 开发版\n\n版本 1.0.5 · 构建 24 · main 84f0ad1 。\n\n## 修复\n\n- 概览的趋势图和报表的月度收支、净资产、现金流预测图上，手指从图上起手上下滑动又能滚动页面了；上一个开发版里从图上起手滑不动页面，只能从图外起手。左右滑动看各月、点按选中照旧。",
+      "versionDescription": "# Ledger X 1.0.5 开发版\n\n版本 1.0.5 · 构建 25 · main d035fab 。\n\n## 改进\n\n- 设置页各行的图标改为主题色圆角徽标，和快捷指令页同一种样式，与系统「设置」的观感一致；语言、面容 ID 锁定、隐藏金额、概览显示演示账本入口这几行也一样（隐藏金额以前没有图标）。",
       "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
-      "size": 10488518
+      "size": 10485305
     }
   ],
   "news": []
