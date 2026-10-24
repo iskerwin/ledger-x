@@ -1063,6 +1063,16 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: moved, object: nil)], timeout: 3), .completed)
     }
 
+    /// After a save from the form, 明细 scrolls to the entry it wrote when it is far down the list (an older date),
+    /// and lights it up
+    func testTheJournalScrollsToTheEntryJustSaved() {
+        let extra = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/journal-extra.bean").path
+        let app = launchTab("journal", env: ["LEDGER_EXTRA": extra, "LEDGER_JUST_SAVED": "Old notebook"])
+        let row = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Old notebook")).firstMatch
+        let shown = NSPredicate(format: "exists == true AND hittable == true")
+        XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: shown, object: row)], timeout: 20), .completed)
+    }
+
     /// What a row offers on a swipe is also in its long-press menu (and so in VoiceOver's actions)
     func testARowsSwipeActionsAreInItsLongPressMenu() {
         let app = launchTab("overview", env: ["LEDGER_SYNC": "1", "LEDGER_HELD": "1"])

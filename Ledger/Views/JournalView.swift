@@ -398,96 +398,105 @@ struct JournalView: View {
         let sums = totals(matches, L)
         let days = groupByDay(shown)
         let filtered = !quick.isEmpty || account != nil || !q.trimmed.isEmpty
-        List {
-            Section {
-                // the quick filters, then the tags people look for
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: AppSpacing.icon) {
-                        ForEach(QuickFilter.allCases) { f in
-                            let on = quick.contains(f)
-                            Button {
-                                // the list changes at once; only the chip's colours fade
-                                if on { quick.removeAll { $0 == f } } else { quick.append(f) }
-                                Haptics.selection()
-                            } label: {
-                                HStack(spacing: AppSpacing.icon) { Image(systemName: f.icon); Text(f.title) }
-                                    .font(.subheadline.weight(on ? .semibold : .regular))
-                                    .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
-                                    .foregroundStyle(on ? Color.onJade : Color.primary)
-                                    .background(on ? Color.jade : Color(.tertiarySystemFill), in: Capsule())
-                                    .animation(AppMotion.quick, value: on)
+        // just saved from the form and in the list as it is (not filtered out, not past 加载更多): scrolled to, where
+        // it lights up; of several with the same text, the top one
+        let saved = store.justSaved.flatMap { s in shown.first { normEntryText($0.src) == s } }?.id
+        ScrollViewReader { proxy in
+            List {
+                Section {
+                    // the quick filters, then the tags people look for
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: AppSpacing.icon) {
+                            ForEach(QuickFilter.allCases) { f in
+                                let on = quick.contains(f)
+                                Button {
+                                    // the list changes at once; only the chip's colours fade
+                                    if on { quick.removeAll { $0 == f } } else { quick.append(f) }
+                                    Haptics.selection()
+                                } label: {
+                                    HStack(spacing: AppSpacing.icon) { Image(systemName: f.icon); Text(f.title) }
+                                        .font(.subheadline.weight(on ? .semibold : .regular))
+                                        .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
+                                        .foregroundStyle(on ? Color.onJade : Color.primary)
+                                        .background(on ? Color.jade : Color(.tertiarySystemFill), in: Capsule())
+                                        .animation(AppMotion.quick, value: on)
+                                }
+                                .buttonStyle(PressStyle())
                             }
-                            .buttonStyle(PressStyle())
-                        }
-                        ForEach(["#refund", "#transfer", "#fx", "#reimbursed"], id: \.self) { x in
-                            Chip(label: x, selected: q.trimmed == x) { q = q.trimmed == x ? "" : x; Haptics.selection() }
+                            ForEach(["#refund", "#transfer", "#fx", "#reimbursed"], id: \.self) { x in
+                                Chip(label: x, selected: q.trimmed == x) { q = q.trimmed == x ? "" : x; Haptics.selection() }
+                            }
                         }
                     }
-                }
-                if filtered || store.journalReturn != nil {
-                    // what is on, each with its ✕, and 清除 for all of it
-                    // beside the conditions when all fit on one line; otherwise on a line of their own under them
-                    ViewThatFits(in: .horizontal) {
-                        HStack(alignment: .top, spacing: AppSpacing.control) {
-                            FlowChips(items: conditionChips()).fixedSize()
-                            Spacer(minLength: 4)
-                            filterActions(filtered)
-                        }
-                        VStack(alignment: .leading, spacing: AppSpacing.icon) {
-                            FlowChips(items: conditionChips())
-                            HStack(spacing: AppSpacing.control) {
-                                Spacer(minLength: 0)
+                    if filtered || store.journalReturn != nil {
+                        // what is on, each with its ✕, and 清除 for all of it
+                        // beside the conditions when all fit on one line; otherwise on a line of their own under them
+                        ViewThatFits(in: .horizontal) {
+                            HStack(alignment: .top, spacing: AppSpacing.control) {
+                                FlowChips(items: conditionChips()).fixedSize()
+                                Spacer(minLength: 4)
                                 filterActions(filtered)
                             }
+                            VStack(alignment: .leading, spacing: AppSpacing.icon) {
+                                FlowChips(items: conditionChips())
+                                HStack(spacing: AppSpacing.control) {
+                                    Spacer(minLength: 0)
+                                    filterActions(filtered)
+                                }
+                            }
                         }
                     }
                 }
-            }
-            if showCalendar {
-                Section {
-                    JournalCalendar(L: L, entries: matches, account: account, picked: calendarDay?.day) { d in
-                        calendarDay = CalendarDay(day: d)
+                if showCalendar {
+                    Section {
+                        JournalCalendar(L: L, entries: matches, account: account, picked: calendarDay?.day) { d in
+                            calendarDay = CalendarDay(day: d)
+                        }
+                    }
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
+                }
+                if filtered {
+                    resultCard(matches, sums)
+                } else {
+                    // everything in the ledger: say so, so the totals are not read as this month's
+                    Section {
+                        VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                            HStack(spacing: AppSpacing.control) {
+                                Text(matches.last.map { LS("全部时间 · %@ 起", $0.date) } ?? LS("全部时间")).foregroundStyle(.secondary)
+                                Spacer()
+                                Text(LS("%@ 笔", matches.count)).foregroundStyle(.secondary)
+                            }
+                            HStack(spacing: AppSpacing.control) {
+                                if sums.0 != 0 { Text(LS("支出 ") + money(sums.0)) }
+                                if sums.1 != 0 { Text(LS("收入 ") + money(sums.1)) }
+                                Spacer()
+                            }
+                            .monospacedDigit().foregroundStyle(.secondary).sensitive()
+                        }
+                        .font(.footnote)
                     }
                 }
-                .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
-            }
-            if filtered {
-                resultCard(matches, sums)
-            } else {
-                // everything in the ledger: say so, so the totals are not read as this month's
-                Section {
-                    VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                        HStack(spacing: AppSpacing.control) {
-                            Text(matches.last.map { LS("全部时间 · %@ 起", $0.date) } ?? LS("全部时间")).foregroundStyle(.secondary)
-                            Spacer()
-                            Text(LS("%@ 笔", matches.count)).foregroundStyle(.secondary)
-                        }
-                        HStack(spacing: AppSpacing.control) {
-                            if sums.0 != 0 { Text(LS("支出 ") + money(sums.0)) }
-                            if sums.1 != 0 { Text(LS("收入 ") + money(sums.1)) }
-                            Spacer()
-                        }
-                        .monospacedDigit().foregroundStyle(.secondary).sensitive()
-                    }
-                    .font(.footnote)
+                ForEach(days, id: \.0) { group in
+                    daySection(group.0, group.1, L)
+                }
+                if matches.count > shown.count {
+                    Button { limit += 300 } label: { Label(LS("加载更多（%@ 笔）", min(300, matches.count - shown.count)), systemImage: "chevron.down").labelStyle(ControlLabelStyle()) }.frame(maxWidth: .infinity)
+                }
+                switch browseEmpty(count: matches.count, filtered: filtered) {
+                case .nothingHere:
+                    Text(LS("还没有交易")).foregroundStyle(.secondary)
+                case .nothingMatches:
+                    Text(LS("没有符合筛选的交易")).foregroundStyle(.secondary)
+                case .showing:
+                    EmptyView()
                 }
             }
-            ForEach(days, id: \.0) { group in
-                daySection(group.0, group.1, L)
-            }
-            if matches.count > shown.count {
-                Button { limit += 300 } label: { Label(LS("加载更多（%@ 笔）", min(300, matches.count - shown.count)), systemImage: "chevron.down").labelStyle(ControlLabelStyle()) }.frame(maxWidth: .infinity)
-            }
-            switch browseEmpty(count: matches.count, filtered: filtered) {
-            case .nothingHere:
-                Text(LS("还没有交易")).foregroundStyle(.secondary)
-            case .nothingMatches:
-                Text(LS("没有符合筛选的交易")).foregroundStyle(.secondary)
-            case .showing:
-                EmptyView()
+            .listStyle(.insetGrouped)
+            .task(id: saved) {
+                guard let saved, !selecting else { return }
+                withAnimation(reduceMotion ? nil : AppMotion.standard) { proxy.scrollTo(saved, anchor: .center) }
             }
         }
-        .listStyle(.insetGrouped)
     }
 
     /// how to search, while the box is empty: tap an example to start from it

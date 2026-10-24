@@ -471,6 +471,10 @@ final class Store: ObservableObject {
         afterLoad()
         let initial = newDraft(.expense, result.1, defaultFunding: nil)
         drafts.install(DraftSession(draft: initial, baseline: initial))
+        // 明细 as right after a save from the form: the entry whose text has this in it is the one just saved
+        if let s = env["LEDGER_JUST_SAVED"], let t = result.0.txns.first(where: { $0.src.contains(s) }) {
+            justSaved = normEntryText(t.src)
+        }
         if env["LEDGER_REVIEW"] != nil {
             // the pre-commit check: an expense the bank account can't cover, dated before its last assertion
             let before = result.0
