@@ -1019,6 +1019,15 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["添加预算"].waitForExistence(timeout: 5))
     }
 
+    /// small steps up until `element` is wholly on screen (a full swipe can carry it past)
+    private func scrollIntoView(_ element: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<8 {
+            if element.exists, element.isHittable, element.frame.maxY < app.frame.maxY - 100 { return }
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -150)))
+        }
+    }
+
     /// The overview's trend chart is read month by month by VoiceOver, and a finger slid sideways along it picks
     /// months (the last one stays picked, with 查看该月)
     func testTheTrendChartIsReadAndSlidAlong() {
@@ -1026,7 +1035,7 @@ final class EditInteractionTests: XCTestCase {
         app.buttons["月"].tap()
         let chart = app.otherElements["overview.trend"]
         XCTAssertTrue(chart.waitForExistence(timeout: 20))
-        for _ in 0..<4 { if chart.isHittable { break }; app.swipeUp() }
+        scrollIntoView(chart, in: app)
         // each month a mark of its own, read with its amount (the chart was one image before)
         let month = chart.otherElements.matching(NSPredicate(format: "label ENDSWITH %@", "月 支出")).firstMatch
         XCTAssertTrue(month.exists)
@@ -1037,6 +1046,21 @@ final class EditInteractionTests: XCTestCase {
         from.press(forDuration: 0.05, thenDragTo: to)
         let picked = app.otherElements["overview.hero"].staticTexts.matching(NSPredicate(format: "label MATCHES %@", "\\d{4}年\\d{1,2}月支出")).firstMatch
         XCTAssertTrue(picked.waitForExistence(timeout: 5))
+    }
+
+    /// A finger drawn up the trend chart scrolls the page, as anywhere else on it (sliding along the chart took
+    /// every drag on it, so the page stuck there)
+    func testSwipingUpOnTheTrendChartScrollsThePage() {
+        let app = launchTab("overview")
+        let chart = app.otherElements["overview.trend"]
+        XCTAssertTrue(chart.waitForExistence(timeout: 20))
+        scrollIntoView(chart, in: app)
+        let top = chart.frame.minY
+        let from = chart.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+        from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: -200)))
+        // scrolled up, or off the screen altogether
+        let moved = NSPredicate { _, _ in !chart.exists || chart.frame.minY < top - 100 }
+        XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: moved, object: nil)], timeout: 3), .completed)
     }
 
     /// What a row offers on a swipe is also in its long-press menu (and so in VoiceOver's actions)

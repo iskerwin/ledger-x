@@ -53,26 +53,67 @@ struct ChartPick<X: Plottable & Equatable>: ViewModifier {
     func body(content: Content) -> some View {
         content.chartOverlay { proxy in
             GeometryReader { geo in
-                Rectangle().fill(Color.clear).contentShape(Rectangle())
+                let layer = Rectangle().fill(Color.clear).contentShape(Rectangle())
                     .onTapGesture { location in
                         if let x = value(proxy, geo, location) { tap(x) }
                     }
-                    .simultaneousGesture(DragGesture(minimumDistance: 8)
+                if #available(iOS 18, *) {
+                    layer.gesture(SidePan(slide: { follow(proxy, geo, $0) }, ended: { last = nil }))
+                } else {
+                    layer.simultaneousGesture(DragGesture(minimumDistance: 8)
                         .onChanged { g in
-                            guard abs(g.translation.width) > abs(g.translation.height), let x = value(proxy, geo, g.location),
-                                  !(last.map { same($0, x) } ?? false) else { return }
-                            last = x
-                            slide(x)
-                            Haptics.selection()
+                            guard abs(g.translation.width) > abs(g.translation.height) else { return }
+                            follow(proxy, geo, g.location)
                         }
                         .onEnded { _ in last = nil })
+                }
             }
         }
+    }
+
+    private func follow(_ proxy: ChartProxy, _ geo: GeometryProxy, _ location: CGPoint) {
+        guard let x = value(proxy, geo, location), !(last.map { same($0, x) } ?? false) else { return }
+        last = x
+        slide(x)
+        Haptics.selection()
     }
 
     private func value(_ proxy: ChartProxy, _ geo: GeometryProxy, _ location: CGPoint) -> X? {
         guard let plot = proxy.plotFrame else { return nil }
         return proxy.value(atX: location.x - geo[plot].origin.x)
+    }
+}
+
+/// A sideways drag on a chart, in UIKit (iOS 18): a SwiftUI DragGesture there takes every drag that starts on it,
+/// so the page under it no longer scrolls. This pan starts only when the finger moves more sideways than up or
+/// down; otherwise it never begins and the page scrolls.
+@available(iOS 18, *)
+private struct SidePan: UIGestureRecognizerRepresentable {
+    let slide: (CGPoint) -> Void
+    let ended: () -> Void
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
+
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let pan = UIPanGestureRecognizer()
+        pan.delegate = context.coordinator
+        return pan
+    }
+
+    func handleUIGestureRecognizerAction(_ pan: UIPanGestureRecognizer, context: Context) {
+        switch pan.state {
+        case .began, .changed: slide(context.converter.localLocation)
+        case .ended, .cancelled, .failed: ended()
+        default: break
+        }
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
+            guard let pan = g as? UIPanGestureRecognizer else { return true }
+            let v = pan.velocity(in: pan.view)
+            return abs(v.x) > abs(v.y)
+        }
     }
 }
 
