@@ -59,6 +59,25 @@ final class SyntaxTests: XCTestCase {
         XCTAssertEqual(costs.map { $0?.currency }, ["USD", "USD"])
     }
 
+    /// Metadata after a posting is that posting's, however deep it is indented (bean-check 3: `lesskey` and `samekey`
+    /// on the postings above them, `txnkey` on the transaction); it went to the transaction unless indented deeper
+    func testMetadataAfterAPostingIsThePostings() {
+        let L = loadLedger(root: "main.bean") { _ in """
+        2026-01-01 open Assets:Bank
+        2026-01-01 open Expenses:Food
+        2026-01-02 * "meta"
+          txnkey: "t"
+            Expenses:Food  1.00 CNY
+          lesskey: "l"
+            Assets:Bank  -1.00 CNY
+            samekey: "s"
+        """ }
+        XCTAssertTrue(L.errors.isEmpty, L.errors.map { $0.msg }.joined(separator: "; "))
+        let t = L.txns[0]
+        XCTAssertEqual(t.meta.items.map(\.0), ["txnkey"])
+        XCTAssertEqual(t.postings.map { $0.meta.items.map(\.0) }, [["lesskey"], ["samekey"]])
+    }
+
     func testIncludeWildcards() {
         let files: [String: String] = [
             "main.bean": "include \"accounts.bean\"\ninclude \"journals/*.bean\"\ninclude \"more/**/*.bean\"\n",

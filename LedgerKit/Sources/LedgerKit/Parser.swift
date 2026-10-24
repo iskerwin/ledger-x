@@ -75,13 +75,11 @@ public func parseFile(_ text: String, file: String) -> ParseResult {
     }
 
     var cur: Entry? = nil
-    var postIndent = 0
     func flush() {
         if let c = cur {
             c.src = raw[c.startLine...c.endLine].joined(separator: "\n")
             res.entries.append(c)
             cur = nil
-            postIndent = 0
         }
     }
     func err(_ ln: LL, _ msg: String) {
@@ -252,12 +250,11 @@ public func parseFile(_ text: String, file: String) -> ParseResult {
         let line = trimEnd(stripComment(full))
         if isBlank(line) { continue }
         c.endLine = ln.end
-        var indent = 0
-        for ch in line { if ch == " " { indent += 1 } else if ch == "\t" { indent += 4 } else { break } }
         if let kv = metaKV(line, requireIndent: true) {
             let key = kv.0
             let value = parseValue(kv.1)
-            if c.type == .txn, let last = c.postings.last, indent > postIndent {
+            // after a posting, metadata is that posting's however it is indented (as in Beancount)
+            if c.type == .txn, let last = c.postings.last {
                 last.meta[key] = value
             } else {
                 c.meta[key] = value
@@ -281,7 +278,6 @@ public func parseFile(_ text: String, file: String) -> ParseResult {
             c.bad.append(str(line).trimmingCharacters(in: .whitespaces))
             continue
         }
-        postIndent = indent
         c.postings.append(p)
     }
     flush()
