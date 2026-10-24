@@ -1,0 +1,8 @@
+; for the budget layout test: a long category name and a large budget, whose year figure is wider than the month's
+2026-01-01 open Expenses:Home:Renovation-And-Furniture-Purchases
+
+2026-01-01 custom "budget" Expenses:Home:Renovation-And-Furniture-Purchases "monthly" 250000.00 CNY
+
+2026-01-15 * "Example contractor" "Kitchen"
+  Expenses:Home:Renovation-And-Furniture-Purchases  123456.78 CNY
+  Assets:Bank:CGB

@@ -1032,6 +1032,24 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["添加预算"].waitForExistence(timeout: 5))
     }
 
+    /// A long category with a large budget: the figures on the right wrapped to two lines in 本年 (wider than the
+    /// month's), so the row, and the card, grew when switching
+    func testABudgetRowKeepsItsHeightBetweenMonthAndYear() {
+        let extra = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/budget-extra.bean").path
+        let app = launchTab("reports", env: ["LEDGER_EXTRA": extra])
+        let budgets = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "预算")).firstMatch
+        XCTAssertTrue(budgets.waitForExistence(timeout: 20))
+        for _ in 0..<5 { if budgets.isHittable { break }; app.swipeUp() }
+        budgets.tap()
+        let row = app.buttons["budget.row"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        app.segmentedControls.buttons["本月"].tap()
+        let month = row.frame.height
+        app.segmentedControls.buttons["本年"].tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "3,000,000"), object: row)], timeout: 5), .completed)
+        XCTAssertEqual(row.frame.height, month, accuracy: 0.5)
+    }
+
     /// small steps up until `element` is wholly on screen (a full swipe can carry it past)
     private func scrollIntoView(_ element: XCUIElement, in app: XCUIApplication) {
         for _ in 0..<8 {

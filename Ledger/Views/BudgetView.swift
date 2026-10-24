@@ -12,14 +12,15 @@ struct BudgetRow: View {
     var body: some View {
         let color: Color = p.over ? .loss : p.ahead ? .warn : .jade
         VStack(alignment: .leading, spacing: AppSpacing.icon) {
-            HStack(alignment: .firstTextBaseline, spacing: AppSpacing.control) {
-                // the category's Chinese name first where it has one, the account name beside it, as in other lists
-                let zh = acctZH(p.budget.account)
-                Label(zh ?? acctLabel(p.budget.account), systemImage: "chart.pie").labelStyle(ControlLabelStyle()).lineLimit(1)
-                if zh != nil { Text(acctLabel(p.budget.account)).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
-                Spacer()
-                Text(money(p.spent, p.budget.currency) + " / " + money(p.limit, p.budget.currency, 0))
-                    .font(.subheadline.monospacedDigit()).sensitive()
+            // the figures whole on one line, the names giving way ("…", the account name first), so a long name or
+            // a year's larger figures never wrap the row taller; where even that leaves no room (the largest text
+            // sizes) the figures go under the names
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: AppSpacing.control) {
+                    names.frame(minWidth: 0, idealWidth: 60, maxWidth: .infinity, alignment: .leading)
+                    figures
+                }
+                VStack(alignment: .leading, spacing: AppSpacing.detail) { names; figures }
             }
             GeometryReader { g in
                 let grown = filled || reduceMotion
@@ -43,21 +44,40 @@ struct BudgetRow: View {
             .frame(height: 8)
             .animation(reduceMotion ? nil : AppMotion.standard, value: p.ratio)
             .onAppear { withAnimation(reduceMotion ? nil : AppMotion.standard.delay(0.1)) { filled = true } }
+            // one line too: the share whole, what is said before it cut short
             HStack(spacing: AppSpacing.control) {
                 Text(p.over ? LS("超支 %@", money(-p.remaining, p.budget.currency)) : LS("剩余 %@", money(p.remaining, p.budget.currency)))
                     .foregroundStyle(p.over ? Color.loss : Color.secondary)
+                    .layoutPriority(2)
                 // what the overspend mostly was, rather than the verdict alone
                 if p.over, let b = p.biggest, !b.what.isEmpty {
-                    Text(LS("主要是「%@」%@", b.what, money(b.amount, p.budget.currency))).foregroundStyle(.secondary).lineLimit(1)
+                    Text(LS("主要是「%@」%@", b.what, money(b.amount, p.budget.currency))).foregroundStyle(.secondary)
                 }
-                if p.ahead { Text(LS("· 花得比时间快")).foregroundStyle(Color.warn) }
-                Spacer()
-                Text(String(format: "%.0f%%", p.ratio * 100)).foregroundStyle(.secondary)
+                if p.ahead { Text(LS("· 花得比时间快")).foregroundStyle(Color.warn).layoutPriority(1) }
+                Spacer(minLength: 0)
+                Text(String(format: "%.0f%%", p.ratio * 100)).foregroundStyle(.secondary).fixedSize()
             }
+            .lineLimit(1)
             .font(.caption.monospacedDigit())
             .sensitive()
         }
         .padding(.vertical, AppSpacing.detail)
+    }
+
+    /// the category's Chinese name first where it has one, the account name beside it, as in other lists
+    private var names: some View {
+        let zh = acctZH(p.budget.account)
+        return HStack(alignment: .firstTextBaseline, spacing: AppSpacing.control) {
+            Label(zh ?? acctLabel(p.budget.account), systemImage: "chart.pie").labelStyle(ControlLabelStyle())
+                .layoutPriority(1)
+            if zh != nil { Text(acctLabel(p.budget.account)).font(.caption).foregroundStyle(.secondary) }
+        }
+        .lineLimit(1)
+    }
+
+    private var figures: some View {
+        Text(money(p.spent, p.budget.currency) + " / " + money(p.limit, p.budget.currency, 0))
+            .font(.subheadline.monospacedDigit()).lineLimit(1).fixedSize().sensitive()
     }
 }
 
@@ -120,6 +140,7 @@ struct BudgetsView: View {
                     VStack(alignment: .leading, spacing: AppSpacing.icon) {
                         Button { editing = BudgetDraft(p.budget, today: today) } label: { BudgetRow(p: p) }
                             .buttonStyle(.plain)
+                            .accessibilityIdentifier("budget.row")
                         Button {
                             let span = yearView ? key + "-01-01.." + key + "-12-31" : key
                             store.showInJournal(.report(month: span, account: p.budget.account))
