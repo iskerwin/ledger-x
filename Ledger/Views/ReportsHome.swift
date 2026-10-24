@@ -9,7 +9,6 @@ struct ReportsInsights: View {
     @Binding var path: NavigationPath
     @State private var month = Day.ym(Day.today())
     /// which way the month last moved, for the side its name comes in from
-    @State private var monthForward = true
     @AppStorage("ledger.reports.question") private var question = "where"
 
     var body: some View {
@@ -47,32 +46,10 @@ struct ReportsInsights: View {
 
     private var monthBar: some View {
         let now = Day.ym(Day.today())
-        return HStack(spacing: AppSpacing.icon) {
-            HStack(spacing: AppSpacing.control) {
-                Button { monthForward = false; month = Day.addMonth(month, -1) } label: { Image(systemName: "chevron.left") }
-                    .accessibilityLabel(LS("上个月"))
-                Spacer()
-                SlidingTitle(text: Day.monthLabel(month), forward: monthForward).font(.headline)
-                Spacer()
-                Button { monthForward = true; month = Day.addMonth(month, 1) } label: { Image(systemName: "chevron.right") }
-                    .accessibilityLabel(LS("下个月"))
-                    .disabled(month >= now)
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
-            .background(Color(.secondarySystemGroupedBackground), in: Capsule())
-            .monthSwipe(back: { monthForward = false; month = Day.addMonth(month, -1) },
-                        forward: month >= now ? nil : { monthForward = true; month = Day.addMonth(month, 1) })
+        return PeriodBar(title: Day.monthLabel(month), key: month, backTitle: LS("本月"), away: month != now, canGoOn: month < now,
+                         step: { k in month = min(now, Day.addMonth(month, k)) }, toNow: { month = now })
+            .monthSwipe(back: { month = Day.addMonth(month, -1) }, forward: month >= now ? nil : { month = Day.addMonth(month, 1) })
             .accessibilityElement(children: .contain).accessibilityIdentifier("reports.monthbar")
-            if month != now {
-                Button { monthForward = now > month; month = now } label: { Label(LS("本月"), systemImage: "calendar").labelStyle(ControlLabelStyle()) }
-                    .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
-                    .foregroundStyle(Color.jade)
-                    .background(Color.jade.soft, in: Capsule())
-                    .buttonStyle(.plain)
-            }
-        }
     }
 
     /// spending by category group in [from, to], in the operating currency

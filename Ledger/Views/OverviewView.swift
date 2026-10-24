@@ -8,11 +8,11 @@ struct OverviewView: View {
     @AppStorage("ledger.period") private var period = "month"
     @State private var month = Day.ym(Day.today())
     /// which way the month last moved, for the side its name comes in from
-    @State private var monthForward = true
     @State private var selCat: String?
     @State private var selPay: String?
     @State private var selLiab: String?
     @State private var picked: String?
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var reimb: ReimbTarget?
     @AppStorage(OverviewChart.styleKey) private var chartStyle = "list"
     @AppStorage(OverviewChart.trendKey) private var trend = "exp"
@@ -228,25 +228,24 @@ struct OverviewView: View {
         let delta = s.exp - s.prev
         return Group {
             Section {
-                HStack(spacing: AppSpacing.control) {
+                // the largest text sizes: 月 / 年 over the month, so neither is cut short
+                let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: AppSpacing.control))
+                    : AnyLayout(HStackLayout(spacing: AppSpacing.control))
+                layout {
                     Picker(LS("周期"), selection: $period) {
                         Text(LS("月")).tag("month")
                         Text(LS("年")).tag("year")
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 110)
+                    .frame(width: typeSize.isAccessibilitySize ? nil : 96)
                     // the swipe stays off 月 / 年, so its own slide still works
-                    HStack(spacing: AppSpacing.control) {
-                        Spacer()
-                        Button { monthForward = false; month = head.yearMode ? Day.addMonth(month, -12) : Day.addMonth(month, -1) } label: { Image(systemName: "chevron.left") }
-                            .accessibilityLabel(head.yearMode ? LS("上一年") : LS("上个月"))
-                        SlidingTitle(text: head.label, forward: monthForward).font(.headline).frame(minWidth: 96)
-                            .accessibilityIdentifier("overview.period")
-                        Button { monthForward = true; month = head.yearMode ? Day.addMonth(month, 12) : Day.addMonth(month, 1) } label: { Image(systemName: "chevron.right") }
-                            .accessibilityLabel(head.yearMode ? LS("下一年") : LS("下个月"))
-                    }
-                    .monthSwipe(back: { monthForward = false; month = Day.addMonth(month, head.yearMode ? -12 : -1) },
-                                forward: { monthForward = true; month = Day.addMonth(month, head.yearMode ? 12 : 1) })
+                    let now = head.yearMode ? String(Day.today().prefix(4)) : Day.ym(Day.today())
+                    let span = head.yearMode ? 12 : 1
+                    PeriodBar(title: head.label, key: head.key, backTitle: head.yearMode ? LS("今年") : LS("本月"), away: head.key != now,
+                              previousLabel: head.yearMode ? LS("上一年") : LS("上个月"), nextLabel: head.yearMode ? LS("下一年") : LS("下个月"),
+                              titleID: "overview.period", step: { month = Day.addMonth(month, $0 * span) }, toNow: { month = Day.ym(Day.today()) })
+                        .accessibilityElement(children: .contain).accessibilityIdentifier("overview.monthbar")
+                        .monthSwipe(back: { month = Day.addMonth(month, -span) }, forward: { month = Day.addMonth(month, span) })
                 }
                 .buttonStyle(.borderless)
                 .listRowBackground(Color.clear)

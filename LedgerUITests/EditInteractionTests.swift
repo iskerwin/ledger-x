@@ -954,6 +954,46 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "isSelected == true"), object: year)], timeout: 5), .completed)
     }
 
+    /// Every month switcher is ‹ title ›, the title in the middle and, away from now, the way back beside it:
+    /// its coming and going leaves the title where it is, and it brings the bar back to now
+    func testMonthSwitchersShowTheWayBackBesideTheTitle() {
+        // staysPut: the title in the middle, where the bar is wide enough (the overview's shares its row with 月 / 年:
+        // there the title sits left of the middle, with the way back's room kept beside it)
+        func check(_ app: XCUIApplication, bar: XCUIElement, title: XCUIElement, back: XCUIElement, previous: String, staysPut: Bool = true) {
+            XCTAssertTrue(bar.waitForExistence(timeout: 20))
+            if back.exists { back.tap() }
+            XCTAssertTrue(back.waitForNonExistence(timeout: 5))
+            let now = title.label, x = title.frame.midX
+            if staysPut { XCTAssertEqual(x, bar.frame.midX, accuracy: 2) }
+            let arrow = bar.buttons[previous], arrowX = arrow.frame.minX
+            arrow.tap()
+            XCTAssertTrue(back.waitForExistence(timeout: 5))
+            XCTAssertGreaterThan(back.frame.minX, title.frame.maxX)
+            XCTAssertGreaterThan(title.frame.minX, arrow.frame.maxX)
+            XCTAssertEqual(arrow.frame.minX, arrowX, accuracy: 0.5)
+            XCTAssertEqual(title.frame.midX, x, accuracy: 2)
+            back.tap()
+            XCTAssertTrue(back.waitForNonExistence(timeout: 5))
+            XCTAssertEqual(title.label, now)
+        }
+        var app = launchTab("overview")
+        app.buttons["月"].firstMatch.tap()
+        var bar = app.descendants(matching: .any)["overview.monthbar"].firstMatch
+        check(app, bar: bar, title: app.staticTexts["overview.period"], back: bar.buttons["本月"], previous: "上个月", staysPut: false)
+        app.buttons["年"].firstMatch.tap()
+        check(app, bar: bar, title: app.staticTexts["overview.period"], back: bar.buttons["今年"], previous: "上一年", staysPut: false)
+        app.terminate()
+
+        app = launchTab("reports")
+        bar = app.descendants(matching: .any)["reports.monthbar"].firstMatch
+        check(app, bar: bar, title: bar.staticTexts["period.title"], back: bar.buttons["本月"], previous: "上个月")
+        app.terminate()
+
+        app = launchTab("journal", env: ["LEDGER_CALENDAR": "1"])
+        let calendar = app.otherElements["calendar.month"]
+        check(app, bar: calendar, title: calendar.staticTexts["period.title"], back: app.buttons["calendar.today"], previous: "上个月")
+    }
+
     /// While the ledger loads, the tabs are there and 概览 and 明细 show their shape in grey, rather than a page
     /// with a spinner alone
     func testPagesShowTheirShapeWhileTheLedgerLoads() {

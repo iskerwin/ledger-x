@@ -287,6 +287,80 @@ struct SlidingTitle: View {
     }
 }
 
+/// ‹ title ›, one look for every month (or year) switcher: 概览, 报表 and the calendars. The title sits in the
+/// middle; beside it, while away from now, the way back (本月, 今年, 今天), whose coming and going moves nothing.
+struct PeriodBar: View {
+    let title: String
+    /// sortable ("2026-10", "2026"): a later one slides in from the right
+    let key: String
+    /// the way back's name, and whether it is shown (away from now, and now can be reached)
+    let backTitle: String
+    let away: Bool
+    var previousLabel = LS("上个月"), nextLabel = LS("下个月")
+    var canGoBack = true, canGoOn = true
+    /// on a light capsule of its own (a bar in a list); in a card, without
+    var capsule = true
+    var backID: String? = nil
+    var titleID: String? = nil
+    let step: (Int) -> Void
+    let toNow: () -> Void
+    /// the key shown before: the direction a new title slides in from
+    @State private var shown: String?
+
+    var body: some View {
+        // the first that fits: the title in the middle (the way back's room kept on the other side too), the title
+        // moved over for it, the way back as an icon with the title shrinking a little if it must
+        ViewThatFits(in: .horizontal) {
+            row(back(Text(backTitle)), even: true)
+            row(back(Text(backTitle)), even: false)
+            row(back(Image(systemName: "calendar")), even: false, squeeze: true)
+        }
+        .buttonStyle(.borderless)
+        .tint(Color.jade)
+        .padding(.horizontal, capsule ? AppSpacing.control : 0).padding(.vertical, capsule ? AppSpacing.icon : 0)
+        .background(capsule ? Color(.secondarySystemGroupedBackground) : .clear, in: Capsule())
+        .onAppear { shown = key }
+        .onChange(of: key) { _, k in shown = k }
+    }
+
+    /// shown away from now only, its room always kept, so its coming and going moves nothing
+    /// squeeze: the last one, where the title shrinks a little to fit (a large text size, a narrow bar)
+    private func row(_ way: some View, even: Bool, squeeze: Bool = false) -> some View {
+        HStack(spacing: AppSpacing.detail) {
+            arrow("chevron.left", previousLabel, enabled: canGoBack) { step(-1) }
+            Spacer(minLength: 0)
+            if even { way.hidden().accessibilityHidden(true) }
+            SlidingTitle(text: title, forward: key >= (shown ?? key)).font(.headline).fixedSize(horizontal: !squeeze, vertical: false)
+                .accessibilityIdentifier(titleID ?? "period.title")
+            ZStack {
+                way.hidden().accessibilityHidden(true)
+                if away { way.transition(.opacity) }
+            }
+            .animation(AppMotion.quick, value: away)
+            Spacer(minLength: 0)
+            arrow("chevron.right", nextLabel, enabled: canGoOn) { step(1) }
+        }
+    }
+
+    private func arrow(_ symbol: String, _ label: String, enabled: Bool, _ go: @escaping () -> Void) -> some View {
+        Button(action: go) { Image(systemName: symbol).font(.body.weight(.semibold)).frame(minWidth: 24, minHeight: 28) }
+            .disabled(!enabled)
+            .accessibilityLabel(label)
+    }
+
+    private func back(_ label: some View) -> some View {
+        Button(action: toNow) {
+            label.font(.subheadline.weight(.semibold)).lineLimit(1).fixedSize()
+                .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.detail)
+                .foregroundStyle(Color.jade)
+                .background(Color.jade.soft, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(backTitle)
+        .accessibilityIdentifier(backID ?? "period.now")
+    }
+}
+
 /// A month bar swiped sideways steps the month, like its arrows: a finger drawn to the left goes on to the next one,
 /// to the right back to the one before, with a light tick. An up-and-down drag is left to the page.
 struct MonthSwipe: ViewModifier {
