@@ -249,7 +249,7 @@ struct OverviewView: View {
                     let span = head.yearMode ? 12 : 1
                     PeriodBar(title: head.label, key: head.key, backTitle: head.yearMode ? LS("今年") : LS("本月"), away: head.key != now,
                               previousLabel: head.yearMode ? LS("上一年") : LS("上个月"), nextLabel: head.yearMode ? LS("下一年") : LS("下个月"),
-                              titleID: "overview.period", widest: head.yearMode ? nil : PeriodBar.widestMonth(month), step: { month = Day.addMonth(month, $0 * span) }, toNow: { month = Day.ym(Day.today()) })
+                              capsule: false, titleID: "overview.period", widest: head.yearMode ? nil : PeriodBar.widestMonth(month), step: { month = Day.addMonth(month, $0 * span) }, toNow: { month = Day.ym(Day.today()) })
                         .accessibilityElement(children: .contain).accessibilityIdentifier("overview.monthbar")
                         .monthSwipe(back: { month = Day.addMonth(month, -span) }, forward: { month = Day.addMonth(month, span) })
                 }
