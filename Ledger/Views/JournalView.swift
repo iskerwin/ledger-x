@@ -404,27 +404,35 @@ struct JournalView: View {
         ScrollViewReader { proxy in
             List {
                 Section {
-                    // the quick filters, then the tags people look for
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: AppSpacing.icon) {
-                            ForEach(QuickFilter.allCases) { f in
-                                let on = quick.contains(f)
-                                Button {
-                                    // the list changes at once; only the chip's colours fade
-                                    if on { quick.removeAll { $0 == f } } else { quick.append(f) }
-                                    Haptics.selection()
-                                } label: {
-                                    HStack(spacing: AppSpacing.icon) { Image(systemName: f.icon); Text(f.title) }
-                                        .font(.subheadline.weight(on ? .semibold : .regular))
-                                        .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
-                                        .foregroundStyle(on ? Color.onJade : Color.primary)
-                                        .background(on ? Color.jade : Color(.tertiarySystemFill), in: Capsule())
-                                        .animation(AppMotion.quick, value: on)
+                    // looking by date, the calendar takes the quick filters' place (what is on stays, with its ✕)
+                    if showCalendar {
+                        JournalCalendar(L: L, entries: matches, account: account) { d in
+                            calendarDay = CalendarDay(day: d)
+                        }
+                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
+                    } else {
+                        // the quick filters, then the tags people look for
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: AppSpacing.icon) {
+                                ForEach(QuickFilter.allCases) { f in
+                                    let on = quick.contains(f)
+                                    Button {
+                                        // the list changes at once; only the chip's colours fade
+                                        if on { quick.removeAll { $0 == f } } else { quick.append(f) }
+                                        Haptics.selection()
+                                    } label: {
+                                        HStack(spacing: AppSpacing.icon) { Image(systemName: f.icon); Text(f.title) }
+                                            .font(.subheadline.weight(on ? .semibold : .regular))
+                                            .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
+                                            .foregroundStyle(on ? Color.onJade : Color.primary)
+                                            .background(on ? Color.jade : Color(.tertiarySystemFill), in: Capsule())
+                                            .animation(AppMotion.quick, value: on)
+                                    }
+                                    .buttonStyle(PressStyle())
                                 }
-                                .buttonStyle(PressStyle())
-                            }
-                            ForEach(["#refund", "#transfer", "#fx", "#reimbursed"], id: \.self) { x in
-                                Chip(label: x, selected: q.trimmed == x) { q = q.trimmed == x ? "" : x; Haptics.selection() }
+                                ForEach(["#refund", "#transfer", "#fx", "#reimbursed"], id: \.self) { x in
+                                    Chip(label: x, selected: q.trimmed == x) { q = q.trimmed == x ? "" : x; Haptics.selection() }
+                                }
                             }
                         }
                     }
@@ -446,7 +454,7 @@ struct JournalView: View {
                             }
                         }
                     }
-                    if !filtered {
+                    if !filtered && !showCalendar {
                         // everything in the ledger, under the filters (a card of its own pushed the first entry down
                         // the screen): say so, so the totals are not read as this month's
                         VStack(alignment: .leading, spacing: AppSpacing.detail) {
@@ -464,14 +472,6 @@ struct JournalView: View {
                         }
                         .font(.footnote).foregroundStyle(.secondary)
                     }
-                }
-                if showCalendar {
-                    Section {
-                        JournalCalendar(L: L, entries: matches, account: account, picked: calendarDay?.day) { d in
-                            calendarDay = CalendarDay(day: d)
-                        }
-                    }
-                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
                 }
                 if filtered {
                     resultCard(matches, sums)

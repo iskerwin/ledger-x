@@ -761,29 +761,30 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertFalse(app.buttons["放弃修改并关闭"].exists)
     }
 
-    /// 今天 appears in the calendar's header away from this month. It must not make the header taller: the whole
-    /// calendar grew by a few points as the month changed, and paging stuttered.
-    func testCalendarKeepsItsHeightAwayFromThisMonth() {
-        continueAfterFailure = false
-        let app = XCUIApplication()
-        let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures").path
-        app.launchEnvironment = ["LEDGER_DEMO": fixture, "LEDGER_TAB": "journal", "LEDGER_LANG": "zh"]
-        app.launchArguments = ["-AppleLanguages", "(zh-Hans)"]
-        app.launch()
-        let calendar = app.otherElements["calendar.month"]
-        if !calendar.waitForExistence(timeout: 5) { tapPoint(app.buttons["月历"], timeout: 20) }
+    /// The journal's calendar is the system's: it keeps its height from month to month (a four-week February as a
+    /// six-week one), so the list under it does not move; open, it takes the quick filters' place, and what is on
+    /// stays with its ✕
+    func testTheCalendarTakesTheQuickFiltersPlaceAndKeepsItsHeight() {
+        let app = launchTab("journal", env: ["LEDGER_FILTERS": "large"])
+        // the calendar opens as it was left
+        let toggle = app.buttons.matching(NSPredicate(format: "label IN %@", ["月历", "收起月历"])).firstMatch
+        XCTAssertTrue(toggle.waitForExistence(timeout: 20))
+        let calendar = app.descendants(matching: .any)["calendar.month"].firstMatch
+        if !calendar.exists { tapPoint(app.buttons["月历"], timeout: 5) }
         XCTAssertTrue(calendar.waitForExistence(timeout: 5))
-        // the calendar opens on the month last looked at: start from this month
-        let today = app.buttons["calendar.today"]
-        if today.exists { today.tap() }
-        XCTAssertTrue(today.waitForNonExistence(timeout: 5))
-        // the weekday names sit right under the header: a taller header pushes them, and the month, down
-        let weekday = calendar.staticTexts["一"]
-        XCTAssertTrue(weekday.exists)
-        let before = weekday.frame.minY
-        app.buttons["上个月"].tap()
-        XCTAssertTrue(today.waitForExistence(timeout: 5))
-        XCTAssertEqual(weekday.frame.minY, before, accuracy: 0.5)
+        XCTAssertFalse(app.buttons["本月"].exists)
+        XCTAssertFalse(app.buttons["#refund"].exists)
+        XCTAssertTrue(app.buttons["清除"].exists)
+        let height = calendar.frame.height, below = app.otherElements["calendar.figures"].frame.minY
+        let previous = calendar.buttons["上个月"]
+        for _ in 0..<8 {
+            previous.tap()
+            XCTAssertEqual(calendar.frame.height, height, accuracy: 0.5)
+            XCTAssertEqual(app.otherElements["calendar.figures"].frame.minY, below, accuracy: 0.5)
+        }
+        // closed again, the quick filters are back
+        tapPoint(app.buttons["收起月历"], timeout: 5)
+        XCTAssertTrue(app.buttons["本月"].waitForExistence(timeout: 5))
     }
 
     private func launchTab(_ tab: String, accessibility: Bool = false, textSize: String? = nil, env: [String: String] = [:]) -> XCUIApplication {
@@ -957,7 +958,7 @@ final class EditInteractionTests: XCTestCase {
 
     /// Every month switcher is ‹ title ›, the title in the middle and, away from now, the way back beside it:
     /// its coming and going leaves the title where it is, and it brings the bar back to now (the overview's way back
-    /// is on its card: testTheOverviewCardTakesYouBackToNow)
+    /// is on its card: testTheOverviewCardTakesYouBackToNow; the calendars are the system's)
     func testMonthSwitchersShowTheWayBackBesideTheTitle() {
         func check(_ app: XCUIApplication, bar: XCUIElement, title: XCUIElement, back: XCUIElement, previous: String) {
             XCTAssertTrue(bar.waitForExistence(timeout: 20))
@@ -976,33 +977,16 @@ final class EditInteractionTests: XCTestCase {
             XCTAssertTrue(back.waitForNonExistence(timeout: 5))
             XCTAssertEqual(title.label, now)
         }
-        var app = launchTab("reports")
+        let app = launchTab("reports")
         let bar = app.descendants(matching: .any)["reports.monthbar"].firstMatch
         check(app, bar: bar, title: bar.staticTexts["period.title"], back: bar.buttons["本月"], previous: "上个月")
-        app.terminate()
-
-        app = launchTab("journal", env: ["LEDGER_CALENDAR": "1"])
-        let calendar = app.otherElements["calendar.month"]
-        check(app, bar: calendar, title: calendar.staticTexts["period.title"], back: app.buttons["calendar.today"], previous: "上个月")
     }
 
-    /// At larger text sizes too, the month's title stays where it was when the way back comes: the bar chose its
-    /// layout by the month's own name, so a wider one (2026年10月, no way back) could get another than a narrower
-    /// one (2026年9月, with it), and the title jumped
+    /// At larger text sizes too, the month's title stays where it was from one month to the next: the bar chose its
+    /// layout by the month's own name, so a wider one (2026年10月) could get another than a narrower one (2026年9月),
+    /// and the title jumped
     func testTheMonthTitleStaysPutAtLargerTextSizes() {
         for size in ["UICTContentSizeCategoryXL", "UICTContentSizeCategoryXXL", "UICTContentSizeCategoryXXXL", "UICTContentSizeCategoryAccessibilityM"] {
-            let app = launchTab("journal", textSize: size, env: ["LEDGER_CALENDAR": "1"])
-            let calendar = app.otherElements["calendar.month"]
-            XCTAssertTrue(calendar.waitForExistence(timeout: 20))
-            let back = app.buttons["calendar.today"], title = calendar.staticTexts["period.title"]
-            if back.exists { back.tap() }
-            XCTAssertTrue(back.waitForNonExistence(timeout: 5))
-            let x = title.frame.midX
-            calendar.buttons["上个月"].tap()
-            XCTAssertTrue(back.waitForExistence(timeout: 5))
-            XCTAssertEqual(title.frame.midX, x, accuracy: 1, size)
-            app.terminate()
-
             let overview = launchTab("overview", textSize: size)
             overview.buttons["月"].firstMatch.tap()
             let bar = overview.descendants(matching: .any)["overview.monthbar"].firstMatch
@@ -1204,11 +1188,8 @@ final class EditInteractionTests: XCTestCase {
     /// The calendar's 支出 · 收入 · 结余 sit centred in equal columns: a month's wide income no longer pushes 收入 aside
     func testCalendarFiguresSitInEqualColumns() {
         let app = launchTab("journal", env: ["LEDGER_EXTRA": heightExtra, "LEDGER_CALENDAR": "1"])
-        let calendar = app.otherElements["calendar.month"]
+        let calendar = app.descendants(matching: .any)["calendar.month"].firstMatch
         XCTAssertTrue(calendar.waitForExistence(timeout: 20))
-        let today = app.buttons["calendar.today"]
-        if today.exists { today.tap() }
-        XCTAssertTrue(today.waitForNonExistence(timeout: 5))
         let figures = app.otherElements["calendar.figures"]
         let spent = figures.staticTexts["支出"], income = figures.staticTexts["收入"], net = figures.staticTexts["结余"]
         XCTAssertTrue(spent.exists && income.exists && net.exists)

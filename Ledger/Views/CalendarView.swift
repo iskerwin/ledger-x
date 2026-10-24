@@ -12,8 +12,6 @@ struct JournalCalendar: View {
     let entries: [Entry]
     /// filtered to one account: amounts on that account instead of spending / income
     let account: String?
-    /// the day opened (its sheet), on a full theme-coloured disc
-    let picked: String?
     let pick: (String) -> Void
     @State private var month = Day.ym(Day.today())
 
@@ -61,7 +59,7 @@ struct JournalCalendar: View {
             .padding(.vertical, AppSpacing.detail)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("calendar.figures")
-            MonthCalendar(marks: marks, month: $month, selected: picked, last: Day.today(), describe: { d in
+            MonthCalendar(marks: marks, month: $month, last: Day.today(), describe: { d in
                 totals[d].flatMap { x in
                     let parts = [x.out > 0.005 ? LS("支出 ") + money(x.out) : nil, x.inn > 0.005 ? LS("收入 ") + money(x.inn) : nil].compactMap { $0 }
                     return parts.isEmpty ? (x.n > 0 ? LS("%@ 笔其他交易", x.n) : nil) : parts.joined(separator: " ")
@@ -103,136 +101,128 @@ struct JournalCalendar: View {
 }
 
 
-/// One month calendar for the whole app, drawn like the system's but compact (about 38 pt a week instead of 50):
-/// the day in the rounded face, today on a light theme-coloured disc, the open day on a full one, and up to three
-/// dots under each day in its colours. Swiped or stepped from month to month. Days are "YYYY-MM-DD", months "YYYY-MM".
-struct MonthCalendar: View {
+/// One month calendar for the whole app: the system's (UICalendarView), in the theme colour, with up to three dots
+/// under each day in its colours. The system draws the header, pages from month to month and offers its month and
+/// year wheel. Days are "YYYY-MM-DD", months "YYYY-MM".
+struct MonthCalendar: UIViewRepresentable {
     /// the dots under each day, left to right (spending in the theme colour, then income in green, or grey)
     var marks: [String: [Color]]
-    /// the month on screen; changed here to move the calendar, set by it when the user swipes or steps
+    /// the month on screen; changed here to move the calendar, set by it when the user swipes
     @Binding var month: String
-    /// the open day (its sheet, or the list narrowed to it), on a full theme-coloured disc
-    var selected: String? = nil
     /// the first and last days that can be picked (the journal goes back years and up to today; coming charges
     /// start today)
     var first: String = "2000-01-01"
     var last: String
-    /// what VoiceOver reads after the date ("支出 ¥12.00"), when there is something
+    /// what VoiceOver reads with the day's dots ("支出 ¥12.00"), when there is something
     var describe: (String) -> String? = { _ in nil }
     var pick: (String) -> Void
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// the page the pager is on; kept apart from `month` so a swipe in progress and a step from outside
-    /// (the arrows, 今天, a new search) each move the other without a loop
-    @State private var page: String?
 
-    var body: some View {
-        VStack(spacing: AppSpacing.icon) {
-            header
-            HStack(spacing: 0) {
-                ForEach(Array(weekdays.enumerated()), id: \.offset) { _, w in
-                    Text(w).font(.caption2.weight(.medium)).foregroundStyle(.secondary).frame(maxWidth: .infinity)
-                }
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIView(context: Context) -> UICalendarView {
+        let v = UICalendarView()
+        v.calendar = Day.calendar
+        v.locale = AppLanguage.current.locale
+        v.fontDesign = .rounded
+        v.tintColor = Self.tint(context)
+        v.delegate = context.coordinator
+        v.selectionBehavior = UICalendarSelectionSingleDate(delegate: context.coordinator)
+        v.setContentHuggingPriority(.required, for: .vertical)
+        v.accessibilityIdentifier = "calendar.month"
+        context.coordinator.apply(self, to: v, animated: false)
+        return v
+    }
+
+    func updateUIView(_ v: UICalendarView, context: Context) {
+        v.tintColor = Self.tint(context)
+        context.coordinator.apply(self, to: v, animated: true)
+    }
+
+    /// the theme colour as this screen draws it (light or dark), for today, the days and the arrows
+    private static func tint(_ context: Context) -> UIColor {
+        UIColor(cgColor: Color.jade.resolve(in: context.environment).cgColor)
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UICalendarView, context: Context) -> CGSize? {
+        let width = proposal.width ?? 320
+        let fit = uiView.systemLayoutSizeFitting(CGSize(width: width, height: UIView.layoutFittingCompressedSize.height),
+                                                 withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel)
+        return CGSize(width: width, height: fit.height)
+    }
+
+    final class Coordinator: NSObject, UICalendarViewDelegate, UICalendarSelectionSingleDateDelegate {
+        var parent: MonthCalendar
+        private var shown: [String: [Color]] = [:]
+        init(_ parent: MonthCalendar) { self.parent = parent }
+
+        private static func components(_ day: String) -> DateComponents? {
+            let p = day.split(separator: "-").compactMap { Int($0) }
+            guard p.count >= 2 else { return nil }
+            return DateComponents(calendar: Day.calendar, year: p[0], month: p[1], day: p.count > 2 ? p[2] : 1)
+        }
+
+        private static func day(_ c: DateComponents) -> String? {
+            guard let y = c.year, let m = c.month, let d = c.day else { return nil }
+            return String(format: "%04d-%02d-%02d", y, m, d)
+        }
+
+        func apply(_ next: MonthCalendar, to v: UICalendarView, animated: Bool) {
+            parent = next
+            if let start = Day.date(next.first), let end = Day.date(next.last) {
+                let range = DateInterval(start: start, end: max(start, end))
+                if v.availableDateRange != range { v.availableDateRange = range }
             }
-            // the months side by side, paged as the system's calendar is: the month follows the finger and snaps
-            // into place; built only near the one on screen. Six weeks high, so short months don't jump.
-            ScrollView(.horizontal) {
-                LazyHStack(alignment: .top, spacing: 0) {
-                    ForEach(months, id: \.self) { m in
-                        weeks(m).containerRelativeFrame(.horizontal)
-                    }
-                }
-                .scrollTargetLayout()
-            }
-            .scrollTargetBehavior(.paging)
-            .scrollIndicators(.hidden)
-            .scrollPosition(id: $page)
-            .frame(height: 6 * Self.weekHeight + 5 * AppSpacing.detail)
-            .onAppear { if page == nil { page = month } }
-            .onChange(of: page) { _, p in if let p, p != month { month = p } }
-            .onChange(of: month) { _, m in
-                guard page != m else { return }
-                withAnimation(reduceMotion ? nil : AppMotion.standard) { page = m }
+            // only the days whose dots changed are drawn again
+            let changed = Set(shown.keys).union(next.marks.keys).filter { shown[$0] != next.marks[$0] }
+            shown = next.marks
+            let comps = changed.compactMap(Self.components)
+            if !comps.isEmpty { v.reloadDecorations(forDateComponents: comps, animated: animated) }
+            let visible = v.visibleDateComponents
+            if let want = Self.components(next.month + "-01"), visible.year != want.year || visible.month != want.month {
+                v.setVisibleDateComponents(want, animated: animated)
             }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("calendar.month")
-    }
 
-    /// a week's row: the day's disc and its dots
-    private static let weekHeight: CGFloat = 38
-
-    /// every month that can be shown, oldest first
-    private var months: [String] {
-        var out: [String] = [], m = Day.ym(first)
-        let end = Day.ym(last)
-        while m <= end { out.append(m); m = Day.addMonth(m, 1) }
-        return out
-    }
-
-    private var header: some View {
-        let now = Day.ym(Day.today())
-        return PeriodBar(title: Day.monthLabel(month), key: month, backTitle: LS("今天"),
-                         away: month != now && now >= Day.ym(first) && now <= Day.ym(last),
-                         canGoBack: Day.addMonth(month, -1) >= Day.ym(first), canGoOn: Day.addMonth(month, 1) <= Day.ym(last),
-                         capsule: false, backID: "calendar.today", widest: PeriodBar.widestMonth(month), step: step, toNow: { month = now })
-    }
-
-    private func step(_ k: Int) {
-        let next = Day.addMonth(month, k)
-        guard next >= Day.ym(first), next <= Day.ym(last) else { return }
-        month = next
-    }
-
-    /// weekday names starting on the locale's first day of the week
-    private var weekdays: [String] {
-        let names = KitLocale.chinese ? Array("日一二三四五六").map(String.init) : ["S", "M", "T", "W", "T", "F", "S"]
-        let start = Calendar.current.firstWeekday - 1
-        return (0..<7).map { names[(start + $0) % 7] }
-    }
-
-    /// a month's weeks, only as many rows as it needs (at the top of its six-week page)
-    private func weeks(_ month: String) -> some View {
-        let count = Int(Day.monthEnd(month).suffix(2)) ?? 30
-        let wd = Day.date(month + "-01").map { Day.calendar.component(.weekday, from: $0) } ?? 1
-        let lead = (wd - Calendar.current.firstWeekday + 7) % 7
-        let days: [String?] = Array(repeating: nil, count: lead) + (1...count).map { month + String(format: "-%02d", $0) }
-        let rows = stride(from: 0, to: days.count, by: 7).map { Array(days[$0..<min($0 + 7, days.count)]) }
-        let today = Day.today()
-        return VStack(spacing: AppSpacing.detail) {
-            ForEach(rows.indices, id: \.self) { r in
-                HStack(spacing: 0) {
-                    ForEach(0..<7, id: \.self) { i in
-                        if i < rows[r].count, let d = rows[r][i] { cell(d, today: today) } else { Color.clear.frame(maxWidth: .infinity) }
-                    }
+        func calendarView(_ calendarView: UICalendarView, decorationFor dateComponents: DateComponents) -> UICalendarView.Decoration? {
+            guard let d = Self.day(dateComponents), let colors = shown[d], !colors.isEmpty else { return nil }
+            let said = parent.describe(d)
+            return .customView {
+                let dots = colors.prefix(3).map { c -> UIView in
+                    let v = UIView()
+                    v.backgroundColor = UIColor(c)
+                    v.layer.cornerRadius = 2.5
+                    v.translatesAutoresizingMaskIntoConstraints = false
+                    NSLayoutConstraint.activate([v.widthAnchor.constraint(equalToConstant: 5), v.heightAnchor.constraint(equalToConstant: 5)])
+                    return v
                 }
+                let stack = UIStackView(arrangedSubviews: Array(dots))
+                stack.axis = .horizontal
+                stack.spacing = 3
+                // sized by its dots: the system lays the decoration out at the size it asks for
+                let width = CGFloat(dots.count) * 5 + CGFloat(dots.count - 1) * 3
+                stack.frame = CGRect(x: 0, y: 0, width: width, height: 5)
+                stack.translatesAutoresizingMaskIntoConstraints = false
+                NSLayoutConstraint.activate([stack.widthAnchor.constraint(equalToConstant: width), stack.heightAnchor.constraint(equalToConstant: 5)])
+                stack.isAccessibilityElement = said != nil
+                stack.accessibilityLabel = said
+                return stack
             }
         }
-    }
 
-    private func cell(_ d: String, today: String) -> some View {
-        let open = d >= first && d <= last
-        let isToday = d == today, isSelected = d == selected
-        let dots = marks[d] ?? []
-        return Button { pick(d) } label: {
-            VStack(spacing: 3) {
-                Text(String(Int(d.suffix(2)) ?? 0))
-                    .font(.system(.callout, design: .rounded).weight(isToday || isSelected ? .bold : .medium).monospacedDigit())
-                    // the days in the theme colour; today on a light disc, the open day on a full one, the rest greyed
-                    .foregroundStyle(isSelected ? Color.onJade : open ? Color.jade : Color.secondary.opacity(0.45))
-                    .frame(width: 30, height: 30)
-                    .background(isSelected ? Color.jade : isToday ? Color.jade.soft : Color.clear, in: Circle())
-                HStack(spacing: 3) {
-                    ForEach(Array(dots.prefix(3).enumerated()), id: \.offset) { _, c in Circle().fill(c).frame(width: 5, height: 5) }
-                }
-                .frame(height: 5)
-            }
-            .frame(maxWidth: .infinity)
-            .contentShape(Rectangle())
+        func calendarView(_ calendarView: UICalendarView, didChangeVisibleDateComponentsFrom previous: DateComponents) {
+            let c = calendarView.visibleDateComponents
+            guard let y = c.year, let m = c.month else { return }
+            let month = String(format: "%04d-%02d", y, m)
+            if month != parent.month { DispatchQueue.main.async { self.parent.month = month } }
         }
-        .buttonStyle(.plain)
-        .disabled(!open)
-        .accessibilityLabel(Day.dayLabel(d) + (describe(d).map { " " + $0 } ?? ""))
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+
+        /// A tap only picks the day: the system marks a selected day in black, not in the theme colour, so the
+        /// mark is taken off at once and the screen says which day is open (its sheet, or the list's heading).
+        func dateSelection(_ selection: UICalendarSelectionSingleDate, didSelectDate dateComponents: DateComponents?) {
+            guard let d = dateComponents.flatMap(Self.day) else { return }
+            selection.setSelected(nil, animated: true)
+            parent.pick(d)
+        }
     }
 }
 
