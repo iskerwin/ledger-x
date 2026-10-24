@@ -1067,20 +1067,22 @@ struct TrialBalanceView: View {
         let convNow = mode.converted.flatMap { conv.amounts[$0] } ?? 0
         return VStack(alignment: .leading, spacing: AppSpacing.icon) {
             Text(LS("截至 %@ · 原始符号（借方为正，贷方为负）", today)).font(.caption).foregroundStyle(.secondary)
-            Grid(alignment: .trailing, horizontalSpacing: AppSpacing.control, verticalSpacing: AppSpacing.icon) {
+            // three equal columns across the card, each centred
+            Grid(horizontalSpacing: AppSpacing.control, verticalSpacing: AppSpacing.icon) {
                 GridRow {
-                    Text(LS("币种")).gridColumnAlignment(.leading)
-                    Text(LS("借方合计"))
-                    Text(LS("贷方合计"))
+                    Text(LS("币种")).frame(maxWidth: .infinity)
+                    Text(LS("借方合计")).frame(maxWidth: .infinity)
+                    Text(LS("贷方合计")).frame(maxWidth: .infinity)
                 }
                 .font(.caption).foregroundStyle(.secondary)
                 ForEach(ccys, id: \.self) { c in
                     GridRow {
-                        Text(c).font(.subheadline.weight(.medium)).gridColumnAlignment(.leading)
-                        Text(unitText(debit[c] ?? 0, c)).monospacedDigit().sensitive()
-                        Text(unitText(credit[c] ?? 0, c)).monospacedDigit().sensitive()
+                        Text(c).font(.subheadline.weight(.medium)).frame(maxWidth: .infinity)
+                        Text(unitText(debit[c] ?? 0, c)).monospacedDigit().sensitive().frame(maxWidth: .infinity)
+                        Text(unitText(credit[c] ?? 0, c)).monospacedDigit().sensitive().frame(maxWidth: .infinity)
                     }
                     .font(.subheadline)
+                    .lineLimit(1).minimumScaleFactor(0.7)
                 }
             }
             if !unpriced.isEmpty {

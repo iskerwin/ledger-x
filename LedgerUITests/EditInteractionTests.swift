@@ -1072,6 +1072,21 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertEqual(range.frame.minY - parts.frame.minY, gap, accuracy: 0.5)
     }
 
+    /// The trial balance's 币种 · 借方合计 · 贷方合计 span the card in three equal centred columns (they hugged the left)
+    func testTheTrialBalanceColumnsSpanTheCard() {
+        let app = launchTab("reports", env: ["LEDGER_REPORT": "trial"])
+        let debit = app.staticTexts["借方合计"].firstMatch
+        XCTAssertTrue(debit.waitForExistence(timeout: 20))
+        let currency = app.staticTexts["币种"].firstMatch, credit = app.staticTexts["贷方合计"].firstMatch
+        let mid = app.windows.firstMatch.frame.midX
+        XCTAssertEqual(debit.frame.midX, mid, accuracy: 2)
+        XCTAssertEqual(currency.frame.midX + credit.frame.midX, 2 * mid, accuracy: 2)
+        XCTAssertGreaterThan(debit.frame.midX - currency.frame.midX, app.windows.firstMatch.frame.width / 4)
+        // the figures sit under their headings
+        let cny = app.staticTexts["CNY"].firstMatch
+        XCTAssertEqual(cny.frame.midX, currency.frame.midX, accuracy: 2)
+    }
+
     /// A gesture's hints go once it has been used: the charts' after a tap on one, 点按查看交易 / 点按扇区展开 after a
     /// category or payee is opened, the 左滑 half of a footer after a row has been swiped, 长按 after a long press; and they stay gone
     func testGestureHintsGoOnceTheGestureIsUsed() {
