@@ -260,15 +260,13 @@ struct DemoEntryCard: View {
                     Button { Task { await store.openDemo() } } label: { Label(LS("打开"), systemImage: "folder").labelStyle(ControlLabelStyle()) }
                         .disabled(store.demoBusy)
                         .buttonStyle(.bordered).tint(.jade).controlSize(.small)
-                    Button { withAnimation { shown = false } } label: { Image(systemName: "xmark").font(.caption.weight(.bold)).foregroundStyle(.secondary) }
+                    Button { withAnimation { shown = false }; store.show(LS("已关闭演示账本入口，可在「设置 → 更多」里重新打开")) } label: { Image(systemName: "xmark").font(.caption.weight(.bold)).foregroundStyle(.secondary) }
                         .buttonStyle(.plain)
                         .accessibilityLabel(LS("不再显示"))
                 }
                 .padding(AppSpacing.control)
                 .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .cardRow()
-            } footer: {
-                Text(LS("关掉后可在「设置 → 更多」里重新打开。"))
             }
         }
     }

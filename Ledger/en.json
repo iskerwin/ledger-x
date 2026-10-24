@@ -370,7 +370,7 @@
  "公积金与社保": "Housing fund and social insurance",
  "共 %@ 笔；%@ 笔疑似已记账（默认跳过）；另有 %@ 行交易关闭、失败或无法识别。不计收支的转账默认跳过。": "%@ in all; %@ look already recorded (skipped); %@ more rows were closed, failed or unreadable. Transfers are skipped by default.",
  "关于 Ledger X": "About Ledger X",
- "关掉后可在「设置 → 更多」里重新打开。": "Turn it back on in Settings › More.",
+ "已关闭演示账本入口，可在「设置 → 更多」里重新打开": "Demo ledger card hidden. Turn it back on in Settings › More.",
  "关掉的账户不在资产负债表里列出，也不计入它的合计。": "Accounts switched off aren't listed on the balance sheet or counted in its totals.",
  "关掉的账户不计入概览、账户页和净资产走势里的净资产；账户本身照常显示和记账。": "Accounts switched off aren't counted in net worth on the overview, the accounts page or the net worth trend; they still show and work as usual.",
  "关联": "Link",
