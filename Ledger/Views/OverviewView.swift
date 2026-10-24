@@ -232,6 +232,11 @@ struct OverviewView: View {
         let net = s.inc - s.exp
         let rate: Double? = s.inc > 0 ? net / s.inc * 100 : nil
         let delta = s.exp - s.prev
+        // away from now: another month or year on the bar, or a month picked on the chart; the card's way back
+        // brings both back (this year with a month picked is still this year: 回到全年)
+        let thisYear = String(Day.today().prefix(4))
+        let away = picked != nil || head.key != (head.yearMode ? thisYear : Day.ym(Day.today()))
+        let backTitle = !head.yearMode ? LS("回到本月") : head.key == thisYear ? LS("回到全年") : LS("回到今年")
         return Group {
             Section {
                 // the largest text sizes: 月 / 年 over the month, so neither is cut short
@@ -245,11 +250,11 @@ struct OverviewView: View {
                     .pickerStyle(.segmented)
                     .frame(width: typeSize.isAccessibilitySize ? nil : 96)
                     // the swipe stays off 月 / 年, so its own slide still works
-                    let now = head.yearMode ? String(Day.today().prefix(4)) : Day.ym(Day.today())
+                    // the way back to now is on the card below, not here
                     let span = head.yearMode ? 12 : 1
-                    PeriodBar(title: head.label, key: head.key, backTitle: head.yearMode ? LS("今年") : LS("本月"), away: head.key != now,
+                    PeriodBar(title: head.label, key: head.key,
                               previousLabel: head.yearMode ? LS("上一年") : LS("上个月"), nextLabel: head.yearMode ? LS("下一年") : LS("下个月"),
-                              capsule: false, titleID: "overview.period", widest: head.yearMode ? nil : PeriodBar.widestMonth(month), step: { month = Day.addMonth(month, $0 * span) }, toNow: { month = Day.ym(Day.today()) })
+                              capsule: false, titleID: "overview.period", widest: head.yearMode ? nil : PeriodBar.widestMonth(month), step: { month = Day.addMonth(month, $0 * span) })
                         .accessibilityElement(children: .contain).accessibilityIdentifier("overview.monthbar")
                         .monthSwipe(back: { month = Day.addMonth(month, -span) }, forward: { month = Day.addMonth(month, span) })
                 }
@@ -266,11 +271,11 @@ struct OverviewView: View {
                                 Spacer()
                                 // its room always kept (it is taller than the heading), so its coming and going does
                                 // not make the card taller
-                                let back = Button { withAnimation(AppMotion.quick) { picked = nil } } label: { Label(head.yearMode ? LS("回到全年") : LS("回到本月"), systemImage: "calendar").labelStyle(ControlLabelStyle()) }
+                                let back = Button { withAnimation(AppMotion.quick) { picked = nil; month = Day.ym(Day.today()) } } label: { Label(backTitle, systemImage: "calendar").labelStyle(ControlLabelStyle()) }
                                     .font(.caption.weight(.semibold)).buttonStyle(.borderless)
                                 ZStack {
                                     back.hidden().accessibilityHidden(true)
-                                    if picked != nil { back }
+                                    if away { back }
                                 }
                             }
                             Text(money(s.exp, cur)).heroAmount(40).monospacedDigit().accessibilityIdentifier("overview.spent")

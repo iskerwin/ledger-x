@@ -318,9 +318,9 @@ struct PeriodBar: View {
     let title: String
     /// sortable ("2026-10", "2026"): a later one slides in from the right
     let key: String
-    /// the way back's name, and whether it is shown (away from now, and now can be reached)
-    let backTitle: String
-    let away: Bool
+    /// the way back's name, and whether it is shown (away from now, and now can be reached); none without `toNow`
+    var backTitle = ""
+    var away = false
     var previousLabel = LS("上个月"), nextLabel = LS("下个月")
     var canGoBack = true, canGoOn = true
     /// on a light capsule of its own (a bar in a list); in a card, without
@@ -332,7 +332,8 @@ struct PeriodBar: View {
     /// get another layout than a narrower one (2026年9月) and the title jumped as the way back came and went.
     var widest: String? = nil
     let step: (Int) -> Void
-    let toNow: () -> Void
+    /// nil: no way back on the bar (the overview has it on its card)
+    var toNow: (() -> Void)? = nil
     /// the key shown before: the direction a new title slides in from
     @State private var shown: String?
 
@@ -358,18 +359,20 @@ struct PeriodBar: View {
         HStack(spacing: AppSpacing.detail) {
             arrow("chevron.left", previousLabel, enabled: canGoBack) { step(-1) }
             Spacer(minLength: 0)
-            if even { way.hidden().accessibilityHidden(true) }
+            if even && toNow != nil { way.hidden().accessibilityHidden(true) }
             ZStack {
                 Text(widest ?? title).font(.headline).lineLimit(1).minimumScaleFactor(0.5).hidden().accessibilityHidden(true)
                 SlidingTitle(text: title, forward: key >= (shown ?? key)).font(.headline)
                     .accessibilityIdentifier(titleID ?? "period.title")
             }
             .fixedSize(horizontal: !squeeze, vertical: false)
-            ZStack {
-                way.hidden().accessibilityHidden(true)
-                if away { way.transition(.opacity) }
+            if toNow != nil {
+                ZStack {
+                    way.hidden().accessibilityHidden(true)
+                    if away { way.transition(.opacity) }
+                }
+                .animation(AppMotion.quick, value: away)
             }
-            .animation(AppMotion.quick, value: away)
             Spacer(minLength: 0)
             arrow("chevron.right", nextLabel, enabled: canGoOn) { step(1) }
         }
@@ -388,7 +391,7 @@ struct PeriodBar: View {
     }
 
     private func back(_ label: some View) -> some View {
-        Button(action: toNow) {
+        Button { toNow?() } label: {
             label.font(.subheadline.weight(.semibold)).lineLimit(1).fixedSize()
                 .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.detail)
                 .foregroundStyle(Color.jade)
