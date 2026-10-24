@@ -1027,6 +1027,23 @@ final class EditInteractionTests: XCTestCase {
         }
     }
 
+    /// The overview card's way back keeps its room when it is not shown: it is taller than the heading beside it, and
+    /// picking a month on the chart made the card taller
+    func testTheOverviewCardKeepsItsHeightWithTheWayBack() {
+        let app = launchTab("overview")
+        app.buttons["月"].firstMatch.tap()
+        let hero = app.otherElements["overview.hero"]
+        XCTAssertTrue(hero.waitForExistence(timeout: 20))
+        let height = hero.frame.height
+        let chart = app.otherElements["overview.trend"]
+        scrollIntoView(chart, in: app)
+        chart.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.5)).tap()
+        let back = hero.buttons["回到本月"]
+        for _ in 0..<4 where !back.isHittable { app.swipeDown() }
+        XCTAssertTrue(back.waitForExistence(timeout: 5))
+        XCTAssertEqual(hero.frame.height, height, accuracy: 0.5)
+    }
+
     /// Under the overview's trend chart there is always one line, so the card keeps its height through 月 / 年 and
     /// 支出 / 收支: the year without a picked month had nothing under 支出 and a legend under 收支
     func testTheTrendChartAlwaysHasOneLineUnderIt() {

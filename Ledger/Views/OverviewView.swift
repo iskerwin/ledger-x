@@ -264,9 +264,13 @@ struct OverviewView: View {
                             HStack(spacing: AppSpacing.control) {
                                 Text(picked != nil ? LS("%@支出", s.label) : s.yearMode ? LS("本年支出") : LS("本月支出")).font(.subheadline).foregroundStyle(.secondary)
                                 Spacer()
-                                if picked != nil {
-                                    Button { withAnimation(AppMotion.quick) { picked = nil } } label: { Label(head.yearMode ? LS("回到全年") : LS("回到本月"), systemImage: "calendar").labelStyle(ControlLabelStyle()) }
-                                        .font(.caption.weight(.semibold)).buttonStyle(.borderless)
+                                // its room always kept (it is taller than the heading), so its coming and going does
+                                // not make the card taller
+                                let back = Button { withAnimation(AppMotion.quick) { picked = nil } } label: { Label(head.yearMode ? LS("回到全年") : LS("回到本月"), systemImage: "calendar").labelStyle(ControlLabelStyle()) }
+                                    .font(.caption.weight(.semibold)).buttonStyle(.borderless)
+                                ZStack {
+                                    back.hidden().accessibilityHidden(true)
+                                    if picked != nil { back }
                                 }
                             }
                             Text(money(s.exp, cur)).heroAmount(40).monospacedDigit().accessibilityIdentifier("overview.spent")
