@@ -446,6 +446,24 @@ struct JournalView: View {
                             }
                         }
                     }
+                    if !filtered {
+                        // everything in the ledger, under the filters (a card of its own pushed the first entry down
+                        // the screen): say so, so the totals are not read as this month's
+                        VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                            HStack(spacing: AppSpacing.control) {
+                                Text(matches.last.map { LS("全部时间 · %@ 起", $0.date) } ?? LS("全部时间"))
+                                Spacer()
+                                Text(LS("%@ 笔", matches.count))
+                            }
+                            HStack(spacing: AppSpacing.control) {
+                                if sums.0 != 0 { Text(LS("支出 ") + money(sums.0)) }
+                                if sums.1 != 0 { Text(LS("收入 ") + money(sums.1)) }
+                                Spacer()
+                            }
+                            .monospacedDigit().sensitive()
+                        }
+                        .font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
                 if showCalendar {
                     Section {
@@ -457,24 +475,6 @@ struct JournalView: View {
                 }
                 if filtered {
                     resultCard(matches, sums)
-                } else {
-                    // everything in the ledger: say so, so the totals are not read as this month's
-                    Section {
-                        VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                            HStack(spacing: AppSpacing.control) {
-                                Text(matches.last.map { LS("全部时间 · %@ 起", $0.date) } ?? LS("全部时间")).foregroundStyle(.secondary)
-                                Spacer()
-                                Text(LS("%@ 笔", matches.count)).foregroundStyle(.secondary)
-                            }
-                            HStack(spacing: AppSpacing.control) {
-                                if sums.0 != 0 { Text(LS("支出 ") + money(sums.0)) }
-                                if sums.1 != 0 { Text(LS("收入 ") + money(sums.1)) }
-                                Spacer()
-                            }
-                            .monospacedDigit().foregroundStyle(.secondary).sensitive()
-                        }
-                        .font(.footnote)
-                    }
                 }
                 ForEach(days, id: \.0) { group in
                     daySection(group.0, group.1, L)
