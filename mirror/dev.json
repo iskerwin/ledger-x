@@ -19,14 +19,14 @@
       "category": "utilities",
       "versions": [
         {
-          "version": "1.0.5",
-          "buildVersion": "25",
+          "version": "1.0.6",
+          "buildVersion": "26",
           "date": "2026-10-21T17:58:29Z",
-          "localizedDescription": "# Ledger X 1.0.5 开发版\n\n版本 1.0.5 · 构建 25 · main d035fab 。\n\n## 改进\n\n- 设置页各行的图标改为主题色圆角徽标，和快捷指令页同一种样式，与系统「设置」的观感一致；语言、面容 ID 锁定、隐藏金额、概览显示演示账本入口这几行也一样（隐藏金额以前没有图标）。",
-          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.5-25",
-          "size": 10485305,
+          "localizedDescription": "# Ledger X 1.0.6 开发版\n\n版本 1.0.6 · 构建 26 · main ed3ff90 。\n\n## 修复\n\n- 摘要、收付款方等文字里的反斜杠按 Beancount 的读法处理：在 App 里输入的 `\\` 原样写进账本（以前会写成两个），账本里的 `\\n`、`\\t` 也照原样显示，不再变成换行或制表符；只有 `\\\"` 表示引号。\n- 持仓批次的标签里含有转义引号、逗号或 `}`（如 `{5 USD, \"a\\\"b, c\"}`）时，这条分录以前读不出来（报「无法解析」，交易少一条分录），现在和 Beancount 一样正常读取。\n- 写在某条分录后面的元数据（`key: value`），不论缩进多深都算这条分录的，和 Beancount 一致；以前和分录同样缩进的会被当成整笔交易的，详情里显示在交易下而不是分录下。\n- 负数价格（`price USD -7 CNY` 或分录上的 `@ -7 CNY`）现在和 Beancount 一样报错，也不再拿来折算其他币种；以前不报错，还会把余额折成负数。\n- 现金流预测：同一天、同一收付款方、同样金额、从同一账户付出的两笔周期性付款（例如物业费和停车费各 300 元）以前只算一笔，预测余额偏高；现在两笔都算。\n- 出差换了时区后，「今天」、本月和记一笔的默认日期跟着手机当前的时区走；以前一直按打开 App 时的时区算，要重开 App 才会变。\n- 账本检查对没有生效的 `pad` 和 Beancount 一样报出：之后的余额断言本来就对、不用补差额的，或者被后面另一个 `pad` 取代的，以前不提示，只有之后完全没有余额断言的才报。\n\n## 改进\n\n- 记一笔保存（或修改一笔）后，明细会自动滚到这一笔再短暂高亮，补记较早日期的也不用自己往下翻；被筛选挡住或在「加载更多」之后的不滚动，筛选也不变。",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.6-26",
+          "size": 10496329,
           "minOSVersion": "17.0",
-          "sha256": "90ec92c9bb0e452be4173b36704c4844d5e0338828dc6f96061d0d3ae9ee68e1"
+          "sha256": "4a6ee43bef8668f1404d3a3250323a56014f9d43e7b03594d7ea5729e19ac76f"
         },
         {
           "version": "1.0.5",
@@ -97,11 +97,11 @@
           "NSPhotoLibraryUsageDescription": "选择票据照片作为交易附件"
         }
       },
-      "version": "1.0.5",
+      "version": "1.0.6",
       "versionDate": "2026-10-21T17:58:29Z",
-      "versionDescription": "# Ledger X 1.0.5 开发版\n\n版本 1.0.5 · 构建 25 · main d035fab 。\n\n## 改进\n\n- 设置页各行的图标改为主题色圆角徽标，和快捷指令页同一种样式，与系统「设置」的观感一致；语言、面容 ID 锁定、隐藏金额、概览显示演示账本入口这几行也一样（隐藏金额以前没有图标）。",
-      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.5-25",
-      "size": 10485305
+      "versionDescription": "# Ledger X 1.0.6 开发版\n\n版本 1.0.6 · 构建 26 · main ed3ff90 。\n\n## 修复\n\n- 摘要、收付款方等文字里的反斜杠按 Beancount 的读法处理：在 App 里输入的 `\\` 原样写进账本（以前会写成两个），账本里的 `\\n`、`\\t` 也照原样显示，不再变成换行或制表符；只有 `\\\"` 表示引号。\n- 持仓批次的标签里含有转义引号、逗号或 `}`（如 `{5 USD, \"a\\\"b, c\"}`）时，这条分录以前读不出来（报「无法解析」，交易少一条分录），现在和 Beancount 一样正常读取。\n- 写在某条分录后面的元数据（`key: value`），不论缩进多深都算这条分录的，和 Beancount 一致；以前和分录同样缩进的会被当成整笔交易的，详情里显示在交易下而不是分录下。\n- 负数价格（`price USD -7 CNY` 或分录上的 `@ -7 CNY`）现在和 Beancount 一样报错，也不再拿来折算其他币种；以前不报错，还会把余额折成负数。\n- 现金流预测：同一天、同一收付款方、同样金额、从同一账户付出的两笔周期性付款（例如物业费和停车费各 300 元）以前只算一笔，预测余额偏高；现在两笔都算。\n- 出差换了时区后，「今天」、本月和记一笔的默认日期跟着手机当前的时区走；以前一直按打开 App 时的时区算，要重开 App 才会变。\n- 账本检查对没有生效的 `pad` 和 Beancount 一样报出：之后的余额断言本来就对、不用补差额的，或者被后面另一个 `pad` 取代的，以前不提示，只有之后完全没有余额断言的才报。\n\n## 改进\n\n- 记一笔保存（或修改一笔）后，明细会自动滚到这一笔再短暂高亮，补记较早日期的也不用自己往下翻；被筛选挡住或在「加载更多」之后的不滚动，筛选也不变。",
+      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.6-26",
+      "size": 10496329
     }
   ],
   "news": []
