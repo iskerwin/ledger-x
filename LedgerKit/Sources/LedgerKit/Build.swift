@@ -483,7 +483,12 @@ public func build(_ input: [Entry], files: [String] = [], options: [String: [Str
             if L.accounts[a] != nil { L.accounts[a]!.close = e.date }
             else { L.errors.append(LedgerError(entry: e, msg: tr("关闭了不存在的账户：\(a)", "Closing an account that was never opened: \(a)"))) }
         case .commodity: if let c = e.currency { L.commodities[c] = e.meta }
-        case .price: L.prices.append(e)
+        case .price:
+            L.prices.append(e)
+            if e.number < 0 {
+                L.errors.append(LedgerError(entry: e, msg: tr("价格不能为负：\(e.currency ?? "") \(fmtNum(e.number)) \(e.quote ?? "")",
+                                                              "Negative prices are not allowed: \(e.currency ?? "") \(fmtNum(e.number)) \(e.quote ?? "")")))
+            }
         case .event: L.events.append(e)
         case .note: L.notes.append(e)
         case .document: L.documents.append(e)
@@ -493,6 +498,11 @@ public func build(_ input: [Entry], files: [String] = [], options: [String: [Str
         case .txn:
             let t = e
             if !t.bad.isEmpty { L.errors.append(LedgerError(entry: t, msg: tr("无法解析：\(t.bad.joined(separator: " | "))", "Cannot parse: \(t.bad.joined(separator: " | "))"))) }
+            for p in t.postings {
+                if let pr = p.price, (pr.number ?? pr.raw ?? 0) < 0 {
+                    L.errors.append(LedgerError(entry: t, msg: tr("\(p.account) 的价格不能为负", "\(p.account): negative prices are not allowed")))
+                }
+            }
             bookTxn(t, &inv, methodOf, &L.errors)
             interpolate(t, balanceTolerance, &L.errors)
             for p in t.postings {
@@ -573,11 +583,13 @@ func buildRates(_ L: Ledger) {
     struct Pair { let date: String; let base: String; let quote: String; let rate: Double }
     var pairs: [Pair] = []
     // (the prices implicit_prices adds come from the postings below)
-    for p in L.prices where !p.synthetic { pairs.append(Pair(date: p.date, base: p.currency ?? "", quote: p.quote ?? "", rate: p.number)) }
+    // a negative price is an error, never a rate
+    for p in L.prices where !p.synthetic && p.number > 0 { pairs.append(Pair(date: p.date, base: p.currency ?? "", quote: p.quote ?? "", rate: p.number)) }
     for t in L.txns {
         for p in t.postings {
             // a per-unit price, or a total one (@@) over the units
             if let pr = p.price, let c = p.currency, let pc = pr.currency, c != pc,
+               (pr.number ?? pr.raw ?? 0) >= 0,
                let n = pr.number ?? (pr.total ? pr.raw.flatMap { r in p.units.flatMap { u in u != 0 ? abs(r) / abs(u) : nil } } : nil), n != 0 {
                 pairs.append(Pair(date: t.date, base: c, quote: pc, rate: n))
             }

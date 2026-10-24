@@ -78,6 +78,21 @@ final class SyntaxTests: XCTestCase {
         XCTAssertEqual(t.postings.map { $0.meta.items.map(\.0) }, [["lesskey"], ["samekey"]])
     }
 
+    /// A negative price is an error in Beancount (bean-check 3: "Negative prices are not allowed" for the price line;
+    /// the `@ -7` posting is reported too), and it is never used to convert
+    func testNegativePricesAreErrorsAndNotUsed() {
+        let L = loadLedger(root: "main.bean") { _ in """
+        2026-01-01 open Assets:Bank
+        2026-01-01 open Assets:USD
+        2026-01-01 price USD  -7 CNY
+        2026-01-02 * "neg at"
+          Assets:USD  1.00 USD @ -7 CNY
+          Assets:Bank  7.00 CNY
+        """ }
+        XCTAssertEqual(L.errors.filter { !$0.soft }.map(\.line), [3, 4])
+        XCTAssertNil(toCNY(L, 1, "USD"))
+    }
+
     func testIncludeWildcards() {
         let files: [String: String] = [
             "main.bean": "include \"accounts.bean\"\ninclude \"journals/*.bean\"\ninclude \"more/**/*.bean\"\n",
