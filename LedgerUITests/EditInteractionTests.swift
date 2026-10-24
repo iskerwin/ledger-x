@@ -1027,6 +1027,51 @@ final class EditInteractionTests: XCTestCase {
         }
     }
 
+    /// Under the overview's trend chart there is always one line, so the card keeps its height through 月 / 年 and
+    /// 支出 / 收支: the year without a picked month had nothing under 支出 and a legend under 收支
+    func testTheTrendChartAlwaysHasOneLineUnderIt() {
+        let app = launchTab("overview")
+        app.buttons["月"].firstMatch.tap()
+        let chart = app.otherElements["overview.trend"]
+        XCTAssertTrue(chart.waitForExistence(timeout: 20))
+        scrollIntoView(chart, in: app)
+        let line = app.staticTexts["overview.trendLine"]
+        XCTAssertTrue(line.waitForExistence(timeout: 5))
+        // measured from the chart's top, as the cards above it change with 月 / 年
+        let bottom = line.frame.maxY - chart.frame.minY
+        for (period, trend) in [("月", "收支"), ("年", "收支"), ("年", "支出"), ("月", "支出")] {
+            let tab = app.buttons[period].firstMatch
+            for _ in 0..<4 where !tab.isHittable { app.swipeDown() }
+            tab.tap()
+            scrollIntoView(chart, in: app)
+            app.buttons[trend].firstMatch.tap()
+            XCTAssertTrue(line.waitForExistence(timeout: 5), period + trend)
+            XCTAssertEqual(line.frame.maxY - chart.frame.minY, bottom, accuracy: 0.5, period + trend)
+        }
+        // 收支: the figures say which is which (the legend was a line of its own)
+        app.buttons["收支"].firstMatch.tap()
+        XCTAssertTrue(line.label.contains("收入") && line.label.contains("支出"))
+    }
+
+    /// The net worth chart by currency held lists the latest month's parts under it until a month is picked, so
+    /// picking one no longer makes the card taller
+    func testTheNetWorthPartsAreThereBeforeAMonthIsPicked() {
+        let extra = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/worth-extra.bean").path
+        let app = launchTab("reports", env: ["LEDGER_EXTRA": extra, "LEDGER_REPORT": "balance"])
+        let parts = app.otherElements["networth.parts"]
+        XCTAssertTrue(parts.waitForExistence(timeout: 20))
+        scrollIntoView(parts, in: app)
+        let range = app.buttons["1 年"].firstMatch
+        XCTAssertTrue(range.exists)
+        let gap = range.frame.minY - parts.frame.minY
+        XCTAssertTrue(parts.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "HKD")).firstMatch.exists)
+        let chart = parts.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).withOffset(CGVector(dx: 0, dy: -100))
+        chart.tap()
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label ENDSWITH %@", "月末")).firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(parts.exists)
+        XCTAssertEqual(range.frame.minY - parts.frame.minY, gap, accuracy: 0.5)
+    }
+
     /// A gesture's hints go once it has been used: the charts' after a tap on one, 点按查看交易 / 点按扇区展开 after a
     /// category or payee is opened, the 左滑 half of a footer after a row has been swiped, 长按 after a long press; and they stay gone
     func testGestureHintsGoOnceTheGestureIsUsed() {

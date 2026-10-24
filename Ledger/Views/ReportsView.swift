@@ -781,8 +781,9 @@ struct WorthCharts: View {
             }, slide: { d in picked = d })
             .frame(height: 200)
             .sensitive()
-            if let s = sel {
-                // the parts of that month
+            // the parts of the picked month, else of the latest: always there, so picking one does not make the card
+            // taller
+            if let s = sel ?? slices.last {
                 WrapLayout(spacing: AppSpacing.icon) {
                     ForEach(srcs, id: \.self) { src in
                         HStack(spacing: AppSpacing.detail) {
@@ -792,6 +793,7 @@ struct WorthCharts: View {
                     }
                 }
                 .font(.caption)
+                .accessibilityElement(children: .contain).accessibilityIdentifier("networth.parts")
             }
         }
         .padding(.vertical, AppSpacing.icon)

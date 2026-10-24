@@ -57,6 +57,7 @@
     "LedgerUITests/Fixtures/journal-extra.bean": "c0e5331dd3bd6d31cd3de679c909fcfeccec290540e3dd01c328764b0bd4a8bc",
     "LedgerUITests/Fixtures/height-extra.bean": "ccad4df01806258721cb50b9b0f2ae19c411dae775310550bae80f4c2024cece",
     "LedgerUITests/Fixtures/budget-extra.bean": "f54986cae2be4a74f536b82c73ad3e9d5713295ebd3009f2d2243e782961930d",
+    "LedgerUITests/Fixtures/worth-extra.bean": "eb2e0cdf49a51d6154f395ad20adf4dcc1899026b7beeaaa83133804722cd8ca",
     "LedgerUITests/Fixtures/main.bean": "af796bffb518c629954c0239ca580c31ca5fffc65da8de1e620e0d422f45ae27",
     "LedgerUITests/Fixtures/recovery.csv": "7fa6d80ad1f51fdcf1cec6d19e0c389d328d4c38847ece0ad7450e6810976003"
   }

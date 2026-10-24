@@ -357,21 +357,13 @@ struct OverviewView: View {
             .frame(height: 180)
             .sensitive()
             .padding(.vertical, AppSpacing.icon)
-            if trend == "flow" && shown == nil {
-                HStack(spacing: AppSpacing.control) {
-                    Label(LS("收入"), systemImage: "circle.fill").labelStyle(ControlLabelStyle()).foregroundStyle(Color.gain)
-                    Label(LS("支出"), systemImage: "square.fill").labelStyle(ControlLabelStyle()).foregroundStyle(Color.loss)
-                }
-                .font(.caption).labelStyle(.titleAndIcon)
-            }
-            if let p = shown {
-                HStack(spacing: AppSpacing.control) {
-                    Text(Day.monthLabel(p) + "  " + (trend == "flow" ? flowLine(p, F) : money(F.exp[p] ?? 0, F.cur))).monospacedDigit().sensitive()
-                    // the page already shows the picked month; 回到本月 on the card leaves it
-                    Spacer()
-                }
-                .font(.footnote)
-            }
+            // one line under the chart whatever is shown (it came and went with 月 / 年, 支出 / 收支 and a picked
+            // month, and the card's height with it): the picked or current month, else the year; for 收支 the dot
+            // and the square before the figures say which line is which
+            let label = shown.map(Day.monthLabel) ?? LS("%@年", s.key)
+            let inc = shown.map { F.inc[$0] ?? 0 } ?? s.inc, exp = shown.map { F.exp[$0] ?? 0 } ?? s.exp
+            trendLine(label, inc: inc, exp: exp, F.cur)
+                .accessibilityIdentifier("overview.trendLine")
         } header: {
             HStack(spacing: AppSpacing.control) {
                 Text(trend == "flow" ? (s.yearMode ? LS("%@ 年月度收支", s.key) : LS("近 12 个月收支")) : (s.yearMode ? LS("%@ 年月度支出", s.key) : LS("近 12 个月支出")))
@@ -381,9 +373,15 @@ struct OverviewView: View {
         }
     }
 
-    private func flowLine(_ m: String, _ F: Flows) -> String {
-        let i = F.inc[m] ?? 0, e = F.exp[m] ?? 0
-        return LS("收入 %@ · 支出 %@ · 结余 %@", money(i, F.cur, 0), money(e, F.cur, 0), money(i - e, F.cur, 0))
+    private func trendLine(_ label: String, inc: Double, exp: Double, _ cur: String) -> some View {
+        let figures: Text = trend == "flow"
+            ? Text(Image(systemName: "circle.fill")).foregroundColor(Color.gain) + Text(" " + LS("收入 %@", money(inc, cur, 0)) + "  ")
+                + Text(Image(systemName: "square.fill")).foregroundColor(Color.loss) + Text(" " + LS("支出 %@", money(exp, cur, 0)) + "  ")
+                + Text(LS("结余 %@", money(inc - exp, cur, 0)))
+            : Text(money(exp, cur))
+        return (Text(label + "  ") + figures)
+            .font(.footnote.monospacedDigit()).lineLimit(1).minimumScaleFactor(0.7).sensitive()
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder

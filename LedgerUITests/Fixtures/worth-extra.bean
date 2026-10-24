@@ -1,0 +1,7 @@
+; for the net worth chart: a balance in a second currency with a price, so the converted chart stacks CNY and HKD
+2026-01-01 open Equity:Opening-Balances
+2026-01-01 price HKD 0.92 CNY
+
+2026-08-03 * "Example bank" "Opening balance"
+  Assets:Bank:ExampleFX  500.00 HKD
+  Equity:Opening-Balances
