@@ -76,6 +76,41 @@ for key in sorted(shown):
 for key in english:
     require(key in shown or '"' + key.replace('"', '\\"').replace('\n', '\\n') + '"' in sources, f'Ledger/en.json: {key!r} is no longer used')
 
+# what iOS reads from the bundle itself, not through LS (shortcut names, their parameters and Siri phrases, the
+# permission prompts): each one has its English in a string catalog, or an English iPhone shows it in Chinese
+def catalog(name):
+    path = ROOT/'Ledger'/name
+    if not path.exists():
+        return {}
+    data = json.loads(path.read_text())
+    return {k: v.get('localizations', {}).get('en', {}).get('stringUnit', {}).get('value') for k, v in data['strings'].items()}
+
+def literal(m):
+    # a Swift literal as its catalog key: \(\.$amount) is ${amount}, \(.applicationName) is ${applicationName}
+    m = re.sub(r'\\\(\\?\.\$?(\w+)\)', r'${\1}', m)
+    return m.replace('\\"', '"')
+
+system_read = {
+    'Localizable.xcstrings': {literal(m) for pattern in (r'LocalizedStringResource = "((?:[^"\\]|\\.)*)"', r'IntentDescription\("((?:[^"\\]|\\.)*)"',
+                                                         r'@Parameter\(title: "((?:[^"\\]|\\.)*)"', r'shortTitle: "((?:[^"\\]|\\.)*)"',
+                                                         r'Summary\("((?:[^"\\]|\\.)*)"')
+                              for m in re.findall(pattern, sources)},
+    'AppShortcuts.xcstrings': {literal(m) for phrases in re.findall(r'phrases: \[([^\]]*)\]', sources)
+                               for m in re.findall(r'"((?:[^"\\]|\\.)*)"', phrases)},
+    'InfoPlist.xcstrings': set(re.findall(r'^\s+(NS\w+UsageDescription):', project, re.M)),
+}
+# the permission prompts in Chinese are the ones in project.yml (the catalog's are what the phone shows)
+plist_zh = json.loads((ROOT/'Ledger/InfoPlist.xcstrings').read_text())['strings'] if (ROOT/'Ledger/InfoPlist.xcstrings').exists() else {}
+for key, value in re.findall(r'^\s+(NS\w+UsageDescription): (.+)$', project, re.M):
+    zh = plist_zh.get(key, {}).get('localizations', {}).get('zh-Hans', {}).get('stringUnit', {}).get('value')
+    require(zh == value.strip(), f'Ledger/InfoPlist.xcstrings: {key} in Chinese differs from project.yml')
+for name, keys in system_read.items():
+    english_of = catalog(name)
+    for key in sorted(keys):
+        require(english_of.get(key), f'Ledger/{name}: no English for {key!r}')
+    for key in english_of:
+        require(key in keys, f'Ledger/{name}: {key!r} is no longer used')
+
 if errors:
     print('\n'.join(errors), file=sys.stderr)
     sys.exit(1)

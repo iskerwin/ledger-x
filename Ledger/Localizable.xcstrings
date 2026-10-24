@@ -1,0 +1,215 @@
+{
+  "sourceLanguage": "zh-Hans",
+  "strings": {
+    "分类（科目或关键词，可选）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Category (account or keyword, optional)"
+          }
+        }
+      }
+    },
+    "卡片或付款方式": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Card or Payment Method"
+          }
+        }
+      }
+    },
+    "待付款项": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upcoming Payments"
+          }
+        }
+      }
+    },
+    "待记账的订阅、7 天内的订阅扣费和信用卡还款，以及可用资金预测。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subscriptions to record, subscription charges and credit card payments in the next 7 days, and the cash forecast."
+          }
+        }
+      }
+    },
+    "快速记一笔": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quick Entry"
+          }
+        }
+      }
+    },
+    "截图": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screenshot"
+          }
+        }
+      }
+    },
+    "截图记账": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan Receipt"
+          }
+        }
+      }
+    },
+    "打开记账页并预填金额、收付款方和分类，核对后保存。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens New Entry with the amount, payee and category filled in, to check and save."
+          }
+        }
+      }
+    },
+    "按收付款方自动选择分类并直接入账；分类不确定或提交前检查发现问题时，发通知请你确认。适合钱包「交易」自动化：金额、商户（填进收付款方）、卡片分别填入快捷指令输入的对应项。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Picks the category from the payee and records the entry right away; when the category is unclear or the pre-save check finds a problem, a notification asks you to confirm. Made for the Wallet “Transaction” automation: put the amount, the merchant (as the payee) and the card into the matching inputs."
+          }
+        }
+      }
+    },
+    "摘要": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narration"
+          }
+        }
+      }
+    },
+    "收付款方": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Payee"
+          }
+        }
+      }
+    },
+    "本月支出": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spent This Month"
+          }
+        }
+      }
+    },
+    "本月支出、与上月同期相比，以及预算剩余。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spending this month, compared with the same days last month, and the budget left."
+          }
+        }
+      }
+    },
+    "记一笔": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record"
+          }
+        }
+      }
+    },
+    "记一笔 ${amount} 收付款方 ${merchant}": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record ${amount} with payee ${merchant}"
+          }
+        }
+      }
+    },
+    "记一笔（在 App 中确认）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Entry (confirm in app)"
+          }
+        }
+      }
+    },
+    "识别 ${image} 并记账": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan ${image} and record it"
+          }
+        }
+      }
+    },
+    "识别付款截图里的文字（在本机识别，截图不保存、不上传），在 App 中显示识别结果。可加到分享菜单，或配合「截屏」动作用轻点背面触发。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reads the text in a payment screenshot (on this iPhone; the screenshot is not kept or uploaded) and shows what was found in the app. Add it to the share sheet, or run it with Back Tap together with “Take Screenshot”."
+          }
+        }
+      }
+    },
+    "金额": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amount"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

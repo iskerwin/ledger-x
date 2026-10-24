@@ -48,5 +48,5 @@ xcodebuild test-without-building -project Ledger.xcodeproj -scheme LedgerInterac
 - **编辑往返**：模式转换和已有交易编辑用 `sameTxn` 验证无损往返，失败保留用户输入；多笔相同原文时只改仍匹配原锚点的一笔，歧义不猜（`EditorMode.swift`、`Editing.swift`、`EntryLocator.swift`）。
 - **保存链**：`Store.commit` → 预检查 → 持久化队列 → `onQueued`（关卡片）→ 本机 rebuild → saveConfirmation → requestSavedSync。校验失败不调 `onQueued`；`waitForSavedSync` 保护切账本、连接、刷新、清缓存。
 - **按账本隔离**：草稿、恢复文件、浏览条件和后台结果都按账本隔离；异步回调须核对账本标识、文件版本和请求令牌后才应用。
-- **本地化**：界面文字以中文为键，英文在 `Ledger/en.json`。
+- **本地化**：界面文字以中文为键，英文在 `Ledger/en.json`；快捷指令、Siri 短语和权限说明由系统读取，英文在 `Ledger/*.xcstrings`。
 - **工具**：`tools/fixtures/` 是 Beancount 独立对照与预期结果生成；`tools/release/` 是发布说明与 IPA 源（`ipa` 分支上的 dev.json / release.json 及镜像）。

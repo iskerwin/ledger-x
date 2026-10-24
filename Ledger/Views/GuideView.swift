@@ -182,7 +182,7 @@ struct GuideView: View {
         ]),
         Topic(symbol: "lock", title: tr("隐私与备份", "Privacy and backups"), points: [
             tr("导航栏的眼睛按钮隐藏所有金额；设置里可以开启面容 ID / 触控 ID 锁定。识别失败或点取消后停在锁定页，可以再试，或点「使用设备密码解锁」输入 iPhone 密码。开启锁定后，快捷指令和 Siri 只在 iPhone 已解锁时运行：「本月支出」「待付款项」不读出金额，「快速记一笔」存为草稿并发通知，请你在 App 里确认后保存。",
-               "The eye button hides every amount; Face ID / Touch ID lock is in Settings. If recognition fails or you cancel, the lock screen stays: try again, or tap Unlock with Passcode and enter the iPhone passcode. With the lock on, Shortcuts and Siri run only on an unlocked iPhone: Month Spending and Upcoming don't read amounts out, and Quick Record keeps the entry as a draft and sends a notification to confirm it in the app."),
+               "The eye button hides every amount; Face ID / Touch ID lock is in Settings. If recognition fails or you cancel, the lock screen stays: try again, or tap Unlock with Passcode and enter the iPhone passcode. With the lock on, Shortcuts and Siri run only on an unlocked iPhone: Spent This Month and Upcoming Payments don't read amounts out, and Quick Entry keeps the entry as a draft and sends a notification to confirm it in the app."),
             tr("访问令牌存在钥匙串里，只留在这台手机，不会写进账本或仓库，也不随手机备份带到新设备。",
                "The access token lives in the Keychain on this phone only: never in the ledger or the repository, and not carried to a new device by a backup."),
             tr("设置 → 备份与导出：自动备份到 iCloud Drive 的文件夹，也可以导出 zip 或 CSV。",

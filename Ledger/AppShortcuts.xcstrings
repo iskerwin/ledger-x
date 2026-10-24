@@ -1,0 +1,83 @@
+{
+  "sourceLanguage": "zh-Hans",
+  "strings": {
+    "${applicationName} 待付款项": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "${applicationName} upcoming payments"
+          }
+        }
+      }
+    },
+    "${applicationName} 截图记账": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan a receipt in ${applicationName}"
+          }
+        }
+      }
+    },
+    "${applicationName} 最近要付什么": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What's due soon in ${applicationName}"
+          }
+        }
+      }
+    },
+    "${applicationName} 本月支出": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "${applicationName} spending this month"
+          }
+        }
+      }
+    },
+    "${applicationName} 记账": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New ${applicationName} entry"
+          }
+        }
+      }
+    },
+    "${applicationName} 这个月花了多少": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How much have I spent this month in ${applicationName}"
+          }
+        }
+      }
+    },
+    "用 ${applicationName} 记一笔": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record with ${applicationName}"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}
