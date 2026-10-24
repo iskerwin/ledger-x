@@ -39,6 +39,26 @@ final class SyntaxTests: XCTestCase {
         XCTAssertEqual(quoted(#"C:\files "x""#), #""C:\files \"x\"""#)
     }
 
+    /// A lot's label may hold an escaped quote, a comma or a brace (bean-check 3 reads the labels `a"b, c` and `x}y`);
+    /// the posting was dropped as unreadable
+    func testCostLabelsWithQuotesCommasAndBraces() {
+        let L = loadLedger(root: "main.bean") { _ in #"""
+        2026-01-01 open Assets:Broker
+        2026-01-01 open Equity:Opening
+        2026-01-02 * "buy"
+          Assets:Broker  10 STK {5 USD, "a\"b, c"}
+          Equity:Opening
+        2026-01-03 * "buy"
+          Assets:Broker  10 STK {6 USD, "x}y"}
+          Equity:Opening
+        """# }
+        XCTAssertTrue(L.errors.isEmpty, L.errors.map { $0.msg }.joined(separator: "; "))
+        let costs = L.txns.map { $0.postings.first?.cost }
+        XCTAssertEqual(costs.map { $0?.label }, [#"a"b, c"#, "x}y"])
+        XCTAssertEqual(costs.map { $0?.perUnit }, [5, 6])
+        XCTAssertEqual(costs.map { $0?.currency }, ["USD", "USD"])
+    }
+
     func testIncludeWildcards() {
         let files: [String: String] = [
             "main.bean": "include \"accounts.bean\"\ninclude \"journals/*.bean\"\ninclude \"more/**/*.bean\"\n",

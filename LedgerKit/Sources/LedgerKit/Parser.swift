@@ -311,8 +311,11 @@ func parsePosting(_ line: [US]) -> Posting? {
         let close: [US] = total ? ["}", "}"] : ["}"]
         var end = -1
         var j = sc.i
+        var q = false   // inside a label, where a brace is only text
         while j + close.count <= sc.s.count {
-            if sc.s[j] == close[0] && (close.count == 1 || sc.s[j + 1] == close[1]) { end = j; break }
+            if q && sc.s[j] == "\\" { j += 2; continue }
+            if sc.s[j] == "\"" { q.toggle() }
+            if !q && sc.s[j] == close[0] && (close.count == 1 || sc.s[j + 1] == close[1]) { end = j; break }
             j += 1
         }
         if end < 0 { return nil }
@@ -371,7 +374,11 @@ func splitTopLevel(_ s: String) -> [String] {
     var q = false
     var depth = 0
     var cur = ""
+    var escaped = false
     for ch in s {
+        // an escaped quote inside a label does not end it
+        if escaped { escaped = false; cur.append(ch); continue }
+        if q && ch == "\\" { escaped = true; cur.append(ch); continue }
         if ch == "\"" { q.toggle() }
         if !q && ch == "(" { depth += 1 }
         if !q && ch == ")" { depth -= 1 }
