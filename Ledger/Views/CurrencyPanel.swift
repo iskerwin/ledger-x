@@ -107,14 +107,14 @@ struct CurrencySheet: View {
                     ForEach(ledgerCurrencies(L), id: \.self) { c in
                         CurrencyChip(code: c, on: sel.contains(c), held: held.contains(c))
                             .onTapGesture { store.cview.toggle(c, L) }
-                            .onLongPressGesture { store.cview.solo(c, L) }
+                            .onLongPressGesture { store.cview.solo(c, L); Learned.hold.mark() }
                     }
                 }
                 .padding(.vertical, AppSpacing.detail)
             } header: {
                 Text(LS("币种"))
             } footer: {
-                Text(LS("点按打开或关掉，长按只看这一种（再长按恢复）。没有持有的默认关掉。"))
+                HintFooter(LS("点按打开或关掉。没有持有的默认关掉。"), tip: LS("长按只看这一种（再长按恢复）。"), .hold)
             }
             Section {
                 modeRow(.units, L, mode)

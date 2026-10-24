@@ -682,7 +682,7 @@ struct AddForm: View {
         } header: {
             Text(LS("分录"))
         } footer: {
-            Text(LS("金额留空的一行将自动补平；左滑可删除。成本填写 {} 内的内容，如 180 USD；价格填写 @ 7.1 CNY 或 @@ 总价。"))
+            HintFooter(LS("金额留空的一行将自动补平。成本填写 {} 内的内容，如 180 USD；价格填写 @ 7.1 CNY 或 @@ 总价。"), tip: LS("左滑可删除。"), .swipe)
         }
     }
 
@@ -1015,7 +1015,7 @@ struct TemplateManager: View {
                         }
                     }
                 } footer: {
-                    Text(LS("近 120 天内出现 3 次及以上的交易将自动列入；置顶项优先显示，左滑可隐藏。"))
+                    HintFooter(LS("近 120 天内出现 3 次及以上的交易将自动列入；置顶项优先显示。"), tip: LS("左滑可隐藏。"), .swipe)
                 }
                 if !store.tplHidden.isEmpty {
                     Button { store.unhideAllTemplates() } label: { Label(LS("恢复 %@ 项已隐藏", store.tplHidden.count), systemImage: "arrow.counterclockwise").labelStyle(ControlLabelStyle()) }

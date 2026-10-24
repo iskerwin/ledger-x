@@ -174,6 +174,18 @@ struct GuideView: View {
             tr("可以写 BQL 查询，常用的可保存；账本里的 query 指令也会列出来。",
                "BQL queries can be written and saved; query directives in the ledger are listed too."),
         ]),
+        Topic(symbol: "hand.tap", title: tr("手势", "Gestures"), points: [
+            tr("各页底部的操作提示（点按图表、点按扇区、左滑、长按）在你第一次用过这个手势后就不再显示；全部手势都列在这里。",
+               "The hints under each page (tap a chart, tap a slice, swipe, press and hold) go away once you have used that gesture; all of them are listed here."),
+            tr("图表：概览的趋势图、报表的月度收支图、净资产图和现金流预测图，点按选中一个月（预测图是一天），按住左右滑动依次查看。",
+               "Charts: on the overview's trend chart and the reports' monthly, net worth and forecast charts, tap a month (a day on the forecast) to pick it, or hold and slide sideways to go through them."),
+            tr("概览的支出构成和收付款方排行：点按扇区或一行展开，看其中的分类或交易。",
+               "Spending by category and top payees on the overview: tap a slice or a row to open it up."),
+            tr("列表里的一行左滑（或长按）出现它的操作：删除、隐藏、忽略、编辑连接等，各页不同。",
+               "Swipe a row to the left (or press and hold it) for what can be done with it: delete, hide, ignore, edit the connection and so on, depending on the page."),
+            tr("月份条左右滑动换月；导航栏币种面板里长按一种货币只看它，再长按恢复。",
+               "Swipe the month bar to change the month; in the currency panel, press and hold a currency to see only that one, again to undo."),
+        ]),
         Topic(symbol: "laptopcomputer", title: tr("在电脑上编辑", "Editing on a computer"), points: [
             tr("改之前先 git pull，改完 git push；回到 App 下拉刷新就能看到。",
                "git pull before editing and git push after; pull to refresh in the app to see it."),

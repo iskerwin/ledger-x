@@ -55,7 +55,7 @@ struct ChartPick<X: Plottable & Equatable>: ViewModifier {
             GeometryReader { geo in
                 let layer = Rectangle().fill(Color.clear).contentShape(Rectangle())
                     .onTapGesture { location in
-                        if let x = value(proxy, geo, location) { tap(x) }
+                        if let x = value(proxy, geo, location) { tap(x); Learned.chart.mark() }
                     }
                 if #available(iOS 18, *) {
                     layer.gesture(SidePan(slide: { follow(proxy, geo, $0) }, ended: { _, _ in last = nil }))
@@ -75,6 +75,7 @@ struct ChartPick<X: Plottable & Equatable>: ViewModifier {
         guard let x = value(proxy, geo, location), !(last.map { same($0, x) } ?? false) else { return }
         last = x
         slide(x)
+        Learned.chart.mark()
         Haptics.selection()
     }
 
@@ -176,7 +177,9 @@ extension View {
     /// role), change orange (`Color.warn`), confirm the theme colour, set aside grey.
     func rowActions<A: View>(edge: HorizontalEdge = .trailing, @ViewBuilder _ actions: () -> A) -> some View {
         let a = actions()
-        return swipeActions(edge: edge, allowsFullSwipe: false) { a }.contextMenu { a }
+        // the actions coming into sight: a row has been swiped (or pressed), so its hints have done their work
+        return swipeActions(edge: edge, allowsFullSwipe: false) { a.onAppear { Learned.swipe.mark() } }
+            .contextMenu { a.onAppear { Learned.swipe.mark() } }
     }
 }
 
@@ -285,6 +288,28 @@ struct SlidingTitle: View {
         .clipped()
         .animation(AppMotion.standard, value: text)
     }
+}
+
+/// The gestures a hint teaches. Each is learned the first time it is used anywhere on this phone, and from then on
+/// its hints are not shown (使用指南 → 手势 keeps them all)
+enum Learned: String {
+    case chart, expand, swipe, hold
+    var key: String { "ledger.learned." + rawValue }
+    func mark() { if !UserDefaults.standard.bool(forKey: key) { UserDefaults.standard.set(true, forKey: key) } }
+    /// the tests start from nothing learned
+    static func forget() { for g in [chart, expand, swipe, hold] { UserDefaults.standard.removeObject(forKey: g.key) } }
+}
+
+/// A footer's explanation, then how it is done (左滑…, 长按…) until that gesture has been used
+struct HintFooter: View {
+    let text: String
+    let tip: String
+    @AppStorage private var learned: Bool
+    init(_ text: String, tip: String, _ gesture: Learned) {
+        self.text = text; self.tip = tip
+        _learned = AppStorage(wrappedValue: false, gesture.key)
+    }
+    var body: some View { Text(learned ? text : text + tip) }
 }
 
 /// ‹ title ›, one look for every month (or year) switcher: 概览, 报表 and the calendars. The title sits in the

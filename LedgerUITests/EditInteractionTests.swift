@@ -994,6 +994,66 @@ final class EditInteractionTests: XCTestCase {
         check(app, bar: calendar, title: calendar.staticTexts["period.title"], back: app.buttons["calendar.today"], previous: "上个月")
     }
 
+    /// A gesture's hints go once it has been used: the charts' after a tap on one, 点按查看交易 / 点按扇区展开 after a
+    /// category or payee is opened, the 左滑 half of a footer after a row has been swiped, 长按 after a long press; and they stay gone
+    func testGestureHintsGoOnceTheGestureIsUsed() {
+        func text(_ app: XCUIApplication, _ s: String) -> XCUIElement {
+            app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", s)).firstMatch
+        }
+        var app = launchTab("overview", env: ["LEDGER_UNLEARN": "1"])
+        app.buttons["月"].firstMatch.tap()
+        let chart = app.otherElements["overview.trend"]
+        XCTAssertTrue(chart.waitForExistence(timeout: 20))
+        scrollIntoView(chart, in: app)
+        let chartHint = text(app, "点按或左右滑动查看月份")
+        XCTAssertTrue(chartHint.exists)
+        chart.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertTrue(chartHint.waitForNonExistence(timeout: 5))
+        // the payees' list: a row opened shows its transactions
+        let payee = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Coffee")).firstMatch
+        for _ in 0..<6 where !(payee.exists && payee.isHittable) { app.swipeUp() }
+        XCTAssertTrue(text(app, "点按查看交易").exists)
+        payee.tap()
+        XCTAssertTrue(text(app, "点按查看交易").waitForNonExistence(timeout: 5))
+        app.terminate()
+
+        // learned stays learned
+        app = launchTab("overview")
+        app.buttons["月"].firstMatch.tap()
+        XCTAssertTrue(chart.waitForExistence(timeout: 20))
+        scrollIntoView(chart, in: app)
+        XCTAssertFalse(text(app, "点按或左右滑动查看月份").exists)
+        app.terminate()
+
+        app = launchTab("overview", env: ["LEDGER_UNLEARN": "1", "LEDGER_LINK_ISSUES": "1"])
+        let footer = text(app, "链接检查")
+        XCTAssertTrue(footer.waitForExistence(timeout: 20))
+        XCTAssertTrue(footer.label.contains("左滑可忽略"))
+        app.terminate()
+        // a row swiped anywhere (here a change waiting to sync; nothing removed) ...
+        app = launchTab("overview", env: ["LEDGER_SYNC": "1", "LEDGER_HELD": "1"])
+        let pending = app.buttons.matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "sync.pending", "Held cafe")).firstMatch
+        XCTAssertTrue(pending.waitForExistence(timeout: 20))
+        pending.swipeLeft()
+        XCTAssertTrue(app.buttons["trash"].firstMatch.waitForExistence(timeout: 5))
+        app.terminate()
+        // ... and the 左滑 half is gone from every footer
+        app = launchTab("overview", env: ["LEDGER_LINK_ISSUES": "1"])
+        XCTAssertTrue(footer.waitForExistence(timeout: 20))
+        XCTAssertFalse(footer.label.contains("左滑"))
+        app.terminate()
+
+        app = launchTab("overview", env: ["LEDGER_UNLEARN": "1"])
+        let hold = text(app, "点按打开或关掉")
+        tapPoint(app.buttons["币种与换算"].firstMatch, timeout: 20)
+        XCTAssertTrue(app.staticTexts["币种"].firstMatch.waitForExistence(timeout: 5))
+        for _ in 0..<3 where !hold.exists { app.staticTexts["币种"].firstMatch.swipeUp() }
+        XCTAssertTrue(hold.waitForExistence(timeout: 5))
+        XCTAssertTrue(hold.label.contains("长按"))
+        app.staticTexts["CNY"].firstMatch.press(forDuration: 1)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "NOT (label CONTAINS %@)", "长按"), object: hold)], timeout: 5), .completed)
+    }
+
     /// While the ledger loads, the tabs are there and 概览 and 明细 show their shape in grey, rather than a page
     /// with a spinner alone
     func testPagesShowTheirShapeWhileTheLedgerLoads() {

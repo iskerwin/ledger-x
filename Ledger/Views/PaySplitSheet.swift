@@ -51,7 +51,7 @@ struct PaySplitSheet: View {
         } header: {
             Text(LS("其他付款账户"))
         } footer: {
-            Text(LS("每个账户填它付了多少，要与支出同币种；左滑删除。"))
+            HintFooter(LS("每个账户填它付了多少，要与支出同币种。"), tip: LS("左滑可删除。"), .swipe)
         }
         if discountAllowed(d) {
             Section {

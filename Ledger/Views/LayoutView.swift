@@ -118,7 +118,7 @@ struct RepoLayoutView: View {
             } header: {
                 Text(LS("收付款方拼音"))
             } footer: {
-                Text(LS("生成 ^refund-、^reimburse- 这类链接时，收付款方名称转成拼音；读音不对的在这里指定，如「岭南通 羊城通」→ yangchengtong。左滑删除。"))
+                HintFooter(LS("生成 ^refund-、^reimburse- 这类链接时，收付款方名称转成拼音；读音不对的在这里指定，如「岭南通 羊城通」→ yangchengtong。"), tip: LS("左滑可删除。"), .swipe)
             }
 
             // the rest of ledger-x.json, changed where it is used

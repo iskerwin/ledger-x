@@ -371,7 +371,7 @@ struct SubscriptionsView: View {
                 } header: {
                     Text(LS("发现可能的订阅"))
                 } footer: {
-                    Text(LS("同一收付款方按固定周期扣费的交易。加入后会把这些交易关联到订阅；左滑可忽略。"))
+                    HintFooter(LS("同一收付款方按固定周期扣费的交易。加入后会把这些交易关联到订阅。"), tip: LS("左滑可忽略。"), .swipe)
                 }
             }
             Section {

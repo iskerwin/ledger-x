@@ -76,7 +76,7 @@ struct ReportsView: View {
                 } header: {
                     Text(LS("我的查询"))
                 } footer: {
-                    Text(LS("保存在账本的 %@ 中，所有设备同步；左滑可删除。支持 Beancount 查询语言（BQL）的常用子集：SELECT … FROM … WHERE … GROUP BY … ORDER BY … LIMIT，以及 BALANCES、JOURNAL。账本中的 query 指令与其他 .bql 文件也会列在这里。", Store.customQueries))
+                    HintFooter(LS("保存在账本的 %@ 中，所有设备同步。支持 Beancount 查询语言（BQL）的常用子集：SELECT … FROM … WHERE … GROUP BY … ORDER BY … LIMIT，以及 BALANCES、JOURNAL。账本中的 query 指令与其他 .bql 文件也会列在这里。", Store.customQueries), tip: LS("左滑可删除。"), .swipe)
                 }
 
                 if !store.myQueries.isEmpty {
@@ -530,6 +530,7 @@ struct IncomeExpenseChart: View {
     /// a small chart among several (one per currency): shorter, no tapping
     var compact = false
     @Binding var picked: String?
+    @AppStorage(Learned.chart.key) private var chartLearned = false
 
     /// the months that get a label: a step that keeps them apart, on months that divide by it (Jan, Apr, Jul, Oct…)
     private var labelled: [String] {
@@ -589,7 +590,9 @@ struct IncomeExpenseChart: View {
                 .minimumScaleFactor(0.7)
                 .sensitive()
             } else if !compact {
+                // once learned, its place is kept for the picked month's line, so picking one moves nothing
                 Text(LS("点按或左右滑动查看各月")).font(.caption).foregroundStyle(.secondary)
+                    .opacity(chartLearned ? 0 : 1).accessibilityHidden(chartLearned)
             }
         }
         .padding(.vertical, AppSpacing.icon)

@@ -13,6 +13,9 @@ struct OverviewView: View {
     @State private var selLiab: String?
     @State private var picked: String?
     @Environment(\.dynamicTypeSize) private var typeSize
+    /// the charts' hints, until they have been used
+    @AppStorage(Learned.chart.key) private var chartLearned = false
+    @AppStorage(Learned.expand.key) private var expandLearned = false
     @State private var reimb: ReimbTarget?
     @AppStorage(OverviewChart.styleKey) private var chartStyle = "list"
     @AppStorage(OverviewChart.trendKey) private var trend = "exp"
@@ -204,6 +207,9 @@ struct OverviewView: View {
         }
         .listSectionSpacing(.compact)
         .onChange(of: picked) { _, _ in selCat = nil; selPay = nil }
+        // a category or payee opened (a slice, or a row of the list): the tap is learned
+        .onChange(of: selCat) { _, c in if c != nil { Learned.expand.mark() } }
+        .onChange(of: selPay) { _, p in if p != nil { Learned.expand.mark() } }
         .onChange(of: month) { _, _ in picked = nil; selCat = nil; selPay = nil }
         .onChange(of: period) { _, _ in picked = nil; selCat = nil; selPay = nil }
         .refreshable { await store.refresh() }
@@ -370,7 +376,7 @@ struct OverviewView: View {
             HStack(spacing: AppSpacing.control) {
                 Text(trend == "flow" ? (s.yearMode ? LS("%@ 年月度收支", s.key) : LS("近 12 个月收支")) : (s.yearMode ? LS("%@ 年月度支出", s.key) : LS("近 12 个月支出")))
                 Spacer()
-                Text(LS("点按或左右滑动查看月份")).textCase(nil)
+                if !chartLearned { Text(LS("点按或左右滑动查看月份")).textCase(nil) }
             }
         }
     }
@@ -514,7 +520,7 @@ struct OverviewView: View {
             Text(title)
             if let sub = sub { Text("· " + sub).textCase(nil) }
             Spacer()
-            Text(hint).textCase(nil)
+            if !expandLearned { Text(hint).textCase(nil) }
         }
     }
 
@@ -907,7 +913,7 @@ struct ErrorsView: View {
                 Section {
                     if ignored > 0 { Button { store.clearIgnoredLinkIssues() } label: { Label(LS("恢复已忽略的 %@ 项", ignored), systemImage: "arrow.counterclockwise").labelStyle(ControlLabelStyle()) } }
                 } footer: {
-                    Text(LS("链接检查：退款、报销和订阅链接只剩一笔、找不到原交易或垫付、金额对不上、科目不一致，以及带 #refund / #reimbursement 却没有链接的交易。点按打开交易处理，左滑可忽略。"))
+                    HintFooter(LS("链接检查：退款、报销和订阅链接只剩一笔、找不到原交易或垫付、金额对不上、科目不一致，以及带 #refund / #reimbursement 却没有链接的交易。点按打开交易处理。"), tip: LS("左滑可忽略。"), .swipe)
                 }
             }
         }
