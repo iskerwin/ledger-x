@@ -31,8 +31,9 @@ public func fmtPostingLine(_ account: String, _ units: String?, _ currency: Stri
     return left + String(repeating: " ", count: pad) + ns + " " + (currency ?? "") + (suffix.isEmpty ? "" : " " + suffix)
 }
 
+/// only quotes are escaped: Beancount reads every other backslash as it is
 public func quoted(_ s: String?) -> String {
-    "\"" + (s ?? "").replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
+    "\"" + (s ?? "").replacingOccurrences(of: "\"", with: "\\\"") + "\""
 }
 
 private let plainMetaRE = try! NSRegularExpression(pattern: #"^(\d{4}-\d{2}-\d{2}|TRUE|FALSE|-?[\d.]+(\s+[A-Z][A-Z0-9'._-]*)?)$"#)

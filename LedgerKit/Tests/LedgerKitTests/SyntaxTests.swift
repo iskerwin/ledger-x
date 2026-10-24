@@ -22,6 +22,23 @@ final class SyntaxTests: XCTestCase {
         XCTAssertEqual(t.postings.count, 2)
     }
 
+    /// Inside quotes Beancount turns only \" into "; \\, \n and \t stay as they are written (bean-check 3: the
+    /// narration below reads `say "hi" a\\b tab\tx`). Text the app writes reads back the same.
+    func testOnlyAnEscapedQuoteIsUnescaped() {
+        let L = loadLedger(root: "main.bean") { _ in #"""
+        2026-01-01 open Assets:Bank CNY
+        2026-01-01 open Expenses:Food
+        2026-01-02 * "Pay\"ee" "say \"hi\" a\\b tab\tx"
+          Expenses:Food  1.00 CNY
+          Assets:Bank
+        """# }
+        XCTAssertTrue(L.errors.isEmpty, L.errors.map { $0.msg }.joined(separator: "; "))
+        XCTAssertEqual(L.txns.first?.payee, "Pay\"ee")
+        XCTAssertEqual(L.txns.first?.narration, #"say "hi" a\\b tab\tx"#)
+        // a backslash typed in the app is written as it is, only quotes are escaped
+        XCTAssertEqual(quoted(#"C:\files "x""#), #""C:\files \"x\"""#)
+    }
+
     func testIncludeWildcards() {
         let files: [String: String] = [
             "main.bean": "include \"accounts.bean\"\ninclude \"journals/*.bean\"\ninclude \"more/**/*.bean\"\n",

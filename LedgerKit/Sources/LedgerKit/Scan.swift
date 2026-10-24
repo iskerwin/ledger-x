@@ -104,11 +104,11 @@ final class Scan {
         var j = i + 1
         while j < s.count {
             let c = s[j]
+            // like Beancount: \" is a quote; any other backslash pair (\\, \n, \t) stays as it is written
             if c == "\\", j + 1 < s.count {
-                j += 1
-                let nx = s[j]
-                if nx == "n" { out.append("\n") } else if nx == "t" { out.append("\t") } else { out.append(nx) }
-                j += 1
+                if s[j + 1] != "\"" { out.append(c) }
+                out.append(s[j + 1])
+                j += 2
                 continue
             }
             if c == "\"" { i = j + 1; return String(out) }
