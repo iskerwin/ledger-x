@@ -445,6 +445,9 @@ final class Store: ObservableObject {
         let env = ProcessInfo.processInfo.environment
         let base = URL(fileURLWithPath: dir)
         demoDir = base
+        // the journal's month calendar opened (the setting is remembered between launches, so it is set either way);
+        // before the ledger is read, as the pages are there while it loads and read the setting when they appear
+        UserDefaults.standard.set(env["LEDGER_CALENDAR"] != nil, forKey: "ledger.journal.calendar")
         // the screens as they are while a ledger loads: it never finishes
         if env["LEDGER_LOADING"] != nil {
             if let t = env["LEDGER_TAB"], let tab = Tab(rawValue: t) { self.tab = tab }
@@ -531,8 +534,6 @@ final class Store: ObservableObject {
             cv.on = Set(only)
         }
         cview = cv
-        // the journal's month calendar opened (the setting is remembered between launches, so it is set either way)
-        UserDefaults.standard.set(env["LEDGER_CALENDAR"] != nil, forKey: "ledger.journal.calendar")
         lastSync = Date()
     }
 
