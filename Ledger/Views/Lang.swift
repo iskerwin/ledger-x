@@ -86,9 +86,13 @@ extension SavedQuery {
 /// Picker for 设置 → 语言
 struct LanguagePicker: View {
     @EnvironmentObject var store: Store
+    /// with its badge, as a row of 设置
+    var badge = false
     var body: some View {
-        Picker(LS("语言"), selection: Binding(get: { AppSettings.shared.language }, set: { AppSettings.shared.language = $0 })) {
+        Picker(selection: Binding(get: { AppSettings.shared.language }, set: { AppSettings.shared.language = $0 })) {
             ForEach(AppLanguage.allCases) { Text($0.name).tag($0.rawValue) }
+        } label: {
+            if badge { SettingsRow(symbol: "globe", title: LS("语言")) } else { Text(LS("语言")) }
         }
         .onChange(of: AppSettings.shared.language) { _, _ in
             Task { await store.rebuild(quietly: true) }   // messages LedgerKit computed ahead (checks, links)

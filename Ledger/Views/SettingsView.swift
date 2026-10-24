@@ -91,19 +91,14 @@ struct SettingsView: View {
                     NavigationLink { Form { appearanceSection }.navigationTitle(LS("外观")) } label: {
                         row("paintpalette", LS("外观"), AppTheme.current.name + " · " + (AppAppearance(rawValue: appearance) ?? .system).name)
                     }
-                    LanguagePicker()
+                    LanguagePicker(badge: true)
                 } header: { Text(LS("外观")) }
                 securitySection
                 // 高级
                 Section {
                     NavigationLink { AdvancedPage() } label: { row("gearshape.2", LS("高级设置"), "") }
                     NavigationLink { GuideView() } label: { row("questionmark.circle", LS("使用指南与常见问题"), "") }
-                    Toggle(isOn: $demoEntry) {
-                        HStack(spacing: AppSpacing.icon) {
-                            Image(systemName: "sparkles").foregroundStyle(Color.jade).frame(width: 26)
-                            Text(LS("概览显示演示账本入口"))
-                        }
-                    }
+                    Toggle(isOn: $demoEntry) { SettingsRow(symbol: "sparkles", title: LS("概览显示演示账本入口")) }
                     .tint(.jade)
                     NavigationLink { AboutPage() } label: {
                         row("info.circle", LS("关于 Ledger X"), Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
@@ -176,7 +171,13 @@ struct SettingsView: View {
 }
 
 struct PrivacyToggle: View {
-    var body: some View { Toggle(LS("隐藏金额"), isOn: Binding(get: { AppSettings.shared.privacy }, set: { AppSettings.shared.privacy = $0 })) }
+    /// with its badge, as a row of 设置
+    var badge = false
+    var body: some View {
+        Toggle(isOn: Binding(get: { AppSettings.shared.privacy }, set: { AppSettings.shared.privacy = $0 })) {
+            if badge { SettingsRow(symbol: "eye.slash", title: LS("隐藏金额")) } else { Text(LS("隐藏金额")) }
+        }
+    }
 }
 
 extension SettingsView {
@@ -225,7 +226,7 @@ extension SettingsView {
                     else { store.show(b.available ? LS("验证未通过") : LS("本机未设置密码，无法启用")) }
                 }
             })) {
-                Label(LS("%@锁定", b.name), systemImage: b.symbol).labelStyle(ControlLabelStyle())
+                SettingsRow(symbol: b.symbol, title: LS("%@锁定", b.name))
             }
             if lockOn {
                 Picker(LS("自动锁定"), selection: $grace) {
@@ -235,7 +236,7 @@ extension SettingsView {
                     Text(LS("15 分钟后")).tag(900)
                 }
             }
-            PrivacyToggle()
+            PrivacyToggle(badge: true)
         } header: {
             Text(LS("安全"))
         } footer: {
