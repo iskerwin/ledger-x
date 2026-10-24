@@ -132,14 +132,9 @@ struct ReportsInsights: View {
                         Button { store.showInJournal(.report(month: month, account: r.key)) } label: {
                             HStack(spacing: AppSpacing.icon) {
                                 Circle().fill(Self.palette[i % Self.palette.count]).frame(width: 9, height: 9)
-                                Text(catLabel(r.key)).lineLimit(1).frame(width: 84, alignment: .leading)
-                                GeometryReader { geo in
-                                    Capsule().fill(Color(.tertiarySystemFill))
-                                        .overlay(alignment: .leading) {
-                                            Capsule().fill(Self.palette[i % Self.palette.count]).frame(width: geo.size.width * r.value / max(top[0].value, 0.01))
-                                        }
-                                }
-                                .frame(height: 6)
+                                // the bar above already shows the shares: the row gives its room to the name
+                                Text(catLabel(r.key)).lineLimit(1)
+                                Spacer(minLength: AppSpacing.icon)
                                 Text(money(r.value, L.base)).monospacedDigit().font(.subheadline).frame(minWidth: 86, alignment: .trailing).sensitive()
                                 Text(String(format: "%.1f%%", r.value / total * 100)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                                     .frame(width: 44, alignment: .trailing)
