@@ -1060,7 +1060,8 @@ final class EditInteractionTests: XCTestCase {
     }
 
     /// The overview's trend chart is read month by month by VoiceOver, and a finger slid sideways along it picks
-    /// months (the last one stays picked, with 查看该月)
+    /// months (the last one stays picked: the page shows it, 回到本月 on the card leaves it; there is no 查看该月,
+    /// which only made the picked month the page's month and changed nothing in sight)
     func testTheTrendChartIsReadAndSlidAlong() {
         let app = launchTab("overview")
         app.buttons["月"].tap()
@@ -1077,6 +1078,11 @@ final class EditInteractionTests: XCTestCase {
         from.press(forDuration: 0.05, thenDragTo: to)
         let picked = app.otherElements["overview.hero"].staticTexts.matching(NSPredicate(format: "label MATCHES %@", "\\d{4}年\\d{1,2}月支出")).firstMatch
         XCTAssertTrue(picked.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["查看该月"].exists)
+        let back = app.otherElements["overview.hero"].buttons["回到本月"]
+        for _ in 0..<4 where !back.isHittable { app.swipeDown() }
+        back.tap()
+        XCTAssertTrue(picked.waitForNonExistence(timeout: 5))
     }
 
     /// A finger drawn up the trend chart scrolls the page, as anywhere else on it (sliding along the chart took

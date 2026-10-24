@@ -362,10 +362,8 @@ struct OverviewView: View {
             if let p = shown {
                 HStack(spacing: AppSpacing.control) {
                     Text(Day.monthLabel(p) + "  " + (trend == "flow" ? flowLine(p, F) : money(F.exp[p] ?? 0, F.cur))).monospacedDigit().sensitive()
+                    // the page already shows the picked month; 回到本月 on the card leaves it
                     Spacer()
-                    if p != month || s.yearMode {
-                        Button { monthForward = p >= month; month = p; period = "month"; picked = nil } label: { Label(LS("查看该月"), systemImage: "calendar").labelStyle(ControlLabelStyle()) }.buttonStyle(.borderless)
-                    }
                 }
                 .font(.footnote)
             }
