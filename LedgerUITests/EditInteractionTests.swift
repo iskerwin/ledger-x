@@ -834,6 +834,26 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertEqual(flows.frame.minY, before, accuracy: 0.5)
     }
 
+    /// Under the bar both tabs of the card have a line: 净资产 against last month, 收支 by the month (收支 had
+    /// nothing there, a blank under its bar when 净资产 had its accounts-left-out line); 收支's opens the year's review
+    func testBothTabsOfTheAccountsCardHaveALineUnderTheBar() {
+        let app = launchTab("accounts")
+        let flows = app.buttons["收支"]
+        XCTAssertTrue(flows.waitForExistence(timeout: 20))
+        app.buttons["全部"].tap()
+        let nw = app.buttons["accounts.nwLine"]
+        XCTAssertTrue(nw.waitForExistence(timeout: 5))
+        XCTAssertTrue(nw.label.hasPrefix("较上月末"))
+        let at = nw.frame.minY
+        flows.tap()
+        let line = app.buttons["accounts.flowLine"]
+        XCTAssertTrue(line.waitForExistence(timeout: 5))
+        XCTAssertTrue(line.label.hasPrefix("月均支出"))
+        XCTAssertEqual(line.frame.minY, at, accuracy: 0.5)
+        line.tap()
+        XCTAssertTrue(app.navigationBars["年度回顾"].waitForExistence(timeout: 5))
+    }
+
     /// At the largest text size the card's figures are not shrunk to fit one row: they stack, one a line, and the
     /// card grows
     func testOverviewFiguresStackAtAccessibilityTextSize() {

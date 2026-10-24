@@ -1,4 +1,9 @@
 {
+ "较上月末 ": "Since last month ",
+ " · 不计入 %@ 个账户": " · %@ accounts not counted",
+ "月均支出 %@": "%@ a month spent",
+ "比去年同期 ": "vs. last year ",
+ "月均结余 %@": "%@ a month saved",
  " %@ 笔": " %@ items",
  " · 公司 %@ 笔": " · company %@",
  " · 固定 ": " · fixed ",
@@ -191,7 +196,6 @@
  "不报销": "Not reimbursable",
  "不提醒": "Off",
  "不核对": "Don't Check",
- "不计入 %@ 个账户": "%@ accounts not counted",
  "不计入净资产": "Not in net worth",
  "不计收支": "Neutral",
  "与%@同为 %@，不用换算。": "Same currency as %@ (%@), nothing to convert.",

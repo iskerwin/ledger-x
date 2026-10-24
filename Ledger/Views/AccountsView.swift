@@ -38,6 +38,7 @@ struct AccountsView: View {
             .navigationDestination(for: CounterpartyDest.self) { _ in CounterpartyView().privacyToolbar() }
             .navigationDestination(for: TransactionAttachmentsDest.self) { _ in TransactionAttachmentsView().privacyToolbar() }
             .navigationDestination(for: NetWorthSettingsDest.self) { _ in NetWorthSettingsView() }
+            .navigationDestination(for: YearReviewDest.self) { YearReviewView(year: $0.year).privacyToolbar(currency: true) }
             .navigationDestination(for: ReconcileDest.self) { _ in ReconcileView().privacyToolbar() }
         }
         .sheet(isPresented: $pricing) { PriceUpdateSheet() }
@@ -182,13 +183,22 @@ struct AccountsView: View {
             if one, let a = a1?.amount, let l = l1?.amount {
                 RatioBar(parts: [(max(0, a - max(0, l)), Color.jade), (max(0, l), Color.loss)])
             }
-            if !store.netWorthExclude.isEmpty {
-                NavigationLink(value: NetWorthSettingsDest()) {
-                    Text(LS("不计入 %@ 个账户", store.netWorthExclude.count)).font(.caption).foregroundStyle(.secondary)
-                }
+            // a line under the bar here as under 收支's, so the two tabs say as much and are as tall
+            NavigationLink(value: NetWorthSettingsDest()) {
+                let change = netWorthSinceLastMonth(L, exclude: store.netWorthExclude)
+                let left = store.netWorthExclude.isEmpty ? "" : LS(" · 不计入 %@ 个账户", store.netWorthExclude.count)
+                (Text(LS("较上月末 ")) + (change.map { changeText($0, money(abs($0), L.base), more: .gain) } ?? Text("—")) + Text(left))
+                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1).sensitive()
             }
+            .accessibilityIdentifier("accounts.nwLine")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// a change as an arrow and its figure, in `more`'s colour going up and the other one going down
+    private func changeText(_ c: Double, _ figure: String, more: Color) -> Text {
+        let color: Color = c < 0 ? (more == .gain ? .loss : .gain) : more
+        return Text(Image(systemName: c < 0 ? "arrow.down.right" : "arrow.up.right")).foregroundColor(color) + Text(figure).foregroundColor(color)
     }
 
     /// this year's income, spending and what is left, for 收支
@@ -211,6 +221,15 @@ struct AccountsView: View {
                 Figure(label: LS("储蓄率"), value: income > 0.005 ? String(format: "%.1f%%", (income - spent) / income * 100) : "—", alignment: .trailing)
             }
             RatioBar(parts: [(max(0, income - spent), Color.jade), (spent, Color.loss)])
+            // by the month, and the spending against the same days of last year (more in red, less in green)
+            NavigationLink(value: YearReviewDest(year: year)) {
+                let pace = yearPace(L, year: year)
+                let then = pace.spentChange.map { Text(LS("比去年同期 ")) + changeText($0, String(format: "%.0f%%", abs($0) * 100), more: .loss) }
+                    ?? Text(LS("月均结余 %@", money(pace.monthlySaved, L.base, 0)))
+                (Text(LS("月均支出 %@", money(pace.monthlySpent, L.base, 0)) + " · ") + then)
+                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1).sensitive()
+            }
+            .accessibilityIdentifier("accounts.flowLine")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

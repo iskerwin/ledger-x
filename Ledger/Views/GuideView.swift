@@ -155,6 +155,8 @@ struct GuideView: View {
                "On an account, Check balance takes the balance from your bank; when it matches, a balance assertion is written, otherwise the difference is shown."),
             tr("在账户编辑里设账单日 / 核对日，到期会提醒对账；信用卡还可设还款日和额度。",
                "Set a statement day in the account's settings for a reminder to check it; cards also take a due day and a limit."),
+            tr("账户页顶部的卡片：「净资产」下面一行是比上月末多了或少了多少，点它进统计范围；「收支」下面一行是今年的月均支出和比去年同期多花或少花的比例（去年同期没有记录时显示月均结余），点它看年度回顾。",
+               "The card at the top of Accounts: under Net worth, the change since the end of last month (tap it for What's counted); under Income & spending, this year's monthly spending and how it compares with the same days last year (the monthly savings when there is no last year to compare), tap it for the year in review."),
             tr("哪些账户计入净资产、哪些列入资产负债表：设置 → 统计范围，或账户页 → 管理账户，也可在账户详情页直接开关。",
                "Which accounts count in net worth and appear on the balance sheet: Settings → What's counted, Accounts → Manage accounts, or the switches on an account's page."),
             tr("持有外币或证券时，账户页有「更新价格」，旁边是最新价格的日期；可从 Yahoo Finance 获取或手动填写，每项写一条 price 指令。",

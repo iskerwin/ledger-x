@@ -285,6 +285,52 @@ public func netWorthSeries(_ L: Ledger, today: String = Day.today(), exclude: [S
     return out
 }
 
+/// 净资产 now against the end of last month (the accounts left out of it left out), in the operating currency;
+/// nil while the ledger has no month before this one
+public func netWorthSinceLastMonth(_ L: Ledger, today: String = Day.today(), exclude: [String] = []) -> Double? {
+    let s = netWorthSeries(L, today: today, exclude: exclude)
+    guard s.count >= 2 else { return nil }
+    return s[s.count - 1].netWorth - s[s.count - 2].netWorth
+}
+
+/// A year's income and spending by the month, and its spending against the same days of the year before
+public struct YearPace: Equatable {
+    /// a month's spending, and what was left of the income, on average over the months gone (this one counted)
+    public let monthlySpent: Double
+    public let monthlySaved: Double
+    /// spending against the same days of the year before, as a fraction (0.12 for 12% more); nil when the ledger
+    /// does not go back to that year's January or nothing was spent then
+    public let spentChange: Double?
+}
+
+/// `year` up to `today` (a past year whole), in the operating currency
+public func yearPace(_ L: Ledger, year: String, today: String = Day.today()) -> YearPace {
+    let thisYear = String(today.prefix(4))
+    let end = year < thisYear ? year + "-12-31" : today
+    let months = year < thisYear ? 12 : year == thisYear ? Int(today.dropFirst(5).prefix(2)) ?? 12 : 0
+    func flows(_ from: String, _ to: String) -> (income: Double, spent: Double) {
+        var income = 0.0, spent = 0.0
+        for t in L.txns where t.date >= from && t.date <= to {
+            for p in t.postings {
+                guard let u = p.units else { continue }
+                let v = toCNY(L, u, p.currency ?? L.base, t.date) ?? 0
+                if p.account.hasPrefix("Income:") { income -= v } else if p.account.hasPrefix("Expenses:") { spent += v }
+            }
+        }
+        return (income, spent)
+    }
+    let now = flows(year + "-01-01", end)
+    let prev = String((Int(year) ?? 0) - 1)
+    // the same days: to the same date of the year before (29 February to the 28th)
+    var prevEnd = prev + end.dropFirst(4)
+    if prevEnd.hasSuffix("-02-29") { prevEnd = prev + "-02-28" }
+    let first = L.txns.first { !$0.synthetic }?.date ?? "9999"
+    let before = first < prev + "-02-01" ? flows(prev + "-01-01", prevEnd).spent : 0
+    return YearPace(monthlySpent: months > 0 ? now.spent / Double(months) : 0,
+                    monthlySaved: months > 0 ? (now.income - now.spent) / Double(months) : 0,
+                    spentChange: before > 0.005 ? (now.spent - before) / before : nil)
+}
+
 /// `n` of one currency in another at `date`'s rates (through the operating currency); nil without a rate
 public func convertAmount(_ L: Ledger, _ n: Double, from: String, to: String, date: String) -> Double? {
     convert(L, n, from, to, date)
