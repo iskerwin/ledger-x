@@ -47,6 +47,7 @@ struct ReportsInsights: View {
     private var monthBar: some View {
         let now = Day.ym(Day.today())
         return PeriodBar(title: Day.monthLabel(month), key: month, backTitle: LS("本月"), away: month != now, canGoOn: month < now,
+                         widest: PeriodBar.widestMonth(month),
                          step: { k in month = min(now, Day.addMonth(month, k)) }, toNow: { month = now })
             .monthSwipe(back: { month = Day.addMonth(month, -1) }, forward: month >= now ? nil : { month = Day.addMonth(month, 1) })
             .accessibilityElement(children: .contain).accessibilityIdentifier("reports.monthbar")

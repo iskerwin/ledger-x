@@ -327,6 +327,10 @@ struct PeriodBar: View {
     var capsule = true
     var backID: String? = nil
     var titleID: String? = nil
+    /// the widest title this bar will show (the year's longest month name): the title's room, and so the layout
+    /// chosen, are the same from one month to the next. Sized to the title itself, a wider month (2026年10月) could
+    /// get another layout than a narrower one (2026年9月) and the title jumped as the way back came and went.
+    var widest: String? = nil
     let step: (Int) -> Void
     let toNow: () -> Void
     /// the key shown before: the direction a new title slides in from
@@ -355,8 +359,12 @@ struct PeriodBar: View {
             arrow("chevron.left", previousLabel, enabled: canGoBack) { step(-1) }
             Spacer(minLength: 0)
             if even { way.hidden().accessibilityHidden(true) }
-            SlidingTitle(text: title, forward: key >= (shown ?? key)).font(.headline).fixedSize(horizontal: !squeeze, vertical: false)
-                .accessibilityIdentifier(titleID ?? "period.title")
+            ZStack {
+                Text(widest ?? title).font(.headline).lineLimit(1).minimumScaleFactor(0.5).hidden().accessibilityHidden(true)
+                SlidingTitle(text: title, forward: key >= (shown ?? key)).font(.headline)
+                    .accessibilityIdentifier(titleID ?? "period.title")
+            }
+            .fixedSize(horizontal: !squeeze, vertical: false)
             ZStack {
                 way.hidden().accessibilityHidden(true)
                 if away { way.transition(.opacity) }
@@ -365,6 +373,12 @@ struct PeriodBar: View {
             Spacer(minLength: 0)
             arrow("chevron.right", nextLabel, enabled: canGoOn) { step(1) }
         }
+    }
+
+    /// the longest of `month`'s year's month names
+    static func widestMonth(_ month: String) -> String {
+        let year = month.prefix(4)
+        return (1...12).map { Day.monthLabel(String(format: "%@-%02d", String(year), $0)) }.max { $0.count < $1.count } ?? Day.monthLabel(month)
     }
 
     private func arrow(_ symbol: String, _ label: String, enabled: Bool, _ go: @escaping () -> Void) -> some View {

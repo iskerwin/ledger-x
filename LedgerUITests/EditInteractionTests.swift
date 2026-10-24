@@ -786,13 +786,14 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertEqual(weekday.frame.minY, before, accuracy: 0.5)
     }
 
-    private func launchTab(_ tab: String, accessibility: Bool = false, env: [String: String] = [:]) -> XCUIApplication {
+    private func launchTab(_ tab: String, accessibility: Bool = false, textSize: String? = nil, env: [String: String] = [:]) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
         let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures").path
         app.launchEnvironment = ["LEDGER_DEMO": fixture, "LEDGER_TAB": tab, "LEDGER_LANG": "zh"].merging(env) { $1 }
         app.launchArguments = ["-AppleLanguages", "(zh-Hans)"]
             + (accessibility ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : [])
+            + (textSize.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
         app.launch()
         return app
     }
@@ -992,6 +993,38 @@ final class EditInteractionTests: XCTestCase {
         app = launchTab("journal", env: ["LEDGER_CALENDAR": "1"])
         let calendar = app.otherElements["calendar.month"]
         check(app, bar: calendar, title: calendar.staticTexts["period.title"], back: app.buttons["calendar.today"], previous: "上个月")
+    }
+
+    /// At larger text sizes too, the month's title stays where it was when the way back comes: the bar chose its
+    /// layout by the month's own name, so a wider one (2026年10月, no way back) could get another than a narrower
+    /// one (2026年9月, with it), and the title jumped
+    func testTheMonthTitleStaysPutAtLargerTextSizes() {
+        for size in ["UICTContentSizeCategoryXL", "UICTContentSizeCategoryXXL", "UICTContentSizeCategoryXXXL", "UICTContentSizeCategoryAccessibilityM"] {
+            let app = launchTab("journal", textSize: size, env: ["LEDGER_CALENDAR": "1"])
+            let calendar = app.otherElements["calendar.month"]
+            XCTAssertTrue(calendar.waitForExistence(timeout: 20))
+            let back = app.buttons["calendar.today"], title = calendar.staticTexts["period.title"]
+            if back.exists { back.tap() }
+            XCTAssertTrue(back.waitForNonExistence(timeout: 5))
+            let x = title.frame.midX
+            calendar.buttons["上个月"].tap()
+            XCTAssertTrue(back.waitForExistence(timeout: 5))
+            XCTAssertEqual(title.frame.midX, x, accuracy: 1, size)
+            app.terminate()
+
+            let overview = launchTab("overview", textSize: size)
+            overview.buttons["月"].firstMatch.tap()
+            let bar = overview.descendants(matching: .any)["overview.monthbar"].firstMatch
+            XCTAssertTrue(bar.waitForExistence(timeout: 20))
+            let now = bar.buttons["本月"], heading = overview.staticTexts["overview.period"]
+            if now.exists { now.tap() }
+            XCTAssertTrue(now.waitForNonExistence(timeout: 5))
+            let at = heading.frame.midX
+            bar.buttons["上个月"].tap()
+            XCTAssertTrue(now.waitForExistence(timeout: 5))
+            XCTAssertEqual(heading.frame.midX, at, accuracy: 1, "overview " + size)
+            overview.terminate()
+        }
     }
 
     /// A gesture's hints go once it has been used: the charts' after a tap on one, 点按查看交易 / 点按扇区展开 after a

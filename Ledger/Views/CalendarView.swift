@@ -174,7 +174,7 @@ struct MonthCalendar: View {
         return PeriodBar(title: Day.monthLabel(month), key: month, backTitle: LS("今天"),
                          away: month != now && now >= Day.ym(first) && now <= Day.ym(last),
                          canGoBack: Day.addMonth(month, -1) >= Day.ym(first), canGoOn: Day.addMonth(month, 1) <= Day.ym(last),
-                         capsule: false, backID: "calendar.today", step: step, toNow: { month = now })
+                         capsule: false, backID: "calendar.today", widest: PeriodBar.widestMonth(month), step: step, toNow: { month = now })
     }
 
     private func step(_ k: Int) {
