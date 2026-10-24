@@ -58,7 +58,7 @@ struct ChartPick<X: Plottable & Equatable>: ViewModifier {
                         if let x = value(proxy, geo, location) { tap(x) }
                     }
                 if #available(iOS 18, *) {
-                    layer.gesture(SidePan(slide: { follow(proxy, geo, $0) }, ended: { last = nil }))
+                    layer.gesture(SidePan(slide: { follow(proxy, geo, $0) }, ended: { _, _ in last = nil }))
                 } else {
                     layer.simultaneousGesture(DragGesture(minimumDistance: 8)
                         .onChanged { g in
@@ -87,10 +87,12 @@ struct ChartPick<X: Plottable & Equatable>: ViewModifier {
 /// A sideways drag on a chart, in UIKit (iOS 18): a SwiftUI DragGesture there takes every drag that starts on it,
 /// so the page under it no longer scrolls. This pan starts only when the finger moves more sideways than up or
 /// down; otherwise it never begins and the page scrolls.
+/// A month swipe uses it too: under load the list's own pan could take a SwiftUI drag's sideways swipe first.
 @available(iOS 18, *)
 private struct SidePan: UIGestureRecognizerRepresentable {
-    let slide: (CGPoint) -> Void
-    let ended: () -> Void
+    var slide: (CGPoint) -> Void = { _ in }
+    /// how far the finger went, and how fast it was moving sideways when it lifted
+    let ended: (CGSize, CGFloat) -> Void
 
     func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
 
@@ -103,12 +105,22 @@ private struct SidePan: UIGestureRecognizerRepresentable {
     func handleUIGestureRecognizerAction(_ pan: UIPanGestureRecognizer, context: Context) {
         switch pan.state {
         case .began, .changed: slide(context.converter.localLocation)
-        case .ended, .cancelled, .failed: ended()
+        case .ended, .cancelled, .failed:
+            // from where the finger came down: a quick flick only begins the pan near its end
+            let a = context.coordinator.start ?? pan.location(in: nil), b = pan.location(in: nil)
+            ended(pan.state == .ended ? CGSize(width: b.x - a.x, height: b.y - a.y) : .zero, pan.velocity(in: nil).x)
         default: break
         }
     }
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var start: CGPoint?
+
+        func gestureRecognizer(_ g: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            start = touch.location(in: nil)
+            return true
+        }
+
         func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
             guard let pan = g as? UIPanGestureRecognizer else { return true }
             let v = pan.velocity(in: pan.view)
@@ -275,13 +287,20 @@ struct MonthSwipe: ViewModifier {
     let forward: (() -> Void)?
 
     func body(content: Content) -> some View {
-        content.contentShape(Rectangle()).gesture(
-            DragGesture(minimumDistance: 20).onEnded { v in
-                let dx = v.translation.width
-                guard abs(dx) > 40, abs(dx) > abs(v.translation.height) * 1.5 else { return }
-                if dx > 0 { back(); Haptics.selection() } else if let forward { forward(); Haptics.selection() }
-            }
-        )
+        if #available(iOS 18, *) {
+            content.contentShape(Rectangle()).gesture(SidePan(ended: swiped))
+        } else {
+            content.contentShape(Rectangle()).gesture(
+                DragGesture(minimumDistance: 20).onEnded { v in swiped(v.translation, v.velocity.width) }
+            )
+        }
+    }
+
+    /// far enough, or a short quick flick
+    private func swiped(_ t: CGSize, _ speed: CGFloat) {
+        let dx = t.width
+        guard abs(dx) > 40 || (abs(dx) > 16 && abs(speed) > 500), abs(dx) > abs(t.height) * 1.5 else { return }
+        if dx > 0 { back(); Haptics.selection() } else if let forward { forward(); Haptics.selection() }
     }
 }
 

@@ -921,6 +921,19 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(now.waitForNonExistence(timeout: 5))
     }
 
+    /// 月 / 年 on the overview slide like any segmented control: the month swipe of the row it sits in took the
+    /// drag, so only a tap switched it
+    func testTheOverviewPeriodPickerSlides() {
+        let app = launchTab("overview")
+        let picker = app.segmentedControls.firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 20))
+        let month = picker.buttons["月"], year = picker.buttons["年"]
+        if !month.isSelected { month.tap() }
+        XCTAssertTrue(month.isSelected)
+        month.press(forDuration: 0.2, thenDragTo: year)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "isSelected == true"), object: year)], timeout: 5), .completed)
+    }
+
     /// While the ledger loads, the tabs are there and 概览 and 明细 show their shape in grey, rather than a page
     /// with a spinner alone
     func testPagesShowTheirShapeWhileTheLedgerLoads() {
