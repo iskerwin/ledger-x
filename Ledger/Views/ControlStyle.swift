@@ -121,6 +121,13 @@ private struct SidePan: UIGestureRecognizerRepresentable {
             return true
         }
 
+        /// alongside whatever else the touch starts (the page's scrolling, the list row's own gestures): when one of
+        /// them was first, a quick sideways flick was taken from this and the month or chart did not move. This
+        /// begins only for a sideways drag, so the page still has every up-and-down one to itself.
+        func gestureRecognizer(_ g: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+            true
+        }
+
         func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
             guard let pan = g as? UIPanGestureRecognizer else { return true }
             let v = pan.velocity(in: pan.view)
