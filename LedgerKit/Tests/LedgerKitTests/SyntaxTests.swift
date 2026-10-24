@@ -93,6 +93,23 @@ final class SyntaxTests: XCTestCase {
         XCTAssertNil(toCNY(L, 1, "USD"))
     }
 
+    /// A pad counts only when it fills a difference (bean-check 3: "Unused Pad entry" for the pad whose balance was
+    /// already right, and for the one a later pad took over from); only the one with no assertion after it was told
+    func testUnusedPadsAreReported() {
+        let L = loadLedger(root: "main.bean") { _ in """
+        2026-01-01 open Assets:Bank
+        2026-01-01 open Equity:Opening
+        2026-01-02 pad Assets:Bank Equity:Opening
+        2026-01-03 balance Assets:Bank  0.00 CNY
+        2026-01-04 pad Assets:Bank Equity:Opening
+        2026-01-05 pad Assets:Bank Equity:Opening
+        2026-01-06 balance Assets:Bank  10.00 CNY
+        2026-01-07 pad Assets:Bank Equity:Opening
+        """ }
+        XCTAssertEqual(L.errors.map(\.line), [3, 5, 8])
+        XCTAssertEqual(L.final["Assets:Bank"]?["CNY"], 10)
+    }
+
     func testIncludeWildcards() {
         let files: [String: String] = [
             "main.bean": "include \"accounts.bean\"\ninclude \"journals/*.bean\"\ninclude \"more/**/*.bean\"\n",

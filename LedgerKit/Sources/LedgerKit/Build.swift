@@ -466,8 +466,11 @@ public func build(_ input: [Entry], files: [String] = [], options: [String: [Str
         for (a, cs) in bal where a == acct || a.hasPrefix(prefix) { if let v = cs[c] { s += v } }
         return s
     }
-    final class PadState { let pad: Entry; var used = Set<String>(); init(_ p: Entry) { pad = p } }
+    /// `filled`: it made up a difference (as in Beancount, a pad that never did is reported, even when an assertion
+    /// followed it: the balance was right already, or a later pad took over)
+    final class PadState { let pad: Entry; var used = Set<String>(); var filled = false; init(_ p: Entry) { pad = p } }
     var pending: [String: PadState] = [:]
+    var padStates: [PadState] = []
     var synthetic: [Entry] = []
     let multiplier = Double((options["inferred_tolerance_multiplier"]?.first ?? nil) ?? "0.5") ?? 0.5
     let balanceTolerance = BalanceTolerance(options: options)
@@ -494,7 +497,9 @@ public func build(_ input: [Entry], files: [String] = [], options: [String: [Str
         case .document: L.documents.append(e)
         case .pad:
             L.pads.append(e)
-            if let a = e.account { pending[a] = PadState(e) }
+            let state = PadState(e)
+            padStates.append(state)
+            if let a = e.account { pending[a] = state }
         case .txn:
             let t = e
             if !t.bad.isEmpty { L.errors.append(LedgerError(entry: t, msg: tr("无法解析：\(t.bad.joined(separator: " | "))", "Cannot parse: \(t.bad.joined(separator: " | "))"))) }
@@ -542,6 +547,7 @@ public func build(_ input: [Entry], files: [String] = [], options: [String: [Str
                     for p in t.postings { add(p.account, ccy, p.units!) }
                     applyInventory(t, &inv)
                     synthetic.append(t)
+                    pd.filled = true
                     got = subtotal(acct, ccy)
                 }
             }
@@ -563,11 +569,10 @@ public func build(_ input: [Entry], files: [String] = [], options: [String: [Str
             return a.offset < b.offset
         }.map { $0.element }
     }
-    for pd in L.pads {
-        let a = pd.account ?? ""
-        if pending[a] == nil || (pending[a]!.pad === pd && pending[a]!.used.isEmpty) {
-            L.errors.append(LedgerError(entry: pd, msg: tr("pad \(a) 之后没有余额断言，没有生效", "pad \(a) has no following balance assertion and has no effect")))
-        }
+    for st in padStates where !st.filled {
+        let a = st.pad.account ?? ""
+        L.errors.append(LedgerError(entry: st.pad, msg: tr("pad \(a) 没有生效：之后没有需要它补差额的余额断言",
+                                                          "pad \(a) has no effect: no balance assertion after it needed padding")))
     }
     for (i, t) in L.txns.enumerated() { t.id = i }
     L.final = bal
