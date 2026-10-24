@@ -138,20 +138,13 @@ struct QuickAddView: View {
 
     private static let kinds: [DraftKind] = [.expense, .income, .transfer]
 
-    /// the kind's colour, for the amount, its currency sign and the save keys: spending red, income green, a
-    /// transfer the theme's (green for a gain and red for a loss everywhere in the app)
+    /// the kind's colour, for the amount and its currency sign: spending red, income green, a transfer the
+    /// theme's (green for a gain and red for a loss everywhere in the app)
     private var kindColor: Color {
         switch store.draft.kind {
         case .expense: return .loss
         case .income: return .gain
         default: return .jade
-        }
-    }
-    /// the save keys' colour: the theme's own (with its text colour) for a transfer
-    private var saveTint: Color? {
-        switch store.draft.kind {
-        case .expense, .income: return kindColor
-        default: return nil
         }
     }
 
@@ -1113,10 +1106,10 @@ struct QuickAddView: View {
                     KeyCap(text: LS("源文本"), font: .system(size: 16, weight: .semibold), tap: { editingText = true })
                         .accessibilityIdentifier("quick.keypad.source")
                 } else {
-                    KeyCap(text: LS("保存再记"), font: .system(size: 16, weight: .semibold), tint: saveTint, soft: true, tap: { submit(close: false) })
+                    KeyCap(text: LS("保存再记"), font: .system(size: 16, weight: .semibold), soft: true, tap: { submit(close: false) })
                 }
                 KeyCap(text: expr ? "=" : LS("保存"), font: .system(size: expr ? 24 : 17, weight: .semibold), filled: true,
-                       tint: saveTint, tap: { expr ? equals() : submit(close: true) })
+                       tap: { expr ? equals() : submit(close: true) })
                     .accessibilityLabel(expr ? "=" : d.replacing != nil ? LS("保存修改") : LS("保存并关闭"))
                     .opacity(saving ? 0.5 : 1)
             }
