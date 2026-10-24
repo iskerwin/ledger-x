@@ -38,7 +38,8 @@ let MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", 
 public enum Day {
     public static var calendar: Calendar = {
         var c = Calendar(identifier: .gregorian)
-        c.timeZone = .current
+        // the phone's zone as it changes (a trip), not the one it was in when the first date was read
+        c.timeZone = .autoupdatingCurrent
         return c
     }()
 

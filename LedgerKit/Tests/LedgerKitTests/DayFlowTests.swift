@@ -39,4 +39,12 @@ final class DayFlowTests: XCTestCase {
                            CurrencyFlow(currency: "USD", income: 0.41, expenses: 0)])
         XCTAssertEqual(f[1].net, 0.41, accuracy: 0.0001)
     }
+
+    /// "Today" is the day where the phone is now: after a change of time zone (a trip) the dates follow it without
+    /// starting the app again, as the calendar keeps the zone that tracks the phone's, not a copy of the one it
+    /// was in when the first date was read
+    func testDatesFollowTheTimeZone() {
+        XCTAssertEqual(Day.calendar.timeZone, TimeZone.autoupdatingCurrent)
+        XCTAssertNotEqual(Day.calendar.timeZone, TimeZone.current)
+    }
 }
