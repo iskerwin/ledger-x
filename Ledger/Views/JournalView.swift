@@ -41,10 +41,14 @@ extension Store {
         set { entryMoves[cfg.id] = newValue }
     }
     static func normKey(_ k: String) -> String { normEntryText(k) }
-    /// before `ops` are applied (the ledger as it is): every transaction they rewrite or move
-    func noteMoved(_ ops: [Op]) {
+    /// before `ops` are applied (the ledger as it is): every transaction they rewrite or move.
+    /// Finding them walks the whole ledger, so it runs off the main actor; the map is written back here.
+    func noteMoved(_ ops: [Op]) async {
         guard let L = L else { return }
-        for m in movedEntries(ops, L) {
+        let moves = await Task.detached(priority: .userInitiated) {
+            movedEntries(ops, L)
+        }.value
+        for m in moves {
             movedKeys[Store.normKey(m.oldDate + "\u{1}" + m.old)] = m.newDate + "\u{1}" + m.new
         }
     }

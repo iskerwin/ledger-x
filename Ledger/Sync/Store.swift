@@ -872,13 +872,14 @@ enum Prefs {
             for i in ops.indices { ops[i].releases = nil; if ops[i].heldGroup.map(releases.contains) == true { ops[i].held = nil; ops[i].heldGroup = nil } }
         }
         let held = ops.contains { $0.held != nil }
-        // what it takes to undo this, worked out against the files as they are before it
+        // what it takes to undo this, worked out against the files as they are before it.
+        // Reading those files, and finding which transactions the ops rewrite, both happen off the main actor.
         let record = held ? nil : await changeRecord(ops)
         guard !cancellable || (!Task.isCancelled && cfg.id == ledgerID) else { return false }
         for i in pending.indices where pending[i].heldGroup.map(releases.contains) == true {
             pending[i].held = nil; pending[i].heldGroup = nil; released += 1
         }
-        noteMoved(ops)
+        await noteMoved(ops)
         pending.append(contentsOf: ops)
         savePending()
         timing.record("queue-persisted", count: ops.count)
@@ -1366,27 +1367,48 @@ enum Prefs {
     }
 
     /// the record of a change about to be queued: the ops that take each touched file back.
-    /// File text is read here; the year-file diff itself runs off the main actor.
+    /// The file text and the diff both run off the main actor. What they read is the queue as it is now,
+    /// copied before that work starts, so a later save cannot change this record.
     private func changeRecord(_ ops: [Op]) async -> ChangeRecord? {
         var paths: [String] = []
         for o in ops where !paths.contains(o.path) { paths.append(o.path) }
-        var files: [(path: String, before: String?, after: String?)] = []
-        for p in paths {
-            var before: String?
-            if existsLocally(p) {
-                guard let t = try? await fileText(p) else { return nil }
-                before = t
-            }
-            let after: String? = ops.contains { $0.path == p && $0.kind == .deleteFile } ? nil
-                : (try? applyOps(before ?? "", path: p, ops: ops)) ?? before
-            files.append((p, before, after))
+        struct Snap {
+            var path: String
+            var sha: String?
+            var demoFile: URL?
+            var exists: Bool
         }
+        let snaps = paths.map { path in
+            Snap(path: path, sha: tree?.files[path],
+                 demoFile: tree?.files[path] == nil ? demoDir?.appendingPathComponent(path) : nil,
+                 exists: existsLocally(path))
+        }
+        let queued = pending
+        let api = backend
         let label = commitMessage(ops, path: paths.count == 1 ? paths[0] : LS("%@ 个文件", paths.count))
-        let captured = files
         return await Task.detached(priority: .userInitiated) {
             var undo: [Op] = []
-            for file in captured {
-                undo += revertOps(path: file.path, before: file.before, after: file.after)
+            for snap in snaps {
+                var before: String?
+                if snap.exists {
+                    var base = ""
+                    if let sha = snap.sha {
+                        if let cached = BlobCache.get(sha) {
+                            base = cached
+                        } else {
+                            guard let text = try? await api.read(snap.path, version: sha) else { return nil }
+                            BlobCache.set(sha, text)
+                            base = text
+                        }
+                    } else if let url = snap.demoFile {
+                        base = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+                    }
+                    guard let text = try? applyOps(base, path: snap.path, ops: queued) else { return nil }
+                    before = text
+                }
+                let after: String? = ops.contains { $0.path == snap.path && $0.kind == .deleteFile } ? nil
+                    : (try? applyOps(before ?? "", path: snap.path, ops: ops)) ?? before
+                undo += revertOps(path: snap.path, before: before, after: after)
             }
             if undo.isEmpty { return nil }
             return ChangeRecord(label: label, files: paths, undo: undo)
