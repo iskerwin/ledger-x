@@ -263,9 +263,9 @@ struct SubPickSheet: View {
     }
 }
 
-/// the next two months of charges, day by day
-/// 订阅日历: the charges of the next two months on the app's month calendar (a dot in the theme colour on each
-/// charge day), the month's charges under it; tap a day for just that day's.
+/// the next two months of charges, day by day, on the same calendar as the journal.
+/// It stays open: this page is for seeing the charges coming up, and folding it to one week would hide them.
+/// Tap a day for just that day's charges; 显示整月 clears it. There is no journal-style date chip.
 struct SubscriptionCalendarView: View {
     @Environment(Store.self) var store
     @State private var month = Day.ym(Day.today())
@@ -282,12 +282,16 @@ struct SubscriptionCalendarView: View {
                 d = s.nextCharge(onOrAfter: Day.shift(d, 1)); n += 1
             }
         }
-        let marks = byDate.mapValues { _ in [JournalCalendar.spend] }
+        let marks = chargeMarks(byDate)
         let days = byDate.keys.filter { key in day.map { key == $0 } ?? key.hasPrefix(month) }.sorted()
         let total = monthTotal(days.flatMap { byDate[$0] ?? [] })
+        let base = store.L?.base ?? "CNY"
         return List {
             Section {
-                MonthCalendar(marks: marks, month: $month, first: today, last: end) { d in day = d }
+                HeatCalendar(month: $month, days: marks, selected: day, collapsible: false, expanded: .constant(true),
+                             canGoBack: month > Day.ym(today), canGoOn: month < Day.ym(end),
+                             earliest: today, latest: end, onPick: pick, onToday: backToToday,
+                             describe: { spoken($0, $1, base: base) }) { EmptyView() }
             }
             Section {
                 if days.isEmpty { Text(day == nil ? LS("这个月没有扣费") : LS("这一天没有扣费")).foregroundStyle(.secondary) }
@@ -318,7 +322,7 @@ struct SubscriptionCalendarView: View {
                 HStack(spacing: AppSpacing.control) {
                     Text(day.map { Day.dayLabel($0) } ?? Day.monthLabel(month))
                     Spacer()
-                    Text(money(total, store.L?.base ?? "CNY", 0)).monospacedDigit().sensitive()
+                    Text(money(total, base, 0)).monospacedDigit().sensitive()
                 }
             }
         }
@@ -326,6 +330,37 @@ struct SubscriptionCalendarView: View {
         .onChange(of: month) { _, m in if let d = day, !d.hasPrefix(m) { day = nil } }
         .navigationTitle(LS("订阅日历"))
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// each charge day, in the operating currency, so the cell can shorten it and shade it. Same conversion as the total under the calendar.
+    private func chargeMarks(_ byDate: [String: [Subscription]]) -> [String: HeatDay] {
+        guard let L = store.L else { return [:] }
+        var marks: [String: HeatDay] = [:]
+        for (date, subs) in byDate {
+            let amount = roundTo(subs.reduce(0.0) { $0 + (toCNY(L, $1.amount, $1.currency) ?? 0) }, 2)
+            if amount > 0.004 { marks[date] = HeatDay(amount: amount) }
+        }
+        return marks
+    }
+
+    private func pick(_ date: String) {
+        day = date
+        let next = Day.ym(date)
+        if month != next { month = next }
+        Haptics.selection()
+    }
+
+    private func backToToday() {
+        month = Day.ym(Day.today())
+        day = nil
+    }
+
+    private func spoken(_ date: String, _ mark: HeatDay, base: String) -> String {
+        var lead = Day.dayLabel(date)
+        if date == Day.today() { lead = LS("今天") + " " + lead }
+        if KitSettings.shared.masked { return lead + "，" + LS("金额已隐藏") }
+        guard mark.amount > 0.005 else { return lead }
+        return lead + "，" + LS("扣费 ") + plainMoney(mark.amount, base)
     }
 
     private func monthTotal(_ subs: [Subscription]) -> Double {

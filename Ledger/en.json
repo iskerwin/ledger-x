@@ -993,6 +993,7 @@
  "打开记账页并预填，核对后保存": "Opens the entry form filled in, for you to save",
  "扣款": "Deductions",
  "扣款金额（汇率暂按账本）": "amount charged (ledger rate for now)",
+ "扣费 ": "Charge ",
  "扣费周期": "Billing Cycle",
  "扣费方式": "Fee handling",
  "扣费次数": "Charges",
