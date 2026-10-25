@@ -244,6 +244,16 @@ public final class Derived: @unchecked Sendable {
     public var floats: [OpenFloat] = []
     public var allLinks: [String] = []
     public var byLink: [String: [Entry]] = [:]
+    /// the day these figures were built for. Anything that stops at "today" matches the public functions on this day.
+    public let asOf: String
+    /// `ytdCategories` for the year of `asOf` (what the accounts page shows under 收支)
+    public var ytdCategories: [(account: String, amount: Double)] = []
+    /// `yearPace` for the year of `asOf`, up to `asOf`
+    public var yearPace = YearPace(monthlySpent: 0, monthlySaved: 0, spentChange: nil)
+    /// `reconcileDue` on `asOf`
+    public var reconcileDue: [ReconcileDue] = []
+    /// how many documents share a link with a transaction (`transactionAttachments(L).count`)
+    public var attachmentCount = 0
 
     public func payee(_ name: String) -> PayeeStat? { payeeIndex[name].map { payees[$0] } }
 
@@ -252,16 +262,42 @@ public final class Derived: @unchecked Sendable {
 
     public init(_ L: Ledger, today now: String = Day.today(), receivable: String = "Assets:Receivable:Reimbursement") {
         self.receivable = receivable
+        self.asOf = now
         let recent = Day.addMonth(Day.ym(now), -6)
         let d60 = Day.shift(now, -60)
+        let year = String(now.prefix(4))
+        let paceMonths = Int(now.dropFirst(5).prefix(2)) ?? 12
+        let prevYear = String((Int(year) ?? 0) - 1)
+        var prevEnd = prevYear + now.dropFirst(4)
+        if prevEnd.hasSuffix("-02-29") { prevEnd = prevYear + "-02-28" }
+        let yearFrom = year + "-01-01", prevFrom = prevYear + "-01-01"
+        var paceIncome = 0.0, paceSpent = 0.0, paceBefore = 0.0
+        var firstReal: String?
+        var ytdMap: [String: Double] = [:]
+        var attachmentLinks = Set<String>()
+        var reconcile = ReconcileScan(L, today: now)
         var acctCcyW: [String: [String: Double]] = [:]
         var ccyOrder: [String: [String]] = [:]
         var shortC: [String: [String: Int]] = [:]
         var shortOrder: [String: [String]] = [:]
         var pmap: [String: PayeeStat] = [:]
         for t in L.txns {
+            if firstReal == nil, !t.synthetic { firstReal = t.date }
+            if !t.synthetic { for link in t.links { attachmentLinks.insert(link) } }
             let w: Double = t.date >= d60 ? 20 : t.date >= recent ? 4 : 1
+            var reconcileCounted = Set<String>()
             for p in t.postings {
+                reconcile.add(posting: p, date: t.date, counted: &reconcileCounted)
+                if let u = p.units, (p.account.hasPrefix("Income:") || p.account.hasPrefix("Expenses:")) {
+                    if t.date.hasPrefix(year) {
+                        ytdMap[catOf(p.account), default: 0] += toCNY(L, u, p.currency ?? "CNY", t.date) ?? 0
+                    }
+                    let paceV = toCNY(L, u, p.currency ?? L.base, t.date) ?? 0
+                    if t.date >= yearFrom && t.date <= now {
+                        if p.account.hasPrefix("Income:") { paceIncome -= paceV } else { paceSpent += paceV }
+                    }
+                    if p.account.hasPrefix("Expenses:"), t.date >= prevFrom, t.date <= prevEnd { paceBefore += paceV }
+                }
                 guard let u = p.units, let c = p.currency else { continue }
                 acctUse[p.account, default: 0] += w
                 if acctCcyW[p.account]?[c] == nil { ccyOrder[p.account, default: []].append(c) }
@@ -292,6 +328,13 @@ public final class Derived: @unchecked Sendable {
                 }
             }
         }
+        if (firstReal ?? "9999") >= prevYear + "-02-01" { paceBefore = 0 }
+        yearPace = YearPace(monthlySpent: paceMonths > 0 ? paceSpent / Double(paceMonths) : 0,
+                            monthlySaved: paceMonths > 0 ? (paceIncome - paceSpent) / Double(paceMonths) : 0,
+                            spentChange: paceBefore > 0.005 ? (paceSpent - paceBefore) / paceBefore : nil)
+        ytdCategories = ytdMap.sorted { abs($0.value) > abs($1.value) }.map { ($0.key, $0.value) }
+        reconcileDue = reconcile.result(L)
+        attachmentCount = L.documents.filter { !attachmentLinks.isDisjoint(with: $0.links) }.count
         // most weight wins; ties go to the first seen (like a stable sort in JS)
         for (a, order) in ccyOrder {
             let m = acctCcyW[a]!

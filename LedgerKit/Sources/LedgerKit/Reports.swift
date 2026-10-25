@@ -261,6 +261,12 @@ public func netWorthNow(_ L: Ledger, exclude: [String] = []) -> (assets: Double,
 }
 
 public func netWorthSeries(_ L: Ledger, today: String = Day.today(), exclude: [String] = []) -> [NetWorthPoint] {
+    // one ledger is one version: the accounts page asks again on every redraw
+    let key = "nw|\(today)|\(exclude.sorted().joined(separator: "\u{1}"))"
+    return L.memoized(key) { netWorthSeriesWalk(L, today: today, exclude: exclude) }
+}
+
+func netWorthSeriesWalk(_ L: Ledger, today: String, exclude: [String]) -> [NetWorthPoint] {
     guard let first = L.txns.first(where: { !$0.synthetic })?.date else { return [] }
     var out: [NetWorthPoint] = []
     var bal: [String: [String: Double]] = ["Assets": [:], "Liabilities": [:]]
@@ -301,6 +307,18 @@ public struct YearPace: Equatable {
     /// spending against the same days of the year before, as a fraction (0.12 for 12% more); nil when the ledger
     /// does not go back to that year's January or nothing was spent then
     public let spentChange: Double?
+}
+
+/// Income and expense categories for `year` (the first two account segments), in the operating currency.
+/// A posting with units but no currency is read as CNY — the accounts page has always done that.
+public func ytdCategories(_ L: Ledger, year: String) -> [(account: String, amount: Double)] {
+    var m: [String: Double] = [:]
+    for t in L.txns where t.date.hasPrefix(year) {
+        for p in t.postings where p.units != nil && (p.account.hasPrefix("Income:") || p.account.hasPrefix("Expenses:")) {
+            m[catOf(p.account), default: 0] += toCNY(L, p.units!, p.currency ?? "CNY", t.date) ?? 0
+        }
+    }
+    return m.sorted { abs($0.value) > abs($1.value) }.map { ($0.key, $0.value) }
 }
 
 /// `year` up to `today` (a past year whole), in the operating currency

@@ -185,6 +185,7 @@ struct AccountsView: View {
             }
             // a line under the bar here as under 收支's, so the two tabs say as much and are as tall
             NavigationLink(value: NetWorthSettingsDest()) {
+                // memoised on the ledger, so a redraw of the same version does not walk it again
                 let change = netWorthSinceLastMonth(L, exclude: store.netWorthExclude)
                 let left = store.netWorthExclude.isEmpty ? "" : LS(" · 不计入 %@ 个账户", store.netWorthExclude.count)
                 (Text(LS("较上月末 ")) + (change.map { changeText($0, money(abs($0), L.base), more: .gain) } ?? Text("—")) + Text(left))
@@ -223,7 +224,7 @@ struct AccountsView: View {
             RatioBar(parts: [(max(0, income - spent), Color.jade), (spent, Color.loss)])
             // by the month, and the spending against the same days of last year (more in red, less in green)
             NavigationLink(value: YearReviewDest(year: year)) {
-                let pace = yearPace(L, year: year)
+                let pace = yearPace(L, year)
                 let then = pace.spentChange.map { Text(LS("比去年同期 ")) + changeText($0, String(format: "%.0f%%", abs($0) * 100), more: .loss) }
                     ?? Text(LS("月均结余 %@", money(pace.monthlySaved, L.base, 0)))
                 (Text(LS("月均支出 %@", money(pace.monthlySpent, L.base, 0)) + " · ") + then)
@@ -350,7 +351,7 @@ struct AccountsView: View {
                 NavigationLink(value: CounterpartyDest()) { Label(LS("往来"), systemImage: "person.2").labelStyle(ControlLabelStyle()) }
                 NavigationLink(value: TransactionAttachmentsDest()) {
                     LabeledContent {
-                        let n = transactionAttachments(L).count
+                        let n = store.D?.attachmentCount ?? transactionAttachments(L).count
                         if n > 0 { Text(LS("%@ 个", n)) }
                     } label: { Label(LS("交易附件"), systemImage: "paperclip").labelStyle(ControlLabelStyle()) }
                 }
@@ -387,14 +388,23 @@ struct AccountsView: View {
         .refreshable { await store.refresh() }
     }
 
+    /// the year's categories, taken from the ledger's single pass when it was built for today
     private func ytd(_ L: Ledger, _ year: String) -> [(String, Double)] {
-        var m: [String: Double] = [:]
-        for t in L.txns where t.date.hasPrefix(year) {
-            for p in t.postings where p.units != nil && (p.account.hasPrefix("Income:") || p.account.hasPrefix("Expenses:")) {
-                m[catOf(p.account), default: 0] += toCNY(L, p.units!, p.currency ?? "CNY", t.date) ?? 0
-            }
+        if let d = store.D, d.asOf == Day.today(), year == String(d.asOf.prefix(4)) {
+            return d.ytdCategories.map { ($0.account, $0.amount) }
         }
-        return m.sorted { abs($0.value) > abs($1.value) }.map { ($0.key, $0.value) }
+        return ytdCategories(L, year: year).map { ($0.account, $0.amount) }
+    }
+
+    private func yearPace(_ L: Ledger, _ year: String) -> YearPace {
+        if let d = store.D, d.asOf == Day.today(), year == String(d.asOf.prefix(4)) { return d.yearPace }
+        return LedgerKit.yearPace(L, year: year)
+    }
+
+    private func reconcileDue(_ L: Ledger) -> [ReconcileDue] {
+        let today = Day.today()
+        if let d = store.D, d.asOf == today { return d.reconcileDue }
+        return LedgerKit.reconcileDue(L, today: today)
     }
 }
 

@@ -34,59 +34,79 @@ public func balance(_ L: Ledger, account: String, currency: String, endOf date: 
     return (t * 100).rounded() / 100
 }
 
+struct ReconcileTotals {
+    var start = 0.0, now = 0.0, sinceTotal = 0.0
+    var count = 0
+}
+
+/// The accounts that can be due, and their statement day. `add` folds one posting in (the same additions
+/// `reconcileDue` used to make in its own walk); `result` is that function's list.
+struct ReconcileScan {
+    let today: String
+    let days: [String: String]
+    private let accounts: [(name: String, account: Account)]
+    private var totals: [String: [String: ReconcileTotals]] = [:]
+
+    init(_ L: Ledger, today: String) {
+        self.today = today
+        accounts = L.accounts.sorted(by: { $0.key < $1.key }).filter { name, account in
+            (name.hasPrefix("Assets:") || name.hasPrefix("Liabilities:")) && (account.close == nil || account.close! > today)
+        }
+        var days: [String: String] = [:]
+        for (name, account) in accounts {
+            guard let day = metaInt(account.meta[statementDayKey]), day >= 1, day <= 31 else { continue }
+            let date = statementOn(orBefore: today, day: day)
+            if let opened = account.open, opened >= date { continue }
+            days[name] = date
+        }
+        self.days = days
+    }
+
+    mutating func add(posting: Posting, date: String, counted: inout Set<String>) {
+        guard date <= today, let day = days[posting.account], let currency = posting.currency else { return }
+        var value = totals[posting.account]?[currency] ?? ReconcileTotals()
+        let units = posting.units ?? 0
+        value.now += units
+        if date < day { value.start += units }
+        else {
+            value.sinceTotal += units
+            if counted.insert(posting.account + "|" + currency).inserted { value.count += 1 }
+        }
+        totals[posting.account, default: [:]][currency] = value
+    }
+
+    func result(_ L: Ledger) -> [ReconcileDue] {
+        let assertions = Dictionary(grouping: L.balances, by: { $0.account ?? "" })
+        func rounded(_ amount: Double) -> Double { (amount * 100).rounded() / 100 }
+        var out: [ReconcileDue] = []
+        for (name, account) in accounts {
+            guard let day = days[name] else { continue }
+            var currencies = account.currencies
+            if currencies.isEmpty { currencies = (L.final[name] ?? [:]).keys.sorted() }
+            if currencies.isEmpty { currencies = [L.base] }
+            for currency in currencies {
+                let mine = (assertions[name] ?? []).filter { $0.currency == currency }
+                if mine.contains(where: { $0.date >= day }) { continue }
+                let value = totals[name]?[currency] ?? ReconcileTotals()
+                let start = rounded(value.start), now = rounded(value.now)
+                if abs(start) < 0.005 && abs(now) < 0.005 && mine.isEmpty && currencies.count > 1 { continue }
+                out.append(ReconcileDue(account: name, currency: currency, day: day, ledger: start, now: now,
+                                        since: value.count, sinceTotal: rounded(value.sinceTotal),
+                                        lastChecked: mine.map { $0.date }.max()))
+            }
+        }
+        return out
+    }
+}
+
 /// every account due for a check today
 public func reconcileDue(_ L: Ledger, today: String = Day.today()) -> [ReconcileDue] {
-    let accounts = L.accounts.sorted(by: { $0.key < $1.key }).filter { name, account in
-        (name.hasPrefix("Assets:") || name.hasPrefix("Liabilities:")) && (account.close == nil || account.close! > today)
-    }
-    var days: [String: String] = [:]
-    for (name, account) in accounts {
-        guard let day = metaInt(account.meta[statementDayKey]), day >= 1, day <= 31 else { continue }
-        let date = statementOn(orBefore: today, day: day)
-        if let opened = account.open, opened >= date { continue }
-        days[name] = date
-    }
-    struct Totals {
-        var start = 0.0, now = 0.0, sinceTotal = 0.0
-        var count = 0
-    }
-    var totals: [String: [String: Totals]] = [:]
-    // One scan of postings, rather than rescanning the full ledger for every account/currency.
+    var scan = ReconcileScan(L, today: today)
     for transaction in L.txns where transaction.date <= today {
         var counted = Set<String>()
-        for posting in transaction.postings {
-            guard let day = days[posting.account], let currency = posting.currency else { continue }
-            var value = totals[posting.account]?[currency] ?? Totals()
-            let units = posting.units ?? 0
-            value.now += units
-            if transaction.date < day { value.start += units }
-            else {
-                value.sinceTotal += units
-                if counted.insert(posting.account + "|" + currency).inserted { value.count += 1 }
-            }
-            totals[posting.account, default: [:]][currency] = value
-        }
+        for posting in transaction.postings { scan.add(posting: posting, date: transaction.date, counted: &counted) }
     }
-    let assertions = Dictionary(grouping: L.balances, by: { $0.account ?? "" })
-    func rounded(_ amount: Double) -> Double { (amount * 100).rounded() / 100 }
-    var out: [ReconcileDue] = []
-    for (name, account) in accounts {
-        guard let day = days[name] else { continue }
-        var currencies = account.currencies
-        if currencies.isEmpty { currencies = (L.final[name] ?? [:]).keys.sorted() }
-        if currencies.isEmpty { currencies = [L.base] }
-        for currency in currencies {
-            let mine = (assertions[name] ?? []).filter { $0.currency == currency }
-            if mine.contains(where: { $0.date >= day }) { continue }
-            let value = totals[name]?[currency] ?? Totals()
-            let start = rounded(value.start), now = rounded(value.now)
-            if abs(start) < 0.005 && abs(now) < 0.005 && mine.isEmpty && currencies.count > 1 { continue }
-            out.append(ReconcileDue(account: name, currency: currency, day: day, ledger: start, now: now,
-                                    since: value.count, sinceTotal: rounded(value.sinceTotal),
-                                    lastChecked: mine.map { $0.date }.max()))
-        }
-    }
-    return out
+    return scan.result(L)
 }
 
 /// the next statement / check day (today or later) of every account that has one
