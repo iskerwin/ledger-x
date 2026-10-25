@@ -51,7 +51,7 @@ struct ReconcileScan {
         self.today = today
         accounts = L.accounts.sorted(by: { $0.key < $1.key }).filter { name, account in
             (name.hasPrefix("Assets:") || name.hasPrefix("Liabilities:")) && (account.close == nil || account.close! > today)
-        }
+        }.map { (name: $0.key, account: $0.value) }
         var days: [String: String] = [:]
         for (name, account) in accounts {
             guard let day = metaInt(account.meta[statementDayKey]), day >= 1, day <= 31 else { continue }

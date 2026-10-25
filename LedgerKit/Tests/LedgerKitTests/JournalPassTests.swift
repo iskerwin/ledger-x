@@ -84,9 +84,8 @@ final class JournalPassTests: XCTestCase {
         XCTAssertEqual(summed.spent, hand.0, accuracy: 1e-6)
         XCTAssertEqual(summed.income, hand.1, accuracy: 1e-6)
         // 退货减少支出；优惠只算支出 20，收入的 2 不进收入合计；转账两边都不算
-        let one = { (payee: String) -> (Double, Double) in
-            let t = L.txns.filter { $0.payee == payee }
-            return d.journalTotals(t)
+        let one = { (payee: String) -> (spent: Double, income: Double) in
+            d.journalTotals(L.txns.filter { $0.payee == payee })
         }
         XCTAssertEqual(one("超市").spent, -5 + 20 + 20, accuracy: 1e-6)
         XCTAssertEqual(one("超市").income, 0, accuracy: 1e-6)

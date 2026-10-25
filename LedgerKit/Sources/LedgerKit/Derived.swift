@@ -463,7 +463,7 @@ public final class Derived: @unchecked Sendable {
         yearPace = YearPace(monthlySpent: paceMonths > 0 ? paceSpent / Double(paceMonths) : 0,
                             monthlySaved: paceMonths > 0 ? (paceIncome - paceSpent) / Double(paceMonths) : 0,
                             spentChange: paceBefore > 0.005 ? (paceSpent - paceBefore) / paceBefore : nil)
-        ytdCategories = ytdMap.sorted { abs($0.value) > abs($1.value) }.map { ($0.key, $0.value) }
+        ytdCategories = ytdMap.sorted { abs($0.value) > abs($1.value) }.map { (account: $0.key, amount: $0.value) }
         reconcileDue = reconcile.result(L)
         attachmentCount = L.documents.filter { !attachmentLinks.isDisjoint(with: $0.links) }.count
         // most weight wins; ties go to the first seen (like a stable sort in JS)

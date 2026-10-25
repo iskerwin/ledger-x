@@ -62,7 +62,7 @@ struct ReportsInsights: View {
             for (who, row) in rows { one[who] = (row.amount, row.count) }
             payee[group] = one
         }
-        return (s.byCat, payee)
+        return (byCat: s.byCat, byCatPayee: payee)
     }
 
     /// a card's title: the icon in the theme's colour, the words in the text colour (the same on all three)

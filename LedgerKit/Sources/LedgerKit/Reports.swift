@@ -318,7 +318,7 @@ public func ytdCategories(_ L: Ledger, year: String) -> [(account: String, amoun
             m[catOf(p.account), default: 0] += toCNY(L, p.units!, p.currency ?? "CNY", t.date) ?? 0
         }
     }
-    return m.sorted { abs($0.value) > abs($1.value) }.map { ($0.key, $0.value) }
+    return m.sorted { abs($0.value) > abs($1.value) }.map { (account: $0.key, amount: $0.value) }
 }
 
 /// `year` up to `today` (a past year whole), in the operating currency

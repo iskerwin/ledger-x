@@ -391,9 +391,9 @@ struct AccountsView: View {
     /// the year's categories, taken from the ledger's single pass when it was built for today
     private func ytd(_ L: Ledger, _ year: String) -> [(String, Double)] {
         if let d = store.D, d.asOf == Day.today(), year == String(d.asOf.prefix(4)) {
-            return d.ytdCategories.map { ($0.account, $0.amount) }
+            return d.ytdCategories.map { ($0.account, $0.amount) as (String, Double) }
         }
-        return ytdCategories(L, year: year).map { ($0.account, $0.amount) }
+        return ytdCategories(L, year: year).map { ($0.account, $0.amount) as (String, Double) }
     }
 
     private func yearPace(_ L: Ledger, _ year: String) -> YearPace {

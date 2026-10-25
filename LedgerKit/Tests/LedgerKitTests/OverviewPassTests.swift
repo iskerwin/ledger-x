@@ -201,7 +201,7 @@ final class OverviewPassTests: XCTestCase {
         XCTAssertEqual(on?.statement, "2026-03-10")
         XCTAssertEqual(on?.currency, "CNY")
         // 美元那笔记在卡上，但这张卡按第一个币种人民币出账，不把美元加进人民币余额
-        XCTAssertEqual(on?.balance, before.map { $0.balance - 15 } ?? -1, accuracy: 1e-6)
+        XCTAssertEqual(on?.balance ?? -1, (before?.balance ?? -1) - 15, accuracy: 1e-6)
     }
 
     func testReportCategoriesUseTheMonthAndStopAtToday() {
