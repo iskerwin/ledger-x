@@ -447,8 +447,8 @@ enum Prefs {
         let env = ProcessInfo.processInfo.environment
         let base = URL(fileURLWithPath: dir)
         demoDir = base
-        // the journal's month calendar opened (the setting is remembered between launches, so it is set either way);
-        // before the ledger is read, as the pages are there while it loads and read the setting when they appear
+        // the journal's month calendar opened to the whole month (folded to this week otherwise). Remembered
+        // between launches, so it is set either way; before the ledger is read, as the page reads it when it appears.
         UserDefaults.standard.set(env["LEDGER_CALENDAR"] != nil, forKey: "ledger.journal.calendar")
         // every gesture's hint shown again
         if env["LEDGER_UNLEARN"] != nil { Learned.forget() }

@@ -761,50 +761,70 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertFalse(app.buttons["放弃修改并关闭"].exists)
     }
 
-    /// The journal's calendar is the system's: it keeps its height from month to month (a four-week February as a
-    /// six-week one), so the list under it does not move; open, it takes the quick filters' place, and what is on
-    /// stays with its ✕
-    func testTheCalendarTakesTheQuickFiltersPlaceAndKeepsItsHeight() {
-        let app = launchTab("journal", env: ["LEDGER_FILTERS": "large"])
-        // the calendar opens as it was left
-        let toggle = app.buttons.matching(NSPredicate(format: "label IN %@", ["月历", "收起月历"])).firstMatch
-        XCTAssertTrue(toggle.waitForExistence(timeout: 20))
-        let calendar = app.descendants(matching: .any)["calendar.month"].firstMatch
-        if !calendar.exists { tapPoint(app.buttons["月历"], timeout: 5) }
-        XCTAssertTrue(calendar.waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["本月"].exists)
-        XCTAssertFalse(app.buttons["#refund"].exists)
-        XCTAssertTrue(app.buttons["清除"].exists)
-        let height = calendar.frame.height, below = app.otherElements["calendar.figures"].frame.minY
-        let previous = calendar.buttons["上个月"]
-        for _ in 0..<8 {
-            previous.tap()
-            XCTAssertEqual(calendar.frame.height, height, accuracy: 0.5)
-            XCTAssertEqual(app.otherElements["calendar.figures"].frame.minY, below, accuracy: 0.5)
+    /// The month stays six rows tall, at a normal size, a large size and an accessibility size (where a narrow
+    /// phone wraps first): changing month does not move the handle under it. The quick filters stay above it.
+    func testTheMonthCalendarKeepsItsHeight() {
+        for size in [nil, "UICTContentSizeCategoryXXXL", "UICTContentSizeCategoryAccessibilityM"] {
+            let app = launchTab("journal", textSize: size, env: ["LEDGER_CALENDAR": "1", "LEDGER_FILTERS": "large"])
+            let grid = app.descendants(matching: .any)["calendar.grid"].firstMatch
+            XCTAssertTrue(grid.waitForExistence(timeout: 20), size ?? "default")
+            XCTAssertTrue(app.buttons["本月"].exists, size ?? "default")
+            XCTAssertTrue(app.buttons["清除"].exists, size ?? "default")
+            let height = grid.frame.height
+            let below = app.buttons["calendar.grabber"].frame.maxY
+            let title = app.descendants(matching: .any)["calendar.title"].firstMatch
+            let titleX = title.frame.midX
+            let previous = app.buttons["上个月"]
+            for _ in 0..<8 {
+                let name = title.label
+                previous.tap()
+                XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", name), object: title)], timeout: 5), .completed, size ?? "default")
+                XCTAssertEqual(grid.frame.height, height, accuracy: 1, size ?? "default")
+                XCTAssertEqual(app.buttons["calendar.grabber"].frame.maxY, below, accuracy: 1, size ?? "default")
+                XCTAssertEqual(title.frame.midX, titleX, accuracy: 1, size ?? "default")
+            }
+            app.terminate()
         }
-        // closed again, the quick filters are back
-        tapPoint(app.buttons["收起月历"], timeout: 5)
-        XCTAssertTrue(app.buttons["本月"].waitForExistence(timeout: 5))
     }
 
-    /// A day's dots sit centred under its date; the system puts a decoration at the day's leading edge, and they
-    /// were off to the left of it
-    func testTheCalendarDotsSitUnderTheirDate() {
+    /// Folded, the calendar is one week and stays that tall while the month changes; opening it grows it, and the
+    /// filters are still there. Picking a day filters the list and adds the date condition; picking it again clears it.
+    func testTheWeekCalendarOpensAndADayFiltersTheList() {
         let app = launchTab("journal")
-        let calendar = app.descendants(matching: .any)["calendar.month"].firstMatch
-        let toggle = app.buttons.matching(NSPredicate(format: "label IN %@", ["月历", "收起月历"])).firstMatch
-        XCTAssertTrue(toggle.waitForExistence(timeout: 20))
-        if !calendar.exists { tapPoint(app.buttons["月历"], timeout: 5) }
-        XCTAssertTrue(calendar.waitForExistence(timeout: 5))
-        let dots = calendar.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'calendar.dots.'"))
-        for _ in 0..<24 where dots.count == 0 { calendar.buttons["上个月"].tap() }
-        XCTAssertGreaterThan(dots.count, 0)
-        for i in 0..<min(dots.count, 6) {
-            let dot = dots.element(boundBy: i).frame
-            let day = calendar.buttons.allElementsBoundByIndex.first { $0.frame.width < calendar.frame.width / 2 && $0.frame.contains(CGPoint(x: dot.midX, y: dot.midY)) }
-            XCTAssertNotNil(day)
-            if let day { XCTAssertEqual(dot.midX, day.frame.midX, accuracy: 1, "\(dots.element(boundBy: i).identifier)") }
+        let grid = app.descendants(matching: .any)["calendar.grid"].firstMatch
+        XCTAssertTrue(grid.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["本月"].exists)
+        let folded = grid.frame.height
+        app.buttons["上个月"].tap()
+        XCTAssertEqual(grid.frame.height, folded, accuracy: 1)
+        app.buttons["calendar.grabber"].tap()
+        let opened = XCTNSPredicateExpectation(predicate: NSPredicate(format: "frame.size.height > %f", folded + 20), object: grid)
+        XCTAssertEqual(XCTWaiter.wait(for: [opened], timeout: 3), .completed)
+        // the fixture's coffee is in 2026-10. The value is the month key, so this walks back or forward to it.
+        // (The journal does not open a month after the phone's current one.)
+        let title = app.descendants(matching: .any)["calendar.title"].firstMatch
+        for _ in 0..<30 {
+            let shown = title.value as? String ?? ""
+            if shown == "2026-10" { break }
+            let name = title.label
+            if shown < "2026-10" { app.buttons["下个月"].tap() } else { app.buttons["上个月"].tap() }
+            _ = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", name), object: title)], timeout: 3)
         }
+        let day = app.buttons["calendar.day.2026-10-17"]
+        XCTAssertTrue(day.waitForExistence(timeout: 5))
+        day.tap()
+        let chip = app.buttons.matching(NSPredicate(format: "label CONTAINS %@ AND NOT (identifier BEGINSWITH %@)", "10月17日", "calendar.day.")).firstMatch
+        XCTAssertTrue(chip.waitForExistence(timeout: 5))
+        day.tap()
+        XCTAssertTrue(chip.waitForNonExistence(timeout: 5))
+        day.tap()
+        XCTAssertTrue(chip.waitForExistence(timeout: 5))
+        // fold, so the day's row is on screen under the week
+        app.buttons["calendar.grabber"].tap()
+        XCTAssertTrue(app.staticTexts["Coffee"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "10月16日")).firstMatch.exists)
+        chip.tap()
+        XCTAssertTrue(chip.waitForNonExistence(timeout: 5))
     }
 
     private func launchTab(_ tab: String, accessibility: Bool = false, textSize: String? = nil, env: [String: String] = [:]) -> XCUIApplication {
@@ -1230,21 +1250,26 @@ final class EditInteractionTests: XCTestCase {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/height-extra.bean").path
     }
 
-    /// The calendar's 支出 · 收入 · 结余 sit centred in equal columns: a month's wide income no longer pushes 收入 aside
-    func testCalendarFiguresSitInEqualColumns() {
+    /// The month's spending and income sit on the month row. Going to another month brings 今天 in, in a space that
+    /// was already kept, so the month's name does not move.
+    func testCalendarTotalsKeepTheMonthTitlePut() {
         let app = launchTab("journal", env: ["LEDGER_EXTRA": heightExtra, "LEDGER_CALENDAR": "1"])
-        let calendar = app.descendants(matching: .any)["calendar.month"].firstMatch
-        XCTAssertTrue(calendar.waitForExistence(timeout: 20))
-        let figures = app.otherElements["calendar.figures"]
-        let spent = figures.staticTexts["支出"], income = figures.staticTexts["收入"], net = figures.staticTexts["结余"]
-        XCTAssertTrue(spent.exists && income.exists && net.exists)
-        // each column centred: 收入 in the middle of the row, the three centres evenly apart
-        XCTAssertEqual(income.frame.midX, app.windows.firstMatch.frame.midX, accuracy: 1)
-        XCTAssertEqual(income.frame.midX - spent.frame.midX, net.frame.midX - income.frame.midX, accuracy: 1)
+        let totals = app.descendants(matching: .any)["calendar.totals"].firstMatch
+        XCTAssertTrue(totals.waitForExistence(timeout: 20))
+        XCTAssertTrue(totals.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "支出")).firstMatch.exists)
+        XCTAssertTrue(totals.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "收入")).firstMatch.exists)
+        let title = app.descendants(matching: .any)["calendar.title"].firstMatch
+        let at = title.frame.midX
+        app.buttons["上个月"].tap()
+        XCTAssertTrue(app.buttons["今天"].waitForExistence(timeout: 5))
+        XCTAssertEqual(title.frame.midX, at, accuracy: 1)
+        app.buttons["今天"].tap()
+        XCTAssertTrue(app.buttons["今天"].waitForNonExistence(timeout: 5))
+        XCTAssertEqual(title.frame.midX, at, accuracy: 1)
     }
 
-    /// The overview card's 收入 · 结余 · 净资产 sit centred in equal columns, like the calendar's: they were set at
-    /// each column's left edge, so the row looked pushed to the left
+    /// The overview card's 收入 · 结余 · 净资产 sit centred in equal columns: they were set at each column's left
+    /// edge, so the row looked pushed to the left
     func testOverviewFiguresSitCentredInEqualColumns() {
         let app = launchTab("overview")
         let hero = app.otherElements["overview.hero"]

@@ -171,14 +171,9 @@ struct JournalView: View {
     @State private var selecting = false
     @State private var selected: Set<String> = []
     @State private var batch: BatchMode?
-    /// the month calendar opened above the list, remembered on this device. A plain @State drives it:
-    /// an @AppStorage change loses the animation, and the calendar jumped in and out
-    @State private var showCalendar = UserDefaults.standard.bool(forKey: Self.calendarKey)
-    private static let calendarKey = "ledger.journal.calendar"
-    /// a day picked on the calendar: its sheet
-    @State private var calendarDay: CalendarDay?
-    /// a transaction tapped in that sheet, opened once the sheet has gone
-    @State private var afterSheet: TxDest?
+    /// a day picked on the calendar: the list shows only that day. Not part of the saved search — ✕ takes it off,
+    /// the same way as the other conditions.
+    @State private var pickedDay: String?
     /// the quick filters on (本月, 大额, 待确认, 报销), added to what is typed
     @State private var quick: [QuickFilter] = []
     /// saving the filters as a quick search
@@ -232,14 +227,6 @@ struct JournalView: View {
                 StandardToolbar()
                 ToolbarItemGroup(placement: .topBarLeading) {
                     Button {
-                        withAnimation(reduceMotion ? nil : AppMotion.standard) { showCalendar.toggle() }
-                        UserDefaults.standard.set(showCalendar, forKey: Self.calendarKey)
-                    } label: {
-                        Image(systemName: showCalendar ? "calendar.circle.fill" : "calendar")
-                            .contentTransition(.symbolEffect(.replace))
-                    }
-                    .accessibilityLabel(showCalendar ? LS("收起月历") : LS("月历"))
-                    Button {
                         withAnimation(AppMotion.standard) { selecting.toggle(); selected = [] }
                     } label: { Label(selecting ? LS("完成") : LS("选择"), systemImage: selecting ? "checkmark" : "checkmark.circle").labelStyle(ControlLabelStyle()) }
                 }
@@ -247,11 +234,6 @@ struct JournalView: View {
             .topBar { if !selecting { QuickSearchBar(q: $q) } }
             .safeAreaInset(edge: .bottom) { if selecting { batchBar } }
             .sheet(item: $savingFilter) { e in QuickSearchSheet(edit: e) }
-            .sheet(item: $calendarDay, onDismiss: {
-                if let t = afterSheet { afterSheet = nil; path.append(t) }
-            }) { d in
-                if let L = store.L { daySheet(d.day, L) }
-            }
             .sheet(item: $batch) { m in
                 BatchEditSheet(entries: selectedEntries, mode: m) { selecting = false; selected = [] }
             }
@@ -278,6 +260,7 @@ struct JournalView: View {
         }, set: {
             q = $0.query; quick = $0.filters.compactMap(QuickFilter.init(rawValue:)); limit = max(150, $0.limit)
             if account == nil { account = $0.anchor }
+            pickedDay = nil
         }))
         .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
         .onChange(of: store.journalQuery) { _, new in takeQuery(new) }
@@ -287,10 +270,6 @@ struct JournalView: View {
             takeQuery(store.journalQuery)
             applyJump(store.journalJump)
             if let q = store.demoEnv["LEDGER_QUERY"] { self.q = q }
-            if store.demoEnv["LEDGER_CAL_DAY"] != nil, let L = store.L, let d = search(L).first?.date {
-                try? await Task.sleep(nanoseconds: 800_000_000)
-                calendarDay = CalendarDay(day: d)
-            }
             if let f = store.demoEnv["LEDGER_FILTERS"] { quick = f.split(separator: ",").compactMap { QuickFilter(rawValue: String($0)) } }
             if store.demoEnv["LEDGER_SELECT"] != nil, let L = store.L {
                 selecting = true
@@ -307,26 +286,10 @@ struct JournalView: View {
         }
     }
 
-    /// the sheet of a day picked on the calendar: its transactions as filtered here, and (with no search on) its
-    /// documents
-    private func daySheet(_ day: String, _ L: Ledger) -> some View {
-        let ts = search(L).filter { $0.date == day }
-        let a = account
-        let docs = fullQuery.isEmpty ? L.entries.filter { e in
-            e.type == .document && e.date == day && (a == nil || e.account.map { $0 == a! || $0.hasPrefix(a! + ":") } ?? false)
-        } : []
-        return CalendarDaySheet(L: L, day: day, entries: ts, account: a, documents: docs) { t in
-            afterSheet = TxDest(t)
-            calendarDay = nil
-        }
-        .pickerSheet()
-        .presentationContentInteraction(.scrolls)
-    }
-
     /// a search handed over from another page (报表 → 查看这 N 笔): it replaces what is on
     private func takeQuery(_ new: String?) {
         guard let x = new else { return }
-        q = x; quick = []; account = nil; path = NavigationPath()
+        q = x; quick = []; account = nil; pickedDay = nil; path = NavigationPath()
         store.journalQuery = nil
     }
 
@@ -345,6 +308,7 @@ struct JournalView: View {
         quick = browse.filters.compactMap(QuickFilter.init(rawValue:))
         limit = max(150, browse.limit)
         account = browse.anchor
+        pickedDay = nil
         path = NavigationPath()
     }
 
@@ -401,10 +365,13 @@ struct JournalView: View {
     @ViewBuilder
     private func list(_ L: Ledger) -> some View {
         let matches = search(L)
-        let shown = Array(matches.prefix(limit))
-        let sums = totals(matches, L)
+        // the picked day narrows the list only. The calendar still counts every day of this search, or the other
+        // days would go blank the moment one was picked.
+        let listed = pickedDay.map { day in matches.filter { $0.date == day } } ?? matches
+        let shown = Array(listed.prefix(limit))
+        let sums = totals(listed, L)
         let days = groupByDay(shown)
-        let filtered = !quick.isEmpty || account != nil || !q.trimmed.isEmpty
+        let filtered = !quick.isEmpty || account != nil || !q.trimmed.isEmpty || pickedDay != nil
         // just saved from the form and in the list as it is (not filtered out, not past 加载更多): scrolled to, where
         // it lights up; of several with the same text, the top one
         let saved = store.justSaved.flatMap { s -> String? in
@@ -414,38 +381,34 @@ struct JournalView: View {
         ScrollViewReader { proxy in
             List {
                 Section {
-                    // looking by date, the calendar takes the quick filters' place (what is on stays, with its ✕)
-                    if showCalendar {
-                        JournalCalendar(L: L, entries: matches, account: account) { d in
-                            calendarDay = CalendarDay(day: d)
-                        }
-                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
-                    } else {
-                        // the quick filters, then the tags people look for
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: AppSpacing.icon) {
-                                ForEach(QuickFilter.allCases) { f in
-                                    let on = quick.contains(f)
-                                    Button {
-                                        // the list changes at once; only the chip's colours fade
-                                        if on { quick.removeAll { $0 == f } } else { quick.append(f) }
-                                        Haptics.selection()
-                                    } label: {
-                                        HStack(spacing: AppSpacing.icon) { Image(systemName: f.icon); Text(f.title) }
-                                            .font(.subheadline.weight(on ? .semibold : .regular))
-                                            .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
-                                            .foregroundStyle(on ? Color.onJade : Color.primary)
-                                            .background(on ? Color.jade : Color(.tertiarySystemFill), in: Capsule())
-                                            .animation(AppMotion.quick, value: on)
-                                    }
-                                    .buttonStyle(PressStyle())
+                    // the quick filters, then the tags people look for. The calendar sits under them, folded to
+                    // this week until it is opened; picking a day adds a condition and does not hide these.
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: AppSpacing.icon) {
+                            ForEach(QuickFilter.allCases) { f in
+                                let on = quick.contains(f)
+                                Button {
+                                    // the list changes at once; only the chip's colours fade
+                                    if on { quick.removeAll { $0 == f } } else { quick.append(f) }
+                                    Haptics.selection()
+                                } label: {
+                                    HStack(spacing: AppSpacing.icon) { Image(systemName: f.icon); Text(f.title) }
+                                        .font(.subheadline.weight(on ? .semibold : .regular))
+                                        .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
+                                        .foregroundStyle(on ? Color.onJade : Color.primary)
+                                        .background(on ? Color.jade : Color(.tertiarySystemFill), in: Capsule())
+                                        .animation(AppMotion.quick, value: on)
                                 }
-                                ForEach(["#refund", "#transfer", "#fx", "#reimbursed"], id: \.self) { x in
-                                    Chip(label: x, selected: q.trimmed == x) { q = q.trimmed == x ? "" : x; Haptics.selection() }
-                                }
+                                .buttonStyle(PressStyle())
+                            }
+                            ForEach(["#refund", "#transfer", "#fx", "#reimbursed"], id: \.self) { x in
+                                Chip(label: x, selected: q.trimmed == x) { q = q.trimmed == x ? "" : x; Haptics.selection() }
                             }
                         }
                     }
+                    JournalCalendar(L: L, entries: matches, selected: pickedDay, onPick: { day in
+                        pickedDay = pickedDay == day ? nil : day
+                    }, onToday: { pickedDay = nil })
                     if filtered || store.journalReturn != nil {
                         // what is on, each with its ✕, and 清除 for all of it
                         // beside the conditions when all fit on one line; otherwise on a line of their own under them
@@ -464,7 +427,7 @@ struct JournalView: View {
                             }
                         }
                     }
-                    if !filtered && !showCalendar {
+                    if !filtered {
                         // everything in the ledger, under the filters (a card of its own pushed the first entry down
                         // the screen): say so, so the totals are not read as this month's
                         VStack(alignment: .leading, spacing: AppSpacing.detail) {
@@ -484,15 +447,15 @@ struct JournalView: View {
                     }
                 }
                 if filtered {
-                    resultCard(matches, sums)
+                    resultCard(listed, sums)
                 }
                 ForEach(days, id: \.0) { group in
                     daySection(group.0, group.1, L)
                 }
-                if matches.count > shown.count {
-                    Button { limit += 300 } label: { Label(LS("加载更多（%@ 笔）", min(300, matches.count - shown.count)), systemImage: "chevron.down").labelStyle(ControlLabelStyle()) }.frame(maxWidth: .infinity)
+                if listed.count > shown.count {
+                    Button { limit += 300 } label: { Label(LS("加载更多（%@ 笔）", min(300, listed.count - shown.count)), systemImage: "chevron.down").labelStyle(ControlLabelStyle()) }.frame(maxWidth: .infinity)
                 }
-                switch browseEmpty(count: matches.count, filtered: filtered) {
+                switch browseEmpty(count: listed.count, filtered: filtered) {
                 case .nothingHere:
                     Text(LS("还没有交易")).foregroundStyle(.secondary)
                 case .nothingMatches:
@@ -549,6 +512,7 @@ struct JournalView: View {
     /// the conditions on, to take off one by one
     private func conditionChips() -> [(String, () -> Void)] {
         var out: [(String, () -> Void)] = []
+        if let d = pickedDay { out.append((dayChip(d), { pickedDay = nil })) }
         if let a = account { out.append((acctDisplay(a), { account = nil })) }
         for f in quick { out.append((f == .large ? LS("超过 %@", money(store.largeExpense, store.L?.base ?? "CNY", 0)) : f.title, { quick.removeAll { $0 == f } })) }
         if !q.trimmed.isEmpty { out.append(("“\(q.trimmed)”", { q = "" })) }
@@ -563,7 +527,7 @@ struct JournalView: View {
                 .accessibilityIdentifier("journal.restore")
         }
         if filtered {
-            Button { quick = []; account = nil; q = ""; Haptics.selection() } label: { Label(LS("清除"), systemImage: "xmark.circle").labelStyle(ControlLabelStyle()) }
+            Button { quick = []; account = nil; q = ""; pickedDay = nil; Haptics.selection() } label: { Label(LS("清除"), systemImage: "xmark.circle").labelStyle(ControlLabelStyle()) }
                 .font(.subheadline.weight(.medium)).foregroundStyle(Color.jade).buttonStyle(.plain)
         }
     }
@@ -609,6 +573,13 @@ struct JournalView: View {
             }
             .padding(.vertical, AppSpacing.detail)
         }
+    }
+
+    /// "10月10日", or with the year when it is not this one. The same words as a date range's ends.
+    private func dayChip(_ d: String) -> String {
+        let m = String(Int(d.dropFirst(5).prefix(2)) ?? 0), day = String(Int(d.suffix(2)) ?? 0)
+        if d.prefix(4) != Day.today().prefix(4) { return LS("%@年%@月%@日", String(d.prefix(4)), m, day) }
+        return LS("%@月%@日", m, day)
     }
 
     /// "10月1日 — 10月31日", with the years when they are not this one or differ
