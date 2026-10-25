@@ -4,7 +4,7 @@ import LedgerKit
 /// 截图记账: what was read off the screenshot, row by row as on the screen (a tab between pieces on one row).
 /// For now it is shown as read, to copy; turning it into an entry comes next.
 struct ScanResultView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let result: ScanResult
     @State private var copied = false
@@ -54,7 +54,7 @@ struct ScanResultView: View {
 /// on the 记一笔 card filled in from a screenshot: what to check, a payment that may already be recorded, the
 /// purchase a refund goes back to, and the text that was read
 struct ScanBanner: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let info: ScanInfo
     @State private var showText = false
 

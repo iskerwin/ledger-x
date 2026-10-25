@@ -27,7 +27,7 @@ struct SettleTarget: Identifiable {
 
 /// 往来: what people, the company and the reimbursement desk owe you, and what you owe them
 struct CounterpartyView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var loan: LoanTarget?
     @State private var settle: SettleTarget?
     @State private var showSettled = false
@@ -195,7 +195,7 @@ func personCaption(_ p: Person) -> String {
 
 /// one person: what is owed each way, the actions, and every transaction with them
 struct PersonView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let name: String
     @State private var loan: LoanTarget?
     @State private var settle: SettleTarget?
@@ -278,7 +278,7 @@ struct PersonView: View {
 // MARK: - lend / collect / borrow / repay
 
 struct LoanSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let target: LoanTarget
     @State private var d = LoanDraft()
@@ -443,7 +443,7 @@ struct LoanSheet: View {
 // MARK: - settle what is left
 
 struct SettleSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let target: SettleTarget
     @State private var date = Day.today()
@@ -550,7 +550,7 @@ struct SettleSheet: View {
 
 /// the overview's line into 往来
 struct CounterpartyOverviewRow: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let L: Ledger
     var body: some View {
         let ps = people(L)

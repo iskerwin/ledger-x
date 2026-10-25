@@ -6,7 +6,7 @@ struct ReconcileDest: Hashable {}
 /// accounts whose statement / check day has come: compare the bank app's current balance with the ledger's,
 /// and when they agree, write the assertion for the start of that day
 struct ReconcileView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     /// the bank's current balance as typed, per account
     @State private var bank: [String: String] = [:]
     /// accounts confirmed equal without typing
@@ -118,7 +118,7 @@ struct ReconcileView: View {
 
 /// a line on the overview while some accounts wait for their check
 struct ReconcileBanner: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     var body: some View {
         if let L = store.L {
             let due = reconcileDue(L)

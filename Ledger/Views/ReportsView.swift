@@ -8,7 +8,7 @@ struct QueryDest: Hashable { var query: SavedQuery }
 // MARK: - the 报表 tab
 
 struct ReportsView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var path = NavigationPath()
 
     var body: some View {
@@ -235,7 +235,7 @@ func rangeLabel(_ r: (String?, String?)) -> String {
 
 /// an expandable account tree inside a List section
 struct AccountTreeRows: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let root: AccountNode
     /// 1 for debit-normal roots (Assets, Expenses), -1 for credit-normal (Income, Liabilities, Equity)
     let sign: Double
@@ -395,7 +395,7 @@ struct CurrencyLinesRow: View {
 // MARK: - 损益表
 
 struct IncomeStatementView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @AppStorage("ledger.report.period") private var period = ReportPeriod.thisYear
     @State private var from = Day.addMonth(Day.ym(Day.today()), -2) + "-01"
     @State private var to = Day.today()
@@ -824,7 +824,7 @@ enum AsOf: String, CaseIterable, Identifiable {
 }
 
 struct BalanceSheetView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var asOf = AsOf.today
     @State private var custom = Day.today()
     @AppStorage("ledger.report.nwRange") private var nwRange = 24
@@ -1011,7 +1011,7 @@ struct NetWorthChart: View {
 // MARK: - 试算平衡表
 
 struct TrialBalanceView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
 
     var body: some View {
         Group {

@@ -6,7 +6,7 @@ struct YearReviewDest: Hashable { var year: String? = nil }
 
 /// 年度回顾: one year on one page. The figures come from `yearReview` (LedgerKit); this only shows them.
 struct YearReviewView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var year: String
     @State private var cur: String?
     @State private var picked: String?
@@ -335,7 +335,7 @@ struct YearReviewView: View {
 
 /// 概览: in December and January, a way into the year's review
 struct YearReviewOverviewSection: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     var body: some View {
         let today = Day.today()
         let m = Int(today.dropFirst(5).prefix(2)) ?? 0

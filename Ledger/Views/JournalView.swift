@@ -41,7 +41,7 @@ extension Store {
 }
 
 struct TxRow: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let t: Entry
     var account: String? = nil
     var balance: String? = nil
@@ -147,7 +147,7 @@ struct Tag: View {
 }
 
 struct JournalView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var path = NavigationPath()
     /// a transaction's page opens out of its row
@@ -673,7 +673,7 @@ struct JournalView: View {
 // MARK: - detail
 
 struct TxDetailView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let dest: TxDest
     @State private var subDraft: SubDraft?
@@ -991,7 +991,7 @@ struct PostingRow: View {
 // MARK: - edit
 
 struct EditTxView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let dest: EditDest
     @State private var old: String?
@@ -1100,7 +1100,7 @@ struct EditTxView: View {
 
 /// the transactions of one day in one file, dragged into a new order; the file's lines move with them
 struct DayOrderSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let date: String
     let file: String

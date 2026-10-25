@@ -147,7 +147,7 @@ final class AttachmentUploadTests: XCTestCase {
         let window = UIWindow(windowScene: scene)
         let controller = UIHostingController(rootView: AttachmentPathSheet(
             entry: entry, data: Data([1]), ext: "jpg", ledgerID: store.cfg.id,
-            existingPaths: store.attachmentTakenPaths()).environmentObject(store))
+            existingPaths: store.attachmentTakenPaths()).environment(store))
         window.rootViewController = controller
         window.makeKeyAndVisible()
         defer { window.isHidden = true; previous?.makeKeyAndVisible() }

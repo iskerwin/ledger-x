@@ -15,7 +15,7 @@ enum BatchMode: String, CaseIterable, Identifiable {
 
 /// change an account, add a tag or a link on several transactions at once
 struct BatchEditSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let entries: [Entry]
     @State var mode: BatchMode

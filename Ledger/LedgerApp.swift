@@ -4,7 +4,7 @@ import LedgerKit
 
 @main
 struct LedgerApp: App {
-    @StateObject private var store = Store.shared
+    @State private var store = Store.shared
     @StateObject private var lock = AppLock()
     @Environment(\.scenePhase) private var phase
     @AppStorage(AppAppearance.key) private var appearance = AppAppearance.system.rawValue
@@ -25,8 +25,8 @@ struct LedgerApp: App {
                     PrivacyCover().zIndex(1)
                 }
             }
-            .environmentObject(store)
-            .environmentObject(store.drafts)
+            .environment(store)
+            .environment(store.drafts)
             .environmentObject(lock)
             .preferredColorScheme(AppAppearance(rawValue: appearance)?.scheme)
             .task {
@@ -51,7 +51,7 @@ struct LedgerApp: App {
 }
 
 struct RootView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.horizontalSizeClass) private var hsize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -83,12 +83,12 @@ struct RootView: View {
         .overlay(alignment: .bottom) {
             if !store.adding { ToastView().animation(AppMotion.emphasized, value: store.toast) }
         }
-        .sheet(item: $store.scanResult) { r in
+        .sheet(item: Bindable(store).scanResult) { r in
             ScanResultView(result: r)
                 .tint(AppTheme.current.color)
                 .environment(\.locale, AppLanguage.current.locale)
         }
-        .sheet(isPresented: $store.adding, onDismiss: { store.endEdit() }) {
+        .sheet(isPresented: Bindable(store).adding, onDismiss: { store.endEdit() }) {
             // a sheet doesn't inherit what is set on the view it hangs from: the theme and language again
             AddCard()
                 .tint(AppTheme.current.color)
@@ -96,9 +96,9 @@ struct RootView: View {
                 .presentationDragIndicator(.visible)
         }
         // while the card is open it shows these itself (a sheet can't open under another)
-        .sheet(item: store.adding ? .constant(nil) : $store.subSuggestion) { c in SubEditSheet(draft: SubDraft(c)) }
-        .sheet(item: $store.repaying) { RepaySheet(cycle: $0) }
-        .sheet(isPresented: $store.showSync) {
+        .sheet(item: store.adding ? .constant(nil) : Bindable(store).subSuggestion) { c in SubEditSheet(draft: SubDraft(c)) }
+        .sheet(item: Bindable(store).repaying) { RepaySheet(cycle: $0) }
+        .sheet(isPresented: Bindable(store).showSync) {
             NavigationStack {
                 SyncView()
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button { store.showSync = false } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold) } }
@@ -106,7 +106,7 @@ struct RootView: View {
             .tint(AppTheme.current.color)
             .environment(\.locale, AppLanguage.current.locale)
         }
-        .sheet(isPresented: $store.showSettings, onDismiss: {
+        .sheet(isPresented: Bindable(store).showSettings, onDismiss: {
             if store.openCheckAfterSettings { store.openCheckAfterSettings = false; store.openCheck = true }
         }) {
             NavigationStack {
@@ -137,7 +137,7 @@ private extension View {
 }
 
 struct LoadingView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     /// why the ledger didn't load, if it didn't
     static func problem(_ store: Store) -> String? {
         guard let e = store.loadError ?? (store.syncState == .error || store.syncState == .offline ? store.syncError : nil), !e.isEmpty else { return nil }
@@ -161,7 +161,7 @@ struct LoadingView: View {
 
 /// iPad / wide windows: a sidebar with the sections, the section on the right
 struct SplitRoot: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var visibility = NavigationSplitViewVisibility.all
 
     var body: some View {

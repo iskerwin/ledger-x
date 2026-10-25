@@ -3,14 +3,14 @@ import LedgerKit
 
 /// Compatibility shortcut: both entrances edit the same isolated currency/rate/fee session.
 struct TransferFeeSheet: View {
-    @EnvironmentObject private var store: Store
+    @Environment(Store.self) private var store
     var body: some View {
         if let L = store.L, let D = store.D { RateSheet(L: L, D: D, startAtFee: true) }
     }
 }
 
 struct FeeFields: View {
-    @EnvironmentObject private var store: Store
+    @Environment(Store.self) private var store
     @Binding var draft: Draft
     let L: Ledger
     let D: Derived

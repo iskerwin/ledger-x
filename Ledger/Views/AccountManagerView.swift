@@ -15,7 +15,7 @@ extension Store {
 
 /// 管理账户: every account in the ledger, by root, then by group (Food, Bank…) folded away until opened
 struct AccountManagerView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     /// just one root ("Expenses" or "Income" as 科目管理 from the 记一笔 grid)
     var only: String? = nil
     @State private var q = ""
@@ -162,7 +162,7 @@ struct AccountEditView: View {
     /// return moves on: account name → display name → currencies
     private enum Field { case account, display, currencies }
     @FocusState private var field: Field?
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let name: String?
 

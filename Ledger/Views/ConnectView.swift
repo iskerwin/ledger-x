@@ -129,7 +129,7 @@ struct ConnectionSections: View {
 
 /// add a ledger or change one's connection
 struct LedgerEditView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let initial: RepoConfig
     var isNew = false
@@ -195,7 +195,7 @@ func testConnection(_ raw: RepoConfig, _ store: Store) async -> RepoConfig? {
 
 /// 设置 → 账本：all ledgers on this phone, switch / edit / add / remove
 struct LedgersSection: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     /// the Form owns the navigation destination (it must not sit inside a lazy List)
     @Binding var editing: RepoConfig?
     @State private var removing: RepoConfig?

@@ -279,7 +279,7 @@ func jpegForUpload(_ image: UIImage) -> Data? {
 }
 
 struct AttachmentsSection: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let t: Entry
     @State private var choosing = false
     @State private var photo: PhotosPickerItem?
@@ -375,7 +375,7 @@ struct PendingAttachment: Identifiable {
 
 /// After a photo or file is picked, confirm the folder and file name before anything is uploaded.
 struct AttachmentPathSheet: View {
-    @EnvironmentObject private var store: Store
+    @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
     let entry: Entry
     let data: Data
@@ -509,7 +509,7 @@ struct TransactionAttachmentsDest: Hashable {}
 
 /// 交易附件: every transaction's attachments in one list, whichever account paid; account pages keep their statements
 struct TransactionAttachmentsView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var viewing: DocItem?
     /// 最近删除 being restored
     @State private var recovering: UUID?
@@ -598,7 +598,7 @@ struct TransactionAttachmentsView: View {
 
 /// downloads a file from the ledger storage and shows it with Quick Look
 struct DocumentViewer: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let path: String
     @State private var url: URL?

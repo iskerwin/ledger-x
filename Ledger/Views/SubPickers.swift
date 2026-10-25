@@ -18,7 +18,7 @@ struct SubHint {
 
 /// pick expense transactions to link: related ones first, searchable, sortable and grouped
 struct TxPicker: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let hint: SubHint
     /// already linked to this subscription
     let exclude: Set<Int>
@@ -200,7 +200,7 @@ struct TxPicker: View {
 
 /// from a transaction: choose the subscription to link it to, or start a new one
 struct SubPickSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let t: Entry
     let onNew: () -> Void
@@ -267,7 +267,7 @@ struct SubPickSheet: View {
 /// 订阅日历: the charges of the next two months on the app's month calendar (a dot in the theme colour on each
 /// charge day), the month's charges under it; tap a day for just that day's.
 struct SubscriptionCalendarView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var month = Day.ym(Day.today())
     @State private var day: String?
 

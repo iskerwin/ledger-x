@@ -43,7 +43,7 @@ func currencyColor(_ c: String) -> Color {
 
 /// the button in the navigation bar
 struct CurrencyButton: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var open = false
     var body: some View {
         Button { open = true } label: {
@@ -58,7 +58,7 @@ struct CurrencyButton: View {
 
 /// "HKD · 原币" above a page when something other than the default is chosen; tap to change
 struct CurrencyBanner: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var open = false
     var body: some View {
         if let L = store.L, let label = store.cview.label(L) {
@@ -80,7 +80,7 @@ struct CurrencyBanner: View {
 }
 
 struct CurrencySheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {

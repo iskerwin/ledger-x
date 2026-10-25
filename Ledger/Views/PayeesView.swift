@@ -36,7 +36,7 @@ func payeeSummaries(_ L: Ledger) -> [PayeeSummary] {
 
 /// 收付款方: search, check how often each one is used, rename or merge them
 struct PayeesView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var q = ""
     @State private var selecting = false
     @State private var picked: Set<String> = []
@@ -125,7 +125,7 @@ struct PayeeRow: View {
 
 /// one payee: totals, rename, and every transaction with them
 struct PayeeDetailView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let name: String
     @State private var renaming: PayeeRename?
     @State private var limit = 100
@@ -164,7 +164,7 @@ struct PayeeRename: Identifiable {
 
 /// rename one payee, or merge several into one name (new or existing): one commit over every file
 struct PayeeRenameSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let target: PayeeRename
     var done: () -> Void

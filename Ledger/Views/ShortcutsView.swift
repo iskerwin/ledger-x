@@ -3,7 +3,7 @@ import LedgerKit
 
 /// 设置 → 快捷指令与 Apple Pay
 struct ShortcutsSettingsView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var cards: [String: String] = Prefs.get(IntentPrefs.cardsKey, [String: String]())
     @State private var seen: [String] = Prefs.get(IntentPrefs.seenKey, [String]())
     @State private var newCard = ""
@@ -91,7 +91,7 @@ struct ShortcutsSettingsView: View {
 }
 
 struct CardMappingRow: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let card: String
     @Binding var account: String
     @State private var picking = false

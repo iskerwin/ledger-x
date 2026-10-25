@@ -4,7 +4,7 @@ import LedgerKit
 
 /// every ledger file in the repository, to read or edit as plain text
 struct SourceFilesView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var query = ""
 
     var body: some View {
@@ -41,7 +41,7 @@ struct SourceFilesView: View {
 }
 
 struct SourceFileView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let path: String
     @State private var original: String?

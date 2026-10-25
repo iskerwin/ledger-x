@@ -62,7 +62,7 @@ func entryActionName(_ entry: Entry) -> String {
 }
 
 private struct EntryDeletionModifier: ViewModifier {
-    @EnvironmentObject private var store: Store
+    @Environment(Store.self) private var store
     @Binding var request: EntryDeletion?
     @State private var busy = false
 
@@ -107,7 +107,7 @@ private struct EntryDeletionModifier: ViewModifier {
 
 /// Use on the List row, rather than on TxRow's inner labels, so native List gestures work.
 private struct EntryActions: ViewModifier {
-    @EnvironmentObject private var store: Store
+    @Environment(Store.self) private var store
     @Environment(\.push) private var push
     let entry: Entry
     var edit: (() -> Void)?
@@ -256,7 +256,7 @@ struct EntrySourceTarget: Identifiable {
 
 /// Fallback for entries a visual form cannot represent, preserving comments and metadata.
 struct EntrySourceSheet: View {
-    @EnvironmentObject private var store: Store
+    @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
     let target: EntrySourceTarget
     @State private var text = ""

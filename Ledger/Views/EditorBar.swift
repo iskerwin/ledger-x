@@ -306,7 +306,7 @@ final class EditorBar: UIView {
             }
         }
         let host = UIHostingController(rootView: picker
-            .environmentObject(Store.shared)
+            .environment(Store.shared)
             .tint(AppTheme.current.color)
             .environment(\.locale, AppLanguage.current.locale))
         top.present(host, animated: true)

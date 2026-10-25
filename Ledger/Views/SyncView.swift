@@ -4,7 +4,7 @@ import LedgerKit
 /// 账本同步: whether what was recorded is only on this phone or already in the ledger's storage, why not, and
 /// what to do about it — instead of a cloud icon alone. Opened from the status icon in the bar and from 设置.
 struct SyncView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     /// a pending change opened to see why it was not sent
     @State private var why: Op?
     /// a pending change swiped away: asked first, it is not in the ledger's storage yet and can't be brought back

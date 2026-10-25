@@ -27,7 +27,7 @@ extension Store {
 
 /// 净资产与资产负债表: which asset and liability accounts count in each, picked separately
 struct NetWorthSettingsView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     enum Which: String, CaseIterable, Identifiable { case netWorth, balance; var id: String { rawValue } }
     @State var which: Which = .netWorth

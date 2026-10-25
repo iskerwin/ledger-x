@@ -171,7 +171,7 @@ extension Store {
 
 /// on the overview of the demo: what it is, and the way out (into a ledger of one's own, or back)
 struct DemoBanner: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var confirmReset = false
     @State private var confirmUpdate = false
 
@@ -240,7 +240,7 @@ struct DemoBanner: View {
 
 /// on one's own overview: the demo, one tap away (closed with ✕, back on in 设置)
 struct DemoEntryCard: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @AppStorage(Store.demoEntryKey) private var shown = true
 
     var body: some View {

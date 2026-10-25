@@ -49,7 +49,7 @@ extension Store {
 /// 报表 → 报销: everything about reimbursements in one place — what is waiting, the petty cash and open claims,
 /// and every settled one by year
 struct ReimbursementsView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var pettyCash = false
 
     var body: some View {
@@ -153,7 +153,7 @@ struct ReimbLineRow: View {
 /// a list of advances with the edits every reimbursement page shares: open the transaction, set 支出类型 /
 /// 凭证类型, take it off the batch
 struct ReimbLinesSection: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let title: String
     let lines: [ReimbLine]
     /// the batch the advances are on (nil: not on one yet)
@@ -209,7 +209,7 @@ struct ReimbLinesSection: View {
 
 /// 待报销: advances not on any reimbursement or petty cash yet
 struct UnclaimedView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var reimb: ReimbTarget?
     @State private var float: FloatTarget?
     @State private var exporting: ReimbExportTarget?
@@ -251,7 +251,7 @@ struct UnclaimedView: View {
 
 /// one reimbursement or petty cash: totals, what to do next, and every transaction on it
 struct ReimbBatchView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let link: String
     @State private var reimb: ReimbTarget?
     @State private var float: FloatTarget?
@@ -304,7 +304,7 @@ struct ReimbBatchView: View {
 
 /// pick advances waiting to be claimed and put them on a reimbursement
 struct AddAdvancesSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let link: String
     @State private var picked: Set<ObjectIdentifier> = []

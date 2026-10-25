@@ -3,7 +3,7 @@ import Charts
 import LedgerKit
 
 struct OverviewView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var path = NavigationPath()
     @AppStorage("ledger.period") private var period = "month"
     @State private var month = Day.ym(Day.today())
@@ -783,7 +783,7 @@ struct CatBar: View {
 
 /// the one summary of everything the ledger check finds: Beancount errors (failed balances included) and link problems
 struct LedgerCheckRow: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     var body: some View {
         if let L = store.L {
             let links = store.linkProblems
@@ -806,7 +806,7 @@ struct LedgerCheckRow: View {
 }
 
 struct CIRow: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     var body: some View {
         let ci = store.ci
         let row = HStack(spacing: AppSpacing.control) {
@@ -854,7 +854,7 @@ func pluginShortName(_ n: String) -> String {
 
 /// one tap to put an error right
 struct FixButton: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let fix: LedgerFix
     /// the day of the entry the error is on
     let at: String?
@@ -869,7 +869,7 @@ struct FixButton: View {
 
 /// 账本检查: Beancount errors, link problems and bean-check in one place, each opening what needs fixing
 struct ErrorsView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
 
     private func transaction(for error: LedgerError, in ledger: Ledger) -> Entry? {
         guard let file = error.file else { return nil }

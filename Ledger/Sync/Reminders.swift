@@ -185,7 +185,7 @@ enum Reminders {
 
 /// 设置 → 提醒
 struct RemindersSection: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @AppStorage(Reminders.enabledKey) private var on = false
     @AppStorage(Reminders.fixedKey) private var fixed = true
     @AppStorage(Reminders.balanceKey) private var balance = true

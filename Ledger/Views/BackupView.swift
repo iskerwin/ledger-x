@@ -4,7 +4,7 @@ import LedgerKit
 
 /// backups to a Files folder, and exports to share
 struct BackupView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @AppStorage(Backup.autoKey) private var auto = true
     @State private var picking = false
     @State private var busy = false

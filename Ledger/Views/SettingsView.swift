@@ -2,7 +2,7 @@ import SwiftUI
 import LedgerKit
 
 struct SettingsView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     var first = false
     @State private var cfg = RepoConfig()
     @State private var testing = false
@@ -251,7 +251,7 @@ extension SettingsView {
 
 /// the ledgers on this phone, to switch, edit, add or remove
 struct LedgersPage: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Binding var editing: RepoConfig?
     var body: some View {
         Form {
@@ -270,7 +270,7 @@ struct LedgersPage: View {
 
 /// 记账偏好: the default paying account and currency, how postings are written
 struct BookkeepingPrefsPage: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     var body: some View {
         Form {
             if let D = store.D {
@@ -289,7 +289,7 @@ struct BookkeepingPrefsPage: View {
                     Text(LS("默认币种用于新的支出、收入和退款；付款账户是其他币种时，可填写账户实付金额。转账始终使用转出账户的币种。"))
                 }
                 Section {
-                    Toggle(LS("分录显式写出自动补平金额"), isOn: $store.explicitAmounts)
+                    Toggle(LS("分录显式写出自动补平金额"), isOn: Bindable(store).explicitAmounts)
                 } footer: {
                     Text(LS("关闭时和手写一样，最后一行的金额留空由 Beancount 补平；打开后每一行都写出金额。"))
                 }
@@ -301,7 +301,7 @@ struct BookkeepingPrefsPage: View {
 
 /// 高级设置: the repository's layout, its files, the cache
 struct AdvancedPage: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var confirmReset = false
     /// what is running: the button shows it, and says how it went
     @State private var reloading = false

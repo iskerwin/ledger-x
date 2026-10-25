@@ -65,7 +65,7 @@ extension Store {
 
 /// the transaction's links, each with the other transactions it ties to and their totals
 struct LinkGroupsSection: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let t: Entry
     let L: Ledger
     let D: Derived
@@ -138,7 +138,7 @@ extension View {
 /// what to do about a link problem from the transaction it is on. The sheets live on the detail page:
 /// a sheet attached to a List section is copied onto every row, and goes away with the row.
 struct LinkIssueSection: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let t: Entry
     @Binding var pick: LinkPick?
     @Binding var subPick: Entry?
@@ -209,7 +209,7 @@ struct LinkIssueSection: View {
 
 /// choose the transactions that should share the link, check what will change, then one commit
 struct LinkPickSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let pick: LinkPick
     @State private var picked: Set<Int> = []
@@ -248,7 +248,7 @@ struct LinkPickSheet: View {
 
 /// what linking will change: each transaction's first line before and after, and the totals afterwards
 struct LinkConfirmView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let pick: LinkPick
     let chosen: [Entry]
     let close: () -> Void
@@ -344,7 +344,7 @@ struct LinkConfirmView: View {
 // MARK: - one link
 
 struct LinkDetailView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let link: String
     @State private var exporting: ReimbExportTarget?
 
@@ -389,7 +389,7 @@ struct LinkDetailView: View {
 }
 
 struct LinkIssueRow: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let i: LinkIssue
     var body: some View {
         NavigationLink(value: TxDest(i.txn)) {

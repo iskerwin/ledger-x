@@ -12,7 +12,7 @@ struct EventEdit: Identifiable {
 
 /// every event: the ongoing ones first
 struct EventsView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var editing: EventEdit?
     @State private var changing: LifeEventChange?
     @AppStorage(Store.autoEventsKey) private var auto = true
@@ -73,7 +73,7 @@ func eventDates(_ e: LedgerEvent) -> String {
 
 /// one event: what it cost, by category, what is still to be reimbursed, and its transactions
 struct EventDetailView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let tag: String
     @State private var exporting: ReimbExportTarget?
     @State private var editing: EventEdit?
@@ -147,7 +147,7 @@ struct EventDetailView: View {
 
 /// create an event, rename it, change its days or end it
 struct EventSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let event: LedgerEvent?
     @State private var title = ""
@@ -263,7 +263,7 @@ struct EventSheet: View {
 
 /// the transactions of the event's days that don't carry its tag: pick the ones that belong to it
 struct EventCandidatesSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let tag: String
     @State private var picked: Set<Int> = []
@@ -328,7 +328,7 @@ struct EventCandidatesSheet: View {
 
 /// ongoing events on the overview
 struct EventsOverviewSection: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let L: Ledger
     var body: some View {
         let on = ledgerEvents(L).filter { $0.entry != nil && $0.ongoing() }
@@ -360,7 +360,7 @@ struct EventsOverviewSection: View {
 
 /// unusual spending on the overview: the latest few, each can be dismissed
 struct AlertsOverviewSection: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     var body: some View {
         let _ = store.alertsVersion
         let list = store.anomalyList
@@ -393,7 +393,7 @@ struct AnomalyDest: Hashable { let id: String }
 
 /// one alert in a list: opens what it is about; swipe to mark it checked
 struct AnomalyRow: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let a: Anomaly
     var confirmed = false
     var body: some View {
@@ -434,7 +434,7 @@ func anomalyIcon(_ k: Anomaly.Kind) -> String {
 
 /// one alert: what to check, the transactions behind it, and the verdict
 struct AnomalyDetailView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let id: String
 
@@ -508,7 +508,7 @@ struct AnomalyDetailView: View {
 
 /// every alert, and how large a single expense has to be to count
 struct AlertsView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
 
     var body: some View {
         let _ = store.alertsVersion
@@ -547,7 +547,7 @@ struct LifeEventChange: Identifiable {
 
 /// Beancount's own event directives (`event "location" "深圳"`): each type a timeline, the current value on top
 struct LifeEventsSections: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Binding var changing: LifeEventChange?
     var body: some View {
         if let L = store.L {

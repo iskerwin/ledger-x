@@ -13,7 +13,7 @@ struct StyleTarget: Identifiable {
 /// 分类图标与排序: the 记一笔 grid's cells in order (drag to move), tap one for its icon, name and whether it shows.
 /// Kept on this phone; the ledger is not changed.
 struct CategoryManager: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     @State var root: String
     @State private var styling: StyleTarget?
@@ -108,7 +108,7 @@ struct CategoryManager: View {
 
 /// one cell: its icon (from a set of symbols), its name and whether the grid shows it
 struct CategoryStyleSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let target: StyleTarget
     @State private var title = ""
@@ -215,7 +215,7 @@ struct IconTarget: Identifiable { let group: String; var id: String { group } }
 
 /// the icon of any account group, used wherever the group shows (grid, 管理账户, accounts, reports); kept on this phone
 struct GroupIconSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let group: String
     @State private var icon = ""

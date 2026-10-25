@@ -37,7 +37,7 @@ extension Store {
 }
 
 struct RepoLayoutView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var c = LedgerXConfig()
     @State private var loaded = false
     @State private var saving = false
@@ -222,7 +222,7 @@ struct RepoLayoutView: View {
 
 /// preview of what moves where, then one commit
 struct ReorganizeView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     @State private var saving = false
 

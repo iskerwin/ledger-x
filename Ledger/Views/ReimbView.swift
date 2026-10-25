@@ -10,7 +10,7 @@ struct ReimbTarget: Identifiable {
 /// 报销到账: pick the advances that were paid back, record the incoming money,
 /// and tag the picked transactions with #reimbursed ^link
 struct ReimbSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let target: ReimbTarget
 
@@ -299,7 +299,7 @@ struct ReimbSheet: View {
 /// 备用金冲抵: the advances petty cash paid for get its ^float-… link (and #reimbursed); no money moves, so
 /// nothing new is written — the link's transactions add up to what is still in hand
 struct FloatSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let link: String
     @State private var selected: Set<Int> = []

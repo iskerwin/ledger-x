@@ -3,7 +3,7 @@ import LedgerKit
 
 /// changes made from this device, newest first; each can be taken back
 struct HistoryView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var confirming: ChangeRecord?
 
     var body: some View {
@@ -57,7 +57,7 @@ private struct HistoryRow: View {
 }
 
 struct HistoryDetailView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let id: UUID
     @State private var confirm = false

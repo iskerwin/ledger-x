@@ -29,7 +29,7 @@ struct NoteRow: View {
 
 /// add or edit a note on an account: `2026-10-16 note Assets:Bank:CGB "…"`
 struct NoteSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let account: String
     let note: Entry?
@@ -104,7 +104,7 @@ struct NoteSheet: View {
 
 /// record a new value of one of Beancount's events (where you live, who you work for…)
 struct LifeEventSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     /// the type to start with (nil: choose or name one)
     let type: String?

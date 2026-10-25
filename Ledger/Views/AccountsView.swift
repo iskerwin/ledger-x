@@ -2,7 +2,7 @@ import SwiftUI
 import LedgerKit
 
 struct AccountsView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var path = NavigationPath()
     @State private var pricing = false
     @AppStorage("ledger.showClosed") private var showClosed = false
@@ -424,7 +424,7 @@ struct AccountKind {
 }
 
 struct AccountRow: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let account: String
     let balances: [(String, Double)]
     let closed: Bool
@@ -523,7 +523,7 @@ struct AccountRow: View {
 // MARK: - register
 
 struct RegisterView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let account: String
     @State private var checking: CheckPreset?
     /// months opened or closed by hand (the rest follow `open`)
@@ -899,7 +899,7 @@ struct CheckPreset: Identifiable {
 // MARK: - 对账
 
 struct CheckSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let account: String
     let preset: CheckPreset

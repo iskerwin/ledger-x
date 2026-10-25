@@ -61,20 +61,20 @@ enum Prefs {
 }
 
 @MainActor
-final class DraftModel: ObservableObject {
-    @Published var draft = Draft() {
+@Observable final class DraftModel {
+    var draft = Draft() {
         didSet {
             if draft.funding != oldValue.funding { fundingChanged?() }
             if !installing { changed?() }
         }
     }
-    @Published var isSaving = false
-    private(set) var baseline: Draft?
-    private var installing = false
+    var isSaving = false
+    @ObservationIgnored private(set) var baseline: Draft?
+    @ObservationIgnored private var installing = false
     /// each type as the user last left it, so switching back is not a new edit
-    var kindSnapshots: [DraftKind: Draft] = [:]
-    var kindSnapshotKey = ""
-    var changed: (() -> Void)?
+    @ObservationIgnored var kindSnapshots: [DraftKind: Draft] = [:]
+    @ObservationIgnored var kindSnapshotKey = ""
+    @ObservationIgnored var changed: (() -> Void)?
     var initialized: Bool { baseline != nil }
     var hasChanges: Bool {
         let timing = SaveTiming()
@@ -106,95 +106,95 @@ final class DraftModel: ObservableObject {
         }
     }
     /// told when the paying account changes, however it is changed (pickers bind to the draft directly)
-    var fundingChanged: (() -> Void)?
+    @ObservationIgnored var fundingChanged: (() -> Void)?
 }
 
 @MainActor
-final class Store: ObservableObject {
-    @Published private(set) var committing = false
-    @Published var attachmentUploading = false
-    @Published var attachmentRevision = 0
+@Observable final class Store {
+    private(set) var committing = false
+    var attachmentUploading = false
+    var attachmentRevision = 0
     /// the attachment recovery jobs of one ledger, as last read or written (see attachmentJobs)
-    var attachmentJobCache: (ledger: String, jobs: [AttachmentUpload])?
+    @ObservationIgnored var attachmentJobCache: (ledger: String, jobs: [AttachmentUpload])?
     /// the one run of finishAttachmentDeletions in progress (see AttachmentDeletion.swift)
-    var attachmentDeletionRun: Task<Void, Never>?
-    @Published var cfg: RepoConfig
+    @ObservationIgnored var attachmentDeletionRun: Task<Void, Never>?
+    var cfg: RepoConfig
     /// every ledger set up on this phone (tokens stripped; they live in the Keychain)
-    @Published private(set) var sources: [RepoConfig]
-    @Published private(set) var L: Ledger?
-    @Published private(set) var D: Derived?
-    @Published private(set) var version = 0
-    @Published var pending: [Op]
-    @Published var syncState: SyncState = .idle
-    @Published var syncError = ""
-    @Published var demoBusy = false
+    private(set) var sources: [RepoConfig]
+    private(set) var L: Ledger?
+    private(set) var D: Derived?
+    private(set) var version = 0
+    var pending: [Op]
+    var syncState: SyncState = .idle
+    var syncError = ""
+    var demoBusy = false
     /// a newer commit of ledger-demo than the demo on this phone (offered in its banner)
-    @Published var demoUpdate: String?
-    @Published var lastSync: Date?
-    @Published var ci: GitHub.CI?
-    @Published private(set) var tree: RepoTree?
-    @Published var loadError: String?
-    @Published var building = false
+    var demoUpdate: String?
+    var lastSync: Date?
+    var ci: GitHub.CI?
+    private(set) var tree: RepoTree?
+    var loadError: String?
+    var building = false
 
     /// the entry form lives in its own object so typing only redraws the 记一笔 page
     let drafts = DraftModel()
-    var draftWorkspace = DraftWorkspace()
-    var draftPersistenceTask: Task<Void, Never>?
-    var navigationContexts: [String: [String: NavigationPath]] = [:]
-    var ledgerTabs: [String: Tab] = [:]
-    var entryMoves: [String: [String: String]] = [:]
+    @ObservationIgnored var draftWorkspace = DraftWorkspace()
+    @ObservationIgnored var draftPersistenceTask: Task<Void, Never>?
+    @ObservationIgnored var navigationContexts: [String: [String: NavigationPath]] = [:]
+    @ObservationIgnored var ledgerTabs: [String: Tab] = [:]
+    @ObservationIgnored var entryMoves: [String: [String: String]] = [:]
     /// finds the transactions open pages show, for the ledger loaded now (`txn(_:key:)`)
-    var txnLookup: TxnLookup?
-    @Published var closeAddRequested = false
+    @ObservationIgnored var txnLookup: TxnLookup?
+    var closeAddRequested = false
     var draft: Draft {
         get { drafts.draft }
         set { drafts.draft = newValue }
     }
-    @Published var tab: Tab = .overview
+    var tab: Tab = .overview
     /// the 记一笔 card is open (it opens over any tab: the + tab, ledgerx://add, Shortcuts, 再记一笔…)
-    @Published var adding = false
+    var adding = false
     /// 截图记账: what was just read off a screenshot (shown until closed)
-    @Published var scanResult: ScanResult?
+    var scanResult: ScanResult?
     /// 截图记账: the card was filled in from a screenshot; what to check, and what to remember on saving
-    @Published var scanInfo: ScanInfo?
+    var scanInfo: ScanInfo?
     /// the card opens on the full form (分录, 文本, 退款, AA…) instead of the quick one
-    var addFull = false
+    @ObservationIgnored var addFull = false
     /// bumped by every request to open the card, so an open card goes back to the page asked for
-    @Published var addToken = 0
+    var addToken = 0
     /// icons, names, order and hidden groups of the 记一笔 category grid (kept on this phone, not in the ledger)
-    @Published var catStyle: CatStyle { didSet { Prefs.set("catStyle", catStyle) } }
+    var catStyle: CatStyle { didSet { Prefs.set("catStyle", catStyle) } }
     /// 币种与换算: which currencies the reports, overview and accounts show, and how they are valued (this phone)
-    @Published var cview: CurrencyView { didSet { Prefs.set("currencyView", cview) } }
-    @Published var showSettings = false
+    var cview: CurrencyView { didSet { Prefs.set("currencyView", cview) } }
+    var showSettings = false
     /// 账本同步, opened from the status icon
-    @Published var showSync = false
+    var showSync = false
     /// the card bill being repaid: the sheet lives at the root, so a List section can't present it twice
-    @Published var repaying: CardCycle?
+    var repaying: CardCycle?
     /// open 账本检查 on the overview tab (from Settings)
-    @Published var openCheck = false
+    var openCheck = false
     /// 设置 → 账本检查: open the check once the settings sheet has gone
-    var openCheckAfterSettings = false
-    @Published var toast: Toast?
+    @ObservationIgnored var openCheckAfterSettings = false
+    var toast: Toast?
     /// the text just written from the form (as `normEntryText`), for a moment: 明细 lights its row up
-    @Published var justSaved: String?
+    var justSaved: String?
     /// Notices waiting to become visible, and the clock for the one on screen.
-    private var toastSchedule = ToastSchedule()
-    private var toastActions: [UUID: () async -> Void] = [:]
-    private var toastDriver: Task<Void, Never>?
+    @ObservationIgnored private var toastSchedule = ToastSchedule()
+    @ObservationIgnored private var toastActions: [UUID: () async -> Void] = [:]
+    @ObservationIgnored private var toastDriver: Task<Void, Never>?
     /// bumped to pop every tab back to its root (after an edit or delete)
-    @Published var popToken = 0
+    var popToken = 0
     /// account filter handed to the journal tab
-    @Published var journalAccount: String?
+    var journalAccount: String?
     /// a search to open 明细 on (from another page): taken by the journal and cleared
-    @Published var journalQuery: String?
+    var journalQuery: String?
     /// a report or account asking 明细 to show its transactions
-    @Published var journalJump: JournalJump?
+    var journalJump: JournalJump?
     /// the browse replaced by the first jump; held in memory until the user goes back
-    @Published var journalReturn: BrowseContext?
-    private var journalJumpToken = 0
-    var toastAction: (() async -> Void)?
+    var journalReturn: BrowseContext?
+    @ObservationIgnored private var journalJumpToken = 0
+    @ObservationIgnored var toastAction: (() async -> Void)?
     /// a regular payment offered as a subscription after saving it
-    @Published var subSuggestion: SubCandidate?
+    var subSuggestion: SubCandidate?
 
     // 常用交易 pinned / hidden, 记账偏好 defaults: in ledger-x.json (see Shared.swift); these are the values kept on
     // this phone before, read until they are moved there
@@ -203,21 +203,21 @@ final class Store: ObservableObject {
     var localDefaultFunding: String? { Prefs.get("defaultFunding", String?.none) }
     var localDefaultCurrency: String? { Prefs.get("defaultCurrency", String?.none) }
     /// changes made from this device, newest first, so they can be taken back
-    @Published private(set) var history: [ChangeRecord] = []
-    @Published var explicitAmounts: Bool { didSet { Prefs.set("explicit", explicitAmounts) } }
+    private(set) var history: [ChangeRecord] = []
+    var explicitAmounts: Bool { didSet { Prefs.set("explicit", explicitAmounts) } }
 
     /// repository layout (settings; empty = detect from the ledger)
-    @Published var mainFile: String { didSet { Prefs.set(pk("mainFile"), mainFile) } }
-    @Published var journalPattern: String { didSet { Prefs.set(pk("journalPattern"), journalPattern) } }
-    @Published var receivableAccount: String { didSet { Prefs.set(pk("receivable"), receivableAccount) } }
-    @Published var subsFile: String { didSet { Prefs.set(pk("subsFile"), subsFile) } }
-    @Published private(set) var detectedLayout = RepoLayout()
+    var mainFile: String { didSet { Prefs.set(pk("mainFile"), mainFile) } }
+    var journalPattern: String { didSet { Prefs.set(pk("journalPattern"), journalPattern) } }
+    var receivableAccount: String { didSet { Prefs.set(pk("receivable"), receivableAccount) } }
+    var subsFile: String { didSet { Prefs.set(pk("subsFile"), subsFile) } }
+    private(set) var detectedLayout = RepoLayout()
     /// ledger-x.json in the repository (shared by every device); nil = not there yet
-    @Published private(set) var repoConfig: LedgerXConfig? { didSet { LinkNaming.overrides = repoConfig?.slugs ?? [:] } }
+    private(set) var repoConfig: LedgerXConfig? { didSet { LinkNaming.overrides = repoConfig?.slugs ?? [:] } }
 
     /// BQL: queries saved on this phone, and the ones in the ledger (query directives, *.bql files)
-    @Published var myQueries: [SavedQuery] { didSet { Prefs.set("queries", myQueries) } }
-    @Published private(set) var ledgerQueries: [SavedQuery] = []
+    var myQueries: [SavedQuery] { didSet { Prefs.set("queries", myQueries) } }
+    private(set) var ledgerQueries: [SavedQuery] = []
     /// ledger-x.json's, else the one set on this phone when connecting, else main.bean
     var main: String {
         if let m = repoConfig?.main?.trimmed, !m.isEmpty { return m }
@@ -254,19 +254,19 @@ final class Store: ObservableObject {
         return await commit([op], word: LS("已保存到 %@", LedgerXConfig.path), checked: true)
     }
     /// the ledger-x.json change in progress: the next one waits for it (see updateConfig)
-    var configUpdate: Task<Bool, Never>?
+    @ObservationIgnored var configUpdate: Task<Bool, Never>?
     /// the push in progress, for others to wait on
-    private var pushTask: Task<Void, Error>?
-    private var savedSyncTask: Task<Void, Never>?
-    private var savedSyncRequested = false
+    @ObservationIgnored private var pushTask: Task<Void, Error>?
+    @ObservationIgnored private var savedSyncTask: Task<Void, Never>?
+    @ObservationIgnored private var savedSyncRequested = false
     /// Reuse the server baseline only when its file versions match and no local ops were applied.
-    private var builtServerFiles: [String: String]?
+    @ObservationIgnored private var builtServerFiles: [String: String]?
     /// The files and operations the on-screen ledger was actually built from, including a non-empty queue.
-    private var builtLedger: LedgerBuildKey?
-    private var builtLedgerComplete = false
+    @ObservationIgnored private var builtLedger: LedgerBuildKey?
+    @ObservationIgnored private var builtLedgerComplete = false
     /// bumped by every rebuild; a rebuild that finishes after a newer one started is dropped
-    private var rebuildGen = 0
-    private var tplCache: [Template]?
+    @ObservationIgnored private var rebuildGen = 0
+    @ObservationIgnored private var tplCache: [Template]?
 
     /// per-ledger settings key ("tree", "tree@<id>", …); the first ledger keeps the original keys
     static func key(_ k: String, _ id: String) -> String { id == "default" ? k : k + "@" + id }
@@ -438,7 +438,7 @@ final class Store: ObservableObject {
     /// screenshots on CI: read a ledger from a local folder, never touch GitHub
     private(set) var demo = false
     /// the folder the screenshots' ledger is read from
-    private var demoDir: URL?
+    @ObservationIgnored private var demoDir: URL?
     var demoEnv: [String: String] { demo ? ProcessInfo.processInfo.environment : [:] }
     private func loadDemo(_ dir: String) async {
         demo = true
@@ -1164,9 +1164,9 @@ final class Store: ObservableObject {
     var largeExpense: Double { repoConfig?.largeExpense ?? (settingsMigrated ? 2000 : AppSettings.shared.largeExpense) }
     /// new entries get the tags of the events going on that day
     var autoEventTags: Bool { UserDefaults.standard.object(forKey: Store.autoEventsKey) as? Bool ?? true }
-    private var anomalyCache: (version: Int, large: Double, day: String, list: [Anomaly])?
+    @ObservationIgnored private var anomalyCache: (version: Int, large: Double, day: String, list: [Anomaly])?
     /// bumped when an alert is dismissed, so views showing them refresh
-    @Published private(set) var alertsVersion = 0
+    private(set) var alertsVersion = 0
 
     /// alerts checked and found fine
     var confirmedAlertIDs: Set<String> {

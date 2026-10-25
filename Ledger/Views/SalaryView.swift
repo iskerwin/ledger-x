@@ -11,7 +11,7 @@ struct PayslipTarget: Identifiable {
 
 /// 工资: one payslip template per employer, this month's payslip, and each year's salary
 struct SalaryView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var filling: PayslipTarget?
     @State private var editing: PayslipTarget?
     @State private var openYear: String?
@@ -98,7 +98,7 @@ struct SalaryView: View {
 
 /// one month's payslip
 struct PayslipSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let template: PayslipTemplate
     @State private var d: PayslipDraft?
@@ -222,7 +222,7 @@ struct PayslipSheet: View {
 
 /// which items a payslip has, on which accounts, and where the pay goes
 struct PayslipTemplateSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let original: PayslipTemplate
     @State private var t = PayslipTemplate(employer: "")

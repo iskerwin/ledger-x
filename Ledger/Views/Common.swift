@@ -96,7 +96,7 @@ struct Amount: View {
 // MARK: - sync status in the nav bar
 
 struct SyncBadge: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         Button {
@@ -153,7 +153,7 @@ struct SyncBadge: View {
 }
 
 struct SettingsButton: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     var body: some View {
         Button { store.showSettings = true } label: { Image(systemName: "gearshape") }
             .accessibilityLabel(LS("设置"))
@@ -176,7 +176,7 @@ struct StandardToolbar: ToolbarContent {
 // MARK: - toast
 
 struct ToastView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     /// at the top of a card whose bottom is taken by a keypad
     var top = false
     var body: some View {
@@ -281,7 +281,7 @@ func accountMark(_ store: Store, _ account: String) -> (symbol: String, color: C
 
 /// The chosen account's icon. An empty choice keeps the plain column glyph.
 struct ChosenAccountIcon: View {
-    @EnvironmentObject private var store: Store
+    @Environment(Store.self) private var store
     var account: String
 
     var body: some View {
@@ -304,7 +304,7 @@ struct ChipRow<Content: View>: View {
 // MARK: - account picker
 
 struct AccountPicker: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let title: String
     let prefixes: [String]
@@ -570,7 +570,7 @@ func fuzzy(_ q: String, _ s: String) -> Int {
 
 /// a row that shows the chosen account and the most-used ones as chips
 struct AccountField: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let label: String
     let prefixes: [String]
     let chips: [String]
@@ -733,7 +733,7 @@ struct TextEditSheet: View {
 
 /// who a personal receivable posting is with (person:): typed, or one of the people in 往来
 struct PersonField: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Binding var value: String
 
     var body: some View {

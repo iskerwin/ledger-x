@@ -6,8 +6,8 @@ enum AddField: Hashable { case amount, toAmount, paid, rate, payee, narration, l
 
 /// 完整表单: every kind of entry (分录, 文本, 退款, AA, 事件, 源文本), opened from the 记一笔 card
 struct AddForm: View {
-    @EnvironmentObject var store: Store
-    @EnvironmentObject private var dm: DraftModel
+    @Environment(Store.self) var store
+    @Environment(DraftModel.self) private var dm
     /// after a save: the card closes
     var onSaved: () -> Void = {}
     var onBack: (() -> Void)? = nil
@@ -900,8 +900,8 @@ struct AddForm: View {
 }
 
 struct RowEditor: View {
-    @EnvironmentObject var store: Store
-    @EnvironmentObject private var dm: DraftModel
+    @Environment(Store.self) var store
+    @Environment(DraftModel.self) private var dm
     @Binding var row: DraftRow
     var focus: FocusState<AddField?>.Binding
     @State private var picking = false
@@ -989,7 +989,7 @@ struct RowEditor: View {
 }
 
 struct TemplateManager: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {

@@ -7,7 +7,7 @@ struct HoldingsDest: Hashable {}
 /// 持仓: everything held at cost (stocks, funds), valued at the latest price. A summary on top, the holdings
 /// filtered by the currency they are priced in and sorted, each a card that opens on its lots, K 线 and register.
 struct HoldingsView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var open: Set<String> = []
     @State private var pricing = false
     @State private var chart: ChartTarget?
@@ -346,7 +346,7 @@ struct PriceItem: Identifiable, Hashable {
 
 /// write price directives for the held commodities and foreign currencies, all at once
 struct PriceUpdateSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     @State private var date = Day.today()
     @State private var values: [String: String] = [:]
@@ -480,7 +480,7 @@ struct ChartTarget: Identifiable { let id: String }
 
 /// candles for a holding from Yahoo, with the average cost and the buys marked
 struct KLineSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let rows: [Holding]
     @State var selected: String

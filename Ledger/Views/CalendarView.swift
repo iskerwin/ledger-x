@@ -6,7 +6,7 @@ import LedgerKit
 /// those with spending and a green one on those with income; tap a day for its sheet. It counts what the list shows
 /// (the same search and account filter).
 struct JournalCalendar: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let L: Ledger
     /// the transactions the list would show, newest first
     let entries: [Entry]
@@ -260,7 +260,7 @@ struct CalendarDay: Identifiable { let day: String; var id: String { day } }
 /// a day picked on the journal's calendar: its income, spending and net, a bar for each currency, then its
 /// transactions (and the documents of that day); half the screen, pulled up to all of it
 struct CalendarDaySheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let L: Ledger
     let day: String

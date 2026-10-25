@@ -16,7 +16,7 @@ struct ImportItem: Identifiable {
 
 /// 导入账单: Alipay / WeChat / bank exports → transactions
 struct ImportView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     @State private var picking = false
     @State private var fileName = ""

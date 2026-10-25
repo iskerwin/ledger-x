@@ -466,7 +466,7 @@ extension Store {
 
 /// a frequent entry as a chip: tap to fill the form, 入账 to save it at once when its amount is fixed
 struct TemplateChip: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let x: Template
     @Binding var saving: Bool
     /// after the form was filled (focus the amount, say)

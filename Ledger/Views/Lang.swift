@@ -85,7 +85,7 @@ extension SavedQuery {
 
 /// Picker for 设置 → 语言
 struct LanguagePicker: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     /// with its badge, as a row of 设置
     var badge = false
     var body: some View {

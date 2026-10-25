@@ -219,7 +219,7 @@ func trimTrailingSpaces(_ s: String) -> String {
 // MARK: - overview section
 
 struct SubscriptionOverviewSection: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let L: Ledger
 
     var body: some View {
@@ -259,7 +259,7 @@ struct SubscriptionOverviewSection: View {
 }
 
 struct SubDueRow: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let due: SubDue
     @State private var busy = false
 
@@ -287,7 +287,7 @@ struct SubDueRow: View {
 // MARK: - list
 
 struct SubscriptionsView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var editing: SubDraft?
     @State private var demoDetail: String?
@@ -474,7 +474,7 @@ extension SubStatus: Identifiable { public var id: String { rawValue } }
 // MARK: - detail
 
 struct SubscriptionDetailView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let name: String
     @State private var editing: SubDraft?
     @State private var stateChange: SubStatus?
@@ -804,7 +804,7 @@ struct SubscriptionDetailView: View {
 // MARK: - pause / cancel
 
 struct SubStateSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let name: String
     let status: SubStatus
@@ -879,7 +879,7 @@ struct SubStateSheet: View {
 // MARK: - link existing transactions
 
 struct SubLinkSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let name: String
     @State private var picked = Set<Int>()
@@ -1061,7 +1061,7 @@ struct SubEditSheet: View {
     /// return moves on: name → currency → payee (the amount has a number pad, without a return key)
     private enum Field { case name, currency, payee }
     @FocusState private var field: Field?
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     @State var draft: SubDraft
     @State private var picking: PickTarget?

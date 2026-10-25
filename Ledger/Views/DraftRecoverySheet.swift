@@ -3,7 +3,7 @@ import UIKit
 import LedgerKit
 
 struct DraftRecoverySheet: View {
-    @EnvironmentObject private var store: Store
+    @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var workspace = DraftWorkspace()
     @State private var removing: String?

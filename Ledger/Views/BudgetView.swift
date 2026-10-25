@@ -99,7 +99,7 @@ struct Hatching: View {
 
 /// 预算: all budgets, their history, add / change / stop
 struct BudgetsView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var editing: BudgetDraft?
     @AppStorage("ledger.budget.year") private var yearView = false
 
@@ -230,7 +230,7 @@ struct BudgetDraft: Identifiable {
 }
 
 struct BudgetEditSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     @State var draft: BudgetDraft
     @State private var picking = false

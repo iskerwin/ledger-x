@@ -22,7 +22,7 @@ struct CardStatusLook {
 
 /// a card's first screen: what is still to pay on its bill, when, and 记录还款; the bill against what was paid
 struct CardHeroSection: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let cycle: CardCycle
     @State private var billing = false
     @State private var documents = false
@@ -239,7 +239,7 @@ struct CardLimitSection: View {
 
 /// cards with a bill due soon (or overdue), for the overview
 struct CardDueSection: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @State private var editingBill: CardCycle?
     let L: Ledger
 
@@ -285,7 +285,7 @@ extension CardDueSection {
 
 /// 填写本期账单: the bank's statement amount and minimum payment for the latest statement, as a card-bill directive
 struct CardBillSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let cycle: CardCycle
     @State private var amount = ""
@@ -373,7 +373,7 @@ struct CardBillSheet: View {
 }
 
 struct RepaySheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let cycle: CardCycle
     @State private var amount = ""

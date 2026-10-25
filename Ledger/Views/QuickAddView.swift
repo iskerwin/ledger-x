@@ -6,8 +6,8 @@ enum AddRoute: Hashable { case full }
 
 /// 记一笔 as a card over any tab: the quick page first, 完整表单 one step in
 struct AddCard: View {
-    @EnvironmentObject var store: Store
-    @EnvironmentObject private var dm: DraftModel
+    @Environment(Store.self) var store
+    @Environment(DraftModel.self) private var dm
     @State private var recovering = false
     @State private var path = NavigationPath()
     /// 1 while the full form is the card's own first page (opened for 分录, 退款…), so popping keeps it
@@ -26,7 +26,7 @@ struct AddCard: View {
         // on the stack itself: the pages it opens inherit what is set here, not what is set on its first page
         .pushes(onto: $path)
         .disabled(dm.isSaving)
-        .protectUnsavedChanges(dirty: dm.hasChanges, busy: dm.isSaving, requested: $store.closeAddRequested,
+        .protectUnsavedChanges(dirty: dm.hasChanges, busy: dm.isSaving, requested: Bindable(store).closeAddRequested,
             keep: { store.persistActiveDraft(); store.adding = false },
             discard: { store.discardActiveDraft(); store.adding = false },
             close: { store.adding = false })
@@ -38,7 +38,7 @@ struct AddCard: View {
         }
         .sheet(isPresented: $recovering) { DraftRecoverySheet() }
         .overlay(alignment: .top) { ToastView(top: true).padding(.top, AppSpacing.icon).animation(AppMotion.emphasized, value: store.toast) }
-        .sheet(item: $store.subSuggestion) { c in SubEditSheet(draft: SubDraft(c)) }
+        .sheet(item: Bindable(store).subSuggestion) { c in SubEditSheet(draft: SubDraft(c)) }
         .onDisappear { store.persistActiveDraft() }
         .onAppear(perform: route)
         .onChange(of: store.addToken) { _, _ in route() }
@@ -67,8 +67,8 @@ struct AddCard: View {
 /// keyboard-safe candidate bar, temporarily hiding categories and templates; 完成 restores amount entry.
 /// What it can't show (分录, 文本, AA, 源文本) is one step in, on 完整表单, from the ⚙︎ menu.
 struct QuickAddView: View {
-    @EnvironmentObject var store: Store
-    @EnvironmentObject private var dm: DraftModel
+    @Environment(Store.self) var store
+    @Environment(DraftModel.self) private var dm
     let openFull: () -> Void
 
     enum Field: Hashable { case payee, narration }
@@ -1269,7 +1269,7 @@ struct CategoryGridView: View, Equatable {
 /// or an account by any of its names. Picking a category shows its sub-categories below, with 使用「餐饮 · 咖啡」.
 /// No keypad here: what was typed on the card stays as it was.
 struct AllCategoriesView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let groups: [CategoryGroup]
     let common: [CategoryGroup]
@@ -1484,7 +1484,7 @@ struct DaySheet: View {
 
 /// 标记: the events of the entry's day (and any picked), its tags, and 待确认 (!)
 struct MarkSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let L: Ledger
     var body: some View {
@@ -1493,7 +1493,7 @@ struct MarkSheet: View {
 }
 
 private struct MarkEditor: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let L: Ledger
     @State var draft: Draft

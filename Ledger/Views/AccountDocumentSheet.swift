@@ -59,7 +59,7 @@ func documentLocationIssue(folder: String, stem: String, ext: String, existing: 
 
 /// Account documents need not belong to a transaction (for example a bank's monthly statement).
 struct AccountDocumentSheet: View {
-    @EnvironmentObject private var store: Store
+    @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
     let account: String
     @State private var date: String
@@ -389,7 +389,7 @@ struct DocumentFolderSheet: View {
 
 /// Also reachable from the credit card's bill, without finding the document among transactions first.
 struct AccountDocumentsSheet: View {
-    @EnvironmentObject private var store: Store
+    @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
     let account: String
     @State private var viewing: DocItem?

@@ -4,7 +4,7 @@ import LedgerKit
 /// 快速搜索 under the search box on 明细: tap to search, tap again to clear; + saves what is in the box;
 /// press and hold to edit, move or delete. Saved in ledger-x.json, so every device has them.
 struct QuickSearchBar: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Binding var q: String
     @State private var editing: QuickSearchEdit?
 
@@ -73,7 +73,7 @@ struct QuickSearchEdit: Identifiable {
 }
 
 struct QuickSearchSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     @State var edit: QuickSearchEdit
     @FocusState private var focused: Bool

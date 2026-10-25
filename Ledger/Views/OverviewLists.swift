@@ -113,7 +113,7 @@ struct PayeeRankRow: View {
 
 /// a liability with how much of its limit is used and, for a card with a billing cycle, the bill
 struct LiabilityRow: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let L: Ledger
     let account: String
     let n: Double

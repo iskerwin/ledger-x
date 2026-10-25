@@ -4,7 +4,7 @@ import LedgerKit
 /// 记一笔: the currency of the amount, and when the account is in another one, what it comes to there.
 /// 账单金额 × 汇率 = 换算金额 — the two filled in last give the third. The rate starts from the ledger's.
 struct RateSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let L: Ledger
     let D: Derived

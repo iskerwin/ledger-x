@@ -3,7 +3,7 @@ import LedgerKit
 
 /// Keep each tab's stack while switching ledgers. Paths remain in memory, scoped to a ledger.
 private struct LedgerNavigation: ViewModifier {
-    @EnvironmentObject private var store: Store
+    @Environment(Store.self) private var store
     let page: String
     @Binding var path: NavigationPath
     @State private var ledgerID = ""
@@ -26,7 +26,7 @@ private struct LedgerNavigation: ViewModifier {
 
 /// Save controls immediately, so app relaunches and ledger switches restore their own filters.
 private struct LedgerControls: ViewModifier {
-    @EnvironmentObject private var store: Store
+    @Environment(Store.self) private var store
     let page: String
     @Binding var value: BrowseContext
     @State private var ledgerID = ""

@@ -4,8 +4,8 @@ import LedgerKit
 /// 组合付款 and 优惠 for the expense in the form: other accounts paying set parts, a discount recorded as income; the
 /// main paying account pays what is left.
 struct PaySplitSheet: View {
-    @EnvironmentObject var store: Store
-    @EnvironmentObject private var dm: DraftModel
+    @Environment(Store.self) var store
+    @Environment(DraftModel.self) private var dm
     @Environment(\.dismiss) private var dismiss
     @State private var picking: Pick?
 

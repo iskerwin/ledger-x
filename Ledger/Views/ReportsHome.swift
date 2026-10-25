@@ -5,7 +5,7 @@ import LedgerKit
 /// The top of 报表: three plain questions about a month — where the money went, what changed against the month
 /// before, how long the money lasts — before the full reports. Amounts in the operating currency, each at its day.
 struct ReportsInsights: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Binding var path: NavigationPath
     @State private var month = Day.ym(Day.today())
     /// which way the month last moved, for the side its name comes in from

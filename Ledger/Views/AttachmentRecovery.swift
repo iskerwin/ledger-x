@@ -63,7 +63,7 @@ extension AttachmentUpload {
 
 /// Used both next to a transaction and in ledger sync, so changed/deleted transactions do not hide recovery.
 struct AttachmentRecoveryRows: View {
-    @EnvironmentObject private var store: Store
+    @Environment(Store.self) private var store
     var entry: Entry? = nil
     @State private var jobs: [AttachmentUpload] = []
     @State private var discarding: AttachmentUpload?

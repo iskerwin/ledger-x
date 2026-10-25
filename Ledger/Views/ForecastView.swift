@@ -25,7 +25,7 @@ enum ForecastPrefs {
 }
 
 struct ForecastOverviewSection: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     let L: Ledger
     @AppStorage(ForecastPrefs.dailyKey) private var daily = true
 
@@ -71,7 +71,7 @@ struct Sparkline: View {
 }
 
 struct ForecastView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @AppStorage(ForecastPrefs.dailyKey) private var daily = true
     @AppStorage(ForecastPrefs.daysKey) private var days = 90
     /// a day picked on the chart, its balance shown under it

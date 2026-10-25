@@ -5,7 +5,7 @@ import LedgerKit
 
 /// BQL editor: edit, run, save, export
 struct QueryEditorView: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let initial: SavedQuery
 

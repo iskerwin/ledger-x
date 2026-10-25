@@ -11,7 +11,7 @@ struct ReimbExportTarget: Identifiable {
 
 /// 导出报销单: a PDF (the list, then every attached receipt) and a CSV, handed to the share sheet
 struct ReimbExportSheet: View {
-    @EnvironmentObject var store: Store
+    @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let target: ReimbExportTarget
     @State private var withDocs = true
