@@ -468,10 +468,20 @@ enum Prefs {
     /// the folder the screenshots' ledger is read from
     @ObservationIgnored private var demoDir: URL?
     var demoEnv: [String: String] { demo ? ProcessInfo.processInfo.environment : [:] }
-    private func loadDemo(_ dir: String) async {
+    func loadDemo(_ dir: String) async {
         demo = true
-        draftWorkspace = DraftWorkspace()
         cfg = RepoConfig(owner: "demo", repo: "ledger", branch: "main", token: "demo")
+        cfg.id = "interaction-test-demo"
+        // The visible ledger and fileText must both start from this fixture, not the previous
+        // launch's queue/tree. Keep fixture writes away from the first real ledger's default keys.
+        pending = []
+        tree = nil
+        history = []
+        mainFile = "main.bean"
+        journalPattern = ""
+        receivableAccount = ""
+        subsFile = ""
+        draftWorkspace = DraftWorkspace()
         let env = ProcessInfo.processInfo.environment
         let base = URL(fileURLWithPath: dir)
         demoDir = base
