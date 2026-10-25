@@ -94,6 +94,23 @@ final class PerfTests: XCTestCase {
         _ = time("link check", max: 3) { linkIssues(L, subscriptions: subscriptions(L)) }
     }
 
+    /// a detail page asks for its transaction on every redraw, and a save redraws it many times; after a refund
+    /// links the original, it is found through its old text. Two hundred redraws, as a save and a sync can make.
+    func testDetailPageFindsAMovedTransactionOnEveryRedraw() throws {
+        let L = loadLedger(root: "main.bean") { _ in Self.bigLedger() }
+        let e = L.txns[L.txns.count / 2]
+        let old = txnKey(e)
+        let moved = Array(L.txns.dropFirst(L.txns.count / 2 + 1).prefix(1))[0]
+        let moves = [normEntryText(old + "  "): txnKey(moved)]
+        let lookup = time("lookup table", max: 3) { TxnLookup(L) }
+        let first = time("first redraw after a move", max: 3) { lookup.find(id: -1, key: old + "  ", moves: moves) }
+        XCTAssertEqual(first?.src, moved.src)
+        let found = time("200 more redraws", max: 0.2) {
+            (0..<200).map { _ in lookup.find(id: -1, key: old + "  ", moves: moves) }.last!
+        }
+        XCTAssertEqual(found?.src, moved.src)
+    }
+
     func testExportCSV() {
         let L = loadLedger(root: "main.bean") { _ in """
         2026-01-01 open Assets:Bank CNY

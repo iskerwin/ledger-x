@@ -4,10 +4,54 @@ import Foundation
 // added, a payee or account renamed, the entry edited or moved to another day), the page follows it to its new
 // text through what `movedEntries` works out here — with the same functions that write the files.
 
-/// a transaction's text compared without trailing spaces or blank lines around it
+/// a transaction's text compared without trailing spaces or blank lines around it. Without a regular expression:
+/// pages finding a transaction and the moves below run it over every transaction of the ledger.
 public func normEntryText(_ s: String) -> String {
-    s.components(separatedBy: "\n").map { $0.replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression) }
-        .joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    var out = String()
+    out.reserveCapacity(s.utf8.count)
+    for (i, line) in s.components(separatedBy: "\n").enumerated() {
+        var scalars = line.unicodeScalars[...]
+        while let c = scalars.last, c.properties.isWhitespace { scalars = scalars.dropLast() }
+        if i > 0 { out.unicodeScalars.append("\n") }
+        out.unicodeScalars.append(contentsOf: scalars)
+    }
+    return out.trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
+/// a transaction as a page remembers it: its date and text
+public func txnKey(_ t: Entry) -> String { t.date + "\u{1}" + t.src }
+
+/// Finds the transaction a page shows by where it was and its key (`txnKey`), following it through `moves` (old
+/// key → new key, the old one as `normEntryText`) when a change rewrote it. Made once per loaded ledger: a page
+/// redrawn many times while a change is saved looks it up in a table instead of comparing every transaction's text.
+public final class TxnLookup {
+    public let ledger: Ledger
+    private let exact: [String: Int]
+    /// only needed once something moved
+    private lazy var normalised: [String: Int] = {
+        var m: [String: Int] = [:]
+        for (i, t) in ledger.txns.enumerated() where m[normEntryText(txnKey(t))] == nil { m[normEntryText(txnKey(t))] = i }
+        return m
+    }()
+
+    public init(_ L: Ledger) {
+        ledger = L
+        var m: [String: Int] = [:]
+        m.reserveCapacity(L.txns.count)
+        for (i, t) in L.txns.enumerated() where m[txnKey(t)] == nil { m[txnKey(t)] = i }
+        exact = m
+    }
+
+    public func find(id: Int, key: String, moves: [String: String]) -> Entry? {
+        let txns = ledger.txns
+        if id >= 0, id < txns.count, txnKey(txns[id]) == key { return txns[id] }
+        if let i = exact[key] { return txns[i] }
+        // edited in place (a link added or removed): follow it to its new text
+        var k = key, hops = 0
+        while let next = moves[normEntryText(k)], hops < 8 { k = next; hops += 1 }
+        guard hops > 0 else { return nil }
+        return normalised[normEntryText(k)].map { txns[$0] }
+    }
 }
 
 /// each transaction of `L` that `ops` change in place or move, as it was and as it will be

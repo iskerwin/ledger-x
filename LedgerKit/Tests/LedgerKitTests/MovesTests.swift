@@ -97,3 +97,55 @@ final class MovesTests: XCTestCase {
         XCTAssertTrue(m[0].new.hasPrefix("2026-10-02 * \"饭店\" \"晚饭\" ^doc-x"), m[0].new)
     }
 }
+
+/// the lookup a detail page makes on every redraw, and the comparison under it
+final class TxnLookupTests: XCTestCase {
+    func testNormalisedTextIsTheSameAsLineByLineTrimming() {
+        // what it was with a regular expression: trailing white space off each line, then off the whole
+        func reference(_ s: String) -> String {
+            s.components(separatedBy: "\n").map { $0.replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression) }
+                .joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let samples = [
+            "2026-10-01 * \"A\"  \n  Expenses:Food  1 CNY\t\n  Assets:Bank\n\n",
+            "\n\n2026-10-01 * \"全角空格\"\u{3000}\n  Expenses:Food  1 CNY\u{00A0}\n",
+            "2026-10-01 * \"Windows\"\r\n  Expenses:Food  1 CNY \r\n  Assets:Bank\r\n",
+            "  leading kept inside\n    indented  \n",
+            "", "   ", "\n", "a", "a \n b \n",
+        ]
+        for s in samples { XCTAssertEqual(normEntryText(s), reference(s), s.debugDescription) }
+    }
+
+    func testFindsATransactionWhereItWasMovedOrRewritten() throws {
+        let text = """
+        2026-01-01 open Assets:Bank CNY
+        2026-01-01 open Expenses:Food
+
+        2026-10-01 * "Apple" "iCloud+"
+          Expenses:Food                                        6.00 CNY
+          Assets:Bank                                         -6.00 CNY
+
+        2026-10-02 * "饭店" "午饭"
+          Expenses:Food                                       35.00 CNY
+          Assets:Bank                                        -35.00 CNY
+
+        """
+        let L = loadLedger(root: "main.bean") { _ in text }
+        let e = L.txns.first { $0.payee == "Apple" }!
+        let lookup = TxnLookup(L)
+        XCTAssertEqual(lookup.find(id: e.id, key: txnKey(e), moves: [:])?.src, e.src)
+        // somewhere else in the list now (something inserted before it)
+        XCTAssertEqual(lookup.find(id: 99, key: txnKey(e), moves: [:])?.src, e.src)
+        XCTAssertNil(lookup.find(id: 99, key: "2026-10-03\u{1}nothing", moves: [:]))
+        // a refund added its link: the page follows the move to the rewritten text
+        var op = Op(kind: .link, path: e.file)
+        op.headerLine = e.startLine + 1
+        op.header = e.src.components(separatedBy: "\n")[0]
+        op.add = " ^refund-apple"; op.link = "refund-apple"
+        let m = try XCTUnwrap(movedEntries([op], L).first)
+        let after = loadLedger(root: "main.bean") { _ in try applyOps(text, path: e.file, ops: [op]) }
+        let moves = [normEntryText(m.oldDate + "\u{1}" + m.old): m.newDate + "\u{1}" + m.new]
+        let found = TxnLookup(after).find(id: e.id, key: txnKey(e), moves: moves)
+        XCTAssertEqual(found?.links, ["refund-apple"])
+    }
+}

@@ -143,6 +143,8 @@ final class Store: ObservableObject {
     var navigationContexts: [String: [String: NavigationPath]] = [:]
     var ledgerTabs: [String: Tab] = [:]
     var entryMoves: [String: [String: String]] = [:]
+    /// finds the transactions open pages show, for the ledger loaded now (`txn(_:key:)`)
+    var txnLookup: TxnLookup?
     @Published var closeAddRequested = false
     var draft: Draft {
         get { drafts.draft }

@@ -6,7 +6,7 @@ struct TxDest: Hashable {
     let id: Int
     let key: String
     init(_ t: Entry) { id = t.id; key = TxDest.key(t) }
-    static func key(_ t: Entry) -> String { t.date + "\u{1}" + t.src }
+    static func key(_ t: Entry) -> String { txnKey(t) }
 }
 struct AccountDest: Hashable { let name: String }
 struct EditDest: Hashable {
@@ -16,16 +16,13 @@ struct EditDest: Hashable {
 }
 
 extension Store {
+    /// through a table made once per loaded ledger: a detail page asks on every redraw, many times while a change
+    /// is saved, and comparing every transaction's text each time stalled it
     func txn(_ id: Int, key: String) -> Entry? {
         guard let L = L else { return nil }
-        if id >= 0, id < L.txns.count, TxDest.key(L.txns[id]) == key { return L.txns[id] }
-        if let t = L.txns.first(where: { TxDest.key($0) == key }) { return t }
-        // edited in place (a link added or removed): follow it to its new text
-        var k = key, hops = 0
-        while let next = movedKeys[Store.normKey(k)], hops < 8 { k = next; hops += 1 }
-        guard hops > 0 else { return nil }
-        let want = Store.normKey(k)
-        return L.txns.first { Store.normKey(TxDest.key($0)) == want }
+        let lookup: TxnLookup
+        if let made = txnLookup, made.ledger === L { lookup = made } else { lookup = TxnLookup(L); txnLookup = lookup }
+        return lookup.find(id: id, key: key, moves: movedKeys)
     }
 
     /// old text → new text of transactions changed in place, so open pages keep showing them
