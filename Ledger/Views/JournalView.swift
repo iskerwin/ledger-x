@@ -540,14 +540,7 @@ struct JournalView: View {
     }
 
     private func search(_ L: Ledger) -> [Entry] {
-        var out: [Entry] = []
-        let a = account
-        let query = TxQuery(fullQuery)
-        for t in L.txns.reversed() {
-            if let a = a, !t.postings.contains(where: { $0.account == a || $0.account.hasPrefix(a + ":") }) { continue }
-            if query.matches(t, L) { out.append(t) }
-        }
-        return out
+        filterTransactions(L, account: account, query: fullQuery)
     }
 
     /// the conditions on, to take off one by one
@@ -626,6 +619,10 @@ struct JournalView: View {
     }
 
     private func totals(_ ts: [Entry], _ L: Ledger) -> (Double, Double) {
+        if let d = store.D, d.journalOut.count == L.txns.count {
+            let summed = d.journalTotals(ts)
+            return (summed.spent, summed.income)
+        }
         var out = 0.0, inn = 0.0
         for t in ts {
             let c = classify(t, L)

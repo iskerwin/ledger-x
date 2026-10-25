@@ -57,6 +57,25 @@ public struct TxQuery {
 
     /// `L` lets an account be found by its `name:` too (招商银行 for Liabilities:CreditCard:CMB)
     public func matches(_ t: Entry, _ L: Ledger? = nil) -> Bool { conds.allSatisfy { TxQuery.test($0, t, L) } }
+}
+
+/// Transactions matching the journal's search, newest first, remembered on the ledger for this query,
+/// account and today (本月 / 今天 / 近30天 depend on the day).
+public func filterTransactions(_ L: Ledger, account: String?, query: String) -> [Entry] {
+    let today = TxQuery.today()
+    let key = "find|\(today)|\(account ?? "")|\(query)"
+    return L.memoized(key) {
+        let parsed = TxQuery(query)
+        var out: [Entry] = []
+        for t in L.txns.reversed() {
+            if let account, !t.postings.contains(where: { $0.account == account || $0.account.hasPrefix(account + ":") }) { continue }
+            if parsed.matches(t, L) { out.append(t) }
+        }
+        return out
+    }
+}
+
+extension TxQuery {
 
     // MARK: parsing
 

@@ -295,6 +295,19 @@ public final class Derived: @unchecked Sendable {
     private let categoryPrevious = CategoryRoll()
     private var categoryPrevMonth = ""
     private var categoryPrevTo = ""
+    /// what `totals` on the journal adds for each transaction: expense and refund into the first, income into the second
+    public private(set) var journalOut: [Double] = []
+    public private(set) var journalIn: [Double] = []
+
+    /// spent and received for these transactions, in the order given, matching a `classify` pass
+    public func journalTotals(_ ts: [Entry]) -> (spent: Double, income: Double) {
+        var spent = 0.0, income = 0.0
+        for t in ts where t.id >= 0 && t.id < journalOut.count {
+            spent += journalOut[t.id]
+            income += journalIn[t.id]
+        }
+        return (spent, income)
+    }
 
     /// Payees for a month (`yyyy-mm`) or a year (`yyyy`), in the operating currency: expenses only, refunds left out.
     /// Nil when `prefix` is neither. An empty period is an empty list, not nil.
@@ -349,6 +362,8 @@ public final class Derived: @unchecked Sendable {
         let catDay = Int(now.suffix(2)) ?? 28
         categoryPrevMonth = catPrev
         categoryPrevTo = min(Day.monthEnd(catPrev), catPrev + "-" + String(format: "%02d", catDay))
+        journalOut = Array(repeating: 0, count: L.txns.count)
+        journalIn = Array(repeating: 0, count: L.txns.count)
         var acctCcyW: [String: [String: Double]] = [:]
         var ccyOrder: [String: [String]] = [:]
         var shortC: [String: [String: Int]] = [:]
@@ -359,7 +374,7 @@ public final class Derived: @unchecked Sendable {
             if !t.synthetic { for link in t.links { attachmentLinks.insert(link) } }
             let w: Double = t.date >= d60 ? 20 : t.date >= recent ? 4 : 1
             var reconcileCounted = Set<String>()
-            var expSum = 0.0, hasExp = false
+            var expSum = 0.0, incSum = 0.0, hasExp = false, hasInc = false
             for p in t.postings {
                 reconcile.add(posting: p, date: t.date, counted: &reconcileCounted)
                 if let u = p.units, (p.account.hasPrefix("Income:") || p.account.hasPrefix("Expenses:")) {
@@ -395,10 +410,17 @@ public final class Derived: @unchecked Sendable {
                         }
                     }
                 } else if p.account.hasPrefix("Income:") {
-                    monthInc[m, default: 0] -= toCNY(L, u, c, t.date) ?? 0
+                    let v = toCNY(L, u, c, t.date) ?? 0
+                    monthInc[m, default: 0] -= v
+                    incSum -= v
+                    hasInc = true
                 }
             }
             budgetRollup.add(t, L)
+            if t.id >= 0, t.id < journalOut.count {
+                if hasExp { journalOut[t.id] = expSum }
+                else if hasInc { journalIn[t.id] = incSum }
+            }
             if hasExp, expSum >= 0 {
                 let name = payeeLabel(t)
                 let monthKey = Day.ym(t.date), yearKey = String(t.date.prefix(4))
