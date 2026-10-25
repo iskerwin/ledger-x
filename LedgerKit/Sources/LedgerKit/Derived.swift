@@ -222,6 +222,16 @@ final class PayeeRoll {
     }
 }
 
+/// one payee while Derived is built. A struct would copy its narration counts on every transaction.
+private final class PayeeBuild {
+    var name: String
+    var n = 0
+    var w = 0.0
+    var last: Entry
+    var narr: [String: Int] = [:]
+    init(name: String, last: Entry) { self.name = name; self.last = last }
+}
+
 public struct PayeeStat {
     public var name: String
     public var n = 0
@@ -368,7 +378,7 @@ public final class Derived: @unchecked Sendable {
         var ccyOrder: [String: [String]] = [:]
         var shortC: [String: [String: Int]] = [:]
         var shortOrder: [String: [String]] = [:]
-        var pmap: [String: PayeeStat] = [:]
+        var pmap: [String: PayeeBuild] = [:]
         for t in L.txns {
             if firstReal == nil, !t.synthetic { firstReal = t.date }
             if !t.synthetic { for link in t.links { attachmentLinks.insert(link) } }
@@ -432,7 +442,8 @@ public final class Derived: @unchecked Sendable {
                 yearRoll.add(name: name, value: expSum, synthetic: t.synthetic)
             }
             if !t.payee.isEmpty {
-                var s = pmap[t.payee] ?? PayeeStat(name: t.payee, last: t)
+                // a class, so each new narration does not copy the whole dictionary of earlier ones
+                let s = pmap[t.payee] ?? PayeeBuild(name: t.payee, last: t)
                 s.n += 1; s.w += w; s.last = t
                 if !t.narration.isEmpty { s.narr[t.narration, default: 0] += 1 }
                 pmap[t.payee] = s
@@ -468,7 +479,8 @@ public final class Derived: @unchecked Sendable {
             for c in order.dropFirst() where m[c]! > m[best]! { best = c }
             short[a] = best
         }
-        payees = pmap.values.sorted { $0.w != $1.w ? $0.w > $1.w : $0.name < $1.name }
+        payees = pmap.values.map { PayeeStat(name: $0.name, n: $0.n, w: $0.w, last: $0.last, narr: $0.narr) }
+            .sorted { $0.w != $1.w ? $0.w > $1.w : $0.name < $1.name }
         for (i, p) in payees.enumerated() { payeeIndex[p.name] = i }
         openAccounts = L.accounts.values.filter { $0.close == nil || $0.close! > now }.map { $0.name }.sorted()
         var cs = ["CNY"]
