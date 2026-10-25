@@ -353,3 +353,77 @@ public func yearPace(_ L: Ledger, year: String, today: String = Day.today()) -> 
 public func convertAmount(_ L: Ledger, _ n: Double, from: String, to: String, date: String) -> Double? {
     convert(L, n, from, to, date)
 }
+
+/// one payee's spending inside a category: the amount in the operating currency, and how many postings
+public struct CategoryPayeeSpend: Equatable {
+    public var amount: Double
+    public var count: Int
+}
+
+/// spending by category group over a date range, in the operating currency. A posting with no rate is left out.
+public struct CategorySpend: Equatable {
+    public var byCat: [String: Double]
+    public var byCatPayee: [String: [String: CategoryPayeeSpend]]
+    public init(byCat: [String: Double] = [:], byCatPayee: [String: [String: CategoryPayeeSpend]] = [:]) {
+        self.byCat = byCat
+        self.byCatPayee = byCatPayee
+    }
+}
+
+func categoryWho(payee: String, narration: String) -> String {
+    payee.isEmpty ? (narration.isEmpty ? tr("（无收付款方）", "(no payee)") : narration) : payee
+}
+
+/// The scan the reports page used to make for 支出构成 and 本月变化.
+public func categorySpend(_ L: Ledger, from: String, to: String) -> CategorySpend {
+    var cat: [String: Double] = [:]
+    var payee: [String: [String: CategoryPayeeSpend]] = [:]
+    for t in L.txns where t.date >= from && t.date <= to {
+        for p in t.postings where p.account.hasPrefix("Expenses:") {
+            guard let u = p.units, let c = p.currency, let v = toCNY(L, u, c, t.date) else { continue }
+            let g = catOf(p.account)
+            cat[g, default: 0] += v
+            let who = categoryWho(payee: t.payee, narration: t.narration)
+            var row = payee[g, default: [:]][who] ?? CategoryPayeeSpend(amount: 0, count: 0)
+            row.amount += v
+            row.count += 1
+            payee[g, default: [:]][who] = row
+        }
+    }
+    return CategorySpend(byCat: cat, byCatPayee: payee)
+}
+
+/// The same totals, filled during Derived's walk. Whole months, plus the two ranges 报表 asks for around `today`:
+/// this month through today, and last month through the same day.
+final class CategoryRoll {
+    private struct Who: Hashable { var payee: String; var narration: String }
+    private final class Rows { var items: [Who: (Double, Int)] = [:] }
+    private var byCat: [String: Double] = [:]
+    private var who: [String: Rows] = [:]
+
+    func add(account: String, amount: Double, payee: String, narration: String) {
+        let g = catOf(account)
+        byCat[g, default: 0] += amount
+        let rows = who[g] ?? Rows()
+        if who[g] == nil { who[g] = rows }
+        let key = Who(payee: payee, narration: narration)
+        let cur = rows.items[key] ?? (0, 0)
+        rows.items[key] = (cur.0 + amount, cur.1 + 1)
+    }
+
+    func spend() -> CategorySpend {
+        var payee: [String: [String: CategoryPayeeSpend]] = [:]
+        for (g, rows) in who {
+            var m: [String: CategoryPayeeSpend] = [:]
+            for (key, row) in rows.items {
+                let name = categoryWho(payee: key.payee, narration: key.narration)
+                var cur = m[name] ?? CategoryPayeeSpend(amount: 0, count: 0)
+                cur.amount += row.0
+                cur.count += row.1
+                m[name] = cur
+            }
+            payee[g] = m
+        }
+        return CategorySpend(byCat: byCat, byCatPayee: payee)
+    }
+}

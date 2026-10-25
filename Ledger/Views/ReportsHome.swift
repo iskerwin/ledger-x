@@ -55,18 +55,14 @@ struct ReportsInsights: View {
 
     /// spending by category group in [from, to], in the operating currency
     private func spending(_ L: Ledger, from: String, to: String) -> (byCat: [String: Double], byCatPayee: [String: [String: (Double, Int)]]) {
-        var cat: [String: Double] = [:], payee: [String: [String: (Double, Int)]] = [:]
-        for t in L.txns where t.date >= from && t.date <= to {
-            for p in t.postings where p.account.hasPrefix("Expenses:") {
-                guard let u = p.units, let c = p.currency, let v = toCNY(L, u, c, t.date) else { continue }
-                let g = catOf(p.account)
-                cat[g, default: 0] += v
-                let who = t.payee.isEmpty ? (t.narration.isEmpty ? LS("（无收付款方）") : t.narration) : t.payee
-                let x = payee[g, default: [:]][who] ?? (0, 0)
-                payee[g, default: [:]][who] = (x.0 + v, x.1 + 1)
-            }
+        let s = store.D?.categorySpend(from: from, to: to) ?? categorySpend(L, from: from, to: to)
+        var payee: [String: [String: (Double, Int)]] = [:]
+        for (group, rows) in s.byCatPayee {
+            var one: [String: (Double, Int)] = [:]
+            for (who, row) in rows { one[who] = (row.amount, row.count) }
+            payee[group] = one
         }
-        return (cat, payee)
+        return (s.byCat, payee)
     }
 
     /// a card's title: the icon in the theme's colour, the words in the text colour (the same on all three)
@@ -210,7 +206,7 @@ struct ReportsInsights: View {
 
     @ViewBuilder
     private func lastCard(_ L: Ledger) -> some View {
-        let f = forecast(L, days: 30, includeDaily: true, payslips: store.repoConfig?.payslips ?? [], largeExpense: store.largeExpense)
+        if let f = store.forecastCached(days: 30, daily: true) {
         Section {
             Button { path.append(ForecastDest()) } label: {
                 VStack(alignment: .leading, spacing: AppSpacing.icon) {
@@ -241,6 +237,7 @@ struct ReportsInsights: View {
             }
             .buttonStyle(.plain)
             .cardRow()
+        }
         }
     }
 }

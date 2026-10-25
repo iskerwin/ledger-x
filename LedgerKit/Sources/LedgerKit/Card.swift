@@ -164,41 +164,63 @@ func dueDate(statement: String, statementDay: Int, dueDay: Int?) -> (String, Boo
     return (same > statement ? same : dayIn(Day.addMonth(ym, 1), dd), false)
 }
 
-/// billing cycles for every open card with a statement_day
+/// billing cycles for every open card with a statement_day. One walk of the postings, the same additions the
+/// per-card walks made, remembered on the ledger for this `today`.
 public func cardCycles(_ L: Ledger, today: String = Day.today()) -> [CardCycle] {
-    var out: [CardCycle] = []
-    let bills = cardBills(L)
+    L.memoized("cards|\(today)") { cardCyclesWalk(L, today: today) }
+}
+
+func cardCyclesWalk(_ L: Ledger, today: String) -> [CardCycle] {
+    struct Acc {
+        var name: String
+        var account: Account
+        var ccy: String
+        var sd: Int
+        var dd: Int?
+        var st: String
+        var prev: String
+        var next: String
+        var atStatement = 0.0
+        var paid = 0.0
+        var unbilled = 0.0
+        var now = 0.0
+    }
+    var cards: [Acc] = []
+    var index: [String: Int] = [:]
     for (name, acc) in L.accounts.sorted(by: { $0.key < $1.key }) where name.hasPrefix("Liabilities:") && acc.close == nil {
         guard let sd = metaInt(acc.meta[statementDayKey]), sd >= 1, sd <= 31 else { continue }
-        let dd = metaInt(acc.meta[dueDayKey])
         let ccy = acc.currencies.first ?? L.final[name]?.max(by: { abs($0.value) < abs($1.value) })?.key ?? L.base
         let st = statementOn(orBefore: today, day: sd)
         let prev = statementOn(orBefore: Day.shift(dayIn(Day.ym(st), 1), -1), day: sd)
         let next = statementOn(orAfter: Day.shift(today, 1), day: sd)
-        var atStatement = 0.0, paid = 0.0, unbilled = 0.0, now = 0.0
+        index[name + "|" + ccy] = cards.count
+        cards.append(Acc(name: name, account: acc, ccy: ccy, sd: sd, dd: metaInt(acc.meta[dueDayKey]), st: st, prev: prev, next: next))
+    }
+    if !cards.isEmpty {
         for t in L.txns {
-            for p in t.postings where p.account == name && p.currency == ccy {
-                guard let u = p.units else { continue }
-                now += u
-                if t.date <= st { atStatement += u }
+            for p in t.postings {
+                guard let ccy = p.currency, let u = p.units, let i = index[p.account + "|" + ccy] else { continue }
+                cards[i].now += u
+                if t.date <= cards[i].st { cards[i].atStatement += u }
                 else if t.date <= today {
-                    if u > 0 { paid += u } else { unbilled -= u }
+                    if u > 0 { cards[i].paid += u } else { cards[i].unbilled -= u }
                 }
             }
         }
-        let (due, est) = dueDate(statement: st, statementDay: sd, dueDay: dd)
-        // the bank's figures, written for this statement (dated after the one before it, up to this one)
-        let bill = bills.last { $0.account == name && $0.currency == ccy && $0.date > prev && $0.date <= st }
-        let amount = bill?.amount ?? roundTo(max(0, -atStatement), 2)
-        let minimum = bill?.minimum ?? roundTo(amount * minPaymentRate(acc.meta[minPaymentRateKey]), 2)
-        out.append(CardCycle(account: name, currency: ccy, statementDay: sd, dueDay: dd, statement: st, previousStatement: prev,
-                             nextStatement: next, due: due, dueEstimated: est,
-                             statementAmount: amount, paid: roundTo(paid, 2),
-                             unbilled: roundTo(unbilled, 2), balance: roundTo(-now, 2),
-                             limit: creditLimit(acc.meta[creditLimitKey], ccy),
-                             minimum: min(minimum, amount), minimumEstimated: bill?.minimum == nil, bill: bill?.entry))
     }
-    return out
+    let bills = cardBills(L)
+    return cards.map { c in
+        let (due, est) = dueDate(statement: c.st, statementDay: c.sd, dueDay: c.dd)
+        let bill = bills.last { $0.account == c.name && $0.currency == c.ccy && $0.date > c.prev && $0.date <= c.st }
+        let amount = bill?.amount ?? roundTo(max(0, -c.atStatement), 2)
+        let minimum = bill?.minimum ?? roundTo(amount * minPaymentRate(c.account.meta[minPaymentRateKey]), 2)
+        return CardCycle(account: c.name, currency: c.ccy, statementDay: c.sd, dueDay: c.dd, statement: c.st,
+                         previousStatement: c.prev, nextStatement: c.next, due: due, dueEstimated: est,
+                         statementAmount: amount, paid: roundTo(c.paid, 2),
+                         unbilled: roundTo(c.unbilled, 2), balance: roundTo(-c.now, 2),
+                         limit: creditLimit(c.account.meta[creditLimitKey], c.ccy),
+                         minimum: min(minimum, amount), minimumEstimated: bill?.minimum == nil, bill: bill?.entry)
+    }
 }
 
 /// the transaction for paying a card from another account

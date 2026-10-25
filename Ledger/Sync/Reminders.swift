@@ -174,7 +174,7 @@ enum Reminders {
 
         // budgets over
         if flag(budgetKey) {
-            let over = budgetProgress(L, key: Day.ym(today)).filter { $0.over }
+            let over = (store.D?.budgetProgress(key: Day.ym(today), today: today) ?? budgetProgress(L, key: Day.ym(today), today: today)).filter { $0.over }
             if !over.isEmpty {
                 add("budget." + Day.ym(today) + "." + over.map { $0.budget.account }.joined(), LS("预算超支"),
                     LS("本月 %@ 已超出预算", over.prefix(3).map { acctLabel($0.budget.account) }.joined(separator: LS("、"))), next(hour: 21))

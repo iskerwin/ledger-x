@@ -122,7 +122,7 @@ struct BudgetsView: View {
     private func list(_ L: Ledger) -> some View {
         let today = Day.today()
         let key = yearView ? String(today.prefix(4)) : Day.ym(today)
-        let progress = budgetProgress(L, key: key)
+        let progress = store.D?.budgetProgress(key: key) ?? budgetProgress(L, key: key)
         let all = budgets(L)
         return List {
             Section {

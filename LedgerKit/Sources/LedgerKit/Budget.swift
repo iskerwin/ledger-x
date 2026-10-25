@@ -50,9 +50,51 @@ public func budgets(_ L: Ledger) -> [Budget] {
 
 /// the budget in force for each account on a date (zero amounts switch a budget off)
 public func activeBudgets(_ L: Ledger, at date: String) -> [Budget] {
+    activeBudgets(budgets(L), at: date)
+}
+
+func activeBudgets(_ list: [Budget], at date: String) -> [Budget] {
     var by: [String: Budget] = [:]
-    for b in budgets(L) where b.date <= date { by[b.account] = b }
+    for b in list where b.date <= date { by[b.account] = b }
     return by.values.filter { $0.amount > 0 }.sorted { $0.account < $1.account }
+}
+
+func budgetLimit(_ b: Budget, span: BudgetSpan, days: Double) -> Double {
+    switch (b.period, span) {
+    case (.daily, _): return b.amount * days
+    case (.weekly, _): return b.amount * days / 7
+    case (.monthly, .month): return b.amount
+    case (.monthly, .year): return b.amount * 12
+    case (.quarterly, .month): return b.amount / 3
+    case (.quarterly, .year): return b.amount * 4
+    case (.yearly, .month): return b.amount / 12
+    case (.yearly, .year): return b.amount
+    }
+}
+
+struct BudgetWindow {
+    var span: BudgetSpan
+    var from: String
+    var to: String
+    var elapsed: Double
+    var at: String
+    var days: Double
+}
+
+func budgetWindow(_ key: String, today: String) -> BudgetWindow {
+    let span: BudgetSpan = key.count == 4 ? .year : .month
+    let from = span == .year ? key + "-01-01" : key + "-01"
+    let to = span == .year ? key + "-12-31" : Day.monthEnd(key)
+    let days = daysIn(from, to)
+    let elapsed = today < from ? 0 : today > to ? 1 : daysIn(from, today) / days
+    return BudgetWindow(span: span, from: from, to: to, elapsed: elapsed, at: min(to, max(from, today)), days: days)
+}
+
+func budgetRow(_ b: Budget, window: BudgetWindow, spent: Double, biggest: BudgetSpend?) -> BudgetProgress {
+    var progress = BudgetProgress(budget: b, limit: roundTo(budgetLimit(b, span: window.span, days: window.days), 2),
+                                  spent: roundTo(spent, 2), elapsed: window.elapsed)
+    progress.biggest = biggest
+    return progress
 }
 
 public enum BudgetSpan { case month, year }
@@ -88,28 +130,13 @@ private func daysIn(_ from: String, _ to: String) -> Double {
 
 /// budgets for a calendar month ("2026-10") or year ("2026")
 public func budgetProgress(_ L: Ledger, key: String, today: String = Day.today()) -> [BudgetProgress] {
-    let span: BudgetSpan = key.count == 4 ? .year : .month
-    let from = span == .year ? key + "-01-01" : key + "-01"
-    let to = span == .year ? key + "-12-31" : Day.monthEnd(key)
-    let days = daysIn(from, to)
-    let elapsed = today < from ? 0 : today > to ? 1 : daysIn(from, today) / days
+    let window = budgetWindow(key, today: today)
     var out: [BudgetProgress] = []
-    for b in activeBudgets(L, at: min(to, max(from, today))) {
-        let limit: Double
-        switch (b.period, span) {
-        case (.daily, _): limit = b.amount * days
-        case (.weekly, _): limit = b.amount * days / 7
-        case (.monthly, .month): limit = b.amount
-        case (.monthly, .year): limit = b.amount * 12
-        case (.quarterly, .month): limit = b.amount / 3
-        case (.quarterly, .year): limit = b.amount * 4
-        case (.yearly, .month): limit = b.amount / 12
-        case (.yearly, .year): limit = b.amount
-        }
+    for b in activeBudgets(L, at: window.at) {
         var spent = 0.0
         var biggest: BudgetSpend?
         let sign = b.account.hasPrefix("Income") || b.account.hasPrefix("Liabilities") ? -1.0 : 1.0
-        for t in L.txns where t.date >= from && t.date <= to {
+        for t in L.txns where t.date >= window.from && t.date <= window.to {
             var here = 0.0
             for p in t.postings where p.account == b.account || p.account.hasPrefix(b.account + ":") {
                 guard let u = p.units, let c = p.currency else { continue }
@@ -122,11 +149,88 @@ public func budgetProgress(_ L: Ledger, key: String, today: String = Day.today()
                 biggest = BudgetSpend(what: t.payee.isEmpty ? t.narration : t.payee, date: t.date, amount: roundTo(here, 2))
             }
         }
-        var progress = BudgetProgress(budget: b, limit: roundTo(limit, 2), spent: roundTo(spent, 2), elapsed: elapsed)
-        progress.biggest = biggest
-        out.append(progress)
+        out.append(budgetRow(b, window: window, spent: spent, biggest: biggest))
     }
     return out.sorted { $0.ratio > $1.ratio }
+}
+
+/// Spending under each budget directive, gathered in one walk of the ledger. A later zero budget still switches
+/// the earlier one off. Summing the hits in the order they were booked matches `budgetProgress`.
+struct BudgetRollup {
+    private struct Hit {
+        var date: String
+        var amount: Double
+        var what: String
+    }
+
+    private let all: [Budget]
+    private let counted: [Budget]
+    private var hits: [[Hit]]
+    private let at: [String: [Int]]
+    private let idIndex: [String: Int]
+
+    init(_ L: Ledger) {
+        all = budgets(L)
+        counted = all.filter { $0.amount > 0 }
+        hits = Array(repeating: [], count: counted.count)
+        var at: [String: [Int]] = [:]
+        var idIndex: [String: Int] = [:]
+        for (i, b) in counted.enumerated() {
+            at[b.account, default: []].append(i)
+            idIndex[b.id] = i
+        }
+        self.at = at
+        self.idIndex = idIndex
+    }
+
+    private func matching(_ account: String) -> [Int] {
+        var ids: [Int] = []
+        var name = account
+        while true {
+            if let found = at[name] { ids.append(contentsOf: found) }
+            guard let cut = name.lastIndex(of: ":") else { break }
+            name = String(name[..<cut])
+        }
+        return ids
+    }
+
+    mutating func add(_ t: Entry, _ L: Ledger) {
+        if at.isEmpty { return }
+        var here: [Int: Double] = [:]
+        for p in t.postings {
+            guard let u = p.units, let c = p.currency else { continue }
+            let ids = matching(p.account)
+            if ids.isEmpty { continue }
+            for i in ids {
+                let b = counted[i]
+                let sign = b.account.hasPrefix("Income") || b.account.hasPrefix("Liabilities") ? -1.0 : 1.0
+                if let v = convert(L, u, c, b.currency, t.date) { here[i, default: 0] += v * sign }
+            }
+        }
+        if here.isEmpty { return }
+        let what = t.payee.isEmpty ? t.narration : t.payee
+        for (i, amount) in here where amount != 0 {
+            hits[i].append(Hit(date: t.date, amount: amount, what: what))
+        }
+    }
+
+    func progress(key: String, today: String) -> [BudgetProgress] {
+        let window = budgetWindow(key, today: today)
+        var out: [BudgetProgress] = []
+        for b in activeBudgets(all, at: window.at) {
+            guard let i = idIndex[b.id] else { continue }
+            var spent = 0.0
+            var biggest: BudgetSpend?
+            for hit in hits[i] where hit.date >= window.from && hit.date <= window.to {
+                spent += hit.amount
+                if hit.amount > (biggest?.amount ?? 0) {
+                    biggest = BudgetSpend(what: hit.what, date: hit.date, amount: roundTo(hit.amount, 2))
+                }
+            }
+            out.append(budgetRow(b, window: window, spent: spent, biggest: biggest))
+        }
+        return out.sorted { $0.ratio > $1.ratio }
+    }
 }
 
 /// the directive line for a budget

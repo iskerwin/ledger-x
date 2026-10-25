@@ -189,6 +189,39 @@ public func flowsByCurrency(_ ts: [Entry]) -> [CurrencyFlow] {
 
 // MARK: - derived data (what the UI needs on top of the ledger)
 
+public struct PayeeTally: Equatable {
+    public var name: String
+    public var value: Double
+    public var count: Int
+}
+
+/// who a transaction is filed under in the overview's payee lists
+public func payeeLabel(_ t: Entry) -> String {
+    !t.payee.isEmpty ? t.payee : !t.narration.isEmpty ? t.narration : "—"
+}
+
+final class PayeeRoll {
+    private struct Row { var value = 0.0; var count = 0; var all = 0.0 }
+    private var rows: [String: Row] = [:]
+    func add(name: String, value: Double, synthetic: Bool) {
+        var row = rows[name] ?? Row()
+        row.all += value
+        if !synthetic { row.value += value; row.count += 1 }
+        rows[name] = row
+    }
+    func tallies() -> [PayeeTally] {
+        rows.map { PayeeTally(name: $0.key, value: $0.value.value, count: $0.value.count) }
+    }
+    func stats() -> [PayeeTally] {
+        rows.map { PayeeTally(name: $0.key, value: $0.value.value, count: $0.value.count) }
+            .filter { $0.value > 0.005 }
+            .sorted { $0.value > $1.value }
+    }
+    func tops() -> [(String, Double)] {
+        rows.map { ($0.key, $0.value.all) }.sorted { $0.1 > $1.1 }
+    }
+}
+
 public struct PayeeStat {
     public var name: String
     public var n = 0
@@ -254,6 +287,40 @@ public final class Derived: @unchecked Sendable {
     public var reconcileDue: [ReconcileDue] = []
     /// how many documents share a link with a transaction (`transactionAttachments(L).count`)
     public var attachmentCount = 0
+    private var payeeByMonth: [String: PayeeRoll] = [:]
+    private var payeeByYear: [String: PayeeRoll] = [:]
+    private var budgetRollup: BudgetRollup!
+    private var categoryByMonth: [String: CategoryRoll] = [:]
+    private let categoryThrough = CategoryRoll()
+    private let categoryPrevious = CategoryRoll()
+    private var categoryPrevMonth = ""
+    private var categoryPrevTo = ""
+
+    /// Payees for a month (`yyyy-mm`) or a year (`yyyy`), in the operating currency: expenses only, refunds left out.
+    /// Nil when `prefix` is neither. An empty period is an empty list, not nil.
+    public func payeeStats(prefix: String) -> [PayeeTally]? { payeeRoll(prefix)?.stats() }
+    public func topPayees(prefix: String) -> [(String, Double)]? { payeeRoll(prefix)?.tops() }
+    /// `budgetProgress` for any month or year, from the walk this was built with
+    public func budgetProgress(key: String, today: String = Day.today()) -> [BudgetProgress] {
+        budgetRollup.progress(key: key, today: today)
+    }
+    /// `categorySpend` when the range is a whole month, this month through `asOf`, or last month through the same day
+    public func categorySpend(from: String, to: String) -> CategorySpend? {
+        guard from.count >= 10 else { return nil }
+        let month = String(from.prefix(7))
+        if from == month + "-01", to == Day.monthEnd(month) {
+            return (categoryByMonth[month] ?? CategoryRoll()).spend()
+        }
+        if from == String(asOf.prefix(7)) + "-01", to == asOf { return categoryThrough.spend() }
+        if from == categoryPrevMonth + "-01", to == categoryPrevTo { return categoryPrevious.spend() }
+        return nil
+    }
+
+    private func payeeRoll(_ prefix: String) -> PayeeRoll? {
+        if prefix.count == 4 { return payeeByYear[prefix] ?? PayeeRoll() }
+        if prefix.count == 7, prefix.contains("-") { return payeeByMonth[prefix] ?? PayeeRoll() }
+        return nil
+    }
 
     public func payee(_ name: String) -> PayeeStat? { payeeIndex[name].map { payees[$0] } }
 
@@ -276,6 +343,12 @@ public final class Derived: @unchecked Sendable {
         var ytdMap: [String: Double] = [:]
         var attachmentLinks = Set<String>()
         var reconcile = ReconcileScan(L, today: now)
+        budgetRollup = BudgetRollup(L)
+        let catMonth = Day.ym(now)
+        let catPrev = Day.addMonth(catMonth, -1)
+        let catDay = Int(now.suffix(2)) ?? 28
+        categoryPrevMonth = catPrev
+        categoryPrevTo = min(Day.monthEnd(catPrev), catPrev + "-" + String(format: "%02d", catDay))
         var acctCcyW: [String: [String: Double]] = [:]
         var ccyOrder: [String: [String]] = [:]
         var shortC: [String: [String: Int]] = [:]
@@ -286,6 +359,7 @@ public final class Derived: @unchecked Sendable {
             if !t.synthetic { for link in t.links { attachmentLinks.insert(link) } }
             let w: Double = t.date >= d60 ? 20 : t.date >= recent ? 4 : 1
             var reconcileCounted = Set<String>()
+            var expSum = 0.0, hasExp = false
             for p in t.postings {
                 reconcile.add(posting: p, date: t.date, counted: &reconcileCounted)
                 if let u = p.units, (p.account.hasPrefix("Income:") || p.account.hasPrefix("Expenses:")) {
@@ -307,9 +381,33 @@ public final class Derived: @unchecked Sendable {
                     let v = toCNY(L, u, c, t.date) ?? 0
                     monthExp[m, default: 0] += v
                     monthCat[m, default: [:]][p.account, default: 0] += v
+                    expSum += v
+                    hasExp = true
+                    if let converted = toCNY(L, u, c, t.date) {
+                        let roll = categoryByMonth[m] ?? CategoryRoll()
+                        if categoryByMonth[m] == nil { categoryByMonth[m] = roll }
+                        roll.add(account: p.account, amount: converted, payee: t.payee, narration: t.narration)
+                        if m == catMonth, t.date <= now {
+                            categoryThrough.add(account: p.account, amount: converted, payee: t.payee, narration: t.narration)
+                        }
+                        if m == catPrev, t.date <= categoryPrevTo {
+                            categoryPrevious.add(account: p.account, amount: converted, payee: t.payee, narration: t.narration)
+                        }
+                    }
                 } else if p.account.hasPrefix("Income:") {
                     monthInc[m, default: 0] -= toCNY(L, u, c, t.date) ?? 0
                 }
+            }
+            budgetRollup.add(t, L)
+            if hasExp, expSum >= 0 {
+                let name = payeeLabel(t)
+                let monthKey = Day.ym(t.date), yearKey = String(t.date.prefix(4))
+                let monthRoll = payeeByMonth[monthKey] ?? PayeeRoll()
+                if payeeByMonth[monthKey] == nil { payeeByMonth[monthKey] = monthRoll }
+                monthRoll.add(name: name, value: expSum, synthetic: t.synthetic)
+                let yearRoll = payeeByYear[yearKey] ?? PayeeRoll()
+                if payeeByYear[yearKey] == nil { payeeByYear[yearKey] = yearRoll }
+                yearRoll.add(name: name, value: expSum, synthetic: t.synthetic)
             }
             if !t.payee.isEmpty {
                 var s = pmap[t.payee] ?? PayeeStat(name: t.payee, last: t)

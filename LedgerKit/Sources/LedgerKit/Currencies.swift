@@ -229,12 +229,31 @@ public struct ViewFlows {
     public var monthCat: [String: [String: Double]] = [:]
     /// transaction id → what it spent (its expense lines), for ranking payees
     public var txnExp: [Int: Double] = [:]
+    /// payees for a month or a year, from the same walk as `txnExp` (refunds reduce the total; synthetic entries are not in it)
+    public var payeeByMonth: [String: [PayeeTally]] = [:]
+    public var payeeByYear: [String: [PayeeTally]] = [:]
+
+    public func payeeStats(prefix: String) -> [PayeeTally]? {
+        guard let rows = storedPayees(prefix) else { return nil }
+        return rows.filter { $0.value > 0.005 }.sorted { $0.value > $1.value }
+    }
+    public func topPayees(prefix: String) -> [(String, Double)]? {
+        guard let rows = storedPayees(prefix) else { return nil }
+        return rows.map { ($0.name, $0.value) }.sorted { $0.1 > $1.1 }
+    }
+    private func storedPayees(_ prefix: String) -> [PayeeTally]? {
+        if prefix.count == 4 { return payeeByYear[prefix] ?? [] }
+        if prefix.count == 7, prefix.contains("-") { return payeeByMonth[prefix] ?? [] }
+        return nil
+    }
 }
 
 public func viewFlows(_ L: Ledger, mode: ReportMode, only: Set<String>?, currency: String) -> ViewFlows {
     let key = "flows|" + mode.raw + "|" + (only.map { $0.sorted().joined(separator: ",") } ?? "*") + "|" + currency
     return L.memoized(key) {
         var f = ViewFlows(currency: currency)
+        var monthPayee: [String: PayeeRoll] = [:]
+        var yearPayee: [String: PayeeRoll] = [:]
         for t in L.txns {
             let m = Day.ym(t.date)
             for p in t.postings {
@@ -250,7 +269,19 @@ public func viewFlows(_ L: Ledger, mode: ReportMode, only: Set<String>?, currenc
                     f.monthInc[m, default: 0] -= v
                 }
             }
+            if !t.synthetic, let spent = f.txnExp[t.id] {
+                let name = payeeLabel(t)
+                let monthRoll = monthPayee[m] ?? PayeeRoll()
+                if monthPayee[m] == nil { monthPayee[m] = monthRoll }
+                monthRoll.add(name: name, value: spent, synthetic: false)
+                let year = String(t.date.prefix(4))
+                let yearRoll = yearPayee[year] ?? PayeeRoll()
+                if yearPayee[year] == nil { yearPayee[year] = yearRoll }
+                yearRoll.add(name: name, value: spent, synthetic: false)
+            }
         }
+        f.payeeByMonth = monthPayee.mapValues { $0.tallies() }
+        f.payeeByYear = yearPayee.mapValues { $0.tallies() }
         return f
     }
 }

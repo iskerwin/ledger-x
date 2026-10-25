@@ -212,7 +212,7 @@ struct MonthSpendIntent: AppIntent {
             if c.kind == .expense { prev -= c.amount }
         }
         var msg = LS("%@ 已支出 %@，上月同期 %@", Day.monthLabel(m), money(spent, L.base), money(prev, L.base))
-        let bs = budgetProgress(L, key: m).filter { $0.budget.currency == L.base }
+        let bs = (D.budgetProgress(key: m, today: today)).filter { $0.budget.currency == L.base }
         if !bs.isEmpty {
             let left = bs.reduce(0) { $0 + $1.remaining }
             msg += LS("；预算剩余 %@", money(left, L.base))

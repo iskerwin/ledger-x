@@ -88,6 +88,9 @@ struct OverviewView: View {
         /// the currencies there are to pick from (more than one only as booked, at cost or at market value)
         var currencies: [String]
         var netWorth: Double
+        /// payees already summed for a non-default currency view (empty in the default view, which reads Derived)
+        var payeeByMonth: [String: [PayeeTally]] = [:]
+        var payeeByYear: [String: [PayeeTally]] = [:]
     }
 
     private func flows(_ L: Ledger, _ D: Derived) -> Flows {
@@ -101,7 +104,8 @@ struct OverviewView: View {
         let cur = ovCur.flatMap { cs.contains($0) ? $0 : nil } ?? cs.first ?? L.base
         let v = viewFlows(L, mode: mode, only: only, currency: cur)
         let nw = netWorthValued(L, exclude: store.netWorthExclude, mode: mode, only: only).amounts[cur] ?? 0
-        return Flows(exp: v.monthExp, inc: v.monthInc, cat: v.monthCat, cur: cur, txnExp: v.txnExp, currencies: cs, netWorth: nw)
+        return Flows(exp: v.monthExp, inc: v.monthInc, cat: v.monthCat, cur: cur, txnExp: v.txnExp, currencies: cs, netWorth: nw,
+                     payeeByMonth: v.payeeByMonth, payeeByYear: v.payeeByYear)
     }
 
     /// what a transaction spent in the overview's currency (nil: not an expense here)
@@ -395,7 +399,7 @@ struct OverviewView: View {
 
     @ViewBuilder
     private func budgetSection(_ s: Summary, _ L: Ledger) -> some View {
-        let ps = budgetProgress(L, key: s.key)
+        let ps = store.D?.budgetProgress(key: s.key) ?? budgetProgress(L, key: s.key)
         if !ps.isEmpty {
             let over = ps.filter { $0.over }.count
             Section {
@@ -722,6 +726,8 @@ struct OverviewView: View {
     }
 
     private func topPayees(_ L: Ledger, _ key: String, _ F: Flows) -> [(String, Double)] {
+        if F.txnExp == nil, let rows = store.D?.topPayees(prefix: key) { return rows }
+        if let rows = storedPayees(F, key)?.map({ ($0.name, $0.value) }).sorted(by: { $0.1 > $1.1 }) { return rows }
         var pay: [String: Double] = [:]
         for t in L.txns where t.date.hasPrefix(key) {
             if let v = spent(t, L, F) { pay[payeeKey(t), default: 0] += v }
@@ -732,6 +738,12 @@ struct OverviewView: View {
     struct PayeeStatRow { let name: String; var value: Double; var count: Int }
 
     private func payeeStats(_ L: Ledger, _ key: String, _ F: Flows) -> [PayeeStatRow] {
+        if F.txnExp == nil, let rows = store.D?.payeeStats(prefix: key) {
+            return rows.map { PayeeStatRow(name: $0.name, value: $0.value, count: $0.count) }
+        }
+        if let rows = storedPayees(F, key)?.filter({ $0.value > 0.005 }).sorted(by: { $0.value > $1.value }) {
+            return rows.map { PayeeStatRow(name: $0.name, value: $0.value, count: $0.count) }
+        }
         var m: [String: PayeeStatRow] = [:]
         for t in L.txns where t.date.hasPrefix(key) && !t.synthetic {
             guard let v = spent(t, L, F) else { continue }
@@ -742,6 +754,13 @@ struct OverviewView: View {
             m[k] = r
         }
         return m.values.filter { $0.value > 0.005 }.sorted { $0.value > $1.value }
+    }
+
+    /// nil when `key` is not a month or a year: the caller sums the transactions itself
+    private func storedPayees(_ F: Flows, _ key: String) -> [PayeeTally]? {
+        if key.count == 4 { return F.payeeByYear[key] ?? [] }
+        if key.count == 7, key.contains("-") { return F.payeeByMonth[key] ?? [] }
+        return nil
     }
 
     private func payeeKey(_ t: Entry) -> String { !t.payee.isEmpty ? t.payee : !t.narration.isEmpty ? t.narration : "—" }
