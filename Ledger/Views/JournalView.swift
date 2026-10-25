@@ -788,8 +788,10 @@ struct TxDetailView: View {
                 SubPickSheet(t: e) { if let L = store.L { nextSub = SubDraft(e, L) } }
             }
         } else if store.L == nil || store.D == nil {
-            ProgressView()
-                .accessibilityLabel(LS("正在加载账本…"))
+            VStack(spacing: AppSpacing.content) {
+                ProgressView()
+                Text(LS("正在加载账本…")).foregroundStyle(.secondary)
+            }
         } else {
             Text(LS("该交易已不存在")).foregroundStyle(.secondary)
         }
