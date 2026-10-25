@@ -187,3 +187,32 @@ final class TxnLookupTests: XCTestCase {
     }
 
 }
+
+final class EntryMoveSnapshotTests: XCTestCase {
+    @MainActor
+    func testBackgroundTrackingUsesCapturedValuesInsteadOfMutableEntries() async throws {
+        let text = """
+        2026-01-01 open Assets:Bank CNY
+        2026-01-01 open Expenses:Food CNY
+        2026-10-01 * "Cafe" "Coffee"
+          Expenses:Food 10 CNY
+          Assets:Bank -10 CNY
+        """
+        let L = loadLedger(root: "main.bean") { _ in text }
+        let entry = try XCTUnwrap(L.txns.first)
+        var op = Op(kind: .renamePayee, path: entry.file)
+        op.old = "Cafe"; op.text = "Bakery"
+        let expected = movedEntries([op], L)
+        let snapshot = entryMoveSnapshot([op], L)
+        entry.src = "changed after the snapshot"
+        entry.date = "2026-11-01"
+        let operations = [op]
+        let actual = await Task.detached {
+            XCTAssertFalse(Thread.isMainThread)
+            return movedEntries(operations, snapshot: snapshot)
+        }.value
+        XCTAssertEqual(actual, expected)
+        XCTAssertEqual(actual.first?.oldDate, "2026-10-01")
+        XCTAssertTrue(actual.first?.new.contains("Bakery") == true)
+    }
+}

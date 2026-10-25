@@ -81,12 +81,28 @@ public struct MovedEntry: Equatable {
     public var new: String
 }
 
+/// Value snapshot for background change tracking. No mutable Entry or Ledger crosses the task boundary.
+public struct EntryMoveSnapshot: Sendable {
+    let date: String
+    let text: String
+    let file: String
+    let line: Int
+}
+
+public func entryMoveSnapshot(_ ops: [Op], _ L: Ledger) -> [EntryMoveSnapshot] {
+    let paths = Set(ops.map(\.path))
+    let moving = ops.contains { $0.kind == .insert && $0.moves != nil }
+    return L.txns.filter { paths.contains($0.file) || moving }
+        .map { EntryMoveSnapshot(date: $0.date, text: $0.src, file: $0.file, line: $0.startLine + 1) }
+}
+
 public func movedEntries(_ ops: [Op], _ L: Ledger) -> [MovedEntry] {
-    // the transactions the changes can touch, followed through the changes in order
-    let paths = Set(ops.map { $0.path })
+    movedEntries(ops, snapshot: entryMoveSnapshot(ops, L))
+}
+
+public func movedEntries(_ ops: [Op], snapshot: [EntryMoveSnapshot]) -> [MovedEntry] {
     struct Cur { let date0: String; let src0: String; var date: String; var src: String; var file: String; let line: Int }
-    var cur = L.txns.filter { paths.contains($0.file) || ops.contains { $0.kind == .insert && $0.moves != nil } }
-        .map { Cur(date0: $0.date, src0: $0.src, date: $0.date, src: $0.src, file: $0.file, line: $0.startLine + 1) }
+    var cur = snapshot.map { Cur(date0: $0.date, src0: $0.text, date: $0.date, src: $0.text, file: $0.file, line: $0.line) }
     func find(_ text: String, line: Int?) -> Int? {
         let k = normEntryText(text)
         guard !k.isEmpty else { return nil }

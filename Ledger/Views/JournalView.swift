@@ -40,12 +40,11 @@ extension Store {
         set { entryMoves[cfg.id] = newValue }
     }
     static func normKey(_ k: String) -> String { normEntryText(k) }
-    /// before `ops` are applied (the ledger as it is): every transaction they rewrite or move
-    func noteMoved(_ ops: [Op]) {
-        guard let L = L else { return }
-        for m in movedEntries(ops, L) {
-            movedKeys[Store.normKey(m.oldDate + "\u{1}" + m.old)] = m.newDate + "\u{1}" + m.new
-        }
+    /// Apply the move table computed from the pre-save value snapshot.
+    func noteMoved(_ moved: [String: String]) {
+        var keys = movedKeys
+        keys.merge(moved) { _, new in new }
+        movedKeys = keys
     }
 }
 

@@ -900,13 +900,30 @@ enum Prefs {
             for i in ops.indices { ops[i].releases = nil; if ops[i].heldGroup.map(releases.contains) == true { ops[i].held = nil; ops[i].heldGroup = nil } }
         }
         let held = ops.contains { $0.held != nil }
-        // what it takes to undo this, worked out against the files as they are before it
-        let record = held ? nil : await changeRecord(ops)
-        guard !cancellable || (!Task.isCancelled && cfg.id == ledgerID) else { return false }
+        let queued = ops
+        var record: ChangeRecord?
+        var moved: [String: String] = [:]
+        while true {
+            let ledgerBefore = L
+            let snapshot = ledgerBefore.map { entryMoveSnapshot(queued, $0) } ?? []
+            let moving = Task.detached(priority: .userInitiated) {
+                var keys: [String: String] = [:]
+                for m in movedEntries(queued, snapshot: snapshot) {
+                    keys[normEntryText(m.oldDate + "\u{1}" + m.old)] = m.newDate + "\u{1}" + m.new
+                }
+                return keys
+            }
+            record = held ? nil : await changeRecord(ops)
+            moved = await moving.value
+            guard cfg.id == ledgerID, !cancellable || !Task.isCancelled else { return false }
+            // A previous saved sync may finish during these awaits. Recompute from its new ledger,
+            // without waiting for network or rejecting an otherwise valid consecutive save.
+            if L === ledgerBefore { break }
+        }
         for i in pending.indices where pending[i].heldGroup.map(releases.contains) == true {
             pending[i].held = nil; pending[i].heldGroup = nil; released += 1
         }
-        noteMoved(ops)
+        noteMoved(moved)
         pending.append(contentsOf: ops)
         savePending()
         timing.record("queue-persisted", count: ops.count)
@@ -1394,27 +1411,27 @@ enum Prefs {
     }
 
     /// the record of a change about to be queued: the ops that take each touched file back.
-    /// File text is read here; the year-file diff itself runs off the main actor.
+    /// File text is captured here; applying changes and computing undo use only value snapshots off the main actor.
     private func changeRecord(_ ops: [Op]) async -> ChangeRecord? {
         var paths: [String] = []
         for o in ops where !paths.contains(o.path) { paths.append(o.path) }
-        var files: [(path: String, before: String?, after: String?)] = []
+        var files: [(path: String, before: String?)] = []
         for p in paths {
             var before: String?
             if existsLocally(p) {
                 guard let t = try? await fileText(p) else { return nil }
                 before = t
             }
-            let after: String? = ops.contains { $0.path == p && $0.kind == .deleteFile } ? nil
-                : (try? applyOps(before ?? "", path: p, ops: ops)) ?? before
-            files.append((p, before, after))
+            files.append((p, before))
         }
         let label = commitMessage(ops, path: paths.count == 1 ? paths[0] : LS("%@ 个文件", paths.count))
         let captured = files
         return await Task.detached(priority: .userInitiated) {
             var undo: [Op] = []
             for file in captured {
-                undo += revertOps(path: file.path, before: file.before, after: file.after)
+                let after: String? = ops.contains { $0.path == file.path && $0.kind == .deleteFile } ? nil
+                    : (try? applyOps(file.before ?? "", path: file.path, ops: ops)) ?? file.before
+                undo += revertOps(path: file.path, before: file.before, after: after)
             }
             if undo.isEmpty { return nil }
             return ChangeRecord(label: label, files: paths, undo: undo)
