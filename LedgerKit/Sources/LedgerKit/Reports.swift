@@ -288,10 +288,19 @@ public func netWorthSeries(_ L: Ledger, today: String = Day.today(), exclude: [S
 /// 净资产 now against the end of last month (the accounts left out of it left out), in the operating currency;
 /// nil while the ledger has no month before this one
 public func netWorthSinceLastMonth(_ L: Ledger, today: String = Day.today(), exclude: [String] = []) -> Double? {
-    let s = netWorthSeries(L, today: today, exclude: exclude)
-    guard s.count >= 2 else { return nil }
-    return s[s.count - 1].netWorth - s[s.count - 2].netWorth
+    // Ledger already owns a locked memo table: a reload automatically gets a fresh cache.
+    // Length prefixes keep distinct exclusion lists distinct, even with punctuation in account names.
+    let scope = exclude.sorted().map { "\($0.utf8.count):\($0)" }.joined()
+    let result: NetWorthChange = L.memoized("netWorthChange:\(today):\(scope)") {
+        let s = netWorthSeries(L, today: today, exclude: exclude)
+        guard s.count >= 2 else { return NetWorthChange(value: nil) }
+        return NetWorthChange(value: s[s.count - 1].netWorth - s[s.count - 2].netWorth)
+    }
+    return result.value
 }
+
+/// Wrap nil as a stored value too: an empty or one-month ledger must not recompute on every redraw.
+private struct NetWorthChange { let value: Double? }
 
 /// A year's income and spending by the month, and its spending against the same days of the year before
 public struct YearPace: Equatable {
