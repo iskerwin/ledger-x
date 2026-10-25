@@ -25,11 +25,14 @@ struct AddForm: View {
     @State private var saving = false
     @State private var attemptedSave = false
     @State private var errorTarget: DraftIssueField?
-    /// bumps when a newer validation should cancel an in-flight cursor request
+    /// bumps when a newer validation, or the user putting the keyboard away, should cancel an in-flight cursor request
     @State private var focusTicket = 0
     /// Decimal fields inside a Form ignore a programmatic `@FocusState`. This stays set so
     /// UIKit can claim the field after scrolling, even when SwiftUI drops the focus.
     @State private var claimCursor: DraftCursor?
+    /// true only after a claim has been placed. The keyboard hiding as that claim is set up
+    /// (保存 clears focus, then the cursor is placed) must not cancel the placement.
+    @State private var claimArmed = false
     @State private var saveAgain = false
     /// AA: a name typed for someone not in the ledger yet
     @State private var addingPerson = false
@@ -122,7 +125,19 @@ struct AddForm: View {
         }
         .onChange(of: focus) { _, new in
             // Payee, narration, and the other text fields are a deliberate choice.
-            if new != nil, cursor(of: new) == nil { claimCursor = nil }
+            if new != nil, cursor(of: new) == nil {
+                claimCursor = nil
+                claimArmed = false
+            } else if new == nil, claimArmed {
+                // 收起键盘 sets focus to nil, and so does dragging the form (scrollDismissesKeyboard).
+                disarmArmedClaim()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in
+            // The system keyboard actually went away (swipe it down, switch apps). The button above
+            // is not the only way. A hide that is still in flight while the cursor is being placed
+            // is ignored: claimArmed is set only once the claim is in place.
+            disarmArmedClaim()
         }
         .scrollDismissesKeyboard(.interactively)
         .toolbar {
@@ -165,15 +180,15 @@ struct AddForm: View {
                 Button(op) { appendToFocused(op == "−" ? "-" : op) }.font(.title3)
             }
             Spacer()
-            HideKeyboardButton { focus = nil }
+            HideKeyboardButton { releaseCursor() }
         case .row(let id)?:
             Button("±") { toggleSign(row: id) }.font(.title3)
             Button("+") { appendRow(id, "+") }.font(.title3)
             Spacer()
-            HideKeyboardButton { focus = nil }
+            HideKeyboardButton { releaseCursor() }
         default:
             Spacer()
-            HideKeyboardButton { focus = nil }
+            HideKeyboardButton { releaseCursor() }
         }
     }
 
@@ -790,35 +805,57 @@ struct AddForm: View {
     }
 
     /// Scroll the invalid row into view, then put the cursor there once the form has finished moving.
-    /// A focus set while the list is scrolling is resigned, so a single assignment does not stick.
-    private func placeCursor(on field: DraftIssueField, openCombined: Bool = false) {
+    /// A focus set while the list is scrolling is resigned, so validation tries twice (`attempts` 2).
+    /// 保存再记 passes 1: one placement, and nothing later may grab the field back.
+    private func placeCursor(on field: DraftIssueField, openCombined: Bool = false, attempts: Int = 2) {
         focusTicket += 1
         let ticket = focusTicket
+        claimArmed = false
         focus = nil
         claimCursor = nil
         errorTarget = nil
+        let pauses = attempts <= 1 ? [550_000_000] : [550_000_000, 450_000_000]
         DispatchQueue.main.async {
             guard ticket == focusTicket else { return }
             if openCombined { splittingPay = true }
             errorTarget = field
             guard DraftCursor(field) != nil else { return }
             Task { @MainActor in
-                // 0.2s scroll, then one retry if the form dropped the cursor. A field the user
-                // opened in between (kept) is not taken back.
-                for (attempt, pause) in [550_000_000, 450_000_000].enumerated() {
+                // 0.2s scroll, then (validation only) one retry if the form dropped the cursor.
+                // A field the user opened in between (kept) is not taken back.
+                for (attempt, pause) in pauses.enumerated() {
                     try? await Task.sleep(nanoseconds: UInt64(pause))
                     guard ticket == focusTicket, errorTarget == field else { return }
                     let current = cursor(of: focus)
                     let kept = focus != nil && current == nil
-                    guard let next = cursorPlacement(target: DraftCursor(field), current: current, kept: kept, attempt: attempt) else {
-                        if kept { claimCursor = nil }
+                    guard let next = cursorPlacement(target: DraftCursor(field), current: current, kept: kept, attempt: attempt, limit: pauses.count) else {
+                        if kept { claimCursor = nil; claimArmed = false }
                         return
                     }
                     claimCursor = next
                     focus = addField(next)
+                    claimArmed = true
                 }
             }
         }
+    }
+
+    /// 收起键盘: drop the claim now and cancel a placement that has not run yet,
+    /// so it cannot put the cursor back on 金额 / 转入金额 / 汇率 / 实付.
+    private func releaseCursor() {
+        claimArmed = false
+        claimCursor = nil
+        focusTicket += 1
+        focus = nil
+    }
+
+    /// The keyboard finished hiding after a claim was already placed.
+    private func disarmArmedClaim() {
+        guard claimArmed else { return }
+        claimArmed = false
+        claimCursor = nil
+        focusTicket += 1
+        if cursor(of: focus) != nil { focus = nil }
     }
 
     private func cursor(of field: AddField?) -> DraftCursor? {
@@ -871,7 +908,7 @@ struct AddForm: View {
         if store.draft.kind == .raw { await saveRaw(L, overwriteOK: false); return }
         if await store.saveDraft(onQueued: { if !saveAgain { self.onSaved() } }) {
             attemptedSave = false
-            if !saveAgain { onSaved() } else { placeCursor(on: .amount) }
+            if !saveAgain { onSaved() } else { placeCursor(on: .amount, attempts: 1) }
         }
     }
 
