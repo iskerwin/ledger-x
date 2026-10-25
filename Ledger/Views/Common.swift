@@ -372,9 +372,10 @@ struct AccountPicker: View {
                     withAnimation(AppMotion.standard) { proxy.scrollTo(g, anchor: .top) }
                     jump = nil
                 }
-                // its own field, so 取消 / 完成 stay on the bar while typing (the system's search hides them),
-                // drawn as the system's; the list scrolls under it like under every other search
-                .topBar {
+                // Keep the editable field in the content inset. On iOS 26+, safeAreaBar can
+                // rehost its contents as the sheet expands for the keyboard, losing first responder.
+                // The capsule keeps the shared search appearance; 取消 / 完成 stay in the navigation bar.
+                .safeAreaInset(edge: .top, spacing: 0) {
                     VStack(spacing: 0) {
                         HStack(spacing: AppSpacing.icon) {
                             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
@@ -396,6 +397,7 @@ struct AccountPicker: View {
                         shortcuts(proxy)
                     }
                     .frame(maxWidth: .infinity)
+                    .background(.bar, ignoresSafeAreaEdges: [])
                 }
             }
             .textInputAutocapitalization(.never)

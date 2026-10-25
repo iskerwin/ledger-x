@@ -150,6 +150,8 @@ final class EditInteractionTests: XCTestCase {
         to.tap()
         let search = app.textFields["account.search"]
         tapPoint(search, timeout: 5)
+        // One tap must retain focus through the medium → large sheet transition; do not tap again.
+        assertCanType(app, into: search)
         search.typeText("Assets:Cash")
         XCTAssertTrue(app.buttons["account.cancel"].isHittable)
         let choice = app.buttons["account.Assets:Cash"].firstMatch
@@ -160,6 +162,7 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertEqual(to.value as? String, "")
         to.tap()
         tapPoint(app.textFields["account.search"], timeout: 5)
+        assertCanType(app, into: app.textFields["account.search"])
         app.textFields["account.search"].typeText("Assets:Cash")
         app.buttons["account.Assets:Cash"].firstMatch.tap()
         let done = app.buttons["account.done"]
@@ -653,6 +656,8 @@ final class EditInteractionTests: XCTestCase {
         to.tap()
         let search = app.textFields["account.search"]
         tapPoint(search, timeout: 5)
+        // One tap must retain focus through the medium → large sheet transition; do not tap again.
+        assertCanType(app, into: search)
         search.typeText("Assets:Cash")
         app.buttons["account.Assets:Cash"].firstMatch.tap()
         let cancel = app.buttons["account.cancel"]
@@ -966,6 +971,8 @@ final class EditInteractionTests: XCTestCase {
         app.swipeUp()
         XCTAssertEqual(chip.frame.minY, top, accuracy: 0.5)
         tapPoint(search, timeout: 5)
+        // One tap must retain focus through the medium → large sheet transition; do not tap again.
+        assertCanType(app, into: search)
         search.typeText("Cash")
         XCTAssertTrue(row.waitForNonExistence(timeout: 5))
         XCTAssertEqual(chip.frame.minY, top, accuracy: 1)
