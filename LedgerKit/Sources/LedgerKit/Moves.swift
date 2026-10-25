@@ -21,19 +21,23 @@ public func normEntryText(_ s: String) -> String {
 /// a transaction as a page remembers it: its date and text
 public func txnKey(_ t: Entry) -> String { t.date + "\u{1}" + t.src }
 
-/// Identity of a row in one list. `txnKey` does not change when the ledger is rebuilt and ids are
-/// reassigned. A second copy of the same text (two identical top-ups) gets a suffix so the list's
-/// ids stay unique; the suffix is that copy's place among the rows handed in, which are one day's.
-public func txnRowID(_ t: Entry, among ts: [Entry]) -> String {
-    let key = txnKey(t)
-    var seen = 0
-    var index = 0
-    for o in ts where txnKey(o) == key {
-        if o === t { index = seen }
-        seen += 1
+/// Row identities computed in one pass. File + occurrence distinguishes identical entries while
+/// keeping a row's identity when an unrelated transaction is inserted or a copy in another file disappears.
+public func txnRowIDs(_ ts: [Entry]) -> [String] {
+    var counts: [String: Int] = [:]
+    counts.reserveCapacity(ts.count)
+    return ts.map { t in
+        let key = txnKey(t) + "\u{2}" + t.file
+        let index = counts[key, default: 0]
+        counts[key] = index + 1
+        return key + "\u{2}" + String(index)
     }
-    guard seen > 1 else { return key }
-    return key + "\u{2}" + String(index)
+}
+
+/// A single row, for scroll targets. Build the whole list with `txnRowIDs` instead of calling per row.
+public func txnRowID(_ t: Entry, among ts: [Entry]) -> String {
+    guard let i = ts.firstIndex(where: { $0 === t }) else { return txnRowIDs([t])[0] }
+    return txnRowIDs(ts)[i]
 }
 
 /// Finds the transaction a page shows by where it was and its key (`txnKey`), following it through `moves` (old

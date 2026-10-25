@@ -166,9 +166,24 @@ final class TxnLookupTests: XCTestCase {
         let L = loadLedger(root: "main.bean") { _ in text }
         let ts = L.txns
         XCTAssertEqual(ts.count, 2)
-        XCTAssertEqual(txnRowID(ts[0], among: ts), txnKey(ts[0]) + "\u{2}0")
-        XCTAssertEqual(txnRowID(ts[1], among: ts), txnKey(ts[1]) + "\u{2}1")
+        XCTAssertEqual(txnRowID(ts[0], among: ts), txnKey(ts[0]) + "\u{2}" + ts[0].file + "\u{2}0")
+        XCTAssertEqual(txnRowID(ts[1], among: ts), txnKey(ts[1]) + "\u{2}" + ts[1].file + "\u{2}1")
         XCTAssertNotEqual(txnRowID(ts[0], among: ts), txnRowID(ts[1], among: ts))
-        XCTAssertEqual(txnRowID(ts[0], among: [ts[0]]), txnKey(ts[0]))
+        XCTAssertEqual(txnRowID(ts[0], among: [ts[0]]), txnRowID(ts[0], among: ts))
     }
+    func testRowIdentitySurvivesInsertionReorderingAndCopiesInOtherFiles() {
+        let a = Entry(type: .txn, date: "2026-10-01", file: "a.bean", line: 1, startLine: 0, endLine: 2)
+        a.src = "2026-10-01 * \"Cafe\""
+        let copy = Entry(type: .txn, date: a.date, file: "b.bean", line: 1, startLine: 0, endLine: 2)
+        copy.src = a.src
+        let other = Entry(type: .txn, date: a.date, file: a.file, line: 5, startLine: 4, endLine: 6)
+        other.src = "2026-10-01 * \"Bakery\""
+        let ids = txnRowIDs([a, copy])
+        XCTAssertNotEqual(ids[0], ids[1])
+        XCTAssertEqual(txnRowIDs([other, a, copy]), [txnRowID(other, among: [other]), ids[0], ids[1]])
+        XCTAssertEqual(txnRowIDs([copy, a]), [ids[1], ids[0]])
+        XCTAssertEqual(txnRowIDs([a]), [ids[0]])
+        XCTAssertEqual(txnRowIDs([copy]), [ids[1]])
+    }
+
 }

@@ -111,6 +111,13 @@ final class PerfTests: XCTestCase {
         XCTAssertEqual(found?.src, moved.src)
     }
 
+    func testTransactionListBuildsIdentitiesAsABatch() {
+        let L = loadLedger(root: "main.bean") { _ in Self.bigLedger(10_000) }
+        let ids = time("10000 row identities", max: 2) { txnRowIDs(L.txns) }
+        XCTAssertEqual(ids.count, L.txns.count)
+        XCTAssertEqual(Set(ids).count, ids.count)
+    }
+
     func testExportCSV() {
         let L = loadLedger(root: "main.bean") { _ in """
         2026-01-01 open Assets:Bank CNY

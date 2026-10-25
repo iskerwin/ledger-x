@@ -14,9 +14,8 @@ struct AccountDest: Hashable { let name: String }
 struct TxnListItem: Identifiable {
     let id: String
     let entry: Entry
-    init(_ entry: Entry, among ts: [Entry]) {
-        self.entry = entry
-        id = txnRowID(entry, among: ts)
+    static func rows(_ entries: [Entry]) -> [TxnListItem] {
+        zip(txnRowIDs(entries), entries).map { TxnListItem(id: $0.0, entry: $0.1) }
     }
 }
 struct EditDest: Hashable {
@@ -638,7 +637,7 @@ struct JournalView: View {
         let (out, inn) = totals(ts, L)
         let year = day.prefix(4) != Day.today().prefix(4) ? " " + day.prefix(4) : ""
         return Section {
-            ForEach(ts.map { TxnListItem($0, among: ts) }) { row in
+            ForEach(TxnListItem.rows(ts)) { row in
                 let t = row.entry
                 if selecting {
                     let key = TxDest.key(t)
