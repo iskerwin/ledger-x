@@ -322,7 +322,7 @@ final class EditInteractionTests: XCTestCase {
     func testManualFundingSurvivesPayeeSuggestionInFullForm() {
         let app = launch()
         openFull(app)
-        let funding = app.buttons["field.付款账户"]
+        let funding = app.descendants(matching: .any)["field.付款账户"]
         for _ in 0..<5 { if funding.isHittable { break }; app.swipeUp() }
         XCTAssertTrue(funding.isHittable); funding.tap()
         pickAccount(app, "Assets:Cash")
@@ -951,7 +951,9 @@ final class EditInteractionTests: XCTestCase {
     func testAccountPickerKeepsGroupsInSight() {
         let app = launch()
         openFull(app)
-        let funding = app.buttons["field.付款账户"]
+        let funding = app.descendants(matching: .any)["field.付款账户"]
+        // iOS can expose this account control as a PopUpButton; locate its stable identifier,
+        // while retaining the same hittability and selection assertions as for a plain Button.
         for _ in 0..<5 { if funding.isHittable { break }; app.swipeUp() }
         XCTAssertTrue(funding.isHittable); funding.tap()
         let search = app.textFields["account.search"]
