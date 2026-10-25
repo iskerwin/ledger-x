@@ -148,4 +148,27 @@ final class TxnLookupTests: XCTestCase {
         let found = TxnLookup(after).find(id: e.id, key: txnKey(e), moves: moves)
         XCTAssertEqual(found?.links, ["refund-apple"])
     }
+
+    func testRowIdentityFollowsTheTextAndSeparatesIdenticalCopies() {
+        let one = """
+        2026-10-18 * "Transit" "Top-up"
+          Expenses:Food                                       1.60 CNY
+          Assets:Bank                                        -1.60 CNY
+        """
+        let text = """
+        2026-01-01 open Assets:Bank CNY
+        2026-01-01 open Expenses:Food
+
+        \(one)
+
+        \(one)
+        """
+        let L = loadLedger(root: "main.bean") { _ in text }
+        let ts = L.txns
+        XCTAssertEqual(ts.count, 2)
+        XCTAssertEqual(txnRowID(ts[0], among: ts), txnKey(ts[0]) + "\u{2}0")
+        XCTAssertEqual(txnRowID(ts[1], among: ts), txnKey(ts[1]) + "\u{2}1")
+        XCTAssertNotEqual(txnRowID(ts[0], among: ts), txnRowID(ts[1], among: ts))
+        XCTAssertEqual(txnRowID(ts[0], among: [ts[0]]), txnKey(ts[0]))
+    }
 }

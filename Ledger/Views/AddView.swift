@@ -778,8 +778,8 @@ struct AddForm: View {
                     Text(masked(o.amountText ?? "")).monospacedDigit().sensitive()
                 }
             }
-            ForEach(recent, id: \.id) { t in
-                NavigationLink(value: TxDest(t)) { TxRow(t: t, showDate: true) }
+            ForEach(recent.map { TxnListItem($0, among: recent) }) { row in
+                NavigationLink(value: TxDest(row.entry)) { TxRow(t: row.entry, showDate: true) }
             }
         }
     }
