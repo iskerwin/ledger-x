@@ -9,6 +9,16 @@ struct TxDest: Hashable {
     static func key(_ t: Entry) -> String { txnKey(t) }
 }
 struct AccountDest: Hashable { let name: String }
+
+/// one row of a transaction list whose identity is `txnRowID` (the text), not the rebuilt array index
+struct TxnListItem: Identifiable {
+    let id: String
+    let entry: Entry
+    init(_ entry: Entry, among ts: [Entry]) {
+        self.entry = entry
+        id = txnRowID(entry, among: ts)
+    }
+}
 struct EditDest: Hashable {
     let id: Int
     let key: String
@@ -397,7 +407,10 @@ struct JournalView: View {
         let filtered = !quick.isEmpty || account != nil || !q.trimmed.isEmpty
         // just saved from the form and in the list as it is (not filtered out, not past 加载更多): scrolled to, where
         // it lights up; of several with the same text, the top one
-        let saved = store.justSaved.flatMap { s in shown.first { normEntryText($0.src) == s } }?.id
+        let saved = store.justSaved.flatMap { s -> String? in
+            guard let t = shown.first(where: { normEntryText($0.src) == s }) else { return nil }
+            return txnRowID(t, among: shown.filter { $0.date == t.date })
+        }
         ScrollViewReader { proxy in
             List {
                 Section {
@@ -625,7 +638,8 @@ struct JournalView: View {
         let (out, inn) = totals(ts, L)
         let year = day.prefix(4) != Day.today().prefix(4) ? " " + day.prefix(4) : ""
         return Section {
-            ForEach(ts, id: \.id) { t in
+            ForEach(ts.map { TxnListItem($0, among: ts) }) { row in
+                let t = row.entry
                 if selecting {
                     let key = TxDest.key(t)
                     Button {

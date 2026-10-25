@@ -21,6 +21,21 @@ public func normEntryText(_ s: String) -> String {
 /// a transaction as a page remembers it: its date and text
 public func txnKey(_ t: Entry) -> String { t.date + "\u{1}" + t.src }
 
+/// Identity of a row in one list. `txnKey` does not change when the ledger is rebuilt and ids are
+/// reassigned. A second copy of the same text (two identical top-ups) gets a suffix so the list's
+/// ids stay unique; the suffix is that copy's place among the rows handed in, which are one day's.
+public func txnRowID(_ t: Entry, among ts: [Entry]) -> String {
+    let key = txnKey(t)
+    var seen = 0
+    var index = 0
+    for o in ts where txnKey(o) == key {
+        if o === t { index = seen }
+        seen += 1
+    }
+    guard seen > 1 else { return key }
+    return key + "\u{2}" + String(index)
+}
+
 /// Finds the transaction a page shows by where it was and its key (`txnKey`), following it through `moves` (old
 /// key → new key, the old one as `normEntryText`) when a change rewrote it. Made once per loaded ledger: a page
 /// redrawn many times while a change is saved looks it up in a table instead of comparing every transaction's text.
