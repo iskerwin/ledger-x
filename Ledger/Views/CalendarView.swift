@@ -198,14 +198,21 @@ struct MonthCalendar: UIViewRepresentable {
                 let stack = UIStackView(arrangedSubviews: Array(dots))
                 stack.axis = .horizontal
                 stack.spacing = 3
-                // sized by its dots: the system lays the decoration out at the size it asks for
-                let width = CGFloat(dots.count) * 5 + CGFloat(dots.count - 1) * 3
-                stack.frame = CGRect(x: 0, y: 0, width: width, height: 5)
                 stack.translatesAutoresizingMaskIntoConstraints = false
-                NSLayoutConstraint.activate([stack.widthAnchor.constraint(equalToConstant: width), stack.heightAnchor.constraint(equalToConstant: 5)])
-                stack.isAccessibilityElement = said != nil
-                stack.accessibilityLabel = said
-                return stack
+                // the system puts a decoration at the day's leading edge at the size it asks for, not centred: it takes
+                // the day's whole width and centres the dots in it, under the date
+                let box = DayDots()
+                box.addSubview(stack)
+                box.translatesAutoresizingMaskIntoConstraints = false
+                let width = CGFloat(dots.count) * 5 + CGFloat(dots.count - 1) * 3
+                NSLayoutConstraint.activate([
+                    stack.centerXAnchor.constraint(equalTo: box.centerXAnchor), stack.centerYAnchor.constraint(equalTo: box.centerYAnchor),
+                    box.widthAnchor.constraint(greaterThanOrEqualToConstant: width), box.heightAnchor.constraint(equalToConstant: 5),
+                ])
+                box.isAccessibilityElement = said != nil
+                box.accessibilityLabel = said
+                box.accessibilityIdentifier = "calendar.dots." + d
+                return box
             }
         }
 
@@ -223,6 +230,15 @@ struct MonthCalendar: UIViewRepresentable {
             selection.setSelected(nil, animated: true)
             parent.pick(d)
         }
+    }
+}
+
+/// a day's dots, as wide as the day it sits in
+private final class DayDots: UIView {
+    override func didMoveToSuperview() {
+        super.didMoveToSuperview()
+        guard let day = superview else { return }
+        NSLayoutConstraint.activate([leadingAnchor.constraint(equalTo: day.leadingAnchor), trailingAnchor.constraint(equalTo: day.trailingAnchor)])
     }
 }
 

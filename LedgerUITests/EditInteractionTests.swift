@@ -787,6 +787,26 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(app.buttons["本月"].waitForExistence(timeout: 5))
     }
 
+    /// A day's dots sit centred under its date; the system puts a decoration at the day's leading edge, and they
+    /// were off to the left of it
+    func testTheCalendarDotsSitUnderTheirDate() {
+        let app = launchTab("journal")
+        let calendar = app.descendants(matching: .any)["calendar.month"].firstMatch
+        let toggle = app.buttons.matching(NSPredicate(format: "label IN %@", ["月历", "收起月历"])).firstMatch
+        XCTAssertTrue(toggle.waitForExistence(timeout: 20))
+        if !calendar.exists { tapPoint(app.buttons["月历"], timeout: 5) }
+        XCTAssertTrue(calendar.waitForExistence(timeout: 5))
+        let dots = calendar.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'calendar.dots.'"))
+        for _ in 0..<24 where dots.count == 0 { calendar.buttons["上个月"].tap() }
+        XCTAssertGreaterThan(dots.count, 0)
+        for i in 0..<min(dots.count, 6) {
+            let dot = dots.element(boundBy: i).frame
+            let day = calendar.buttons.allElementsBoundByIndex.first { $0.frame.width < calendar.frame.width / 2 && $0.frame.contains(CGPoint(x: dot.midX, y: dot.midY)) }
+            XCTAssertNotNil(day)
+            if let day { XCTAssertEqual(dot.midX, day.frame.midX, accuracy: 1, "\(dots.element(boundBy: i).identifier)") }
+        }
+    }
+
     private func launchTab(_ tab: String, accessibility: Bool = false, textSize: String? = nil, env: [String: String] = [:]) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
