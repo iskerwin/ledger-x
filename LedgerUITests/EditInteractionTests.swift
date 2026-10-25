@@ -152,6 +152,7 @@ final class EditInteractionTests: XCTestCase {
         tapPoint(search, timeout: 5)
         // One tap must retain focus through the medium → large sheet transition; do not tap again.
         assertCanType(app, into: search)
+        XCTAssertLessThan(search.frame.minY, app.windows.firstMatch.frame.height / 3, "searching must expand the picker")
         search.typeText("Assets:Cash")
         XCTAssertTrue(app.buttons["account.cancel"].isHittable)
         let choice = app.buttons["account.Assets:Cash"].firstMatch
@@ -658,6 +659,7 @@ final class EditInteractionTests: XCTestCase {
         tapPoint(search, timeout: 5)
         // One tap must retain focus through the medium → large sheet transition; do not tap again.
         assertCanType(app, into: search)
+        XCTAssertLessThan(search.frame.minY, app.windows.firstMatch.frame.height / 3, "searching must expand the picker")
         search.typeText("Assets:Cash")
         app.buttons["account.Assets:Cash"].firstMatch.tap()
         let cancel = app.buttons["account.cancel"]

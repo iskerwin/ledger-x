@@ -316,7 +316,6 @@ struct AccountPicker: View {
     @State private var q = ""
     @FocusState private var searchFocused: Bool
     @State private var pending: String?
-    @State private var detent = PresentationDetent.medium
     /// a group to scroll to once the search is cleared
     @State private var jump: String?
     @State private var order: [String]?
@@ -372,10 +371,9 @@ struct AccountPicker: View {
                     withAnimation(AppMotion.standard) { proxy.scrollTo(g, anchor: .top) }
                     jump = nil
                 }
-                // Keep the editable field in the content inset. On iOS 26+, safeAreaBar can
-                // rehost its contents as the sheet expands for the keyboard, losing first responder.
-                // The capsule keeps the shared search appearance; 取消 / 完成 stay in the navigation bar.
-                .safeAreaInset(edge: .top, spacing: 0) {
+                // Use the same bar and capsule as the other pages. Keyboard-driven sheet expansion
+                // stays with UIKit, so a focus change does not also replace the bar's hosting layout.
+                .topBar {
                     VStack(spacing: 0) {
                         HStack(spacing: AppSpacing.icon) {
                             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
@@ -397,7 +395,6 @@ struct AccountPicker: View {
                         shortcuts(proxy)
                     }
                     .frame(maxWidth: .infinity)
-                    .background(.bar, ignoresSafeAreaEdges: [])
                 }
             }
             .textInputAutocapitalization(.never)
@@ -414,8 +411,7 @@ struct AccountPicker: View {
                 }
             }
         }
-        .pickerSheet($detent)
-        .onChange(of: searchFocused) { _, typing in if typing { detent = .large } }
+        .pickerSheet()
     }
 
     /// under the search, always in sight: the account chosen, then the groups to jump to
