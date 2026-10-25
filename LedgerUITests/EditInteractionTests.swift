@@ -1021,6 +1021,31 @@ final class EditInteractionTests: XCTestCase {
         }
     }
 
+    /// The overview's ‹ month › keep together at the trailing end beside 月 / 年, as before the bars were made one;
+    /// spread across the row, the arrows sat far from the month, one against 月 / 年
+    func testTheOverviewMonthBarKeepsItsArrowsBesideTheMonth() {
+        for size in ["UICTContentSizeCategoryL", "UICTContentSizeCategoryXXXL"] {
+            let app = launchTab("overview", textSize: size)
+            app.buttons["月"].firstMatch.tap()
+            let bar = app.descendants(matching: .any)["overview.monthbar"].firstMatch
+            XCTAssertTrue(bar.waitForExistence(timeout: 20))
+            let title = app.staticTexts["overview.period"], previous = bar.buttons["上个月"], next = bar.buttons["下个月"]
+            let segment = app.segmentedControls.firstMatch.frame
+            XCTAssertLessThan(title.frame.minX - previous.frame.maxX, 24, size)
+            XCTAssertLessThan(next.frame.minX - title.frame.maxX, 24, size)
+            XCTAssertGreaterThan(previous.frame.minX - segment.maxX, 24, size)
+            XCTAssertEqual(next.frame.maxX, bar.frame.maxX, accuracy: 1, size)
+            // and nothing moves from one month to the next
+            let at = (previous.frame.minX, title.frame.midX, next.frame.minX), name = title.label
+            previous.tap()
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", name), object: title)], timeout: 5), .completed)
+            XCTAssertEqual(previous.frame.minX, at.0, accuracy: 0.5, size)
+            XCTAssertEqual(title.frame.midX, at.1, accuracy: 1, size)
+            XCTAssertEqual(next.frame.minX, at.2, accuracy: 0.5, size)
+            app.terminate()
+        }
+    }
+
     /// The overview card's way back keeps its room when it is not shown: it is taller than the heading beside it, and
     /// picking a month on the chart made the card taller
     func testTheOverviewCardKeepsItsHeightWithTheWayBack() {

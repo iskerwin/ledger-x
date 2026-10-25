@@ -312,8 +312,9 @@ struct HintFooter: View {
     var body: some View { Text(learned ? text : text + tip) }
 }
 
-/// ‹ title ›, one look for every month (or year) switcher: 概览, 报表 and the calendars. The title sits in the
-/// middle; beside it, while away from now, the way back (本月, 今年, 今天), whose coming and going moves nothing.
+/// ‹ title ›, one look for the month (or year) switchers of 概览 and 报表. With a way back (报表) the bar spreads, the
+/// title in the middle and beside it, while away from now, the way back, whose coming and going moves nothing;
+/// without one (概览) ‹ title › keep together at the trailing end.
 struct PeriodBar: View {
     let title: String
     /// sortable ("2026-10", "2026"): a later one slides in from the right
@@ -338,6 +339,28 @@ struct PeriodBar: View {
     @State private var shown: String?
 
     var body: some View {
+        if toNow == nil { tight } else { spread }
+    }
+
+    /// no way back on the bar (the overview, beside 月 / 年): ‹ title › together at the trailing end, as it always was
+    private var tight: some View {
+        HStack(spacing: AppSpacing.control) {
+            Spacer(minLength: 0)
+            arrow("chevron.left", previousLabel, enabled: canGoBack) { step(-1) }
+            ZStack {
+                Text(widest ?? title).font(.headline).lineLimit(1).minimumScaleFactor(0.5).hidden().accessibilityHidden(true)
+                SlidingTitle(text: title, forward: key >= (shown ?? key)).font(.headline)
+                    .accessibilityIdentifier(titleID ?? "period.title")
+            }
+            arrow("chevron.right", nextLabel, enabled: canGoOn) { step(1) }
+        }
+        .buttonStyle(.borderless)
+        .tint(Color.jade)
+        .onAppear { shown = key }
+        .onChange(of: key) { _, k in shown = k }
+    }
+
+    private var spread: some View {
         // the first that fits: the title in the middle (the way back's room kept on the other side too), the title
         // moved over for it, the way back as an icon with the title shrinking a little if it must
         ViewThatFits(in: .horizontal) {
