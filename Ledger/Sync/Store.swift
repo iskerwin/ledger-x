@@ -431,9 +431,37 @@ enum Prefs {
             await loadDemo(dir)
             return
         }
+        #if DEBUG
+        if let dir = ProcessInfo.processInfo.environment["LEDGER_FOLDER"] {
+            await loadTestFolder(dir)
+            return
+        }
+        #endif
         if tree != nil && L == nil { await rebuild(quietly: true) }
         await refresh()
     }
+
+    #if DEBUG
+    /// interaction tests: a copy of `dir` as a connected local folder ledger, saved to and synced like any other
+    /// (the demo ledger is read once and never rebuilt). A fresh copy every launch.
+    private func loadTestFolder(_ dir: String) async {
+        var c = RepoConfig()
+        c.id = "interaction-test-folder"
+        c.kind = .local
+        c.folderName = c.id
+        let root = FolderBackend.localRoot(c.folderName)
+        try? FileManager.default.removeItem(at: root)
+        try? FileManager.default.copyItem(at: URL(fileURLWithPath: dir), to: root)
+        for key in ["pending", "history", "tree", "draftWorkspace", "lastSync"] { Prefs.d.removeObject(forKey: "ledger." + Store.key(key, c.id)) }
+        await saveConfig(c)
+        mainFile = "main.bean"
+        await refresh()
+        let env = ProcessInfo.processInfo.environment
+        if let t = env["LEDGER_TAB"], let tab = Tab(rawValue: t) { self.tab = tab }
+        AppSettings.shared.language = env["LEDGER_LANG"] ?? "zh"
+    }
+
+    #endif
 
     /// screenshots on CI: read a ledger from a local folder, never touch GitHub
     private(set) var demo = false

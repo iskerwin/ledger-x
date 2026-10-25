@@ -24,15 +24,13 @@ struct AddForm: View {
     /// a save in progress (the pre-commit check takes a moment): ignore further taps
     @State private var saving = false
     @State private var attemptedSave = false
-    @State private var errorTarget: DraftIssueField?
-    /// bumps when a newer validation, or the user putting the keyboard away, should cancel an in-flight cursor request
-    @State private var focusTicket = 0
-    /// Decimal fields inside a Form ignore a programmatic `@FocusState`. This stays set so
-    /// UIKit can claim the field after scrolling, even when SwiftUI drops the focus.
+    private struct FieldLocation: Equatable {
+        let id = UUID()
+        let field: DraftIssueField
+    }
+    @State private var location: FieldLocation?
+    /// Only live between positioning the row and UIKit accepting the focus request.
     @State private var claimCursor: DraftCursor?
-    /// true only after a claim has been placed. The keyboard hiding as that claim is set up
-    /// (保存 clears focus, then the cursor is placed) must not cancel the placement.
-    @State private var claimArmed = false
     @State private var saveAgain = false
     /// AA: a name typed for someone not in the ledger yet
     @State private var addingPerson = false
@@ -119,26 +117,20 @@ struct AddForm: View {
             }
             recentSection(L, D)
         }
-        .onChange(of: errorTarget) { _, target in
-            guard let target = target else { return }
-            withAnimation(AppMotion.standard) { proxy.scrollTo(target, anchor: .center) }
+        .onChange(of: location) { _, request in
+            guard let request else { return }
+            // Animated Form scrolling can resign a field after SwiftUI reports animation completion.
+            // Place the row without an animation; UIKit's ensuing layout can then claim it once.
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+            withTransaction(transaction) { proxy.scrollTo(request.field, anchor: .center) }
+            claimCursor = DraftCursor(request.field)
         }
         .onChange(of: focus) { _, new in
-            // Payee, narration, and the other text fields are a deliberate choice.
-            if new != nil, cursor(of: new) == nil {
-                claimCursor = nil
-                claimArmed = false
-            } else if new == nil, claimArmed {
-                // 收起键盘 sets focus to nil, and so does dragging the form (scrollDismissesKeyboard).
-                disarmArmedClaim()
-            }
+            if new != nil { cancelCursorRequest() }
         }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in
-            // The system keyboard actually went away (swipe it down, switch apps). The button above
-            // is not the only way. A hide that is still in flight while the cursor is being placed
-            // is ignored: claimArmed is set only once the claim is in place.
-            disarmArmedClaim()
-        }
+        .onDisappear { cancelCursorRequest() }
+        .simultaneousGesture(DragGesture().onChanged { _ in cancelCursorRequest() })
         .scrollDismissesKeyboard(.interactively)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) { keyboardBar }
@@ -349,7 +341,7 @@ struct AddForm: View {
                     .monospacedDigit()
                     .keyboardType(.decimalPad)
                     .focused($focus, equals: .amount)
-                    .background(ClaimFocus(active: claimCursor == .amount))
+                    .background(cursorClaim(.amount))
                     .accessibilityIdentifier("field.amount")
                     .multilineTextAlignment(.trailing)
             }
@@ -396,7 +388,7 @@ struct AddForm: View {
                     TextField(LS("实际入账金额"), text: field(\.toAmount))
                         .keyboardType(.decimalPad)
                         .focused($focus, equals: .toAmount).id(DraftIssueField.toAmount)
-                        .background(ClaimFocus(active: claimCursor == .toAmount))
+                        .background(cursorClaim(.toAmount))
                         .multilineTextAlignment(.trailing)
                 }
             }
@@ -466,7 +458,7 @@ struct AddForm: View {
                             TextField("1.17912", text: field(\.rate))
                                 .keyboardType(.decimalPad)
                                 .focused($focus, equals: .rate).id(DraftIssueField.rate)
-                                .background(ClaimFocus(active: claimCursor == .rate))
+                                .background(cursorClaim(.rate))
                                 .multilineTextAlignment(.trailing)
                             Text(fc).foregroundStyle(.secondary)
                         }
@@ -479,7 +471,7 @@ struct AddForm: View {
                         TextField(LS("账户实际扣款"), text: field(\.paid))
                             .keyboardType(.decimalPad)
                             .focused($focus, equals: .paid).id(DraftIssueField.paid)
-                            .background(ClaimFocus(active: claimCursor == .paid))
+                            .background(cursorClaim(.paid))
                             .multilineTextAlignment(.trailing)
                     }
                     if let p = evalAmount(d.paid), let a = evalAmount(d.amount), a > 0 {
@@ -804,68 +796,32 @@ struct AddForm: View {
         placeCursor(on: field, openCombined: issue.field == .combined)
     }
 
-    /// Scroll the invalid row into view, then put the cursor there once the form has finished moving.
-    /// A focus set while the list is scrolling is resigned, so validation tries twice (`attempts` 2).
-    /// 保存再记 passes 1: one placement, and nothing later may grab the field back.
-    private func placeCursor(on field: DraftIssueField, openCombined: Bool = false, attempts: Int = 2) {
-        focusTicket += 1
-        let ticket = focusTicket
-        claimArmed = false
+    /// Position the row first; its UIKit layout supplies the actual text field.
+    /// There is no delayed retry after a request has succeeded or been cancelled.
+    private func placeCursor(on field: DraftIssueField, openCombined: Bool = false) {
+        cancelCursorRequest()
         focus = nil
-        claimCursor = nil
-        errorTarget = nil
-        let pauses = attempts <= 1 ? [550_000_000] : [550_000_000, 450_000_000]
-        DispatchQueue.main.async {
-            guard ticket == focusTicket else { return }
-            if openCombined { splittingPay = true }
-            errorTarget = field
-            guard DraftCursor(field) != nil else { return }
-            Task { @MainActor in
-                // 0.2s scroll, then (validation only) one retry if the form dropped the cursor.
-                // A field the user opened in between (kept) is not taken back.
-                for (attempt, pause) in pauses.enumerated() {
-                    try? await Task.sleep(nanoseconds: UInt64(pause))
-                    guard ticket == focusTicket, errorTarget == field else { return }
-                    let current = cursor(of: focus)
-                    let kept = focus != nil && current == nil
-                    guard let next = cursorPlacement(target: DraftCursor(field), current: current, kept: kept, attempt: attempt, limit: pauses.count) else {
-                        if kept { claimCursor = nil; claimArmed = false }
-                        return
-                    }
-                    claimCursor = next
-                    focus = addField(next)
-                    claimArmed = true
-                }
-            }
+        if openCombined { splittingPay = true }
+        location = FieldLocation(field: field)
+    }
+
+    private func cursorClaim(_ field: DraftCursor) -> some View {
+        let request = claimCursor == field ? location?.id : nil
+        return ClaimFocus(request: request) {
+            guard location?.id == request else { return }
+            cancelCursorRequest()
+            focus = addField(field)
         }
     }
 
-    /// 收起键盘: drop the claim now and cancel a placement that has not run yet,
-    /// so it cannot put the cursor back on 金额 / 转入金额 / 汇率 / 实付.
+    private func cancelCursorRequest() {
+        location = nil
+        claimCursor = nil
+    }
+
     private func releaseCursor() {
-        claimArmed = false
-        claimCursor = nil
-        focusTicket += 1
+        cancelCursorRequest()
         focus = nil
-    }
-
-    /// The keyboard finished hiding after a claim was already placed.
-    private func disarmArmedClaim() {
-        guard claimArmed else { return }
-        claimArmed = false
-        claimCursor = nil
-        focusTicket += 1
-        if cursor(of: focus) != nil { focus = nil }
-    }
-
-    private func cursor(of field: AddField?) -> DraftCursor? {
-        switch field {
-        case .amount?: return .amount
-        case .toAmount?: return .toAmount
-        case .rate?: return .rate
-        case .paid?: return .paid
-        default: return nil
-        }
     }
 
     private func addField(_ cursor: DraftCursor) -> AddField {
@@ -908,7 +864,7 @@ struct AddForm: View {
         if store.draft.kind == .raw { await saveRaw(L, overwriteOK: false); return }
         if await store.saveDraft(onQueued: { if !saveAgain { self.onSaved() } }) {
             attemptedSave = false
-            if !saveAgain { onSaved() } else { placeCursor(on: .amount, attempts: 1) }
+            if !saveAgain { onSaved() } else { placeCursor(on: .amount) }
         }
     }
 
@@ -1067,9 +1023,10 @@ struct TemplateManager: View {
 
 /// Puts the cursor in the decimal field this view sits on. `@FocusState` inside a Form
 /// does not make that field the first responder, so validation never opened the keyboard.
-/// Inactive does not resign: clearing focus must not undo a claim that just succeeded.
+/// Completing or cancelling a request never resigns a field the user is already editing.
 private struct ClaimFocus: UIViewRepresentable {
-    var active: Bool
+    var request: UUID?
+    var onClaimed: () -> Void
 
     func makeUIView(context: Context) -> ClaimFocusView {
         let view = ClaimFocusView()
@@ -1081,47 +1038,48 @@ private struct ClaimFocus: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: ClaimFocusView, context: Context) {
-        uiView.active = active
+        uiView.onClaimed = onClaimed
+        uiView.request = request
     }
 }
 
-private final class ClaimFocusView: UIView {
-    var active = false {
-        didSet {
-            guard active != oldValue else { return }
-            if active { arm() } else { disarm() }
-        }
+/// Internal so the App tests can verify UIKit focus and cancellation directly.
+final class ClaimFocusView: UIView {
+    var onClaimed: () -> Void = {}
+    var request: UUID? {
+        didSet { if request != oldValue { setNeedsLayout(); scheduleClaim() } }
     }
-
-    private var timer: Timer?
-    private var armedAt: CFAbsoluteTime = 0
-
-    deinit { timer?.invalidate() }
+    private var completed: UUID?
+    private var scheduled = false
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
-        if window != nil, active { arm() }
+        scheduleClaim()
     }
 
-    private func arm() {
-        guard window != nil, timer == nil else { return }
-        armedAt = CFAbsoluteTimeGetCurrent()
-        let timer = Timer(timeInterval: 0.15, repeats: true) { [weak self] _ in self?.tick() }
-        RunLoop.main.add(timer, forMode: .common)
-        self.timer = timer
-        DispatchQueue.main.async { [weak self] in self?.tick() }
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        scheduleClaim()
     }
 
-    private func disarm() {
-        timer?.invalidate()
-        timer = nil
+    private func scheduleClaim() {
+        guard request != nil, request != completed, !scheduled else { return }
+        scheduled = true
+        // Leave SwiftUI's layout/update pass before invoking the callback that changes its state.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.scheduled = false
+            self.claimIfReady()
+        }
     }
 
-    private func tick() {
-        guard active, window != nil else { disarm(); return }
-        if CFAbsoluteTimeGetCurrent() - armedAt > 6 { disarm(); return }
-        guard let field = targetField(), !field.isFirstResponder else { return }
-        field.becomeFirstResponder()
+    private func claimIfReady() {
+        guard let request, request != completed, window != nil,
+              let field = targetField(), field.window != nil, !field.isHidden,
+              field.bounds.width > 0, field.bounds.height > 0 else { return }
+        guard field.isFirstResponder || field.becomeFirstResponder() else { return }
+        completed = request
+        onClaimed()
     }
 
     /// The nearest container that owns this field alone. Stop before a wider container

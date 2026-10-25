@@ -233,6 +233,56 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(app.buttons["关闭"].waitForNonExistence(timeout: 5))
     }
 
+    /// 退款 from a transaction's page opens the full form; 保存再记 there puts the cursor in the amount
+    /// synced: the fixture as a connected local folder ledger, rebuilt after the save and synced (the demo ledger
+    /// is never rebuilt, so the purchase keeps its old text there)
+    private func refundAndSaveAgain(synced: Bool = false) -> XCUIApplication {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures").path
+        app.launchEnvironment = [synced ? "LEDGER_FOLDER" : "LEDGER_DEMO": fixture, "LEDGER_TAB": "journal", "LEDGER_LANG": "zh"]
+        app.launchArguments = ["-AppleLanguages", "(zh-Hans)"]
+        app.launch()
+        let row = app.staticTexts["Coffee"].firstMatch
+        tapPoint(row, timeout: 20)
+        let refund = app.buttons["退款"]
+        if !refund.waitForExistence(timeout: 8) { tapPoint(row, timeout: 5) }
+        tapPoint(refund, timeout: 8)
+        // the full form: its save buttons are at the bottom, made as the form scrolls there
+        XCTAssertTrue(app.staticTexts["登记退款"].waitForExistence(timeout: 10))
+        let again = app.buttons["保存再记"]
+        for _ in 0..<8 { if again.exists && again.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(again.isHittable); again.tap()
+        return app
+    }
+
+    /// After 保存再记 the cursor is put in the amount once: put the keyboard away at once, without typing, and it stays
+    /// away (for 6s after the save the cursor was taken back each time, and the keyboard came up again)
+    func testAfterSaveAgainTheKeyboardCanBePutAway() {
+        let app = refundAndSaveAgain()
+        let hide = app.buttons["收起键盘"]
+        XCTAssertTrue(hide.waitForExistence(timeout: 8))
+        hide.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        // and does not come back by itself
+        XCTAssertFalse(app.keyboards.firstMatch.waitForExistence(timeout: 6), "the keyboard came back")
+    }
+
+    /// 保存再记 on a refund, then closing the card with nothing typed: the transaction's page is still there
+    func testClosingAfterARefundSavedAgainKeepsTheTransactionPage() {
+        let app = refundAndSaveAgain(synced: true)
+        // the cursor goes to the amount and the keyboard comes up
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 8))
+        // out of the full form to the card, then the card closed
+        tapPoint(app.navigationBars.buttons["快捷记账"], timeout: 5)
+        tapPoint(app.buttons["关闭"], timeout: 5)
+        let discard = app.buttons["放弃"]
+        if discard.waitForExistence(timeout: 2) { discard.tap() }
+        XCTAssertTrue(app.buttons["关闭"].waitForNonExistence(timeout: 8))
+        XCTAssertFalse(app.staticTexts["该交易已不存在"].waitForExistence(timeout: 3), app.debugDescription)
+        XCTAssertTrue(app.buttons["退款"].waitForExistence(timeout: 5))
+    }
+
     func testSaveToastStaysUpAfterTheCardCloses() {
         let app = launch()
         let food = app.buttons["category.Expenses:Food"].firstMatch
