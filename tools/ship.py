@@ -508,7 +508,7 @@ def update_sources(repo):
             run(['git', 'worktree', 'add', '-q', '--detach', tree, 'FETCH_HEAD'])
         else:
             # A new repository: the ipa branch starts empty, apart from the sources.
-            run(['git', 'worktree', 'add', '-q', '--orphan', '-b', 'ipa-sources', tree])
+            run(['git', 'worktree', 'add', '-q', '--orphan', '-b', f'ipa-sources-{tree.parent.name}', tree])
         try:
             (tree / 'mirror').mkdir(exist_ok=True)
             for name in ('dev.json', 'release.json', 'mirror/dev.json', 'mirror/release.json'):
@@ -519,7 +519,6 @@ def update_sources(repo):
                 run(['git', '-C', tree, 'push', '-q', 'origin', 'HEAD:refs/heads/ipa'])
         finally:
             run(['git', 'worktree', 'remove', '--force', tree])
-            subprocess.run(['git', 'branch', '-D', 'ipa-sources'], cwd=ROOT, capture_output=True)
 
 
 def require_clean_main():

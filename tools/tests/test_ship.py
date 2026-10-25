@@ -167,6 +167,40 @@ class ShipTests(unittest.TestCase):
                     ship.ship_release()
                 publish.assert_not_called()
 
+    def test_source_updates_preserve_branches_and_can_retry_initial_creation(self):
+        # Every command is mocked: no branch, remote, release or real ledger is touched.
+        for existing in (True, False):
+            with self.subTest(existing=existing), tempfile.TemporaryDirectory() as temp:
+                folder = Path(temp)
+                calls = []
+                def command(args, **kwargs):
+                    args = [str(value) for value in args]
+                    calls.append(args)
+                    if args[0] == sys.executable:
+                        site = folder / 'site'
+                        (site/'mirror').mkdir(parents=True, exist_ok=True)
+                        for name in ('dev.json', 'release.json', 'mirror/dev.json', 'mirror/release.json'):
+                            (site/name).write_text('{}')
+                    if args[:3] == ['git', 'worktree', 'add']:
+                        Path(args[-2] if existing else args[-1]).mkdir(parents=True, exist_ok=True)
+                    class Result:
+                        returncode = 0
+                    return Result()
+                with patch.object(ship, 'DIST', folder), patch.object(ship, 'step'), \
+                     patch.object(ship, 'remote_has', return_value=existing), \
+                     patch.object(ship, 'run', side_effect=command), \
+                     patch.object(ship.subprocess, 'run', side_effect=command):
+                    ship.update_sources('example/app')
+                    ship.update_sources('example/app')
+                deletes = [cmd for cmd in calls if cmd[:2] == ['git', 'branch'] and ('-D' in cmd or '-d' in cmd)]
+                self.assertEqual(deletes, [], 'Updating installation sources must never delete a branch')
+                removals = [cmd for cmd in calls if cmd[:3] == ['git', 'worktree', 'remove']]
+                self.assertEqual(len(removals), 2, 'Temporary working directories are still cleaned up')
+                if not existing:
+                    branches = [cmd[cmd.index('-b') + 1] for cmd in calls if '--orphan' in cmd]
+                    self.assertEqual(len(branches), 2)
+                    self.assertNotEqual(branches[0], branches[1], 'A retained initial-source branch must not block retry')
+
     def test_usage_errors_do_nothing(self):
         for argv in (['ship.py'], ['ship.py', 'deploy'], ['ship.py', 'version'], ['ship.py', 'dev', 'extra']):
             with self.subTest(argv=argv):
