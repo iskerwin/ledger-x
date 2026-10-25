@@ -655,7 +655,7 @@ enum Prefs {
     /// download every .bean file not cached yet
     private func ensureBlobs() async throws {
         guard let tree = tree else { return }
-        let missing = tree.files.filter { isLedgerFile($0.key) && BlobCache.get($0.value) == nil }.map { ($0.key, $0.value) }
+        let missing = tree.files.filter { isLedgerFile($0.key) && !BlobCache.contains($0.value) }.map { ($0.key, $0.value) }
         if missing.isEmpty { return }
         let api = backend
         try await withThrowingTaskGroup(of: (String, String).self) { group in

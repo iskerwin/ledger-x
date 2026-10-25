@@ -233,6 +233,39 @@ public struct RatePoint {
     public let v: Double
 }
 
+/// Texts kept by a key that never changes. `contains` answers without handing the text back.
+public final class TextMemo: @unchecked Sendable {
+    private var items: [String: String] = [:]
+    private let lock = NSLock()
+
+    public init() {}
+
+    public func get(_ key: String) -> String? {
+        lock.lock(); defer { lock.unlock() }
+        return items[key]
+    }
+
+    public func set(_ key: String, _ text: String) {
+        lock.lock(); items[key] = text; lock.unlock()
+    }
+
+    public func contains(_ key: String) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return items[key] != nil
+    }
+
+    public func clear() {
+        lock.lock(); items.removeAll(); lock.unlock()
+    }
+
+    /// drop every key for which `keep` is false
+    public func prune(_ keep: (String) -> Bool) {
+        lock.lock()
+        items = items.filter { keep($0.key) }
+        lock.unlock()
+    }
+}
+
 public final class Ledger: @unchecked Sendable {
     public var entries: [Entry] = []
     public var files: [String] = []

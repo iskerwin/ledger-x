@@ -1,4 +1,5 @@
 import Foundation
+import LedgerKit
 import Security
 
 /// where a ledger lives
@@ -264,27 +265,42 @@ struct GitHub: LedgerBackend {
     }
 }
 
-/// blobs by sha on disk (they never change)
+/// blobs by sha on disk (they never change). The text is also kept in memory, so a second read does not open the file.
 enum BlobCache {
     static let dir: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("blobs", isDirectory: true)
         try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
         return base
     }()
+    private static let memory = TextMemo()
     /// git blob shas are used as they are; other version tokens (WebDAV ETags) are hashed into a file name
     static func name(_ key: String) -> String {
         key.count == 40 && key.allSatisfy({ $0.isHexDigit }) ? key : sha1Hex(Data(key.utf8))
     }
-    static func get(_ sha: String) -> String? { try? String(contentsOf: dir.appendingPathComponent(name(sha)), encoding: .utf8) }
-    static func set(_ sha: String, _ text: String) { try? Data(text.utf8).write(to: dir.appendingPathComponent(name(sha)), options: .atomic) }
+    static func get(_ sha: String) -> String? {
+        if let text = memory.get(sha) { return text }
+        guard let text = try? String(contentsOf: dir.appendingPathComponent(name(sha)), encoding: .utf8) else { return nil }
+        memory.set(sha, text)
+        return text
+    }
+    static func set(_ sha: String, _ text: String) {
+        memory.set(sha, text)
+        try? Data(text.utf8).write(to: dir.appendingPathComponent(name(sha)), options: .atomic)
+    }
+    /// true when this version is already in memory or the file is on disk, without reading the text
+    static func contains(_ sha: String) -> Bool {
+        memory.contains(sha) || FileManager.default.fileExists(atPath: dir.appendingPathComponent(name(sha)).path)
+    }
     /// delete every cached version except `keep` (the files of each ledger's current tree): every commit
     /// leaves the previous version of the files it changed behind, and those are never read again
     static func prune(keep: Set<String>) {
         let names = Set(keep.map(name))
+        memory.prune { names.contains(name($0)) }
         guard let files = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return }
         for f in files where !names.contains(f) { try? FileManager.default.removeItem(at: dir.appendingPathComponent(f)) }
     }
-        static func clear() {
+    static func clear() {
+        memory.clear()
         try? FileManager.default.removeItem(at: dir)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     }
