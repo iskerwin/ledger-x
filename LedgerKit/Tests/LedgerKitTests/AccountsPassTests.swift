@@ -45,8 +45,14 @@ final class AccountsPassTests: XCTestCase {
       Assets:Bank  6000.00 CNY
       Income:Salary
 
+    ; 3 月 10 日之前卡上就有人民币。两个币种都接近 0、又没对过时，待核对会略过这个币种。
+    2026-01-20 * "开卡"
+      Equity:Opening  20.00 CNY
+      Liabilities:CreditCard:CMB
+
+    ; 换汇写上 @，两笔才平衡。现金仍是 100 美元，净资产按 price 折算，不按这笔的 @。
     2026-02-01 * "换汇"
-      Assets:Cash  100.00 USD
+      Assets:Cash  100.00 USD @ 7.00 CNY
       Assets:Bank  -700.00 CNY
 
     2026-02-10 * "午饭"

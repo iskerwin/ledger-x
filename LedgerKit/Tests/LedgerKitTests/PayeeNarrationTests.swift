@@ -28,7 +28,7 @@ final class PayeeNarrationTests: XCTestCase {
         2026-03-06 * "食堂" "乙"
           Expenses:Food  1.00 CNY
           Assets:Bank
-        2026-03-07 * "食堂"
+        2026-03-07 * "食堂" ""
           Expenses:Food  1.00 CNY
           Assets:Bank
         2026-03-08 * "别家" "甲"

@@ -200,8 +200,15 @@ final class OverviewPassTests: XCTestCase {
         XCTAssertEqual(before?.statement, "2026-02-10")
         XCTAssertEqual(on?.statement, "2026-03-10")
         XCTAssertEqual(on?.currency, "CNY")
-        // 美元那笔记在卡上，但这张卡按第一个币种人民币出账，不把美元加进人民币余额
-        XCTAssertEqual(on?.balance ?? -1, (before?.balance ?? -1) - 15, accuracy: 1e-6)
+        // 余额是账上全部人民币，不按「今天」截断。这张卡只有 10 日的还款 +15，所以 9 日和 10 日余额都是 -15。
+        // 9 日这笔还在今天之后，不进已还、也不进未出账；10 日它落在账单日上，还款使账单金额仍是 0。
+        // 12 日的 4 美元在同一张卡上，按开户的第一个币种人民币出账，美元不加进人民币余额。
+        XCTAssertEqual(before?.balance ?? 0, -15, accuracy: 1e-6)
+        XCTAssertEqual(on?.balance ?? 0, -15, accuracy: 1e-6)
+        XCTAssertEqual(before?.paid ?? -1, 0, accuracy: 1e-6)
+        XCTAssertEqual(before?.unbilled ?? -1, 0, accuracy: 1e-6)
+        XCTAssertEqual(on?.statementAmount ?? -1, 0, accuracy: 1e-6)
+        XCTAssertEqual(on?.paid ?? -1, 0, accuracy: 1e-6)
     }
 
     func testReportCategoriesUseTheMonthAndStopAtToday() {

@@ -23,7 +23,7 @@ final class JournalPassTests: XCTestCase {
 
     2026-02-01 price USD 7.00 CNY
 
-    2026-03-01 * "工资"
+    2026-03-01 * "工资" ""
       Assets:Bank  1000.00 CNY
       Income:Salary
 
@@ -40,23 +40,23 @@ final class JournalPassTests: XCTestCase {
       Income:Rewards  -2.00 CNY
       Assets:Bank
 
-    2026-03-05 * "转账"
+    2026-03-05 * "转账" ""
       Assets:Hidden  100.00 CNY
       Assets:Bank
 
-    2026-03-12 * "机票"
+    2026-03-12 * "机票" ""
       Expenses:Travel  10.00 USD
       Assets:Cash
 
-    2026-03-14 * "零食"
+    2026-03-14 * "零食" ""
       Expenses:Food  8.00 CNY
       Assets:Hidden
 
-    2026-03-15 * "甲"
+    2026-03-15 * "甲" ""
       Expenses:Food  10.00 CNY
       Assets:Bank
 
-    2026-03-16 * "明天"
+    2026-03-16 * "明天" ""
       Expenses:Food  50.00 CNY
       Assets:Bank
 
