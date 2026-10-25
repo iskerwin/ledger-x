@@ -6,16 +6,11 @@ import LedgerKit
 
 extension Store {
     /// the links (without ^) in a transaction's text
-    func linksIn(_ text: String) -> [String] {
-        let header = text.components(separatedBy: "\n").first { !$0.trimmed.isEmpty } ?? ""
-        return header.split(separator: " ").filter { $0.hasPrefix("^") && $0.count > 1 }.map { String($0.dropFirst()) }
-    }
+    func linksIn(_ text: String) -> [String] { linksOnHeader(text) }
 
     /// the refund link that should go on the original purchase, taken from the text actually saved
     func refundLink(in text: String, preferred: String) -> String? {
-        let ls = linksIn(text).filter { $0.hasPrefix("refund") }
-        if ls.contains(preferred) { return preferred }
-        return ls.count == 1 ? ls[0] : nil
+        refundLinkName(in: text, preferred: preferred)
     }
 
     /// ops that rename or remove a refund link on the other transaction of the pair, when this
