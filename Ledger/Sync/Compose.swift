@@ -381,11 +381,7 @@ extension Store {
         }
         guard var ops = makeOps(text, single: draftIsSingle(d, L)) else { return false }
         // the original purchase gets the refund link that is actually in the saved text (it may have been edited)
-        if let o = d.refundOf, let lk = refundLink(in: text, preferred: o.link) {
-            var link = Op(kind: .link, path: o.path)
-            link.headerLine = o.line; link.header = o.header; link.link = lk; link.add = " ^" + lk; link.silent = true
-            ops.append(link)
-        }
+        if let o = d.refundOf, let link = refundLinkOp(o, savedText: text) { ops.append(link) }
         // a screenshot's card saved with an account it wasn't known by: remembered in ledger-x.json (all devices),
         // in the same commit as the entry
         var word = LS("已入账")

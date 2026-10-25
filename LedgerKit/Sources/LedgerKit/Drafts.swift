@@ -1336,6 +1336,31 @@ public func refundDraft(_ t: Entry, _ L: Ledger, _ D: Derived, defaultFunding: S
     return d
 }
 
+/// `^…` names on a transaction's header line, without the caret. The same reading the refund save uses.
+public func linksOnHeader(_ text: String) -> [String] {
+    let header = text.components(separatedBy: "\n").first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ?? ""
+    return header.split(separator: " ").filter { $0.hasPrefix("^") && $0.count > 1 }.map { String($0.dropFirst()) }
+}
+
+/// the refund link to write onto the original purchase, taken from the text actually saved
+public func refundLinkName(in text: String, preferred: String) -> String? {
+    let ls = linksOnHeader(text).filter { $0.hasPrefix("refund") }
+    if ls.contains(preferred) { return preferred }
+    return ls.count == 1 ? ls[0] : nil
+}
+
+/// the silent `.link` op a refund save appends so the original purchase gains `^refund-…`
+public func refundLinkOp(_ original: RefundOf, savedText: String) -> Op? {
+    guard let lk = refundLinkName(in: savedText, preferred: original.link) else { return nil }
+    var link = Op(kind: .link, path: original.path)
+    link.headerLine = original.line
+    link.header = original.header
+    link.link = lk
+    link.add = " ^" + lk
+    link.silent = true
+    return link
+}
+
 // MARK: - 汇率: 账单金额 × 汇率 = 换算金额
 
 /// the three numbers of a payment in another currency; any two give the third
