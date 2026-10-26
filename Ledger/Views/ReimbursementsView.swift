@@ -145,7 +145,7 @@ struct ReimbLineRow: View {
             }
             Spacer()
             Text((l.income ? "+" : "") + money(l.amount, l.currency)).monospacedDigit()
-                .foregroundStyle(l.income ? Color.gain : Color.primary).sensitive()
+                .foregroundStyle(l.income ? Color.gain : Color.loss).sensitive()
         }
     }
 }

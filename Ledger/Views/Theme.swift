@@ -104,10 +104,17 @@ extension Color {
     static var jade: Color { AppTheme.current.color }
     static var jadeSoft: Color { AppTheme.current.color.opacity(0.28) }
     static var onJade: Color { AppTheme.current.onColor }
-    /// semantic colours, independent of the theme
+    /// semantic colours, independent of the theme: money in (income, inflow) is `gain`, money out (spending,
+    /// outflow) is `loss`, on every page
     static let gain = Color(uiColor: .systemGreen)
     static let loss = Color(uiColor: .systemRed)
     static let warn = Color(uiColor: .systemOrange)
+
+    /// a change: better green, worse red, unchanged grey. Up is better unless `upIsWorse` (spending: more is worse)
+    static func change(_ d: Double, upIsWorse: Bool = false, tolerance: Double = 0.005) -> Color {
+        if abs(d) <= tolerance { return .secondary }
+        return (d > 0) != upIsWorse ? .gain : .loss
+    }
 }
 
 /// a round-rect SF Symbol badge, like the Settings app

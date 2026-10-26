@@ -85,10 +85,12 @@ struct Amount: View {
     var d = 2
     var signed = false
     var color = false
+    /// with `color`: money in green, money out red, nothing grey
+    var tint: Color { color ? (n > 1e-9 ? Color.gain : n < -1e-9 ? Color.loss : Color.secondary) : Color.primary }
     var body: some View {
         Text(signed ? signedMoney(n, c) : money(n, c, d))
             .monospacedDigit()
-            .foregroundStyle(color ? (n > 1e-9 ? Color.gain : n < -1e-9 ? Color.primary : Color.secondary) : Color.primary)
+            .foregroundStyle(tint)
             .sensitive()
     }
 }

@@ -104,12 +104,12 @@ struct YearReviewView: View {
                     HStack(alignment: .top, spacing: AppSpacing.control) {
                         Figure(label: LS("收入"), value: money(r.income, r.currency), color: .gain)
                         Spacer()
-                        Figure(label: LS("支出"), value: money(r.expenses, r.currency))
+                        Figure(label: LS("支出"), value: money(r.expenses, r.currency), color: .loss)
                         Spacer()
                         Figure(label: LS("储蓄率"), value: r.savingsRate.map { String(format: "%.1f%%", $0 * 100) } ?? "—", alignment: .trailing)
                     }
                     if r.income > 0 || r.expenses > 0 {
-                        RatioBar(parts: [(r.income, Color.gain), (r.expenses, Color.jade)])
+                        RatioBar(parts: [(r.income, Color.gain), (r.expenses, Color.loss)])
                     }
                     if let pi = r.previousIncome, let pe = r.previousExpenses {
                         let a = change(r.income, pi), b = change(r.expenses, pe)
@@ -148,7 +148,7 @@ struct YearReviewView: View {
                     Figure(label: LS("年末"), value: money(end, r.currency))
                     Spacer()
                     let d = end - (r.worthStart ?? 0)
-                    Figure(label: LS("变化"), value: signedMoney(d, r.currency), color: d >= 0 ? .gain : .loss, alignment: .trailing)
+                    Figure(label: LS("变化"), value: signedMoney(d, r.currency), color: .change(d), alignment: .trailing)
                 }
                 if r.worthByMonth.count > 1 {
                     Chart(r.worthByMonth, id: \.month) { p in

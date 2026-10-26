@@ -472,8 +472,8 @@ struct JournalView: View {
                                 Text(LS("%@ 笔", matches.count))
                             }
                             HStack(spacing: AppSpacing.control) {
-                                if sums.0 != 0 { Text(LS("支出 ") + money(sums.0)) }
-                                if sums.1 != 0 { Text(LS("收入 ") + money(sums.1)) }
+                                if sums.0 != 0 { Text(LS("支出 ") + money(sums.0)).foregroundStyle(Color.loss) }
+                                if sums.1 != 0 { Text(LS("收入 ") + money(sums.1)).foregroundStyle(Color.gain) }
                                 Spacer()
                             }
                             .monospacedDigit().sensitive()
@@ -592,13 +592,13 @@ struct JournalView: View {
                 HStack(alignment: .top, spacing: 0) {
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(LS("支出合计")).font(.caption).foregroundStyle(.secondary)
-                        Text(money(sums.0)).font(.title3.weight(.bold).monospacedDigit()).foregroundStyle(Color.jade)
+                        Text(money(sums.0)).font(.title3.weight(.bold).monospacedDigit()).foregroundStyle(Color.loss)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     Divider().frame(height: 36)
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(LS("收入合计")).font(.caption).foregroundStyle(.secondary)
-                        Text(money(sums.1)).font(.title3.weight(.bold).monospacedDigit())
+                        Text(money(sums.1)).font(.title3.weight(.bold).monospacedDigit()).foregroundStyle(Color.gain)
                     }
                     .padding(.leading, AppSpacing.control)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -824,7 +824,7 @@ struct TxDetailView: View {
                     if c.kind == .transfer {
                         Text(money(c.amount, c.currency ?? L.base))
                     } else {
-                        ForEach(own, id: \.0) { x in Text(signedMoney(x.1, x.0)).foregroundStyle(x.1 >= 0 ? Color.gain : Color.primary) }
+                        ForEach(own, id: \.0) { x in Text(signedMoney(x.1, x.0)).foregroundStyle(x.1 >= 0 ? Color.gain : Color.loss) }
                     }
                 }
                 .heroAmount().monospacedDigit()

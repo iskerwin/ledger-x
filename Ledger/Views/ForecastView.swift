@@ -133,7 +133,7 @@ struct ForecastView: View {
                         }
                         Spacer()
                         Text((e.amount > 0 ? "+" : "") + money(e.amount, f.currency))
-                            .monospacedDigit().foregroundStyle(e.amount > 0 ? Color.gain : Color.primary).sensitive()
+                            .monospacedDigit().foregroundStyle(Color.change(e.amount)).sensitive()
                     }
                 }
             } header: {

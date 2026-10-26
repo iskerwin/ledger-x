@@ -162,7 +162,7 @@ struct ReportsInsights: View {
                     let count = (now.byCatPayee[up.0] ?? [:]).values.reduce(0) { $0 + $1.1 }
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(LS("%@比上月同期多", catLabel(up.0))).font(.subheadline)
-                        Text(money(up.1, L.base)).heroAmount().foregroundStyle(Color.warn).monospacedDigit().rollingNumber(up.1).sensitive()
+                        Text(money(up.1, L.base)).heroAmount().foregroundStyle(Color.loss).monospacedDigit().rollingNumber(up.1).sensitive()
                         HStack(spacing: AppSpacing.control) {
                             if let w = who { Text(LS("主要来自%@ · 共 %@ 笔", w.0, count)).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
                             Spacer()
@@ -184,7 +184,7 @@ struct ReportsInsights: View {
                     Text(LS("合计")).foregroundStyle(.secondary)
                     Spacer()
                     Text(money(totalNow, L.base) + "  " + signedMoney(totalNow - totalBefore, L.base))
-                        .monospacedDigit().foregroundStyle(totalNow > totalBefore ? Color.warn : Color.gain).sensitive()
+                        .monospacedDigit().foregroundStyle(Color.change(totalNow - totalBefore, upIsWorse: true)).sensitive()
                 }
                 .font(.subheadline)
                 ForEach(Array(deltas.prefix(3).filter { $0.1 > 0 } + deltas.suffix(2).filter { $0.1 < 0 }), id: \.0) { d in
@@ -192,7 +192,7 @@ struct ReportsInsights: View {
                         HStack(spacing: AppSpacing.control) {
                             Text(catLabel(d.0))
                             Spacer()
-                            Text(signedMoney(d.1, L.base)).monospacedDigit().foregroundStyle(d.1 > 0 ? Color.warn : Color.gain).sensitive()
+                            Text(signedMoney(d.1, L.base)).monospacedDigit().foregroundStyle(Color.change(d.1, upIsWorse: true)).sensitive()
                         }
                         .font(.subheadline)
                         .contentShape(Rectangle())

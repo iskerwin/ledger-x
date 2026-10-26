@@ -195,9 +195,9 @@ struct AccountsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// a change as an arrow and its figure, in `more`'s colour going up and the other one going down
+    /// a change as an arrow and its figure: better green, worse red, unchanged grey; `more` is the colour of going up
     private func changeText(_ c: Double, _ figure: String, more: Color) -> Text {
-        let color: Color = c < 0 ? (more == .gain ? .loss : .gain) : more
+        let color = Color.change(c, upIsWorse: more == .loss)
         return Text(Image(systemName: c < 0 ? "arrow.down.right" : "arrow.up.right")).foregroundColor(color) + Text(figure).foregroundColor(color)
     }
 
@@ -216,11 +216,11 @@ struct AccountsView: View {
             HStack(alignment: .top, spacing: AppSpacing.control) {
                 Figure(label: LS("收入"), value: money(income, L.base), color: .gain)
                 Spacer()
-                Figure(label: LS("支出"), value: money(spent, L.base))
+                Figure(label: LS("支出"), value: money(spent, L.base), color: .loss)
                 Spacer()
                 Figure(label: LS("储蓄率"), value: income > 0.005 ? String(format: "%.1f%%", (income - spent) / income * 100) : "—", alignment: .trailing)
             }
-            RatioBar(parts: [(max(0, income - spent), Color.jade), (spent, Color.loss)])
+            RatioBar(parts: [(max(0, income - spent), Color.gain), (spent, Color.loss)])
             // by the month, and the spending against the same days of last year (more in red, less in green)
             NavigationLink(value: YearReviewDest(year: year)) {
                 let pace = yearPace(L, year: year)

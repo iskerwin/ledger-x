@@ -451,7 +451,7 @@ struct ImportView: View {
                         Text(r.payee.isEmpty ? LS("收付款方未知") : r.payee).font(.headline).lineLimit(1)
                         Spacer()
                         Text(sign + money(r.amount)).font(.headline.monospacedDigit())
-                            .foregroundStyle(r.direction == .income ? Color.gain : Color.primary).sensitive()
+                            .foregroundStyle(r.direction == .income ? Color.gain : r.direction == .expense ? Color.loss : Color.primary).sensitive()
                     }
                     Text([r.date + (r.time.isEmpty ? "" : " " + r.time), r.narration].filter { !$0.isEmpty && $0 != "/" }.joined(separator: " · "))
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1)

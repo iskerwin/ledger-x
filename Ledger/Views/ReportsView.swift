@@ -451,7 +451,7 @@ struct IncomeStatementView: View {
                         HStack(alignment: .top, spacing: AppSpacing.control) {
                             InventoryFigure(label: LS("收入"), inv: inc, base: L.base, color: .gain)
                             Spacer()
-                            InventoryFigure(label: LS("支出"), inv: exp, base: L.base)
+                            InventoryFigure(label: LS("支出"), inv: exp, base: L.base, color: .loss)
                             Spacer()
                             Figure(label: LS("储蓄率"), value: one && i1 > 0 ? String(format: "%.1f%%", (i1 - e1) / i1 * 100) : "—", alignment: .trailing)
                         }
@@ -557,7 +557,7 @@ struct IncomeExpenseChart: View {
                         .accessibilityLabel(Day.monthLabel(m) + " " + LS("支出")).accessibilityValue(money(exp[m] ?? 0, currency))
                 }
             }
-            .chartForegroundStyleScale([LS("收入"): Color.gain, LS("支出"): Color.jade])
+            .chartForegroundStyleScale([LS("收入"): Color.gain, LS("支出"): Color.loss])
             .chartLegend(compact ? .hidden : .visible)
             .chartLegend(position: .top, alignment: .leading)
             .chartYAxis { AxisMarks(position: .trailing) }
@@ -581,7 +581,7 @@ struct IncomeExpenseChart: View {
                 HStack(spacing: AppSpacing.control) {
                     Text(Day.monthLabel(m)).fontWeight(.medium)
                     Text(LS("收入 ") + money(i, currency)).foregroundStyle(Color.gain)
-                    Text(LS("支出 ") + money(e, currency))
+                    Text(LS("支出 ") + money(e, currency)).foregroundStyle(Color.loss)
                     Spacer()
                     Text(LS("结余 ") + money(i - e, currency)).foregroundStyle(i - e < 0 ? Color.loss : Color.secondary)
                 }
@@ -744,7 +744,7 @@ struct WorthCharts: View {
                     Text(LS("区间变动")).foregroundStyle(.secondary)
                     Spacer()
                     Text((last.netWorth >= first.netWorth ? "+" : "") + unitText(last.netWorth - first.netWorth, c)).fontWeight(.semibold).monospacedDigit()
-                        .foregroundStyle(last.netWorth >= first.netWorth ? Color.gain : Color.loss).sensitive()
+                        .foregroundStyle(Color.change(last.netWorth - first.netWorth)).sensitive()
                 }
             }
             .font(.subheadline)
@@ -971,7 +971,7 @@ struct NetWorthChart: View {
                     Text(LS("区间变动")).foregroundStyle(.secondary)
                     Spacer()
                     Text((last.netWorth >= first.netWorth && !KitPrivacy.masked ? "+" : "") + unitText(last.netWorth - first.netWorth, currency)).fontWeight(.semibold).monospacedDigit()
-                        .foregroundStyle(last.netWorth >= first.netWorth ? Color.gain : Color.loss).sensitive()
+                        .foregroundStyle(Color.change(last.netWorth - first.netWorth)).sensitive()
                 }
             }
             .font(compact ? .caption : .subheadline)

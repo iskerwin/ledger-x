@@ -18,7 +18,7 @@ struct JournalCalendar: View {
     struct DayTotal { var out = 0.0; var inn = 0.0; var n = 0 }
 
     /// spending in the theme colour, income in the app's gain colour, everywhere on this calendar
-    static var spend: Color { Color.jade }
+    static var spend: Color { Color.loss }
     static var earn: Color { Color.gain }
     /// a day with entries that are neither (transfers, advances, reimbursements): not shown as empty
     static var other: Color { Color.secondary.opacity(0.6) }

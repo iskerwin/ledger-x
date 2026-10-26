@@ -116,7 +116,7 @@ struct PayeeRow: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: AppSpacing.detail) {
-                if p.spent > 0.005 { Text(money(p.spent)).font(.subheadline).monospacedDigit().sensitive() }
+                if p.spent > 0.005 { Text(money(p.spent)).font(.subheadline).monospacedDigit().foregroundStyle(Color.loss).sensitive() }
                 if p.received > 0.005 { Text("+" + money(p.received)).font(.caption).monospacedDigit().foregroundStyle(Color.gain).sensitive() }
             }
         }

@@ -347,7 +347,7 @@ struct OverviewView: View {
                 } else {
                     ForEach(months, id: \.self) { m in
                         BarMark(x: .value("月", monthLabelShort(m)), y: .value("支出", F.exp[m] ?? 0))
-                            .foregroundStyle(m == shown ? Color.jade : Color.jadeSoft)
+                            .foregroundStyle(m == shown ? Color.loss : Color.loss.opacity(0.28))
                             .cornerRadius(4)
                             .accessibilityLabel(Day.monthLabel(m) + " " + LS("支出")).accessibilityValue(money(F.exp[m] ?? 0, F.cur))
                     }
