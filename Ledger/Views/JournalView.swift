@@ -111,8 +111,10 @@ struct TxRow: View {
         if let a = account {
             let ps = t.postings.filter { $0.account == a || $0.account.hasPrefix(a + ":") }
             let byC = Dictionary(grouping: ps, by: { $0.currency ?? "" }).mapValues { list in list.reduce(0.0) { $0 + ($1.units ?? 0) } }
-            HStack(spacing: AppSpacing.icon) {
-                ForEach(byC.keys.sorted(), id: \.self) { cc in Amount(n: byC[cc]!, c: cc, signed: true, color: true) }
+            // one line per currency, stacked like the amounts below: side by side, an exchange's two currencies
+            // squeezed the payee and broke the amounts across lines
+            VStack(alignment: .trailing, spacing: AppSpacing.detail) {
+                ForEach(byC.keys.sorted(), id: \.self) { cc in Amount(n: byC[cc]!, c: cc, signed: true, color: true).lineLimit(1) }
             }
         } else if c.kind == .transfer {
             Text(money(c.amount, c.currency ?? "CNY")).monospacedDigit().foregroundStyle(.secondary).sensitive()

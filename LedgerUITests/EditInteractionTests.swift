@@ -760,6 +760,32 @@ final class EditInteractionTests: XCTestCase {
         for _ in 0..<8 { if element.isHittable { return }; app.swipeUp() }
     }
 
+    /// An exchange inside one account: its two currencies stack on the right, each on one line, and the payee
+    /// keeps its room (side by side they squeezed the payee and broke the amounts across lines).
+    func testExchangeInAnAccountStacksBothCurrencies() {
+        for size in [nil, "UICTContentSizeCategoryXXL"] {
+            let extra = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/fx-extra.bean").path
+            let app = launchTab("accounts", textSize: size, env: ["LEDGER_EXTRA": extra, "LEDGER_OPEN_ACCOUNT": "Assets:Bank:ExampleFX"])
+            let hkd = app.staticTexts["+HK$123,456.70"].firstMatch
+            let gbp = app.staticTexts["-£12,345.67"].firstMatch
+            let payee = app.staticTexts["Example exchange counter"].firstMatch
+            XCTAssertTrue(hkd.waitForExistence(timeout: 20))
+            XCTAssertTrue(gbp.exists)
+            XCTAssertTrue(payee.exists)
+            let top = gbp.frame.minY < hkd.frame.minY ? gbp : hkd, bottom = top == gbp ? hkd : gbp
+            XCTAssertGreaterThanOrEqual(bottom.frame.minY, top.frame.maxY - 1, "stacked, not side by side")
+            XCTAssertEqual(hkd.frame.maxX, gbp.frame.maxX, accuracy: 1, "both right-aligned")
+            XCTAssertEqual(hkd.frame.height, gbp.frame.height, accuracy: 1, "each on one line")
+            XCTAssertLessThan(hkd.frame.height, payee.frame.height * 1.5, "each on one line")
+            XCTAssertGreaterThan(payee.frame.width, app.frame.width * 0.3, "the payee is not squeezed")
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = "账户内换汇-两种货币上下排列-\(size ?? "默认字号")"
+            shot.lifetime = .keepAlways
+            add(shot)
+            app.terminate()
+        }
+    }
+
     func testCardBillActionsStayOnOneRowAtNormalTextSize() {
         let app = launchCardAccount(accessibility: false)
         let bill = app.buttons["填写本期账单"].firstMatch

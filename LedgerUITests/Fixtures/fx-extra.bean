@@ -1,0 +1,10 @@
+; for the account row layout: an exchange inside one account, so the row shows two currencies at once
+2026-01-01 open Equity:Opening-Balances
+
+2026-10-02 * "Example bank" "Opening balance"
+  Assets:Bank:ExampleFX  20000.00 GBP
+  Equity:Opening-Balances
+
+2026-10-20 * "Example exchange counter" "Exchange"
+  Assets:Bank:ExampleFX  123456.70 HKD
+  Assets:Bank:ExampleFX  -12345.67 GBP @ 10.00 HKD
