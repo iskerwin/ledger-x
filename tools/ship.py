@@ -250,8 +250,6 @@ def fresh_simulator():
     try:
         subprocess.run(['xcrun', 'simctl', 'boot', udid], check=True, capture_output=True, timeout=120)
         subprocess.run(['xcrun', 'simctl', 'bootstatus', udid, '-b'], check=True, capture_output=True, timeout=BOOT_TIMEOUT)
-        # Only to watch the run; Xcode 27 no longer ships Simulator.app and the tests run headless.
-        subprocess.run(['open', '-b', 'com.apple.iphonesimulator', '--args', '-CurrentDeviceUDID', udid], capture_output=True)
         subprocess.run(['xcrun', 'simctl', 'getenv', udid, 'HOME'], check=True, capture_output=True, timeout=60)
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
         raise Failure(f'模拟器环境失败（测试尚未开始）：{error}。这不是测试结论，可直接重跑')
@@ -301,7 +299,7 @@ def validate():
     run(['xcodebuild', 'build-for-testing', '-project', 'Ledger.xcodeproj', '-scheme', 'LedgerInteractionTests',
          '-destination', destination, '-derivedDataPath', 'build-demo', 'CODE_SIGNING_ALLOWED=NO'], log='demo-build.log')
 
-    step('附件与交互测试（不并行，约 10 分钟）')
+    step('附件与交互测试（不并行，约 20 分钟）')
     shutil.rmtree(ROOT / 'interaction-tests.xcresult', ignore_errors=True)
     code = run(['xcodebuild', 'test-without-building', '-project', 'Ledger.xcodeproj', '-scheme', 'LedgerInteractionTests',
                 '-destination', destination, '-derivedDataPath', 'build-demo', '-parallel-testing-enabled', 'NO',

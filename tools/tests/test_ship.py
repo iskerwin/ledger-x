@@ -378,7 +378,7 @@ class WatchTests(unittest.TestCase):
         state = dict(command='dev', pid=1, started=1000.0, log='interaction-tests.log', result=None, message='',
                      stages=[dict(name='静态检查与流程回归', started=1000.0, ended=1003.0),
                              dict(name='LedgerKit 核心测试', started=1003.0, ended=1130.0, note='333 项通过'),
-                             dict(name='附件与交互测试（不并行，约 10 分钟）', started=1130.0)])
+                             dict(name='附件与交互测试（不并行，约 20 分钟）', started=1130.0)])
         state.update(extra)
         return state
 
