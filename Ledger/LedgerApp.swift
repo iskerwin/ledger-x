@@ -5,7 +5,7 @@ import LedgerKit
 @main
 struct LedgerApp: App {
     @State private var store = Store.shared
-    @StateObject private var lock = AppLock()
+    @State private var lock = AppLock()
     @Environment(\.scenePhase) private var phase
     @AppStorage(AppAppearance.key) private var appearance = AppAppearance.system.rawValue
 
@@ -27,7 +27,7 @@ struct LedgerApp: App {
             }
             .environment(store)
             .environment(store.drafts)
-            .environmentObject(lock)
+            .environment(lock)
             .preferredColorScheme(AppAppearance(rawValue: appearance)?.scheme)
             .task {
                 NotificationRouter.shared.open = { [store] t in

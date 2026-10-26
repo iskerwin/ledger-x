@@ -5,16 +5,16 @@ import LedgerKit
 
 /// Face ID / Touch ID / passcode lock, on launch and after the app has been in the background
 @MainActor
-final class AppLock: ObservableObject {
+@Observable final class AppLock {
     static let enabledKey = "ledger.lock"
     static let graceKey = "ledger.lockGrace"
 
-    @Published private(set) var locked: Bool
-    @Published private(set) var authenticating = false
-    @Published var lastError: String?
+    private(set) var locked: Bool
+    private(set) var authenticating = false
+    var lastError: String?
     /// biometry failed or was cancelled: the lock screen offers the device passcode directly
-    @Published private(set) var offerPasscode = false
-    private var gate: LockGate
+    private(set) var offerPasscode = false
+    @ObservationIgnored private var gate: LockGate
 
     var enabled: Bool { UserDefaults.standard.bool(forKey: Self.enabledKey) }
     var grace: TimeInterval { TimeInterval(UserDefaults.standard.integer(forKey: Self.graceKey)) }
@@ -110,7 +110,7 @@ final class AppLock: ObservableObject {
 }
 
 struct LockScreen: View {
-    @EnvironmentObject var lock: AppLock
+    @Environment(AppLock.self) var lock
     var body: some View {
         let b = AppLock.biometry
         // the logo high up: the system's Face ID panel shows in the middle of the screen
