@@ -22,6 +22,7 @@ python3 tools/ship.py dev         # test 全过后编译 IPA、推送 main、更
 python3 tools/ship.py release     # 仅 Kerwin 手机验收后执行：把当前开发版原样发布为正式版
 python3 tools/ship.py version patch|minor|major|X.Y.Z
 python3 tools/ship.py watch       # 另开终端看正在跑（或最近一次）的进度：阶段、用时、测试通过/失败数、当前用例
+python3 tools/ship.py watch --once  # 只打印一次当前进度后退出（适合非交互环境）
 ```
 
 版本流程（细节与授权见 AGENTS.md「发布」）：`version` 开新版本 → 开发并写 CHANGELOG「（开发中）」 → `dev` 发开发版 → Kerwin 手机验收 → `release` 转正式版 → CHANGELOG 标题改为「（YYYY-MM-DD 发布）」并提交推送。
@@ -30,6 +31,7 @@ python3 tools/ship.py watch       # 另开终端看正在跑（或最近一次�
 
 ```sh
 python3 tools/check_project.py                               # 文档链接、图片与样本哈希、工程配置
+xcodegen generate                                            # 改了 project.yml 或增删文件后，单独跑 xcodebuild 前重新生成工程
 python3 -m unittest discover -s tools/tests -p 'test_*.py'   # ship.py、发布说明与 IPA 源的回归
 LEDGER_DEMO_PATH="$PWD/.demo-data" SAMPLE_OUT="$PWD/samples" swift test --package-path LedgerKit --filter PostingOrderTests
 xcodebuild test-without-building -project Ledger.xcodeproj -scheme LedgerInteractionTests \
