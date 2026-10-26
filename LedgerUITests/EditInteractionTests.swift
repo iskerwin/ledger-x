@@ -755,9 +755,27 @@ final class EditInteractionTests: XCTestCase {
         return app
     }
 
-    /// Scroll a list until a control can be tapped. Off-screen frames are still valid for layout checks.
+    /// Move toward the control in short drags. A full-page flick can pass a button between snapshots;
+    /// if its cell has left the accessibility tree, return toward this card at the top of the list.
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
-        for _ in 0..<8 { if element.isHittable { return }; app.swipeUp() }
+        for _ in 0..<8 {
+            if element.exists && element.isHittable { return }
+            let window = app.windows.firstMatch.frame
+            let navigation = app.navigationBars.firstMatch
+            let search = app.searchFields.firstMatch
+            let tabs = app.tabBars.firstMatch
+            let top = max(navigation.exists ? navigation.frame.maxY : window.minY,
+                          search.exists && search.isHittable ? search.frame.maxY : window.minY)
+            let bottom = tabs.exists ? tabs.frame.minY : window.maxY
+            let height = bottom - top
+            let middle = top + height / 2
+            let delta = element.exists ? element.frame.midY - middle : -height
+            let distance = min(max(abs(delta), 32), height * 0.35)
+            let start = app.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: window.midX, dy: middle))
+            let end = start.withOffset(CGVector(dx: 0, dy: delta > 0 ? -distance : distance))
+            start.press(forDuration: 0, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0)
+        }
     }
 
     /// An exchange inside one account: its two currencies stack on the right, each on one line, and the payee
@@ -833,6 +851,23 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(repay.isHittable)
         repay.tap()
         XCTAssertTrue(app.navigationBars["信用卡还款"].waitForExistence(timeout: 5))
+    }
+
+    func testCardBillActionCanBeReachedAfterScrollingPastIt() {
+        let app = launchCardAccount(accessibility: true)
+        let bill = app.buttons["填写本期账单"].firstMatch
+        XCTAssertTrue(bill.waitForExistence(timeout: 20))
+        let lowerSection = app.staticTexts["额度与账单"].firstMatch
+        for _ in 0..<8 {
+            if lowerSection.exists && lowerSection.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(lowerSection.isHittable)
+        XCTAssertFalse(bill.isHittable, "start below the bill action, so reaching it requires scrolling back")
+        reveal(bill, in: app)
+        XCTAssertTrue(bill.isHittable)
+        bill.tap()
+        XCTAssertTrue(app.navigationBars["本期账单"].waitForExistence(timeout: 5))
     }
 
     func testUntouchedFormClosesWithoutPrompt() {
