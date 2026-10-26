@@ -65,7 +65,8 @@ require(all(step in ship for step in ("'swift', 'test'", 'tools/fixtures/check_r
 require("tools/fixtures/manifest.json" in ship, 'Tests and packages must use the fixed demo snapshot')
 require('release delete' not in ship and '--force' not in ship.replace("'--force', tree", '') and 'push -f' not in ship,
         'Publication must not delete releases or force-push')
-require(ship.index('validate()') < ship.index("'git', 'push'"), 'main is pushed only after local validation passed')
+require(ship.index('proof = validate() if full else validate_development()') < ship.index("'git', 'push'"),
+        'main is pushed only after development checks and the package build passed')
 
 # every Chinese text shown through LS has its English; every English entry is still shown somewhere
 english = json.loads((ROOT/'Ledger/en.json').read_text())

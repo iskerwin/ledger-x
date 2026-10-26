@@ -60,13 +60,19 @@ def render(current, previous, repo, sha, version, build, proof, channel="dev", i
         parts += ['## 本次更新', '- 本次没有新增用户可见的功能或修复记录，为重新构建或发布流程维护。']
     github = f'https://raw.githubusercontent.com/{repo}/ipa/{channel}.json'
     mirror = f'https://gh-proxy.com/https://raw.githubusercontent.com/{repo}/ipa/mirror/{channel}.json'
+    if proof.get('scope') == 'build':
+        validation = ('本次发布通过静态检查、发布工具回归、iOS 设备 Release 编译、签名与安装包完整性检查'
+                      f'（{proof["xcode"]}）。本次发布未运行核心、Beancount 报表对照和界面全量测试；'
+                      '开发中的相关测试与 Xcode 手工检查不计入这份发布记录。')
+    else:
+        validation = (f'本机验证通过：核心测试 {proof["core_tests"]} 项、Beancount 报表对照、模拟器附件与交互测试 '
+                      f'{proof["interaction_tests"]} 项（{proof["xcode"]}，{proof["simulator"]}）；'
+                      'iOS 设备 Release 编译、签名与安装包完整性检查已通过。')
     parts += ['---', f'## 添加{label} IPA 源',
               f'- GitHub：{github}\n- 镜像（gh-proxy.com）：{mirror}',
               '在支持 IPA 源的安装工具（如 SideStore、AltStore、Zeus）中添加其中一个地址；国内网络建议用镜像，安装包也会经镜像下载。',
               '## 验证记录',
-              f'本机验证通过：核心测试 {proof["core_tests"]} 项、Beancount 报表对照、模拟器附件与交互测试 '
-              f'{proof["interaction_tests"]} 项（{proof["xcode"]}，{proof["simulator"]}）；'
-              'iOS 设备 Release 编译、签名与安装包完整性检查已通过。'
+              validation
               + ('手机验收已由 Kerwin 完成。' if channel == 'release' else '手机验收待 Kerwin 执行。'),
               *([f'- 安装包 SHA256：`{ipa_sha256}`（经镜像下载时可用它核对，IPA 源里也带着同一个值）'] if ipa_sha256 else []),
               f'- [源码提交](https://github.com/{repo}/commit/{sha})',

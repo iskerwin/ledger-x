@@ -2,8 +2,9 @@
 """Validate, build and publish Ledger X on this Mac; nothing runs on GitHub Actions.
 
   python3 tools/ship.py test                     full validation, publishes nothing
-  python3 tools/ship.py dev                      validate main, build, push main, publish the dev build
-  python3 tools/ship.py release                  publish the phone-accepted dev package as vX.Y.Z (same bytes)
+  python3 tools/ship.py dev                      check main, build, push main, publish the dev build
+  python3 tools/ship.py dev --full               run full validation before publishing the dev build
+  python3 tools/ship.py release                  fully validate and publish the phone-accepted dev package (same bytes)
   python3 tools/ship.py version patch|minor|major|X.Y.Z
                                                  commit a version bump and a new CHANGELOG section
   python3 tools/ship.py watch                    follow the running (or the last) test / dev / release from any terminal
@@ -40,13 +41,14 @@ BOOT_TIMEOUT = 300
 TEST_TIMEOUT = 300   # per interaction test, as in the former CI
 STATUS = ROOT / '.ship/status.json'     # the run in progress (or the last one), for `watch`
 HISTORY = ROOT / '.ship/history.json'   # totals of the last passing run, to show "41 / 64"
+FULL_VALIDATION = ROOT / '.ship/full-validation.json'  # a passing suite bound to an unchanged, clean source commit
 
 # the stages of each command, as step() names them (the start is enough), for `watch` to list what is still to come
 PLAN = {
     'test': ('静态检查与流程回归', 'LedgerKit 核心测试', 'Beancount 报表对照', '新建专用模拟器', '编译 App 与测试包', '附件与交互测试'),
-    'release': ('下载并校验开发版', '发布正式版', '更新 IPA 源'),
+    'release': ('下载并校验开发版', '确认正式版全量验证', '发布正式版', '更新 IPA 源'),
 }
-PLAN['dev'] = PLAN['test'] + ('编译 Release 安装包', '打包并校验安装包', '推送 main 到 GitHub', '发布开发版', '更新 IPA 源')
+PLAN['dev'] = ('静态检查与流程回归', '编译 Release 安装包', '打包并校验安装包', '推送 main 到 GitHub', '发布开发版', '更新 IPA 源')
 
 
 class Failure(Exception):
@@ -256,13 +258,21 @@ def fresh_simulator():
     return udid, f'{device["name"]} · {runtime["name"]}'
 
 
-def validate():
-    """Everything the former CI app job ran, in the same order. Returns the evidence."""
+def validate_development():
+    """Fast publication checks; targeted tests are run during development, separately from packaging."""
     xcode = use_xcode()
     demo = demo_snapshot()
     step('静态检查与流程回归')
     run([sys.executable, 'tools/check_project.py'])
     run([sys.executable, '-m', 'unittest', 'discover', '-s', 'tools/tests', '-p', 'test_*.py'], log='tools-tests.log')
+    return dict(validator='local', scope='build', static_checks=True, tools_tests=True,
+                validated_at=datetime.now(timezone.utc).isoformat(timespec='seconds'),
+                macos=platform.mac_ver()[0], xcode=xcode, demo_commit=demo)
+
+
+def validate():
+    """Full regression suite, used explicitly or before a stable release."""
+    proof = validate_development()
 
     step('LedgerKit 核心测试')
     env = dict(os.environ, LEDGER_DEMO_PATH=str(ROOT / '.demo-data'), SAMPLE_OUT=str(ROOT / 'samples'))
@@ -308,9 +318,7 @@ def validate():
     report(f'{interaction} 项通过')
     subprocess.run(['xcrun', 'simctl', 'shutdown', udid], capture_output=True)
 
-    return dict(validator='local', validated_at=datetime.now(timezone.utc).isoformat(timespec='seconds'),
-                macos=platform.mac_ver()[0], xcode=xcode, simulator=simulator, demo_commit=demo,
-                core_tests=core, reports=reports, interaction_tests=interaction)
+    return dict(proof, scope='full', simulator=simulator, core_tests=core, reports=reports, interaction_tests=interaction)
 
 
 # Packages, evidence and releases.
@@ -372,10 +380,16 @@ def source_builds(log):
     return re.findall(r'"buildVersion": "(\d+)"', log)
 
 
-def verify_proof(proof, manifest):
+def verify_proof(proof, manifest, require_full=False):
     if proof.get('source_sha') != manifest['source_sha'] or proof.get('tree') != manifest['tree']:
         raise ValueError('验证记录与安装包的源码或文件树不一致')
-    if proof.get('validator') != 'local' or not proof.get('core_tests') or not proof.get('interaction_tests') \
+    if proof.get('validator') != 'local':
+        raise ValueError('验证记录必须来自本机')
+    if proof.get('scope') == 'build' and not require_full:
+        if not all(proof.get(k) is True for k in ('static_checks', 'tools_tests', 'release_build')):
+            raise ValueError('开发版验证记录不完整：缺少静态检查、工具回归或 Release 构建')
+        return
+    if proof.get('scope') not in (None, 'full') or not proof.get('core_tests') or not proof.get('interaction_tests') \
             or not str(proof.get('reports', '')).startswith('Reports match'):
         raise ValueError('验证记录不完整：缺少核心测试、报表对照或交互测试结果')
 
@@ -535,12 +549,12 @@ def require_clean_main():
         raise Failure('本地 main 落后于或偏离 GitHub main；先 git pull 再发布')
 
 
-def ship_dev():
+def ship_dev(full=False):
     import release_notes
     repo = repository()
     require_clean_main()
     sha = git('rev-parse', 'HEAD')
-    proof = validate()
+    proof = validate() if full else validate_development()
     version = re.search(r'MARKETING_VERSION: "([^"]+)"', (ROOT / 'project.yml').read_text())[1]
     releases = fetch_releases(repo, release_tags(out(['git', 'ls-remote', '--tags', 'origin'])))
     listed = []
@@ -551,6 +565,7 @@ def ship_dev():
     shutil.rmtree(DIST, ignore_errors=True)
     DIST.mkdir()
     ipa = build_ipa(version, build, proof['demo_commit'])
+    proof['release_build'] = True
     # Tests and the build must not have changed tracked files; the package is exactly this commit.
     if git('rev-parse', 'HEAD') != sha or git('status', '--porcelain'):
         raise Failure('验证或编译期间源码有变化：\n' + git('status', '--short') + '\n先还原（git checkout -- <文件>）后重新发布')
@@ -585,6 +600,35 @@ def ship_dev():
          f'\n  https://github.com/{repo}/releases/tag/dev\n  手机验收：待 Kerwin 执行')
 
 
+def release_validation(manifest, proof):
+    """A build-only dev needs full tests of its exact source before promotion; never rebuild its IPA."""
+    step('确认正式版全量验证')
+    if proof.get('scope') != 'build':
+        verify_proof(proof, manifest, require_full=True)
+        return proof
+    if git('status', '--porcelain'):
+        raise Failure('全量验证开发版源码前，请先提交或还原工作区改动')
+    sha = manifest['source_sha']
+    if git('rev-parse', 'HEAD') != sha:
+        raise Failure('正式版需要测试开发版的同一源码；本地 HEAD 与安装包提交不同，请在独立工作区检出该提交后再执行 release')
+    cached = read_json(FULL_VALIDATION)
+    try:
+        verify_proof(cached, manifest, require_full=True)
+    except ValueError:
+        cached = {}
+    if cached and cached.get('demo_commit') == proof['demo_commit']:
+        return dict(cached, release_build=True)
+    full = validate()
+    if git('rev-parse', 'HEAD') != sha or git('status', '--porcelain'):
+        raise Failure('全量验证期间源码有变化，未发布正式版')
+    if full['demo_commit'] != proof['demo_commit']:
+        raise Failure('全量验证与开发版的演示快照不同，未发布正式版')
+    full = dict(full, schema=2, source_sha=sha, tree=git('rev-parse', f'{sha}^{{tree}}'), release_build=True)
+    verify_proof(full, manifest, require_full=True)
+    write_json(FULL_VALIDATION, full)
+    return full
+
+
 def ship_release():
     """Publish the current dev package unchanged; it is what Kerwin accepted on the phone."""
     import release_notes
@@ -599,6 +643,8 @@ def ship_release():
         verify_source(repo, manifest)
         if tag_sha(repo, 'dev') != manifest['source_sha']:
             raise ValueError('开发版标签与安装包源码不一致')
+        proof = release_validation(manifest, proof)
+        (folder/'validation-evidence.json').write_text(json.dumps(proof, ensure_ascii=False, indent=2) + '\n')
         tag = f'v{manifest["version"]}'
         # Complete version notes from the exact source, not the rolling dev delta.
         changelog = git('show', f'{manifest["source_sha"]}:CHANGELOG.md')
@@ -680,7 +726,7 @@ def render(state, history, logs, now, alive=True):
         status = f'进行中，已用 {clock(now - state["started"])}'
     lines = [f'Ledger X · {TITLES.get(command, command)} · {status}', '']
     names = [stage['name'] for stage in stages]
-    pending = [p for p in PLAN.get(command, ()) if not any(n.startswith(p) for n in names)]
+    pending = [p for p in state.get('plan', PLAN.get(command, ())) if not any(n.startswith(p) for n in names)]
     pad = max([width(n) for n in names + pending] or [0]) + 2
     for i, stage in enumerate(stages):
         unfinished = i == len(stages) - 1 and 'ended' not in stage and result is None
@@ -758,7 +804,8 @@ def main(argv):
     usage = __doc__.split('\n\n')[1]
     if command == 'watch' and argv[2:] in ([], ['--once']):
         return watch(once=argv[2:] == ['--once'])
-    if command not in ('test', 'dev', 'release', 'version') or len(argv) != (3 if command == 'version' else 2):
+    full = command == 'dev' and argv[2:] == ['--full']
+    if command not in ('test', 'dev', 'release', 'version') or len(argv) != (3 if command == 'version' or full else 2):
         print(usage, file=sys.stderr)
         return 2
     # One publication at a time on this Mac.
@@ -772,10 +819,17 @@ def main(argv):
         progress.begin(command)
     try:
         if command == 'test':
+            source = None if git('status', '--porcelain') else git('rev-parse', 'HEAD')
+            FULL_VALIDATION.unlink(missing_ok=True)
             proof = validate()
+            if source and git('rev-parse', 'HEAD') == source and not git('status', '--porcelain'):
+                write_json(FULL_VALIDATION, dict(proof, schema=2, source_sha=source,
+                                               tree=git('rev-parse', f'{source}^{{tree}}')))
             done(f'\n✓ 全部通过：核心 {proof["core_tests"]} 项，交互 {proof["interaction_tests"]} 项；{proof["reports"]}')
         elif command == 'dev':
-            ship_dev()
+            if full:
+                progress.state['plan'] = list(PLAN['test'] + PLAN['dev'][1:])
+            ship_dev(full=full)
         elif command == 'release':
             ship_release()
         else:

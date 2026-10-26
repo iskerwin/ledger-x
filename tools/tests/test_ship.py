@@ -16,6 +16,13 @@ import ship
 
 
 class ShipTests(unittest.TestCase):
+    def setUp(self):
+        records = tempfile.TemporaryDirectory()
+        self.addCleanup(records.cleanup)
+        full = patch.object(ship, 'FULL_VALIDATION', Path(records.name)/'full-validation.json')
+        full.start()
+        self.addCleanup(full.stop)
+
     def fixture(self, folder):
         with zipfile.ZipFile(folder/'Ledger.ipa', 'w') as archive:
             archive.writestr('Payload/Ledger.app/Info.plist', plistlib.dumps(dict(
@@ -91,6 +98,145 @@ class ShipTests(unittest.TestCase):
                             dict(reports='beancount: 1 errors'), dict(validator='ci')]:
                 with self.subTest(updates=updates), self.assertRaises(ValueError):
                     ship.verify_package(folder, manifest, dict(proof, **updates), 'example/app')
+
+    def test_build_only_evidence_is_accepted_for_dev_but_not_full_validation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            manifest, old = self.fixture(folder)
+            proof = dict(source_sha=old['source_sha'], tree=old['tree'], validator='local', scope='build',
+                         static_checks=True, tools_tests=True, release_build=True, xcode=old['xcode'])
+            ship.verify_package(folder, manifest, proof, 'example/app')
+            with self.assertRaises(ValueError):
+                ship.verify_proof(proof, manifest, require_full=True)
+            for key in ('static_checks', 'tools_tests', 'release_build'):
+                with self.subTest(key=key), self.assertRaises(ValueError):
+                    ship.verify_package(folder, manifest, dict(proof, **{key: False}), 'example/app')
+            with self.assertRaises(ValueError):
+                ship.verify_proof(dict(proof, source_sha='other'), manifest)
+
+    def test_default_dev_builds_without_running_full_tests_and_build_failure_never_pushes(self):
+        import release_notes
+        for fail_build in (False, True):
+            with self.subTest(fail_build=fail_build), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                (root/'project.yml').write_text('MARKETING_VERSION: "1.0.0"')
+                (root/'CHANGELOG.md').write_text('## 1.0.0\n### 改进\n- 示例。')
+                def build(version, number, demo):
+                    if fail_build:
+                        raise ship.Failure('build failed')
+                    self.fixture(root/'dist')
+                    return root/'dist/Ledger.ipa'
+                def git(*args):
+                    if args == ('status', '--porcelain'):
+                        return ''
+                    return 'tree' if args[-1].endswith('^{tree}') else 'a'*40
+                with patch.object(ship, 'ROOT', root), patch.object(ship, 'DIST', root/'dist'), \
+                     patch.object(ship, 'repository', return_value='example/app'), \
+                     patch.object(ship, 'require_clean_main'), patch.object(ship, 'git', side_effect=git), \
+                     patch.object(ship, 'validate') as full, \
+                     patch.object(ship, 'validate_development', return_value=dict(validator='local', scope='build',
+                         static_checks=True, tools_tests=True, xcode='Xcode', demo_commit='demo')), \
+                     patch.object(ship, 'fetch_releases', return_value=[dict(body='构建 3')]), \
+                     patch.object(ship, 'out', return_value=''), patch.object(ship, 'remote_has', return_value=False), \
+                     patch.object(ship, 'build_ipa', side_effect=build), patch.object(ship, 'run') as run, \
+                     patch.object(ship, 'release_for_tag', return_value=None), patch.object(ship, 'update_sources'), \
+                     patch.object(release_notes, 'previous_changelog', return_value=''), patch('builtins.print'):
+                    if fail_build:
+                        with self.assertRaises(ship.Failure):
+                            ship.ship_dev()
+                        run.assert_not_called()
+                    else:
+                        ship.ship_dev()
+                        evidence = json.loads((root/'dist/validation-evidence.json').read_text())
+                        self.assertEqual(evidence['scope'], 'build')
+                        self.assertTrue(evidence['release_build'])
+                        self.assertNotIn('interaction_tests', evidence)
+                        self.assertIn(unittest.mock.call(['git', 'push', 'origin', 'HEAD:refs/heads/main']), run.call_args_list)
+                    full.assert_not_called()
+
+    def test_release_requires_full_tests_of_exact_dev_source(self):
+        manifest = dict(source_sha='a'*40, tree='tree')
+        proof = dict(scope='build', demo_commit='demo')
+        full = dict(scope='full', validator='local', demo_commit='demo', core_tests=10,
+                    interaction_tests=5, reports='Reports match Beancount')
+        def clean_git(*args):
+            if args == ('status', '--porcelain'):
+                return ''
+            return 'tree' if args[-1].endswith('^{tree}') else 'a'*40
+        with patch.object(ship, 'git', side_effect=clean_git), patch.object(ship, 'validate', return_value=full) as validate:
+            result = ship.release_validation(manifest, proof)
+            ship.verify_proof(result, manifest, require_full=True)
+            validate.assert_called_once()
+        ship.FULL_VALIDATION.unlink(missing_ok=True)
+        for git, validation in ((lambda *args: 'other', full),
+                                (clean_git, ship.Failure('tests failed')),
+                                (clean_git, dict(full, demo_commit='different'))):
+            with self.subTest(validation=validation), patch.object(ship, 'git', side_effect=git), \
+                 patch.object(ship, 'validate', side_effect=validation if isinstance(validation, Exception) else None,
+                              return_value=validation):
+                with self.assertRaises(ship.Failure):
+                    ship.release_validation(manifest, proof)
+
+    def test_full_dev_evidence_is_reused_without_retesting(self):
+        with tempfile.TemporaryDirectory() as temp:
+            manifest, proof = self.fixture(Path(temp))
+            with patch.object(ship, 'validate') as validate:
+                self.assertEqual(ship.release_validation(manifest, proof), proof)
+                validate.assert_not_called()
+
+    def test_release_reuses_only_full_results_for_the_same_source_and_demo(self):
+        manifest = dict(source_sha='a'*40, tree='tree')
+        proof = dict(scope='build', demo_commit='demo')
+        full = dict(validator='local', scope='full', source_sha='a'*40, tree='tree', demo_commit='demo',
+                    core_tests=10, interaction_tests=5, reports='Reports match Beancount')
+        def git(*args):
+            return '' if args == ('status', '--porcelain') else 'a'*40
+        ship.write_json(ship.FULL_VALIDATION, full)
+        with patch.object(ship, 'git', side_effect=git), patch.object(ship, 'validate') as validate:
+            self.assertEqual(ship.release_validation(manifest, proof)['scope'], 'full')
+            validate.assert_not_called()
+        for changes in (dict(source_sha='other'), dict(tree='other'), dict(demo_commit='other'), dict(scope='build')):
+            ship.write_json(ship.FULL_VALIDATION, dict(full, **changes))
+            with self.subTest(changes=changes), patch.object(ship, 'git', side_effect=git), \
+                 patch.object(ship, 'validate', side_effect=ship.Failure('full tests fail')) as validate:
+                with self.assertRaises(ship.Failure):
+                    ship.release_validation(manifest, proof)
+                validate.assert_called_once()
+
+    def test_dev_full_option_selects_full_validation_and_progress(self):
+        with tempfile.TemporaryFile(mode='w') as lock, tempfile.TemporaryDirectory() as temp, \
+             patch('builtins.open', return_value=lock), \
+             patch.object(ship, 'STATUS', Path(temp)/'status.json'), \
+             patch.object(ship, 'HISTORY', Path(temp)/'history.json'), \
+             patch.object(ship, 'progress', ship.Progress()), \
+             patch.object(ship, 'ship_dev') as dev, patch.object(ship, 'run_totals', return_value={}):
+            self.assertEqual(ship.main(['ship.py', 'dev', '--full']), 0)
+            dev.assert_called_once_with(full=True)
+            self.assertIn('LedgerKit 核心测试', json.loads((Path(temp)/'status.json').read_text())['plan'])
+
+    def test_only_a_complete_clean_source_test_run_leaves_reusable_evidence(self):
+        for dirty, failed in ((False, False), (True, False), (False, True)):
+            with self.subTest(dirty=dirty, failed=failed), tempfile.TemporaryFile(mode='w') as lock, \
+                 tempfile.TemporaryDirectory() as temp:
+                def git(*args):
+                    if args == ('status', '--porcelain'):
+                        return ' M changed.swift' if dirty else ''
+                    return 'tree' if args[-1].endswith('^{tree}') else 'a'*40
+                full = dict(scope='full', validator='local', demo_commit='demo', core_tests=10,
+                            interaction_tests=5, reports='Reports match Beancount')
+                ship.write_json(ship.FULL_VALIDATION, full)
+                with patch('builtins.open', return_value=lock), patch('builtins.print'), \
+                     patch.object(ship, 'STATUS', Path(temp)/'status.json'), \
+                     patch.object(ship, 'HISTORY', Path(temp)/'history.json'), \
+                     patch.object(ship, 'progress', ship.Progress()), \
+                     patch.object(ship, 'git', side_effect=git), patch.object(ship, 'run_totals', return_value={}), \
+                     patch.object(ship, 'validate', side_effect=ship.Failure('tests failed') if failed else None,
+                                  return_value=full):
+                    self.assertEqual(ship.main(['ship.py', 'test']), 1 if failed else 0)
+                    self.assertEqual(ship.FULL_VALIDATION.exists(), not dirty and not failed)
+                    if not dirty and not failed:
+                        proof = ship.read_json(ship.FULL_VALIDATION)
+                        ship.verify_proof(proof, dict(source_sha='a'*40, tree='tree'), require_full=True)
 
     def test_test_totals_come_from_the_last_summary(self):
         log = ('Executed 10 tests, with 0 failures (0 unexpected) in 0.1 seconds\n'

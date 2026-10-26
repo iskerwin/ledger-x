@@ -14,12 +14,13 @@ Ledger X 是原生 SwiftUI 的 iOS 17+ 记账 App，账本是用户自己的 Bea
 
 ## 命令
 
-所有测试、编译和发布都在本机运行，入口是 `tools/ship.py`（细节见 docs/development/04）：
+测试、编译和发布都在本机运行；日常按修改范围用 Swift、Xcode 或工具测试验证，不必每次全量。打包发布入口是 `tools/ship.py`（细节见 docs/development/04）：
 
 ```sh
 python3 tools/ship.py test        # 静态检查 → LedgerKit 核心测试 → Beancount 报表对照 → 新建模拟器 → 编译 → 附件与交互测试
-python3 tools/ship.py dev         # test 全过后编译 IPA、推送 main、更新开发版与 IPA 源
-python3 tools/ship.py release     # 仅 Kerwin 手机验收后执行：把当前开发版原样发布为正式版
+python3 tools/ship.py dev         # 静态检查、工具回归后编译 IPA、推送 main、更新开发版与 IPA 源（不跑全量）
+python3 tools/ship.py dev --full  # 需要时，全量通过后发开发版
+python3 tools/ship.py release     # 仅 Kerwin 手机验收后执行：补齐同一源码的全量验证，原 IPA 转正式版
 python3 tools/ship.py version patch|minor|major|X.Y.Z
 python3 tools/ship.py watch       # 另开终端看正在跑（或最近一次）的进度：阶段、用时、测试通过/失败数、当前用例
 python3 tools/ship.py watch --once  # 只打印一次当前进度后退出（适合非交互环境）
@@ -34,9 +35,9 @@ python3 tools/check_project.py                               # 文档链接、�
 xcodegen generate                                            # 改了 project.yml 或增删文件后，单独跑 xcodebuild 前重新生成工程
 python3 -m unittest discover -s tools/tests -p 'test_*.py'   # ship.py、发布说明与 IPA 源的回归
 LEDGER_DEMO_PATH="$PWD/.demo-data" SAMPLE_OUT="$PWD/samples" swift test --package-path LedgerKit --filter PostingOrderTests
-xcodebuild test-without-building -project Ledger.xcodeproj -scheme LedgerInteractionTests \
+xcodebuild test -project Ledger.xcodeproj -scheme LedgerInteractionTests \
   -destination 'platform=iOS Simulator,name=Ledger Local Tests' -derivedDataPath build-demo \
-  -only-testing:LedgerUITests/EditInteractionTests/<testMethod>   # 先跑过一次 ship.py test
+  -only-testing:LedgerUITests/EditInteractionTests/<testMethod>   # 只构建并运行指定用例，无需先跑全量
 ```
 
 - `.demo-data` 是固定提交的 `ledger-demo` 只读克隆（提交号在 `tools/fixtures/manifest.json`），ship.py 自动准备。
