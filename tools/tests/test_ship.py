@@ -274,16 +274,16 @@ class ShipTests(unittest.TestCase):
                     ship.release_validation(manifest, proof)
                 validate.assert_called_once()
 
-    def test_dev_full_option_selects_full_validation_and_progress(self):
+    def test_dev_full_option_is_refused_before_validation_or_publication(self):
         with tempfile.TemporaryFile(mode='w') as lock, tempfile.TemporaryDirectory() as temp, \
              patch('builtins.open', return_value=lock), \
              patch.object(ship, 'STATUS', Path(temp)/'status.json'), \
              patch.object(ship, 'HISTORY', Path(temp)/'history.json'), \
              patch.object(ship, 'progress', ship.Progress()), \
              patch.object(ship, 'ship_dev') as dev, patch.object(ship, 'run_totals', return_value={}):
-            self.assertEqual(ship.worker_main(['ship.py', 'dev', '--full']), 0)
-            dev.assert_called_once_with(full=True)
-            self.assertIn('LedgerKit 核心测试', json.loads((Path(temp)/'status.json').read_text())['plan'])
+            self.assertEqual(ship.worker_main(['ship.py', 'dev', '--full']), 2)
+            dev.assert_not_called()
+            self.assertFalse((Path(temp)/'status.json').exists())
 
     def test_only_a_complete_clean_source_test_run_leaves_reusable_evidence(self):
         for dirty, failed in ((False, False), (True, False), (False, True)):

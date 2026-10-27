@@ -31,7 +31,7 @@ def dispatch(args):
     inputs = dict(source_sha=sha, core_filter=args.core_filter or '',
                   ui_tests='\n'.join(args.ui_test), device=args.device or '')
     if args.command == 'dev':
-        inputs = dict(full=str(args.full).lower())
+        inputs = {}
     if args.command == 'release':
         if not args.accepted_build:
             raise ValueError('转正式版须先由 Kerwin 手机验收，再指定 --accepted-build 构建号')
@@ -98,6 +98,8 @@ def main(argv):
             raise ValueError('转正自动核对并补齐同一源码的全量记录，不接受测试筛选')
         if args.command == 'dev' and (args.core_filter or args.ui_test or args.device):
             raise ValueError('Dev 已自动选择相关测试，无需填写测试或机型；手动复查请用 test --core-filter / --ui-test / --device')
+        if args.command == 'dev' and args.full:
+            raise ValueError('Dev 只运行相关模块测试；完整全量在 Release 转正前执行，单独验证可用 test --full')
         if any(not re.fullmatch(r'Ledger(?:UI)?Tests/[A-Za-z0-9_]+(?:/[A-Za-z0-9_]+)?', value) for value in args.ui_test):
             raise ValueError('--ui-test 须为 Target/Class[/method]')
         return dispatch(args)

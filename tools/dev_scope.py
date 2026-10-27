@@ -11,7 +11,7 @@ import tempfile
 import pr_scope
 
 # Explicitly reviewed dependencies, not a guess based on Swift/test name similarity.
-# Unknown app/shared/core sources expand to full validation until mapped here.
+# Unknown source files expand within their affected test layer, never to full validation.
 CALENDAR_TESTS = (
     'testTheCalendarTakesTheQuickFiltersPlaceAndKeepsItsHeight',
     'testTheCalendarDotsSitUnderTheirDate',
@@ -41,7 +41,8 @@ def classify(paths, diff='', sources=None):
     """Union all changed-file requirements; unknown/deleted coverage expands, never disappears."""
     paths = sorted(set(paths))
     core, ui, narrow, reasons = set(), set(), set(), []
-    full = False
+    core_all = False
+    targets = set()
     for path in paths:
         mapping = MAPPINGS.get(path)
         if mapping:
@@ -58,20 +59,36 @@ def classify(paths, diff='', sources=None):
             ui.update(plan['xcode_tests'])
             reasons.append(f'{path} → 改动的测试及共用辅助函数影响的用例')
         elif path.startswith('tools/fixtures/'):
-            full = True
-            reasons.append(f'{path} → 演示快照或独立报表样本变化，跑全量')
+            core_all = True
+            targets.add('LedgerTests')
+            reasons.append(f'{path} → 演示/样本受影响，扩大到核心与 App 内测试模块')
         elif path in SAFE_FILES or path.startswith(('docs/', 'tools/', '.github/')):
             reasons.append(f'{path} → 静态检查与工具测试')
+        elif path.startswith('LedgerKit/'):
+            core_all = True
+            reasons.append(f'{path} → 扩大到核心测试模块')
+        elif path.startswith('Ledger/Sync/'):
+            core_all = True
+            targets.add('LedgerTests')
+            # Store and shared persistence state also drive every screen's interaction.
+            if Path(path).name in ('Store.swift', 'Shared.swift', 'Compose.swift', 'Backends.swift'):
+                targets.add('LedgerUITests')
+            reasons.append(f'{path} → 扩大到核心与存储测试模块；共用存储状态另含界面模块')
+        elif path.startswith(('Ledger/', 'LedgerTests/', 'LedgerUITests/')) or path == 'project.yml':
+            targets.update(('LedgerTests', 'LedgerUITests'))
+            reasons.append(f'{path} → 扩大到 App 内与界面测试模块')
         else:
-            full = True
-            reasons.append(f'{path} → 尚无可靠的局部测试对应规则，扩大到全量')
-    return dict(full=full, core_filter='|'.join(sorted(core)), ui_tests=sorted(ui),
+            core_all = True
+            targets.update(('LedgerTests', 'LedgerUITests'))
+            reasons.append(f'{path} → 无法确定模块，运行各模块相关测试；不执行完整全量流程')
+    return dict(core_all=core_all, app_targets=sorted(targets), narrow_targets=[],
+                core_filter='.*' if core_all else '|'.join(sorted(core)), ui_tests=sorted(ui),
                 narrow_tests=sorted(narrow), paths=paths, reasons=reasons or ['源码与上次开发版相同，只做静态与工具检查'])
 
 
 def validate_selectors(plan, root):
     """A stale/deleted mapping must not silently turn into zero coverage."""
-    for name in plan['core_filter'].split('|') if plan['core_filter'] else ():
+    for name in plan['core_filter'].split('|') if plan['core_filter'] and not plan['core_all'] else ():
         file = root / 'LedgerKit/Tests/LedgerKitTests' / f'{name}.swift'
         if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', name) or not file.is_file():
             return False
@@ -90,6 +107,43 @@ def validate_selectors(plan, root):
     return True
 
 
+def module_tests(root, target):
+    import ship
+    selectors = set()
+    for file in (root / target).rglob('*.swift'):
+        for name in re.findall(r'\bclass\s+(\w+)\s*:\s*XCTestCase\b', file.read_text()):
+            selectors.add(f'{target}/{name}')
+    if not selectors:
+        raise ship.Failure(f'{target} 没有可执行的测试类，未发布；不能把空模块算作通过')
+    return selectors
+
+
+def expand_modules(plan, root):
+    """Resolve broad modules and replace stale selectors with current tests of the same layer."""
+    targets = set(plan['app_targets'])
+    narrow_targets = set(plan['narrow_targets'])
+    if not validate_selectors(plan, root):
+        for name in plan['core_filter'].split('|') if plan['core_filter'] and not plan['core_all'] else ():
+            if not validate_selectors(dict(plan, core_filter=name, ui_tests=[], narrow_tests=[]), root):
+                plan['core_all'] = True
+                break
+        for key, affected in (('ui_tests', targets), ('narrow_tests', narrow_targets)):
+            for selector in plan[key]:
+                check = dict(plan, core_filter='', ui_tests=[selector], narrow_tests=[])
+                if not validate_selectors(check, root):
+                    affected.add(selector.split('/')[0])
+        plan['reasons'].append('测试已删除或对应规则已过期，替换为当前受影响模块的测试')
+    if plan['core_all']:
+        plan['core_filter'] = '.*'
+    for key, expanded in (('ui_tests', targets), ('narrow_tests', narrow_targets)):
+        selectors = {value for value in plan[key] if value.split('/')[0] not in expanded}
+        for target in expanded:
+            selectors.update(module_tests(root, target))
+        plan[key] = sorted(selectors)
+    plan.update(app_targets=sorted(targets), narrow_targets=sorted(narrow_targets))
+    return plan
+
+
 def select(repo, sha):
     import ship
     base = None
@@ -103,20 +157,20 @@ def select(repo, sha):
         if ship.tag_sha(repo, 'dev') != base:
             raise ship.Failure('上次开发版标签与清单源码不一致，未发布；请核实开发版记录')
     if base is None:
-        plan = classify([])
-        plan.update(full=True, reasons=['没有上次开发版，首次发布跑全量'])
+        paths = ship.out(['git', 'ls-files', '-z']).strip('\0').split('\0')
+        plan = classify([path for path in paths if path])
+        plan['reasons'].insert(0, '没有上次开发版，按当前源码所含模块选测，不执行完整全量流程')
     elif subprocess.run(['git', 'merge-base', '--is-ancestor', base, sha], cwd=ship.ROOT).returncode:
-        plan = classify([])
-        plan.update(full=True, reasons=['上次开发版不是当前源码的祖先，无法可靠缩小范围，跑全量'])
+        paths = ship.out(['git', 'ls-files', '-z']).strip('\0').split('\0')
+        plan = classify([path for path in paths if path])
+        plan['reasons'].insert(0, '基线不是当前源码的祖先，按当前源码所含模块选测，不执行完整全量流程')
     else:
         # Two-dot diff covers all net changes since the package, including multiple PRs/deletions.
         paths = ship.out(['git', 'diff', '--name-only', '-z', '--no-renames', base, sha, '--']).strip('\0').split('\0')
         paths = [path for path in paths if path]
         diff = ship.out(['git', 'diff', '--unified=0', '--no-renames', base, sha, '--'])
         plan = classify(paths, diff=diff)
-        if not plan['full'] and not validate_selectors(plan, ship.ROOT):
-            plan['full'] = True
-            plan['reasons'].append('相关测试已删除或对应规则已过期，扩大到全量')
+    plan = expand_modules(plan, ship.ROOT)
     return dict(plan, base_sha=base, source_sha=sha, mode='automatic')
 
 
@@ -124,11 +178,10 @@ def describe(plan):
     lines = ['## Dev 自动测试范围',
              f'- 基线：{plan["base_sha"] or "无（首次开发版）"}',
              f'- 当前源码：{plan["source_sha"]}',
-             f'- 范围：{"全量（已自动扩大）" if plan["full"] else "相关测试"}',
+             '- 范围：相关测试（需要时扩大到受影响模块；完整全量在转正前执行）',
              '', *['- ' + reason for reason in plan['reasons']]]
-    if not plan['full']:
-        lines += ['', f'- 核心测试：{plan["core_filter"] or "无需运行；静态与工具测试始终执行"}',
-                  *['- App/界面：' + name for name in plan['ui_tests']]]
+    lines += ['', f'- 核心测试：{plan["core_filter"] or "无需运行；静态与工具测试始终执行"}',
+              *['- App/界面：' + name for name in plan['ui_tests']]]
     lines += ['- 窄屏（iPhone SE 第三代）：' + name for name in plan['narrow_tests']]
     return '\n'.join(lines) + '\n'
 
@@ -151,11 +204,8 @@ def environment(core, selectors, device=None):
 
 def validate(plan):
     import ship
-    if plan['full']:
-        proof = ship.validate()
-    else:
-        with environment(plan['core_filter'], plan['ui_tests']):
-            proof = ship.validate_targeted()
+    with environment(plan['core_filter'], plan['ui_tests']):
+        proof = ship.validate_targeted()
     if plan['narrow_tests']:
         # Keep both actual result bundles and logs when reusing the existing targeted runner.
         for name, kept in (('interaction-tests.xcresult', 'interaction-tests-regular.xcresult'),

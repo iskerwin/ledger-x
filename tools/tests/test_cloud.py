@@ -55,7 +55,7 @@ class CloudTests(unittest.TestCase):
                 if '/dispatches' in ' '.join(cmd):
                     return json.dumps(dict(workflow_run_id=456, html_url='https://example.test/run'))
                 return ''
-            args = argparse.Namespace(command=command, full=command == 'dev', core_filter=None,
+            args = argparse.Namespace(command=command, full=False, core_filter=None,
                                       ui_test=[], device=None, accepted_build='123' if command == 'release' else None)
             with self.subTest(command=command), tempfile.TemporaryDirectory() as temp, \
                  patch.object(cloud, 'STATE', Path(temp)/'state.json'), patch.object(cloud, 'output', side_effect=output), \
@@ -70,7 +70,7 @@ class CloudTests(unittest.TestCase):
                 elif command == 'test':
                     self.assertNotIn('full', payload['inputs'])
                 else:
-                    self.assertEqual(payload['inputs'], dict(full='true'))
+                    self.assertEqual(payload['inputs'], {})
                 self.assertEqual(json.loads(cloud.STATE.read_text())['workflow'], filename)
 
     def test_release_requires_the_accepted_build_and_valid_package_digest(self):
@@ -175,6 +175,7 @@ class CloudTests(unittest.TestCase):
     def test_dev_manual_selectors_are_redirected_to_test_without_dispatch(self):
         with patch.object(cloud, 'dispatch') as dispatch:
             self.assertEqual(cloud.main(['dev', '--core-filter', 'CalendarMarkTests']), 1)
+            self.assertEqual(cloud.main(['dev', '--full']), 1)
             dispatch.assert_not_called()
 
     def test_prepare_allows_a_branch_test_of_its_own_head_without_fetching(self):

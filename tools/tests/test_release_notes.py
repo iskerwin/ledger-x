@@ -40,7 +40,8 @@ class ReleaseNotesTests(unittest.TestCase):
     def test_build_only_dev_does_not_claim_full_tests_passed(self):
         proof = dict(scope='build', xcode='Xcode 27.1')
         text = notes.render(BASE, '', 'example/ledger-x', 'a'*40, '1.0.0', '8', proof)
-        self.assertIn('本次发布未运行核心、Beancount 报表对照和界面全量测试', text)
+        self.assertIn('本次未执行完整全量验证', text)
+        self.assertIn('独立 Beancount 报表全量对照留到转正前执行', text)
         self.assertIn('Release 编译', text)
         self.assertIn('手机验收待 Kerwin', text)
         self.assertNotIn('核心测试 308 项', text)
@@ -58,7 +59,7 @@ class ReleaseNotesTests(unittest.TestCase):
         self.assertIn('补充机型回归 4 项通过（iPhone SE', text)
         self.assertIn('自动选测基线：', text)
         self.assertIn('共用月历与窄屏', text)
-        self.assertIn('未运行核心、Beancount 报表对照和界面全量测试', text)
+        self.assertIn('本次未执行完整全量验证', text)
 
     def test_only_delta_and_nonempty_categories_appear(self):
         current = BASE.replace('- 原有功能。', '- 原有功能。\n- 新功能。') + '\n### 修复\n- 修复保存失败。\n'

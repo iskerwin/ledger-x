@@ -62,8 +62,8 @@ def render(current, previous, repo, sha, version, build, proof, channel="dev", i
     mirror = f'https://gh-proxy.com/https://raw.githubusercontent.com/{repo}/ipa/mirror/{channel}.json'
     if proof.get('scope') == 'build':
         validation = ('本次发布通过静态检查、发布工具回归、iOS 设备 Release 编译、签名与安装包完整性检查'
-                      f'（{proof["xcode"]}）。本次发布未运行核心、Beancount 报表对照和界面全量测试；'
-                      '开发中的相关测试与 Xcode 手工检查不计入这份发布记录。')
+                      f'（{proof["xcode"]}）。本次未执行完整全量验证；实际运行的相关/模块测试按下列记录列出，'
+                      '独立 Beancount 报表全量对照留到转正前执行。')
     else:
         validation = (f'{"GitHub macOS 验证通过" if proof.get("validator") == "github-actions" else "本机验证通过"}：核心测试 {proof["core_tests"]} 项、Beancount 报表对照、模拟器附件与交互测试 '
                       f'{proof["interaction_tests"]} 项（{proof["xcode"]}，{proof["simulator"]}）；'

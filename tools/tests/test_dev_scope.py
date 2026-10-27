@@ -17,16 +17,15 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class DevScopeTests(unittest.TestCase):
-    def test_dev_web_form_only_has_an_optional_full_toggle(self):
+    def test_dev_web_form_has_no_parameters_or_full_toggle(self):
         workflow = (ROOT/'.github/workflows/dev.yml').read_text()
-        inputs = workflow.split('    inputs:', 1)[1].split('\npermissions:', 1)[0]
-        self.assertEqual(re.findall(r'^      (\w+):', inputs, re.M), ['full'])
-        self.assertIn('default: false', inputs)
+        self.assertNotIn('    inputs:', workflow)
+        self.assertNotIn('inputs.full', workflow)
         self.assertIn('LEDGER_SOURCE_SHA: ${{ github.sha }}', workflow)
 
     def test_calendar_source_runs_core_journal_subscription_and_narrow_regressions(self):
         plan = dev_scope.classify(['Ledger/Views/CalendarView.swift'])
-        self.assertFalse(plan['full'])
+        self.assertFalse(plan['core_all'])
         self.assertEqual(plan['core_filter'], 'CalendarMarkTests|SearchTests|SubTests')
         self.assertIn('LedgerUITests/EditInteractionTests/testGlassCalendarFixedRowsAndDaySelection', plan['ui_tests'])
         self.assertIn('LedgerUITests/EditInteractionTests/testGlassSubscriptionCalendarRangeAndSelectionAtLargeText', plan['ui_tests'])
@@ -40,35 +39,47 @@ class DevScopeTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertTrue(dev_scope.validate_selectors(dev_scope.classify([path]), ROOT))
 
-    def test_shared_sources_project_and_demo_changes_expand_to_full(self):
+    def test_unknown_sources_expand_only_the_affected_modules(self):
         for path in ('Ledger/Views/Common.swift', 'Ledger/Sync/Store.swift', 'Ledger/Views/NewView.swift',
                      'LedgerKit/Sources/LedgerKit/Derived.swift', 'project.yml',
                      'tools/fixtures/manifest.json', 'LedgerTests/Fixtures/main.bean'):
             with self.subTest(path=path):
                 plan = dev_scope.classify(['Ledger/Views/CalendarView.swift', path])
-                self.assertTrue(plan['full'])
+                self.assertNotIn('full', plan)
+                if path.startswith('LedgerKit/'):
+                    self.assertTrue(plan['core_all'])
+                    self.assertEqual(plan['app_targets'], [])
+                elif path.startswith(('Ledger/Sync/', 'tools/fixtures/')):
+                    self.assertTrue(plan['core_all'])
+                    self.assertIn('LedgerTests', plan['app_targets'])
+                else:
+                    self.assertFalse(plan['core_all'])
+                    self.assertEqual(plan['app_targets'], ['LedgerTests', 'LedgerUITests'])
                 self.assertIn(path, '\n'.join(plan['reasons']))
 
     def test_docs_and_tooling_run_static_and_tools_without_unrelated_app_tests(self):
         plan = dev_scope.classify(['docs/development/04-云端测试与发布.md', 'tools/dev_scope.py',
                                    '.github/workflows/dev.yml', 'CHANGELOG.md'])
-        self.assertFalse(plan['full'])
+        self.assertFalse(plan['core_all'])
+        self.assertEqual(plan['app_targets'], [])
         self.assertEqual(plan['core_filter'], '')
         self.assertEqual(plan['ui_tests'], [])
 
     def test_changed_tests_are_added_to_mapped_source_regressions(self):
         plan = dev_scope.classify(['Ledger/Views/CalendarView.swift', 'LedgerTests/AttachmentUploadTests.swift',
                                    'LedgerKit/Tests/LedgerKitTests/PostingOrderTests.swift'])
-        self.assertFalse(plan['full'])
+        self.assertFalse(plan['core_all'])
         self.assertIn('PostingOrderTests', plan['core_filter'].split('|'))
         self.assertIn('LedgerTests/AttachmentUploadTests', plan['ui_tests'])
 
-    def test_no_previous_dev_runs_full_but_api_failure_does_not_masquerade_as_first_dev(self):
-        with patch.object(ship, 'release_for_tag', return_value=None), patch.object(ship, 'out') as diff:
+    def test_first_dev_selects_modules_but_api_failure_does_not_masquerade_as_first_dev(self):
+        with patch.object(ship, 'release_for_tag', return_value=None), \
+             patch.object(ship, 'out', return_value='LedgerKit/Sources/LedgerKit/Derived.swift\0') as diff:
             plan = dev_scope.select('example/app', 'a'*40)
-            self.assertTrue(plan['full'])
+            self.assertTrue(plan['core_all'])
+            self.assertNotIn('full', plan)
             self.assertIsNone(plan['base_sha'])
-            diff.assert_not_called()
+            diff.assert_called_once_with(['git', 'ls-files', '-z'])
         with patch.object(ship, 'release_for_tag', side_effect=RuntimeError('HTTP 403')), \
              patch.object(ship, 'validate') as validate:
             with self.assertRaises(RuntimeError):
@@ -88,6 +99,15 @@ class DevScopeTests(unittest.TestCase):
             git('init', '-q')
             (root/'Ledger/Views').mkdir(parents=True)
             (root/'LedgerTests').mkdir()
+            (root/'LedgerTests/ExistingTests.swift').write_text('final class ExistingTests: XCTestCase {}')
+            (root/'LedgerUITests').mkdir()
+            (root/'LedgerUITests/EditInteractionTests.swift').write_text(
+                'final class EditInteractionTests: XCTestCase {\n' + '\n'.join(
+                    f'func {name}() {{}}' for name in dev_scope.CALENDAR_TESTS) + '\n}')
+            kit = root/'LedgerKit/Tests/LedgerKitTests'
+            kit.mkdir(parents=True)
+            for name in ('CalendarMarkTests', 'SearchTests', 'SubTests'):
+                (kit/f'{name}.swift').write_text(f'final class {name}: XCTestCase {{}}')
             (root/'LedgerTests/RemovedTests.swift').write_text('final class RemovedTests {}')
             (root/'Ledger/Views/CalendarView.swift').write_text('// original fictional calendar')
             base = commit('fictional previous package')
@@ -105,22 +125,28 @@ class DevScopeTests(unittest.TestCase):
                 self.assertEqual(plan['base_sha'], base)
                 self.assertEqual(plan['source_sha'], head)
                 self.assertEqual(plan['paths'], ['CHANGELOG.md', 'Ledger/Views/CalendarView.swift', 'LedgerTests/RemovedTests.swift'])
-                self.assertTrue(plan['full'], 'Deleted/missing tests must expand rather than silently disappear')
+                self.assertNotIn('full', plan)
+                self.assertEqual(plan['app_targets'], ['LedgerTests'])
+                self.assertIn('LedgerTests/ExistingTests', plan['ui_tests'])
+                self.assertNotIn('LedgerTests/RemovedTests', plan['ui_tests'])
 
-    def test_unrelated_history_and_stale_mappings_expand_to_full(self):
+    def test_unrelated_history_and_stale_mappings_expand_to_current_modules(self):
         def download(repo, tag, folder, files):
             (folder/'build-manifest.json').write_text(json.dumps(dict(repository=repo, source_sha='a'*40)))
         with patch.object(ship, 'release_for_tag', return_value={"tag_name": "dev"}), \
              patch.object(ship, 'download', side_effect=download), patch.object(ship, 'tag_sha', return_value='a'*40), \
              patch.object(dev_scope.subprocess, 'run') as ancestry:
             ancestry.return_value.returncode = 1
-            self.assertTrue(dev_scope.select('example/app', 'b'*40)['full'])
+            with patch.object(ship, 'out', return_value='LedgerKit/Sources/LedgerKit/Derived.swift\0'):
+                self.assertTrue(dev_scope.select('example/app', 'b'*40)['core_all'])
             ancestry.return_value.returncode = 0
             with patch.object(ship, 'out', side_effect=['Ledger/Views/CalendarView.swift\0', '']), \
                  patch.object(dev_scope, 'validate_selectors', return_value=False):
                 plan = dev_scope.select('example/app', 'b'*40)
-                self.assertTrue(plan['full'])
-                self.assertIn('规则已过期', plan['reasons'][-1])
+                self.assertNotIn('full', plan)
+                self.assertTrue(plan['core_all'])
+                self.assertEqual(plan['app_targets'], ['LedgerUITests'])
+                self.assertIn('过期', plan['reasons'][-1])
 
     def test_mismatched_baseline_is_refused_without_guessing(self):
         for record, tag in ((dict(repository='other/app', source_sha='a'*40), 'a'*40),
@@ -158,18 +184,23 @@ class DevScopeTests(unittest.TestCase):
                 self.assertEqual(proof['scope'], 'build')
                 self.assertEqual(proof['auto_selection'], plan)
 
-    def test_narrow_failure_propagates_and_full_fallback_really_runs_full(self):
+    def test_narrow_failure_propagates_and_module_expansion_never_runs_full(self):
         plan = dev_scope.classify(['Ledger/Views/CalendarView.swift'])
         with tempfile.TemporaryDirectory() as temp, patch.object(ship, 'ROOT', Path(temp)), \
              patch.object(ship, 'validate_targeted', side_effect=[dict(scope='build'), ship.Failure('narrow failed')]):
             with self.assertRaises(ship.Failure):
                 dev_scope.validate(plan)
-        with patch.object(ship, 'validate', return_value=dict(scope='full')) as full, \
-             patch.object(ship, 'validate_targeted') as targeted:
+        with patch.object(ship, 'validate') as full, \
+             patch.object(ship, 'validate_targeted', return_value=dict(scope='build')) as targeted:
             proof = dev_scope.validate(dev_scope.classify(['Ledger/Sync/Store.swift']))
-            self.assertEqual(proof['scope'], 'full')
-            full.assert_called_once_with()
-            targeted.assert_not_called()
+            self.assertEqual(proof['scope'], 'build')
+            full.assert_not_called()
+            targeted.assert_called_once_with()
+
+    def test_empty_module_is_refused_instead_of_counting_zero_as_passed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            with self.assertRaises(ship.Failure):
+                dev_scope.expand_modules(dev_scope.classify(['Ledger/Views/NewView.swift']), Path(temp))
 
 
 if __name__ == '__main__':
