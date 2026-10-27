@@ -305,6 +305,53 @@ def validate_development():
                 macos=platform.mac_ver()[0], xcode=xcode, demo_commit=demo, demo_sha256=digest)
 
 
+def checked_interaction_results(summary, tests):
+    """Check completed cases in both bundles against xcresult's overall summary."""
+    targets = {}
+    seen = set()
+
+    def walk(nodes, target=None):
+        for node in nodes:
+            kind = node.get('nodeType')
+            if kind in ('Unit test bundle', 'UI test bundle'):
+                target = node.get('name')
+                if target not in ('LedgerTests', 'LedgerUITests') or target in targets:
+                    raise ValueError('测试目标不完整或重复')
+                targets[target] = 0
+            if kind in ('Test Plan', 'Unit test bundle', 'UI test bundle', 'Test Suite', 'Test Case') \
+                    and node.get('result') != 'Passed':
+                raise ValueError('包含失败、跳过或未完成的测试')
+            if kind == 'Test Case':
+                identity = node.get('nodeIdentifierURL')
+                if target not in targets or not identity or identity in seen:
+                    raise ValueError('测试用例身份缺失或重复')
+                seen.add(identity)
+                targets[target] += 1
+            walk(node.get('children', []), target)
+
+    try:
+        walk(tests['testNodes'])
+        if set(targets) != {'LedgerTests', 'LedgerUITests'} or not all(targets.values()):
+            raise ValueError('LedgerTests 与 LedgerUITests 必须各有实际通过的测试')
+        count = sum(targets.values())
+        if summary['result'] != 'Passed' or summary['totalTestCount'] != count or summary['passedTests'] != count \
+                or any(summary[key] != 0 for key in ('failedTests', 'skippedTests', 'expectedFailures')):
+            raise ValueError('测试汇总未全部通过或与用例明细不一致')
+    except (KeyError, TypeError, ValueError) as error:
+        raise Failure(f'附件与交互测试结果不完整：{error}，见 interaction-tests.xcresult') from error
+    return targets
+
+
+def interaction_results():
+    command = ['xcrun', 'xcresulttool', 'get', 'test-results']
+    try:
+        summary = json.loads(out([*command, 'summary', '--path', 'interaction-tests.xcresult', '--compact']))
+        tests = json.loads(out([*command, 'tests', '--path', 'interaction-tests.xcresult', '--compact']))
+    except (ValueError, subprocess.CalledProcessError) as error:
+        raise Failure('无法读取附件与交互测试结果，未认定全量通过，见 interaction-tests.xcresult') from error
+    return checked_interaction_results(summary, tests)
+
+
 def validate():
     """Full regression suite, used explicitly or before a stable release."""
     proof = validate_development()
@@ -349,12 +396,14 @@ def validate():
             print(f'  ✗ {name}', file=sys.stderr)
         raise Failure('交互测试未通过，见 interaction-tests.log 与 interaction-tests.xcresult'
                       + ('' if failures else '（没有失败的测试用例，可能是环境问题）'))
-    interaction = len(re.findall(r"Test Case '-\[\S+ \S+\]' passed", text))
-    report(f'{interaction} 项通过')
+    targets = interaction_results()
+    interaction = sum(targets.values())
+    report(f'App 内 {targets["LedgerTests"]} 项、界面 {targets["LedgerUITests"]} 项通过')
     subprocess.run(['xcrun', 'simctl', 'shutdown', udid], capture_output=True)
 
     verify_demo_snapshot(proof['demo_commit'], proof['demo_sha256'])
-    return dict(proof, scope='full', simulator=simulator, core_tests=core, reports=reports, interaction_tests=interaction)
+    return dict(proof, scope='full', simulator=simulator, core_tests=core, reports=reports,
+                interaction_tests=interaction, test_targets=targets)
 
 
 # Packages, evidence and releases.
@@ -427,13 +476,22 @@ def verify_proof(proof, manifest, require_full=False):
     if require_full and (not proof.get('demo_commit') or
                          not re.fullmatch(r'[0-9a-f]{64}', str(proof.get('demo_sha256', '')))):
         raise ValueError('全量验证记录缺少演示快照内容摘要，需要补跑')
+    if require_full and not all(proof.get(key) is True for key in ('static_checks', 'tools_tests')):
+        raise ValueError('全量验证记录缺少静态检查或工具回归，需要补跑')
     if proof.get('scope') == 'build' and not require_full:
         if not all(proof.get(k) is True for k in ('static_checks', 'tools_tests', 'release_build')):
             raise ValueError('开发版验证记录不完整：缺少静态检查、工具回归或 Release 构建')
         return
-    if proof.get('scope') not in (None, 'full') or not proof.get('core_tests') or not proof.get('interaction_tests') \
+    if proof.get('scope') not in (None, 'full') \
+            or any(type(proof.get(key)) is not int or proof[key] <= 0 for key in ('core_tests', 'interaction_tests')) \
             or not str(proof.get('reports', '')).startswith('Reports match'):
         raise ValueError('验证记录不完整：缺少核心测试、报表对照或交互测试结果')
+    if require_full or 'test_targets' in proof:
+        targets = proof.get('test_targets')
+        if not isinstance(targets, dict) or set(targets) != {'LedgerTests', 'LedgerUITests'} \
+                or any(type(n) is not int or n <= 0 for n in targets.values()) \
+                or sum(targets.values()) != proof['interaction_tests']:
+            raise ValueError('全量验证记录缺少两个测试目标的完整通过数，需要补跑')
 
 
 def verify_package(folder, manifest, proof, repo):

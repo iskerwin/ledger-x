@@ -35,7 +35,7 @@ class ShipTests(unittest.TestCase):
         data = (folder/'Ledger.ipa').read_bytes()
         manifest = dict(version='1.0.0', build='4', repository='example/app', source_sha='a'*40,
                         tree='tree', sha256=hashlib.sha256(data).hexdigest(), size=len(data))
-        proof = dict(source_sha='a'*40, tree='tree', validator='local', core_tests=308, interaction_tests=32,
+        proof = dict(source_sha='a'*40, tree='tree', validator='local', static_checks=True, tools_tests=True, core_tests=308, interaction_tests=32, test_targets=dict(LedgerTests=10, LedgerUITests=22),
                      reports='Reports match Beancount (5 valuations, 9 months, 21 month ends)',
                      xcode='Xcode 27.1', simulator='iPhone 17 · iOS 27.0', demo_commit='demo', demo_sha256=DEMO_SHA)
         return manifest, proof
@@ -161,8 +161,8 @@ class ShipTests(unittest.TestCase):
     def test_release_requires_full_tests_of_exact_dev_source(self):
         manifest = dict(source_sha='a'*40, tree='tree')
         proof = dict(scope='build', demo_commit='demo', demo_sha256=DEMO_SHA)
-        full = dict(scope='full', validator='local', demo_commit='demo', demo_sha256=DEMO_SHA, core_tests=10,
-                    interaction_tests=5, reports='Reports match Beancount')
+        full = dict(scope='full', validator='local', static_checks=True, tools_tests=True, demo_commit='demo', demo_sha256=DEMO_SHA, core_tests=10,
+                    interaction_tests=5, test_targets=dict(LedgerTests=2, LedgerUITests=3), reports='Reports match Beancount')
         def clean_git(*args):
             if args == ('status', '--porcelain'):
                 return ''
@@ -207,8 +207,8 @@ class ShipTests(unittest.TestCase):
     def test_release_reuses_only_full_results_for_the_same_source_and_demo(self):
         manifest = dict(source_sha='a'*40, tree='tree')
         proof = dict(scope='build', demo_commit='demo', demo_sha256=DEMO_SHA)
-        full = dict(validator='local', scope='full', source_sha='a'*40, tree='tree', demo_commit='demo', demo_sha256=DEMO_SHA,
-                    core_tests=10, interaction_tests=5, reports='Reports match Beancount')
+        full = dict(validator='local', scope='full', static_checks=True, tools_tests=True, source_sha='a'*40, tree='tree', demo_commit='demo', demo_sha256=DEMO_SHA,
+                    core_tests=10, interaction_tests=5, test_targets=dict(LedgerTests=2, LedgerUITests=3), reports='Reports match Beancount')
         def git(*args):
             return '' if args == ('status', '--porcelain') else 'a'*40
         ship.write_json(ship.FULL_VALIDATION, full)
@@ -242,8 +242,8 @@ class ShipTests(unittest.TestCase):
                     if args == ('status', '--porcelain'):
                         return ' M changed.swift' if dirty else ''
                     return 'tree' if args[-1].endswith('^{tree}') else 'a'*40
-                full = dict(scope='full', validator='local', demo_commit='demo', demo_sha256=DEMO_SHA, core_tests=10,
-                            interaction_tests=5, reports='Reports match Beancount')
+                full = dict(scope='full', validator='local', static_checks=True, tools_tests=True, demo_commit='demo', demo_sha256=DEMO_SHA, core_tests=10,
+                            interaction_tests=5, test_targets=dict(LedgerTests=2, LedgerUITests=3), reports='Reports match Beancount')
                 ship.write_json(ship.FULL_VALIDATION, full)
                 with patch('builtins.open', return_value=lock), patch('builtins.print'), \
                      patch.object(ship, 'STATUS', Path(temp)/'status.json'), \
@@ -303,7 +303,8 @@ class ShipTests(unittest.TestCase):
                 for name, value in [('ROOT', root), ('use_xcode', lambda: 'Xcode fixture'),
                                     ('demo_snapshot', lambda: 'demo'), ('verify_demo_snapshot', lambda *args: DEMO_SHA),
                                     ('beancount_python', lambda: 'python'),
-                                    ('fresh_simulator', simulator), ('run', run), ('step', stages.append),
+                                    ('fresh_simulator', simulator), ('interaction_results', lambda: dict(LedgerTests=1, LedgerUITests=1)),
+                                    ('run', run), ('step', stages.append),
                                     ('report', lambda text: None)]:
                     stack.enter_context(patch.object(ship, name, value))
                 stack.enter_context(patch.object(ship.subprocess, 'run'))
@@ -318,7 +319,7 @@ class ShipTests(unittest.TestCase):
                     for actual, expected in zip(stages, ship.PLAN['test']):
                         self.assertTrue(actual.startswith(expected), actual)
                     self.assertEqual(proof['scope'], 'full')
-                    self.assertEqual((proof['core_tests'], proof['interaction_tests']), (10, 1))
+                    self.assertEqual((proof['core_tests'], proof['interaction_tests']), (10, 2))
                     interaction = commands[-1]
                     for flag, value in [('-parallel-testing-enabled', 'NO'),
                                         ('-test-timeouts-enabled', 'YES'),
