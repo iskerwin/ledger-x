@@ -90,7 +90,8 @@ class CloudTests(unittest.TestCase):
 
     def test_targeted_test_command_cannot_leave_full_validation_record(self):
         proof = dict(scope='build', selected_core=dict(filter='Example', passed=1))
-        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, dict(LEDGER_CORE_FILTER='Example')), \
+        with tempfile.TemporaryFile(mode='w') as lock, tempfile.TemporaryDirectory() as temp, \
+             patch('builtins.open', return_value=lock), patch.dict(os.environ, dict(LEDGER_CORE_FILTER='Example')), \
              patch.object(ship, 'ROOT', Path(temp)), patch.object(ship, 'STATUS', Path(temp)/'.ship/status.json'), \
              patch.object(ship, 'FULL_VALIDATION', Path(temp)/'.ship/full-validation.json'), \
              patch.object(ship, 'HISTORY', Path(temp)/'.ship/history.json'), patch.object(ship, 'progress', ship.Progress()), \
