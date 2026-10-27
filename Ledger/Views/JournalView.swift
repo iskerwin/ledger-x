@@ -181,7 +181,7 @@ struct JournalView: View {
     /// calendar rows stay above the sheet and the open day can be tapped again to dismiss it
     @State private var dayDetent: PresentationDetent = UIScreen.main.bounds.height < 700 ? .fraction(0.4) : .medium
 
-    private static var dayDetents: [PresentationDetent] {
+    private static var dayDetents: Set<PresentationDetent> {
         UIScreen.main.bounds.height < 700 ? [.fraction(0.4), .medium, .large] : [.medium, .large]
     }
     /// a transaction tapped in that sheet, opened once the sheet has gone
