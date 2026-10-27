@@ -1437,6 +1437,7 @@ final class EditInteractionTests: XCTestCase {
         let extra = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/budget-extra.bean").path
         let app = launchTab("reports", env: ["LEDGER_EXTRA": extra])
         let budgets = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "预算")).firstMatch
+        scrollIntoView(budgets, in: app)
         XCTAssertTrue(budgets.waitForExistence(timeout: 20))
         for _ in 0..<5 { if budgets.isHittable { break }; app.swipeUp() }
         budgets.tap()

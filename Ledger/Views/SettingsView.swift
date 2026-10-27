@@ -128,15 +128,15 @@ struct SettingsView: View {
                 HStack(spacing: AppSpacing.icon) {
                     Image(systemName: "book.closed.fill")
                         .font(.system(size: 26))
-                        .foregroundStyle(Color.jade)
+                        .foregroundStyle(Color.jadeInk)
                         .frame(width: 54, height: 54)
                         .background(Color.jade.soft, in: RoundedRectangle(cornerRadius: AppRadius.panel, style: .continuous))
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(store.cfg.title).font(.headline)
                         Text(store.cfg.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         HStack(spacing: AppSpacing.icon) {
-                            Image(systemName: store.pending.isEmpty && store.syncState != .error ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                                .foregroundStyle(store.pending.isEmpty && store.syncState != .error ? Color.jade : Color.warn)
+                            Image(systemName: store.syncAppearance.symbol)
+                                .foregroundStyle(store.syncAppearance.color)
                             Text(syncSummary).font(.caption).foregroundStyle(.secondary)
                         }
                     }
@@ -148,7 +148,8 @@ struct SettingsView: View {
 
     private var syncSummary: String {
         if store.syncState == .syncing { return LS("同步中…") }
-        if store.syncState == .error { return LS("同步出错") }
+        if store.syncAppearance == .failed { return LS("同步出错") }
+        if store.syncAppearance == .held { return LS("暂存本机") }
         if store.syncState == .offline { return LS("离线 · %@ 项待同步", store.pending.count) }
         if !store.pending.isEmpty { return LS("%@ 项待同步", store.pending.count) }
         return store.lastSync.map { LS("已同步 · %@", $0.formatted(date: .omitted, time: .shortened)) } ?? LS("已同步")

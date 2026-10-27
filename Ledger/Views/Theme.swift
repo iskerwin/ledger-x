@@ -138,11 +138,13 @@ extension Color {
         let original = UIColor(self)
         return Color(uiColor: UIColor { traits in
             let color = original.resolvedColor(with: traits)
-            let backgrounds = [UIColor.systemBackground, .systemGroupedBackground, .secondarySystemGroupedBackground]
-                .map { $0.resolvedColor(with: traits).relativeLuminance }
+            let surfaces = [UIColor.systemBackground, .systemGroupedBackground, .secondarySystemGroupedBackground]
+                .map { $0.resolvedColor(with: traits) }
+            let backgrounds = surfaces.flatMap { [$0.relativeLuminance, color.blended(over: $0, opacity: 0.14).relativeLuminance] }
             func contrast(_ candidate: UIColor) -> Double {
                 let value = candidate.relativeLuminance
-                return backgrounds.map { (max(value, $0) + 0.05) / (min(value, $0) + 0.05) }.min() ?? 1
+                let soft = surfaces.map { candidate.blended(over: $0, opacity: 0.14).relativeLuminance }
+                return (backgrounds + soft).map { (max(value, $0) + 0.05) / (min(value, $0) + 0.05) }.min() ?? 1
             }
             if contrast(color) >= 4.52 { return color }
             var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
@@ -163,6 +165,15 @@ extension Color {
 }
 
 private extension UIColor {
+    func blended(over background: UIColor, opacity: CGFloat) -> UIColor {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
+        getRed(&r, green: &g, blue: &b, alpha: &a)
+        background.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
+        return UIColor(red: r * opacity + br * (1 - opacity), green: g * opacity + bg * (1 - opacity),
+                       blue: b * opacity + bb * (1 - opacity), alpha: 1)
+    }
+
     var relativeLuminance: Double {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         getRed(&r, green: &g, blue: &b, alpha: &a)

@@ -65,6 +65,8 @@ struct GuideView: View {
 
     static var topics: [Topic] { [
         Topic(symbol: "book.closed", title: tr("账本与同步", "Ledger and sync"), points: [
+            tr("同步中的箭头表示正在处理，灰色表示已同步、正常等待或离线，橙色表示需要检查的暂存，红色表示失败；具体原因可点开同步状态查看。",
+               "Sync arrows show work in progress; grey means synced, waiting normally or offline, orange means a held change needs checking, and red means failure. Open sync status for the reason."),
             tr("账本是你仓库里的普通 Beancount 文本，App 不另存数据。每次保存就是一次提交，电脑上 git pull 就能看到。",
                "The ledger is plain Beancount text in your repository; the app keeps no data of its own. Every save is one commit, which git pull brings to your computer."),
             tr("离线时改动暂存在本机，联网后自动提交；设置 →「同步与最近改动」→「待同步」可以看到还没提交的改动。",
@@ -167,6 +169,8 @@ struct GuideView: View {
                "Reports has the income statement, balance sheet, trial balance, budgets, forecast, subscriptions, reimbursements, salary, events, payees and things to check."),
             tr("单项趋势图和排行条使用主题色；收入与支出同时比较时，收入绿色、支出红色，并用图例、线型或符号区分。分类和多币种构成保留各自颜色，同一分类不会因为换月或排名变化而换色；颜色只帮助识别，具体金额和含义看名称、图例与数字。",
                "Single-series trends and ranking bars use the theme colour. When income and spending are compared, income is green and spending red, with legends, line styles or symbols to distinguish them. Categories and currency compositions keep their own colours; a category keeps its colour when the month or rank changes. Use names, legends and figures for the precise amounts and meaning."),
+            tr("现金流预测的曲线用主题色，可能余额不足的最低点用红色三角标出，并显示日期和金额；预算正常用主题色，进度过快用橙色，超支用红色并配斜纹和文字。",
+               "Forecast curves use the theme colour; a negative low point is marked with a red triangle and its date and amount. Budgets use the theme colour normally, orange when spending is ahead of time, and red with hatching and text when over budget."),
             tr("概览和报表顶部的月份条可以左右滑动换月（向右是上个月），和点箭头一样。报表翻到别的月份时，标题旁出现「本月」，点它回到当前；概览翻到别的月份（按年时是别的年份）或在趋势图上点了某个月时，摘要卡右上角出现「回到本月」（按年时是「回到今年」或「回到全年」），点它回到当前。趋势图、月度收支图、净资产图和现金流预测图上点按选中一个月（预测图是一天），按住左右滑动依次查看。",
                "Swipe the month bar at the top of the overview and reports to change month (to the right goes back), as the arrows do. Away from the current month on reports, This Month beside the title brings you back; on the overview, away from the current month (or year) or with a month picked on the trend chart, Back to This Month (Back to This Year, Back to Year) at the top right of the summary card does. On the trend, monthly, net worth and forecast charts, tap a month (a day on the forecast) to pick it, or hold and slide sideways to go through them."),
             tr("报表、概览、账户页导航栏的币种按钮：上面选看哪些币种（可多选，长按只看一种），下面选原币、按成本、按市值或折算为某种货币，所有页面一起变。对账用原币加单个币种，看总数用折算。",

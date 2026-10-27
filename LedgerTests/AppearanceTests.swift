@@ -5,6 +5,49 @@ import SwiftUI
 
 @MainActor
 final class AppearanceTests: XCTestCase {
+    func testMultiCurrencyFlowLegendUsesTheSameIncomeAndExpenseColorsAsItsBars() throws {
+        let old = AppSettings.shared.theme
+        AppSettings.shared.theme = AppTheme.blue.rawValue
+        defer { AppSettings.shared.theme = old }
+        var flow = MonthFlow()
+        flow.income.add(100, "CNY"); flow.income.add(80, "USD")
+        flow.expenses.add(60, "CNY"); flow.expenses.add(30, "USD")
+        let image = try render(FlowCharts(months: ["2026-10"], flows: ["2026-10": flow], base: "CNY", picked: .constant(nil))
+            .frame(width: 330).environment(\.colorScheme, .light).background(.white))
+        let pixels = rgba(image)
+        var green = 0, red = 0
+        // The shared legend is above the currency headings and bars, so bar pixels cannot hide a wrong legend.
+        for y in 0..<min(20, image.height) {
+            for x in 0..<image.width {
+                let i = (y * image.width + x) * 4
+                let r = Int(pixels[i]), g = Int(pixels[i + 1]), b = Int(pixels[i + 2])
+                if g > r + 25 && g > b + 10 { green += 1 }
+                if r > g + 40 && r > b + 40 { red += 1 }
+            }
+        }
+        XCTAssertGreaterThan(green, 5)
+        XCTAssertGreaterThan(red, 5, "The expense legend must be red even with a blue theme")
+    }
+
+    func testForecastMarksRiskWithoutTurningTheWholeTrendIntoAnError() throws {
+        let old = AppSettings.shared.theme
+        AppSettings.shared.theme = AppTheme.blue.rawValue
+        defer { AppSettings.shared.theme = old }
+        let points = [ForecastPoint(date: "2026-10-01", value: 100), ForecastPoint(date: "2026-10-02", value: -20),
+                      ForecastPoint(date: "2026-10-03", value: 60)]
+        let image = try render(Sparkline(points: points, warn: true).frame(width: 180, height: 70)
+            .environment(\.colorScheme, .light).background(.white))
+        let pixels = rgba(image)
+        var blue = 0, red = 0
+        for i in stride(from: 0, to: pixels.count, by: 4) {
+            let r = Int(pixels[i]), g = Int(pixels[i + 1]), b = Int(pixels[i + 2])
+            if b > g + 30 && g > r + 20 { blue += 1 }
+            if r > g + 40 && r > b + 40 { red += 1 }
+        }
+        XCTAssertGreaterThan(blue, 20, "The trend remains in the theme colour")
+        XCTAssertGreaterThan(red, 5, "A negative low point must remain visible as a risk")
+    }
+
     func testThemeInkAndFinancialColorsStayReadableOnStandardSurfaces() {
         let previous = AppSettings.shared.theme
         defer { AppSettings.shared.theme = previous }
@@ -14,9 +57,16 @@ final class AppearanceTests: XCTestCase {
                 var environment = EnvironmentValues()
                 environment.colorScheme = scheme
                 for background in [UIColor.systemBackground, .systemGroupedBackground, .secondarySystemGroupedBackground] {
-                    for ink in [Color.jadeInk, .gain, .loss, .warn] {
-                        XCTAssertGreaterThanOrEqual(contrast(ink.resolve(in: environment), Color(uiColor: background).resolve(in: environment)),
+                    let inks = [Color.jadeInk, .gain, .loss, .warn] + ["CNY", "HKD", "USD", "EUR", "GBP", "MOP", "SGD", "JPY"].map(currencyColor)
+                    for ink in inks {
+                        let resolved = ink.resolve(in: environment), surface = Color(uiColor: background).resolve(in: environment)
+                        XCTAssertGreaterThanOrEqual(contrast(resolved, surface),
                                                    4.5, "\(theme) \(scheme)")
+                        let soft = Color(red: Double(resolved.red * 0.14 + surface.red * 0.86),
+                                         green: Double(resolved.green * 0.14 + surface.green * 0.86),
+                                         blue: Double(resolved.blue * 0.14 + surface.blue * 0.86))
+                        XCTAssertGreaterThanOrEqual(contrast(resolved, soft.resolve(in: environment)), 4.5,
+                                                   "Soft notice \(theme) \(scheme)")
                     }
                 }
             }

@@ -106,19 +106,9 @@ struct SyncBadge: View {
         } label: {
             HStack(spacing: AppSpacing.detail) {
                 // synced, kept on this phone (waiting or offline), or something to look at
-                let problem = store.pending.contains { $0.failed != nil || $0.held != nil }
                 // one icon whose symbol changes in place (the system's replace transition), turning while it syncs
                 // (iOS 18; a spinner before that)
-                let state: (symbol: String, color: Color) = {
-                    switch store.syncState {
-                    case .syncing: return ("arrow.triangle.2.circlepath.icloud", .secondary)
-                    case .offline: return ("icloud.slash", Color.warn)
-                    case .error: return ("exclamationmark.icloud", Color.warn)
-                    case .idle:
-                        if problem { return ("exclamationmark.icloud", Color.warn) }
-                        return store.pending.isEmpty ? ("checkmark.icloud", .secondary) : ("icloud.and.arrow.up", Color.warn)
-                    }
-                }()
+                let state = store.syncAppearance
                 if store.syncState == .syncing, #unavailable(iOS 18.0) {
                     ProgressView().controlSize(.small)
                 } else {
@@ -130,7 +120,7 @@ struct SyncBadge: View {
                         .animation(AppMotion.quick, value: state.symbol)
                 }
                 let n = store.pending.filter { $0.failed == nil && $0.held == nil }.count
-                if n > 0 { Text("\(n)").font(.caption.monospacedDigit()).foregroundStyle(Color.warn).rollingNumber(n, AppMotion.quick) }
+                if n > 0 { Text("\(n)").font(.caption.monospacedDigit()).foregroundStyle(state.color).rollingNumber(n, AppMotion.quick) }
             }
         }
         .accessibilityLabel(statusText)
@@ -145,11 +135,13 @@ struct SyncBadge: View {
     }
 
     var statusText: String {
-        switch store.syncState {
+        switch store.syncAppearance {
         case .syncing: return LS("同步中")
         case .offline: return LS("离线")
-        case .error: return LS("同步出错：%@", store.syncError)
-        case .idle: return store.pending.isEmpty ? LS("已同步") : LS("%@ 项待同步", store.pending.count)
+        case .failed: return store.syncError.isEmpty ? LS("同步出错") : LS("同步出错：%@", store.syncError)
+        case .held: return LS("暂存本机")
+        case .waiting: return LS("%@ 项待同步", store.pending.count)
+        case .synced: return LS("已同步")
         }
     }
 }
@@ -261,7 +253,7 @@ struct EmptyAdd: View {
         VStack(alignment: .leading, spacing: AppSpacing.control) {
             Text(text).foregroundStyle(.secondary)
             Button(action: add) { Label(title, systemImage: "plus.circle").labelStyle(ControlLabelStyle()) }
-                .buttonStyle(.borderless).fontWeight(.semibold).tint(Color.jade)
+                .buttonStyle(.borderless).fontWeight(.semibold).tint(Color.jadeInk)
                 .accessibilityIdentifier("empty.add")
         }
         .padding(.vertical, AppSpacing.detail)

@@ -36,7 +36,7 @@ struct ForecastOverviewSection: View {
             Section {
                 NavigationLink(value: ForecastDest()) {
                     HStack(spacing: AppSpacing.icon) {
-                        IconBadge(symbol: "chart.line.uptrend.xyaxis", color: warn ? .red : .teal, size: 28)
+                        IconBadge(symbol: warn ? "exclamationmark.triangle" : "chart.line.uptrend.xyaxis", color: warn ? .loss : .jade, size: 28)
                         VStack(alignment: .leading, spacing: AppSpacing.detail) {
                             Text(LS("30 天后约 %@", money(f.end, f.currency, 0))).sensitive()
                             Text(warn ? LS("%@ 可能余额不足（%@）", f.firstBelow(0)?.date ?? low.date, money(low.value, f.currency, 0))
@@ -58,10 +58,16 @@ struct Sparkline: View {
     let points: [ForecastPoint]
     var warn = false
     var body: some View {
-        Chart(points) { p in
-            LineMark(x: .value("d", p.date), y: .value("v", p.value))
-                .foregroundStyle(warn ? Color.loss : Color.jade)
-                .interpolationMethod(.monotone)
+        Chart {
+            ForEach(points) { p in
+                LineMark(x: .value("d", p.date), y: .value("v", p.value))
+                    .foregroundStyle(Color.jadeInk)
+                    .interpolationMethod(.monotone)
+            }
+            if warn, let low = points.min(by: { $0.value < $1.value }), low.value < 0 {
+                PointMark(x: .value("d", low.date), y: .value("v", low.value))
+                    .foregroundStyle(Color.loss).symbol(.triangle).symbolSize(25)
+            }
         }
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
@@ -167,10 +173,10 @@ struct ForecastView: View {
         return Chart {
             ForEach(f.points) { p in
                 AreaMark(x: .value(LS("日期"), Day.date(p.date) ?? Date(), unit: .day), yStart: .value("0", minV), yEnd: .value(LS("余额"), p.value))
-                    .foregroundStyle(LinearGradient(colors: [Color.jade.opacity(0.25), Color.jade.opacity(0.02)], startPoint: .top, endPoint: .bottom))
+                    .foregroundStyle(LinearGradient(colors: [Color.jadeInk.opacity(0.25), Color.jadeInk.opacity(0.02)], startPoint: .top, endPoint: .bottom))
                     .interpolationMethod(.linear)
                 LineMark(x: .value(LS("日期"), Day.date(p.date) ?? Date(), unit: .day), y: .value(LS("余额"), p.value))
-                    .foregroundStyle(Color.jade)
+                    .foregroundStyle(Color.jadeInk)
                     .interpolationMethod(.linear)
                     .accessibilityLabel(Day.dayLabel(p.date)).accessibilityValue(money(p.value, f.currency, 0))
             }
@@ -178,14 +184,16 @@ struct ForecastView: View {
                 RuleMark(x: .value(LS("日期"), Day.date(d) ?? Date(), unit: .day)).foregroundStyle(Color.secondary.opacity(0.4))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
                 PointMark(x: .value(LS("日期"), Day.date(d) ?? Date(), unit: .day), y: .value(LS("余额"), p.value))
-                    .foregroundStyle(Color.jade).symbolSize(60)
+                    .foregroundStyle(p.value < 0 ? Color.loss : Color.jadeInk).symbolSize(60)
             }
             if low.value < 0 {
                 RuleMark(y: .value("0", 0)).foregroundStyle(Color.loss.opacity(0.6)).lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
             }
             PointMark(x: .value(LS("日期"), Day.date(low.date) ?? Date(), unit: .day), y: .value(LS("余额"), low.value))
-                .foregroundStyle(low.value < 0 ? Color.loss : Color.warn)
+                .foregroundStyle(low.value < 0 ? Color.loss : Color.jadeInk)
+                .symbol(low.value < 0 ? BasicChartSymbolShape.triangle : .circle)
                 .symbolSize(40)
+                .accessibilityLabel(LS("最低 · %@", low.date)).accessibilityValue(money(low.value, f.currency, 0))
         }
         .chartYScale(domain: minV...maxV)
         .chartYAxis { AxisMarks(position: .trailing) }

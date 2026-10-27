@@ -26,12 +26,12 @@ struct BudgetRow: View {
                 let grown = filled || reduceMotion
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color(.tertiarySystemFill))
-                    Capsule().fill(color.gradient).frame(width: grown ? max(4, g.size.width * min(1, p.ratio)) : 4)
+                    Capsule().fill(color).frame(width: grown ? max(4, g.size.width * min(1, p.ratio)) : 4)
                     // over budget the bar is full: the part beyond the budget is hatched, in proportion, so how far
                     // over shows without telling red from green
                     if p.over {
                         let beyond = g.size.width * (p.ratio - 1) / p.ratio
-                        Hatching().frame(width: beyond).frame(maxWidth: .infinity, alignment: .trailing)
+                        Hatching(color: color.onFill).frame(width: beyond).frame(maxWidth: .infinity, alignment: .trailing)
                             .clipShape(Capsule())
                             .opacity(grown ? 1 : 0)
                             .accessibilityHidden(true)
@@ -83,6 +83,7 @@ struct BudgetRow: View {
 
 /// white diagonal stripes, laid over a bar's overspent part
 struct Hatching: View {
+    var color: Color = .white
     var body: some View {
         Canvas { ctx, size in
             var path = Path()
@@ -92,7 +93,7 @@ struct Hatching: View {
                 path.addLine(to: CGPoint(x: x + size.height, y: 0))
                 x += 5
             }
-            ctx.stroke(path, with: .color(.white.opacity(0.7)), lineWidth: 1.5)
+            ctx.stroke(path, with: .color(color.opacity(0.8)), lineWidth: 1.5)
         }
     }
 }
@@ -145,7 +146,7 @@ struct BudgetsView: View {
                             let span = yearView ? key + "-01-01.." + key + "-12-31" : key
                             store.showInJournal(.report(month: span, account: p.budget.account))
                         } label: { Label(LS("查看对应明细"), systemImage: "list.bullet.rectangle").labelStyle(ControlLabelStyle()) }
-                            .buttonStyle(.plain).font(.subheadline).foregroundStyle(Color.jade)
+                            .buttonStyle(.plain).font(.subheadline).foregroundStyle(Color.jadeInk)
                     }
                     .rowActions {
                         Button(role: .destructive) { stop(p.budget) } label: { Label(LS("停用"), systemImage: "pause.circle") }

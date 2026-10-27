@@ -39,7 +39,7 @@ struct SyncView: View {
                         .accessibilityIdentifier("sync.unguarded")
                 }
                 LabeledContent {
-                    Text(store.syncState == .offline ? LS("未连接") : LS("已连接")).foregroundStyle(store.syncState == .offline ? Color.warn : Color.secondary)
+                    Text(store.syncState == .offline ? LS("未连接") : LS("已连接")).foregroundStyle(Color.secondary)
                 } label: { Label(LS("网络"), systemImage: store.syncState == .offline ? "wifi.slash" : "wifi").labelStyle(ControlLabelStyle()) }
                 LabeledContent { Text(store.cfg.title) } label: { Label(LS("账本"), systemImage: "book.closed").labelStyle(ControlLabelStyle()) }
                 LabeledContent { Text(store.cfg.kind.name) } label: { Label(LS("存储"), systemImage: store.cfg.kind.symbol).labelStyle(ControlLabelStyle()) }
@@ -88,31 +88,25 @@ struct SyncView: View {
 
     // MARK: the state
 
-    private enum Shown { case synced, local, failed, syncing }
-    private var shown: Shown {
-        if store.syncState == .syncing { return .syncing }
-        if store.syncState == .error || !failed.isEmpty { return .failed }
-        if !store.pending.isEmpty || store.syncState == .offline { return .local }
-        return .synced
-    }
+    private var shown: SyncAppearance { store.syncAppearance }
 
     private var hero: some View {
         let s = shown
-        let (icon, color, title): (String, Color, String) = {
+        let title: String = {
             switch s {
-            case .synced: return ("checkmark.icloud", .jade, LS("已同步"))
-            case .local: return ("iphone", .jade, LS("已保存到本机"))
-            case .failed: return ("exclamationmark.icloud", Color.warn, LS("同步没有完成"))
-            case .syncing: return ("arrow.triangle.2.circlepath.icloud", .jade, LS("正在同步"))
+            case .synced: return LS("已同步")
+            case .waiting, .offline, .held: return LS("已保存到本机")
+            case .failed: return LS("同步没有完成")
+            case .syncing: return LS("正在同步")
             }
         }()
         return Section {
             HStack(spacing: AppSpacing.content) {
                 ZStack(alignment: .bottomTrailing) {
-                    Image(systemName: icon).font(.system(size: 44, weight: .light)).foregroundStyle(color)
+                    Image(systemName: s.symbol).font(.system(size: 44, weight: .light)).foregroundStyle(s.color)
                         .frame(width: 70, height: 70)
-                    if s == .local {
-                        Image(systemName: "checkmark.circle.fill").font(.title3).foregroundStyle(Color.jade)
+                    if s == .waiting || s == .offline || s == .held {
+                        Image(systemName: "checkmark.circle.fill").font(.title3).foregroundStyle(Color.jadeInk)
                             .background(Circle().fill(Color(.secondarySystemGroupedBackground)))
                     }
                 }
@@ -121,7 +115,7 @@ struct SyncView: View {
                     if !store.pending.isEmpty { Text(LS("%@ 项变更等待同步", store.pending.count)).font(.subheadline).foregroundStyle(.secondary) }
                     if store.syncState == .offline {
                         Text(LS("离线")).font(.caption.weight(.semibold)).padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.detail)
-                            .foregroundStyle(Color.warn).background(Color.warn.soft, in: Capsule())
+                            .foregroundStyle(Color.secondary).background(Color.secondary.soft, in: Capsule())
                     }
                     if let d = store.lastSync {
                         Text(LS("上次同步 %@", d.formatted(date: .abbreviated, time: .shortened))).font(.caption).foregroundStyle(.secondary)
@@ -138,26 +132,26 @@ struct SyncView: View {
     @ViewBuilder
     private var banner: some View {
         let text: String? = {
-            if store.syncState == .offline { return LS("联网后将自动重试，现在可以继续记账") }
             if !failed.isEmpty { return LS("%@ 项改动没有提交（别处已改了同一处，或内容有冲突），点开看原因，可以移除或保留", failed.count) }
             if !held.isEmpty { return LS("%@ 项改动没通过提交前检查，暂存在本机，点开可以推送或移除", held.count) }
+            if store.syncState == .offline { return LS("联网后将自动重试，现在可以继续记账") }
             if store.syncState == .error { return LS("同步出错：%@", store.syncError) }
             return nil
         }()
         if let t = text {
             Section {
-                Label(t, systemImage: "exclamationmark.circle").labelStyle(ControlLabelStyle())
-                    .font(.subheadline).foregroundStyle(Color.warn)
+                Label(t, systemImage: shown.symbol).labelStyle(ControlLabelStyle())
+                    .font(.subheadline).foregroundStyle(shown.color)
                     .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.control)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.warn.opacity(0.1), in: RoundedRectangle(cornerRadius: AppRadius.panel, style: .continuous))
+                    .background(shown.color.soft, in: RoundedRectangle(cornerRadius: AppRadius.panel, style: .continuous))
                     .cardRow()
             }
         }
     }
 
     private func opRow(_ o: Op) -> some View {
-        let state: (String, Color) = o.failed != nil ? (LS("未提交"), .loss) : o.held != nil ? (LS("暂存本机"), Color.warn) : (LS("等待上传"), Color.warn)
+        let state: (String, Color) = o.failed != nil ? (LS("未提交"), .loss) : o.held != nil ? (LS("暂存本机"), Color.warn) : (LS("等待上传"), Color.secondary)
         return Button { if o.failed != nil || o.held != nil { why = o } } label: {
             HStack(alignment: .top, spacing: AppSpacing.control) {
                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
@@ -177,7 +171,7 @@ struct SyncView: View {
         .accessibilityIdentifier("sync.pending")
         .rowActions {
             Button(role: .destructive) { removing = o } label: { Label(LS("移除"), systemImage: "trash") }
-            if o.held != nil { Button { Task { await store.release(o) } } label: { Label(LS("推送"), systemImage: "icloud.and.arrow.up") }.tint(Color.jade) }
+            if o.held != nil { Button { Task { await store.release(o) } } label: { Label(LS("推送"), systemImage: "icloud.and.arrow.up") }.tint(Color.jadeInk) }
         }
     }
 }
