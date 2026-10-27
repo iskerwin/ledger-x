@@ -1,18 +1,33 @@
 name: Ledger runner
 description: Shared validation, packaging and promotion steps; called by CI, Dev and Release.
+inputs:
+  cache_epoch:
+    description: Cache generation resolved by the calling workflow.
+    default: '1'
+  check_only:
+    description: Internal PR smoke check; load this action without running tests or publication.
+    default: 'false'
 runs:
   using: composite
   steps:
+    - name: Confirm shared action loads
+      if: inputs.check_only == 'true'
+      shell: bash
+      run: echo 'Shared Ledger action loaded; no preparation, tests, build or publication executed.'
     - uses: actions/setup-python@v7
+      if: inputs.check_only != 'true'
       with:
         python-version: '3.12'
     - name: Verify inputs, source and accepted package
+      if: inputs.check_only != 'true'
       shell: bash
       run: python3 tools/cloud_worker.py prepare
     - name: Pin Xcode 26.6
+      if: inputs.check_only != 'true'
       shell: bash
       run: bash tools/select_xcode.sh
     - name: Install build and report tools
+      if: inputs.check_only != 'true'
       shell: bash
       run: |
         export HOMEBREW_NO_AUTO_UPDATE=1
@@ -21,6 +36,7 @@ runs:
         git config user.name 'github-actions[bot]'
         git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
     - name: Restore Swift package and test build cache
+      if: inputs.check_only != 'true'
       uses: actions/cache@v6
       with:
         path: |
@@ -29,14 +45,15 @@ runs:
           LedgerKit/.build
           build-demo/SourcePackages
           build-demo/Build
-        key: swift-xcode-26.6-${{ vars.LEDGER_CACHE_EPOCH || '1' }}-${{ hashFiles('LedgerKit/Package.swift', 'project.yml') }}
+        key: swift-xcode-26.6-${{ inputs.cache_epoch }}-${{ hashFiles('LedgerKit/Package.swift', 'project.yml') }}
         restore-keys: |
-          swift-xcode-26.6-${{ vars.LEDGER_CACHE_EPOCH || '1' }}-
+          swift-xcode-26.6-${{ inputs.cache_epoch }}-
     - name: Validate, build or promote
+      if: inputs.check_only != 'true'
       shell: bash
       run: python3 tools/cloud_worker.py run
     - name: Export screenshots
-      if: always()
+      if: inputs.check_only != 'true' && always()
       shell: bash
       run: |
         for result in interaction-tests*.xcresult; do
@@ -45,7 +62,7 @@ runs:
           fi
         done
     - name: Keep reusable full validation
-      if: success() && hashFiles('.ship/full-validation.json') != ''
+      if: inputs.check_only != 'true' && success() && hashFiles('.ship/full-validation.json') != ''
       uses: actions/upload-artifact@v7
       with:
         name: 'ledger-full-proof-${{ github.run_id }}'
@@ -54,7 +71,7 @@ runs:
         if-no-files-found: error
         path: .ship/full-validation.json
     - name: Keep evidence, logs and package
-      if: always()
+      if: inputs.check_only != 'true' && always()
       uses: actions/upload-artifact@v7
       with:
         name: 'ledger-${{ env.LEDGER_COMMAND }}-${{ github.run_id }}'
