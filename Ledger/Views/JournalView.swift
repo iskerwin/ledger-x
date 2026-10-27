@@ -321,6 +321,8 @@ struct JournalView: View {
         }
         .pickerSheet()
         .presentationContentInteraction(.scrolls)
+        // half sheet stays clear of the upper dates, so tapping the open day again can dismiss it
+        .presentationBackgroundInteraction(.enabled(upThrough: .medium))
     }
 
     /// a search handed over from another page (报表 → 查看这 N 笔): it replaces what is on
@@ -416,9 +418,7 @@ struct JournalView: View {
                 Section {
                     // looking by date, the calendar takes the quick filters' place (what is on stays, with its ✕)
                     if showCalendar {
-                        JournalCalendar(L: L, entries: matches, account: account) { d in
-                            calendarDay = CalendarDay(day: d)
-                        }
+                        JournalCalendar(L: L, entries: matches, account: account, openDay: $calendarDay)
                         .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
                     } else {
                         // the quick filters, then the tags people look for
@@ -521,7 +521,7 @@ struct JournalView: View {
             ("对方:王五", LS("和某人的往来")),
             ("#trip", LS("带某个标签；^ 开头找链接，! 找待确认")),
             ("#出差|#旅行", LS("用 | 表示任一：带其中一个标签就算；科目:餐饮|交通 也行")),
-            ("本月 科目:餐饮", LS("本月、上月、本周、今年、近30天按今天计算，适合存成快速搜索")),
+            ("本月 科目:餐饮", LS("本月、上月、今年、近30天按今天计算；本周和上周跟手机的一周起始日，适合存成快速搜索")),
         ]
         if store.quickSearches.isEmpty {
             Label(LS("搜索后点「保存」，即可加为快速搜索"), systemImage: "bookmark").labelStyle(ControlLabelStyle()).font(.footnote).foregroundStyle(.secondary)

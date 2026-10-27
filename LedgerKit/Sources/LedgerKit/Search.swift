@@ -103,12 +103,8 @@ public struct TxQuery {
         case "今天", "today": return (t, t)
         case "昨天", "yesterday": let d = Day.shift(t, -1); return (d, d)
         case "本周", "this-week", "上周", "last-week":
-            // weeks start on Monday
-            guard let d = Day.date(t) else { return nil }
-            var cal = Calendar(identifier: .gregorian); cal.firstWeekday = 2
-            let back = (cal.component(.weekday, from: d) + 5) % 7
-            let monday = Day.shift(t, -back - (w == "上周" || w == "last-week" ? 7 : 0))
-            return (monday, Day.shift(monday, 6))
+            // the same week start as the month grid: the phone's calendar, not a fixed Monday
+            return Day.weekSpan(containing: t, lastWeek: w == "上周" || w == "last-week")
         case "本月", "this-month": return (ym + "-01", Day.monthEnd(ym))
         case "上月", "last-month": let p = Day.addMonth(ym, -1); return (p + "-01", Day.monthEnd(p))
         case "今年", "this-year": return ("\(y)-01-01", "\(y)-12-31")

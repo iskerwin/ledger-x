@@ -292,8 +292,6 @@ struct SubscriptionCalendarView: View {
                     GlassMonthCalendar(marks: marks, month: $month, first: today, last: end,
                                        selection: $day, themeMarks: true, pickImmediately: true, pick: { day = $0 }) {
                         EmptyView()
-                    } summary: {
-                        EmptyView()
                     } footer: {
                         Text(LS("点日期查看当天扣费")).font(.caption2).foregroundStyle(.secondary)
                     }

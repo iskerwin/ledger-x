@@ -81,6 +81,39 @@ public enum Day {
         return "\(mo)月\(day)日 周\(week[wd])"
     }
     public static func monthEnd(_ m: String) -> String { shift(addMonth(m, 1) + "-01", -1) }
+
+    /// Tests pin the week. The app leaves this unset and reads the phone's calendar.
+    static var firstWeekdayOverride: Int?
+
+    /// Where the phone's week starts: 1 is Sunday … 7 is Saturday (`Calendar.current`).
+    public static var firstWeekday: Int {
+        if let pinned = firstWeekdayOverride, (1...7).contains(pinned) { return pinned }
+        let raw = Calendar.current.firstWeekday
+        return (1...7).contains(raw) ? raw : 1
+    }
+
+    /// How many days `day` is after the start of its week. The month grid and 本周 use the same count.
+    public static func daysAfterWeekStart(_ day: String, firstWeekday start: Int? = nil) -> Int {
+        guard let when = date(day) else { return 0 }
+        let first = resolvedWeekStart(start)
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = calendar.timeZone
+        let weekday = cal.component(.weekday, from: when)
+        return (weekday - first + 7) % 7
+    }
+
+    /// Inclusive first and last day of the week that contains `day`.
+    public static func weekSpan(containing day: String, lastWeek: Bool = false, firstWeekday start: Int? = nil) -> (String, String)? {
+        guard date(day) != nil else { return nil }
+        let back = daysAfterWeekStart(day, firstWeekday: start)
+        let begin = shift(day, -back - (lastWeek ? 7 : 0))
+        return (begin, shift(begin, 6))
+    }
+
+    private static func resolvedWeekStart(_ start: Int?) -> Int {
+        if let start, (1...7).contains(start) { return start }
+        return firstWeekday
+    }
 }
 
 public let ZH: [String: String] = [

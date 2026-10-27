@@ -2,7 +2,8 @@ import SwiftUI
 import Charts
 import LedgerKit
 
-/// Shared month grid with the journal’s existing filtered daily totals and a separately selected day.
+/// Shared month grid with the journal’s existing filtered daily totals.
+/// The open day is the sheet: the first tap opens it, and tapping that day again closes it.
 struct JournalCalendar: View {
     @Environment(Store.self) var store
     let L: Ledger
@@ -10,12 +11,10 @@ struct JournalCalendar: View {
     let entries: [Entry]
     /// filtered to one account: amounts on that account instead of spending / income
     let account: String?
-    let pick: (String) -> Void
+    @Binding var openDay: CalendarDay?
     @State private var month = Day.ym(Day.today())
-    @State private var selectedDay: String?
     @State private var initialized = false
     @AppStorage("journal.glassCalendar") private var glassCalendar = true
-    @ScaledMetric(relativeTo: .caption) private var summaryHeight: CGFloat = 74
 
     struct DayTotal { var out = 0.0; var inn = 0.0; var n = 0 }
 
@@ -45,38 +44,61 @@ struct JournalCalendar: View {
 
     var body: some View {
         let totals = byDay
-        let out = totals.values.reduce(0) { $0 + $1.out }, inn = totals.values.reduce(0) { $0 + $1.inn }
-        var marks: [String: [Color]] = [:]
-        for (d, x) in totals {
-            let dots = [x.out > 0.005 ? Self.spend : nil, x.inn > 0.005 ? Self.earn : nil].compactMap { $0 }
-            if !dots.isEmpty { marks[d] = dots } else if x.n > 0 { marks[d] = [Self.other] }
-        }
+        let out = totals.values.reduce(0) { $0 + $1.out }
+        let inn = totals.values.reduce(0) { $0 + $1.inn }
         return Group {
             if glassCalendar {
-                let maxOut = totals.values.map(\.out).max() ?? 0
-                let maxIn = totals.values.map(\.inn).max() ?? 0
-                let levels = totals.mapValues {
-                    DayMark(out: markLevel(amount: $0.out, max: maxOut), inn: markLevel(amount: $0.inn, max: maxIn), other: $0.n > 0)
-                }
-                GlassMonthCalendar(marks: levels, month: $month, last: Day.today(), describe: { describe($0, totals) }, selection: $selectedDay, showsToday: true, pick: pick) {
-                    figures(out: out, inn: inn)
-                } summary: {
-                    summary(totals)
-                } footer: {
-                    EmptyView()
-                }
+                monthGrid(totals, out: out, inn: inn)
             } else {
-                legacy(totals, marks: marks, out: out, inn: inn)
+                legacy(totals, marks: colorMarks(totals), out: out, inn: inn)
             }
         }
         .onAppear {
             guard !initialized else { return }
             initialized = true
             follow()
-            selectDefault(byDay)
         }
-        .onChange(of: entries.first?.date) { _, _ in follow(); selectDefault(byDay) }
-        .onChange(of: month) { _, _ in selectDefault(byDay) }
+        .onChange(of: entries.first?.date) { _, _ in follow() }
+    }
+
+    private func monthGrid(_ totals: [String: DayTotal], out: Double, inn: Double) -> some View {
+        GlassMonthCalendar(marks: intensity(totals), month: $month, last: Day.today(), describe: { describe($0, totals) }, selection: dayBinding, showsToday: true, toggleDay: true) {
+            figures(out: out, inn: inn)
+        } footer: {
+            EmptyView()
+        }
+    }
+
+    private func intensity(_ totals: [String: DayTotal]) -> [String: DayMark] {
+        let maxOut = totals.values.map(\.out).max() ?? 0
+        let maxIn = totals.values.map(\.inn).max() ?? 0
+        var marks: [String: DayMark] = [:]
+        for (day, total) in totals {
+            marks[day] = DayMark(out: markLevel(amount: total.out, max: maxOut), inn: markLevel(amount: total.inn, max: maxIn), other: total.n > 0)
+        }
+        return marks
+    }
+
+    private func colorMarks(_ totals: [String: DayTotal]) -> [String: [Color]] {
+        var marks: [String: [Color]] = [:]
+        for (day, total) in totals {
+            let spend = total.out > 0.005 ? Self.spend : nil
+            let earn = total.inn > 0.005 ? Self.earn : nil
+            let dots = [spend, earn].compactMap { $0 }
+            if !dots.isEmpty { marks[day] = dots }
+            else if total.n > 0 { marks[day] = [Self.other] }
+        }
+        return marks
+    }
+
+    /// the sheet's day, as the grid's selection. Clearing it dismisses the sheet.
+    private var dayBinding: Binding<String?> {
+        Binding(get: { openDay?.day }, set: { openDay = $0.map { CalendarDay(day: $0) } })
+    }
+
+    /// the system calendar has no selection of its own: the same day again closes the sheet
+    private func toggleDay(_ day: String) {
+        openDay = openDay?.day == day ? nil : CalendarDay(day: day)
     }
 
     private func describe(_ day: String, _ totals: [String: DayTotal]) -> String? {
@@ -84,10 +106,6 @@ struct JournalCalendar: View {
             let parts = [x.out != 0 ? LS("支出 ") + money(x.out) : nil, x.inn != 0 ? LS("收入 ") + money(x.inn) : nil].compactMap { $0 }
             return parts.isEmpty ? LS("%@ 笔其他交易", x.n) : parts.joined(separator: " ")
         }
-    }
-
-    private func selectDefault(_ totals: [String: DayTotal]) {
-        selectedDay = totals.isEmpty ? nil : month == Day.ym(Day.today()) ? Day.today() : totals.keys.max()
     }
 
     private func figures(out: Double, inn: Double) -> some View {
@@ -101,51 +119,6 @@ struct JournalCalendar: View {
         .accessibilityIdentifier("calendar.figures")
         .contentTransition(.numericText())
         .animation(AppMotion.quick, value: month)
-    }
-
-    private func summary(_ totals: [String: DayTotal]) -> some View {
-        HStack(spacing: AppSpacing.icon) {
-            VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                if let d = selectedDay {
-                    Text(summaryDate(d)).fontWeight(.semibold)
-                        .lineLimit(1).minimumScaleFactor(0.5)
-                        .accessibilityIdentifier("calendar.summary.date")
-                    HStack(spacing: AppSpacing.detail) {
-                        DayTotalsText(out: totals[d]?.out ?? 0, inn: totals[d]?.inn ?? 0)
-                        Text(LS("· %@ 笔", totals[d]?.n ?? 0)).monospacedDigit()
-                    }
-                } else {
-                    Text(LS("本月暂无记录"))
-                }
-            }
-            .lineLimit(2)
-            Spacer(minLength: 0)
-            Button { if let d = selectedDay { pick(d) } } label: {
-                HStack(spacing: AppSpacing.detail) {
-                    Text(LS("查看当天明细"))
-                    Image(systemName: "chevron.right").accessibilityHidden(true)
-                }
-                .lineLimit(2).minimumScaleFactor(0.6)
-            }
-            .foregroundStyle(Color.jadeInk).buttonStyle(.plain)
-            .opacity(selectedDay == nil ? 0 : 1).disabled(selectedDay == nil)
-            .accessibilityHidden(selectedDay == nil)
-            .accessibilityIdentifier("calendar.openDay")
-        }
-        .font(.caption)
-        .frame(height: summaryHeight)
-        .overlay(alignment: .top) { Divider() }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("calendar.summary")
-    }
-
-    private func summaryDate(_ day: String) -> String {
-        guard let date = Day.date(day) else { return day }
-        let formatter = DateFormatter()
-        formatter.locale = AppLanguage.current.locale
-        formatter.timeZone = Day.calendar.timeZone
-        formatter.dateFormat = KitLocale.chinese ? "d日 · EEE" : "d · EEE"
-        return formatter.string(from: date)
     }
 
     private func legacy(_ totals: [String: DayTotal], marks: [String: [Color]], out: Double, inn: Double) -> some View {
@@ -164,7 +137,7 @@ struct JournalCalendar: View {
                     let parts = [x.out > 0.005 ? LS("支出 ") + money(x.out) : nil, x.inn > 0.005 ? LS("收入 ") + money(x.inn) : nil].compactMap { $0 }
                     return parts.isEmpty ? (x.n > 0 ? LS("%@ 笔其他交易", x.n) : nil) : parts.joined(separator: " ")
                 }
-            }, pick: pick)
+            }, pick: toggleDay)
             legend
         }
     }
@@ -206,8 +179,10 @@ struct DayMark {
     var other = false
 }
 
-/// Six fixed rows, shared by Journal and subscriptions. Selection is separate from opening a day's details.
-struct GlassMonthCalendar<Totals: View, Summary: View, Footer: View>: View {
+/// Six fixed rows, shared by Journal and subscriptions.
+/// The list section is the only card: no glass, and no inner rounded frame around the grid.
+/// `toggleDay` opens on the first tap and clears the same day on the next. Subscriptions pick at once.
+struct GlassMonthCalendar<Totals: View, Footer: View>: View {
     var marks: [String: DayMark]
     @Binding var month: String
     var first = "2000-01-01"
@@ -216,10 +191,10 @@ struct GlassMonthCalendar<Totals: View, Summary: View, Footer: View>: View {
     @Binding var selection: String?
     var showsToday = false
     var themeMarks = false
+    var toggleDay = false
     var pickImmediately = false
-    var pick: (String) -> Void
+    var pick: (String) -> Void = { _ in }
     @ViewBuilder var totals: () -> Totals
-    @ViewBuilder var summary: () -> Summary
     @ViewBuilder var footer: () -> Footer
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -230,23 +205,23 @@ struct GlassMonthCalendar<Totals: View, Summary: View, Footer: View>: View {
     @State private var wheelMonth = 1
     @State private var forward = true
 
-    private var calendar: Calendar {
-        var c = Day.calendar
+    /// Symbols follow the app language. Their order follows the phone's week start, the same day as 本周.
+    private var symbolCalendar: Calendar {
+        var c = Calendar(identifier: .gregorian)
         c.locale = AppLanguage.current.locale
-        // firstWeekday follows the chosen locale rather than the language of the compiled app.
-        var localized = Calendar(identifier: .gregorian)
-        localized.locale = AppLanguage.current.locale
-        c.firstWeekday = localized.firstWeekday
+        c.timeZone = Day.calendar.timeZone
+        c.firstWeekday = Day.firstWeekday
         return c
     }
     private var days: [String] {
-        guard let start = Day.date(month + "-01") else { return [] }
-        let offset = (calendar.component(.weekday, from: start) - calendar.firstWeekday + 7) % 7
+        guard Day.date(month + "-01") != nil else { return [] }
+        let offset = Day.daysAfterWeekStart(month + "-01")
         return (0..<42).map { Day.shift(month + "-01", $0 - offset) }
     }
     private var weekdays: [String] {
-        let symbols = calendar.veryShortStandaloneWeekdaySymbols
-        return (0..<7).map { symbols[(calendar.firstWeekday - 1 + $0) % 7] }
+        let symbols = symbolCalendar.veryShortStandaloneWeekdaySymbols
+        let first = symbolCalendar.firstWeekday
+        return (0..<7).map { symbols[(first - 1 + $0) % 7] }
     }
     private func enabled(_ d: String) -> Bool { d.hasPrefix(month) && d >= first && d <= last }
     private func canStep(_ offset: Int) -> Bool {
@@ -262,18 +237,16 @@ struct GlassMonthCalendar<Totals: View, Summary: View, Footer: View>: View {
     }
 
     var body: some View {
-        VStack(spacing: AppSpacing.icon) {
-            navigation
-            totals()
-            HStack(spacing: 0) {
-                ForEach(Array(weekdays.enumerated()), id: \.offset) { _, name in
-                    Text(name).font(.caption2).foregroundStyle(.secondary).frame(maxWidth: .infinity)
-                }
-            }.accessibilityHidden(true)
-            ZStack { grid }
-                .animation(AppMotion.standard, value: month)
-            summary()
-            footer()
+        // An empty footer must not insert the stack spacing, or the journal card grows a blank row.
+        VStack(spacing: 0) {
+            VStack(spacing: AppSpacing.icon) {
+                navigation
+                totals()
+                weekdayHeader
+                ZStack { grid }
+                    .animation(AppMotion.standard, value: month)
+            }
+            footer().padding(.top, footerGap)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("calendar.glass")
@@ -309,6 +282,22 @@ struct GlassMonthCalendar<Totals: View, Summary: View, Footer: View>: View {
             arrow("chevron.right", label: LS("下个月"), offset: 1)
         }
         .buttonStyle(.plain)
+    }
+
+    private var footerGap: CGFloat { footer() is EmptyView ? 0 : AppSpacing.icon }
+
+    private var weekdayHeader: some View {
+        let names = weekdays
+        let start = days.first ?? ""
+        return HStack(spacing: 0) {
+            ForEach(Array(names.enumerated()), id: \.offset) { _, name in
+                Text(name).font(.caption2).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityIdentifier("calendar.weekdays")
+        .accessibilityLabel(Text(names.joined(separator: " ")))
+        .accessibilityValue(Text(start))
     }
 
     private func arrow(_ symbol: String, label: String, offset: Int) -> some View {
@@ -351,10 +340,7 @@ struct GlassMonthCalendar<Totals: View, Summary: View, Footer: View>: View {
         let selected = selection == d
         let mark = marks[d] ?? DayMark()
         return Button {
-            let repeated = selection == d
-            selection = d
-            Haptics.selection()
-            if pickImmediately || repeated { pick(d) }
+            choose(d)
         } label: {
             VStack(spacing: 2) {
                 Text(String(Int(d.suffix(2)) ?? 1))
@@ -389,6 +375,17 @@ struct GlassMonthCalendar<Totals: View, Summary: View, Footer: View>: View {
         .accessibilityAddTraits(selected ? [.isSelected] : [])
         .accessibilityHidden(!d.hasPrefix(month))
         .accessibilityIdentifier("calendar.day." + d)
+    }
+
+    private func choose(_ d: String) {
+        Haptics.selection()
+        if toggleDay {
+            selection = selection == d ? nil : d
+            return
+        }
+        let repeated = selection == d
+        selection = d
+        if pickImmediately || repeated { pick(d) }
     }
 
     private func dot(level: Int, color: Color) -> some View {
@@ -446,7 +443,7 @@ struct MonthCalendar: UIViewRepresentable {
 
     func makeUIView(context: Context) -> UICalendarView {
         let v = UICalendarView()
-        v.calendar = Day.calendar
+        v.calendar = weekCalendar()
         v.locale = AppLanguage.current.locale
         v.fontDesign = .rounded
         v.tintColor = Self.tint(context)
@@ -459,8 +456,17 @@ struct MonthCalendar: UIViewRepresentable {
     }
 
     func updateUIView(_ v: UICalendarView, context: Context) {
+        if v.calendar.firstWeekday != Day.firstWeekday { v.calendar = weekCalendar() }
+        v.locale = AppLanguage.current.locale
         v.tintColor = Self.tint(context)
         context.coordinator.apply(self, to: v, animated: true)
+    }
+
+    /// Gregorian dates, with the phone's week start so the fallback matches the grid and 本周.
+    private func weekCalendar() -> Calendar {
+        var c = Day.calendar
+        c.firstWeekday = Day.firstWeekday
+        return c
     }
 
     /// the theme colour as this screen draws it (light or dark), for today, the days and the arrows

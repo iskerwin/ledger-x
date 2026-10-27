@@ -954,34 +954,89 @@ final class EditInteractionTests: XCTestCase {
         let card = openGlassCalendar(app)
         let height = card.frame.height
         let figuresY = app.otherElements["calendar.figures"].frame.minY
-        // This locale starts on Sunday: February 2015, April and May 2021 need four, five and six rows.
+        // Six fixed rows, so a short month and a long month keep the same card height.
         for (year, month) in [("2015", "2"), ("2021", "4"), ("2021", "5")] {
             chooseCalendarMonth(app, year: year, month: month)
             XCTAssertEqual(card.frame.height, height, accuracy: 0.5)
             XCTAssertEqual(app.otherElements["calendar.figures"].frame.minY, figuresY, accuracy: 0.5)
-            XCTAssertTrue(app.staticTexts["本月暂无记录"].exists)
+            assertNoDaySummary(app)
         }
         chooseCalendarMonth(app, year: "2026", month: "10")
-        let day = app.buttons["calendar.day.2026-10-17"]
-        tapPoint(day, timeout: 5)
-        let summary = app.staticTexts["calendar.summary.date"]
-        XCTAssertTrue(summary.label.contains("17"))
-        XCTAssertTrue(app.buttons["calendar.openDay"].exists)
-        XCTAssertTrue(app.otherElements["calendar.summary"].staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "12.00")).firstMatch.exists)
-        let cardShot = XCTAttachment(screenshot: app.screenshot()); cardShot.name = "glass-selected-day"; cardShot.lifetime = .keepAlways; add(cardShot)
-        XCTAssertFalse(app.navigationBars["10月17日 周六"].exists)
-        tapPoint(day, timeout: 5)
+        assertNoDaySummary(app)
+        let header = app.descendants(matching: .any)["calendar.weekdays"]
+        XCTAssertEqual(header.label, expectedWeekdayHeader())
+        XCTAssertEqual(header.value as? String, expectedGridStart("2026-10-01"))
+        let plain = XCTAttachment(screenshot: app.screenshot())
+        plain.name = "calendar-no-summary"
+        plain.lifetime = .keepAlways
+        add(plain)
+        // 1 October is always on the first row, above the half sheet. The coordinate stays
+        // on that cell after the sheet covers the lower page.
+        let first = app.buttons["calendar.day.2026-10-01"]
+        XCTAssertTrue(first.waitForExistence(timeout: 5))
+        let spot = first.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        spot.tap()
+        let opened = app.navigationBars["10月1日 周四"]
+        XCTAssertTrue(opened.waitForExistence(timeout: 5))
+        spot.tap()
+        if textSize == nil {
+            XCTAssertTrue(opened.waitForNonExistence(timeout: 5), "Tapping the open day dismisses its sheet")
+        } else if !opened.waitForNonExistence(timeout: 2) {
+            tapPoint(app.buttons["完成"], timeout: 5)
+            XCTAssertTrue(opened.waitForNonExistence(timeout: 5))
+        }
+        XCTAssertNotEqual(first.value as? String, "已选中")
+        let coffee = app.buttons["calendar.day.2026-10-17"]
+        for _ in 0..<4 where !(coffee.exists && coffee.isHittable) { app.swipeUp() }
+        tapPoint(coffee, timeout: 5)
         XCTAssertTrue(app.navigationBars["10月17日 周六"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["完成"].exists)
-        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "glass-day-sheet"; shot.lifetime = .keepAlways; add(shot)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "12.00")).firstMatch.exists)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "calendar-day-sheet"
+        shot.lifetime = .keepAlways
+        add(shot)
         tapPoint(app.buttons["完成"], timeout: 5)
-        tapPoint(app.buttons["calendar.day.2026-10-16"], timeout: 5)
-        XCTAssertTrue(app.staticTexts["calendar.summary.date"].label.contains("16"))
-        let open = app.buttons["calendar.openDay"]
-        for _ in 0..<4 { if open.isHittable { break }; app.swipeUp() }
-        XCTAssertTrue(app.staticTexts["calendar.summary.date"].label.contains("16"), "Scrolling must preserve the selected date")
-        open.tap()
+        let advance = app.buttons["calendar.day.2026-10-16"]
+        for _ in 0..<4 where !(advance.exists && advance.isHittable) { app.swipeUp() }
+        tapPoint(advance, timeout: 5)
         XCTAssertTrue(app.navigationBars["10月16日 周五"].waitForExistence(timeout: 5))
+    }
+
+    private func assertNoDaySummary(_ app: XCUIApplication) {
+        XCTAssertFalse(app.staticTexts["本月暂无记录"].exists)
+        XCTAssertFalse(app.staticTexts["查看当天明细"].exists)
+        XCTAssertFalse(app.buttons["calendar.openDay"].exists)
+        XCTAssertFalse(app.otherElements["calendar.summary"].exists)
+    }
+
+    /// Weekday names in the app's Chinese, ordered from the phone's first day of the week.
+    private func expectedWeekdayHeader() -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "zh_CN")
+        calendar.timeZone = .autoupdatingCurrent
+        calendar.firstWeekday = Calendar.current.firstWeekday
+        let symbols = calendar.veryShortStandaloneWeekdaySymbols
+        let first = calendar.firstWeekday
+        var names: [String] = []
+        names.reserveCapacity(7)
+        for offset in 0..<7 {
+            names.append(symbols[(first - 1 + offset) % 7])
+        }
+        return names.joined(separator: " ")
+    }
+
+    /// The grid's first cell, including a day from the previous month. Same count as 本周.
+    private func expectedGridStart(_ day: String) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .autoupdatingCurrent
+        calendar.firstWeekday = Calendar.current.firstWeekday
+        let parts = day.split(separator: "-").compactMap { Int($0) }
+        let start = calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2], hour: 12))!
+        let weekday = calendar.component(.weekday, from: start)
+        let back = (weekday - calendar.firstWeekday + 7) % 7
+        let first = calendar.date(byAdding: .day, value: -back, to: start)!
+        let components = calendar.dateComponents([.year, .month, .day], from: first)
+        return String(format: "%04d-%02d-%02d", components.year!, components.month!, components.day!)
     }
 
     func testGlassSubscriptionCalendarRangeAndSelection() {
@@ -1039,10 +1094,8 @@ final class EditInteractionTests: XCTestCase {
         let selected = app.buttons["calendar.day.2026-10-24"]
         XCTAssertTrue(selected.exists)
         selected.tap()
-        app.swipeUp()
-        let selection = XCTAttachment(screenshot: app.screenshot()); selection.name = "calendar-ax3-selection"; selection.lifetime = .keepAlways; add(selection)
-        app.buttons["calendar.openDay"].tap()
         XCTAssertTrue(app.navigationBars["10月24日 周六"].waitForExistence(timeout: 5))
+        let selection = XCTAttachment(screenshot: app.screenshot()); selection.name = "calendar-ax3-day"; selection.lifetime = .keepAlways; add(selection)
     }
 
     func testCalendarUsesFullRowWidthWithoutHint() {
@@ -1052,6 +1105,8 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertEqual(grid.frame.minX, calendar.frame.minX, accuracy: 0.5)
         XCTAssertEqual(grid.frame.maxX, calendar.frame.maxX, accuracy: 0.5)
         XCTAssertFalse(app.staticTexts["点越大，当日金额越大"].exists)
+        XCTAssertFalse(app.buttons["calendar.openDay"].exists)
+        XCTAssertEqual(app.descendants(matching: .any)["calendar.weekdays"].label, expectedWeekdayHeader())
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "calendar-without-inner-card"; shot.lifetime = .keepAlways; add(shot)
     }
