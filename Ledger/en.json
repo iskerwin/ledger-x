@@ -2158,5 +2158,7 @@
  "点按或左右滑动查看各月": "Tap or slide to see each month",
  "开 %@，收 %@，%@": "open %@, close %@, %@",
  "涨": "up",
- "跌": "down"
+ "跌": "down",
+ "月度合计": "Monthly totals",
+ "按当前筛选的交易统计": "Totals for the filtered transactions"
 }
