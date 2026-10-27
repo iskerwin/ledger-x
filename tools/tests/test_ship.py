@@ -15,6 +15,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT/'tools'))
 import ship
 
+DEMO_SHA = ship.content_digest([('main.bean', b'; fictional sample')])
+
 
 class ShipTests(unittest.TestCase):
     def setUp(self):
@@ -27,7 +29,7 @@ class ShipTests(unittest.TestCase):
     def fixture(self, folder):
         with zipfile.ZipFile(folder/'Ledger.ipa', 'w') as archive:
             archive.writestr('Payload/Ledger.app/Info.plist', plistlib.dumps(dict(
-                CFBundleShortVersionString='1.0.0', CFBundleVersion='4', CFBundleIdentifier='com.iskerwin.ledger')))
+                CFBundleShortVersionString='1.0.0', CFBundleVersion='4', CFBundleIdentifier='com.iskerwin.ledger', LedgerDemoCommit='demo')))
             archive.writestr('Payload/Ledger.app/Demo/main.bean', '; fictional sample')
             archive.writestr('Payload/Ledger.app/_CodeSignature/CodeResources', 'signature fixture')
         data = (folder/'Ledger.ipa').read_bytes()
@@ -35,7 +37,7 @@ class ShipTests(unittest.TestCase):
                         tree='tree', sha256=hashlib.sha256(data).hexdigest(), size=len(data))
         proof = dict(source_sha='a'*40, tree='tree', validator='local', core_tests=308, interaction_tests=32,
                      reports='Reports match Beancount (5 valuations, 9 months, 21 month ends)',
-                     xcode='Xcode 27.1', simulator='iPhone 17 · iOS 27.0')
+                     xcode='Xcode 27.1', simulator='iPhone 17 · iOS 27.0', demo_commit='demo', demo_sha256=DEMO_SHA)
         return manifest, proof
 
     def test_selected_versions_are_strictly_increasing(self):
@@ -134,9 +136,10 @@ class ShipTests(unittest.TestCase):
                 with patch.object(ship, 'ROOT', root), patch.object(ship, 'DIST', root/'dist'), \
                      patch.object(ship, 'repository', return_value='example/app'), \
                      patch.object(ship, 'require_clean_main'), patch.object(ship, 'git', side_effect=git), \
+                     patch.object(ship, 'verify_demo_snapshot', return_value=DEMO_SHA), \
                      patch.object(ship, 'validate') as full, \
                      patch.object(ship, 'validate_development', return_value=dict(validator='local', scope='build',
-                         static_checks=True, tools_tests=True, xcode='Xcode', demo_commit='demo')), \
+                         static_checks=True, tools_tests=True, xcode='Xcode', demo_commit='demo', demo_sha256=DEMO_SHA)), \
                      patch.object(ship, 'fetch_releases', return_value=[dict(body='构建 3')]), \
                      patch.object(ship, 'out', return_value=''), patch.object(ship, 'remote_has', return_value=False), \
                      patch.object(ship, 'build_ipa', side_effect=build), patch.object(ship, 'run') as run, \
@@ -157,8 +160,8 @@ class ShipTests(unittest.TestCase):
 
     def test_release_requires_full_tests_of_exact_dev_source(self):
         manifest = dict(source_sha='a'*40, tree='tree')
-        proof = dict(scope='build', demo_commit='demo')
-        full = dict(scope='full', validator='local', demo_commit='demo', core_tests=10,
+        proof = dict(scope='build', demo_commit='demo', demo_sha256=DEMO_SHA)
+        full = dict(scope='full', validator='local', demo_commit='demo', demo_sha256=DEMO_SHA, core_tests=10,
                     interaction_tests=5, reports='Reports match Beancount')
         def clean_git(*args):
             if args == ('status', '--porcelain'):
@@ -185,10 +188,26 @@ class ShipTests(unittest.TestCase):
                 self.assertEqual(ship.release_validation(manifest, proof), proof)
                 validate.assert_not_called()
 
+    def test_legacy_full_evidence_without_demo_digest_is_revalidated(self):
+        with tempfile.TemporaryDirectory() as temp:
+            manifest, full = self.fixture(Path(temp))
+            old = dict(full)
+            del old['demo_sha256']
+            fresh = {key: value for key, value in full.items() if key not in ('source_sha', 'tree')}
+            fresh['scope'] = 'full'
+            def git(*args):
+                if args == ('status', '--porcelain'):
+                    return ''
+                return 'tree' if args[-1].endswith('^{tree}') else 'a'*40
+            with patch.object(ship, 'git', side_effect=git), patch.object(ship, 'validate', return_value=fresh) as validate:
+                result = ship.release_validation(manifest, old)
+                validate.assert_called_once()
+                ship.verify_proof(result, manifest, require_full=True)
+
     def test_release_reuses_only_full_results_for_the_same_source_and_demo(self):
         manifest = dict(source_sha='a'*40, tree='tree')
-        proof = dict(scope='build', demo_commit='demo')
-        full = dict(validator='local', scope='full', source_sha='a'*40, tree='tree', demo_commit='demo',
+        proof = dict(scope='build', demo_commit='demo', demo_sha256=DEMO_SHA)
+        full = dict(validator='local', scope='full', source_sha='a'*40, tree='tree', demo_commit='demo', demo_sha256=DEMO_SHA,
                     core_tests=10, interaction_tests=5, reports='Reports match Beancount')
         def git(*args):
             return '' if args == ('status', '--porcelain') else 'a'*40
@@ -223,7 +242,7 @@ class ShipTests(unittest.TestCase):
                     if args == ('status', '--porcelain'):
                         return ' M changed.swift' if dirty else ''
                     return 'tree' if args[-1].endswith('^{tree}') else 'a'*40
-                full = dict(scope='full', validator='local', demo_commit='demo', core_tests=10,
+                full = dict(scope='full', validator='local', demo_commit='demo', demo_sha256=DEMO_SHA, core_tests=10,
                             interaction_tests=5, reports='Reports match Beancount')
                 ship.write_json(ship.FULL_VALIDATION, full)
                 with patch('builtins.open', return_value=lock), patch('builtins.print'), \
@@ -282,7 +301,8 @@ class ShipTests(unittest.TestCase):
                     return 'fake-udid', 'fictional iPhone'
 
                 for name, value in [('ROOT', root), ('use_xcode', lambda: 'Xcode fixture'),
-                                    ('demo_snapshot', lambda: 'demo'), ('beancount_python', lambda: 'python'),
+                                    ('demo_snapshot', lambda: 'demo'), ('verify_demo_snapshot', lambda *args: DEMO_SHA),
+                                    ('beancount_python', lambda: 'python'),
                                     ('fresh_simulator', simulator), ('run', run), ('step', stages.append),
                                     ('report', lambda text: None)]:
                     stack.enter_context(patch.object(ship, name, value))

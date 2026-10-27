@@ -188,10 +188,46 @@ def demo_snapshot():
     path = ROOT / '.demo-data'
     if not (path / '.git').exists():
         run(['git', 'clone', '-q', 'https://github.com/iskerwin/ledger-demo', path])
+    require_clean_demo()
     if git('-C', path, 'rev-parse', 'HEAD') != commit:
         run(['git', '-C', path, 'fetch', '-q', 'origin'])
         run(['git', '-C', path, 'checkout', '-q', '--detach', commit])
+    verify_demo_snapshot(commit)
     return commit
+
+
+def require_clean_demo():
+    if git('-C', ROOT / '.demo-data', 'status', '--porcelain', '--untracked-files=all', '--ignored'):
+        raise Failure('本机演示快照有修改或额外文件；未覆盖这些文件，请先检查 .demo-data')
+
+
+def content_digest(files):
+    """Bind paths and bytes, independent of file times and archive ordering."""
+    records = [(name, hashlib.sha256(data).hexdigest()) for name, data in files]
+    return hashlib.sha256(json.dumps(sorted(records), ensure_ascii=True).encode()).hexdigest()
+
+
+def demo_digest(folder):
+    files = []
+    for path in sorted(folder.rglob('*')):
+        name = path.relative_to(folder)
+        if any(part.startswith('.') for part in name.parts):
+            continue  # same exclusion as the App's demo copy phase
+        if path.is_symlink():
+            raise Failure('演示快照不能包含符号链接')
+        if path.is_file():
+            files.append((name.as_posix(), path.read_bytes()))
+    return content_digest(files)
+
+
+def verify_demo_snapshot(commit, expected_digest=None):
+    if git('-C', ROOT / '.demo-data', 'rev-parse', 'HEAD') != commit:
+        raise Failure('演示快照提交在验证或打包期间发生变化')
+    require_clean_demo()
+    digest = demo_digest(ROOT / '.demo-data')
+    if expected_digest is not None and digest != expected_digest:
+        raise Failure('演示快照内容在验证或打包期间发生变化')
+    return digest
 
 
 def beancount_python():
@@ -260,12 +296,13 @@ def validate_development():
     """Fast publication checks; targeted tests are run during development, separately from packaging."""
     xcode = use_xcode()
     demo = demo_snapshot()
+    digest = verify_demo_snapshot(demo)
     step('静态检查与流程回归')
     run([sys.executable, 'tools/check_project.py'])
     run([sys.executable, '-m', 'unittest', 'discover', '-s', 'tools/tests', '-p', 'test_*.py'], log='tools-tests.log')
     return dict(validator='local', scope='build', static_checks=True, tools_tests=True,
                 validated_at=datetime.now(timezone.utc).isoformat(timespec='seconds'),
-                macos=platform.mac_ver()[0], xcode=xcode, demo_commit=demo)
+                macos=platform.mac_ver()[0], xcode=xcode, demo_commit=demo, demo_sha256=digest)
 
 
 def validate():
@@ -316,6 +353,7 @@ def validate():
     report(f'{interaction} 项通过')
     subprocess.run(['xcrun', 'simctl', 'shutdown', udid], capture_output=True)
 
+    verify_demo_snapshot(proof['demo_commit'], proof['demo_sha256'])
     return dict(proof, scope='full', simulator=simulator, core_tests=core, reports=reports, interaction_tests=interaction)
 
 
@@ -383,6 +421,12 @@ def verify_proof(proof, manifest, require_full=False):
         raise ValueError('验证记录与安装包的源码或文件树不一致')
     if proof.get('validator') != 'local':
         raise ValueError('验证记录必须来自本机')
+    for key in ('demo_commit', 'demo_sha256'):
+        if manifest.get(key) is not None and proof.get(key) != manifest[key]:
+            raise ValueError('验证记录与安装包的演示快照不一致')
+    if require_full and (not proof.get('demo_commit') or
+                         not re.fullmatch(r'[0-9a-f]{64}', str(proof.get('demo_sha256', '')))):
+        raise ValueError('全量验证记录缺少演示快照内容摘要，需要补跑')
     if proof.get('scope') == 'build' and not require_full:
         if not all(proof.get(k) is True for k in ('static_checks', 'tools_tests', 'release_build')):
             raise ValueError('开发版验证记录不完整：缺少静态检查、工具回归或 Release 构建')
@@ -411,6 +455,18 @@ def verify_package(folder, manifest, proof, repo):
         for name in ('Payload/Ledger.app/Demo/main.bean', 'Payload/Ledger.app/_CodeSignature/CodeResources'):
             if name not in package.namelist():
                 raise ValueError(f'安装包缺少 {name}')
+        prefix = 'Payload/Ledger.app/Demo/'
+        names = [entry.filename for entry in package.infolist()
+                 if entry.filename.startswith(prefix) and not entry.is_dir()]
+        if len(names) != len(set(names)):
+            raise ValueError('安装包演示资源有重复路径')
+        digest = content_digest((name[len(prefix):], package.read(name)) for name in names)
+        for record in (manifest, proof):
+            if record.get('demo_sha256') is not None and record['demo_sha256'] != digest:
+                raise ValueError('安装包内的演示内容与验证记录不一致')
+        if manifest.get('demo_commit') and info.get('LedgerDemoCommit') != manifest['demo_commit']:
+            raise ValueError('安装包内的演示提交与清单不一致')
+        return digest
 
 
 def verify_source(repo, manifest):
@@ -425,10 +481,14 @@ def verify_source(repo, manifest):
 
 def build_ipa(version, build, demo):
     step(f'编译 Release 安装包 {version}（构建 {build}，内置演示）')
+    digest = verify_demo_snapshot(demo)
     bundled = ROOT / 'Ledger/Demo'
     shutil.rmtree(bundled, ignore_errors=True)
     shutil.copytree(ROOT / '.demo-data', bundled, ignore=shutil.ignore_patterns('.git', '.github'))
     try:
+        verify_demo_snapshot(demo, digest)
+        if demo_digest(bundled) != digest:
+            raise Failure('复制到 App 的演示内容与固定快照不一致')
         if not (bundled / 'main.bean').is_file():
             raise Failure('演示快照缺少 main.bean')
         run(['xcodegen', 'generate', '--quiet'])
@@ -562,6 +622,7 @@ def ship_dev(full=False):
     build = next_build(releases, listed)
     shutil.rmtree(DIST, ignore_errors=True)
     DIST.mkdir()
+    verify_demo_snapshot(proof['demo_commit'], proof['demo_sha256'])
     ipa = build_ipa(version, build, proof['demo_commit'])
     proof['release_build'] = True
     # Tests and the build must not have changed tracked files; the package is exactly this commit.
@@ -572,6 +633,7 @@ def ship_dev(full=False):
     manifest = dict(schema=2, repository=repo, source_sha=sha, tree=tree, version=version, build=build,
                     sha256=hashlib.sha256(ipa.read_bytes()).hexdigest(), size=ipa.stat().st_size,
                     channel='self-signing', phone_acceptance='pending', xcode=proof['xcode'],
+                    demo_commit=proof['demo_commit'], demo_sha256=proof['demo_sha256'],
                     built_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
     (DIST / 'validation-evidence.json').write_text(json.dumps(proof, ensure_ascii=False, indent=2) + '\n')
     (DIST / 'build-manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
@@ -602,8 +664,12 @@ def release_validation(manifest, proof):
     """A build-only dev needs full tests of its exact source before promotion; never rebuild its IPA."""
     step('确认正式版全量验证')
     if proof.get('scope') != 'build':
-        verify_proof(proof, manifest, require_full=True)
-        return proof
+        try:
+            verify_proof(proof, manifest, require_full=True)
+        except ValueError:
+            pass  # old evidence cannot prove the demo bytes; revalidate the original IPA
+        else:
+            return proof
     if git('status', '--porcelain'):
         raise Failure('全量验证开发版源码前，请先提交或还原工作区改动')
     sha = manifest['source_sha']
@@ -637,11 +703,15 @@ def ship_release():
         download(repo, 'dev', folder)
         manifest = json.loads((folder/'build-manifest.json').read_text())
         proof = json.loads((folder/'validation-evidence.json').read_text())
-        verify_package(folder, manifest, proof, repo)
+        demo_digest = verify_package(folder, manifest, proof, repo)
+        manifest.setdefault('demo_commit', proof.get('demo_commit'))
+        manifest.setdefault('demo_sha256', demo_digest)
         verify_source(repo, manifest)
         if tag_sha(repo, 'dev') != manifest['source_sha']:
             raise ValueError('开发版标签与安装包源码不一致')
         proof = release_validation(manifest, proof)
+        verify_package(folder, manifest, proof, repo)
+        (folder/'build-manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
         (folder/'validation-evidence.json').write_text(json.dumps(proof, ensure_ascii=False, indent=2) + '\n')
         tag = f'v{manifest["version"]}'
         # Complete version notes from the exact source, not the rolling dev delta.
