@@ -17,12 +17,23 @@ struct LedgerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ZStack {
-                RootView()
+            Group {
+                // Locked means locked: the lock screen used to be only an overlay
+                // inside this window, so a sheet opened before locking (for example
+                // a day's transactions) stayed visible above it. While locked the
+                // app's own views are not in the hierarchy at all, so nothing they
+                // presented can stay on screen; unlocking rebuilds them on the
+                // current tab. The inactive privacy cover keeps its overlay form:
+                // it only hides the app switcher snapshot while unlocked.
                 if lock.locked {
-                    LockScreen().transition(.opacity).zIndex(2)
-                } else if phase != .active && lock.enabled {
-                    PrivacyCover().zIndex(1)
+                    LockScreen().transition(.opacity)
+                } else {
+                    ZStack {
+                        RootView()
+                        if phase != .active && lock.enabled {
+                            PrivacyCover().zIndex(1)
+                        }
+                    }
                 }
             }
             .environment(store)
