@@ -168,7 +168,8 @@ class ShipTests(unittest.TestCase):
                         patch.object(ship, 'validate_targeted', return_value=dict(validator='local', scope='build',
                             static_checks=True, tools_tests=True, xcode='Xcode', demo_commit='demo', demo_sha256=DEMO_SHA)),
                         patch.object(ship, 'tag_exists', return_value=False),
-                        patch.dict(os.environ, {'LEDGER_CORE_FILTER': '' if failure == 'automatic' else 'Example', 'LEDGER_UI_TESTS': ''}),
+                        patch.dict(os.environ, {'LEDGER_CORE_FILTER': '' if failure == 'automatic' else 'Example',
+                                                'LEDGER_UI_TESTS': '', 'GITHUB_STEP_SUMMARY': str(root/'summary.md')}),
                         patch.object(ship, 'fetch_releases', return_value=[dict(body='构建 3')]),
                         patch.object(ship, 'out', return_value=''), patch.object(ship, 'remote_has', return_value=False),
                         patch.object(ship, 'build_ipa', side_effect=build), patch.object(ship, 'run', side_effect=command),
@@ -194,6 +195,7 @@ class ShipTests(unittest.TestCase):
                         if failure == 'automatic':
                             self.assertEqual(evidence['auto_selection'], plan)
                             self.assertEqual(json.loads((root/'.ship/dev-test-plan.json').read_text()), plan)
+                            self.assertIn('Dev 自动测试范围', (root/'summary.md').read_text())
                         self.assertIn(unittest.mock.call(['git', 'push', 'origin', 'HEAD:refs/heads/main']), run.call_args_list)
                     effects = ship.progress.state.get('effects', {})
                     if failure == 'build':
