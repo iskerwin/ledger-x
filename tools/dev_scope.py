@@ -11,7 +11,12 @@ import tempfile
 import pr_scope
 
 # Explicitly reviewed dependencies, not a guess based on Swift/test name similarity.
-# Unknown source files expand within their affected test layer, never to full validation.
+# UI coverage is explicit: missing mappings never select an entire UI test bundle.
+CRITICAL_UI = tuple('LedgerUITests/EditInteractionTests/' + name for name in (
+    'testExistingExpenseTypeRoundTripClosesWithoutPrompt',
+    'testQuickAndFullFormsShareAmount',
+    'testUntouchedFormClosesWithoutPrompt',
+))
 CALENDAR_TESTS = (
     'testTheCalendarTakesTheQuickFiltersPlaceAndKeepsItsHeight',
     'testTheCalendarDotsSitUnderTheirDate',
@@ -34,6 +39,28 @@ MAPPINGS = {
         core=(), ui=('LedgerTests/SyncAppearanceTests',), narrow=(),
         reason='同步状态显示及其颜色/图标规则'),
 }
+MAPPINGS.update({
+    'Ledger/Views/JournalView.swift': dict(
+        core=('CalendarMarkTests', 'SearchTests', 'SubTests'),
+        ui=MAPPINGS['Ledger/Views/CalendarView.swift']['ui'] + tuple('LedgerUITests/EditInteractionTests/' + name for name in (
+            'testJournalSearchAppliesOnSubmitAndClearRestores', 'testTheJournalScrollsToTheEntryJustSaved')),
+        narrow=MAPPINGS['Ledger/Views/CalendarView.swift']['narrow'],
+        reason='明细：月历、搜索与保存后定位'),
+    'Ledger/Views/SubPickers.swift': dict(
+        core=('SubTests',),
+        ui=tuple('LedgerUITests/EditInteractionTests/' + name for name in CALENDAR_TESTS[4:6]),
+        narrow=tuple('LedgerUITests/EditInteractionTests/' + name for name in CALENDAR_TESTS[4:6]),
+        reason='订阅日期选择：常用/较大字号与窄屏'),
+    'Ledger/Sync/Demo.swift': dict(
+        core=('DemoRepositoryTests',), ui=('LedgerTests/DemoBootstrapTests',), narrow=(),
+        reason='演示加载及切换后的文件、队列隔离'),
+    'LedgerKit/Sources/LedgerKit/DemoRepository.swift': dict(
+        core=('DemoRepositoryTests',), ui=('LedgerTests/DemoBootstrapTests',), narrow=(),
+        reason='演示仓库读取和 App 加载回归'),
+    'LedgerKit/Sources/LedgerKit/Search.swift': dict(
+        core=('SearchTests',), ui=('LedgerUITests/EditInteractionTests/testJournalSearchAppliesOnSubmitAndClearRestores',),
+        narrow=(), reason='查询解析和明细搜索提交/清除'),
+})
 SAFE_FILES = {'README.md', 'AGENTS.md', 'CLAUDE.md', 'CHANGELOG.md'}
 
 
@@ -43,7 +70,9 @@ def classify(paths, diff='', sources=None):
     core, ui, narrow, reasons = set(), set(), set(), []
     core_all = False
     targets = set()
+    critical = False
     for path in paths:
+        critical |= path.startswith('Ledger/') or path == 'project.yml'
         mapping = MAPPINGS.get(path)
         if mapping:
             core.update(mapping['core'])
@@ -60,8 +89,9 @@ def classify(paths, diff='', sources=None):
             reasons.append(f'{path} → 改动的测试及共用辅助函数影响的用例')
         elif path.startswith('tools/fixtures/'):
             core_all = True
-            targets.add('LedgerTests')
-            reasons.append(f'{path} → 演示/样本受影响，扩大到核心与 App 内测试模块')
+            ui.add('LedgerTests/DemoBootstrapTests')
+            critical = True
+            reasons.append(f'{path} → 核心样本、演示加载与关键界面流程')
         elif path in SAFE_FILES or path.startswith(('docs/', 'tools/', '.github/')):
             reasons.append(f'{path} → 静态检查与工具测试')
         elif path.startswith('LedgerKit/'):
@@ -70,17 +100,20 @@ def classify(paths, diff='', sources=None):
         elif path.startswith('Ledger/Sync/'):
             core_all = True
             targets.add('LedgerTests')
-            # Store and shared persistence state also drive every screen's interaction.
-            if Path(path).name in ('Store.swift', 'Shared.swift', 'Compose.swift', 'Backends.swift'):
-                targets.add('LedgerUITests')
-            reasons.append(f'{path} → 扩大到核心与存储测试模块；共用存储状态另含界面模块')
+            reasons.append(f'{path} → 核心与 App 内测试；界面只跑关键流程')
+        elif path.startswith('LedgerTests/Fixtures/'):
+            targets.add('LedgerTests')
+            reasons.append(f'{path} → App 内测试夹具，覆盖 App 内模块')
         elif path.startswith(('Ledger/', 'LedgerTests/', 'LedgerUITests/')) or path == 'project.yml':
-            targets.update(('LedgerTests', 'LedgerUITests'))
-            reasons.append(f'{path} → 扩大到 App 内与界面测试模块')
+            critical = True
+            reasons.append(f'{path} → 编译与关键界面流程；完整界面覆盖留到转正前')
         else:
             core_all = True
-            targets.update(('LedgerTests', 'LedgerUITests'))
-            reasons.append(f'{path} → 无法确定模块，运行各模块相关测试；不执行完整全量流程')
+            targets.add('LedgerTests')
+            critical = True
+            reasons.append(f'{path} → 核心、App 内测试与关键界面流程；不扩大界面套件')
+    if critical:
+        ui.update(CRITICAL_UI)
     return dict(core_all=core_all, app_targets=sorted(targets), narrow_targets=[],
                 core_filter='.*' if core_all else '|'.join(sorted(core)), ui_tests=sorted(ui),
                 narrow_tests=sorted(narrow), paths=paths, reasons=reasons or ['源码与上次开发版相同，只做静态与工具检查'])
@@ -131,6 +164,9 @@ def expand_modules(plan, root):
             for selector in plan[key]:
                 check = dict(plan, core_filter='', ui_tests=[selector], narrow_tests=[])
                 if not validate_selectors(check, root):
+                    if selector.startswith('LedgerUITests/'):
+                        import ship
+                        raise ship.Failure(f'界面回归映射已失效：{selector}；请更新映射，不能改跑整套界面测试')
                     affected.add(selector.split('/')[0])
         plan['reasons'].append('测试已删除或对应规则已过期，替换为当前受影响模块的测试')
     if plan['core_all']:
@@ -158,11 +194,11 @@ def select(repo, sha):
             raise ship.Failure('上次开发版标签与清单源码不一致，未发布；请核实开发版记录')
     if base is None:
         paths = ship.out(['git', 'ls-files', '-z']).strip('\0').split('\0')
-        plan = classify([path for path in paths if path])
+        plan = classify([path for path in paths if path and not path.startswith(('LedgerTests/', 'LedgerUITests/'))])
         plan['reasons'].insert(0, '没有上次开发版，按当前源码所含模块选测，不执行完整全量流程')
     elif subprocess.run(['git', 'merge-base', '--is-ancestor', base, sha], cwd=ship.ROOT).returncode:
         paths = ship.out(['git', 'ls-files', '-z']).strip('\0').split('\0')
-        plan = classify([path for path in paths if path])
+        plan = classify([path for path in paths if path and not path.startswith(('LedgerTests/', 'LedgerUITests/'))])
         plan['reasons'].insert(0, '基线不是当前源码的祖先，按当前源码所含模块选测，不执行完整全量流程')
     else:
         # Two-dot diff covers all net changes since the package, including multiple PRs/deletions.
@@ -178,7 +214,7 @@ def describe(plan):
     lines = ['## Dev 自动测试范围',
              f'- 基线：{plan["base_sha"] or "无（首次开发版）"}',
              f'- 当前源码：{plan["source_sha"]}',
-             '- 范围：相关测试（需要时扩大到受影响模块；完整全量在转正前执行）',
+             '- 范围：相关核心/存储、本次回归与关键界面流程；完整全量在转正前执行',
              '', *['- ' + reason for reason in plan['reasons']]]
     lines += ['', f'- 核心测试：{plan["core_filter"] or "无需运行；静态与工具测试始终执行"}',
               *['- App/界面：' + name for name in plan['ui_tests']]]
