@@ -9,8 +9,9 @@
                                                  commit a version bump and a new CHANGELOG section
   python3 tools/ship.py watch                    follow the running (or the last) test / dev / release from any terminal
 
-Any failed step stops before anything is pushed or published. Logs stay in the
-repository root (*.log, interaction-tests.xcresult); packages and evidence in dist/.
+Failed checks or builds stop before publication. A later network failure may
+leave a pushed commit or partially updated release; status records what completed
+and what needs checking. Logs stay in the repository root; packages in dist/.
 """
 from datetime import datetime, timezone
 import fcntl
@@ -87,7 +88,12 @@ class Progress:
             self.state['stages'][-1]['note'] = text
             self.save()
 
-    def finish(self, ok, message=None, totals=None):
+    def effect(self, name, status):
+        if self.state is not None:
+            self.state.setdefault('effects', {})[name] = status
+            self.save()
+
+    def finish(self, ok, message=None, totals=None, interrupted=False):
         if self.state is None:
             return
         now = time.time()
@@ -95,7 +101,7 @@ class Progress:
             stage.setdefault('ended', now)
         if not ok and self.state['stages']:
             self.state['stages'][-1]['failed'] = True
-        self.state.update(result='passed' if ok else 'failed', ended=now)
+        self.state.update(result='interrupted' if interrupted else 'passed' if ok else 'failed', ended=now)
         if message is not None:
             self.state['message'] = message
         self.save()
@@ -159,6 +165,35 @@ def run(cmd, log=None, check=True, env=None, timeout=None):
             print(''.join((ROOT / log).read_text(errors='replace').splitlines(True)[-40:]), file=sys.stderr)
         raise Failure(f'{" ".join(cmd[:3])} 失败（退出码 {result.returncode}）' + (f'，完整日志见 {log}' if log else ''))
     return result.returncode
+
+
+def remote_run(effect, cmd):
+    # A failed request may have reached the server. Persist this before sending it.
+    progress.effect(effect, 'started')
+    run(cmd)
+    progress.effect(effect, 'done')
+
+
+def failure_message(error, interrupted=False, state=None):
+    label = '中断' if interrupted else '失败'
+    message = f'✗ {label}：{error or type(error).__name__}'
+    state = state if state is not None else progress.state or {}
+    effects = state.get('effects', {})
+    if not effects:
+        return message + '\n未发起推送或发布。'
+    states = {
+        'main_push': ('main', '已推送', '未发起推送', '已发起推送，结果待核实'),
+        'dev_release': ('开发版', '已发布', '未开始发布', '已发起更新，结果待核实'),
+        'release': ('正式版', '已发布', '未开始发布', '已发起发布，结果待核实'),
+        'ipa_source': ('IPA 安装源', '已更新', '尚未更新', '已发起更新，结果待核实'),
+    }
+    keys = ('release', 'ipa_source') if state.get('command') == 'release' \
+        else ('main_push', 'dev_release', 'ipa_source')
+    for key in keys:
+        name, done, pending, uncertain = states[key]
+        state = effects.get(key)
+        message += f'\n{name}：{done if state == "done" else uncertain if state == "started" else pending}'
+    return message
 
 
 def git(*args):
@@ -614,10 +649,12 @@ def publish(repo, tag, folder, manifest, notes):
     """Create the published release; an existing version is never moved or replaced."""
     if release_for_tag(repo, tag) or tag_exists(repo, tag):
         raise ValueError(f'{tag} 已发布；先用 python3 tools/ship.py version 选择新版本，再发布开发版')
+    progress.effect('release', 'started')
     run(['gh', 'release', 'create', tag, '--repo', repo, '--target', manifest['source_sha'], '--draft',
          '--title', f'Ledger X {manifest["version"]}', '--notes-file', notes])
     run(['gh', 'release', 'upload', tag, '--repo', repo, *[folder/name for name in FILES]])
     run(['gh', 'release', 'edit', tag, '--repo', repo, '--draft=false', '--prerelease=false', '--latest'])
+    progress.effect('release', 'done')
 
 
 def remote_has(branch):
@@ -646,7 +683,8 @@ def update_sources(repo):
             run(['git', '-C', tree, 'add', 'dev.json', 'release.json', 'mirror/dev.json', 'mirror/release.json'])
             if subprocess.run(['git', '-C', str(tree), 'diff', '--cached', '--quiet']).returncode:
                 run(['git', '-C', tree, 'commit', '-qm', 'Update installation sources'])
-                run(['git', '-C', tree, 'push', '-q', 'origin', 'HEAD:refs/heads/ipa'])
+                remote_run('ipa_source', ['git', '-C', tree, 'push', '-q', 'origin', 'HEAD:refs/heads/ipa'])
+            progress.effect('ipa_source', 'done')
         finally:
             run(['git', 'worktree', 'remove', '--force', tree])
 
@@ -698,7 +736,7 @@ def ship_dev(full=False):
     verify_package(DIST, manifest, proof, repo)
 
     step('推送 main 到 GitHub')
-    run(['git', 'push', 'origin', 'HEAD:refs/heads/main'])
+    remote_run('main_push', ['git', 'push', 'origin', 'HEAD:refs/heads/main'])
 
     step('发布开发版')
     notes = release_notes.render((ROOT / 'CHANGELOG.md').read_text(), release_notes.previous_changelog(repo),
@@ -706,13 +744,16 @@ def ship_dev(full=False):
     (DIST / 'release-notes.md').write_text(notes)
     assets = [DIST / name for name in FILES]
     title = f'Ledger X {version} 开发版'
-    if release_for_tag(repo, 'dev'):
+    previous = release_for_tag(repo, 'dev')
+    progress.effect('dev_release', 'started')
+    if previous:
         run(['gh', 'release', 'upload', 'dev', '--repo', repo, *assets, '--clobber'])
         run(['gh', 'api', '-X', 'PATCH', f'repos/{repo}/git/refs/tags/dev', '-f', f'sha={sha}', '-F', 'force=true'])
         run(['gh', 'release', 'edit', 'dev', '--repo', repo, '--prerelease', '--title', title, '--notes-file', DIST / 'release-notes.md'])
     else:
         run(['gh', 'release', 'create', 'dev', '--repo', repo, *assets, '--target', sha, '--prerelease',
              '--title', title, '--notes-file', DIST / 'release-notes.md'])
+    progress.effect('dev_release', 'done')
     update_sources(repo)
     done(f'\n✓ 已发布 Ledger X {version} 开发版（构建 {build}），main {sha[:7]}'
          f'\n  https://github.com/{repo}/releases/tag/dev\n  手机验收：待 Kerwin 执行')
@@ -846,6 +887,8 @@ def render(state, history, logs, now, alive=True):
         status = f'✓ 完成，用时 {clock(end - state["started"])}'
     elif result == 'failed':
         status = f'✗ 失败，用时 {clock(end - state["started"])}'
+    elif result == 'interrupted':
+        status = f'✗ 已中断，用时 {clock(end - state["started"])}'
     elif not alive:
         status = '✗ 已中断（进程不在了）'
     else:
@@ -881,10 +924,15 @@ def render(state, history, logs, now, alive=True):
             lines.append(f'      {extra}')
     for name in pending if result is None and alive else ():
         lines.append(f'  ○ {name}')
+    if result in ('failed', 'interrupted') or (result is None and not alive):
+        for name in pending:
+            lines.append(f'  — {name}（未运行）')
     if state.get('log') and result is None:
         lines += ['', f'日志：{state["log"]}']
     if state.get('message'):
         lines += ['', state['message']]
+    if result is None and not alive:
+        lines += ['', failure_message('进程已退出，未留下最终结论', interrupted=True, state=state)]
     return '\n'.join(lines)
 
 
@@ -943,6 +991,8 @@ def main(argv):
         return 1
     if command != 'version':
         progress.begin(command)
+    else:
+        progress.state = None
     try:
         if command == 'test':
             source = None if git('status', '--porcelain') else git('rev-parse', 'HEAD')
@@ -960,13 +1010,16 @@ def main(argv):
             ship_release()
         else:
             select_version(argv[2])
-    except (Failure, ValueError) as error:
-        print(f'\n✗ {error}\n未推送、未发布。', file=sys.stderr)
-        progress.finish(False, f'✗ {error}\n未推送、未发布。')
+    except KeyboardInterrupt as error:
+        message = failure_message(error, interrupted=True)
+        print(f'\n{message}', file=sys.stderr)
+        progress.finish(False, message, interrupted=True)
+        return 130
+    except Exception as error:
+        message = failure_message(error)
+        print(f'\n{message}', file=sys.stderr)
+        progress.finish(False, message)
         return 1
-    except BaseException as error:
-        progress.finish(False, f'✗ 中断：{type(error).__name__} {error}'.strip())
-        raise
     progress.finish(True, totals=progress.state and run_totals(progress.state['started']))
     return 0
 

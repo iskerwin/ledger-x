@@ -1,6 +1,7 @@
 """Validation boundaries, using only fictional files and local temporary repositories."""
 from contextlib import ExitStack
 import hashlib
+import io
 import json
 from pathlib import Path
 import plistlib
@@ -178,6 +179,94 @@ class FullValidationResultsTests(unittest.TestCase):
                        dict(interaction_tests=3)):
             with self.subTest(change=change), self.assertRaises(ValueError):
                 ship.verify_proof(dict(proof, **change), manifest, require_full=True)
+
+
+class PublicationStatusTests(unittest.TestCase):
+    def test_formal_release_reports_partial_uploads_and_stops_after_failure(self):
+        for failed in (None, 'create', 'upload', 'edit'):
+            with self.subTest(failed=failed), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                actions = []
+                def request(cmd):
+                    self.assertEqual(ship.progress.state['effects']['release'], 'started')
+                    actions.append(cmd[2])
+                    if cmd[2] == failed:
+                        raise ship.Failure('fictional request failed')
+                with patch.object(ship, 'STATUS', root/'status.json'), patch.object(ship, 'progress', ship.Progress()), \
+                     patch.object(ship, 'release_for_tag', return_value=None), patch.object(ship, 'tag_exists', return_value=False), \
+                     patch.object(ship, 'run', side_effect=request):
+                    ship.progress.begin('release')
+                    if failed:
+                        with self.assertRaises(ship.Failure):
+                            ship.publish('example/app', 'v1.0.0', root, dict(version='1.0.0', source_sha='source'), root/'notes.md')
+                    else:
+                        ship.publish('example/app', 'v1.0.0', root, dict(version='1.0.0', source_sha='source'), root/'notes.md')
+                    expected = ['create', 'upload', 'edit']
+                    self.assertEqual(actions, expected if failed is None else expected[:expected.index(failed) + 1])
+                    self.assertEqual(ship.progress.state['effects']['release'], 'started' if failed else 'done')
+
+    def test_remote_request_records_uncertainty_before_sending_and_completion_after_success(self):
+        for failed in (False, True):
+            with self.subTest(failed=failed), tempfile.TemporaryDirectory() as temp:
+                status = Path(temp)/'status.json'
+                with patch.object(ship, 'STATUS', status), patch.object(ship, 'progress', ship.Progress()):
+                    ship.progress.begin('dev')
+                    def request(cmd):
+                        self.assertEqual(json.loads(status.read_text())['effects']['main_push'], 'started')
+                        if failed:
+                            raise ship.Failure('fictional connection lost')
+                    with patch.object(ship, 'run', side_effect=request):
+                        if failed:
+                            with self.assertRaises(ship.Failure):
+                                ship.remote_run('main_push', ['fake-push'])
+                        else:
+                            ship.remote_run('main_push', ['fake-push'])
+                    self.assertEqual(json.loads(status.read_text())['effects']['main_push'],
+                                     'started' if failed else 'done')
+
+    def test_watch_preserves_remote_action_status_when_the_process_disappears(self):
+        state = dict(command='dev', started=100, result=None, stages=[],
+                     effects=dict(main_push='done', dev_release='started'))
+        screen = ship.render(state, {}, {}, 110, alive=False)
+        self.assertIn('已中断', screen)
+        self.assertIn('main：已推送', screen)
+        self.assertIn('开发版：已发起更新，结果待核实', screen)
+        self.assertIn('（未运行）', screen)
+
+    def test_errors_and_interruptions_report_completed_and_uncertain_remote_actions(self):
+        cases = [
+            ('dev', {}, ship.Failure('checks failed'), 1, 'failed', ['未发起推送或发布']),
+            ('dev', dict(main_push='done'), ship.Failure('upload failed'), 1, 'failed',
+             ['main：已推送', '开发版：未开始发布', 'IPA 安装源：尚未更新']),
+            ('dev', dict(main_push='done', dev_release='started'), ship.Failure('connection lost'), 1, 'failed',
+             ['main：已推送', '开发版：已发起更新，结果待核实']),
+            ('dev', dict(main_push='done', dev_release='done'), ship.Failure('sources failed'), 1, 'failed',
+             ['开发版：已发布', 'IPA 安装源：尚未更新']),
+            ('release', dict(release='done', ipa_source='started'), ship.Failure('sources push lost'), 1, 'failed',
+             ['正式版：已发布', 'IPA 安装源：已发起更新，结果待核实']),
+            ('dev', {}, subprocess.CalledProcessError(1, ['fake-command']), 1, 'failed', ['失败']),
+            ('dev', dict(main_push='done'), KeyboardInterrupt(), 130, 'interrupted', ['中断', 'main：已推送']),
+        ]
+        for command, effects, error, code, result, messages in cases:
+            with self.subTest(command=command, error=type(error).__name__, effects=effects), \
+                 tempfile.TemporaryDirectory() as temp, tempfile.TemporaryFile(mode='w') as lock, ExitStack() as stack:
+                root = Path(temp)
+                output = io.StringIO()
+                def action(*args, **kwargs):
+                    ship.progress.state['effects'] = effects
+                    raise error
+                for name, value in [('STATUS', root/'status.json'), ('HISTORY', root/'history.json'),
+                                    ('progress', ship.Progress()), ('ship_dev', action), ('ship_release', action)]:
+                    stack.enter_context(patch.object(ship, name, value))
+                stack.enter_context(patch('builtins.open', return_value=lock))
+                stack.enter_context(patch('sys.stderr', output))
+                self.assertEqual(ship.main(['ship.py', command]), code)
+                state = json.loads((root/'status.json').read_text())
+                self.assertEqual(state['result'], result)
+                for message in messages:
+                    self.assertIn(message, output.getvalue())
+                    self.assertIn(message, state['message'])
+                self.assertNotIn('未推送、未发布', output.getvalue())
 
 
 if __name__ == '__main__':

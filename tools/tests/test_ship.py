@@ -119,13 +119,13 @@ class ShipTests(unittest.TestCase):
 
     def test_default_dev_builds_without_running_full_tests_and_build_failure_never_pushes(self):
         import release_notes
-        for fail_build in (False, True):
-            with self.subTest(fail_build=fail_build), tempfile.TemporaryDirectory() as temp:
+        for failure in (None, 'build', 'push', 'upload', 'sources'):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp)
                 (root/'project.yml').write_text('MARKETING_VERSION: "1.0.0"')
                 (root/'CHANGELOG.md').write_text('## 1.0.0\n### 改进\n- 示例。')
                 def build(version, number, demo):
-                    if fail_build:
+                    if failure == 'build':
                         raise ship.Failure('build failed')
                     self.fixture(root/'dist')
                     return root/'dist/Ledger.ipa'
@@ -133,22 +133,32 @@ class ShipTests(unittest.TestCase):
                     if args == ('status', '--porcelain'):
                         return ''
                     return 'tree' if args[-1].endswith('^{tree}') else 'a'*40
-                with patch.object(ship, 'ROOT', root), patch.object(ship, 'DIST', root/'dist'), \
-                     patch.object(ship, 'repository', return_value='example/app'), \
-                     patch.object(ship, 'require_clean_main'), patch.object(ship, 'git', side_effect=git), \
-                     patch.object(ship, 'verify_demo_snapshot', return_value=DEMO_SHA), \
-                     patch.object(ship, 'validate') as full, \
-                     patch.object(ship, 'validate_development', return_value=dict(validator='local', scope='build',
-                         static_checks=True, tools_tests=True, xcode='Xcode', demo_commit='demo', demo_sha256=DEMO_SHA)), \
-                     patch.object(ship, 'fetch_releases', return_value=[dict(body='构建 3')]), \
-                     patch.object(ship, 'out', return_value=''), patch.object(ship, 'remote_has', return_value=False), \
-                     patch.object(ship, 'build_ipa', side_effect=build), patch.object(ship, 'run') as run, \
-                     patch.object(ship, 'release_for_tag', return_value=None), patch.object(ship, 'update_sources'), \
-                     patch.object(release_notes, 'previous_changelog', return_value=''), patch('builtins.print'):
-                    if fail_build:
+                def command(cmd, **kwargs):
+                    if (failure == 'push' and cmd[:2] == ['git', 'push']) or \
+                            (failure == 'upload' and cmd[:3] == ['gh', 'release', 'create']):
+                        raise ship.Failure(f'{failure} connection lost')
+                with ExitStack() as mocks:
+                    for mocked in (
+                        patch.object(ship, 'ROOT', root), patch.object(ship, 'DIST', root/'dist'),
+                        patch.object(ship, 'STATUS', root/'status.json'), patch.object(ship, 'progress', ship.Progress()),
+                        patch.object(ship, 'repository', return_value='example/app'),
+                        patch.object(ship, 'require_clean_main'), patch.object(ship, 'git', side_effect=git),
+                        patch.object(ship, 'verify_demo_snapshot', return_value=DEMO_SHA), patch.object(ship, 'validate'),
+                        patch.object(ship, 'validate_development', return_value=dict(validator='local', scope='build',
+                            static_checks=True, tools_tests=True, xcode='Xcode', demo_commit='demo', demo_sha256=DEMO_SHA)),
+                        patch.object(ship, 'fetch_releases', return_value=[dict(body='构建 3')]),
+                        patch.object(ship, 'out', return_value=''), patch.object(ship, 'remote_has', return_value=False),
+                        patch.object(ship, 'build_ipa', side_effect=build), patch.object(ship, 'run', side_effect=command),
+                        patch.object(ship, 'release_for_tag', return_value=None),
+                        patch.object(ship, 'update_sources', side_effect=ship.Failure('sources failed') if failure == 'sources' else None),
+                        patch.object(release_notes, 'previous_changelog', return_value=''), patch('builtins.print'),
+                    ):
+                        mocks.enter_context(mocked)
+                    run, full = ship.run, ship.validate
+                    ship.progress.begin('dev')
+                    if failure:
                         with self.assertRaises(ship.Failure):
                             ship.ship_dev()
-                        run.assert_not_called()
                     else:
                         ship.ship_dev()
                         evidence = json.loads((root/'dist/validation-evidence.json').read_text())
@@ -156,6 +166,16 @@ class ShipTests(unittest.TestCase):
                         self.assertTrue(evidence['release_build'])
                         self.assertNotIn('interaction_tests', evidence)
                         self.assertIn(unittest.mock.call(['git', 'push', 'origin', 'HEAD:refs/heads/main']), run.call_args_list)
+                    effects = ship.progress.state.get('effects', {})
+                    if failure == 'build':
+                        run.assert_not_called()
+                        self.assertEqual(effects, {})
+                    elif failure == 'push':
+                        self.assertEqual(effects, dict(main_push='started'))
+                    elif failure == 'upload':
+                        self.assertEqual(effects, dict(main_push='done', dev_release='started'))
+                    else:
+                        self.assertEqual(effects, dict(main_push='done', dev_release='done'))
                     full.assert_not_called()
 
     def test_release_requires_full_tests_of_exact_dev_source(self):
@@ -380,13 +400,16 @@ class ShipTests(unittest.TestCase):
             def download(repo, tag, folder, files=ship.FILES):
                 self.assertEqual(tag, 'dev')
                 for name in files: (folder/name).write_bytes((source/name).read_bytes())
+            def publish(repo, tag, folder, published, notes):
+                self.assertEqual((folder/'Ledger.ipa').read_bytes(), (source/'Ledger.ipa').read_bytes())
+                calls.append((repo, tag, folder, published, notes.read_text()))
             with patch.object(ship, 'repository', return_value='example/app'), \
                  patch.object(ship, 'download', side_effect=download), \
                  patch.object(ship, 'verify_source'), \
                  patch.object(ship, 'tag_sha', return_value='a'*40), \
                  patch.object(ship, 'git', return_value='## 1.0.0\n### 新增\n- 记账。'), \
                  patch.object(ship, 'update_sources'), \
-                 patch.object(ship, 'publish', side_effect=lambda *args: calls.append((*args[:4], args[4].read_text()))), \
+                 patch.object(ship, 'publish', side_effect=publish), \
                  patch('builtins.print'):
                 calls = []
                 ship.ship_release()
