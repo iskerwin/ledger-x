@@ -6,6 +6,9 @@ from pathlib import Path
 import re
 import sys
 from urllib.parse import unquote
+import dev_scope
+import pr_scope
+import scope_guard
 
 ROOT = Path(__file__).resolve().parents[1]
 errors = []
@@ -55,6 +58,14 @@ for p in paths:
     require(p.name not in ('package.json','sw.js','service-worker.js'), f'Unexpected runtime file: {p.name}')
 
 project = (ROOT/'project.yml').read_text()
+schemes = project.split('\nschemes:', 1)[-1]
+for scheme, expected in (('LedgerHostedTests', {'LedgerTests'}), ('LedgerUITests', {'LedgerUITests'}),
+                         ('LedgerInteractionTests', {'LedgerTests', 'LedgerUITests'})):
+    block = re.search(r'^  ' + scheme + r':\n(.*?)(?=^  \w+:|\Z)', schemes, re.M | re.S)
+    contents = block.group(1) if block else ''
+    require(set(re.findall(r'^        (Ledger(?:UI)?Tests): \[test\]$', contents, re.M)) == expected
+            and set(re.findall(r'^        - (Ledger(?:UI)?Tests)$', contents, re.M)) == expected,
+            f'{scheme} must build and run exactly its selected test bundles')
 require(re.search(r'MARKETING_VERSION: "\d+\.\d+\.\d+"', project), 'Project must declare a semantic base version')
 require('INFOPLIST_KEY_CFBundleDisplayName: Ledger X' in project, 'App display name must be Ledger X')
 require('LEDGER_DEMO_MIRROR: ""' in project, 'Default App mirror must be explicitly configured')
@@ -108,6 +119,23 @@ require(ship.index('proof = validate_targeted()') < ship.index("remote_run('main
         'Publication worker validates and builds before publishing')
 require(ship.index('proof = dev_scope.validate(plan)') < ship.index('ipa = build_ipa('),
         'Automatic development selection must validate before building an IPA')
+
+# Automatic CI/Dev must never use the full validator as a fallback. Explicit manual
+# CI remains allowed to run full, as does Release at the accepted package's source.
+try:
+    for source, function in (((ROOT/'tools/dev_scope.py').read_text(), 'validate'),
+                             ((ROOT/'tools/dev_scope.py').read_text(), 'select'),
+                             ((ROOT/'tools/pr_gate.py').read_text(), 'main'),
+                             (ship, 'ship_dev'), (ship, 'validate_targeted')):
+        scope_guard.check_runner(source, function)
+    for path in ('Ledger/Views/SyncAppearance.swift', 'LedgerKit/Sources/LedgerKit/Search.swift',
+                 'Ledger/en.json', 'LedgerTests/AppearanceTests.swift', 'project.yml',
+                 'LedgerKit/Sources/LedgerKit/Unknown.swift', 'Ledger/Sync/Unknown.swift',
+                 'tools/fixtures/unknown.bean', 'unknown-file'):
+        scope_guard.check_plan(dev_scope.classify([path]), 'dev')
+        scope_guard.check_plan(pr_scope.classify([path]), 'pr')
+except ValueError as error:
+    require(False, str(error))
 
 # every Chinese text shown through LS has its English; every English entry is still shown somewhere
 english = json.loads((ROOT/'Ledger/en.json').read_text())

@@ -165,16 +165,24 @@ def classify(paths, diff=None, sources=None):
     kit_tests = []
     xcode_build = False
     xcode_tests = []
+    reasons = []
     for path in (_norm(p) for p in paths):
         if path.startswith('LedgerKit/'):
             parts = path.split('/')
             stem = Path(path).stem
             if path in KIT_SOURCE_TESTS:
-                kit_tests.extend(KIT_SOURCE_TESTS[path])
+                for name in KIT_SOURCE_TESTS[path]:
+                    text = _source(f'LedgerKit/Tests/LedgerKitTests/{name}.swift', sources) or ''
+                    if re.search(r'\bclass\s+' + re.escape(name) + r'\b', text):
+                        kit_tests.append(name)
+                    else:
+                        kit_source = True
+                        reasons.append(f'{path} → 映射 {name} 已失效，扩大到全部核心测试模块')
             elif '/Tests/' in '/' + path and path.endswith('.swift') and 'Fixtures' not in parts and IDENT.fullmatch(stem):
                 kit_tests.append(stem)
             else:
                 kit_source = True
+                reasons.append(f'{path} → 依赖未明确，扩大到全部核心测试模块')
         if path == 'project.yml' or path.startswith(('Ledger/', 'LedgerTests/', 'LedgerUITests/')):
             xcode_build = True
         for target in ('LedgerTests', 'LedgerUITests'):
@@ -197,4 +205,4 @@ def classify(paths, diff=None, sources=None):
         xcode_tests = _narrow(paths, xcode_tests, diff, sources)
     else:
         xcode_tests = tuple(sorted(set(xcode_tests)))
-    return dict(swift=swift, xcode_build=xcode_build, xcode_tests=xcode_tests)
+    return dict(swift=swift, xcode_build=xcode_build, xcode_tests=xcode_tests, reasons=reasons)

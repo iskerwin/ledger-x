@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 
 import pr_scope
+import scope_guard
 
 # Explicitly reviewed dependencies, not a guess based on Swift/test name similarity.
 # UI coverage is explicit: missing mappings never select an entire UI test bundle.
@@ -102,7 +103,7 @@ def classify(paths, diff='', sources=None):
         elif path.startswith('Ledger/Sync/'):
             core_all = True
             targets.add('LedgerTests')
-            reasons.append(f'{path} → 核心与 App 内测试；界面只跑关键流程')
+            reasons.append(f'{path} → 扩大到核心与 App 内测试模块；界面只跑关键流程')
         elif path.startswith('LedgerTests/Fixtures/'):
             targets.add('LedgerTests')
             reasons.append(f'{path} → App 内测试夹具，覆盖 App 内模块')
@@ -113,7 +114,7 @@ def classify(paths, diff='', sources=None):
             core_all = True
             targets.add('LedgerTests')
             critical = True
-            reasons.append(f'{path} → 核心、App 内测试与关键界面流程；不扩大界面套件')
+            reasons.append(f'{path} → 扩大到核心、App 内测试模块与关键界面流程；不扩大界面套件')
     if critical:
         ui.update(CRITICAL_UI)
     return dict(core_all=core_all, app_targets=sorted(targets), narrow_targets=[],
@@ -209,6 +210,7 @@ def select(repo, sha):
         diff = ship.out(['git', 'diff', '--unified=0', '--no-renames', base, sha, '--'])
         plan = classify(paths, diff=diff)
     plan = expand_modules(plan, ship.ROOT)
+    scope_guard.check_plan(plan, 'dev')
     return dict(plan, base_sha=base, source_sha=sha, mode='automatic')
 
 
@@ -242,6 +244,7 @@ def environment(core, selectors, device=None):
 
 def validate(plan):
     import ship
+    scope_guard.check_plan(plan, 'dev')
     with environment(plan['core_filter'], plan['ui_tests']):
         proof = ship.validate_targeted()
     if plan['narrow_tests']:

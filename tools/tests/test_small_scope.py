@@ -46,6 +46,12 @@ class SmallScopeTests(unittest.TestCase):
         for path in ('Ledger/unknown.json', 'Ledger/Assets.xcassets/Contents.json'):
             self.assertLessEqual(set(dev_scope.CRITICAL_UI), set(dev_scope.classify([path])['ui_tests']))
 
+    def test_stale_reviewed_core_mapping_expands_with_a_reason(self):
+        plan = pr_scope.classify(['LedgerKit/Sources/LedgerKit/Search.swift'], sources={
+            'LedgerKit/Tests/LedgerKitTests/SearchTests.swift': '// class removed or renamed'})
+        self.assertEqual(plan['swift'], 'all')
+        self.assertTrue(any('扩大' in reason for reason in plan['reasons']))
+
 
 if __name__ == '__main__':
     unittest.main()

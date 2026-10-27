@@ -9,6 +9,7 @@ import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pr_scope
+import scope_guard
 import ship
 
 # A hung compile or a dialog that never arrives should fail the job, not sit until the
@@ -53,8 +54,11 @@ def main(argv):
     base = _base(argv[1] if len(argv) > 1 else os.environ.get('PR_BASE_SHA', ''))
     paths = changed_paths(base)
     plan = pr_scope.classify(paths, diff=changed_diff(base))
+    scope_guard.check_plan(plan, 'pr')
     print(f'PR 范围：swift={plan["swift"] or "无"}，编译 App 测试={plan["xcode_build"]}，'
           f'执行 {", ".join(plan["xcode_tests"]) or "无"}；不发布安装包', flush=True)
+    for reason in plan['reasons']:
+        print('- ' + reason, flush=True)
     run_limited([sys.executable, 'tools/check_project.py'], 5 * 60)
     run_limited([sys.executable, '-m', 'unittest', 'discover', '-s', 'tools/tests', '-p', 'test_*.py'],
                 5 * 60, log='tools-tests.log')
