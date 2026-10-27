@@ -55,8 +55,6 @@ def validate_inputs():
         raise ship.Failure('转正不允许筛选测试或更换机型')
     if command == 'release' and os.environ.get('LEDGER_FULL') == 'true':
         raise ship.Failure('Release 自动核对并补齐全量，不接受测试范围参数')
-    if command == 'dev' and os.environ.get('LEDGER_FULL') != 'true' and not ship.selected_tests():
-        raise ship.Failure('Dev 请勾选 full 跑全量，或填写 core_filter / ui_tests 指定相关测试；未发布安装包')
     selectors = os.environ.get('LEDGER_UI_TESTS', '').split()
     if any(not re.fullmatch(r'Ledger(?:UI)?Tests/[A-Za-z0-9_]+(?:/[A-Za-z0-9_]+)?', value) for value in selectors):
         raise ship.Failure('ui_tests 请填 Target/Class[/method]，例如 LedgerTests/AppearanceTests；多个用空格分隔')

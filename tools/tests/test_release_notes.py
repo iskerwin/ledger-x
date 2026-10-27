@@ -46,6 +46,20 @@ class ReleaseNotesTests(unittest.TestCase):
         self.assertNotIn('核心测试 308 项', text)
         self.assertNotIn('本机验证通过：', text)
 
+    def test_automatic_selection_and_both_devices_are_described_without_claiming_full(self):
+        proof = dict(scope='build', xcode='Xcode fixture',
+                     selected_core=dict(passed=3, filter='CalendarMarkTests'),
+                     selected_interaction=dict(passed=9, selectors=['LedgerUITests/EditInteractionTests/testCalendar'], simulator='iPhone regular'),
+                     additional_interaction=[dict(passed=4, selectors=['LedgerUITests/EditInteractionTests/testCalendar'], simulator='iPhone SE')],
+                     auto_selection=dict(base_sha='a'*40, source_sha='b'*40, reasons=['共用月历与窄屏']))
+        text = notes.render(BASE, '', 'example/app', 'b'*40, '1.0.0', '123', proof)
+        self.assertIn('指定核心回归 3 项通过', text)
+        self.assertIn('指定 App 内/界面回归 9 项通过', text)
+        self.assertIn('补充机型回归 4 项通过（iPhone SE', text)
+        self.assertIn('自动选测基线：', text)
+        self.assertIn('共用月历与窄屏', text)
+        self.assertIn('未运行核心、Beancount 报表对照和界面全量测试', text)
+
     def test_only_delta_and_nonempty_categories_appear(self):
         current = BASE.replace('- 原有功能。', '- 原有功能。\n- 新功能。') + '\n### 修复\n- 修复保存失败。\n'
         text = self.render(current, BASE)

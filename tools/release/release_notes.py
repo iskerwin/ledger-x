@@ -74,6 +74,12 @@ def render(current, previous, repo, sha, version, build, proof, channel="dev", i
     if proof.get('selected_interaction'):
         selected = proof['selected_interaction']
         validation += f' 指定 App 内/界面回归 {selected["passed"]} 项通过（{selected["simulator"]}；{", ".join(selected["selectors"])}）。'
+    for selected in proof.get('additional_interaction', []):
+        validation += f' 补充机型回归 {selected["passed"]} 项通过（{selected["simulator"]}；{", ".join(selected["selectors"])}）。'
+    if proof.get('auto_selection'):
+        plan = proof['auto_selection']
+        validation += (f' 自动选测基线：{plan["base_sha"] or "首次开发版"} → {plan["source_sha"]}。'
+                       + '；'.join(plan['reasons']) + '。')
     if proof.get('run_url'):
         validation += f' [GitHub Actions 验证记录]({proof["run_url"]})。'
     parts += ['---', f'## 添加{label} IPA 源',

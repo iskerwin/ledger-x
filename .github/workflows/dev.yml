@@ -1,24 +1,12 @@
 name: Ledger Dev
-run-name: 'Dev · ${{ inputs.full && ''全量测试'' || ''指定测试'' }} · ${{ github.ref_name }}'
+run-name: 'Dev · ${{ inputs.full && ''全量测试'' || ''自动相关测试'' }} · ${{ github.ref_name }}'
 on:
   workflow_dispatch:
     inputs:
       full:
-        description: '全量测试后发布：不确定相关测试时勾选；勾选后下面两个测试筛选留空'
+        description: '可选：跑全量测试。默认不勾，自动比较上次开发版并运行相关测试；通过后发布开发版'
         type: boolean
         default: false
-      core_filter:
-        description: '相关核心测试：例 CalendarMarkTests；未勾全量时，必须填写这里或下面的用例'
-        default: ''
-      ui_tests:
-        description: '相关 App/界面测试：Target/Class[/method]，多个用空格分隔；例 LedgerTests/AppearanceTests'
-        default: ''
-      device:
-        description: '机型（可选）：留空自动选择；窄屏填 iPhone SE (3rd generation)'
-        default: ''
-      source_sha:
-        description: '无需填写：留空自动发布 main 当前提交；命令行自动填写以锁定源码'
-        default: ''
 permissions:
   contents: read
 # Dev 和 Release 共用发布锁。正在发布的不取消；排队只保留最新一次。
@@ -44,11 +32,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       LEDGER_COMMAND: dev
-      LEDGER_SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
+      LEDGER_SOURCE_SHA: ${{ github.sha }}
       LEDGER_FULL: ${{ inputs.full }}
-      LEDGER_CORE_FILTER: ${{ inputs.core_filter }}
-      LEDGER_UI_TESTS: ${{ inputs.ui_tests }}
-      LEDGER_SIMULATOR_DEVICE: ${{ inputs.device }}
     steps:
       - uses: actions/checkout@v7
         with:

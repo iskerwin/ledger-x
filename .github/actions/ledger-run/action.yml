@@ -39,9 +39,11 @@ runs:
       if: always()
       shell: bash
       run: |
-        if [ -d interaction-tests.xcresult ]; then
-          xcrun xcresulttool export attachments --path interaction-tests.xcresult --output-path .ship/screenshots
-        fi
+        for result in interaction-tests*.xcresult; do
+          if [ -d "$result" ]; then
+            xcrun xcresulttool export attachments --path "$result" --output-path ".ship/screenshots/${result%.xcresult}"
+          fi
+        done
     - name: Keep reusable full validation
       if: success() && hashFiles('.ship/full-validation.json') != ''
       uses: actions/upload-artifact@v7
@@ -63,12 +65,13 @@ runs:
           .ship/status.json
           .ship/full-validation.json
           .ship/selected-validation.json
+          .ship/dev-test-plan.json
           .ship/screenshots/
           *-tests.log
           reports-check.log
           demo-build.log
           build.log
-          interaction-tests.xcresult/
+          interaction-tests*.xcresult/
           dist/*.json
           dist/*.md
           dist/*.ipa
