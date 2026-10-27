@@ -178,7 +178,7 @@ struct JournalView: View {
     /// a day picked on the calendar: its sheet
     @State private var calendarDay: CalendarDay?
     /// the day sheet's detent: on short screens it starts at a lower fraction, so the first
-    /// calendar rows stay above the sheet and the open day can be tapped again to dismiss it
+    /// calendar rows stay above the sheet and remain tappable to switch days
     @State private var dayDetent: PresentationDetent = UIScreen.main.bounds.height < 700 ? .fraction(0.4) : .medium
 
     private static var dayDetents: Set<PresentationDetent> {
@@ -329,8 +329,9 @@ struct JournalView: View {
         .presentationDetents(Self.dayDetents, selection: $dayDetent)
         .presentationDragIndicator(.visible)
         .presentationContentInteraction(.scrolls)
-        // half sheet stays clear of the upper dates, so tapping the open day again can dismiss it;
-        // on short screens the sheet starts lower still (see dayDetent), for the same reason
+        // half sheet stays clear of the upper dates, so they stay visible and tappable
+        // to switch days; on short screens the sheet starts lower still (see dayDetent).
+        // The sheet itself closes by swiping down or with its Done button.
         .presentationBackgroundInteraction(.enabled(upThrough: .medium))
     }
 
