@@ -96,7 +96,7 @@ class PRScopeTests(unittest.TestCase):
         self.assertEqual(whole['xcode_tests'], ('LedgerUITests/SampleTests',))
 
     def test_pull_request_gate_times_out_instead_of_hanging(self):
-        pull = (ROOT / '.github/workflows/pr.yml').read_text()
+        pull = (ROOT / '.github/workflows/ci.yml').read_text()
         gate = (ROOT / 'tools/pr_gate.py').read_text()
         self.assertIn('\n    timeout-minutes: 60\n', pull)
         self.assertIn('TEST_ALLOWANCE = 180', gate)

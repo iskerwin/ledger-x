@@ -1,0 +1,70 @@
+name: Ledger CI
+run-name: '${{ github.event_name == ''pull_request'' && format(''CI · PR #{0}'', github.event.pull_request.number) || format(''CI · 手动测试 · {0}'', github.ref_name) }}'
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      core_filter:
+        description: '核心测试（可选）：例 CalendarMarkTests；与下面的用例都留空时跑全量'
+        default: ''
+      ui_tests:
+        description: 'App/界面测试（可选）：Target/Class[/method]，多个用空格分隔；例 LedgerTests/AppearanceTests'
+        default: ''
+      device:
+        description: '机型（可选）：留空自动选择；窄屏填 iPhone SE (3rd generation)'
+        default: ''
+      source_sha:
+        description: '无需填写：留空自动测试所选分支当前提交；命令行自动填写以锁定源码'
+        default: ''
+permissions:
+  contents: read
+# 同一个 PR 只保留最新一次检查。这里不发布，取消旧检查没有副作用。
+concurrency:
+  group: 'ledger-ci-${{ github.event.pull_request.number || github.run_id }}'
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  gate:
+    if: github.event_name == 'pull_request'
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Pin Xcode 26.6
+        run: bash tools/select_xcode.sh
+      - name: Install build and report tools
+        run: |
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          if ! command -v xcodegen >/dev/null 2>&1; then brew install xcodegen; fi
+          python3 -m pip install 'beancount==3.2.0'
+      - name: Checks for this pull request
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 tools/pr_gate.py
+  test:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-26
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      LEDGER_COMMAND: test
+      LEDGER_SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
+      LEDGER_CORE_FILTER: ${{ inputs.core_filter }}
+      LEDGER_UI_TESTS: ${{ inputs.ui_tests }}
+      LEDGER_SIMULATOR_DEVICE: ${{ inputs.device }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/ledger-run

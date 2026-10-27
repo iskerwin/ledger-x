@@ -59,25 +59,34 @@ require(re.search(r'MARKETING_VERSION: "\d+\.\d+\.\d+"', project), 'Project must
 require('INFOPLIST_KEY_CFBundleDisplayName: Ledger X' in project, 'App display name must be Ledger X')
 require('LEDGER_DEMO_MIRROR: ""' in project, 'Default App mirror must be explicitly configured')
 ship = (ROOT/'tools/ship.py').read_text()
-ledger = (ROOT/'.github/workflows'/'ledger.yml').read_text()
-pull = (ROOT/'.github/workflows'/'pr.yml').read_text()
-workflow = '\n'.join((ledger, pull, (ROOT/'tools'/'select_xcode.sh').read_text()))
-require('workflow_dispatch:' in ledger and 'runs-on: macos-26' in ledger and 'cancel-in-progress: false' in ledger,
-        'Cloud workflow must be manually dispatched on macOS without cancelling publication')
-require('pull_request:' in pull and 'runs-on: macos-26' in pull and 'cancel-in-progress: true' in pull
-        and 'contents: read' in pull and 'contents: write' not in pull and 'actions: write' not in pull
-        and 'tools/pr_gate.py' in pull and 'persist-credentials: false' in pull and '\n  gate:' in pull,
+ci = (ROOT/'.github/workflows/ci.yml').read_text()
+dev = (ROOT/'.github/workflows/dev.yml').read_text()
+release = (ROOT/'.github/workflows/release.yml').read_text()
+runner = (ROOT/'.github/actions/ledger-run/action.yml').read_text()
+workflow = '\n'.join((ci, dev, release, runner, (ROOT/'tools/select_xcode.sh').read_text()))
+for name, publication in (('Dev', dev), ('Release', release)):
+    require('workflow_dispatch:' in publication and 'pull_request:' not in publication
+            and 'runs-on: macos-26' in publication and 'group: ledger-publication' in publication
+            and 'cancel-in-progress: false' in publication and "if: github.ref == 'refs/heads/main'" in publication
+            and 'contents: write' in publication and 'actions: write' in publication,
+            f'{name} must be manual, main-only and share a non-cancelling publication lock')
+gate = ci.split('\n  gate:', 1)[-1].split('\n  test:', 1)[0]
+require('pull_request:' in ci and 'runs-on: macos-26' in gate
+        and "cancel-in-progress: ${{ github.event_name == 'pull_request' }}" in ci
+        and 'contents: read' in ci and 'contents: write' not in ci and 'actions: write' not in gate
+        and "if: github.event_name == 'pull_request'" in gate
+        and 'tools/pr_gate.py' in gate and 'persist-credentials: false' in gate,
         'Pull requests need one read-only gate and must not publish')
-require('if: always()' in ledger and 'actions/upload-artifact@v7' in ledger, 'Cloud runs must preserve failed-run evidence')
-require('actions/checkout@v7' in workflow and 'actions/setup-python@v7' in workflow and 'actions/cache@v6' in ledger,
+require('if: always()' in runner and 'actions/upload-artifact@v7' in runner, 'Cloud runs must preserve failed-run evidence')
+require('actions/checkout@v7' in workflow and 'actions/setup-python@v7' in workflow and 'actions/cache@v6' in runner,
         'Cloud workflow must use current major versions of checkout, setup-python and cache')
-require('Xcode_26.6.app' in workflow and 'bash tools/select_xcode.sh' in ledger and 'bash tools/select_xcode.sh' in pull
-        and 'contents: read' in ledger and 'contents: write' in ledger and 'actions: write' in ledger
-        and 'cache_epoch' in ledger,
+require('Xcode_26.6.app' in workflow and 'bash tools/select_xcode.sh' in runner and 'bash tools/select_xcode.sh' in gate
+        and 'LEDGER_CACHE_EPOCH' in runner and 'contents: write' not in ci
+        and all('uses: ./.github/actions/ledger-run' in item for item in (ci, dev, release)),
         'Cloud workflow must pin Xcode 26.6 and split read and write permissions')
-require('retention-days: 7' in ledger and 'retention-days: 30' in ledger,
+require('retention-days: 7' in runner and 'retention-days: 30' in runner,
         'Cloud artifacts must use the short retention windows')
-require('build/' not in ledger.split('actions/cache@v6', 1)[-1].split('key:', 1)[0],
+require('build/' not in runner.split('actions/cache@v6', 1)[-1].split('key:', 1)[0],
         'Release builds stay uncached; only test compile products may be restored')
 require(all(step in ship for step in ("'swift', 'test'", 'tools/fixtures/check_reports.py', 'build-for-testing', 'test-without-building')),
         'Cloud validation must keep full core, reports and interaction coverage')
