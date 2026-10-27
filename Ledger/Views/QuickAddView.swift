@@ -560,8 +560,8 @@ struct QuickAddView: View {
         Button(action: tap) {
             HStack(spacing: AppSpacing.control) {
                 if a.isEmpty {
-                    Image(systemName: "plus.circle.fill").font(.title3).foregroundStyle(Color.jade).frame(width: 36, height: 36)
-                    Text(label == LS("转出") ? LS("选择转出账户") : LS("选择转入账户")).foregroundStyle(Color.jade)
+                    Image(systemName: "plus.circle.fill").font(.title3).foregroundStyle(Color.jadeInk).frame(width: 36, height: 36)
+                    Text(label == LS("转出") ? LS("选择转出账户") : LS("选择转入账户")).foregroundStyle(Color.jadeInk)
                     Spacer()
                 } else {
                     let mark = accountMark(store, a)
@@ -703,7 +703,7 @@ struct QuickAddView: View {
                     }
                 }
                 Text(store.catTitle(g, L) + " › " + leafTitle(L, d.account))
-                    .font(.caption).foregroundStyle(Color.jade).lineLimit(1).fixedSize()
+                    .font(.caption).foregroundStyle(Color.jadeInk).lineLimit(1).fixedSize()
             }
         }
     }
@@ -819,7 +819,7 @@ struct QuickAddView: View {
             }
         } label: {
             HStack(spacing: AppSpacing.icon) {
-                Image(systemName: d.funding.isEmpty ? "creditcard" : store.groupIcon(d.funding).symbol).foregroundStyle(Color.jade)
+                Image(systemName: d.funding.isEmpty ? "creditcard" : store.groupIcon(d.funding).symbol).foregroundStyle(Color.jadeInk)
                 Text(title).foregroundStyle(d.funding.isEmpty ? Color.secondary : Color.primary).lineLimit(1).truncationMode(.middle)
                 Spacer(minLength: 2)
                 Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
@@ -838,7 +838,7 @@ struct QuickAddView: View {
             Image(systemName: icon).font(.footnote)
             Text(text).lineLimit(1).minimumScaleFactor(0.8)
         }
-        .foregroundStyle(on ? Color.jade : Color.primary)
+        .foregroundStyle(on ? Color.jadeInk : Color.primary)
         .frame(maxWidth: .infinity)
         .padding(.vertical, AppSpacing.icon)
         .contentShape(Rectangle())
@@ -1247,7 +1247,7 @@ struct CategoryGridView: View, Equatable {
                 }
                 Text(c.title)
                     .font(.footnote.weight(selected ? .semibold : .regular))
-                    .foregroundStyle(selected ? Color.jade : Color.secondary)
+                    .foregroundStyle(selected ? Color.jadeInk : Color.secondary)
                     // a long name on two lines rather than shrunk
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
@@ -1311,7 +1311,7 @@ struct AllCategoriesView: View {
                                     Text(a).font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                if a == account { Image(systemName: "checkmark").foregroundStyle(Color.jade) }
+                                if a == account { Image(systemName: "checkmark").foregroundStyle(Color.jadeInk) }
                             }
                             .contentShape(Rectangle())
                         }
@@ -1360,7 +1360,7 @@ struct AllCategoriesView: View {
                     .foregroundStyle(on ? Color.onJade : Color.primary)
                     .background(on ? Color.jade : Color(.secondarySystemGroupedBackground), in: Circle())
                 Text(store.catTitle(g, L)).font(.footnote.weight(on ? .semibold : .regular))
-                    .foregroundStyle(on ? Color.jade : Color.secondary)
+                    .foregroundStyle(on ? Color.jadeInk : Color.secondary)
                     .lineLimit(2).multilineTextAlignment(.center).minimumScaleFactor(0.9)
             }
             .frame(maxWidth: .infinity)
@@ -1434,7 +1434,7 @@ struct SubCategorySheet: View {
                     HStack(spacing: AppSpacing.control) {
                         Text(accountTitle(L, a)).foregroundStyle(Color.primary)
                         Spacer()
-                        if a == (pending ?? current) { Image(systemName: "checkmark").foregroundStyle(Color.jade).fontWeight(.semibold) }
+                        if a == (pending ?? current) { Image(systemName: "checkmark").foregroundStyle(Color.jadeInk).fontWeight(.semibold) }
                     }
                 }
             }
@@ -1523,7 +1523,7 @@ private struct MarkEditor: View {
                                 HStack(spacing: AppSpacing.control) {
                                     Label(e.title, systemImage: "flag").labelStyle(ControlLabelStyle()).foregroundStyle(Color.primary)
                                     Spacer()
-                                    if d.events.contains(e.tag) { Image(systemName: "checkmark").foregroundStyle(Color.jade).fontWeight(.semibold) }
+                                    if d.events.contains(e.tag) { Image(systemName: "checkmark").foregroundStyle(Color.jadeInk).fontWeight(.semibold) }
                                 }
                             }
                         }
@@ -1616,8 +1616,8 @@ struct KeyCap: View {
 
     private var color: Color { tint ?? Color.jade }
     private var ink: Color {
-        if filled { return tint == nil ? Color.onJade : Color.white }
-        return soft ? color : Color.primary
+        if filled { return color.onFill }
+        return soft ? color.readableInk : Color.primary
     }
     private var fill: Color {
         if filled { return color }

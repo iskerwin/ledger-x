@@ -155,7 +155,7 @@ extension View {
 
     /// the page's main action at the bottom: the filled theme button, large, semibold — one look everywhere
     func primaryButton(tint: Color = .jade) -> some View {
-        buttonStyle(.borderedProminent).tint(tint).controlSize(.large).fontWeight(.semibold)
+        buttonStyle(.borderedProminent).tint(tint).foregroundStyle(tint.onFill).controlSize(.large).fontWeight(.semibold)
     }
 }
 
@@ -417,7 +417,7 @@ struct PeriodBar: View {
         Button { toNow?() } label: {
             label.font(.subheadline.weight(.semibold)).lineLimit(1).fixedSize()
                 .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.detail)
-                .foregroundStyle(Color.jade)
+                .foregroundStyle(Color.jadeInk)
                 .background(Color.jade.soft, in: Capsule())
         }
         .buttonStyle(.plain)
@@ -651,7 +651,7 @@ private struct ActionCapsuleStyle: ButtonStyle {
             .lineLimit(1)
             .padding(.horizontal, horizontalPadding)
             .frame(maxWidth: .infinity, minHeight: minHeight)
-            .foregroundStyle(filled ? Color.onJade : tint)
+            .foregroundStyle(filled ? tint.onFill : tint.readableInk)
             .background(Capsule().fill(filled ? tint : Color.clear))
             .overlay(Capsule().strokeBorder(filled ? Color.clear : tint, lineWidth: 1))
             .contentShape(Capsule())

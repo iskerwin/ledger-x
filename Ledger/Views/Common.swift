@@ -192,7 +192,7 @@ struct ToastView: View {
                         store.performToastAction()
                     } label: { Label(a, systemImage: "arrow.uturn.backward").labelStyle(ControlLabelStyle()) }
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.jade)
+                    .foregroundStyle(Color.jadeInk)
                 }
             }
             .padding(.horizontal, AppSpacing.content).padding(.vertical, AppSpacing.control)
@@ -212,7 +212,7 @@ private struct SavedCheck: View {
     var body: some View {
         Image(systemName: "checkmark.circle.fill")
             .font(.body.weight(.semibold))
-            .foregroundStyle(Color.jade)
+            .foregroundStyle(Color.jadeInk)
             .symbolEffect(.bounce, value: shown)
             .onAppear { if !reduceMotion { shown = true } }
             .accessibilityHidden(true)
@@ -484,7 +484,7 @@ struct AccountPicker: View {
                 }
                 Spacer()
                 if let h = hints[a] { Text(h).font(.caption).foregroundStyle(.secondary) }
-                if a == selected { Image(systemName: "checkmark").foregroundStyle(Color.jade) }
+                if a == selected { Image(systemName: "checkmark").foregroundStyle(Color.jadeInk) }
             }
             .contentShape(Rectangle())
         }

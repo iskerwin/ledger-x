@@ -283,12 +283,13 @@ struct ResultTable: View {
     }
 
     @ViewBuilder
-    private func cell(_ v: QValue, numeric: Bool) -> some View {
+    func cell(_ v: QValue, numeric: Bool) -> some View {
         let t = cellText(v)
         if numeric {
             Text(masked(t))
                 .font(.footnote.monospacedDigit())
-                .foregroundStyle((v.sortNumber ?? 0) < -1e-9 ? Color.loss : Color.primary)
+                // A credit, income or quantity can be negative without being a loss.
+                .foregroundStyle(Color.primary)
                 .multilineTextAlignment(.trailing)
                 .fixedSize()
                 .sensitive()

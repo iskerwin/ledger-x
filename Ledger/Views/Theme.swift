@@ -50,7 +50,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
 
     var color: Color { Color(uiColor: uiColor) }
     /// text on a filled accent background
-    var onColor: Color { self == .yellow || self == .mint ? .black : .white }
+    var onColor: Color { color.onFill }
 }
 
 /// The app's display settings (theme, language, hidden amounts). Observable: a view that read one of
@@ -103,12 +103,14 @@ extension Color {
     /// the accent colour chosen in 设置 → 外观
     static var jade: Color { AppTheme.current.color }
     static var jadeSoft: Color { AppTheme.current.color.opacity(0.28) }
+    /// Text and thin marks need more contrast than a filled accent surface.
+    static var jadeInk: Color { jade.readableInk }
     static var onJade: Color { AppTheme.current.onColor }
     /// semantic colours, independent of the theme: money in (income, inflow) is `gain`, money out (spending,
     /// outflow) is `loss`, on every page
-    static let gain = Color(uiColor: .systemGreen)
-    static let loss = Color(uiColor: .systemRed)
-    static let warn = Color(uiColor: .systemOrange)
+    static let gain = Color(uiColor: .systemGreen).readableInk
+    static let loss = Color(uiColor: .systemRed).readableInk
+    static let warn = Color(uiColor: .systemOrange).readableInk
 
     /// a change: better green, worse red, unchanged grey. Up is better unless `upIsWorse` (spending: more is worse)
     static func change(_ d: Double, upIsWorse: Bool = false, tolerance: Double = 0.005) -> Color {
@@ -121,6 +123,55 @@ extension Color {
 extension Color {
     /// the light tint behind a badge, a chip or a notice in this colour: one strength everywhere (it was 0.12–0.15)
     var soft: Color { opacity(0.14) }
+
+    /// Resolve against the actual light/dark fill, rather than guessing from a theme name.
+    var onFill: Color {
+        let fill = UIColor(self)
+        return Color(uiColor: UIColor { traits in
+            let light = fill.resolvedColor(with: traits).relativeLuminance
+            return (light + 0.05) / 0.05 >= 1.05 / (light + 0.05) ? .black : .white
+        })
+    }
+
+    /// Keep the hue, adjusting only as far as needed on the App's standard surfaces.
+    var readableInk: Color {
+        let original = UIColor(self)
+        return Color(uiColor: UIColor { traits in
+            let color = original.resolvedColor(with: traits)
+            let backgrounds = [UIColor.systemBackground, .systemGroupedBackground, .secondarySystemGroupedBackground]
+                .map { $0.resolvedColor(with: traits).relativeLuminance }
+            func contrast(_ candidate: UIColor) -> Double {
+                let value = candidate.relativeLuminance
+                return backgrounds.map { (max(value, $0) + 0.05) / (min(value, $0) + 0.05) }.min() ?? 1
+            }
+            if contrast(color) >= 4.52 { return color }
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            color.getRed(&r, green: &g, blue: &b, alpha: &a)
+            let end: CGFloat = contrast(.black) >= contrast(.white) ? 0 : 1
+            func mixed(_ amount: CGFloat) -> UIColor {
+                UIColor(red: r + (end - r) * amount, green: g + (end - g) * amount,
+                        blue: b + (end - b) * amount, alpha: 1)
+            }
+            var low: CGFloat = 0, high: CGFloat = 1
+            for _ in 0..<20 {
+                let middle = (low + high) / 2
+                if contrast(mixed(middle)) >= 4.52 { high = middle } else { low = middle }
+            }
+            return mixed(high)
+        })
+    }
+}
+
+private extension UIColor {
+    var relativeLuminance: Double {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        getRed(&r, green: &g, blue: &b, alpha: &a)
+        func linear(_ value: CGFloat) -> Double {
+            let v = Double(value)
+            return v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+    }
 }
 
 struct IconBadge: View {
@@ -130,9 +181,9 @@ struct IconBadge: View {
     var body: some View {
         Image(systemName: symbol)
             .font(.system(size: size * 0.5, weight: .semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(color.onFill)
             .frame(width: size, height: size)
-            .background(color.gradient, in: RoundedRectangle(cornerRadius: size * 0.27, style: .continuous))
+            .background(color, in: RoundedRectangle(cornerRadius: size * 0.27, style: .continuous))
     }
 }
 
@@ -177,7 +228,7 @@ struct ThemePicker: View {
                 } label: {
                     VStack(spacing: AppSpacing.icon) {
                         ZStack {
-                            Circle().fill(t.color.gradient).frame(width: 34, height: 34)
+                            Circle().fill(t.color).frame(width: 34, height: 34)
                             if theme == t.rawValue {
                                 Image(systemName: "checkmark").font(.system(size: 14, weight: .bold)).foregroundStyle(t.onColor)
                             }

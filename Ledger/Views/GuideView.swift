@@ -171,8 +171,8 @@ struct GuideView: View {
                "The currency button on reports, the overview and accounts: pick which currencies to see (several, or press and hold for one) and how to value them: units, at cost, at market value or converted to one currency. Every page follows. Use units and one currency to reconcile, converted to see the total."),
             tr("订阅：后来补交的差价左滑那笔扣费选「并入上一期（补差）」，计入累计已付但不算新的一期；服务商延长了期限，就在订阅详情右上角「⋯」→「调整到期日」。",
                "Subscriptions: swipe a later top-up and merge it into the previous period, so it counts as paid but not as a new period; when the provider extends the period, use ⋯ → Move due date at the top of the subscription."),
-            tr("可以写 BQL 查询，常用的可保存；账本里的 query 指令也会列出来。",
-               "BQL queries can be written and saved; query directives in the ledger are listed too."),
+            tr("可以写 BQL 查询，常用的可保存；账本里的 query 指令也会列出来。查询结果用正文色保留原始正负号：负数可能是收入、贷方或数量，不直接代表亏损。",
+               "BQL queries can be written and saved; query directives in the ledger are listed too. Results keep their original signs in the normal text colour: a negative number can be income, a credit or a quantity, and does not necessarily mean a loss."),
         ]),
         Topic(symbol: "hand.tap", title: tr("手势", "Gestures"), points: [
             tr("各页底部的操作提示（点按图表、点按扇区、左滑、长按）在你第一次用过这个手势后就不再显示；全部手势都列在这里。",

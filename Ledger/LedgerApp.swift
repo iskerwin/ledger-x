@@ -77,7 +77,7 @@ struct RootView: View {
             }
         }
         // read while drawing, so a new theme or language redraws in place
-        .tint(AppTheme.current.color)
+        .tint(Color.jadeInk)
         .environment(\.locale, AppLanguage.current.locale)
         // The open 记一笔 card draws the same toast itself. Showing both at once made one save appear twice.
         .overlay(alignment: .bottom) {
@@ -85,13 +85,13 @@ struct RootView: View {
         }
         .sheet(item: Bindable(store).scanResult) { r in
             ScanResultView(result: r)
-                .tint(AppTheme.current.color)
+                .tint(Color.jadeInk)
                 .environment(\.locale, AppLanguage.current.locale)
         }
         .sheet(isPresented: Bindable(store).adding, onDismiss: { store.endEdit() }) {
             // a sheet doesn't inherit what is set on the view it hangs from: the theme and language again
             AddCard()
-                .tint(AppTheme.current.color)
+                .tint(Color.jadeInk)
                 .environment(\.locale, AppLanguage.current.locale)
                 .presentationDragIndicator(.visible)
         }
@@ -103,7 +103,7 @@ struct RootView: View {
                 SyncView()
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button { store.showSync = false } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold) } }
             }
-            .tint(AppTheme.current.color)
+            .tint(Color.jadeInk)
             .environment(\.locale, AppLanguage.current.locale)
         }
         .sheet(isPresented: Bindable(store).showSettings, onDismiss: {

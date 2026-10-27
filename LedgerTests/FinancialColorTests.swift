@@ -11,11 +11,11 @@ final class FinancialColorTests: XCTestCase {
         for theme in AppTheme.allCases {
             AppSettings.shared.theme = theme.rawValue
             for scheme in [ColorScheme.light, .dark] {
-                assertColor(Amount(n: 12, color: true).tint, Color(uiColor: .systemGreen), scheme)
+                assertColor(Amount(n: 12, color: true).tint, Color(uiColor: .systemGreen).readableInk, scheme)
                 // spending used to be drawn in the plain text colour
-                assertColor(Amount(n: -12, color: true).tint, Color(uiColor: .systemRed), scheme)
-                assertColor(JournalCalendar.spend, Color(uiColor: .systemRed), scheme)
-                assertColor(JournalCalendar.earn, Color(uiColor: .systemGreen), scheme)
+                assertColor(Amount(n: -12, color: true).tint, Color(uiColor: .systemRed).readableInk, scheme)
+                assertColor(JournalCalendar.spend, Color(uiColor: .systemRed).readableInk, scheme)
+                assertColor(JournalCalendar.earn, Color(uiColor: .systemGreen).readableInk, scheme)
             }
         }
     }
