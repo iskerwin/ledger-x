@@ -40,3 +40,5 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
       - uses: ./.github/actions/ledger-run
+        with:
+          cache_epoch: ${{ vars.LEDGER_CACHE_EPOCH || '1' }}

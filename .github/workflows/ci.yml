@@ -36,6 +36,11 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
+      - name: Check shared action loads without side effects
+        uses: ./.github/actions/ledger-run
+        with:
+          cache_epoch: ${{ vars.LEDGER_CACHE_EPOCH || '1' }}
+          check_only: 'true'
       - name: Pin Xcode 26.6
         run: bash tools/select_xcode.sh
       - name: Install build and report tools
@@ -68,3 +73,5 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - uses: ./.github/actions/ledger-run
+        with:
+          cache_epoch: ${{ vars.LEDGER_CACHE_EPOCH || '1' }}

@@ -77,13 +77,18 @@ require('pull_request:' in ci and 'runs-on: macos-26' in gate
         and "if: github.event_name == 'pull_request'" in gate
         and 'tools/pr_gate.py' in gate and 'persist-credentials: false' in gate,
         'Pull requests need one read-only gate and must not publish')
-require('if: always()' in runner and 'actions/upload-artifact@v7' in runner, 'Cloud runs must preserve failed-run evidence')
+require("if: inputs.check_only != 'true' && always()" in runner and 'actions/upload-artifact@v7' in runner,
+        'Cloud runs must preserve failed-run evidence outside the load-only PR check')
 require('actions/checkout@v7' in workflow and 'actions/setup-python@v7' in workflow and 'actions/cache@v6' in runner,
         'Cloud workflow must use current major versions of checkout, setup-python and cache')
 require('Xcode_26.6.app' in workflow and 'bash tools/select_xcode.sh' in runner and 'bash tools/select_xcode.sh' in gate
-        and 'LEDGER_CACHE_EPOCH' in runner and 'contents: write' not in ci
+        and 'inputs.cache_epoch' in runner and 'contents: write' not in ci
         and all('uses: ./.github/actions/ledger-run' in item for item in (ci, dev, release)),
         'Cloud workflow must pin Xcode 26.6 and split read and write permissions')
+require(not re.search(r'\b(?:vars|secrets)\s*[.\[]', runner)
+        and all("cache_epoch: ${{ vars.LEDGER_CACHE_EPOCH || '1' }}" in item for item in (ci, dev, release))
+        and "check_only: 'true'" in gate,
+        'Shared action must receive workflow configuration through inputs and load in the PR gate')
 require('retention-days: 7' in runner and 'retention-days: 30' in runner,
         'Cloud artifacts must use the short retention windows')
 require('build/' not in runner.split('actions/cache@v6', 1)[-1].split('key:', 1)[0],
