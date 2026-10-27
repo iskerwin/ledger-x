@@ -1326,7 +1326,7 @@
  "本年支出构成": "Expenses by Category (This Year)",
  "本月": "This Month",
  "本月 %@ 已超出预算": "%@ is over budget this month",
- "本月、上月、本周、今年、近30天按今天计算，适合存成快速搜索": "This month, last month, this week, this year, last 30 days count from today: good for quick searches",
+ "本月、上月、今年、近30天按今天计算；本周和上周跟手机的一周起始日，适合存成快速搜索": "This month, last month, this year and the last 30 days count from today. This week and last week follow the phone’s first day of the week. Good for quick searches",
  "本月变化": "This month's changes",
  "本月固定交易未入账": "Recurring items not recorded",
  "本月支出": "Spent This Month",
@@ -2159,10 +2159,7 @@
  "开 %@，收 %@，%@": "open %@, close %@, %@",
  "涨": "up",
  "跌": "down",
- "· %@ 笔": "· %@ entries",
  "已选中": "Selected",
- "本月暂无记录": "No entries this month",
- "查看当天明细": "View day’s entries",
  "点日期查看当天扣费": "Tap a date to see its charges",
  "选择年月": "Choose month and year"
 }

@@ -99,8 +99,41 @@ final class SearchTests: XCTestCase {
         XCTAssertEqual(hits("近10天"), ["2026-09-20"])
         XCTAssertEqual(hits("今年 滴滴"), ["2026-07-15", "2026-09-20"])
         XCTAssertEqual(hits("上月 本月"), ["2026-08-02", "2026-09-20"])
-        XCTAssertEqual(hits("本周"), [])                      // 2026-09-21 … 2026-09-27
-        XCTAssertEqual(TxQuery("上周").dateSpan?.0, "2026-09-14")
+        let week = TxQuery.relativeSpan("本周")
+        let known = ["2026-06-30", "2026-07-15", "2026-08-02", "2026-09-20"]
+        XCTAssertEqual(hits("本周"), known.filter { $0 >= (week?.0 ?? "") && $0 <= (week?.1 ?? "") })
+        XCTAssertEqual(TxQuery("上周").dateSpan?.0, Day.weekSpan(containing: "2026-09-25", lastWeek: true)?.0)
         XCTAssertEqual(TxQuery("本月|上月").dateSpan?.0, "2026-08-01")
+    }
+
+    /// 2026-09-25 is a Friday. 本周 must use the same week start as the calendar grid.
+    func testThisWeekFollowsTheCalendarWeekStart() {
+        let savedToday = TxQuery.today
+        let savedWeek = Day.firstWeekdayOverride
+        let systemWeek = Calendar.current.firstWeekday
+        XCTAssertEqual(Day.firstWeekday, (1...7).contains(systemWeek) ? systemWeek : 1)
+        TxQuery.today = { "2026-09-25" }
+        defer { TxQuery.today = savedToday; Day.firstWeekdayOverride = savedWeek }
+        Day.firstWeekdayOverride = 2
+        XCTAssertEqual(Day.weekSpan(containing: "2026-09-25")?.0, "2026-09-21")
+        XCTAssertEqual(Day.weekSpan(containing: "2026-09-25")?.1, "2026-09-27")
+        XCTAssertEqual(TxQuery.relativeSpan("本周")?.0, "2026-09-21")
+        XCTAssertEqual(TxQuery.relativeSpan("this-week")?.1, "2026-09-27")
+        XCTAssertEqual(TxQuery.relativeSpan("上周")?.0, "2026-09-14")
+        XCTAssertEqual(TxQuery.relativeSpan("last-week")?.1, "2026-09-20")
+        XCTAssertEqual(hits("本周"), [])
+        XCTAssertEqual(Day.daysAfterWeekStart("2026-10-01"), 3)
+        Day.firstWeekdayOverride = 1
+        XCTAssertEqual(Day.weekSpan(containing: "2026-09-25")?.0, "2026-09-20")
+        XCTAssertEqual(Day.weekSpan(containing: "2026-09-25")?.1, "2026-09-26")
+        XCTAssertEqual(TxQuery.relativeSpan("本周")?.0, "2026-09-20")
+        XCTAssertEqual(TxQuery.relativeSpan("上周")?.0, "2026-09-13")
+        XCTAssertEqual(TxQuery.relativeSpan("上周")?.1, "2026-09-19")
+        XCTAssertEqual(hits("本周"), ["2026-09-20"])
+        XCTAssertEqual(Day.daysAfterWeekStart("2026-10-01"), 4)
+        Day.firstWeekdayOverride = 7
+        XCTAssertEqual(Day.weekSpan(containing: "2026-09-25")?.0, "2026-09-19")
+        XCTAssertEqual(Day.weekSpan(containing: "2026-09-25")?.1, "2026-09-25")
+        XCTAssertEqual(TxQuery("本周").dateSpan?.0, "2026-09-19")
     }
 }

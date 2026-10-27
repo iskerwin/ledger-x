@@ -337,7 +337,7 @@ def disable_hardware_keyboard(udid):
     subprocess.run(['killall', 'cfprefsd'], capture_output=True)
 
 
-def fresh_simulator():
+def fresh_simulator(boot_timeout=120, ready_timeout=None):
     for group in json.loads(out(['xcrun', 'simctl', 'list', 'devices', '-j']))['devices'].values():
         for device in group:
             if device['name'] == SIM_NAME:
@@ -346,9 +346,10 @@ def fresh_simulator():
     runtime, device = select_device(json.loads(out(['xcrun', 'simctl', 'list', 'runtimes', '-j']))['runtimes'], sdk)
     udid = out(['xcrun', 'simctl', 'create', SIM_NAME, device['identifier'], runtime['identifier']])
     disable_hardware_keyboard(udid)
+    ready = BOOT_TIMEOUT if ready_timeout is None else ready_timeout
     try:
-        subprocess.run(['xcrun', 'simctl', 'boot', udid], check=True, capture_output=True, timeout=120)
-        subprocess.run(['xcrun', 'simctl', 'bootstatus', udid, '-b'], check=True, capture_output=True, timeout=BOOT_TIMEOUT)
+        subprocess.run(['xcrun', 'simctl', 'boot', udid], check=True, capture_output=True, timeout=boot_timeout)
+        subprocess.run(['xcrun', 'simctl', 'bootstatus', udid, '-b'], check=True, capture_output=True, timeout=ready)
         subprocess.run(['xcrun', 'simctl', 'getenv', udid, 'HOME'], check=True, capture_output=True, timeout=60)
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
         raise Failure(f'模拟器环境失败（测试尚未开始）：{error}。这不是测试结论，可直接重跑')
