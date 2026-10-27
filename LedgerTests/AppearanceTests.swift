@@ -109,13 +109,16 @@ final class AppearanceTests: XCTestCase {
             let image = try render(ResultTable(result: result).cell(value, numeric: true).frame(width: 300, height: 100)
                 .environment(\.colorScheme, .light).background(.white))
             let pixels = rgba(image)
-            let coloured = stride(from: 0, to: pixels.count, by: 4).filter { i in
-                Int(max(pixels[i], pixels[i + 1], pixels[i + 2])) - Int(min(pixels[i], pixels[i + 1], pixels[i + 2])) > 40
-            }.count
+            // A plain loop: chaining filter/contains on stride makes Xcode 26.6 give up type-checking.
+            var coloured = 0
+            var drawn = false
+            for i in stride(from: 0, to: pixels.count, by: 4) {
+                let r = Int(pixels[i]), g = Int(pixels[i + 1]), b = Int(pixels[i + 2])
+                if max(r, g, b) - min(r, g, b) > 40 { coloured += 1 }
+                if min(r, g, b) < 200 && pixels[i + 3] > 0 { drawn = true }
+            }
             XCTAssertEqual(coloured, 0, "Raw query \(value) should keep its sign, without a financial verdict")
-            XCTAssertTrue(stride(from: 0, to: pixels.count, by: 4).contains {
-                min(pixels[$0], pixels[$0 + 1], pixels[$0 + 2]) < 200 && pixels[$0 + 3] > 0
-            }, "The table must actually render")
+            XCTAssertTrue(drawn, "The table must actually render")
         }
     }
 

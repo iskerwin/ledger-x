@@ -2,9 +2,10 @@
 """Dispatch validation and publication to GitHub macOS; execute only on the runner.
 
   python3 tools/ship.py test                     cloud full validation, publishes nothing
-  python3 tools/ship.py dev                      cloud checks, build and publish the dev build
-  python3 tools/ship.py dev --full               run full validation before publishing the dev build
-  python3 tools/ship.py release                  cloud promotion of the phone-accepted dev package (requires --accepted-build N)
+  python3 tools/ship.py dev --core-filter …      scoped tests, then publish the dev build
+  python3 tools/ship.py dev --ui-test Target/Class/method
+  python3 tools/ship.py dev --full               full validation, then publish the dev build
+  python3 tools/ship.py release                  promote the phone-accepted dev package (requires --accepted-build N)
   python3 tools/ship.py version patch|minor|major|X.Y.Z
                                                  commit a version bump and a new CHANGELOG section
   python3 tools/ship.py watch                    follow the running (or the last) test / dev / release from any terminal
@@ -30,6 +31,9 @@ import time
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
+PUBLIC_DEMO = 'https://github.com/iskerwin/ledger-demo'
+# Debug/test builds only. Release IPA compilation does not pass this flag.
+TYPECHECK_FLAGS = ('-Xswiftc', '-Xfrontend', '-Xswiftc', '-warn-long-expression-type-checking=200')
 sys.path.insert(0, str(ROOT / 'tools/release'))  # release_notes
 DIST = ROOT / 'dist'
 FILES = ('Ledger.ipa', 'build-manifest.json', 'validation-evidence.json', 'release-notes.md')
@@ -180,6 +184,9 @@ def failure_message(error, interrupted=False, state=None):
     state = state if state is not None else progress.state or {}
     effects = state.get('effects', {})
     if not effects:
+        # On the runner the client has already pushed main. Locally, nothing has been sent yet.
+        if os.environ.get('GITHUB_ACTIONS') == 'true':
+            return message + '\n源码已在 main，未发布安装包。'
         return message + '\n未发起推送或发布。'
     states = {
         'main_push': ('main', '已推送', '未发起推送', '已发起推送，结果待核实'),
@@ -214,7 +221,18 @@ def use_xcode():
         if not Path(XCODE).exists():
             raise Failure('找不到 Xcode；请安装 Xcode 并执行 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer')
         os.environ['DEVELOPER_DIR'] = XCODE
-    return ' '.join(out(['xcodebuild', '-version']).split())
+    version = ' '.join(out(['xcodebuild', '-version']).split())
+    if os.environ.get('GITHUB_ACTIONS') == 'true' and not version.startswith('Xcode 26.6'):
+        raise Failure(f'云端必须使用 Xcode 26.6，当前是 {version}')
+    return version
+
+
+def public_demo_clone_url():
+    """Tests and packages may clone only the public fictional demo, never a private ledger."""
+    url = PUBLIC_DEMO.rstrip('/')
+    if not url.endswith('/iskerwin/ledger-demo'):
+        raise Failure('测试和安装包只能使用公开演示账本 iskerwin/ledger-demo')
+    return url
 
 
 def demo_snapshot():
@@ -222,7 +240,7 @@ def demo_snapshot():
     commit = json.loads((ROOT / 'tools/fixtures/manifest.json').read_text())['demoCommit']
     path = ROOT / '.demo-data'
     if not (path / '.git').exists():
-        run(['git', 'clone', '-q', 'https://github.com/iskerwin/ledger-demo', path])
+        run(['git', 'clone', '-q', public_demo_clone_url(), path])
     require_clean_demo()
     if git('-C', path, 'rev-parse', 'HEAD') != commit:
         run(['git', '-C', path, 'fetch', '-q', 'origin'])
@@ -406,7 +424,7 @@ def validate():
 
     step('LedgerKit 核心测试')
     env = dict(os.environ, LEDGER_DEMO_PATH=str(ROOT / '.demo-data'), SAMPLE_OUT=str(ROOT / 'samples'))
-    run(['swift', 'test', '--package-path', 'LedgerKit'], log='swift-tests.log', env=env)
+    run(['swift', 'test', '--package-path', 'LedgerKit', *TYPECHECK_FLAGS], log='swift-tests.log', env=env)
     core, failed = executed((ROOT / 'swift-tests.log').read_text(errors='replace'))
     if failed or not core:
         raise Failure(f'核心测试 {failed} 项失败，见 swift-tests.log')
@@ -467,7 +485,7 @@ def validate_targeted():
     selectors = os.environ.get('LEDGER_UI_TESTS', '').split()
     if core_filter:
         step('指定 LedgerKit 回归')
-        run(['swift', 'test', '--package-path', 'LedgerKit', '--filter', core_filter],
+        run(['swift', 'test', '--package-path', 'LedgerKit', *TYPECHECK_FLAGS, '--filter', core_filter],
             log='swift-tests.log', env=dict(os.environ, LEDGER_DEMO_PATH=str(ROOT / '.demo-data'), SAMPLE_OUT=str(ROOT / 'samples')))
         count, failed = executed((ROOT / 'swift-tests.log').read_text())
         if failed or count == 0:
@@ -599,7 +617,35 @@ def next_build(releases, listed=()):
     a dev release's notes are replaced on each publish, so they alone cannot hold the highest number."""
     builds = [int(m[1]) for r in releases if (m := re.search(r'构建 (\d+)', r.get('body') or ''))]
     builds += [int(b) for b in listed]
+    if (releases or listed) and not builds:
+        raise Failure('已有发布或安装源，但没有读到构建号，拒绝从 1 重新编号')
     return str(max(builds, default=0) + 1)
+
+
+def require_open_version(version, changelog, already_released):
+    """A dev build keeps the open version. A version that already shipped stable needs `ship.py version` first."""
+    semver(version)
+    heading = f'## {version}（开发中）'
+    first = next((line.strip() for line in changelog.splitlines() if line.startswith('## ')), '')
+    if first != heading:
+        raise Failure(f'CHANGELOG 第一个版本标题必须是「{heading}」才能发开发版；未发布安装包')
+    if already_released:
+        raise Failure(f'版本 {version} 已有正式版，不能再发同号开发版；请先执行 ship.py version。未发布安装包')
+
+
+def promoted_identity(manifest):
+    """Release reuses the phone-verified dev package. It does not assign a new version or build."""
+    version = manifest['version']
+    semver(version)
+    build = str(manifest['build'])
+    if not re.fullmatch(r'[1-9]\d*', build):
+        raise Failure('构建号必须是不含前导零的正整数')
+    return version, build
+
+
+def assert_promoted_source(manifest, proof):
+    if proof.get('source_sha') != manifest.get('source_sha') or proof.get('tree') != manifest.get('tree'):
+        raise Failure('正式版必须沿用已验收开发版的同一源码，不能夹带新的改动；未发布安装包')
 
 
 def release_tags(ls_remote):
@@ -669,7 +715,7 @@ def verify_proof(proof, manifest, require_full=False):
 
 
 def verify_package(folder, manifest, proof, repo):
-    semver(manifest['version'])
+    promoted_identity(manifest)
     if manifest['repository'] != repo:
         raise ValueError('安装包清单的仓库不一致')
     verify_proof(proof, manifest)
@@ -844,11 +890,17 @@ def require_clean_main():
 
 def ship_dev(full=False):
     import release_notes
+    if full and selected_tests():
+        raise Failure('全量与指定测试不能混用')
+    if not full and not selected_tests():
+        raise Failure('开发版须先通过与改动相关的测试（--core-filter / --ui-test），或显式 --full；未发布安装包')
     repo = repository()
     require_clean_main()
     sha = git('rev-parse', 'HEAD')
-    proof = validate() if full else validate_targeted() if selected_tests() else validate_development()
+    proof = validate() if full else validate_targeted()
     version = re.search(r'MARKETING_VERSION: "([^"]+)"', (ROOT / 'project.yml').read_text())[1]
+    changelog = (ROOT / 'CHANGELOG.md').read_text()
+    require_open_version(version, changelog, tag_exists(repo, f'v{version}'))
     releases = fetch_releases(repo, release_tags(out(['git', 'ls-remote', '--tags', 'origin'])))
     listed = []
     if remote_has('ipa'):
@@ -882,7 +934,7 @@ def ship_dev(full=False):
         remote_run('main_push', ['git', 'push', 'origin', 'HEAD:refs/heads/main'])
 
     step('发布开发版')
-    notes = release_notes.render((ROOT / 'CHANGELOG.md').read_text(), release_notes.previous_changelog(repo),
+    notes = release_notes.render(changelog, release_notes.previous_changelog(repo),
                                  repo, sha, version, build, proof, ipa_sha256=manifest['sha256'])
     (DIST / 'release-notes.md').write_text(notes)
     assets = [DIST / name for name in FILES]
@@ -950,11 +1002,15 @@ def ship_release():
         manifest.setdefault('demo_sha256', demo_digest)
         verify_source(repo, manifest)
         if tag_sha(repo, 'dev') != manifest['source_sha']:
-            raise ValueError('开发版标签与安装包源码不一致')
+            raise ValueError('正式版必须使用已验收开发版的同一源码提交，不能夹带新的改动')
         if os.environ.get('GITHUB_ACTIONS') == 'true':
             if str(manifest['build']) != os.environ.get('LEDGER_ACCEPTED_BUILD') or manifest['sha256'] != os.environ.get('LEDGER_ACCEPTED_SHA256'):
                 raise Failure('当前开发版与手机验收的构建号或 SHA256 不一致，禁止转正')
+        version, build = promoted_identity(manifest)
+        if version != manifest['version'] or build != str(manifest['build']):
+            raise Failure('正式版不能改版本号或构建号')
         proof = release_validation_at_source(manifest, proof)
+        assert_promoted_source(manifest, proof)
         verify_package(folder, manifest, proof, repo)
         (folder/'build-manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
         (folder/'validation-evidence.json').write_text(json.dumps(proof, ensure_ascii=False, indent=2) + '\n')
@@ -985,7 +1041,7 @@ def select_version(choice):
     run([sys.executable, 'tools/check_project.py'])
     run(['git', 'add', 'project.yml', 'CHANGELOG.md'])
     run(['git', 'commit', '-qm', f'Prepare Ledger X {version}'])
-    print(f'✓ 已提交版本 {version}；下一次 python3 tools/ship.py dev 会推送并发布')
+    print(f'✓ 已提交版本 {version}；下一次带相关测试或 --full 的 python3 tools/ship.py dev 会推送并发布')
 
 
 # Watching a run: reads .ship/status.json and the stage's log; never writes, never locks.
@@ -1155,6 +1211,13 @@ def worker_main(argv):
         elif command == 'dev':
             if full:
                 progress.state['plan'] = list(PLAN['test'] + PLAN['dev'][1:])
+            elif selected_tests():
+                names = []
+                if os.environ.get('LEDGER_CORE_FILTER', '').strip():
+                    names.append('指定 LedgerKit 回归')
+                if os.environ.get('LEDGER_UI_TESTS', '').strip():
+                    names.append('指定 App 内与界面回归')
+                progress.state['plan'] = ['静态检查与流程回归', *names, *PLAN['dev'][1:]]
             ship_dev(full=full)
         elif command == 'release':
             ship_release()

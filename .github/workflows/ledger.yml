@@ -4,15 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       command:
-        description: 'test 只验证 / dev 验证打包发布 / release 手机验收后转正'
+        description: 'test 只验证 / dev 相关测试通过后发布 / release 手机验收后转正'
         type: choice
         options: [test, dev, release]
         required: true
       source_sha:
-        description: '完整源码提交 SHA（必须在 main 历史中）'
+        description: '完整源码提交 SHA。main 上的发布须在 main 历史中；分支上只能 test，且必须是该分支当前提交'
         required: true
       full:
-        description: '开发版全量验证；test 未指定筛选时总是全量'
+        description: '开发版显式全量；test 未指定筛选时总是全量'
         type: boolean
         default: false
       core_filter:
@@ -30,23 +30,35 @@ on:
       accepted_sha256:
         description: '仅 release：已验收 IPA 的 SHA256'
         default: ''
+      cache_epoch:
+        description: '测试编译缓存代次。缓存损坏时加大，不改变安装包'
+        default: '1'
       request_id:
         description: '请求标识（客户端自动填写，网页可自行填写）'
         required: true
 permissions:
   contents: read
-# Test-only jobs may overlap; every publication shares one lock, without cancellation.
+# 测试按请求并行。开发版和正式版共用一把锁：正在发布的不取消；排队中只保留最新一次。
 concurrency:
   group: 'ledger-${{ inputs.command == ''test'' && inputs.request_id || ''publication'' }}'
   cancel-in-progress: false
 jobs:
-  ledger:
-    if: github.ref == 'refs/heads/main'
+  refuse:
+    if: inputs.command != 'test' && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse publication off main
+        run: |
+          echo '开发版和正式版只能在 main 上发布'
+          exit 1
+  test:
+    if: inputs.command == 'test'
     runs-on: macos-26
     timeout-minutes: 180
     permissions:
-      contents: write
-    env:
+      contents: read
+      actions: write
+    env: &ledger-env
       GH_TOKEN: ${{ github.token }}
       LEDGER_CORE_FILTER: ${{ inputs.core_filter }}
       LEDGER_UI_TESTS: ${{ inputs.ui_tests }}
@@ -56,25 +68,37 @@ jobs:
       LEDGER_COMMAND: ${{ inputs.command }}
       LEDGER_FULL: ${{ inputs.full }}
       LEDGER_SOURCE_SHA: ${{ inputs.source_sha }}
-    steps:
-      - uses: actions/checkout@v4
+    steps: &ledger-steps
+      - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ inputs.command == 'test' && github.ref != 'refs/heads/main' && github.sha || 'main' }}
           fetch-depth: 0
-      - name: Verify source and select commit
-        run: |
-          python3 tools/cloud_worker.py prepare
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
+      - name: Pin Xcode 26.6
+        run: bash tools/select_xcode.sh
       - name: Install build and report tools
         run: |
-          brew install xcodegen
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          if ! command -v xcodegen >/dev/null 2>&1; then brew install xcodegen; fi
           python3 -m pip install 'beancount==3.2.0'
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          xcodebuild -version
-          xcrun simctl list runtimes
+      - name: Restore Swift package and test build cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            ~/Library/org.swift.swiftpm
+            LedgerKit/.build
+            build-demo/SourcePackages
+            build-demo/Build
+          key: swift-xcode-26.6-${{ inputs.cache_epoch }}-${{ hashFiles('LedgerKit/Package.swift', 'project.yml') }}
+          restore-keys: |
+            swift-xcode-26.6-${{ inputs.cache_epoch }}-
+      - name: Verify source and select commit
+        run: python3 tools/cloud_worker.py prepare
       - name: Validate, build or promote
         run: python3 tools/cloud_worker.py run
       - name: Export screenshots
@@ -85,20 +109,20 @@ jobs:
           fi
       - name: Keep reusable full validation
         if: success() && hashFiles('.ship/full-validation.json') != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: 'ledger-full-proof-${{ github.run_id }}'
           include-hidden-files: true
-          retention-days: 90
+          retention-days: 30
           if-no-files-found: error
           path: .ship/full-validation.json
       - name: Keep evidence, logs and package
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: 'ledger-${{ inputs.command }}-${{ github.run_id }}'
           include-hidden-files: true
-          retention-days: 14
+          retention-days: 7
           if-no-files-found: warn
           path: |
             .ship/status.json
@@ -113,3 +137,12 @@ jobs:
             dist/*.json
             dist/*.md
             dist/*.ipa
+  publish:
+    if: inputs.command != 'test' && github.ref == 'refs/heads/main'
+    runs-on: macos-26
+    timeout-minutes: 180
+    permissions:
+      contents: write
+      actions: write
+    env: *ledger-env
+    steps: *ledger-steps
