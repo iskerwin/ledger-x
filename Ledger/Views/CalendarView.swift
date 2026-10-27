@@ -2,8 +2,8 @@ import SwiftUI
 import Charts
 import LedgerKit
 
-/// 明细's month calendar: dates first, then the month's filtered totals. Spending is red and income green;
-/// tap a day for its sheet. It counts what the list shows
+/// 明细's month calendar, opened above the list: the month's totals, then the days, a dot in the theme colour on
+/// those with spending and a green one on those with income; tap a day for its sheet. It counts what the list shows
 /// (the same search and account filter).
 struct JournalCalendar: View {
     @Environment(Store.self) var store
@@ -14,11 +14,10 @@ struct JournalCalendar: View {
     let account: String?
     let pick: (String) -> Void
     @State private var month = Day.ym(Day.today())
-    @ScaledMetric(relativeTo: .caption2) private var scopeHeight: CGFloat = 18
 
     struct DayTotal { var out = 0.0; var inn = 0.0; var n = 0 }
 
-    /// fixed financial colours, independent of the accent theme
+    /// spending in the theme colour, income in the app's gain colour, everywhere on this calendar
     static var spend: Color { Color.loss }
     static var earn: Color { Color.gain }
     /// a day with entries that are neither (transfers, advances, reimbursements): not shown as empty
@@ -51,24 +50,7 @@ struct JournalCalendar: View {
             if !dots.isEmpty { marks[d] = dots } else if x.n > 0 { marks[d] = [Self.other] }
         }
         return VStack(spacing: AppSpacing.icon) {
-            MonthCalendar(marks: marks, month: $month, last: Day.today(), describe: { d in
-                totals[d].flatMap { x in
-                    let parts = [x.out > 0.005 ? LS("支出 ") + money(x.out) : nil, x.inn > 0.005 ? LS("收入 ") + money(x.inn) : nil].compactMap { $0 }
-                    return parts.isEmpty ? (x.n > 0 ? LS("%@ 笔其他交易", x.n) : nil) : parts.joined(separator: " ")
-                }
-            }, pick: pick)
-            legend
-                .padding(.bottom, AppSpacing.icon)
-            Divider()
-            HStack {
-                Text(LS("月度合计")).font(.caption.weight(.semibold))
-                Spacer()
-                Text(LS("交易 · %@ 笔", totals.values.reduce(0) { $0 + $1.n }))
-                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-            }
-            .lineLimit(1).minimumScaleFactor(0.65)
-            .frame(height: scopeHeight)
-            .padding(.top, AppSpacing.icon)
+            // equal columns, each centred: a month's longer amounts don't push 收入 sideways
             FigureRow(items: [
                 .init(label: LS("支出"), value: money(out, L.base, 0), color: Self.spend),
                 .init(label: LS("收入"), value: money(inn, L.base, 0), color: Self.earn),
@@ -77,11 +59,13 @@ struct JournalCalendar: View {
             .padding(.vertical, AppSpacing.detail)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("calendar.figures")
-            Text(LS("按当前筛选的交易统计"))
-                .font(.caption2).foregroundStyle(.secondary)
-                .lineLimit(1).minimumScaleFactor(0.65)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: scopeHeight, alignment: .leading)
+            MonthCalendar(marks: marks, month: $month, last: Day.today(), describe: { d in
+                totals[d].flatMap { x in
+                    let parts = [x.out > 0.005 ? LS("支出 ") + money(x.out) : nil, x.inn > 0.005 ? LS("收入 ") + money(x.inn) : nil].compactMap { $0 }
+                    return parts.isEmpty ? (x.n > 0 ? LS("%@ 笔其他交易", x.n) : nil) : parts.joined(separator: " ")
+                }
+            }, pick: pick)
+            legend
         }
         .onAppear(perform: follow)
         .onChange(of: entries.first?.date) { _, _ in follow() }
@@ -95,22 +79,6 @@ struct JournalCalendar: View {
 
     /// what the dots mean, under the days
     private var legend: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: AppSpacing.control) {
-                legendKeys
-                Spacer()
-                Text(LS("点日期看当天明细"))
-            }
-            VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                legendKeys
-                Text(LS("点日期看当天明细"))
-            }
-        }
-        .font(.caption2)
-        .foregroundStyle(.secondary)
-    }
-
-    private var legendKeys: some View {
         HStack(spacing: AppSpacing.control) {
             HStack(spacing: AppSpacing.detail) {
                 Circle().fill(Self.spend).frame(width: 6, height: 6)
@@ -124,7 +92,11 @@ struct JournalCalendar: View {
                 Circle().fill(Self.other).frame(width: 6, height: 6)
                 Text(LS("其他交易"))
             }
+            Spacer()
+            Text(LS("点日期看当天明细"))
         }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
     }
 }
 

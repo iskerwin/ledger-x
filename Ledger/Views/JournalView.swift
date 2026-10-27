@@ -416,7 +416,6 @@ struct JournalView: View {
                 Section {
                     // looking by date, the calendar takes the quick filters' place (what is on stays, with its ✕)
                     if showCalendar {
-                        activeConditions(filtered)
                         JournalCalendar(L: L, entries: matches, account: account) { d in
                             calendarDay = CalendarDay(day: d)
                         }
@@ -447,7 +446,24 @@ struct JournalView: View {
                             }
                         }
                     }
-                    if !showCalendar { activeConditions(filtered) }
+                    if filtered || store.journalReturn != nil {
+                        // what is on, each with its ✕, and 清除 for all of it
+                        // beside the conditions when all fit on one line; otherwise on a line of their own under them
+                        ViewThatFits(in: .horizontal) {
+                            HStack(alignment: .top, spacing: AppSpacing.control) {
+                                FlowChips(items: conditionChips()).fixedSize()
+                                Spacer(minLength: 4)
+                                filterActions(filtered)
+                            }
+                            VStack(alignment: .leading, spacing: AppSpacing.icon) {
+                                FlowChips(items: conditionChips())
+                                HStack(spacing: AppSpacing.control) {
+                                    Spacer(minLength: 0)
+                                    filterActions(filtered)
+                                }
+                            }
+                        }
+                    }
                     if !filtered && !showCalendar {
                         // everything in the ledger, under the filters (a card of its own pushed the first entry down
                         // the screen): say so, so the totals are not read as this month's
@@ -537,27 +553,6 @@ struct JournalView: View {
         for f in quick { out.append((f == .large ? LS("超过 %@", money(store.largeExpense, store.L?.base ?? "CNY", 0)) : f.title, { quick.removeAll { $0 == f } })) }
         if !q.trimmed.isEmpty { out.append(("“\(q.trimmed)”", { q = "" })) }
         return out
-    }
-
-    @ViewBuilder private func activeConditions(_ filtered: Bool) -> some View {
-        if filtered || store.journalReturn != nil {
-            // what is on, each with its ✕, and 清除 for all of it
-            // beside the conditions when all fit on one line; otherwise on a line of their own under them
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: AppSpacing.control) {
-                    FlowChips(items: conditionChips()).fixedSize()
-                    Spacer(minLength: 4)
-                    filterActions(filtered)
-                }
-                VStack(alignment: .leading, spacing: AppSpacing.icon) {
-                    FlowChips(items: conditionChips())
-                    HStack(spacing: AppSpacing.control) {
-                        Spacer(minLength: 0)
-                        filterActions(filtered)
-                    }
-                }
-            }
-        }
     }
 
     /// 回到刚才的筛选 and 清除, by the conditions

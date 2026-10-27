@@ -1352,41 +1352,6 @@ final class EditInteractionTests: XCTestCase {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/height-extra.bean").path
     }
 
-    func testJournalCalendarShowsDatesBeforeMonthlySummary() {
-        checkCalendarSummaryOrder(large: false)
-    }
-
-    func testJournalCalendarSummaryOrderAtLargeText() {
-        checkCalendarSummaryOrder(large: true)
-    }
-
-    private func checkCalendarSummaryOrder(large: Bool) {
-        let app = launchTab("journal", accessibility: large, env: ["LEDGER_CALENDAR": "1"])
-        let calendar = app.descendants(matching: .any)["calendar.month"].firstMatch
-        XCTAssertTrue(calendar.waitForExistence(timeout: 20))
-        let figures = app.otherElements["calendar.figures"]
-        XCTAssertTrue(figures.exists)
-        XCTAssertGreaterThan(calendar.frame.height, 100)
-        XCTAssertGreaterThanOrEqual(figures.frame.minY, calendar.frame.maxY)
-        XCTAssertTrue(app.staticTexts["月度合计"].exists)
-        XCTAssertTrue(app.staticTexts["按当前筛选的交易统计"].exists)
-        let shot = XCTAttachment(screenshot: app.screenshot())
-        shot.name = large ? "明细月历-大字号" : "明细月历-窄屏常用字号"
-        shot.lifetime = .keepAlways
-        add(shot)
-        let scope = app.staticTexts["按当前筛选的交易统计"]
-        // A full-screen fling skips this short summary and lands in the transaction list.
-        for _ in 0..<12 where !scope.isHittable {
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.65))
-                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.48)))
-        }
-        XCTAssertTrue(scope.isHittable)
-        let summary = XCTAttachment(screenshot: app.screenshot())
-        summary.name = large ? "月度汇总-大字号" : "月度汇总-窄屏常用字号"
-        summary.lifetime = .keepAlways
-        add(summary)
-    }
-
     /// The calendar's 支出 · 收入 · 结余 sit centred in equal columns: a month's wide income no longer pushes 收入 aside
     func testCalendarFiguresSitInEqualColumns() {
         let app = launchTab("journal", env: ["LEDGER_EXTRA": heightExtra, "LEDGER_CALENDAR": "1"])
