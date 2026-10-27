@@ -83,6 +83,15 @@ jobs:
           if [ -d interaction-tests.xcresult ]; then
             xcrun xcresulttool export attachments --path interaction-tests.xcresult --output-path .ship/screenshots
           fi
+      - name: Keep reusable full validation
+        if: success() && hashFiles('.ship/full-validation.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'ledger-full-proof-${{ github.run_id }}'
+          include-hidden-files: true
+          retention-days: 90
+          if-no-files-found: error
+          path: .ship/full-validation.json
       - name: Keep evidence, logs and package
         if: always()
         uses: actions/upload-artifact@v4

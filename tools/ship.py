@@ -526,6 +526,13 @@ def checked_selected_results(summary, tests, selectors):
 def release_validation_at_source(manifest, proof):
     """Keep current release tooling while testing the package's original source in isolation."""
     global ROOT
+    if os.environ.get('GITHUB_ACTIONS') == 'true':
+        try:
+            verify_proof(proof, manifest, require_full=True)
+        except ValueError:
+            previous = cloud_full_validation(manifest)
+            if previous:
+                return dict(previous, release_build=True)
     if os.environ.get('GITHUB_ACTIONS') != 'true' or git('rev-parse', 'HEAD') == manifest['source_sha']:
         return release_validation(manifest, proof)
     try:
@@ -550,6 +557,26 @@ def release_validation_at_source(manifest, proof):
                 elif item.is_file():
                     shutil.copy(item, original / name)
             run(['git', 'worktree', 'remove', '--force', source])
+
+
+def cloud_full_validation(manifest):
+    """Reuse successful test-only evidence, bound to this exact source and demo, across runners."""
+    repo = manifest['repository']
+    runs = gh_api(f'repos/{repo}/actions/workflows/ledger.yml/runs?status=success&head_sha={manifest["source_sha"]}&per_page=30')
+    for item in runs['workflow_runs']:
+        artifacts = gh_api(f'repos/{repo}/actions/runs/{item["id"]}/artifacts')['artifacts']
+        name = f'ledger-full-proof-{item["id"]}'
+        if not any(a['name'] == name and not a['expired'] for a in artifacts):
+            continue
+        with tempfile.TemporaryDirectory() as temp:
+            run(['gh', 'run', 'download', str(item['id']), '--repo', repo, '--name', name, '--dir', temp])
+            candidate = read_json(Path(temp) / 'full-validation.json')
+        try:
+            verify_proof(candidate, manifest, require_full=True)
+        except ValueError:
+            continue
+        return candidate
+    return None
 
 
 def semver(value):

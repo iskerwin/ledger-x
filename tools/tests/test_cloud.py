@@ -88,6 +88,25 @@ class CloudTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 ship.verify_proof(dict(proof, run_url=url), manifest)
 
+    def test_promotion_reuses_exact_cloud_full_evidence_without_running_tests(self):
+        manifest = dict(repository='example/app', source_sha='a'*40, tree='tree', demo_commit='demo', demo_sha256='b'*64)
+        proof = dict(validator='github-actions', run_url='https://github.com/example/app/actions/runs/123',
+            source_sha='a'*40, tree='tree', demo_commit='demo', demo_sha256='b'*64, scope='full',
+            static_checks=True, tools_tests=True, core_tests=10, interaction_tests=2,
+            reports='Reports match Beancount', test_targets=dict(LedgerTests=1, LedgerUITests=1))
+        with patch.dict(os.environ, dict(GITHUB_ACTIONS='true')), \
+             patch.object(ship, 'cloud_full_validation', return_value=proof), \
+             patch.object(ship, 'release_validation') as validate:
+            result = ship.release_validation_at_source(manifest, dict(scope='build'))
+            self.assertTrue(result['release_build'])
+            validate.assert_not_called()
+        def download(cmd, **kwargs):
+            Path(cmd[-1], 'full-validation.json').write_text(json.dumps(dict(proof, tree='wrong')))
+        with patch.object(ship, 'gh_api', side_effect=[dict(workflow_runs=[dict(id=123)]),
+                dict(artifacts=[dict(name='ledger-full-proof-123', expired=False)])]), \
+             patch.object(ship, 'run', side_effect=download):
+            self.assertIsNone(ship.cloud_full_validation(manifest))
+
     def test_targeted_test_command_cannot_leave_full_validation_record(self):
         proof = dict(scope='build', selected_core=dict(filter='Example', passed=1))
         with tempfile.TemporaryFile(mode='w') as lock, tempfile.TemporaryDirectory() as temp, \
