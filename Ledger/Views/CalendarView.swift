@@ -2,7 +2,7 @@ import SwiftUI
 import Charts
 import LedgerKit
 
-/// Shared glass grid with the journal’s existing filtered daily totals and a separately selected day.
+/// Shared month grid with the journal’s existing filtered daily totals and a separately selected day.
 struct JournalCalendar: View {
     @Environment(Store.self) var store
     let L: Ledger
@@ -63,8 +63,7 @@ struct JournalCalendar: View {
                 } summary: {
                     summary(totals)
                 } footer: {
-                    Text(LS("点越大，当日金额越大")).font(.caption2).foregroundStyle(.tertiary)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    EmptyView()
                 }
             } else {
                 legacy(totals, marks: marks, out: out, inn: inn)
@@ -134,11 +133,8 @@ struct JournalCalendar: View {
             .accessibilityIdentifier("calendar.openDay")
         }
         .font(.caption)
-        .padding(.horizontal, AppSpacing.control)
         .frame(height: summaryHeight)
-        // A sibling-looking inset panel avoids stacking two refracting glass surfaces.
-        .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: AppRadius.panel))
-        .overlay(RoundedRectangle(cornerRadius: AppRadius.panel).strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5))
+        .overlay(alignment: .top) { Divider() }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("calendar.summary")
     }
@@ -210,72 +206,6 @@ struct DayMark {
     var other = false
 }
 
-private var calendarMaterialPreview: String? {
-    ProcessInfo.processInfo.environment["LEDGER_DEMO"] == nil ? nil : ProcessInfo.processInfo.environment["LEDGER_CALENDAR_MATERIAL"]
-}
-
-private struct CalendarGlassAnchors: PreferenceKey {
-    static var defaultValue: [Anchor<CGRect>] = []
-    static func reduce(value: inout [Anchor<CGRect>], nextValue: () -> [Anchor<CGRect>]) {
-        value.append(contentsOf: nextValue())
-    }
-}
-
-private struct CalendarGlassButton: ViewModifier {
-    @Environment(\.accessibilityReduceTransparency) private var opaque
-    @ViewBuilder func body(content: Content) -> some View {
-        if opaque || calendarMaterialPreview == "opaque" {
-            content.background(Color(.tertiarySystemGroupedBackground), in: Circle())
-        } else if #available(iOS 26.0, *), calendarMaterialPreview != "material" {
-            content.anchorPreference(key: CalendarGlassAnchors.self, value: .bounds) { [$0] }
-                .background(Color.white.opacity(0.08), in: Circle())
-                .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
-        } else {
-            content.background(.ultraThinMaterial, in: Circle())
-                .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
-        }
-    }
-}
-
-private struct CalendarGlassCard: ViewModifier {
-    @Environment(\.accessibilityReduceTransparency) private var opaque
-    @ViewBuilder func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
-        if opaque || calendarMaterialPreview == "opaque" {
-            content.background(Color(.secondarySystemGroupedBackground), in: shape)
-        } else if #available(iOS 26.0, *), calendarMaterialPreview != "material" {
-            // All refracting surfaces are siblings behind the calendar's text and buttons.
-            // Putting foreground content in the container lets overlapping glass sample and blur it.
-            content.backgroundPreferenceValue(CalendarGlassAnchors.self) { anchors in
-                GeometryReader { proxy in
-                    GlassEffectContainer {
-                        ZStack(alignment: .topLeading) {
-                            shape.fill(.clear)
-                                .glassEffect(.regular.tint(Color.jade.opacity(0.06)), in: shape)
-                            ForEach(Array(anchors.enumerated()), id: \.offset) { _, anchor in
-                                let rect = proxy[anchor]
-                                Circle().fill(.clear).glassEffect(.regular, in: Circle())
-                                    .frame(width: rect.width, height: rect.height)
-                                    .position(x: rect.midX, y: rect.midY)
-                            }
-                        }
-                    }
-                }
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-            }
-        } else {
-            content.background(.ultraThinMaterial, in: shape)
-                .overlay(shape.strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
-                .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
-        }
-    }
-}
-
-extension View {
-    func glassCard() -> some View { modifier(CalendarGlassCard()) }
-}
-
 /// Six fixed rows, shared by Journal and subscriptions. Selection is separate from opening a day's details.
 struct GlassMonthCalendar<Totals: View, Summary: View, Footer: View>: View {
     var marks: [String: DayMark]
@@ -345,8 +275,6 @@ struct GlassMonthCalendar<Totals: View, Summary: View, Footer: View>: View {
             summary()
             footer()
         }
-        .padding(AppSpacing.control)
-        .glassCard()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("calendar.glass")
         .sheet(isPresented: $pickingMonth) { monthPicker }
@@ -387,7 +315,6 @@ struct GlassMonthCalendar<Totals: View, Summary: View, Footer: View>: View {
         Button { changeMonth(Day.addMonth(month, offset)) } label: {
             Image(systemName: symbol).font(.body.weight(.semibold))
                 .foregroundStyle(Color.jadeInk).frame(width: 30, height: 30)
-                .modifier(CalendarGlassButton())
                 .frame(width: 44, height: 44)
         }
         .disabled(!canStep(offset)).opacity(canStep(offset) ? 1 : 0.35)

@@ -1045,13 +1045,15 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["10月24日 周六"].waitForExistence(timeout: 5))
     }
 
-    func testGlassCalendarMaterialBranches() {
-        for mode in ["glass", "material", "opaque"] {
-            let app = launchTab("journal", env: ["LEDGER_CALENDAR": "1", "LEDGER_CALENDAR_MATERIAL": mode])
-            _ = openGlassCalendar(app)
-            let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "calendar-" + mode; shot.lifetime = .keepAlways; add(shot)
-            app.terminate()
-        }
+    func testCalendarUsesFullRowWidthWithoutHint() {
+        let app = launchTab("journal", env: ["LEDGER_CALENDAR": "1"])
+        let calendar = openGlassCalendar(app)
+        let grid = app.otherElements["calendar.grid"]
+        XCTAssertEqual(grid.frame.minX, calendar.frame.minX, accuracy: 0.5)
+        XCTAssertEqual(grid.frame.maxX, calendar.frame.maxX, accuracy: 0.5)
+        XCTAssertFalse(app.staticTexts["点越大，当日金额越大"].exists)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "calendar-without-inner-card"; shot.lifetime = .keepAlways; add(shot)
     }
 
     private func launchTab(_ tab: String, accessibility: Bool = false, textSize: String? = nil, env: [String: String] = [:]) -> XCUIApplication {
