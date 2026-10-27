@@ -14,7 +14,7 @@ Ledger X 是原生 SwiftUI 的 iOS 17+ 记账 App，账本是用户自己的 Bea
 
 ## 命令与流程
 
-测试、模拟器、编译、打包和发布全部在 GitHub macOS runner 执行，本机只编辑、做轻量静态/工具检查、提交普通推送和发起任务。完整流程与命令见 [04 云端测试与发布](docs/development/04-本机测试与发布.md)。
+测试、模拟器、编译、打包和发布全部在 GitHub macOS runner 执行，本机只编辑、做轻量静态/工具检查、开 Pull Request 和发起任务。完整流程与命令见 [04 云端测试与发布](docs/development/04-云端测试与发布.md)。合并前「Ledger PR / gate」必须通过：按改动做相关测试和静态检查，只读，不发布。Kerwin 把它设成 main 的必需状态检查，做法见 04。
 
 ```sh
 python3 tools/ship.py test --core-filter PostingOrderTests
@@ -27,7 +27,7 @@ python3 tools/ship.py watch --once
 python3 tools/ship.py version patch|minor|major|X.Y.Z      # 本机轻量版本提交
 ```
 
-`dev` 无筛选时只有静态/工具/构建检查，不得绕过已知失败。筛选回归不算全量。先推送源码，云端通过才发安装包；正式版须匹配已验收构建号与 SHA256，同一源码全量通过，不重新编译 IPA。失败日志、截图与 `.xcresult` 保存在 Actions artifacts，实际范围与链接写入验证记录。
+不带筛选的 `dev` 会拒绝，不会发布。`dev` 必须带 `--core-filter` / `--ui-test`，或显式 `--full`。筛选回归不算全量。开发版和正式版只能对着 main 上的源码；云端失败时源码可以已在 main，但安装包不发布。正式版须匹配已验收构建号与 SHA256，在该安装包的同一源码上全量通过，沿用原版本号和构建号，不重新编译 IPA。失败日志、截图与 `.xcresult` 保存在 Actions artifacts（日志 7 天，全量证据 30 天），实际范围与链接写入验证记录。
 
 本机可运行 `python3 tools/check_project.py`、`python3 -m unittest discover -s tools/tests -p 'test_*.py'` 和 `git diff --check`。不在本机启动 Xcode、Swift 测试或模拟器。冻结样本与独立预期规则仍见 05。
 

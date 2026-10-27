@@ -3,6 +3,7 @@ from contextlib import ExitStack
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import plistlib
 import subprocess
@@ -249,7 +250,8 @@ class PublicationStatusTests(unittest.TestCase):
         ]
         for command, effects, error, code, result, messages in cases:
             with self.subTest(command=command, error=type(error).__name__, effects=effects), \
-                 tempfile.TemporaryDirectory() as temp, tempfile.TemporaryFile(mode='w') as lock, ExitStack() as stack:
+                 tempfile.TemporaryDirectory() as temp, tempfile.TemporaryFile(mode='w') as lock, ExitStack() as stack, \
+                 patch.dict(os.environ, {'GITHUB_ACTIONS': 'false'}):
                 root = Path(temp)
                 output = io.StringIO()
                 def action(*args, **kwargs):
@@ -267,6 +269,12 @@ class PublicationStatusTests(unittest.TestCase):
                     self.assertIn(message, output.getvalue())
                     self.assertIn(message, state['message'])
                 self.assertNotIn('未推送、未发布', output.getvalue())
+
+    def test_cloud_failure_with_no_effects_says_main_is_already_pushed(self):
+        with patch.dict(os.environ, {'GITHUB_ACTIONS': 'true'}):
+            message = ship.failure_message(ship.Failure('checks failed'), state=dict(effects={}))
+        self.assertIn('源码已在 main，未发布安装包', message)
+        self.assertNotIn('未发起推送或发布', message)
 
 
 if __name__ == '__main__':

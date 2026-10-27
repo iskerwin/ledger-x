@@ -59,16 +59,38 @@ require(re.search(r'MARKETING_VERSION: "\d+\.\d+\.\d+"', project), 'Project must
 require('INFOPLIST_KEY_CFBundleDisplayName: Ledger X' in project, 'App display name must be Ledger X')
 require('LEDGER_DEMO_MIRROR: ""' in project, 'Default App mirror must be explicitly configured')
 ship = (ROOT/'tools/ship.py').read_text()
-workflow = (ROOT/'.github/workflows/ledger.yml').read_text()
-require('workflow_dispatch:' in workflow and 'runs-on: macos-26' in workflow and 'cancel-in-progress: false' in workflow,
+ledger = (ROOT/'.github/workflows'/'ledger.yml').read_text()
+pull = (ROOT/'.github/workflows'/'pr.yml').read_text()
+workflow = '\n'.join((ledger, pull, (ROOT/'tools'/'select_xcode.sh').read_text()))
+require('workflow_dispatch:' in ledger and 'runs-on: macos-26' in ledger and 'cancel-in-progress: false' in ledger,
         'Cloud workflow must be manually dispatched on macOS without cancelling publication')
-require('if: always()' in workflow and 'actions/upload-artifact@' in workflow, 'Cloud runs must preserve failed-run evidence')
+require('pull_request:' in pull and 'runs-on: macos-26' in pull and 'cancel-in-progress: true' in pull
+        and 'contents: read' in pull and 'contents: write' not in pull and 'actions: write' not in pull
+        and 'tools/pr_gate.py' in pull and 'persist-credentials: false' in pull and '\n  gate:' in pull,
+        'Pull requests need one read-only gate and must not publish')
+require('if: always()' in ledger and 'actions/upload-artifact@v7' in ledger, 'Cloud runs must preserve failed-run evidence')
+require('actions/checkout@v7' in workflow and 'actions/setup-python@v7' in workflow and 'actions/cache@v6' in ledger,
+        'Cloud workflow must use current major versions of checkout, setup-python and cache')
+require('Xcode_26.6.app' in workflow and 'bash tools/select_xcode.sh' in ledger and 'bash tools/select_xcode.sh' in pull
+        and 'contents: read' in ledger and 'contents: write' in ledger and 'actions: write' in ledger
+        and 'cache_epoch' in ledger,
+        'Cloud workflow must pin Xcode 26.6 and split read and write permissions')
+require('retention-days: 7' in ledger and 'retention-days: 30' in ledger,
+        'Cloud artifacts must use the short retention windows')
+require('build/' not in ledger.split('actions/cache@v6', 1)[-1].split('key:', 1)[0],
+        'Release builds stay uncached; only test compile products may be restored')
 require(all(step in ship for step in ("'swift', 'test'", 'tools/fixtures/check_reports.py', 'build-for-testing', 'test-without-building')),
         'Cloud validation must keep full core, reports and interaction coverage')
-require("tools/fixtures/manifest.json" in ship, 'Tests and packages must use the fixed demo snapshot')
+require("tools/fixtures/manifest.json" in ship and 'https://github.com/iskerwin/ledger-demo' in ship,
+        'Tests and packages must use the fixed public demo snapshot')
+require(not re.search(r'github\.com/iskerwin/ledger(?:\.git)?(?:["\'/\s]|$)', ship + workflow),
+        'Tooling must not reference the private ledger repository')
 require('release delete' not in ship and '--force' not in ship.replace("'--force', tree", '').replace("'--force', source", '') and 'push -f' not in ship,
         'Publication must not delete releases or force-push')
-require(ship.index('proof = validate() if full else') < ship.index("remote_run('main_push'"),
+require('源码已在 main，未发布安装包' in ship, 'A cloud failure must say main is already pushed and no IPA was published')
+require('warn-long-expression-type-checking=200' in project and 'warn-long-expression-type-checking=200' in ship,
+        'Debug and test builds must warn on slow type-checking')
+require(ship.index('proof = validate() if full else validate_targeted()') < ship.index("remote_run('main_push'"),
         'Publication worker validates and builds before publishing')
 
 # every Chinese text shown through LS has its English; every English entry is still shown somewhere

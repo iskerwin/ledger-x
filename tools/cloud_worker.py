@@ -9,13 +9,22 @@ import ship
 
 def prepare():
     sha = os.environ['LEDGER_SOURCE_SHA']
+    command = os.environ.get('LEDGER_COMMAND', '')
     if not re.fullmatch(r'[0-9a-f]{40}', sha):
         raise ship.Failure('源码须为完整 40 位 SHA')
+    ref = os.environ.get('GITHUB_REF', '')
+    # A branch may run read-only tests of its own tip. Publication stays on main.
+    if ref and ref != 'refs/heads/main':
+        if command != 'test':
+            raise ship.Failure('开发版和正式版只能在 main 上发布')
+        if ship.git('rev-parse', 'HEAD') != sha:
+            raise ship.Failure('分支上的测试只能验证该分支当前提交，且不发布')
+        return
     ship.run(['git', 'fetch', 'origin', 'main'])
     if __import__('subprocess').run(['git', 'merge-base', '--is-ancestor', sha, 'origin/main'], cwd=ship.ROOT).returncode:
         raise ship.Failure('源码提交不在 main 上')
     # Retain the current orchestration for release; its source-bound validator uses an isolated worktree.
-    if os.environ['LEDGER_COMMAND'] != 'release':
+    if command != 'release':
         ship.run(['git', 'checkout', '-B', 'main', sha])
 
 

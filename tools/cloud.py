@@ -99,6 +99,8 @@ def main(argv):
             raise ValueError('--accepted-build 只用于手机验收后的转正')
         if args.command == 'release' and (args.core_filter or args.ui_test or args.device or args.full):
             raise ValueError('转正自动核对并补齐同一源码的全量记录，不接受测试筛选')
+        if args.command == 'dev' and not args.full and not (args.core_filter or args.ui_test):
+            raise ValueError('开发版须指定与改动相关的测试（--core-filter / --ui-test），或显式 --full；未发起推送或发布')
         if any(not re.fullmatch(r'Ledger(?:UI)?Tests/[A-Za-z0-9_]+(?:/[A-Za-z0-9_]+)?', value) for value in args.ui_test):
             raise ValueError('--ui-test 须为 Target/Class[/method]')
         return dispatch(args)

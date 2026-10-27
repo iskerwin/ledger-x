@@ -59,6 +59,8 @@ class ShipTests(unittest.TestCase):
                     dict(body=None), dict(body='没有构建号')]
         self.assertEqual(ship.next_build(releases), '13')
         self.assertEqual(ship.next_build([]), '1')
+        with self.assertRaises(ship.Failure):
+            ship.next_build([dict(body='没有构建号')])
 
     def test_build_numbers_rise_past_every_build_the_sources_listed(self):
         # the dev release's notes were replaced by a build numbered 1; the sources' history still had 11
@@ -122,13 +124,22 @@ class ShipTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 ship.verify_proof(dict(proof, source_sha='other'), manifest)
 
-    def test_default_dev_builds_without_running_full_tests_and_build_failure_never_pushes(self):
+    def test_bare_dev_is_refused_before_validation_or_publish(self):
+        with patch.object(ship, 'validate') as full, patch.object(ship, 'validate_targeted') as targeted, \
+             patch.object(ship, 'build_ipa') as build, patch.dict(os.environ, {'LEDGER_CORE_FILTER': '', 'LEDGER_UI_TESTS': ''}):
+            with self.assertRaises(ship.Failure):
+                ship.ship_dev()
+            full.assert_not_called()
+            targeted.assert_not_called()
+            build.assert_not_called()
+
+    def test_scoped_dev_builds_without_running_full_tests_and_build_failure_never_pushes(self):
         import release_notes
         for failure in (None, 'build', 'push', 'upload', 'sources'):
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp)
                 (root/'project.yml').write_text('MARKETING_VERSION: "1.0.0"')
-                (root/'CHANGELOG.md').write_text('## 1.0.0\n### 改进\n- 示例。')
+                (root/'CHANGELOG.md').write_text('## 1.0.0（开发中）\n### 改进\n- 示例。')
                 def build(version, number, demo):
                     if failure == 'build':
                         raise ship.Failure('build failed')
@@ -149,8 +160,10 @@ class ShipTests(unittest.TestCase):
                         patch.object(ship, 'repository', return_value='example/app'),
                         patch.object(ship, 'require_clean_main'), patch.object(ship, 'git', side_effect=git),
                         patch.object(ship, 'verify_demo_snapshot', return_value=DEMO_SHA), patch.object(ship, 'validate'),
-                        patch.object(ship, 'validate_development', return_value=dict(validator='local', scope='build',
+                        patch.object(ship, 'validate_targeted', return_value=dict(validator='local', scope='build',
                             static_checks=True, tools_tests=True, xcode='Xcode', demo_commit='demo', demo_sha256=DEMO_SHA)),
+                        patch.object(ship, 'tag_exists', return_value=False),
+                        patch.dict(os.environ, {'LEDGER_CORE_FILTER': 'Example'}),
                         patch.object(ship, 'fetch_releases', return_value=[dict(body='构建 3')]),
                         patch.object(ship, 'out', return_value=''), patch.object(ship, 'remote_has', return_value=False),
                         patch.object(ship, 'build_ipa', side_effect=build), patch.object(ship, 'run', side_effect=command),
@@ -345,6 +358,8 @@ class ShipTests(unittest.TestCase):
                         self.assertTrue(actual.startswith(expected), actual)
                     self.assertEqual(proof['scope'], 'full')
                     self.assertEqual((proof['core_tests'], proof['interaction_tests']), (10, 2))
+                    swift = next(cmd for cmd in commands if cmd[:2] == ['swift', 'test'])
+                    self.assertIn('-warn-long-expression-type-checking=200', swift)
                     interaction = commands[-1]
                     for flag, value in [('-parallel-testing-enabled', 'NO'),
                                         ('-test-timeouts-enabled', 'YES'),
@@ -382,6 +397,24 @@ class ShipTests(unittest.TestCase):
         self.assertEqual((runtime['identifier'], device['name']), ('ios27', 'iPhone 16'))
         with self.assertRaises(ship.Failure):
             ship.select_device([dict(runtimes[2])], '28.0')
+
+    def test_open_version_and_promoted_identity_stay_on_the_accepted_package(self):
+        ship.require_open_version('1.0.8', '## 1.0.8（开发中）\n', False)
+        with self.assertRaises(ship.Failure):
+            ship.require_open_version('1.0.8', '## 1.0.8\n', False)
+        with self.assertRaises(ship.Failure):
+            ship.require_open_version('1.0.8', '## 1.0.8（开发中）\n', True)
+        self.assertEqual(ship.promoted_identity(dict(version='1.0.8', build='40')), ('1.0.8', '40'))
+        with self.assertRaises(ship.Failure):
+            ship.promoted_identity(dict(version='1.0.8', build='04'))
+        with self.assertRaises(ship.Failure):
+            ship.assert_promoted_source(dict(source_sha='a', tree='t'), dict(source_sha='b', tree='t'))
+
+    def test_public_demo_url_rejects_any_other_repository(self):
+        with patch.object(ship, 'PUBLIC_DEMO', 'https://github.com/iskerwin/ledger'):
+            with self.assertRaises(ship.Failure):
+                ship.public_demo_clone_url()
+        self.assertTrue(ship.public_demo_clone_url().endswith('/iskerwin/ledger-demo'))
 
     def test_published_version_is_never_replaced_or_moved(self):
         manifest = dict(version='1.0.0', source_sha='a'*40)

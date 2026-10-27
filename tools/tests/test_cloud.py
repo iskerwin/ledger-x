@@ -67,6 +67,30 @@ class CloudTests(unittest.TestCase):
                 cloud_worker.prepare()
             run.assert_not_called()
 
+    def test_bare_dev_is_refused_before_dispatch(self):
+        with patch.object(cloud, 'dispatch') as dispatch:
+            self.assertEqual(cloud.main(['dev']), 1)
+            dispatch.assert_not_called()
+
+    def test_prepare_allows_a_branch_test_of_its_own_head_without_fetching(self):
+        env = dict(LEDGER_SOURCE_SHA='a'*40, LEDGER_COMMAND='test', GITHUB_REF='refs/heads/feature')
+        with patch.dict(os.environ, env, clear=True), patch.object(ship, 'git', return_value='a'*40), \
+             patch.object(ship, 'run') as run:
+            cloud_worker.prepare()
+            run.assert_not_called()
+
+    def test_prepare_refuses_publication_or_a_different_commit_on_a_branch(self):
+        for env in (
+            dict(LEDGER_SOURCE_SHA='a'*40, LEDGER_COMMAND='dev', GITHUB_REF='refs/heads/feature'),
+            dict(LEDGER_SOURCE_SHA='a'*40, LEDGER_COMMAND='test', GITHUB_REF='refs/heads/feature'),
+        ):
+            head = 'b'*40 if env['LEDGER_COMMAND'] == 'test' else 'a'*40
+            with self.subTest(command=env['LEDGER_COMMAND']), patch.dict(os.environ, env, clear=True), \
+                 patch.object(ship, 'git', return_value=head), patch.object(ship, 'run') as run:
+                with self.assertRaises(ship.Failure):
+                    cloud_worker.prepare()
+                run.assert_not_called()
+
     def test_selected_evidence_requires_every_requested_test_without_skips(self):
         summary = dict(result='Passed', totalTestCount=1, passedTests=1, failedTests=0, skippedTests=0, expectedFailures=0)
         tree = dict(testNodes=[dict(nodeType='UI test bundle', name='LedgerUITests', children=[

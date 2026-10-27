@@ -48,14 +48,14 @@ Ledger X 通过 IPA 源安装：在 SideStore、AltStore 或 Zeus 等工具里�
 
 用免费 Apple ID 签名的 App 每 7 天到期，到期后打不开。在 SideStore / AltStore 里刷新（Refresh）即可继续用，账本、草稿和设置都留在手机上，不会丢；保持刷新工具在后台自动刷新，就不用手动处理。
 
-**开发版**：相关测试与 Xcode 检查后，编译并校验安装包发布；每次发布说明列出实际验证范围，完整回归在转正式版前完成
+**开发版**：与改动相关的测试通过后才发布。发布说明列出实际验证范围。手机验收这一版之后，才在同一源码上做完整测试，并把同一个安装包转为正式版
 
 ```text
 GitHub  https://raw.githubusercontent.com/iskerwin/ledger-x/ipa/dev.json
 镜像    https://gh-proxy.com/https://raw.githubusercontent.com/iskerwin/ledger-x/ipa/mirror/dev.json
 ```
 
-**正式版**：开发版经过手机验收后原样发布，有正式版本后可安装
+**正式版**：手机验收过的那个开发版安装包，版本号和构建号不变
 
 ```text
 GitHub  https://raw.githubusercontent.com/iskerwin/ledger-x/ipa/release.json
