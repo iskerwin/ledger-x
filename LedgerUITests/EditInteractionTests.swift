@@ -970,21 +970,30 @@ final class EditInteractionTests: XCTestCase {
         plain.name = "calendar-no-summary"
         plain.lifetime = .keepAlways
         add(plain)
-        // 1 October is always on the first row, above the half sheet. The coordinate stays
-        // on that cell after the sheet covers the lower page.
+        // The first row must remain tappable above the day sheet, including on short phones.
         let first = app.buttons["calendar.day.2026-10-01"]
         XCTAssertTrue(first.waitForExistence(timeout: 5))
+        let cardBeforeSheet = card.frame
+        let dayBeforeSheet = first.frame
         let spot = first.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         spot.tap()
         let opened = app.navigationBars["10月1日 周四"]
         XCTAssertTrue(opened.waitForExistence(timeout: 5))
+        let dayAfterSheet = first.frame
+        let geometry = XCTAttachment(string: "screen=\(app.frame); cardBefore=\(cardBeforeSheet); cardAfter=\(card.frame); dayBefore=\(dayBeforeSheet); dayAfter=\(dayAfterSheet); sheetNavigation=\(opened.frame)")
+        geometry.name = "calendar-day-sheet-geometry"
+        geometry.lifetime = .keepAlways
+        add(geometry)
+        let openedShot = XCTAttachment(screenshot: app.screenshot())
+        openedShot.name = "calendar-first-row-with-sheet"
+        openedShot.lifetime = .keepAlways
+        add(openedShot)
+        XCTAssertEqual(card.frame.height, cardBeforeSheet.height, accuracy: 0.5)
+        XCTAssertEqual(card.frame.minY, cardBeforeSheet.minY, accuracy: 0.5)
+        XCTAssertEqual(dayAfterSheet.midY, dayBeforeSheet.midY, accuracy: 0.5)
+        XCTAssertTrue(first.isHittable, "The open date remains tappable above its sheet")
         spot.tap()
-        if textSize == nil {
-            XCTAssertTrue(opened.waitForNonExistence(timeout: 5), "Tapping the open day dismisses its sheet")
-        } else if !opened.waitForNonExistence(timeout: 2) {
-            tapPoint(app.buttons["完成"], timeout: 5)
-            XCTAssertTrue(opened.waitForNonExistence(timeout: 5))
-        }
+        XCTAssertTrue(opened.waitForNonExistence(timeout: 5), "Tapping the open day dismisses its sheet")
         XCTAssertNotEqual(first.value as? String, "已选中")
         let coffee = app.buttons["calendar.day.2026-10-17"]
         for _ in 0..<4 where !(coffee.exists && coffee.isHittable) { app.swipeUp() }

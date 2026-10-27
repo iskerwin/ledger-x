@@ -156,6 +156,15 @@ struct Tag: View {
     }
 }
 
+/// Leave the upper calendar rows exposed on short phones. On taller screens the system's
+/// medium detent remains the smallest available height, preserving its native geometry.
+private struct CalendarDayShortScreenDetent: CustomPresentationDetent {
+    static func height(in context: Context) -> CGFloat? {
+        guard context.maxDetentValue < 700 else { return nil }
+        return context.maxDetentValue * 0.4
+    }
+}
+
 struct JournalView: View {
     @Environment(Store.self) var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -319,9 +328,11 @@ struct JournalView: View {
             afterSheet = TxDest(t)
             calendarDay = nil
         }
-        .pickerSheet()
+        .presentationDetents([.custom(CalendarDayShortScreenDetent.self), .medium, .large])
+        .presentationDragIndicator(.visible)
         .presentationContentInteraction(.scrolls)
-        // half sheet stays clear of the upper dates, so tapping the open day again can dismiss it
+        // The short-screen detent leaves more of the calendar exposed than medium does.
+        // Both small heights allow tapping an exposed date again to dismiss the sheet.
         .presentationBackgroundInteraction(.enabled(upThrough: .medium))
     }
 
