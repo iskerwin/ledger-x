@@ -213,7 +213,7 @@ struct RepoLayoutView: View {
             }
             // what happens when it is left empty, spelled out (a placeholder alone was easy to miss)
             if !set {
-                Label(LS("未设置，自动写入 %@", auto), systemImage: "wand.and.stars").labelStyle(ControlLabelStyle()).font(.caption).foregroundStyle(Color.jade).lineLimit(2)
+                Label(LS("未设置，自动写入 %@", auto), systemImage: "wand.and.stars").labelStyle(ControlLabelStyle()).font(.caption).foregroundStyle(Color.jadeInk).lineLimit(2)
             }
             Text(now).font(.caption).foregroundStyle(.secondary).lineLimit(2)
         }

@@ -209,7 +209,7 @@ struct AddForm: View {
     private func refundBanner(_ d: Draft) -> some View {
         Section {
             HStack(alignment: .top, spacing: AppSpacing.icon) {
-                Image(systemName: "arrow.uturn.backward.circle.fill").font(.title2).foregroundStyle(Color.jade)
+                Image(systemName: "arrow.uturn.backward.circle.fill").font(.title2).foregroundStyle(Color.jadeInk)
                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
                     Text(LS("登记退款")).font(.headline)
                     Text([d.payee, d.narration].filter { !$0.isEmpty }.joined(separator: " ") + (d.link.isEmpty ? "" : " · ^" + d.link))
@@ -723,7 +723,7 @@ struct AddForm: View {
                     MonoText(text: text)
                     Label(d.edited != nil ? LS("已手动编辑 · 点按继续编辑") : LS("点按编辑源文本"), systemImage: "pencil").labelStyle(ControlLabelStyle())
                         .font(.footnote)
-                        .foregroundStyle(Color.jade)
+                        .foregroundStyle(Color.jadeInk)
                 }
                 .contentShape(Rectangle())
                 .onTapGesture { hideKeyboard(); editingText = true }
@@ -950,7 +950,7 @@ struct RowEditor: View {
                     Image(systemName: showMore || !row.cost.isEmpty || !row.price.isEmpty ? "chevron.up.circle.fill" : "ellipsis.circle")
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(Color.jade)
+                .foregroundStyle(Color.jadeInk)
                 .accessibilityLabel(LS("成本与价格"))
             }
             if showMore || !row.cost.isEmpty || !row.price.isEmpty {

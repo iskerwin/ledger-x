@@ -41,7 +41,7 @@ struct QuickSearchBar: View {
                             .font(.subheadline).labelStyle(.titleAndIcon)
                             .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
                             .overlay(Capsule().stroke(Color.jade, lineWidth: 1))
-                            .foregroundStyle(Color.jade)
+                            .foregroundStyle(Color.jadeInk)
                     }
                     .buttonStyle(.plain)
                 }

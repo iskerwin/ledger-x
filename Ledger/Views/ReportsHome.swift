@@ -71,15 +71,13 @@ struct ReportsInsights: View {
 
     /// a card's title: the icon in the theme's colour, the words in the text colour (the same on all three)
     private func cardTitle(_ text: String, _ icon: String) -> some View {
-        Label { Text(text).foregroundStyle(.primary) } icon: { Image(systemName: icon).foregroundStyle(Color.jade) }
+        Label { Text(text).foregroundStyle(.primary) } icon: { Image(systemName: icon).foregroundStyle(Color.jadeInk) }
             .font(.headline)
     }
 
     private func monthEnd(_ m: String) -> String { Day.shift(Day.addMonth(m, 1) + "-01", -1) }
 
     // MARK: 钱花在哪
-
-    private static let palette: [Color] = [.jade, .mint, .blue, .orange, .purple, .gray]
 
     @ViewBuilder
     private func whereCard(_ L: Ledger) -> some View {
@@ -98,18 +96,18 @@ struct ReportsInsights: View {
                 if total > 0.005 {
                     GeometryReader { geo in
                         HStack(spacing: AppSpacing.detail) {
-                            ForEach(Array(top.enumerated()), id: \.offset) { i, r in
-                                Self.palette[i % Self.palette.count].frame(width: max(2, geo.size.width * r.value / total - 2))
+                            ForEach(top, id: \.key) { r in
+                                categoryColor(r.key).frame(width: max(2, geo.size.width * r.value / total - 2))
                             }
                             if rest > 0.005 { Color.gray.opacity(0.4).frame(width: max(2, geo.size.width * rest / total - 2)) }
                         }
                         .clipShape(Capsule())
                     }
                     .frame(height: 12)
-                    ForEach(Array(top.enumerated()), id: \.offset) { i, r in
+                    ForEach(top, id: \.key) { r in
                         Button { store.showInJournal(.report(month: month, account: r.key)) } label: {
                             HStack(spacing: AppSpacing.icon) {
-                                Circle().fill(Self.palette[i % Self.palette.count]).frame(width: 9, height: 9)
+                                Circle().fill(categoryColor(r.key)).frame(width: 9, height: 9)
                                 // the bar above already shows the shares: the row gives its room to the name
                                 Text(catLabel(r.key)).lineLimit(1)
                                 Spacer(minLength: AppSpacing.icon)
@@ -171,7 +169,7 @@ struct ReportsInsights: View {
                             } label: { Label(LS("查看这 %@ 笔", count), systemImage: "list.bullet").labelStyle(ControlLabelStyle()) }
                             .font(.subheadline.weight(.medium))
                             .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
-                            .foregroundStyle(Color.jade)
+                            .foregroundStyle(Color.jadeInk)
                             .background(Color.jade.soft, in: Capsule())
                             .buttonStyle(.plain)
                         }
@@ -223,8 +221,8 @@ struct ReportsInsights: View {
                         }
                         Spacer(minLength: 8)
                         Chart(f.points, id: \.date) { p in
-                            AreaMark(x: .value("d", p.date), y: .value("v", p.value)).foregroundStyle(Color.jade.opacity(0.12))
-                            LineMark(x: .value("d", p.date), y: .value("v", p.value)).foregroundStyle(Color.jade)
+                            AreaMark(x: .value("d", p.date), y: .value("v", p.value)).foregroundStyle(Color.jadeInk.opacity(0.12))
+                            LineMark(x: .value("d", p.date), y: .value("v", p.value)).foregroundStyle(Color.jadeInk)
                         }
                         .chartXAxis(.hidden).chartYAxis(.hidden)
                         .frame(width: 130, height: 56)

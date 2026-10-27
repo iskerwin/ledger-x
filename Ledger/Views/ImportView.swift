@@ -265,7 +265,7 @@ struct ImportView: View {
         let shown: [ImportItem] = tab == .pending ? pending : tab == .ready ? ready : skipped
         let dups = items.filter { $0.duplicate != nil }.count
         return List {
-            if let result = result { Section { Text(result).foregroundStyle(Color.jade) } }
+            if let result = result { Section { Text(result).foregroundStyle(Color.jadeInk) } }
             Section { steps.cardRow() }
             Section {
                 HStack(spacing: AppSpacing.icon) {
@@ -362,7 +362,7 @@ struct ImportView: View {
                 if n < at { Image(systemName: "checkmark").font(.caption2.weight(.bold)).foregroundStyle(Color.onJade) }
                 else { Text("\(n)").font(.caption.weight(.bold)).foregroundStyle(n == at ? Color.onJade : Color.secondary) }
             }
-            Text(title).font(.caption.weight(n == at ? .semibold : .regular)).foregroundStyle(n == at ? Color.jade : Color.secondary)
+            Text(title).font(.caption.weight(n == at ? .semibold : .regular)).foregroundStyle(n == at ? Color.jadeInk : Color.secondary)
                 .lineLimit(1).fixedSize()
         }
     }
@@ -441,7 +441,7 @@ struct ImportView: View {
                 } label: {
                     Image(systemName: it.include ? "checkmark.circle.fill" : "circle")
                         .font(.title3)
-                        .foregroundStyle(it.include ? Color.jade : Color.secondary)
+                        .foregroundStyle(it.include ? Color.jadeInk : Color.secondary)
                 }
                 .buttonStyle(.borderless)
                 .accessibilityAddTraits(it.include ? .isSelected : [])

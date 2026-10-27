@@ -202,7 +202,7 @@ struct HoldingsView: View {
                     Text(monogram(r.c))
                         .font(.system(size: r.c.count > 3 ? 11 : 13, weight: .bold, design: .rounded))
                         .lineLimit(1).minimumScaleFactor(0.6)
-                        .foregroundStyle(Color.jade)
+                        .foregroundStyle(Color.jadeInk)
                         .frame(width: 40, height: 40)
                         .background(Color.jade.soft, in: Circle())
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
@@ -583,7 +583,7 @@ struct KLineSheet: View {
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
             }
             ForEach(Array(buys.enumerated()), id: \.offset) { p in
-                PointMark(x: .value("d", p.element.0), y: .value("p", p.element.1)).foregroundStyle(Color.jade).symbolSize(30)
+                PointMark(x: .value("d", p.element.0), y: .value("p", p.element.1)).foregroundStyle(Color.jadeInk).symbolSize(30)
             }
         }
         .chartYScale(domain: (lo - pad)...(hi + pad))

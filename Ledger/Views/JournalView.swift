@@ -559,12 +559,12 @@ struct JournalView: View {
     @ViewBuilder private func filterActions(_ filtered: Bool) -> some View {
         if store.journalReturn != nil {
             Button { restoreBrowse() } label: { Label(LS("回到刚才的筛选"), systemImage: "arrow.uturn.backward").labelStyle(ControlLabelStyle()) }
-                .font(.subheadline.weight(.medium)).foregroundStyle(Color.jade).buttonStyle(.plain)
+                .font(.subheadline.weight(.medium)).foregroundStyle(Color.jadeInk).buttonStyle(.plain)
                 .accessibilityIdentifier("journal.restore")
         }
         if filtered {
             Button { quick = []; account = nil; q = ""; Haptics.selection() } label: { Label(LS("清除"), systemImage: "xmark.circle").labelStyle(ControlLabelStyle()) }
-                .font(.subheadline.weight(.medium)).foregroundStyle(Color.jade).buttonStyle(.plain)
+                .font(.subheadline.weight(.medium)).foregroundStyle(Color.jadeInk).buttonStyle(.plain)
         }
     }
 
@@ -588,7 +588,7 @@ struct JournalView: View {
                     Spacer()
                     if account == nil, !fullQuery.isEmpty, !store.quickSearches.contains(where: { $0.query.trimmed == fullQuery }) {
                         Button { savingFilter = QuickSearchEdit(index: nil, name: "", query: fullQuery) } label: { Label(LS("保存为常用筛选"), systemImage: "line.3.horizontal.decrease.circle").labelStyle(ControlLabelStyle()) }
-                            .font(.subheadline).foregroundStyle(Color.jade).buttonStyle(.plain)
+                            .font(.subheadline).foregroundStyle(Color.jadeInk).buttonStyle(.plain)
                     }
                 }
                 HStack(alignment: .top, spacing: 0) {
@@ -648,7 +648,7 @@ struct JournalView: View {
                         HStack(spacing: AppSpacing.icon) {
                             Image(systemName: selected.contains(key) ? "checkmark.circle.fill" : "circle")
                                 .font(.title3)
-                                .foregroundStyle(selected.contains(key) ? Color.jade : Color.secondary)
+                                .foregroundStyle(selected.contains(key) ? Color.jadeInk : Color.secondary)
                             TxRow(t: t, account: account)
                         }
                         .contentShape(Rectangle())
@@ -817,7 +817,7 @@ struct TxDetailView: View {
             VStack(spacing: AppSpacing.icon) {
                 Image(systemName: icon)
                     .font(.system(size: 26))
-                    .foregroundStyle(Color.jade)
+                    .foregroundStyle(Color.jadeInk)
                     .frame(width: 60, height: 60)
                     .background(Color.jade.soft, in: Circle())
                 Text(t.payee.isEmpty ? (t.narration.isEmpty ? LS("交易") : t.narration) : t.payee)
@@ -1188,7 +1188,7 @@ struct FlowChips: View {
                     }
                     .font(.footnote.weight(.medium))
                     .padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.icon)
-                    .foregroundStyle(Color.jade)
+                    .foregroundStyle(Color.jadeInk)
                     .background(Color.jade.soft, in: Capsule())
                 }
                 .buttonStyle(.plain)

@@ -179,7 +179,7 @@ struct DemoBanner: View {
         Section {
             VStack(alignment: .leading, spacing: AppSpacing.icon) {
                 HStack(spacing: AppSpacing.icon) {
-                    Image(systemName: "sparkles").foregroundStyle(Color.jade)
+                    Image(systemName: "sparkles").foregroundStyle(Color.jadeInk)
                     Text(LS("正在查看演示账本")).font(.headline)
                     Spacer()
                     Menu {
@@ -191,7 +191,7 @@ struct DemoBanner: View {
                 else if store.demoUpdate != nil {
                     // ledger-demo has moved on: fetched when asked (it replaces what was recorded here)
                     HStack(spacing: AppSpacing.icon) {
-                        Image(systemName: "arrow.down.circle").foregroundStyle(Color.jade)
+                        Image(systemName: "arrow.down.circle").foregroundStyle(Color.jadeInk)
                         Text(LS("演示数据有更新")).font(.subheadline.weight(.medium))
                         Spacer()
                         Button { confirmUpdate = true } label: { Label(LS("更新"), systemImage: "arrow.clockwise").labelStyle(ControlLabelStyle()) }
@@ -248,7 +248,7 @@ struct DemoEntryCard: View {
             Section {
                 HStack(spacing: AppSpacing.icon) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 18, weight: .semibold)).foregroundStyle(Color.jade)
+                        .font(.system(size: 18, weight: .semibold)).foregroundStyle(Color.jadeInk)
                         .frame(width: 40, height: 40)
                         .background(Color.jade.soft, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {

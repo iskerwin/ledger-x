@@ -1,6 +1,17 @@
 import SwiftUI
 import Charts
+import UIKit
 import LedgerKit
+
+/// An identity keeps its colour when ranks, periods, labels or the accent theme change.
+func categoryColor(_ id: String) -> Color {
+    var hash: UInt64 = 14695981039346656037
+    for byte in id.utf8 { hash = (hash ^ UInt64(byte)) &* 1099511628211 }
+    let hue = CGFloat(hash % 3600) / 3600
+    return Color(uiColor: UIColor { traits in
+        UIColor(hue: hue, saturation: 0.52, brightness: traits.userInterfaceStyle == .dark ? 0.9 : 0.7, alpha: 1)
+    }).readableInk
+}
 
 /// one ring segment
 struct DonutSlice: Identifiable, Equatable {
@@ -10,23 +21,16 @@ struct DonutSlice: Identifiable, Equatable {
     let value: Double
     var color: Color = .gray
 
-    /// largest `top` items, the rest merged into 其他; colours assigned from the palette
+    /// largest `top` items, the rest merged into 其他; colours belong to identities, not ranks
     static func make(_ items: [(id: String, label: String, value: Double)], top: Int = 6) -> [DonutSlice] {
         let pos = items.filter { $0.value > 0.005 }.sorted { $0.value > $1.value }
         let head = pos.count > top + 1 ? Array(pos.prefix(top)) : pos
-        let pal = DonutSlice.palette
-        var out = head.enumerated().map { i, x in DonutSlice(id: x.id, label: x.label, value: x.value, color: pal[i % pal.count]) }
+        var out = head.map { x in DonutSlice(id: x.id, label: x.label, value: x.value, color: categoryColor(x.id)) }
         let rest = pos.dropFirst(head.count).reduce(0.0) { $0 + $1.value }
         if rest > 0.005 { out.append(DonutSlice(id: otherID, label: LS("其他"), value: rest, color: Color(.systemGray3))) }
         return out
     }
 
-    /// the theme colour first, then distinct system colours
-    static var palette: [Color] {
-        let cur = AppTheme.current
-        let rest: [AppTheme] = [.blue, .orange, .purple, .pink, .teal, .yellow, .indigo, .red, .mint].filter { $0 != cur }
-        return [Color.jade] + rest.map { $0.color }
-    }
 }
 
 /// a ring chart with a tappable legend; the centre shows the selected slice or the total

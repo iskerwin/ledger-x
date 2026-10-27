@@ -322,7 +322,7 @@ struct AddAdvancesSheet: View {
                         } label: {
                             HStack(spacing: AppSpacing.icon) {
                                 Image(systemName: picked.contains(k) ? "checkmark.circle.fill" : "circle")
-                                    .font(.title3).foregroundStyle(picked.contains(k) ? Color.jade : Color.secondary)
+                                    .font(.title3).foregroundStyle(picked.contains(k) ? Color.jadeInk : Color.secondary)
                                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
                                     Text([u.t.payee, u.t.narration].filter { !$0.isEmpty }.joined(separator: " ")).lineLimit(1)
                                     Text(u.t.date).font(.caption).foregroundStyle(.secondary)

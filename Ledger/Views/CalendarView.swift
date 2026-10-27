@@ -320,7 +320,7 @@ struct CalendarDaySheet: View {
                             let path = documentRepoPath(d)
                             Button { if let p = path { viewing = DocItem(path: p) } } label: {
                                 HStack(spacing: AppSpacing.icon) {
-                                    Image(systemName: "doc.text").foregroundStyle(Color.jade)
+                                    Image(systemName: "doc.text").foregroundStyle(Color.jadeInk)
                                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                                         Text(((d.path ?? "") as NSString).lastPathComponent).lineLimit(1)
                                         if let a = d.account { Text(acctDisplay(a)).font(.caption).foregroundStyle(.secondary).lineLimit(1) }

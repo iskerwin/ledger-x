@@ -3,6 +3,7 @@ import Charts
 import LedgerKit
 
 struct OverviewView: View {
+    @ScaledMetric(relativeTo: .footnote) private var trendLineHeight: CGFloat = 18
     @Environment(Store.self) var store
     @State private var path = NavigationPath()
     @AppStorage("ledger.period") private var period = "month"
@@ -284,8 +285,8 @@ struct OverviewView: View {
                             // text, so a large size wraps it like a sentence
                             Group {
                                 if s.prev > 0 {
-                                    Text(Image(systemName: delta > 0 ? "arrow.up.right" : "arrow.down.right")).foregroundColor(delta > 0 ? Color.loss : Color.gain)
-                                        + Text(money(abs(delta), cur)).fontWeight(.semibold).foregroundColor(delta > 0 ? Color.loss : Color.gain)
+                                    Text(Image(systemName: abs(delta) <= 0.005 ? "minus" : delta > 0 ? "arrow.up.right" : "arrow.down.right")).foregroundColor(.change(delta, upIsWorse: true))
+                                        + Text(money(abs(delta), cur)).fontWeight(.semibold).foregroundColor(.change(delta, upIsWorse: true))
                                         + Text(" " + LS("较") + s.prevLabel + LS("（") + money(s.prev, cur) + LS("）")).foregroundColor(.secondary)
                                 } else {
                                     Text(s.prevLabel + LS("无支出记录")).foregroundStyle(.secondary)
@@ -328,6 +329,7 @@ struct OverviewView: View {
                 Text(LS("收支")).tag("flow")
             }
             .pickerStyle(.segmented)
+            .accessibilityIdentifier("overview.trendMode")
             Chart {
                 if trend == "flow" {
                     // income and spending as two lines, the selected month marked
@@ -341,16 +343,18 @@ struct OverviewView: View {
                             .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 3]))
                             .accessibilityLabel(Day.monthLabel(m) + " " + LS("支出")).accessibilityValue(money(F.exp[m] ?? 0, F.cur))
                     }
-                    if let p = shown {
-                        RuleMark(x: .value("月", monthLabelShort(p))).foregroundStyle(Color.secondary.opacity(0.25))
-                    }
                 } else {
                     ForEach(months, id: \.self) { m in
                         BarMark(x: .value("月", monthLabelShort(m)), y: .value("支出", F.exp[m] ?? 0))
-                            .foregroundStyle(m == shown ? Color.loss : Color.loss.opacity(0.28))
+                            .foregroundStyle(m == shown ? Color.jadeInk : Color.jadeInk.opacity(0.88))
                             .cornerRadius(4)
                             .accessibilityLabel(Day.monthLabel(m) + " " + LS("支出")).accessibilityValue(money(F.exp[m] ?? 0, F.cur))
                     }
+                }
+                if let p = shown {
+                    RuleMark(x: .value("月", monthLabelShort(p)))
+                        .foregroundStyle(Color.secondary)
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
                 }
             }
             .chartLegend(.hidden)
@@ -390,6 +394,7 @@ struct OverviewView: View {
             : Text(money(exp, cur))
         return (Text(label + "  ") + figures)
             .font(.footnote.monospacedDigit()).lineLimit(1).minimumScaleFactor(0.7).sensitive()
+            .frame(height: trendLineHeight)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 

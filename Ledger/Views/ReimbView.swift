@@ -221,7 +221,7 @@ struct ReimbSheet: View {
                 } label: {
                     HStack(spacing: AppSpacing.icon) {
                         Image(systemName: selected.contains(i) ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(selected.contains(i) ? Color.jade : Color.secondary)
+                            .foregroundStyle(selected.contains(i) ? Color.jadeInk : Color.secondary)
                             .font(.title3)
                         VStack(alignment: .leading, spacing: AppSpacing.detail) {
                             Text([it.t.payee, it.t.narration].filter { !$0.isEmpty }.joined(separator: " ")).lineLimit(1)
@@ -416,7 +416,7 @@ struct FloatSheet: View {
                     } label: {
                         HStack(spacing: AppSpacing.icon) {
                             Image(systemName: selected.contains(i) ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(selected.contains(i) ? Color.jade : Color.secondary)
+                                .foregroundStyle(selected.contains(i) ? Color.jadeInk : Color.secondary)
                                 .font(.title3)
                             VStack(alignment: .leading, spacing: AppSpacing.detail) {
                                 Text([it.t.payee, it.t.narration].filter { !$0.isEmpty }.joined(separator: " ")).lineLimit(1)

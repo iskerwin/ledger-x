@@ -100,7 +100,7 @@ struct TxPicker: View {
             if picked.contains(i.id) { picked.remove(i.id) } else { picked.insert(i.id) }
         } label: {
             HStack(spacing: AppSpacing.icon) {
-                Image(systemName: picked.contains(i.id) ? "checkmark.circle.fill" : "circle").foregroundStyle(Color.jade).font(.title3)
+                Image(systemName: picked.contains(i.id) ? "checkmark.circle.fill" : "circle").foregroundStyle(Color.jadeInk).font(.title3)
                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
                     Text(i.payee + (i.t.payee.isEmpty || i.t.narration.isEmpty ? "" : " · " + i.t.narration)).lineLimit(1)
                     Text(i.t.date + " · " + acctLabel(i.account)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
@@ -221,7 +221,7 @@ struct SubPickSheet: View {
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                if s.account == expenseAccount { Text(LS("同科目")).font(.caption2).foregroundStyle(Color.jade) }
+                                if s.account == expenseAccount { Text(LS("同科目")).font(.caption2).foregroundStyle(Color.jadeInk) }
                             }
                         }
                         .foregroundStyle(.primary)

@@ -342,7 +342,7 @@ struct DocumentFolderSheet: View {
                                     Text("documents/\(name)/").lineLimit(1).truncationMode(.middle)
                                     Spacer(minLength: AppSpacing.icon)
                                     if name == draft {
-                                        Image(systemName: "checkmark").foregroundStyle(Color.jade).accessibilityHidden(true)
+                                        Image(systemName: "checkmark").foregroundStyle(Color.jadeInk).accessibilityHidden(true)
                                     }
                                 }
                             }

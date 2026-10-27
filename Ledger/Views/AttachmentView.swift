@@ -299,7 +299,7 @@ struct AttachmentsSection: View {
                     if let p = documentRepoPath(d) { viewing = DocItem(path: p) }
                 } label: {
                     HStack(spacing: AppSpacing.icon) {
-                        Image(systemName: icon(d.path ?? "")).foregroundStyle(Color.jade)
+                        Image(systemName: icon(d.path ?? "")).foregroundStyle(Color.jadeInk)
                         Text(((d.path ?? "") as NSString).lastPathComponent).lineLimit(1)
                         Spacer()
                         Text(d.date).font(.caption).foregroundStyle(.secondary)
@@ -537,7 +537,7 @@ struct TransactionAttachmentsView: View {
                         if let path = documentRepoPath(d) { viewing = DocItem(path: path) }
                     } label: {
                         HStack(spacing: AppSpacing.icon) {
-                            Image(systemName: "paperclip").foregroundStyle(Color.jade)
+                            Image(systemName: "paperclip").foregroundStyle(Color.jadeInk)
                             VStack(alignment: .leading, spacing: AppSpacing.detail) {
                                 Text(((d.path ?? "") as NSString).lastPathComponent).lineLimit(1)
                                 Text([d.date, txn.map { [$0.payee, $0.narration].filter { !$0.isEmpty }.joined(separator: " · ") } ?? ""]

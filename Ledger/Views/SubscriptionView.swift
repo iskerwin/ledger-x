@@ -235,7 +235,7 @@ struct SubscriptionOverviewSection: View {
             ForEach(due) { d in SubDueRow(due: d) }
             NavigationLink(value: SubscriptionsDest()) {
                 HStack(spacing: AppSpacing.icon) {
-                    IconBadge(symbol: "repeat", color: .purple, size: 28)
+                    IconBadge(symbol: "repeat", size: 28)
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(subs.isEmpty ? LS("订阅管理") : LS("%@ 个订阅 · 月均 %@", subs.count, money(monthly, L.base, 0)))
                             .sensitive()
@@ -568,7 +568,7 @@ struct SubscriptionDetailView: View {
             VStack(spacing: AppSpacing.icon) {
                 Image(systemName: store.subIcon(s))
                     .font(.system(size: 26))
-                    .foregroundStyle(Color.jade)
+                    .foregroundStyle(Color.jadeInk)
                     .frame(width: 60, height: 60)
                     .background(Color.jade.soft, in: Circle())
                 Text(s.name).font(.title3.weight(.semibold)).multilineTextAlignment(.center)
@@ -644,7 +644,7 @@ struct SubscriptionDetailView: View {
     private func historyRow(_ item: SubTimelineItem) -> some View {
         HStack(alignment: .top, spacing: AppSpacing.icon) {
             Image(systemName: item.kind == .event ? icon(item.eventKind) : item.kind == .gap ? "pause.circle" : "creditcard")
-                .foregroundStyle(item.kind == .gap ? Color.secondary : item.kind == .event ? Color.purple : Color.jade)
+                .foregroundStyle(item.kind == .gap ? Color.secondary : item.kind == .event ? Color.purple : Color.jadeInk)
                 .frame(width: 22)
             VStack(alignment: .leading, spacing: AppSpacing.detail) {
                 Text(item.title).font(.subheadline).sensitive()

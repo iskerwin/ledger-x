@@ -214,7 +214,7 @@ struct LedgersSection: View {
                             Text(s.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         }
                         Spacer()
-                        if active { Image(systemName: "checkmark").fontWeight(.semibold).foregroundStyle(Color.jade) }
+                        if active { Image(systemName: "checkmark").fontWeight(.semibold).foregroundStyle(Color.jadeInk) }
                     }
                 }
                 .swipeActions(allowsFullSwipe: false) {

@@ -86,7 +86,7 @@ struct PayeesView: View {
                         } label: {
                             HStack(spacing: AppSpacing.icon) {
                                 Image(systemName: picked.contains(p.name) ? "checkmark.circle.fill" : "circle")
-                                    .font(.title3).foregroundStyle(picked.contains(p.name) ? Color.jade : Color.secondary)
+                                    .font(.title3).foregroundStyle(picked.contains(p.name) ? Color.jadeInk : Color.secondary)
                                 PayeeRow(p: p)
                             }
                             .contentShape(Rectangle())

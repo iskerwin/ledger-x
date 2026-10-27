@@ -99,7 +99,7 @@ struct YearReviewView: View {
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(LS("结余")).font(.subheadline).foregroundStyle(.secondary)
                         Text(money(r.net, r.currency)).font(.system(.largeTitle, design: .rounded).weight(.bold))
-                            .monospacedDigit().foregroundStyle(r.net >= 0 ? Color.gain : Color.loss).sensitive()
+                            .monospacedDigit().foregroundStyle(r.net < 0 ? Color.loss : Color.primary).sensitive()
                     }
                     HStack(alignment: .top, spacing: AppSpacing.control) {
                         Figure(label: LS("收入"), value: money(r.income, r.currency), color: .gain)
@@ -154,9 +154,9 @@ struct YearReviewView: View {
                     Chart(r.worthByMonth, id: \.month) { p in
                         LineMark(x: .value(LS("月份"), p.month), y: .value(LS("净资产"), p.value))
                             .interpolationMethod(.monotone)
-                            .foregroundStyle(Color.jade)
+                            .foregroundStyle(Color.jadeInk)
                         PointMark(x: .value(LS("月份"), p.month), y: .value(LS("净资产"), p.value))
-                            .symbolSize(18).foregroundStyle(Color.jade)
+                            .symbolSize(18).foregroundStyle(Color.jadeInk)
                             .accessibilityLabel(Day.monthLabel(p.month) + LS("末")).accessibilityValue(money(p.value, r.currency))
                     }
                     .chartXAxis {
@@ -344,7 +344,7 @@ struct YearReviewOverviewSection: View {
             let y = m == 1 ? String((Int(today.prefix(4)) ?? 2000) - 1) : String(today.prefix(4))
             Section {
                 NavigationLink(value: YearReviewDest(year: y)) {
-                    ReportRow(symbol: "sparkles", color: .orange, title: LS("%@ 年度回顾", y), detail: LS("全年收支、净资产、支出构成与大事"))
+                    ReportRow(symbol: "sparkles", title: LS("%@ 年度回顾", y), detail: LS("全年收支、净资产、支出构成与大事"))
                 }
             }
         }

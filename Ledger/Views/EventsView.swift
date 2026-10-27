@@ -283,7 +283,7 @@ struct EventCandidatesSheet: View {
                             } label: {
                                 HStack(spacing: AppSpacing.icon) {
                                     Image(systemName: picked.contains(t.id) ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(picked.contains(t.id) ? Color.jade : Color.secondary)
+                                        .foregroundStyle(picked.contains(t.id) ? Color.jadeInk : Color.secondary)
                                         .font(.title3)
                                     TxRow(t: t, showDate: true)
                                 }
@@ -561,7 +561,7 @@ struct LifeEventsSections: View {
                                 Text(sp.start + " ~ " + (sp.end ?? LS("至今"))).font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
-                            if sp.end == nil { Text(LS("当前")).font(.caption).foregroundStyle(Color.jade) }
+                            if sp.end == nil { Text(LS("当前")).font(.caption).foregroundStyle(Color.jadeInk) }
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button(role: .destructive) { Task { _ = await store.deleteDirective(sp.entry, summary: "event \(t.type)") } } label: { Label(LS("删除"), systemImage: "trash") }

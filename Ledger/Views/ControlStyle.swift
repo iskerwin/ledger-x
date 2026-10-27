@@ -355,7 +355,7 @@ struct PeriodBar: View {
             arrow("chevron.right", nextLabel, enabled: canGoOn) { step(1) }
         }
         .buttonStyle(.borderless)
-        .tint(Color.jade)
+        .tint(Color.jadeInk)
         .onAppear { shown = key }
         .onChange(of: key) { _, k in shown = k }
     }
@@ -369,7 +369,7 @@ struct PeriodBar: View {
             row(back(Image(systemName: "calendar")), even: false, squeeze: true)
         }
         .buttonStyle(.borderless)
-        .tint(Color.jade)
+        .tint(Color.jadeInk)
         .padding(.horizontal, capsule ? AppSpacing.control : 0).padding(.vertical, capsule ? AppSpacing.icon : 0)
         .background(capsule ? Color(.secondarySystemGroupedBackground) : .clear, in: Capsule())
         .onAppear { shown = key }

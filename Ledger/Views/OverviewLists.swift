@@ -86,7 +86,7 @@ struct PayeeRankRow: View {
     @Environment(\.displayCurrency) private var cur
     var body: some View {
         HStack(alignment: .center, spacing: AppSpacing.icon) {
-            Text("\(rank)").font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(rank <= 3 ? Color.jade : Color.secondary)
+            Text("\(rank)").font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(rank <= 3 ? Color.jadeInk : Color.secondary)
                 .frame(width: 18)
             VStack(alignment: .leading, spacing: AppSpacing.detail) {
                 HStack(spacing: AppSpacing.control) {

@@ -476,7 +476,7 @@ struct TemplateChip: View {
             } label: {
                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
                     HStack(spacing: AppSpacing.detail) {
-                        if x.pinned { Image(systemName: "pin.fill").font(.caption2).foregroundStyle(Color.jade) }
+                        if x.pinned { Image(systemName: "pin.fill").font(.caption2).foregroundStyle(Color.jadeInk) }
                         Text(x.label).font(.subheadline.weight(.medium)).lineLimit(1)
                         if !x.payee.isEmpty && !x.narration.isEmpty { Text(x.narration).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
                     }
@@ -495,7 +495,7 @@ struct TemplateChip: View {
                     saving = true
                     Task { await store.saveTemplateNow(x); saving = false }
                 } label: {
-                    Label(LS("入账"), systemImage: "checkmark").labelStyle(ControlLabelStyle()).font(.subheadline.weight(.semibold)).foregroundStyle(Color.jade).padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
+                    Label(LS("入账"), systemImage: "checkmark").labelStyle(ControlLabelStyle()).font(.subheadline.weight(.semibold)).foregroundStyle(Color.jadeInk).padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(LS("直接入账：%@", x.label))

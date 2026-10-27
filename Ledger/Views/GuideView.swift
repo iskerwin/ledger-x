@@ -165,6 +165,8 @@ struct GuideView: View {
         Topic(symbol: "chart.bar.xaxis", title: tr("报表", "Reports"), points: [
             tr("报表页有损益表、资产负债表、试算平衡表、预算、现金流预测、订阅、报销、工资、事件、收付款方和值得留意。",
                "Reports has the income statement, balance sheet, trial balance, budgets, forecast, subscriptions, reimbursements, salary, events, payees and things to check."),
+            tr("单项趋势图和排行条使用主题色；收入与支出同时比较时，收入绿色、支出红色，并用图例、线型或符号区分。分类和多币种构成保留各自颜色，同一分类不会因为换月或排名变化而换色；颜色只帮助识别，具体金额和含义看名称、图例与数字。",
+               "Single-series trends and ranking bars use the theme colour. When income and spending are compared, income is green and spending red, with legends, line styles or symbols to distinguish them. Categories and currency compositions keep their own colours; a category keeps its colour when the month or rank changes. Use names, legends and figures for the precise amounts and meaning."),
             tr("概览和报表顶部的月份条可以左右滑动换月（向右是上个月），和点箭头一样。报表翻到别的月份时，标题旁出现「本月」，点它回到当前；概览翻到别的月份（按年时是别的年份）或在趋势图上点了某个月时，摘要卡右上角出现「回到本月」（按年时是「回到今年」或「回到全年」），点它回到当前。趋势图、月度收支图、净资产图和现金流预测图上点按选中一个月（预测图是一天），按住左右滑动依次查看。",
                "Swipe the month bar at the top of the overview and reports to change month (to the right goes back), as the arrows do. Away from the current month on reports, This Month beside the title brings you back; on the overview, away from the current month (or year) or with a month picked on the trend chart, Back to This Month (Back to This Year, Back to Year) at the top right of the summary card does. On the trend, monthly, net worth and forecast charts, tap a month (a day on the forecast) to pick it, or hold and slide sideways to go through them."),
             tr("报表、概览、账户页导航栏的币种按钮：上面选看哪些币种（可多选，长按只看一种），下面选原币、按成本、按市值或折算为某种货币，所有页面一起变。对账用原币加单个币种，看总数用折算。",

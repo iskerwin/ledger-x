@@ -377,7 +377,7 @@ struct QueryReference: View {
             dismiss()
         } label: {
             HStack(spacing: AppSpacing.control) {
-                Label(code, systemImage: "text.cursor").labelStyle(ControlLabelStyle()).font(.subheadline.monospaced()).foregroundStyle(Color.jade)
+                Label(code, systemImage: "text.cursor").labelStyle(ControlLabelStyle()).font(.subheadline.monospaced()).foregroundStyle(Color.jadeInk)
                 Spacer()
                 Text(desc).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.trailing)
             }

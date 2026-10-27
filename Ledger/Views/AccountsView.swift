@@ -181,7 +181,7 @@ struct AccountsView: View {
                 Figure(label: LS("资产负债率"), value: one && a1!.amount > 0 && l1!.amount > 0.005 ? String(format: "%.1f%%", l1!.amount / a1!.amount * 100) : "—", alignment: .trailing)
             }
             if one, let a = a1?.amount, let l = l1?.amount {
-                RatioBar(parts: [(max(0, a - max(0, l)), Color.jade), (max(0, l), Color.loss)])
+                RatioBar(parts: [(max(0, a - max(0, l)), Color.jadeInk), (max(0, l), Color.secondary)])
             }
             // a line under the bar here as under 收支's, so the two tabs say as much and are as tall
             NavigationLink(value: NetWorthSettingsDest()) {
@@ -198,7 +198,7 @@ struct AccountsView: View {
     /// a change as an arrow and its figure: better green, worse red, unchanged grey; `more` is the colour of going up
     private func changeText(_ c: Double, _ figure: String, more: Color) -> Text {
         let color = Color.change(c, upIsWorse: more == .loss)
-        return Text(Image(systemName: c < 0 ? "arrow.down.right" : "arrow.up.right")).foregroundColor(color) + Text(figure).foregroundColor(color)
+        return Text(Image(systemName: abs(c) <= 0.005 ? "minus" : c < 0 ? "arrow.down.right" : "arrow.up.right")).foregroundColor(color) + Text(figure).foregroundColor(color)
     }
 
     /// this year's income, spending and what is left, for 收支
@@ -816,7 +816,7 @@ struct RegisterView: View {
                 if let path = documentRepoPath(d) { viewing = DocItem(path: path) }
             } label: {
                 HStack(spacing: AppSpacing.icon) {
-                    Image(systemName: "doc.text").foregroundStyle(Color.jade)
+                    Image(systemName: "doc.text").foregroundStyle(Color.jadeInk)
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(d.date + LS(" 对账单"))
                         Text(((d.path ?? "") as NSString).lastPathComponent).font(.caption).foregroundStyle(.secondary).lineLimit(1)

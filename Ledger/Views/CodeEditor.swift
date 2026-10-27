@@ -327,7 +327,7 @@ struct CodeThemePicker: View {
                                 Label(t.name, systemImage: "paintpalette").labelStyle(ControlLabelStyle()).foregroundStyle(Color.primary)
                                 if t.darkOnly { Text(LS("深色")).font(.caption).foregroundStyle(.secondary) }
                                 Spacer()
-                                if CodeTheme.current == t { Image(systemName: "checkmark").foregroundStyle(Color.jade).fontWeight(.semibold) }
+                                if CodeTheme.current == t { Image(systemName: "checkmark").foregroundStyle(Color.jadeInk).fontWeight(.semibold) }
                             }
                             preview(t)
                         }

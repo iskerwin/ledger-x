@@ -28,7 +28,7 @@ enum ChangeReview {
                     cont.resume(returning: choice)
                 }
             }
-            .tint(Color.jade)
+            .tint(Color.jadeInk)
             let host = UIHostingController(rootView: view)
             host.isModalInPresentation = true
             if let s = host.sheetPresentationController {

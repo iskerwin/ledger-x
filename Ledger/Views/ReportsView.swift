@@ -17,40 +17,40 @@ struct ReportsView: View {
                 ReportsInsights(path: $path)
                 Section {
                     NavigationLink(value: YearReviewDest()) {
-                        ReportRow(symbol: "sparkles", color: .orange, title: LS("年度回顾"), detail: LS("全年收支、净资产、支出构成、工资与大事"))
+                        ReportRow(symbol: "sparkles", title: LS("年度回顾"), detail: LS("全年收支、净资产、支出构成、工资与大事"))
                     }
                     NavigationLink(value: ReportKind.income) {
-                        ReportRow(symbol: "chart.bar.doc.horizontal", color: .green, title: LS("损益表"), detail: LS("收入、支出与净收益"))
+                        ReportRow(symbol: "chart.bar.doc.horizontal", title: LS("损益表"), detail: LS("收入、支出与净收益"))
                     }
                     NavigationLink(value: ReportKind.balance) {
-                        ReportRow(symbol: "building.columns", color: .blue, title: LS("资产负债表"), detail: LS("资产、负债、权益与净资产走势"))
+                        ReportRow(symbol: "building.columns", title: LS("资产负债表"), detail: LS("资产、负债、权益与净资产走势"))
                     }
                     NavigationLink(value: ReportKind.trial) {
-                        ReportRow(symbol: "scale.3d", color: .orange, title: LS("试算平衡表"), detail: LS("全部科目余额与借贷平衡校验"))
+                        ReportRow(symbol: "scale.3d", title: LS("试算平衡表"), detail: LS("全部科目余额与借贷平衡校验"))
                     }
                     NavigationLink(value: BudgetsDest()) {
-                        ReportRow(symbol: "chart.bar.doc.horizontal.fill", color: .purple, title: LS("预算"), detail: LS("按月 / 按年的分类额度与执行进度"))
+                        ReportRow(symbol: "chart.bar.doc.horizontal.fill", title: LS("预算"), detail: LS("按月 / 按年的分类额度与执行进度"))
                     }
                     NavigationLink(value: ForecastDest()) {
-                        ReportRow(symbol: "chart.line.uptrend.xyaxis", color: .teal, title: LS("现金流预测"), detail: LS("未来 30～90 天可用资金走势与收支"))
+                        ReportRow(symbol: "chart.line.uptrend.xyaxis", title: LS("现金流预测"), detail: LS("未来 30～90 天可用资金走势与收支"))
                     }
                     NavigationLink(value: SubscriptionsDest()) {
-                        ReportRow(symbol: "repeat", color: .indigo, title: LS("订阅管理"), detail: LS("周期扣费、到期提醒与一键入账"))
+                        ReportRow(symbol: "repeat", title: LS("订阅管理"), detail: LS("周期扣费、到期提醒与一键入账"))
                     }
                     NavigationLink(value: ReimbursementsDest()) {
-                        ReportRow(symbol: "doc.text", color: .mint, title: LS("报销"), detail: LS("待报销、备用金、报销单与历史明细，导出报销单"))
+                        ReportRow(symbol: "doc.text", title: LS("报销"), detail: LS("待报销、备用金、报销单与历史明细，导出报销单"))
                     }
                     NavigationLink(value: SalaryDest()) {
-                        ReportRow(symbol: "banknote", color: .green, title: LS("工资"), detail: LS("按工资条逐项记工资，每年税前收入与扣款"))
+                        ReportRow(symbol: "banknote", title: LS("工资"), detail: LS("按工资条逐项记工资，每年税前收入与扣款"))
                     }
                     NavigationLink(value: EventsDest()) {
-                        ReportRow(symbol: "flag", color: .pink, title: LS("事件"), detail: LS("出差、旅行等按 #标签汇总的花费"))
+                        ReportRow(symbol: "flag", title: LS("事件"), detail: LS("出差、旅行等按 #标签汇总的花费"))
                     }
                     NavigationLink(value: PayeesDest()) {
-                        ReportRow(symbol: "person.2", color: .brown, title: LS("收付款方"), detail: LS("使用次数与金额，重命名、合并收付款方"))
+                        ReportRow(symbol: "person.2", title: LS("收付款方"), detail: LS("使用次数与金额，重命名、合并收付款方"))
                     }
                     NavigationLink(value: AlertsDest()) {
-                        ReportRow(symbol: "exclamationmark.triangle", color: .orange, title: LS("值得留意"), detail: LS("重复扣款、大额支出、分类超常、订阅调价"))
+                        ReportRow(symbol: "exclamationmark.triangle", color: .warn, title: LS("值得留意"), detail: LS("重复扣款、大额支出、分类超常、订阅调价"))
                     }
                 } header: {
                     Text(LS("更多报表"))
@@ -162,7 +162,7 @@ struct ReportsView: View {
 
 struct ReportRow: View {
     let symbol: String
-    let color: Color
+    var color: Color = .jade
     let title: String
     let detail: String
     var body: some View {
@@ -456,7 +456,7 @@ struct IncomeStatementView: View {
                             Figure(label: LS("储蓄率"), value: one && i1 > 0 ? String(format: "%.1f%%", (i1 - e1) / i1 * 100) : "—", alignment: .trailing)
                         }
                         if one && (i1 > 0 || e1 > 0) {
-                            RatioBar(parts: [(i1, Color.gain), (e1, Color.jade)])
+                            RatioBar(parts: [(i1, Color.gain), (e1, Color.loss)])
                         }
                     }
                 }
@@ -547,13 +547,13 @@ struct IncomeExpenseChart: View {
                         .foregroundStyle(by: .value("类别", LS("收入")))
                         .position(by: .value("类别", LS("收入")))
                         .cornerRadius(3)
-                        .opacity(picked == nil || picked == m ? 1 : 0.35)
+                        .opacity(picked == nil || picked == m ? 1 : 0.88)
                         .accessibilityLabel(Day.monthLabel(m) + " " + LS("收入")).accessibilityValue(money(inc[m] ?? 0, currency))
                     BarMark(x: .value("月份", m), y: .value("金额", exp[m] ?? 0))
                         .foregroundStyle(by: .value("类别", LS("支出")))
                         .position(by: .value("类别", LS("支出")))
                         .cornerRadius(3)
-                        .opacity(picked == nil || picked == m ? 1 : 0.35)
+                        .opacity(picked == nil || picked == m ? 1 : 0.88)
                         .accessibilityLabel(Day.monthLabel(m) + " " + LS("支出")).accessibilityValue(money(exp[m] ?? 0, currency))
                 }
             }
@@ -632,7 +632,7 @@ struct FlowCharts: View {
             VStack(alignment: .leading, spacing: AppSpacing.icon) {
                 HStack(spacing: AppSpacing.control) {
                     Label(LS("收入"), systemImage: "circle.fill").labelStyle(ControlLabelStyle()).foregroundStyle(Color.gain)
-                    Label(LS("支出"), systemImage: "circle.fill").labelStyle(ControlLabelStyle()).foregroundStyle(Color.jade)
+                    Label(LS("支出"), systemImage: "square.fill").labelStyle(ControlLabelStyle()).foregroundStyle(Color.loss)
                 }
                 .font(.caption).labelStyle(DotLabel())
                 ForEach(cs, id: \.self) { c in
@@ -881,7 +881,7 @@ struct BalanceSheetView: View {
                         }
                         if let a = a1, ratio != "—" || (l1?.amount ?? 0) < 0.005 {
                             let l = max(0, l1?.amount ?? 0)
-                            RatioBar(parts: [(max(0, a.amount - l), Color.jade), (l, Color.loss)])
+                            RatioBar(parts: [(max(0, a.amount - l), Color.jadeInk), (l, Color.secondary)])
                         }
                     }
                 }
@@ -951,8 +951,8 @@ struct NetWorthChart: View {
     /// a small chart among several: no heading line, shorter
     var compact = false
     @Binding var picked: Date?
-    /// the theme colour on its own; a currency's colour among several
-    private var tint: Color { compact ? currencyColor(currency) : Color.jade }
+    /// Each separate chart is a single series; currency identity remains in its heading.
+    private var tint: Color { Color.jadeInk }
 
     private func date(_ m: String) -> Date { Day.date(m + "-01") ?? Date() }
 

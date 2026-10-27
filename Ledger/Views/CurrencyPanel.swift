@@ -24,21 +24,23 @@ extension EnvironmentValues {
 
 /// a fixed colour for each currency, the same in the switches and the charts
 func currencyColor(_ c: String) -> Color {
+    let color: Color
     switch c {
-    case "CNY": return Color(red: 0.36, green: 0.55, blue: 0.93)
-    case "HKD": return Color(red: 0.90, green: 0.42, blue: 0.45)
-    case "USD": return Color(red: 0.45, green: 0.68, blue: 0.36)
-    case "EUR": return Color(red: 0.66, green: 0.53, blue: 0.88)
-    case "GBP": return Color(red: 0.85, green: 0.47, blue: 0.70)
-    case "MOP": return Color(red: 0.93, green: 0.65, blue: 0.27)
-    case "SGD": return Color(red: 0.25, green: 0.70, blue: 0.70)
-    case "JPY": return Color(red: 0.80, green: 0.55, blue: 0.35)
+    case "CNY": color = Color(red: 0.36, green: 0.55, blue: 0.93)
+    case "HKD": color = Color(red: 0.90, green: 0.42, blue: 0.45)
+    case "USD": color = Color(red: 0.45, green: 0.68, blue: 0.36)
+    case "EUR": color = Color(red: 0.66, green: 0.53, blue: 0.88)
+    case "GBP": color = Color(red: 0.85, green: 0.47, blue: 0.70)
+    case "MOP": color = Color(red: 0.93, green: 0.65, blue: 0.27)
+    case "SGD": color = Color(red: 0.25, green: 0.70, blue: 0.70)
+    case "JPY": color = Color(red: 0.80, green: 0.55, blue: 0.35)
     default:
         let palette: [Color] = [.teal, .indigo, .brown, .cyan, .mint, .orange, .pink, .purple]
         var h: UInt32 = 2166136261
         for b in c.utf8 { h = (h ^ UInt32(b)) &* 16777619 }
-        return palette[Int(h % UInt32(palette.count))]
+        color = palette[Int(h % UInt32(palette.count))]
     }
+    return color.readableInk
 }
 
 /// the button in the navigation bar
@@ -48,7 +50,7 @@ struct CurrencyButton: View {
     var body: some View {
         Button { open = true } label: {
             Image(systemName: store.cview.isDefault ? "dollarsign.arrow.circlepath" : "dollarsign.circle.fill")
-                .foregroundStyle(store.cview.isDefault ? Color.accentColor : Color.jade)
+                .foregroundStyle(store.cview.isDefault ? Color.accentColor : Color.jadeInk)
         }
         .accessibilityLabel(LS("币种与换算"))
         .sheet(isPresented: $open) { CurrencySheet() }
@@ -65,7 +67,7 @@ struct CurrencyBanner: View {
             HStack(spacing: AppSpacing.icon) {
                 Button { open = true } label: {
                     HStack(spacing: AppSpacing.icon) {
-                        Image(systemName: "line.3.horizontal.decrease.circle.fill").foregroundStyle(Color.jade)
+                        Image(systemName: "line.3.horizontal.decrease.circle.fill").foregroundStyle(Color.jadeInk)
                         Text(label).font(.subheadline.weight(.medium)).lineLimit(1).foregroundStyle(.primary)
                         Spacer(minLength: 0)
                     }
@@ -145,7 +147,7 @@ struct CurrencySheet: View {
             HStack(spacing: AppSpacing.control) {
                 Text(m.name).foregroundStyle(.primary)
                 Spacer()
-                if m == now { Image(systemName: "checkmark").foregroundStyle(Color.jade) }
+                if m == now { Image(systemName: "checkmark").foregroundStyle(Color.jadeInk) }
             }
         }
     }
