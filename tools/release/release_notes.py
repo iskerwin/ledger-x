@@ -65,9 +65,17 @@ def render(current, previous, repo, sha, version, build, proof, channel="dev", i
                       f'（{proof["xcode"]}）。本次发布未运行核心、Beancount 报表对照和界面全量测试；'
                       '开发中的相关测试与 Xcode 手工检查不计入这份发布记录。')
     else:
-        validation = (f'本机验证通过：核心测试 {proof["core_tests"]} 项、Beancount 报表对照、模拟器附件与交互测试 '
+        validation = (f'{"GitHub macOS 验证通过" if proof.get("validator") == "github-actions" else "本机验证通过"}：核心测试 {proof["core_tests"]} 项、Beancount 报表对照、模拟器附件与交互测试 '
                       f'{proof["interaction_tests"]} 项（{proof["xcode"]}，{proof["simulator"]}）；'
                       'iOS 设备 Release 编译、签名与安装包完整性检查已通过。')
+    if proof.get('selected_core'):
+        selected = proof['selected_core']
+        validation += f' 指定核心回归 {selected["passed"]} 项通过（筛选：{selected["filter"]}）。'
+    if proof.get('selected_interaction'):
+        selected = proof['selected_interaction']
+        validation += f' 指定 App 内/界面回归 {selected["passed"]} 项通过（{selected["simulator"]}；{", ".join(selected["selectors"])}）。'
+    if proof.get('run_url'):
+        validation += f' [GitHub Actions 验证记录]({proof["run_url"]})。'
     parts += ['---', f'## 添加{label} IPA 源',
               f'- GitHub：{github}\n- 镜像（gh-proxy.com）：{mirror}',
               '在支持 IPA 源的安装工具（如 SideStore、AltStore、Zeus）中添加其中一个地址；国内网络建议用镜像，安装包也会经镜像下载。',

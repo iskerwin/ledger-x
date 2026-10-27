@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Validate, build and publish Ledger X on this Mac; nothing runs on GitHub Actions.
+"""Dispatch validation and publication to GitHub macOS; execute only on the runner.
 
-  python3 tools/ship.py test                     full validation, publishes nothing
-  python3 tools/ship.py dev                      check main, build, push main, publish the dev build
+  python3 tools/ship.py test                     cloud full validation, publishes nothing
+  python3 tools/ship.py dev                      cloud checks, build and publish the dev build
   python3 tools/ship.py dev --full               run full validation before publishing the dev build
-  python3 tools/ship.py release                  fully validate and publish the phone-accepted dev package (same bytes)
+  python3 tools/ship.py release                  cloud promotion of the phone-accepted dev package (requires --accepted-build N)
   python3 tools/ship.py version patch|minor|major|X.Y.Z
                                                  commit a version bump and a new CHANGELOG section
   python3 tools/ship.py watch                    follow the running (or the last) test / dev / release from any terminal
@@ -286,6 +286,11 @@ def select_device(runtimes, sdk):
     ios = [r for r in runtimes if r.get('isAvailable') and (r.get('platform') == 'iOS' or r.get('name', '').startswith('iOS '))]
     if not ios:
         raise Failure('没有可用的 iOS 模拟器运行时；在 Xcode → Settings → Components 下载')
+    requested = os.environ.get('LEDGER_SIMULATOR_DEVICE')
+    if requested:
+        ios = [r for r in ios if any(d.get('name') == requested for d in r.get('supportedDeviceTypes', []))]
+        if not ios:
+            raise Failure(f'没有支持指定机型 {requested} 的运行时')
     key = lambda r: tuple(int(p) for p in r['version'].split('.') if p.isdigit())
     # A runtime may carry only unusual models (iOS 27.1: iPhone Duo); the UI tests expect a regular iPhone.
     regular = [r for r in ios if any(d.get('name') in PREFERRED for d in r.get('supportedDeviceTypes', []))] or ios
@@ -294,6 +299,11 @@ def select_device(runtimes, sdk):
     phones = [d for d in runtime.get('supportedDeviceTypes', []) if d.get('name', '').startswith('iPhone')]
     if not phones:
         raise Failure(f'{runtime["name"]} 不支持任何 iPhone 机型')
+    requested = os.environ.get('LEDGER_SIMULATOR_DEVICE')
+    if requested:
+        phones = [d for d in phones if d['name'] == requested]
+        if not phones:
+            raise Failure(f'{runtime["name"]} 不支持指定机型 {requested}')
     phones.sort(key=lambda d: (PREFERRED.index(d['name']) if d['name'] in PREFERRED else len(PREFERRED), d['name']))
     return runtime, phones[0]
 
@@ -334,8 +344,11 @@ def validate_development():
     digest = verify_demo_snapshot(demo)
     step('静态检查与流程回归')
     run([sys.executable, 'tools/check_project.py'])
-    run([sys.executable, '-m', 'unittest', 'discover', '-s', 'tools/tests', '-p', 'test_*.py'], log='tools-tests.log')
-    return dict(validator='local', scope='build', static_checks=True, tools_tests=True,
+    run([sys.executable, '-m', 'unittest', 'discover', '-s', 'tools/tests', '-p', 'test_*.py'], log='tools-tests.log',
+        env={k: v for k, v in os.environ.items() if k not in ('LEDGER_CORE_FILTER', 'LEDGER_UI_TESTS', 'LEDGER_SIMULATOR_DEVICE')})
+    return dict(validator='github-actions' if os.environ.get('GITHUB_ACTIONS') == 'true' else 'local',
+                **({'run_url': f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"}
+                   if os.environ.get('GITHUB_ACTIONS') == 'true' else {}), scope='build', static_checks=True, tools_tests=True,
                 validated_at=datetime.now(timezone.utc).isoformat(timespec='seconds'),
                 macos=platform.mac_ver()[0], xcode=xcode, demo_commit=demo, demo_sha256=digest)
 
@@ -443,6 +456,102 @@ def validate():
 
 # Packages, evidence and releases.
 
+def selected_tests():
+    return bool(os.environ.get('LEDGER_UI_TESTS', '').strip() or os.environ.get('LEDGER_CORE_FILTER', '').strip())
+
+
+def validate_targeted():
+    """Selected regressions are recorded separately; they never count as a full suite."""
+    proof = validate_development()
+    core_filter = os.environ.get('LEDGER_CORE_FILTER', '').strip()
+    selectors = os.environ.get('LEDGER_UI_TESTS', '').split()
+    if core_filter:
+        step('指定 LedgerKit 回归')
+        run(['swift', 'test', '--package-path', 'LedgerKit', '--filter', core_filter],
+            log='swift-tests.log', env=dict(os.environ, LEDGER_DEMO_PATH=str(ROOT / '.demo-data'), SAMPLE_OUT=str(ROOT / 'samples')))
+        count, failed = executed((ROOT / 'swift-tests.log').read_text())
+        if failed or count == 0:
+            raise Failure('指定核心测试失败或没有实际执行用例')
+        proof['selected_core'] = dict(filter=core_filter, passed=count)
+    if selectors:
+        if any(not re.fullmatch(r'Ledger(?:UI)?Tests/[A-Za-z0-9_]+(?:/[A-Za-z0-9_]+)?', value) for value in selectors):
+            raise Failure('指定界面测试必须使用 Target/Class[/method]')
+        step('指定 App 内与界面回归')
+        udid, simulator = fresh_simulator()
+        try:
+            run(['xcodegen', 'generate', '--quiet'])
+            shutil.rmtree(ROOT / 'interaction-tests.xcresult', ignore_errors=True)
+            run(['xcodebuild', 'test', '-project', 'Ledger.xcodeproj', '-scheme', 'LedgerInteractionTests',
+                 '-destination', f'platform=iOS Simulator,id={udid}', '-derivedDataPath', 'build-demo',
+                 '-parallel-testing-enabled', 'NO', '-test-timeouts-enabled', 'YES',
+                 '-maximum-test-execution-time-allowance', str(TEST_TIMEOUT),
+                 '-resultBundlePath', 'interaction-tests.xcresult', 'CODE_SIGNING_ALLOWED=NO',
+                 *['-only-testing:' + value for value in selectors]], log='interaction-tests.log')
+            command = ['xcrun', 'xcresulttool', 'get', 'test-results']
+            summary = json.loads(out([*command, 'summary', '--path', 'interaction-tests.xcresult', '--compact']))
+            tests = json.loads(out([*command, 'tests', '--path', 'interaction-tests.xcresult', '--compact']))
+            count = checked_selected_results(summary, tests, selectors)
+            proof['selected_interaction'] = dict(selectors=selectors, passed=count, simulator=simulator)
+        finally:
+            subprocess.run(['xcrun', 'simctl', 'shutdown', udid], capture_output=True)
+    return proof
+
+
+def checked_selected_results(summary, tests, selectors):
+    cases = []
+    def walk(nodes, target=''):
+        for node in nodes:
+            if node.get('nodeType') in ('Unit test bundle', 'UI test bundle'):
+                target = node.get('name', '')
+            if node.get('nodeType') == 'Test Case':
+                if node.get('result') != 'Passed':
+                    raise Failure('指定测试包含失败、跳过或未完成的用例')
+                identity = str(node.get('nodeIdentifier', '')).removesuffix('()')
+                if not identity or target not in ('LedgerTests', 'LedgerUITests'):
+                    raise Failure('指定测试缺少用例或目标身份')
+                cases.append(identity if identity.startswith(target + '/') else target + '/' + identity)
+            walk(node.get('children', []), target)
+    walk(tests.get('testNodes', []))
+    if not cases or len(cases) != len(set(cases)) or summary.get('result') != 'Passed' or \
+            summary.get('totalTestCount') != len(cases) or summary.get('passedTests') != len(cases) or \
+            any(summary.get(key) != 0 for key in ('failedTests', 'skippedTests', 'expectedFailures')):
+        raise Failure('指定测试结果缺失、重复或汇总不一致')
+    for selector in selectors:
+        # xcresult identifiers include the target, class and method.
+        if not any(case == selector or case.startswith(selector + '/') for case in cases):
+            raise Failure(f'指定测试没有实际执行：{selector}')
+    return len(cases)
+
+
+def release_validation_at_source(manifest, proof):
+    """Keep current release tooling while testing the package's original source in isolation."""
+    global ROOT
+    if os.environ.get('GITHUB_ACTIONS') != 'true' or git('rev-parse', 'HEAD') == manifest['source_sha']:
+        return release_validation(manifest, proof)
+    try:
+        verify_proof(proof, manifest, require_full=True)
+        return proof
+    except ValueError:
+        pass
+    original = ROOT
+    with tempfile.TemporaryDirectory() as temp:
+        source = Path(temp) / 'source'
+        run(['git', 'worktree', 'add', '--detach', source, manifest['source_sha']])
+        try:
+            ROOT = source
+            return release_validation(manifest, proof)
+        finally:
+            ROOT = original
+            for name in ('tools-tests.log', 'swift-tests.log', 'reports-check.log', 'demo-build.log',
+                         'interaction-tests.log', 'interaction-tests.xcresult'):
+                item = source / name
+                if item.is_dir():
+                    shutil.copytree(item, original / name, dirs_exist_ok=True)
+                elif item.is_file():
+                    shutil.copy(item, original / name)
+            run(['git', 'worktree', 'remove', '--force', source])
+
+
 def semver(value):
     if not re.fullmatch(r'(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)', value):
         raise ValueError('版本必须为 X.Y.Z，不含前缀、空白或前导零')
@@ -503,8 +612,11 @@ def source_builds(log):
 def verify_proof(proof, manifest, require_full=False):
     if proof.get('source_sha') != manifest['source_sha'] or proof.get('tree') != manifest['tree']:
         raise ValueError('验证记录与安装包的源码或文件树不一致')
-    if proof.get('validator') != 'local':
-        raise ValueError('验证记录必须来自本机')
+    if proof.get('validator') not in ('local', 'github-actions'):
+        raise ValueError('验证记录必须来自受支持的验证器')
+    if proof.get('validator') == 'github-actions' and not re.fullmatch(
+            r'https://github.com/' + re.escape(manifest.get('repository', '')) + r'/actions/runs/[0-9]+', str(proof.get('run_url', ''))):
+        raise ValueError('云端验证记录缺少本仓库的运行链接')
     for key in ('demo_commit', 'demo_sha256'):
         if manifest.get(key) is not None and proof.get(key) != manifest[key]:
             raise ValueError('验证记录与安装包的演示快照不一致')
@@ -708,7 +820,7 @@ def ship_dev(full=False):
     repo = repository()
     require_clean_main()
     sha = git('rev-parse', 'HEAD')
-    proof = validate() if full else validate_development()
+    proof = validate() if full else validate_targeted() if selected_tests() else validate_development()
     version = re.search(r'MARKETING_VERSION: "([^"]+)"', (ROOT / 'project.yml').read_text())[1]
     releases = fetch_releases(repo, release_tags(out(['git', 'ls-remote', '--tags', 'origin'])))
     listed = []
@@ -735,8 +847,12 @@ def ship_dev(full=False):
     (DIST / 'build-manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
     verify_package(DIST, manifest, proof, repo)
 
-    step('推送 main 到 GitHub')
-    remote_run('main_push', ['git', 'push', 'origin', 'HEAD:refs/heads/main'])
+    if os.environ.get('GITHUB_ACTIONS') == 'true':
+        if git('ls-remote', 'origin', 'refs/heads/main').split()[0] != sha:
+            raise Failure('main 已更新，本次旧源码安装包不发布；请重新发起开发版')
+    else:
+        step('推送 main 到 GitHub')
+        remote_run('main_push', ['git', 'push', 'origin', 'HEAD:refs/heads/main'])
 
     step('发布开发版')
     notes = release_notes.render((ROOT / 'CHANGELOG.md').read_text(), release_notes.previous_changelog(repo),
@@ -808,7 +924,10 @@ def ship_release():
         verify_source(repo, manifest)
         if tag_sha(repo, 'dev') != manifest['source_sha']:
             raise ValueError('开发版标签与安装包源码不一致')
-        proof = release_validation(manifest, proof)
+        if os.environ.get('GITHUB_ACTIONS') == 'true':
+            if str(manifest['build']) != os.environ.get('LEDGER_ACCEPTED_BUILD') or manifest['sha256'] != os.environ.get('LEDGER_ACCEPTED_SHA256'):
+                raise Failure('当前开发版与手机验收的构建号或 SHA256 不一致，禁止转正')
+        proof = release_validation_at_source(manifest, proof)
         verify_package(folder, manifest, proof, repo)
         (folder/'build-manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
         (folder/'validation-evidence.json').write_text(json.dumps(proof, ensure_ascii=False, indent=2) + '\n')
@@ -973,7 +1092,7 @@ def run_totals(started):
     return totals
 
 
-def main(argv):
+def worker_main(argv):
     command = argv[1] if len(argv) > 1 else ''
     usage = __doc__.split('\n\n')[1]
     if command == 'watch' and argv[2:] in ([], ['--once']):
@@ -997,11 +1116,15 @@ def main(argv):
         if command == 'test':
             source = None if git('status', '--porcelain') else git('rev-parse', 'HEAD')
             FULL_VALIDATION.unlink(missing_ok=True)
-            proof = validate()
-            if source and git('rev-parse', 'HEAD') == source and not git('status', '--porcelain'):
+            proof = validate_targeted() if selected_tests() else validate()
+            if source and not selected_tests() and git('rev-parse', 'HEAD') == source and not git('status', '--porcelain'):
                 write_json(FULL_VALIDATION, dict(proof, schema=2, source_sha=source,
                                                tree=git('rev-parse', f'{source}^{{tree}}')))
-            done(f'\n✓ 全部通过：核心 {proof["core_tests"]} 项，交互 {proof["interaction_tests"]} 项；{proof["reports"]}')
+            if selected_tests():
+                write_json(ROOT / '.ship/selected-validation.json', dict(proof, source_sha=git('rev-parse', 'HEAD')))
+                done('✓ 指定测试通过；未执行全量验证，不发布安装包')
+            else:
+                done(f'\n✓ 全部通过：核心 {proof["core_tests"]} 项，交互 {proof["interaction_tests"]} 项；{proof["reports"]}')
         elif command == 'dev':
             if full:
                 progress.state['plan'] = list(PLAN['test'] + PLAN['dev'][1:])
@@ -1022,6 +1145,15 @@ def main(argv):
         return 1
     progress.finish(True, totals=progress.state and run_totals(progress.state['started']))
     return 0
+
+
+def main(argv):
+    if len(argv) > 1 and argv[1] == 'version':
+        return worker_main(argv)
+    if os.environ.get('GITHUB_ACTIONS') == 'true':
+        return worker_main(argv)
+    import cloud
+    return cloud.main(argv[1:])
 
 
 if __name__ == '__main__':

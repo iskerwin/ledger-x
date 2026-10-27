@@ -260,7 +260,7 @@ class PublicationStatusTests(unittest.TestCase):
                     stack.enter_context(patch.object(ship, name, value))
                 stack.enter_context(patch('builtins.open', return_value=lock))
                 stack.enter_context(patch('sys.stderr', output))
-                self.assertEqual(ship.main(['ship.py', command]), code)
+                self.assertEqual(ship.worker_main(['ship.py', command]), code)
                 state = json.loads((root/'status.json').read_text())
                 self.assertEqual(state['result'], result)
                 for message in messages:

@@ -1,0 +1,106 @@
+name: Ledger cloud
+run-name: '${{ inputs.command }} · ${{ inputs.request_id }}'
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'test 只验证 / dev 验证打包发布 / release 手机验收后转正'
+        type: choice
+        options: [test, dev, release]
+        required: true
+      source_sha:
+        description: '完整源码提交 SHA（必须在 main 历史中）'
+        required: true
+      full:
+        description: '开发版全量验证；test 未指定筛选时总是全量'
+        type: boolean
+        default: false
+      core_filter:
+        description: 'Swift test --filter（留空不指定）'
+        default: ''
+      ui_tests:
+        description: 'Target/Class[/method]，多个用空白分隔'
+        default: ''
+      device:
+        description: '可选模拟器机型，例如 iPhone SE (3rd generation)'
+        default: ''
+      accepted_build:
+        description: '仅 release：Kerwin 已手机验收的构建号'
+        default: ''
+      accepted_sha256:
+        description: '仅 release：已验收 IPA 的 SHA256'
+        default: ''
+      request_id:
+        description: '请求标识（客户端自动填写，网页可自行填写）'
+        required: true
+permissions:
+  contents: read
+# Test-only jobs may overlap; every publication shares one lock, without cancellation.
+concurrency:
+  group: 'ledger-${{ inputs.command == ''test'' && inputs.request_id || ''publication'' }}'
+  cancel-in-progress: false
+jobs:
+  ledger:
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-26
+    timeout-minutes: 180
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      LEDGER_CORE_FILTER: ${{ inputs.core_filter }}
+      LEDGER_UI_TESTS: ${{ inputs.ui_tests }}
+      LEDGER_SIMULATOR_DEVICE: ${{ inputs.device }}
+      LEDGER_ACCEPTED_BUILD: ${{ inputs.accepted_build }}
+      LEDGER_ACCEPTED_SHA256: ${{ inputs.accepted_sha256 }}
+      LEDGER_COMMAND: ${{ inputs.command }}
+      LEDGER_FULL: ${{ inputs.full }}
+      LEDGER_SOURCE_SHA: ${{ inputs.source_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Verify source and select commit
+        run: |
+          python3 tools/cloud_worker.py prepare
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install build and report tools
+        run: |
+          brew install xcodegen
+          python3 -m pip install 'beancount==3.2.0'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          xcodebuild -version
+          xcrun simctl list runtimes
+      - name: Validate, build or promote
+        run: python3 tools/cloud_worker.py run
+      - name: Export screenshots
+        if: always()
+        run: |
+          if [ -d interaction-tests.xcresult ]; then
+            xcrun xcresulttool export attachments --path interaction-tests.xcresult --output-path .ship/screenshots
+          fi
+      - name: Keep evidence, logs and package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'ledger-${{ inputs.command }}-${{ github.run_id }}'
+          include-hidden-files: true
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            .ship/status.json
+            .ship/full-validation.json
+            .ship/selected-validation.json
+            .ship/screenshots/
+            *-tests.log
+            reports-check.log
+            demo-build.log
+            build.log
+            interaction-tests.xcresult/
+            dist/*.json
+            dist/*.md
+            dist/*.ipa

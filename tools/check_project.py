@@ -59,14 +59,17 @@ require(re.search(r'MARKETING_VERSION: "\d+\.\d+\.\d+"', project), 'Project must
 require('INFOPLIST_KEY_CFBundleDisplayName: Ledger X' in project, 'App display name must be Ledger X')
 require('LEDGER_DEMO_MIRROR: ""' in project, 'Default App mirror must be explicitly configured')
 ship = (ROOT/'tools/ship.py').read_text()
-require(not (ROOT/'.github/workflows').exists(), 'Validation and publication run locally with tools/ship.py, not GitHub Actions')
+workflow = (ROOT/'.github/workflows/ledger.yml').read_text()
+require('workflow_dispatch:' in workflow and 'runs-on: macos-26' in workflow and 'cancel-in-progress: false' in workflow,
+        'Cloud workflow must be manually dispatched on macOS without cancelling publication')
+require('if: always()' in workflow and 'actions/upload-artifact@' in workflow, 'Cloud runs must preserve failed-run evidence')
 require(all(step in ship for step in ("'swift', 'test'", 'tools/fixtures/check_reports.py', 'build-for-testing', 'test-without-building')),
-        'Local validation must keep full core, reports and interaction coverage')
+        'Cloud validation must keep full core, reports and interaction coverage')
 require("tools/fixtures/manifest.json" in ship, 'Tests and packages must use the fixed demo snapshot')
-require('release delete' not in ship and '--force' not in ship.replace("'--force', tree", '') and 'push -f' not in ship,
+require('release delete' not in ship and '--force' not in ship.replace("'--force', tree", '').replace("'--force', source", '') and 'push -f' not in ship,
         'Publication must not delete releases or force-push')
-require(ship.index('proof = validate() if full else validate_development()') < ship.index("'git', 'push'"),
-        'main is pushed only after development checks and the package build passed')
+require(ship.index('proof = validate() if full else') < ship.index("remote_run('main_push'"),
+        'Publication worker validates and builds before publishing')
 
 # every Chinese text shown through LS has its English; every English entry is still shown somewhere
 english = json.loads((ROOT/'Ledger/en.json').read_text())
@@ -115,4 +118,4 @@ for name, keys in system_read.items():
 if errors:
     print('\n'.join(errors), file=sys.stderr)
     sys.exit(1)
-print(f'Project boundaries, documentation links, {len(manifest["fixtureSHA256"])} frozen fixtures, {len(english)} English texts and local publication rules match.')
+print(f'Project boundaries, documentation links, {len(manifest["fixtureSHA256"])} frozen fixtures, {len(english)} English texts and cloud publication rules match.')

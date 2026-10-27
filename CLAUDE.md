@@ -10,39 +10,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Ledger X 是原生 SwiftUI 的 iOS 17+ 记账 App，账本是用户自己的 Beancount 纯文本（本机文件夹、GitHub、GitLab、Gitea/Forgejo、WebDAV）。不建立另一份账务数据库；共享设置写在账本里的 `ledger-x.json`，本机偏好/草稿/队列在本机，凭据在 Keychain。通过 IPA 源自签分发，不走 App Store。
 
-开发手册在 `docs/development/`：02 记账与数据规范（强制数据契约）、03 技术架构与代码导航、04 本机测试与发布、05 测试样本、06 手机验收清单。改代码前先看 03 中对应模块的不变量。
+开发手册在 `docs/development/`：02 记账与数据规范（强制数据契约）、03 技术架构与代码导航、04 云端测试与发布、05 测试样本、06 手机验收清单。改代码前先看 03 中对应模块的不变量。
 
-## 命令
+## 命令与流程
 
-测试、编译和发布都在本机运行；日常按修改范围用 Swift、Xcode 或工具测试验证，不必每次全量。打包发布入口是 `tools/ship.py`（细节见 docs/development/04）：
-
-```sh
-python3 tools/ship.py test        # 静态检查 → LedgerKit 核心测试 → Beancount 报表对照 → 新建模拟器 → 编译 → 附件与交互测试
-python3 tools/ship.py dev         # 静态检查、工具回归后编译 IPA、推送 main、更新开发版与 IPA 源（不跑全量）
-python3 tools/ship.py dev --full  # 需要时，全量通过后发开发版
-python3 tools/ship.py release     # 仅 Kerwin 手机验收后执行：补齐同一源码的全量验证，原 IPA 转正式版
-python3 tools/ship.py version patch|minor|major|X.Y.Z
-python3 tools/ship.py watch       # 另开终端看正在跑（或最近一次）的进度：阶段、用时、测试通过/失败数、当前用例
-python3 tools/ship.py watch --once  # 只打印一次当前进度后退出（适合非交互环境）
-```
-
-版本流程（细节与授权见 AGENTS.md「发布」）：`version` 开新版本 → 开发并写 CHANGELOG「（开发中）」 → `dev` 发开发版 → Kerwin 手机验收 → `release` 转正式版 → CHANGELOG 标题改为「（YYYY-MM-DD 发布）」并提交推送。
-
-单独的快速检查：
+测试、模拟器、编译、打包和发布全部在 GitHub macOS runner 执行，本机只编辑、做轻量静态/工具检查、提交普通推送和发起任务。完整流程与命令见 [04 云端测试与发布](docs/development/04-本机测试与发布.md)。
 
 ```sh
-python3 tools/check_project.py                               # 文档链接、图片与样本哈希、工程配置
-xcodegen generate                                            # 改了 project.yml 或增删文件后，单独跑 xcodebuild 前重新生成工程
-python3 -m unittest discover -s tools/tests -p 'test_*.py'   # ship.py、发布说明与 IPA 源的回归
-LEDGER_DEMO_PATH="$PWD/.demo-data" SAMPLE_OUT="$PWD/samples" swift test --package-path LedgerKit --filter PostingOrderTests
-xcodebuild test -project Ledger.xcodeproj -scheme LedgerInteractionTests \
-  -destination 'platform=iOS Simulator,name=Ledger Local Tests' -derivedDataPath build-demo \
-  -only-testing:LedgerUITests/EditInteractionTests/<testMethod>   # 只构建并运行指定用例，无需先跑全量
+python3 tools/ship.py test --core-filter PostingOrderTests
+python3 tools/ship.py test --ui-test LedgerUITests/EditInteractionTests/testCalendarUsesFullRowWidthWithoutHint
+python3 tools/ship.py dev --core-filter CalendarMarkTests   # 相关回归通过后打包发布
+python3 tools/ship.py dev --full                          # 全量通过后打包发布
+python3 tools/ship.py test                                # 云端全量，只验证
+python3 tools/ship.py release --accepted-build N           # 仅 Kerwin 手机验收后授权，原 IPA 转正
+python3 tools/ship.py watch --once
+python3 tools/ship.py version patch|minor|major|X.Y.Z      # 本机轻量版本提交
 ```
 
-- `.demo-data` 是固定提交的 `ledger-demo` 只读克隆（提交号在 `tools/fixtures/manifest.json`），ship.py 自动准备。
-- 日志（`*.log`、`interaction-tests.xcresult`）、`build-demo/`、`dist/`、xcodegen 生成的 `Ledger.xcodeproj` 与 `Ledger/Info.plist` 都不入库。
-- 改动冻结样本（`LedgerKit/Tests/LedgerKitTests/Fixtures`、`LedgerUITests/Fixtures`）必须同步 `tools/fixtures/manifest.json` 的 SHA256，标准答案按 docs/development/05 用独立计算更新，不能拿待测实现的输出覆盖。
+`dev` 无筛选时只有静态/工具/构建检查，不得绕过已知失败。筛选回归不算全量。先推送源码，云端通过才发安装包；正式版须匹配已验收构建号与 SHA256，同一源码全量通过，不重新编译 IPA。失败日志、截图与 `.xcresult` 保存在 Actions artifacts，实际范围与链接写入验证记录。
+
+本机可运行 `python3 tools/check_project.py`、`python3 -m unittest discover -s tools/tests -p 'test_*.py'` 和 `git diff --check`。不在本机启动 Xcode、Swift 测试或模拟器。冻结样本与独立预期规则仍见 05。
 
 ## 架构要点
 

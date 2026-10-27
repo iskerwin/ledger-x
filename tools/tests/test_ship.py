@@ -3,6 +3,7 @@ import hashlib
 from contextlib import ExitStack
 import io
 import json
+import os
 from pathlib import Path
 import plistlib
 import sys
@@ -20,6 +21,10 @@ DEMO_SHA = ship.content_digest([('main.bean', b'; fictional sample')])
 
 class ShipTests(unittest.TestCase):
     def setUp(self):
+        # These regressions cover the legacy worker branches with fictional APIs.
+        environment = patch.dict(os.environ, {'GITHUB_ACTIONS': 'false'})
+        environment.start()
+        self.addCleanup(environment.stop)
         records = tempfile.TemporaryDirectory()
         self.addCleanup(records.cleanup)
         full = patch.object(ship, 'FULL_VALIDATION', Path(records.name)/'full-validation.json')
@@ -250,7 +255,7 @@ class ShipTests(unittest.TestCase):
              patch.object(ship, 'HISTORY', Path(temp)/'history.json'), \
              patch.object(ship, 'progress', ship.Progress()), \
              patch.object(ship, 'ship_dev') as dev, patch.object(ship, 'run_totals', return_value={}):
-            self.assertEqual(ship.main(['ship.py', 'dev', '--full']), 0)
+            self.assertEqual(ship.worker_main(['ship.py', 'dev', '--full']), 0)
             dev.assert_called_once_with(full=True)
             self.assertIn('LedgerKit 核心测试', json.loads((Path(temp)/'status.json').read_text())['plan'])
 
@@ -273,7 +278,7 @@ class ShipTests(unittest.TestCase):
                      patch.object(ship, 'git', side_effect=git), patch.object(ship, 'run_totals', return_value={}), \
                      patch.object(ship, 'validate', side_effect=ship.Failure('tests failed') if failed else None,
                                   return_value=full):
-                    self.assertEqual(ship.main(['ship.py', 'test']), 1 if failed else 0)
+                    self.assertEqual(ship.worker_main(['ship.py', 'test']), 1 if failed else 0)
                     dev.assert_not_called()
                     release.assert_not_called()
                     self.assertEqual(ship.FULL_VALIDATION.exists(), not dirty and not failed)
@@ -463,7 +468,7 @@ class ShipTests(unittest.TestCase):
     def test_usage_errors_do_nothing(self):
         for argv in (['ship.py'], ['ship.py', 'deploy'], ['ship.py', 'version'], ['ship.py', 'dev', 'extra']):
             with self.subTest(argv=argv):
-                self.assertEqual(ship.main(argv), 2)
+                self.assertEqual(ship.worker_main(argv), 2)
 
 
 class WatchTests(unittest.TestCase):
@@ -551,7 +556,7 @@ class WatchTests(unittest.TestCase):
     def test_watch_without_any_run_says_so(self):
         with tempfile.TemporaryDirectory() as temp, patch.object(ship, 'STATUS', Path(temp)/'none.json'), \
                 patch('sys.stdout', new_callable=io.StringIO) as screen:
-            self.assertEqual(ship.main(['ship.py', 'watch', '--once']), 0)
+            self.assertEqual(ship.worker_main(['ship.py', 'watch', '--once']), 0)
         self.assertIn('还没有 ship.py 的运行记录', screen.getvalue())
 
 
