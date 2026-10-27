@@ -488,6 +488,7 @@ enum Prefs {
         // the journal's month calendar opened (the setting is remembered between launches, so it is set either way);
         // before the ledger is read, as the pages are there while it loads and read the setting when they appear
         UserDefaults.standard.set(env["LEDGER_CALENDAR"] != nil, forKey: "ledger.journal.calendar")
+        UserDefaults.standard.set(env["LEDGER_GLASS_CALENDAR"] != "0", forKey: "journal.glassCalendar")
         // every gesture's hint shown again
         if env["LEDGER_UNLEARN"] != nil { Learned.forget() }
         // the screens as they are while a ledger loads: it never finishes

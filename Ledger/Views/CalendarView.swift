@@ -2,9 +2,7 @@ import SwiftUI
 import Charts
 import LedgerKit
 
-/// 明细's month calendar, opened above the list: the month's totals, then the days, a dot in the theme colour on
-/// those with spending and a green one on those with income; tap a day for its sheet. It counts what the list shows
-/// (the same search and account filter).
+/// Shared glass grid with the journal’s existing filtered daily totals and a separately selected day.
 struct JournalCalendar: View {
     @Environment(Store.self) var store
     let L: Ledger
@@ -14,6 +12,10 @@ struct JournalCalendar: View {
     let account: String?
     let pick: (String) -> Void
     @State private var month = Day.ym(Day.today())
+    @State private var selectedDay: String?
+    @State private var initialized = false
+    @AppStorage("journal.glassCalendar") private var glassCalendar = true
+    @ScaledMetric(relativeTo: .caption) private var summaryHeight: CGFloat = 74
 
     struct DayTotal { var out = 0.0; var inn = 0.0; var n = 0 }
 
@@ -49,7 +51,109 @@ struct JournalCalendar: View {
             let dots = [x.out > 0.005 ? Self.spend : nil, x.inn > 0.005 ? Self.earn : nil].compactMap { $0 }
             if !dots.isEmpty { marks[d] = dots } else if x.n > 0 { marks[d] = [Self.other] }
         }
-        return VStack(spacing: AppSpacing.icon) {
+        return Group {
+            if glassCalendar {
+                let maxOut = totals.values.map(\.out).max() ?? 0
+                let maxIn = totals.values.map(\.inn).max() ?? 0
+                let levels = totals.mapValues {
+                    DayMark(out: markLevel(amount: $0.out, max: maxOut), inn: markLevel(amount: $0.inn, max: maxIn), other: $0.n > 0)
+                }
+                GlassMonthCalendar(marks: levels, month: $month, last: Day.today(), describe: { describe($0, totals) }, selection: $selectedDay, showsToday: true, pick: pick) {
+                    figures(out: out, inn: inn)
+                } summary: {
+                    summary(totals)
+                } footer: {
+                    Text(LS("点越大，当日金额越大")).font(.caption2).foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            } else {
+                legacy(totals, marks: marks, out: out, inn: inn)
+            }
+        }
+        .onAppear {
+            guard !initialized else { return }
+            initialized = true
+            follow()
+            selectDefault(byDay)
+        }
+        .onChange(of: entries.first?.date) { _, _ in follow(); selectDefault(byDay) }
+        .onChange(of: month) { _, _ in selectDefault(byDay) }
+    }
+
+    private func describe(_ day: String, _ totals: [String: DayTotal]) -> String? {
+        totals[day].map { x in
+            let parts = [x.out != 0 ? LS("支出 ") + money(x.out) : nil, x.inn != 0 ? LS("收入 ") + money(x.inn) : nil].compactMap { $0 }
+            return parts.isEmpty ? LS("%@ 笔其他交易", x.n) : parts.joined(separator: " ")
+        }
+    }
+
+    private func selectDefault(_ totals: [String: DayTotal]) {
+        selectedDay = totals.isEmpty ? nil : month == Day.ym(Day.today()) ? Day.today() : totals.keys.max()
+    }
+
+    private func figures(out: Double, inn: Double) -> some View {
+        FigureRow(items: [
+            .init(label: LS("支出"), value: money(out, L.base, 0), color: Self.spend),
+            .init(label: LS("收入"), value: money(inn, L.base, 0), color: Self.earn),
+            .init(label: LS("结余"), value: money(inn - out, L.base, 0), color: inn - out < 0 ? Color.loss : Color.primary),
+        ], alignment: .center)
+        .padding(.vertical, AppSpacing.detail)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("calendar.figures")
+        .contentTransition(.numericText())
+        .animation(AppMotion.quick, value: month)
+    }
+
+    private func summary(_ totals: [String: DayTotal]) -> some View {
+        HStack(spacing: AppSpacing.icon) {
+            VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                if let d = selectedDay {
+                    Text(summaryDate(d)).fontWeight(.semibold)
+                        .lineLimit(1).minimumScaleFactor(0.5)
+                        .accessibilityIdentifier("calendar.summary.date")
+                    HStack(spacing: AppSpacing.detail) {
+                        DayTotalsText(out: totals[d]?.out ?? 0, inn: totals[d]?.inn ?? 0)
+                        Text(LS("· %@ 笔", totals[d]?.n ?? 0)).monospacedDigit()
+                    }
+                } else {
+                    Text(LS("本月暂无记录"))
+                }
+            }
+            .lineLimit(2)
+            Spacer(minLength: 0)
+            Button { if let d = selectedDay { pick(d) } } label: {
+                HStack(spacing: AppSpacing.detail) {
+                    Text(LS("查看当天明细"))
+                    Image(systemName: "chevron.right").accessibilityHidden(true)
+                }
+                .lineLimit(2).minimumScaleFactor(0.6)
+            }
+            .foregroundStyle(Color.jadeInk).buttonStyle(.plain)
+            .opacity(selectedDay == nil ? 0 : 1).disabled(selectedDay == nil)
+            .accessibilityHidden(selectedDay == nil)
+            .accessibilityIdentifier("calendar.openDay")
+        }
+        .font(.caption)
+        .padding(.horizontal, AppSpacing.control)
+        .frame(height: summaryHeight)
+        // A sibling-looking inset panel avoids stacking two refracting glass surfaces.
+        .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: AppRadius.panel))
+        .overlay(RoundedRectangle(cornerRadius: AppRadius.panel).strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("calendar.summary")
+    }
+
+    private func summaryDate(_ day: String) -> String {
+        guard let date = Day.date(day) else { return day }
+        let formatter = DateFormatter()
+        formatter.locale = AppLanguage.current.locale
+        formatter.timeZone = Day.calendar.timeZone
+        formatter.dateFormat = KitLocale.chinese ? "d日 · EEE" : "d · EEE"
+        return formatter.string(from: date)
+    }
+
+    private func legacy(_ totals: [String: DayTotal], marks: [String: [Color]], out: Double, inn: Double) -> some View {
+        VStack(spacing: AppSpacing.icon) {
             // equal columns, each centred: a month's longer amounts don't push 收入 sideways
             FigureRow(items: [
                 .init(label: LS("支出"), value: money(out, L.base, 0), color: Self.spend),
@@ -67,8 +171,6 @@ struct JournalCalendar: View {
             }, pick: pick)
             legend
         }
-        .onAppear(perform: follow)
-        .onChange(of: entries.first?.date) { _, _ in follow() }
     }
 
     /// after the search changed: show the latest month with something in it, if this one has nothing
@@ -100,6 +202,302 @@ struct JournalCalendar: View {
     }
 }
 
+
+/// Intensity only; financial amounts stay in JournalCalendar's existing aggregation.
+struct DayMark {
+    var out: Int = 0
+    var inn: Int = 0
+    var other = false
+}
+
+private var calendarMaterialPreview: String? {
+    ProcessInfo.processInfo.environment["LEDGER_DEMO"] == nil ? nil : ProcessInfo.processInfo.environment["LEDGER_CALENDAR_MATERIAL"]
+}
+
+private struct CalendarGlassAnchors: PreferenceKey {
+    static var defaultValue: [Anchor<CGRect>] = []
+    static func reduce(value: inout [Anchor<CGRect>], nextValue: () -> [Anchor<CGRect>]) {
+        value.append(contentsOf: nextValue())
+    }
+}
+
+private struct CalendarGlassButton: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var opaque
+    @ViewBuilder func body(content: Content) -> some View {
+        if opaque || calendarMaterialPreview == "opaque" {
+            content.background(Color(.tertiarySystemGroupedBackground), in: Circle())
+        } else if #available(iOS 26.0, *), calendarMaterialPreview != "material" {
+            content.anchorPreference(key: CalendarGlassAnchors.self, value: .bounds) { [$0] }
+                .background(Color.white.opacity(0.08), in: Circle())
+                .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
+        } else {
+            content.background(.ultraThinMaterial, in: Circle())
+                .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
+        }
+    }
+}
+
+private struct CalendarGlassCard: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var opaque
+    @ViewBuilder func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
+        if opaque || calendarMaterialPreview == "opaque" {
+            content.background(Color(.secondarySystemGroupedBackground), in: shape)
+        } else if #available(iOS 26.0, *), calendarMaterialPreview != "material" {
+            // All refracting surfaces are siblings behind the calendar's text and buttons.
+            // Putting foreground content in the container lets overlapping glass sample and blur it.
+            content.backgroundPreferenceValue(CalendarGlassAnchors.self) { anchors in
+                GeometryReader { proxy in
+                    GlassEffectContainer {
+                        ZStack(alignment: .topLeading) {
+                            shape.fill(.clear)
+                                .glassEffect(.regular.tint(Color.jade.opacity(0.06)), in: shape)
+                            ForEach(Array(anchors.enumerated()), id: \.offset) { _, anchor in
+                                let rect = proxy[anchor]
+                                Circle().fill(.clear).glassEffect(.regular, in: Circle())
+                                    .frame(width: rect.width, height: rect.height)
+                                    .position(x: rect.midX, y: rect.midY)
+                            }
+                        }
+                    }
+                }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+        } else {
+            content.background(.ultraThinMaterial, in: shape)
+                .overlay(shape.strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
+        }
+    }
+}
+
+extension View {
+    func glassCard() -> some View { modifier(CalendarGlassCard()) }
+}
+
+/// Six fixed rows, shared by Journal and subscriptions. Selection is separate from opening a day's details.
+struct GlassMonthCalendar<Totals: View, Summary: View, Footer: View>: View {
+    var marks: [String: DayMark]
+    @Binding var month: String
+    var first = "2000-01-01"
+    var last: String
+    var describe: (String) -> String? = { _ in nil }
+    @Binding var selection: String?
+    var showsToday = false
+    var themeMarks = false
+    var pickImmediately = false
+    var pick: (String) -> Void
+    @ViewBuilder var totals: () -> Totals
+    @ViewBuilder var summary: () -> Summary
+    @ViewBuilder var footer: () -> Footer
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @ScaledMetric(relativeTo: .body) private var cellHeight: CGFloat = 50
+    @ScaledMetric(relativeTo: .body) private var dateSize: CGFloat = 17
+    @State private var pickingMonth = false
+    @State private var wheelYear = 2026
+    @State private var wheelMonth = 1
+    @State private var forward = true
+
+    private var calendar: Calendar {
+        var c = Day.calendar
+        c.locale = AppLanguage.current.locale
+        // firstWeekday follows the chosen locale rather than the language of the compiled app.
+        var localized = Calendar(identifier: .gregorian)
+        localized.locale = AppLanguage.current.locale
+        c.firstWeekday = localized.firstWeekday
+        return c
+    }
+    private var days: [String] {
+        guard let start = Day.date(month + "-01") else { return [] }
+        let offset = (calendar.component(.weekday, from: start) - calendar.firstWeekday + 7) % 7
+        return (0..<42).map { Day.shift(month + "-01", $0 - offset) }
+    }
+    private var weekdays: [String] {
+        let symbols = calendar.veryShortStandaloneWeekdaySymbols
+        return (0..<7).map { symbols[(calendar.firstWeekday - 1 + $0) % 7] }
+    }
+    private func enabled(_ d: String) -> Bool { d.hasPrefix(month) && d >= first && d <= last }
+    private func canStep(_ offset: Int) -> Bool {
+        let m = Day.addMonth(month, offset)
+        return m >= Day.ym(first) && m <= Day.ym(last)
+    }
+    private func changeMonth(_ value: String) {
+        let target = min(max(value, Day.ym(first)), Day.ym(last))
+        guard target != month else { return }
+        forward = target > month
+        month = target
+        Haptics.selection()
+    }
+
+    var body: some View {
+        VStack(spacing: AppSpacing.icon) {
+            navigation
+            totals()
+            HStack(spacing: 0) {
+                ForEach(Array(weekdays.enumerated()), id: \.offset) { _, name in
+                    Text(name).font(.caption2).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+                }
+            }.accessibilityHidden(true)
+            ZStack { grid }
+                .animation(AppMotion.standard, value: month)
+            summary()
+            footer()
+        }
+        .padding(AppSpacing.control)
+        .glassCard()
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("calendar.glass")
+        .sheet(isPresented: $pickingMonth) { monthPicker }
+    }
+
+    private var navigation: some View {
+        HStack(spacing: AppSpacing.icon) {
+            VStack(alignment: .leading, spacing: 0) {
+                Button {
+                    wheelYear = Int(month.prefix(4)) ?? 2026
+                    wheelMonth = Int(month.suffix(2)) ?? 1
+                    pickingMonth = true
+                } label: {
+                    HStack(spacing: AppSpacing.detail) {
+                        Text(Day.monthLabel(month))
+                        Image(systemName: "chevron.down").font(.caption2)
+                    }
+                    .font(.system(.headline, design: .rounded)).foregroundStyle(Color.primary)
+                    .lineLimit(1).minimumScaleFactor(0.5)
+                }
+                .accessibilityIdentifier("calendar.monthTitle")
+                if showsToday {
+                    Button(LS("回到本月")) { changeMonth(Day.ym(Day.today())) }
+                        .font(.caption2).foregroundStyle(Color.jadeInk)
+                        .opacity(month == Day.ym(Day.today()) ? 0 : 1)
+                        .disabled(month == Day.ym(Day.today()))
+                        .accessibilityHidden(month == Day.ym(Day.today()))
+                }
+            }
+            Spacer(minLength: 0)
+            arrow("chevron.left", label: LS("上个月"), offset: -1)
+            arrow("chevron.right", label: LS("下个月"), offset: 1)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func arrow(_ symbol: String, label: String, offset: Int) -> some View {
+        Button { changeMonth(Day.addMonth(month, offset)) } label: {
+            Image(systemName: symbol).font(.body.weight(.semibold))
+                .foregroundStyle(Color.jadeInk).frame(width: 30, height: 30)
+                .modifier(CalendarGlassButton())
+                .frame(width: 44, height: 44)
+        }
+        .disabled(!canStep(offset)).opacity(canStep(offset) ? 1 : 0.35)
+        .accessibilityLabel(label)
+    }
+
+    private var grid: some View {
+        let dates = days
+        return GeometryReader { geometry in
+            VStack(spacing: 0) {
+                ForEach(0..<6, id: \.self) { row in
+                    HStack(spacing: 0) {
+                        ForEach(Array(dates.dropFirst(row * 7).prefix(7)), id: \.self) { d in
+                            cell(d, width: geometry.size.width / 7)
+                        }
+                    }
+                }
+            }
+        }
+        .frame(height: cellHeight * 6)
+        .id(month)
+        .transition(.asymmetric(insertion: .offset(x: reduceMotion ? 0 : forward ? 12 : -12).combined(with: .opacity), removal: .opacity))
+        .simultaneousGesture(DragGesture(minimumDistance: 40).onEnded { value in
+            guard abs(value.translation.width) >= 40, abs(value.translation.width) > abs(value.translation.height) else { return }
+            let step = value.translation.width < 0 ? 1 : -1
+            if canStep(step) { changeMonth(Day.addMonth(month, step)) }
+        })
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("calendar.grid")
+    }
+
+    private func cell(_ d: String, width: CGFloat) -> some View {
+        let today = d == Day.today()
+        let selected = selection == d
+        let mark = marks[d] ?? DayMark()
+        return Button {
+            let repeated = selection == d
+            selection = d
+            Haptics.selection()
+            if pickImmediately || repeated { pick(d) }
+        } label: {
+            VStack(spacing: 2) {
+                Text(String(Int(d.suffix(2)) ?? 1))
+                    .font(.system(.body, design: .rounded).weight(selected ? .semibold : .regular))
+                    .fixedSize()
+                    // Rounded numerals have no compressed font face. Compress width only at AX3+;
+                    // their full Dynamic Type height remains, without overlapping adjacent dates.
+                    .scaleEffect(x: typeSize >= .accessibility3 ? min(1, (width - 6) / (dateSize * 1.3)) : 1, y: 1)
+                    .foregroundStyle(today ? Color.onJade : selected ? Color.jadeInk : Color.primary)
+                    .frame(width: width, height: dateSize * 1.9)
+                    .background {
+                        Circle().fill(today ? Color.jade : selected ? Color.jade.opacity(0.2) : Color.clear)
+                            .frame(width: min(dateSize * 1.9, width - 2), height: min(dateSize * 1.9, width - 2))
+                    }
+                HStack(spacing: 3) {
+                    if mark.out > 0 || mark.inn > 0 {
+                        dot(level: mark.out, color: themeMarks ? .jade : .loss).opacity(mark.out > 0 ? 1 : 0)
+                        if !themeMarks { dot(level: mark.inn, color: .gain).opacity(mark.inn > 0 ? 1 : 0) }
+                    } else if mark.other {
+                        dot(level: 1, color: .secondary)
+                    }
+                }
+                .frame(height: 7).accessibilityHidden(true)
+            }
+            .frame(width: width, height: cellHeight)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).disabled(!enabled(d))
+        .opacity(!d.hasPrefix(month) ? 0.3 : enabled(d) ? 1 : 0.35)
+        .accessibilityLabel(Day.dayLabel(d) + (describe(d).map { " · " + $0 } ?? ""))
+        .accessibilityValue(selected ? LS("已选中") : "")
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
+        .accessibilityHidden(!d.hasPrefix(month))
+        .accessibilityIdentifier("calendar.day." + d)
+    }
+
+    private func dot(level: Int, color: Color) -> some View {
+        let size: CGFloat = level == 1 ? 4 : level == 2 ? 5.5 : 7
+        return Circle().fill(color).frame(width: size, height: size).frame(width: 7, height: 7)
+    }
+
+    private var monthPicker: some View {
+        NavigationStack {
+            HStack(spacing: 0) {
+                Picker(LS("年"), selection: $wheelYear) {
+                    ForEach((Int(first.prefix(4)) ?? 2000)...(Int(last.prefix(4)) ?? 2100), id: \.self) { y in
+                        Text(String(y)).tag(y)
+                    }
+                }
+                .accessibilityIdentifier("calendar.yearWheel")
+                Picker(LS("月"), selection: $wheelMonth) {
+                    ForEach(1...12, id: \.self) { m in Text(String(m)).tag(m) }
+                }
+                .accessibilityIdentifier("calendar.monthWheel")
+            }
+            .pickerStyle(.wheel)
+            .navigationTitle(LS("选择年月")).navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button(LS("取消")) { pickingMonth = false } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(LS("完成")) {
+                        changeMonth(String(format: "%04d-%02d", wheelYear, wheelMonth))
+                        pickingMonth = false
+                    }
+                }
+            }
+        }
+        .pickerSheet()
+    }
+}
 
 /// One month calendar for the whole app: the system's (UICalendarView), in the theme colour, with up to three dots
 /// under each day in its colours. The system draws the header, pages from month to month and offers its month and

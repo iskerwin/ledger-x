@@ -883,7 +883,7 @@ final class EditInteractionTests: XCTestCase {
     /// six-week one), so the list under it does not move; open, it takes the quick filters' place, and what is on
     /// stays with its ✕
     func testTheCalendarTakesTheQuickFiltersPlaceAndKeepsItsHeight() {
-        let app = launchTab("journal", env: ["LEDGER_FILTERS": "large"])
+        let app = launchTab("journal", env: ["LEDGER_FILTERS": "large", "LEDGER_GLASS_CALENDAR": "0"])
         // the calendar opens as it was left
         let toggle = app.buttons.matching(NSPredicate(format: "label IN %@", ["月历", "收起月历"])).firstMatch
         XCTAssertTrue(toggle.waitForExistence(timeout: 20))
@@ -908,7 +908,7 @@ final class EditInteractionTests: XCTestCase {
     /// A day's dots sit centred under its date; the system puts a decoration at the day's leading edge, and they
     /// were off to the left of it
     func testTheCalendarDotsSitUnderTheirDate() {
-        let app = launchTab("journal")
+        let app = launchTab("journal", env: ["LEDGER_GLASS_CALENDAR": "0"])
         let calendar = app.descendants(matching: .any)["calendar.month"].firstMatch
         let toggle = app.buttons.matching(NSPredicate(format: "label IN %@", ["月历", "收起月历"])).firstMatch
         XCTAssertTrue(toggle.waitForExistence(timeout: 20))
@@ -922,6 +922,135 @@ final class EditInteractionTests: XCTestCase {
             let day = calendar.buttons.allElementsBoundByIndex.first { $0.frame.width < calendar.frame.width / 2 && $0.frame.contains(CGPoint(x: dot.midX, y: dot.midY)) }
             XCTAssertNotNil(day)
             if let day { XCTAssertEqual(dot.midX, day.frame.midX, accuracy: 1, "\(dots.element(boundBy: i).identifier)") }
+        }
+    }
+
+    private func openGlassCalendar(_ app: XCUIApplication) -> XCUIElement {
+        let toggle = app.buttons.matching(NSPredicate(format: "label IN %@", ["月历", "收起月历"])).firstMatch
+        XCTAssertTrue(toggle.waitForExistence(timeout: 20))
+        let card = app.descendants(matching: .any)["calendar.glass"].firstMatch
+        if !card.exists { tapPoint(app.buttons["月历"], timeout: 5) }
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        return card
+    }
+
+    private func chooseCalendarMonth(_ app: XCUIApplication, year: String, month: String) {
+        tapPoint(app.buttons["calendar.monthTitle"], timeout: 5)
+        app.pickers["calendar.yearWheel"].pickerWheels.firstMatch.adjust(toPickerWheelValue: year)
+        app.pickers["calendar.monthWheel"].pickerWheels.firstMatch.adjust(toPickerWheelValue: month)
+        tapPoint(app.buttons["完成"], timeout: 5)
+    }
+
+    func testGlassCalendarFixedRowsAndDaySelection() {
+        checkGlassCalendar(textSize: nil)
+    }
+
+    func testGlassCalendarFixedRowsAndDaySelectionAtLargeText() {
+        checkGlassCalendar(textSize: "UICTContentSizeCategoryXXXL")
+    }
+
+    private func checkGlassCalendar(textSize: String?) {
+        let app = launchTab("journal", textSize: textSize, env: ["LEDGER_CALENDAR": "1"])
+        let card = openGlassCalendar(app)
+        let height = card.frame.height
+        let figuresY = app.otherElements["calendar.figures"].frame.minY
+        // This locale starts on Sunday: February 2015, April and May 2021 need four, five and six rows.
+        for (year, month) in [("2015", "2"), ("2021", "4"), ("2021", "5")] {
+            chooseCalendarMonth(app, year: year, month: month)
+            XCTAssertEqual(card.frame.height, height, accuracy: 0.5)
+            XCTAssertEqual(app.otherElements["calendar.figures"].frame.minY, figuresY, accuracy: 0.5)
+            XCTAssertTrue(app.staticTexts["本月暂无记录"].exists)
+        }
+        chooseCalendarMonth(app, year: "2026", month: "10")
+        let day = app.buttons["calendar.day.2026-10-17"]
+        tapPoint(day, timeout: 5)
+        let summary = app.staticTexts["calendar.summary.date"]
+        XCTAssertTrue(summary.label.contains("17"))
+        XCTAssertTrue(app.buttons["calendar.openDay"].exists)
+        XCTAssertTrue(app.otherElements["calendar.summary"].staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "12.00")).firstMatch.exists)
+        let cardShot = XCTAttachment(screenshot: app.screenshot()); cardShot.name = "glass-selected-day"; cardShot.lifetime = .keepAlways; add(cardShot)
+        XCTAssertFalse(app.navigationBars["10月17日 周六"].exists)
+        tapPoint(day, timeout: 5)
+        XCTAssertTrue(app.navigationBars["10月17日 周六"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["完成"].exists)
+        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "glass-day-sheet"; shot.lifetime = .keepAlways; add(shot)
+        tapPoint(app.buttons["完成"], timeout: 5)
+        tapPoint(app.buttons["calendar.day.2026-10-16"], timeout: 5)
+        XCTAssertTrue(app.staticTexts["calendar.summary.date"].label.contains("16"))
+        let open = app.buttons["calendar.openDay"]
+        for _ in 0..<4 { if open.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(app.staticTexts["calendar.summary.date"].label.contains("16"), "Scrolling must preserve the selected date")
+        open.tap()
+        XCTAssertTrue(app.navigationBars["10月16日 周五"].waitForExistence(timeout: 5))
+    }
+
+    func testGlassSubscriptionCalendarRangeAndSelection() {
+        checkGlassSubscriptions(textSize: nil)
+    }
+
+    func testGlassSubscriptionCalendarRangeAndSelectionAtLargeText() {
+        checkGlassSubscriptions(textSize: "UICTContentSizeCategoryXXXL")
+    }
+
+    private func checkGlassSubscriptions(textSize: String?) {
+        let app = launchTab("reports", textSize: textSize)
+        let subs = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "订阅管理")).firstMatch
+        XCTAssertTrue(app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "年度回顾")).firstMatch.waitForExistence(timeout: 20))
+        for _ in 0..<8 { if subs.exists && subs.isHittable { break }; app.swipeUp() }
+        tapPoint(subs, timeout: 5)
+        tapPoint(app.buttons["订阅日历"], timeout: 5)
+        XCTAssertTrue(app.otherElements["calendar.glass"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["点越大，当日金额越大"].exists)
+        let formatter = DateFormatter(); formatter.dateFormat = "yyyy-MM-dd"
+        let today = formatter.string(from: Date())
+        let day = app.buttons["calendar.day." + today]
+        for cell in app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'calendar.day.'")).allElementsBoundByIndex {
+            if String(cell.identifier.suffix(10)) < today { XCTAssertFalse(cell.isEnabled) }
+        }
+        day.tap()
+        XCTAssertEqual(day.value as? String, "已选中")
+        let allMonth = app.buttons["显示整月"]
+        for _ in 0..<5 { if allMonth.exists && allMonth.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(allMonth.waitForExistence(timeout: 5))
+        allMonth.tap()
+        XCTAssertNotEqual(day.value as? String, "已选中")
+        app.buttons["下个月"].tap()
+        app.buttons["下个月"].tap()
+        let last = formatter.string(from: Calendar.current.date(byAdding: .day, value: 62, to: Date())!)
+        for cell in app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'calendar.day.'")).allElementsBoundByIndex {
+            if String(cell.identifier.suffix(10)) > last { XCTAssertFalse(cell.isEnabled) }
+        }
+        XCTAssertFalse(app.buttons["下个月"].isEnabled)
+        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "subscription-range"; shot.lifetime = .keepAlways; add(shot)
+    }
+
+    func testGlassCalendarAccessibilityTextRemainsReadable() {
+        let app = launchTab("journal", accessibility: true, env: ["LEDGER_CALENDAR": "1"])
+        _ = openGlassCalendar(app)
+        let top = XCTAttachment(screenshot: app.screenshot()); top.name = "calendar-ax3-top"; top.lifetime = .keepAlways; add(top)
+        app.swipeUp()
+        let bottom = XCTAttachment(screenshot: app.screenshot()); bottom.name = "calendar-ax3-bottom"; bottom.lifetime = .keepAlways; add(bottom)
+        let grid = app.otherElements["calendar.grid"].frame
+        let first = app.buttons["calendar.day.2026-10-04"].frame
+        let last = app.buttons["calendar.day.2026-10-10"].frame
+        XCTAssertGreaterThanOrEqual(first.minX, grid.minX - 0.5)
+        XCTAssertLessThanOrEqual(last.maxX, grid.maxX + 0.5)
+        XCTAssertEqual(first.width, grid.width / 7, accuracy: 0.5)
+        let selected = app.buttons["calendar.day.2026-10-24"]
+        XCTAssertTrue(selected.exists)
+        selected.tap()
+        app.swipeUp()
+        let selection = XCTAttachment(screenshot: app.screenshot()); selection.name = "calendar-ax3-selection"; selection.lifetime = .keepAlways; add(selection)
+        app.buttons["calendar.openDay"].tap()
+        XCTAssertTrue(app.navigationBars["10月24日 周六"].waitForExistence(timeout: 5))
+    }
+
+    func testGlassCalendarMaterialBranches() {
+        for mode in ["glass", "material", "opaque"] {
+            let app = launchTab("journal", env: ["LEDGER_CALENDAR": "1", "LEDGER_CALENDAR_MATERIAL": mode])
+            _ = openGlassCalendar(app)
+            let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "calendar-" + mode; shot.lifetime = .keepAlways; add(shot)
+            app.terminate()
         }
     }
 
@@ -1354,7 +1483,7 @@ final class EditInteractionTests: XCTestCase {
 
     /// The calendar's 支出 · 收入 · 结余 sit centred in equal columns: a month's wide income no longer pushes 收入 aside
     func testCalendarFiguresSitInEqualColumns() {
-        let app = launchTab("journal", env: ["LEDGER_EXTRA": heightExtra, "LEDGER_CALENDAR": "1"])
+        let app = launchTab("journal", env: ["LEDGER_EXTRA": heightExtra, "LEDGER_CALENDAR": "1", "LEDGER_GLASS_CALENDAR": "0"])
         let calendar = app.descendants(matching: .any)["calendar.month"].firstMatch
         XCTAssertTrue(calendar.waitForExistence(timeout: 20))
         let figures = app.otherElements["calendar.figures"]

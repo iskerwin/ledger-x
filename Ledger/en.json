@@ -2158,5 +2158,12 @@
  "点按或左右滑动查看各月": "Tap or slide to see each month",
  "开 %@，收 %@，%@": "open %@, close %@, %@",
  "涨": "up",
- "跌": "down"
+ "跌": "down",
+ "· %@ 笔": "· %@ entries",
+ "已选中": "Selected",
+ "本月暂无记录": "No entries this month",
+ "查看当天明细": "View day’s entries",
+ "点日期查看当天扣费": "Tap a date to see its charges",
+ "点越大，当日金额越大": "Larger dots mean larger daily amounts",
+ "选择年月": "Choose month and year"
 }
