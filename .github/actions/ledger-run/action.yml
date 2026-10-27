@@ -45,9 +45,9 @@ runs:
           LedgerKit/.build
           build-demo/SourcePackages
           build-demo/Build
-        key: swift-xcode-26.6-${{ inputs.cache_epoch }}-${{ hashFiles('LedgerKit/Package.swift', 'project.yml') }}
+        key: swift-xcode-26.6-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache_epoch }}-${{ hashFiles('LedgerKit/Package.swift', 'project.yml', 'tools/select_xcode.sh') }}-${{ hashFiles('Ledger/**', 'LedgerKit/**', 'LedgerTests/**', 'LedgerUITests/**') }}
         restore-keys: |
-          swift-xcode-26.6-${{ inputs.cache_epoch }}-
+          swift-xcode-26.6-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache_epoch }}-${{ hashFiles('LedgerKit/Package.swift', 'project.yml', 'tools/select_xcode.sh') }}-
     - name: Validate, build or promote
       if: inputs.check_only != 'true'
       shell: bash

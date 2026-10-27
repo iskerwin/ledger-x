@@ -134,3 +134,19 @@ schemes:
       targets:
         - LedgerTests
         - LedgerUITests
+  LedgerHostedTests:
+    build:
+      targets:
+        Ledger: all
+        LedgerTests: [test]
+    test:
+      targets:
+        - LedgerTests
+  LedgerUITests:
+    build:
+      targets:
+        Ledger: all
+        LedgerUITests: [test]
+    test:
+      targets:
+        - LedgerUITests

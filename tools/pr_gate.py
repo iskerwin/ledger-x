@@ -84,10 +84,12 @@ def main(argv):
             destination = 'generic/platform=iOS Simulator'
         try:
             run_limited(['xcodegen', 'generate', '--quiet'], 3 * 60)
-            mark('开始编译 App 测试包')
+            scheme = ship.test_scheme(plan['xcode_tests']) if plan['xcode_tests'] else 'Ledger'
+            action = 'build-for-testing' if plan['xcode_tests'] else 'build'
+            mark(f'开始编译 {scheme}')
             phase = time.monotonic()
-            run_limited(['xcodebuild', 'build-for-testing', '-project', 'Ledger.xcodeproj',
-                         '-scheme', 'LedgerInteractionTests', '-destination', destination,
+            run_limited(['xcodebuild', action, '-project', 'Ledger.xcodeproj',
+                         '-scheme', scheme, '-destination', destination,
                          '-derivedDataPath', 'build-demo', 'CODE_SIGNING_ALLOWED=NO'],
                         BUILD_LIMIT, log='demo-build.log')
             mark(f'编译完成（{(time.monotonic() - phase) / 60:.1f} 分钟）')
@@ -95,7 +97,7 @@ def main(argv):
                 mark(f'开始界面与 App 内测试 {len(plan["xcode_tests"])} 项，每项最多 {TEST_ALLOWANCE} 秒')
                 phase = time.monotonic()
                 run_limited(['xcodebuild', 'test-without-building', '-project', 'Ledger.xcodeproj',
-                             '-scheme', 'LedgerInteractionTests', '-destination', destination,
+                             '-scheme', scheme, '-destination', destination,
                              '-derivedDataPath', 'build-demo', '-parallel-testing-enabled', 'NO',
                              '-test-timeouts-enabled', 'YES',
                              '-maximum-test-execution-time-allowance', str(TEST_ALLOWANCE),

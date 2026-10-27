@@ -519,6 +519,16 @@ def selected_tests():
     return bool(os.environ.get('LEDGER_UI_TESTS', '').strip() or os.environ.get('LEDGER_CORE_FILTER', '').strip())
 
 
+def test_scheme(selectors):
+    """Select bundles by target, keeping every requested class/method in that bundle."""
+    targets = {value.split('/')[0] for value in selectors}
+    if targets == {'LedgerTests'}:
+        return 'LedgerHostedTests'
+    if targets == {'LedgerUITests'}:
+        return 'LedgerUITests'
+    return 'LedgerInteractionTests'
+
+
 def validate_targeted():
     """Selected regressions are recorded separately; they never count as a full suite."""
     proof = validate_development()
@@ -541,7 +551,7 @@ def validate_targeted():
         try:
             run(['xcodegen', 'generate', '--quiet'])
             shutil.rmtree(ROOT / 'interaction-tests.xcresult', ignore_errors=True)
-            base = ['xcodebuild', '-project', 'Ledger.xcodeproj', '-scheme', 'LedgerInteractionTests',
+            base = ['xcodebuild', '-project', 'Ledger.xcodeproj', '-scheme', test_scheme(selectors),
                     '-destination', f'platform=iOS Simulator,id={udid}', '-derivedDataPath', 'build-demo']
             if os.environ.get('LEDGER_COMMAND') == 'dev':
                 step('编译相关测试包（最多 20 分钟）')
