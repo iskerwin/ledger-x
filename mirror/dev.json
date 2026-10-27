@@ -20,13 +20,13 @@
       "versions": [
         {
           "version": "1.0.8",
-          "buildVersion": "38",
+          "buildVersion": "39",
           "date": "2026-10-21T17:58:29Z",
-          "localizedDescription": "# Ledger X 1.0.8 开发版\n\n版本 1.0.8 · 构建 38 · main fa5ca04 。\n\n## 改进\n\n- 明细月历先显示日期与收支标记，月度汇总移到日历下方，集中显示收入、支出、结余和交易笔数，并说明按当前筛选的交易统计；大字号下图例分行显示，已选条件和「清除」置于月历上方。保留系统翻月、年月选择和点日期看明细，订阅月历保持原样。",
-          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.8-38",
-          "size": 10547654,
+          "localizedDescription": "# Ledger X 1.0.8 开发版\n\n版本 1.0.8 · 构建 39 · main 3488308 。\n\n## 新增\n\n- 明细与订阅共用六行玻璃网格月历，支持箭头、横滑和年月滚轮换月；明细用点的大小表示当日收支强度，点日期先更新摘要，再点同日或「查看当天明细」打开交易。iOS 26 起使用液态玻璃，较低版本使用轻薄材质，减少透明度时显示实心卡；保留系统月历回退开关一个版本。\n\n## 改进\n\n- 撤回构建 38 的明细月历布局调整，恢复汇总在上、日期在下的原布局，点日期仍打开当天明细弹窗。\n- 明细月历先显示日期与收支标记，月度汇总移到日历下方，集中显示收入、支出、结余和交易笔数，并说明按当前筛选的交易统计；大字号下图例分行显示，已选条件和「清除」置于月历上方。保留系统翻月、年月选择和点日期看明细，订阅月历保持原样。（已撤回，见上一条。）",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.8-39",
+          "size": 10644122,
           "minOSVersion": "17.0",
-          "sha256": "f541342ba478cf568cbc19e5fdb7916c6d0ff6c774ad83710e19a08c585ad7a8"
+          "sha256": "c3c574b2cfbee9a991a96be2cbcba9998775939e08466d248801b7b5502cc71e"
         },
         {
           "version": "1.0.7",
@@ -119,9 +119,9 @@
       },
       "version": "1.0.8",
       "versionDate": "2026-10-21T17:58:29Z",
-      "versionDescription": "# Ledger X 1.0.8 开发版\n\n版本 1.0.8 · 构建 38 · main fa5ca04 。\n\n## 改进\n\n- 明细月历先显示日期与收支标记，月度汇总移到日历下方，集中显示收入、支出、结余和交易笔数，并说明按当前筛选的交易统计；大字号下图例分行显示，已选条件和「清除」置于月历上方。保留系统翻月、年月选择和点日期看明细，订阅月历保持原样。",
-      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.8-38",
-      "size": 10547654
+      "versionDescription": "# Ledger X 1.0.8 开发版\n\n版本 1.0.8 · 构建 39 · main 3488308 。\n\n## 新增\n\n- 明细与订阅共用六行玻璃网格月历，支持箭头、横滑和年月滚轮换月；明细用点的大小表示当日收支强度，点日期先更新摘要，再点同日或「查看当天明细」打开交易。iOS 26 起使用液态玻璃，较低版本使用轻薄材质，减少透明度时显示实心卡；保留系统月历回退开关一个版本。\n\n## 改进\n\n- 撤回构建 38 的明细月历布局调整，恢复汇总在上、日期在下的原布局，点日期仍打开当天明细弹窗。\n- 明细月历先显示日期与收支标记，月度汇总移到日历下方，集中显示收入、支出、结余和交易笔数，并说明按当前筛选的交易统计；大字号下图例分行显示，已选条件和「清除」置于月历上方。保留系统翻月、年月选择和点日期看明细，订阅月历保持原样。（已撤回，见上一条。）",
+      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.8-39",
+      "size": 10644122
     }
   ],
   "news": []
