@@ -177,6 +177,13 @@ struct JournalView: View {
     private static let calendarKey = "ledger.journal.calendar"
     /// a day picked on the calendar: its sheet
     @State private var calendarDay: CalendarDay?
+    /// the day sheet's detent: on short screens it starts at a lower fraction, so the first
+    /// calendar rows stay above the sheet and the open day can be tapped again to dismiss it
+    @State private var dayDetent: PresentationDetent = UIScreen.main.bounds.height < 700 ? .fraction(0.4) : .medium
+
+    private static var dayDetents: [PresentationDetent] {
+        UIScreen.main.bounds.height < 700 ? [.fraction(0.4), .medium, .large] : [.medium, .large]
+    }
     /// a transaction tapped in that sheet, opened once the sheet has gone
     @State private var afterSheet: TxDest?
     /// the quick filters on (本月, 大额, 待确认, 报销), added to what is typed
@@ -319,9 +326,11 @@ struct JournalView: View {
             afterSheet = TxDest(t)
             calendarDay = nil
         }
-        .pickerSheet()
+        .presentationDetents(Self.dayDetents, selection: $dayDetent)
+        .presentationDragIndicator(.visible)
         .presentationContentInteraction(.scrolls)
-        // half sheet stays clear of the upper dates, so tapping the open day again can dismiss it
+        // half sheet stays clear of the upper dates, so tapping the open day again can dismiss it;
+        // on short screens the sheet starts lower still (see dayDetent), for the same reason
         .presentationBackgroundInteraction(.enabled(upThrough: .medium))
     }
 
