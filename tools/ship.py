@@ -581,7 +581,8 @@ def release_validation_at_source(manifest, proof):
 def cloud_full_validation(manifest):
     """Reuse successful test-only evidence, bound to this exact source and demo, across runners."""
     repo = manifest['repository']
-    runs = gh_api(f'repos/{repo}/actions/workflows/ledger.yml/runs?status=success&head_sha={manifest["source_sha"]}&per_page=30')
+    # CI and Dev now have separate workflows; old ledger.yml evidence remains reusable.
+    runs = gh_api(f'repos/{repo}/actions/runs?status=success&head_sha={manifest["source_sha"]}&per_page=30')
     for item in runs['workflow_runs']:
         artifacts = gh_api(f'repos/{repo}/actions/runs/{item["id"]}/artifacts')['artifacts']
         name = f'ledger-full-proof-{item["id"]}'

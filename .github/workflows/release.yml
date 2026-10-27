@@ -1,0 +1,41 @@
+name: Ledger Release
+run-name: 'Release · 已验收构建 ${{ inputs.accepted_build }}'
+on:
+  workflow_dispatch:
+    inputs:
+      accepted_build:
+        description: '必填：你安装并验收的那包发布说明中的「构建 N」，只填 N，例如 123；必须仍是当前开发版'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: ledger-publication
+  cancel-in-progress: false
+jobs:
+  refuse:
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse publication off main
+        run: |
+          echo 'Release 只能在 main 发起：Run workflow 的 Branch 请选择 main'
+          exit 1
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-26
+    timeout-minutes: 180
+    permissions:
+      contents: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      LEDGER_COMMAND: release
+      LEDGER_SOURCE_SHA: ${{ github.sha }}
+      LEDGER_ACCEPTED_BUILD: ${{ inputs.accepted_build }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: ./.github/actions/ledger-run

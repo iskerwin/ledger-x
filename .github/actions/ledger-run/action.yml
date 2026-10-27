@@ -1,0 +1,74 @@
+name: Ledger runner
+description: Shared validation, packaging and promotion steps; called by CI, Dev and Release.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+    - name: Verify inputs, source and accepted package
+      shell: bash
+      run: python3 tools/cloud_worker.py prepare
+    - name: Pin Xcode 26.6
+      shell: bash
+      run: bash tools/select_xcode.sh
+    - name: Install build and report tools
+      shell: bash
+      run: |
+        export HOMEBREW_NO_AUTO_UPDATE=1
+        if ! command -v xcodegen >/dev/null 2>&1; then brew install xcodegen; fi
+        python3 -m pip install 'beancount==3.2.0'
+        git config user.name 'github-actions[bot]'
+        git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+    - name: Restore Swift package and test build cache
+      uses: actions/cache@v6
+      with:
+        path: |
+          ~/Library/Caches/org.swift.swiftpm
+          ~/Library/org.swift.swiftpm
+          LedgerKit/.build
+          build-demo/SourcePackages
+          build-demo/Build
+        key: swift-xcode-26.6-${{ vars.LEDGER_CACHE_EPOCH || '1' }}-${{ hashFiles('LedgerKit/Package.swift', 'project.yml') }}
+        restore-keys: |
+          swift-xcode-26.6-${{ vars.LEDGER_CACHE_EPOCH || '1' }}-
+    - name: Validate, build or promote
+      shell: bash
+      run: python3 tools/cloud_worker.py run
+    - name: Export screenshots
+      if: always()
+      shell: bash
+      run: |
+        if [ -d interaction-tests.xcresult ]; then
+          xcrun xcresulttool export attachments --path interaction-tests.xcresult --output-path .ship/screenshots
+        fi
+    - name: Keep reusable full validation
+      if: success() && hashFiles('.ship/full-validation.json') != ''
+      uses: actions/upload-artifact@v7
+      with:
+        name: 'ledger-full-proof-${{ github.run_id }}'
+        include-hidden-files: true
+        retention-days: 30
+        if-no-files-found: error
+        path: .ship/full-validation.json
+    - name: Keep evidence, logs and package
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: 'ledger-${{ env.LEDGER_COMMAND }}-${{ github.run_id }}'
+        include-hidden-files: true
+        retention-days: 7
+        if-no-files-found: warn
+        path: |
+          .ship/status.json
+          .ship/full-validation.json
+          .ship/selected-validation.json
+          .ship/screenshots/
+          *-tests.log
+          reports-check.log
+          demo-build.log
+          build.log
+          interaction-tests.xcresult/
+          dist/*.json
+          dist/*.md
+          dist/*.ipa

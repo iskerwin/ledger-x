@@ -5,13 +5,11 @@ import json
 import re
 import subprocess
 import sys
-import time
-import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 STATE = ROOT / '.ship/cloud.json'
-WORKFLOW = 'ledger.yml'
+WORKFLOWS = dict(test='ci.yml', dev='dev.yml', release='release.yml')
 
 
 def output(command, **kwargs):
@@ -29,36 +27,31 @@ def dispatch(args):
     ship.require_clean_main()
     repo = ship.repository()
     sha = ship.git('rev-parse', 'HEAD')
-    inputs = dict(command=args.command, source_sha=sha, full=str(args.full).lower(),
-                  core_filter=args.core_filter or '', ui_tests='\n'.join(args.ui_test), device=args.device or '')
+    workflow = WORKFLOWS[args.command]
+    inputs = dict(source_sha=sha, core_filter=args.core_filter or '',
+                  ui_tests='\n'.join(args.ui_test), device=args.device or '')
+    if args.command == 'dev':
+        inputs['full'] = str(args.full).lower()
     if args.command == 'release':
         if not args.accepted_build:
             raise ValueError('转正式版须先由 Kerwin 手机验收，再指定 --accepted-build 构建号')
         with __import__('tempfile').TemporaryDirectory() as temp:
             output(['gh', 'release', 'download', 'dev', '--repo', repo, '--pattern', 'build-manifest.json', '--dir', temp])
             manifest = json.loads((Path(temp) / 'build-manifest.json').read_text())
-        inputs.update(accepted_build=args.accepted_build, accepted_sha256=accepted_manifest(manifest, args.accepted_build))
-    request = uuid.uuid4().hex
-    inputs['request_id'] = request
+        accepted_manifest(manifest, args.accepted_build)
+        inputs = dict(accepted_build=args.accepted_build)
     # Source must be on main before GitHub can check it. A failed cloud check publishes no IPA.
     output(['git', 'push', 'origin', 'HEAD:refs/heads/main'])
-    output(['gh', 'api', '--method', 'POST', f'repos/{repo}/actions/workflows/{WORKFLOW}/dispatches',
-            '--input', '-'], input=json.dumps(dict(ref='main', inputs=inputs)))
+    response = output(['gh', 'api', '--method', 'POST', f'repos/{repo}/actions/workflows/{workflow}/dispatches',
+                       '--input', '-'], input=json.dumps(dict(ref='main', inputs=inputs, return_run_details=True)))
     STATE.parent.mkdir(exist_ok=True)
-    state = dict(repository=repo, request_id=request, source_sha=sha, command=args.command)
+    state = dict(repository=repo, source_sha=sha, command=args.command, workflow=workflow)
     STATE.write_text(json.dumps(state, indent=2))
     print(f'已推送 main {sha[:7]}，已发起云端 {args.command}；尚无测试或发布结论。', flush=True)
-    print(f'https://github.com/{repo}/actions/workflows/{WORKFLOW}', flush=True)
-    for _ in range(15):
-        runs = json.loads(output(['gh', 'api', f'repos/{repo}/actions/workflows/{WORKFLOW}/runs?event=workflow_dispatch&per_page=50']))['workflow_runs']
-        match = next((run for run in runs if request in run['display_title']), None)
-        if match:
-            state['run_id'] = match['id']
-            STATE.write_text(json.dumps(state, indent=2))
-            print(match['html_url'])
-            return 0
-        time.sleep(2)
-    print('GitHub 已接受请求，运行编号尚未查到；用 ship.py watch 重查。')
+    details = json.loads(response)
+    state['run_id'] = details['workflow_run_id']
+    STATE.write_text(json.dumps(state, indent=2))
+    print(details['html_url'], flush=True)
     return 0
 
 
@@ -66,7 +59,11 @@ def watch(once):
     state = json.loads(STATE.read_text())
     repo = state['repository']
     if 'run_id' not in state:
-        runs = json.loads(output(['gh', 'api', f'repos/{repo}/actions/workflows/{WORKFLOW}/runs?event=workflow_dispatch&per_page=100']))['workflow_runs']
+        # Keep watch usable for an outstanding request made by the old combined workflow.
+        if not state.get('request_id'):
+            workflow = state.get('workflow', WORKFLOWS[state['command']])
+            raise ValueError(f'任务编号未取得，请查看 https://github.com/{repo}/actions/workflows/{workflow}')
+        runs = json.loads(output(['gh', 'api', f'repos/{repo}/actions/workflows/ledger.yml/runs?event=workflow_dispatch&per_page=100']))['workflow_runs']
         match = next((run for run in runs if state['request_id'] in run['display_title']), None)
         if not match:
             raise ValueError('任务尚未出现，请查看仓库 Actions；不代表任务失败或通过')
