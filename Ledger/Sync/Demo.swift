@@ -3,8 +3,8 @@ import SwiftUI
 import LedgerKit
 
 // 演示账本: the public ledger-demo repository (made-up data). A copy of it is built into the app (Ledger/Demo,
-// copied in by tools/ship.py when the release app is built) so it opens at once and offline; newer versions are fetched from the
-// repository (GitHub, or the Cloudflare mirror where GitHub can't be reached) without reinstalling the app. The
+// copied in by tools/ship.py when the release app is built) so it opens at once and offline; newer versions are fetched from that
+// public GitHub repository without reinstalling the app. The
 // copy on this phone is local: edits stay here and nothing is pushed upstream. From it, 我的账本: a new ledger on
 // this phone with the demo's accounts and categories and no transactions.
 

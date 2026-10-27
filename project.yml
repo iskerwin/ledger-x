@@ -78,6 +78,10 @@ targets:
         CODE_SIGNING_REQUIRED: NO
         CODE_SIGN_IDENTITY: ""
         DEVELOPMENT_TEAM: ""
+      configs:
+        Debug:
+          # Surface expressions that are slow to type-check before they fail the test build.
+          OTHER_SWIFT_FLAGS: "$(inherited) -Xfrontend -warn-long-expression-type-checking=200"
   LedgerTests:
     type: bundle.unit-test
     platform: iOS
@@ -94,6 +98,9 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         CODE_SIGNING_ALLOWED: NO
         SWIFT_VERSION: "5.0"
+      configs:
+        Debug:
+          OTHER_SWIFT_FLAGS: "$(inherited) -Xfrontend -warn-long-expression-type-checking=200"
   LedgerUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -109,6 +116,9 @@ targets:
         TEST_TARGET_NAME: Ledger
         CODE_SIGNING_ALLOWED: NO
         SWIFT_VERSION: "5.0"
+      configs:
+        Debug:
+          OTHER_SWIFT_FLAGS: "$(inherited) -Xfrontend -warn-long-expression-type-checking=200"
 schemes:
   Ledger:
     build:

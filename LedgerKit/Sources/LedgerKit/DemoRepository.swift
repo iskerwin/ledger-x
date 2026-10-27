@@ -3,13 +3,12 @@ import Foundation
 /// The public demo repository is the single source of sample data. A copy of it goes into the app when it is
 /// built (Ledger/Demo, copied in by tools/ship.py), so the demo opens at once and offline; later versions are fetched from the
 /// repository without reinstalling the app. No credentials or Git history are needed: resolve main once, then read
-/// every file from that commit, from GitHub or from the app's Cloudflare mirror of the same commits.
+/// every file from that commit, from GitHub or from the optional mirror URL in the app's Info.plist.
 public enum DemoRepository {
     public static let repository = "iskerwin/ledger-demo"
     public typealias Read = (URL) async throws -> Data
 
-    /// where the files come from: GitHub itself, or the mirror (tools/cloudflare/worker.js), which serves the same
-    /// commits where GitHub can't be reached
+    /// where the files come from: GitHub itself, or an optional mirror URL of the same commits
     public enum Source: Equatable {
         case github
         case mirror(URL)
