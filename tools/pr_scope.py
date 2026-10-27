@@ -9,6 +9,10 @@ FUNC = re.compile(
     r'func\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:<[^>\n]*>)?\s*\(')
 HUNK = re.compile(r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@')
 ROOT = Path(__file__).resolve().parents[1]
+# Reviewed file dependencies. Unknown core files still run the entire module.
+KIT_SOURCE_TESTS = {'LedgerKit/Sources/LedgerKit/Search.swift': ('SearchTests',)}
+LOCALIZATION_FILES = frozenset(('Ledger/en.json', 'Ledger/Localizable.xcstrings',
+                                'Ledger/AppShortcuts.xcstrings', 'Ledger/InfoPlist.xcstrings'))
 
 
 def _norm(path):
@@ -151,7 +155,7 @@ def _narrow(paths, selectors, diff, sources):
 def classify(paths, diff=None, sources=None):
     """Return swift ('' | 'all' | filter), whether to compile the app tests, and which tests to run.
 
-    Docs and tools changes stay on static checks. LedgerKit source runs the whole package tests.
+    Docs and tools changes stay on static checks. Unmapped LedgerKit source runs the package tests.
     A few LedgerKit test files run only those classes. App, project or UI test edits compile the
     test bundles. With the pull-request diff, a changed test file runs the cases that diff
     touches, not the whole class. Calendar-only edits also run the other calendar cases in that
@@ -165,7 +169,9 @@ def classify(paths, diff=None, sources=None):
         if path.startswith('LedgerKit/'):
             parts = path.split('/')
             stem = Path(path).stem
-            if '/Tests/' in '/' + path and path.endswith('.swift') and 'Fixtures' not in parts and IDENT.fullmatch(stem):
+            if path in KIT_SOURCE_TESTS:
+                kit_tests.extend(KIT_SOURCE_TESTS[path])
+            elif '/Tests/' in '/' + path and path.endswith('.swift') and 'Fixtures' not in parts and IDENT.fullmatch(stem):
                 kit_tests.append(stem)
             else:
                 kit_source = True

@@ -206,7 +206,7 @@ class DevScopeTests(unittest.TestCase):
                 dev_scope.expand_modules(dev_scope.classify(['Ledger/Sync/Store.swift']), Path(temp))
 
     def test_unmapped_views_and_build_settings_only_add_three_critical_flows(self):
-        for path in ('Ledger/Views/NewView.swift', 'project.yml', 'Ledger/Views/GuideView.swift', 'Ledger/en.json'):
+        for path in ('Ledger/Views/NewView.swift', 'project.yml', 'Ledger/Views/GuideView.swift', 'Ledger/unknown.json'):
             with self.subTest(path=path):
                 plan = dev_scope.expand_modules(dev_scope.classify([path]), ROOT)
                 self.assertEqual(set(plan['ui_tests']), set(dev_scope.CRITICAL_UI))

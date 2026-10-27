@@ -72,9 +72,11 @@ def classify(paths, diff='', sources=None):
     targets = set()
     critical = False
     for path in paths:
-        critical |= path.startswith('Ledger/') or path == 'project.yml'
+        critical |= (path.startswith('Ledger/') and path not in pr_scope.LOCALIZATION_FILES) or path == 'project.yml'
         mapping = MAPPINGS.get(path)
-        if mapping:
+        if path in pr_scope.LOCALIZATION_FILES:
+            reasons.append(f'{path} → 本地化静态校验与安装包编译，不运行无关表单流程')
+        elif mapping:
             core.update(mapping['core'])
             ui.update(mapping['ui'])
             narrow.update(mapping['narrow'])
