@@ -29,9 +29,9 @@ class DevScopeTests(unittest.TestCase):
         self.assertEqual(plan['core_filter'], 'CalendarMarkTests|SearchTests|SubTests')
         self.assertIn('LedgerUITests/EditInteractionTests/testGlassCalendarFixedRowsAndDaySelection', plan['ui_tests'])
         self.assertIn('LedgerUITests/EditInteractionTests/testGlassSubscriptionCalendarRangeAndSelectionAtLargeText', plan['ui_tests'])
-        self.assertEqual(len(plan['ui_tests']), 9)
+        self.assertEqual(set(plan['ui_tests']), set(dev_scope.MAPPINGS['Ledger/Views/CalendarView.swift']['ui']) | set(dev_scope.CRITICAL_UI))
         self.assertEqual(len(plan['narrow_tests']), 4)
-        self.assertNotIn('LedgerUITests/EditInteractionTests/testUntouchedFormClosesWithoutPrompt', plan['ui_tests'])
+        self.assertNotIn('LedgerUITests/EditInteractionTests/testTransferFeeCancelCompleteAndKeyboardDismissal', plan['ui_tests'])
         self.assertTrue(dev_scope.validate_selectors(plan, ROOT))
 
     def test_all_reviewed_mappings_resolve_to_existing_tests(self):
@@ -46,15 +46,20 @@ class DevScopeTests(unittest.TestCase):
             with self.subTest(path=path):
                 plan = dev_scope.classify(['Ledger/Views/CalendarView.swift', path])
                 self.assertNotIn('full', plan)
+                self.assertNotIn('LedgerUITests', plan['app_targets'])
                 if path.startswith('LedgerKit/'):
                     self.assertTrue(plan['core_all'])
                     self.assertEqual(plan['app_targets'], [])
-                elif path.startswith(('Ledger/Sync/', 'tools/fixtures/')):
+                elif path.startswith('Ledger/Sync/'):
                     self.assertTrue(plan['core_all'])
                     self.assertIn('LedgerTests', plan['app_targets'])
+                elif path.startswith('tools/fixtures/'):
+                    self.assertTrue(plan['core_all'])
+                    self.assertEqual(plan['app_targets'], [])
+                    self.assertIn('LedgerTests/DemoBootstrapTests', plan['ui_tests'])
                 else:
                     self.assertFalse(plan['core_all'])
-                    self.assertEqual(plan['app_targets'], ['LedgerTests', 'LedgerUITests'])
+                    self.assertEqual(plan['app_targets'], ['LedgerTests'] if path.startswith('LedgerTests/Fixtures/') else [])
                 self.assertIn(path, '\n'.join(plan['reasons']))
 
     def test_docs_and_tooling_run_static_and_tools_without_unrelated_app_tests(self):
@@ -103,7 +108,8 @@ class DevScopeTests(unittest.TestCase):
             (root/'LedgerUITests').mkdir()
             (root/'LedgerUITests/EditInteractionTests.swift').write_text(
                 'final class EditInteractionTests: XCTestCase {\n' + '\n'.join(
-                    f'func {name}() {{}}' for name in dev_scope.CALENDAR_TESTS) + '\n}')
+                    f'func {name}() {{}}' for name in (*dev_scope.CALENDAR_TESTS,
+                        *(selector.rsplit('/', 1)[1] for selector in dev_scope.CRITICAL_UI))) + '\n}')
             kit = root/'LedgerKit/Tests/LedgerKitTests'
             kit.mkdir(parents=True)
             for name in ('CalendarMarkTests', 'SearchTests', 'SubTests'):
@@ -142,11 +148,8 @@ class DevScopeTests(unittest.TestCase):
             ancestry.return_value.returncode = 0
             with patch.object(ship, 'out', side_effect=['Ledger/Views/CalendarView.swift\0', '']), \
                  patch.object(dev_scope, 'validate_selectors', return_value=False):
-                plan = dev_scope.select('example/app', 'b'*40)
-                self.assertNotIn('full', plan)
-                self.assertTrue(plan['core_all'])
-                self.assertEqual(plan['app_targets'], ['LedgerUITests'])
-                self.assertIn('过期', plan['reasons'][-1])
+                with self.assertRaisesRegex(ship.Failure, '界面回归映射已失效'):
+                    dev_scope.select('example/app', 'b'*40)
 
     def test_mismatched_baseline_is_refused_without_guessing(self):
         for record, tag in ((dict(repository='other/app', source_sha='a'*40), 'a'*40),
@@ -200,7 +203,27 @@ class DevScopeTests(unittest.TestCase):
     def test_empty_module_is_refused_instead_of_counting_zero_as_passed(self):
         with tempfile.TemporaryDirectory() as temp:
             with self.assertRaises(ship.Failure):
-                dev_scope.expand_modules(dev_scope.classify(['Ledger/Views/NewView.swift']), Path(temp))
+                dev_scope.expand_modules(dev_scope.classify(['Ledger/Sync/Store.swift']), Path(temp))
+
+    def test_unmapped_views_and_build_settings_only_add_three_critical_flows(self):
+        for path in ('Ledger/Views/NewView.swift', 'project.yml', 'Ledger/Views/GuideView.swift', 'Ledger/en.json'):
+            with self.subTest(path=path):
+                plan = dev_scope.expand_modules(dev_scope.classify([path]), ROOT)
+                self.assertEqual(set(plan['ui_tests']), set(dev_scope.CRITICAL_UI))
+                self.assertEqual(plan['app_targets'], [])
+                self.assertFalse(plan['core_all'])
+
+    def test_current_feature_groups_never_pull_in_the_entire_ui_class(self):
+        plan = dev_scope.expand_modules(dev_scope.classify([
+            'Ledger/Views/JournalView.swift', 'Ledger/Views/SubPickers.swift', 'Ledger/Views/CalendarView.swift',
+            'Ledger/Sync/Demo.swift', 'LedgerKit/Sources/LedgerKit/Search.swift', 'project.yml']), ROOT)
+        self.assertEqual(plan['app_targets'], [])
+        self.assertIn('LedgerTests/DemoBootstrapTests', plan['ui_tests'])
+        self.assertIn('DemoRepositoryTests', plan['core_filter'].split('|'))
+        self.assertIn('LedgerUITests/EditInteractionTests/testJournalSearchAppliesOnSubmitAndClearRestores', plan['ui_tests'])
+        self.assertNotIn('LedgerUITests/EditInteractionTests', plan['ui_tests'])
+        self.assertNotIn('LedgerUITests/ColorInteractionTests', plan['ui_tests'])
+        self.assertEqual(len([value for value in plan['ui_tests'] if value.startswith('LedgerUITests/')]), 14)
 
 
 if __name__ == '__main__':

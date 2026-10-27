@@ -22,10 +22,12 @@ import platform
 import plistlib
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
 import time
+import threading
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -153,20 +155,59 @@ def out(cmd, **kwargs):
     return subprocess.run([str(c) for c in cmd], cwd=ROOT, check=True, capture_output=True, text=True, **kwargs).stdout.strip()
 
 
+def dev_limit(seconds):
+    return seconds if os.environ.get('LEDGER_COMMAND') == 'dev' else None
+
+
+def stream_process(cmd, handle, env, timeout):
+    """Dev logs are visible while running; the deadline also covers a process with no output."""
+    process = subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                               text=True, errors='replace', bufsize=1, start_new_session=True)
+    def copy():
+        for line in process.stdout:
+            handle.write(line)
+            handle.flush()
+            print(line, end='', flush=True)
+    reader = threading.Thread(target=copy, daemon=True)
+    reader.start()
+    try:
+        return process.wait(timeout=timeout)
+    except BaseException:
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.wait()
+        raise
+    finally:
+        reader.join(timeout=5)
+        process.stdout.close()
+
+
 def run(cmd, log=None, check=True, env=None, timeout=None):
     """Run a command; with `log`, its output goes to that file and the tail is shown on failure."""
     cmd = [str(c) for c in cmd]
     progress.logging(log)
-    if log is None:
-        result = subprocess.run(cmd, cwd=ROOT, env=env, timeout=timeout)
-    else:
-        with open(ROOT / log, 'w') as handle:
-            result = subprocess.run(cmd, cwd=ROOT, env=env, timeout=timeout, stdout=handle, stderr=subprocess.STDOUT)
-    if check and result.returncode:
+    try:
+        if log is None:
+            code = subprocess.run(cmd, cwd=ROOT, env=env, timeout=timeout).returncode
+        else:
+            with open(ROOT / log, 'w') as handle:
+                if os.environ.get('LEDGER_COMMAND') == 'dev':
+                    code = stream_process(cmd, handle, env, timeout)
+                else:
+                    code = subprocess.run(cmd, cwd=ROOT, env=env, timeout=timeout, stdout=handle, stderr=subprocess.STDOUT).returncode
+    except subprocess.TimeoutExpired as error:
+        raise Failure(f'{" ".join(cmd[:3])} 超过阶段时限 {error.timeout:g} 秒，已停止；日志见 {log or "Actions 输出"}') from error
+    if check and code:
         if log:
             print(''.join((ROOT / log).read_text(errors='replace').splitlines(True)[-40:]), file=sys.stderr)
-        raise Failure(f'{" ".join(cmd[:3])} 失败（退出码 {result.returncode}）' + (f'，完整日志见 {log}' if log else ''))
-    return result.returncode
+        raise Failure(f'{" ".join(cmd[:3])} 失败（退出码 {code}）' + (f'，完整日志见 {log}' if log else ''))
+    return code
 
 
 def remote_run(effect, cmd):
@@ -360,9 +401,10 @@ def validate_development():
     demo = demo_snapshot()
     digest = verify_demo_snapshot(demo)
     step('静态检查与流程回归')
-    run([sys.executable, 'tools/check_project.py'])
+    run([sys.executable, 'tools/check_project.py'], timeout=dev_limit(5 * 60))
     run([sys.executable, '-m', 'unittest', 'discover', '-s', 'tools/tests', '-p', 'test_*.py'], log='tools-tests.log',
-        env={k: v for k, v in os.environ.items() if k not in ('LEDGER_CORE_FILTER', 'LEDGER_UI_TESTS', 'LEDGER_SIMULATOR_DEVICE')})
+        env={k: v for k, v in os.environ.items() if k not in ('LEDGER_CORE_FILTER', 'LEDGER_UI_TESTS', 'LEDGER_SIMULATOR_DEVICE')},
+        timeout=dev_limit(5 * 60))
     return dict(validator='github-actions' if os.environ.get('GITHUB_ACTIONS') == 'true' else 'local',
                 **({'run_url': f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"}
                    if os.environ.get('GITHUB_ACTIONS') == 'true' else {}), scope='build', static_checks=True, tools_tests=True,
@@ -485,7 +527,8 @@ def validate_targeted():
     if core_filter:
         step('指定 LedgerKit 回归')
         run(['swift', 'test', '--package-path', 'LedgerKit', *TYPECHECK_FLAGS, '--filter', core_filter],
-            log='swift-tests.log', env=dict(os.environ, LEDGER_DEMO_PATH=str(ROOT / '.demo-data'), SAMPLE_OUT=str(ROOT / 'samples')))
+            log='swift-tests.log', env=dict(os.environ, LEDGER_DEMO_PATH=str(ROOT / '.demo-data'), SAMPLE_OUT=str(ROOT / 'samples')),
+            timeout=dev_limit(12 * 60))
         count, failed = executed((ROOT / 'swift-tests.log').read_text())
         if failed or count == 0:
             raise Failure('指定核心测试失败或没有实际执行用例')
@@ -498,12 +541,17 @@ def validate_targeted():
         try:
             run(['xcodegen', 'generate', '--quiet'])
             shutil.rmtree(ROOT / 'interaction-tests.xcresult', ignore_errors=True)
-            run(['xcodebuild', 'test', '-project', 'Ledger.xcodeproj', '-scheme', 'LedgerInteractionTests',
-                 '-destination', f'platform=iOS Simulator,id={udid}', '-derivedDataPath', 'build-demo',
+            base = ['xcodebuild', '-project', 'Ledger.xcodeproj', '-scheme', 'LedgerInteractionTests',
+                    '-destination', f'platform=iOS Simulator,id={udid}', '-derivedDataPath', 'build-demo']
+            if os.environ.get('LEDGER_COMMAND') == 'dev':
+                step('编译相关测试包（最多 20 分钟）')
+                run([*base, 'build-for-testing', 'CODE_SIGNING_ALLOWED=NO'], log='demo-build.log', timeout=20 * 60)
+            step('执行相关 App 内与界面测试')
+            run([*base, 'test-without-building' if os.environ.get('LEDGER_COMMAND') == 'dev' else 'test',
                  '-parallel-testing-enabled', 'NO', '-test-timeouts-enabled', 'YES',
-                 '-maximum-test-execution-time-allowance', str(TEST_TIMEOUT),
+                 '-maximum-test-execution-time-allowance', str(180 if os.environ.get('LEDGER_COMMAND') == 'dev' else TEST_TIMEOUT),
                  '-resultBundlePath', 'interaction-tests.xcresult', 'CODE_SIGNING_ALLOWED=NO',
-                 *['-only-testing:' + value for value in selectors]], log='interaction-tests.log')
+                 *['-only-testing:' + value for value in selectors]], log='interaction-tests.log', timeout=dev_limit(25 * 60))
             command = ['xcrun', 'xcresulttool', 'get', 'test-results']
             summary = json.loads(out([*command, 'summary', '--path', 'interaction-tests.xcresult', '--compact']))
             tests = json.loads(out([*command, 'tests', '--path', 'interaction-tests.xcresult', '--compact']))
@@ -775,7 +823,7 @@ def build_ipa(version, build, demo):
              '-sdk', 'iphoneos', '-destination', 'generic/platform=iOS', '-derivedDataPath', 'build',
              f'MARKETING_VERSION={version}', f'CURRENT_PROJECT_VERSION={build}',
              f'LEDGER_DEMO_COMMIT={demo}', 'LEDGER_DEMO_MIRROR=',
-             'CODE_SIGNING_ALLOWED=NO', 'CODE_SIGNING_REQUIRED=NO', 'CODE_SIGN_IDENTITY='], log='build.log')
+             'CODE_SIGNING_ALLOWED=NO', 'CODE_SIGNING_REQUIRED=NO', 'CODE_SIGN_IDENTITY='], log='build.log', timeout=dev_limit(20 * 60))
     finally:
         shutil.rmtree(bundled, ignore_errors=True)
     step('打包并校验安装包')
