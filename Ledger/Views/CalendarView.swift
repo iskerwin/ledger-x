@@ -62,7 +62,7 @@ struct JournalCalendar: View {
     }
 
     private func monthGrid(_ totals: [String: DayTotal], out: Double, inn: Double) -> some View {
-        GlassMonthCalendar(marks: intensity(totals), month: $month, last: Day.today(), describe: { describe($0, totals) }, selection: dayBinding, showsToday: true, toggleDay: true) {
+        GlassMonthCalendar(marks: intensity(totals), month: $month, last: Day.today(), describe: { describe($0, totals) }, selection: dayBinding, showsToday: true) {
             figures(out: out, inn: inn)
         } footer: {
             EmptyView()
@@ -96,9 +96,11 @@ struct JournalCalendar: View {
         Binding(get: { openDay?.day }, set: { openDay = $0.map { CalendarDay(day: $0) } })
     }
 
-    /// the system calendar has no selection of its own: the same day again closes the sheet
-    private func toggleDay(_ day: String) {
-        openDay = openDay?.day == day ? nil : CalendarDay(day: day)
+    /// picking a day opens its sheet; tapping the open day again keeps it open
+    /// (it used to close it, which the sheet itself covers on short screens),
+    /// and the sheet closes by swiping down or with its Done button
+    private func showDay(_ day: String) {
+        openDay = CalendarDay(day: day)
     }
 
     private func describe(_ day: String, _ totals: [String: DayTotal]) -> String? {
@@ -137,7 +139,7 @@ struct JournalCalendar: View {
                     let parts = [x.out > 0.005 ? LS("支出 ") + money(x.out) : nil, x.inn > 0.005 ? LS("收入 ") + money(x.inn) : nil].compactMap { $0 }
                     return parts.isEmpty ? (x.n > 0 ? LS("%@ 笔其他交易", x.n) : nil) : parts.joined(separator: " ")
                 }
-            }, pick: toggleDay)
+            }, pick: showDay)
             legend
         }
     }
@@ -181,7 +183,8 @@ struct DayMark {
 
 /// Six fixed rows, shared by Journal and subscriptions.
 /// The list section is the only card: no glass, and no inner rounded frame around the grid.
-/// `toggleDay` opens on the first tap and clears the same day on the next. Subscriptions pick at once.
+/// Tapping a day selects it; tapping the selected day again keeps it selected.
+/// Subscriptions pick at once.
 struct GlassMonthCalendar<Totals: View, Footer: View>: View {
     var marks: [String: DayMark]
     @Binding var month: String
@@ -191,7 +194,6 @@ struct GlassMonthCalendar<Totals: View, Footer: View>: View {
     @Binding var selection: String?
     var showsToday = false
     var themeMarks = false
-    var toggleDay = false
     var pickImmediately = false
     var pick: (String) -> Void = { _ in }
     @ViewBuilder var totals: () -> Totals
@@ -379,10 +381,6 @@ struct GlassMonthCalendar<Totals: View, Footer: View>: View {
 
     private func choose(_ d: String) {
         Haptics.selection()
-        if toggleDay {
-            selection = selection == d ? nil : d
-            return
-        }
         let repeated = selection == d
         selection = d
         if pickImmediately || repeated { pick(d) }

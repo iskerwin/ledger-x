@@ -971,6 +971,8 @@ final class EditInteractionTests: XCTestCase {
         plain.lifetime = .keepAlways
         add(plain)
         // The first row must remain tappable above the day sheet, including on short phones.
+        // Tapping the open day again keeps its sheet open: dismissal is a swipe down
+        // or the sheet's own Done button, not a second tap on the date.
         let first = app.buttons["calendar.day.2026-10-01"]
         XCTAssertTrue(first.waitForExistence(timeout: 5))
         let cardBeforeSheet = card.frame
@@ -993,15 +995,10 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertEqual(dayAfterSheet.midY, dayBeforeSheet.midY, accuracy: 0.5)
         XCTAssertTrue(first.isHittable, "The open date remains tappable above its sheet")
         spot.tap()
-        if textSize == nil {
-            XCTAssertTrue(opened.waitForNonExistence(timeout: 5), "Tapping the open day dismisses its sheet")
-        } else if !opened.waitForNonExistence(timeout: 2) {
-            // At the largest text size, tapping the exposed date does not dismiss the
-            // sheet (observed in cloud runs 40543757087 and 40555631979); the sheet's
-            // own Done button is the dismissal path there, as in the original design.
-            tapPoint(app.buttons["完成"], timeout: 5)
-            XCTAssertTrue(opened.waitForNonExistence(timeout: 5))
-        }
+        XCTAssertTrue(opened.waitForExistence(timeout: 5), "Tapping the open day again keeps its sheet open")
+        XCTAssertEqual(first.value as? String, "已选中")
+        tapPoint(app.buttons["完成"], timeout: 5)
+        XCTAssertTrue(opened.waitForNonExistence(timeout: 5), "The sheet's Done button dismisses it")
         XCTAssertNotEqual(first.value as? String, "已选中")
         let coffee = app.buttons["calendar.day.2026-10-17"]
         for _ in 0..<4 where !(coffee.exists && coffee.isHittable) { app.swipeUp() }
