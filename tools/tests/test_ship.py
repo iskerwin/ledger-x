@@ -1,5 +1,6 @@
 """Local validation and publication safety; fake archives and APIs, never real ledgers or builds."""
 import hashlib
+from contextlib import ExitStack
 import io
 import json
 from pathlib import Path
@@ -229,14 +230,82 @@ class ShipTests(unittest.TestCase):
                      patch.object(ship, 'STATUS', Path(temp)/'status.json'), \
                      patch.object(ship, 'HISTORY', Path(temp)/'history.json'), \
                      patch.object(ship, 'progress', ship.Progress()), \
+                     patch.object(ship, 'ship_dev') as dev, patch.object(ship, 'ship_release') as release, \
                      patch.object(ship, 'git', side_effect=git), patch.object(ship, 'run_totals', return_value={}), \
                      patch.object(ship, 'validate', side_effect=ship.Failure('tests failed') if failed else None,
                                   return_value=full):
                     self.assertEqual(ship.main(['ship.py', 'test']), 1 if failed else 0)
+                    dev.assert_not_called()
+                    release.assert_not_called()
                     self.assertEqual(ship.FULL_VALIDATION.exists(), not dirty and not failed)
                     if not dirty and not failed:
                         proof = ship.read_json(ship.FULL_VALIDATION)
                         ship.verify_proof(proof, dict(source_sha='a'*40, tree='tree'), require_full=True)
+
+    def test_full_validation_runs_in_order_and_stops_at_each_failed_step(self):
+        # Execute the real orchestration with fake commands and logs. No Xcode, simulator,
+        # network or ledger is used, including when this test runs inside ship.py test.
+        order = ['static', 'tools', 'core', 'reports', 'simulator', 'build', 'interaction']
+        logs = {
+            'swift-tests.log': 'Executed 10 tests, with 0 failures\n',
+            'reports-check.log': 'Reports match Beancount (fictional fixture)\n',
+            'interaction-tests.log': "Test Case '-[Example testSave]' passed (0.1 seconds).\n"
+                                     '** TEST EXECUTE SUCCEEDED **\n',
+        }
+        for failed in (None, *order):
+            with self.subTest(failed=failed), tempfile.TemporaryDirectory() as temp, ExitStack() as stack:
+                root = Path(temp)
+                calls, commands, stages = [], [], []
+
+                def visit(name):
+                    calls.append(name)
+                    if name == failed:
+                        raise ship.Failure(f'{name} failed')
+
+                def run(cmd, log=None, **kwargs):
+                    commands.append(cmd)
+                    if log == 'demo-build.log' and cmd[1] != 'build-for-testing':
+                        self.fail('测试包必须先编译')
+                    name = {'tools-tests.log': 'tools', 'swift-tests.log': 'core',
+                            'reports-check.log': 'reports', 'demo-build.log': 'build',
+                            'interaction-tests.log': 'interaction'}.get(log)
+                    if cmd[0] == 'xcodegen':
+                        return 0
+                    self.assertIsNotNone(name or ('static' if cmd[-1] == 'tools/check_project.py' else None))
+                    visit(name or 'static')
+                    if log:
+                        (root/log).write_text(logs.get(log, ''))
+                    return 0
+
+                def simulator():
+                    visit('simulator')
+                    return 'fake-udid', 'fictional iPhone'
+
+                for name, value in [('ROOT', root), ('use_xcode', lambda: 'Xcode fixture'),
+                                    ('demo_snapshot', lambda: 'demo'), ('beancount_python', lambda: 'python'),
+                                    ('fresh_simulator', simulator), ('run', run), ('step', stages.append),
+                                    ('report', lambda text: None)]:
+                    stack.enter_context(patch.object(ship, name, value))
+                stack.enter_context(patch.object(ship.subprocess, 'run'))
+                if failed:
+                    with self.assertRaisesRegex(ship.Failure, f'{failed} failed'):
+                        ship.validate()
+                    self.assertEqual(calls, order[:order.index(failed) + 1])
+                else:
+                    proof = ship.validate()
+                    self.assertEqual(calls, order)
+                    self.assertEqual(len(stages), 6)
+                    for actual, expected in zip(stages, ship.PLAN['test']):
+                        self.assertTrue(actual.startswith(expected), actual)
+                    self.assertEqual(proof['scope'], 'full')
+                    self.assertEqual((proof['core_tests'], proof['interaction_tests']), (10, 1))
+                    interaction = commands[-1]
+                    for flag, value in [('-parallel-testing-enabled', 'NO'),
+                                        ('-test-timeouts-enabled', 'YES'),
+                                        ('-maximum-test-execution-time-allowance', '300'),
+                                        ('-destination', 'platform=iOS Simulator,id=fake-udid')]:
+                        self.assertEqual(interaction[interaction.index(flag) + 1], value)
+                    self.assertNotIn('-only-testing', ' '.join(interaction))
 
     def test_test_totals_come_from_the_last_summary(self):
         log = ('Executed 10 tests, with 0 failures (0 unexpected) in 0.1 seconds\n'
