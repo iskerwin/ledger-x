@@ -2,8 +2,7 @@
 """Dispatch validation and publication to GitHub macOS; execute only on the runner.
 
   python3 tools/ship.py test                     cloud full validation, publishes nothing
-  python3 tools/ship.py dev --core-filter …      scoped tests, then publish the dev build
-  python3 tools/ship.py dev --ui-test Target/Class/method
+  python3 tools/ship.py dev                      automatically select tests since the previous dev, then publish
   python3 tools/ship.py dev --full               full validation, then publish the dev build
   python3 tools/ship.py release                  promote the phone-accepted dev package (requires --accepted-build N)
   python3 tools/ship.py version patch|minor|major|X.Y.Z
@@ -891,15 +890,24 @@ def require_clean_main():
 
 
 def ship_dev(full=False):
+    import dev_scope
     import release_notes
     if full and selected_tests():
         raise Failure('全量与指定测试不能混用')
-    if not full and not selected_tests():
-        raise Failure('开发版须先通过与改动相关的测试（--core-filter / --ui-test），或显式 --full；未发布安装包')
     repo = repository()
     require_clean_main()
     sha = git('rev-parse', 'HEAD')
-    proof = validate() if full else validate_targeted()
+    if not full and not selected_tests():
+        plan = dev_scope.select(repo, sha)
+        write_json(ROOT / '.ship/dev-test-plan.json', plan)
+        summary = dev_scope.describe(plan)
+        print(summary, flush=True)
+        if os.environ.get('GITHUB_STEP_SUMMARY'):
+            with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as target:
+                target.write(summary)
+        proof = dev_scope.validate(plan)
+    else:
+        proof = validate() if full else validate_targeted()
     version = re.search(r'MARKETING_VERSION: "([^"]+)"', (ROOT / 'project.yml').read_text())[1]
     changelog = (ROOT / 'CHANGELOG.md').read_text()
     require_open_version(version, changelog, tag_exists(repo, f'v{version}'))

@@ -101,6 +101,8 @@ require('warn-long-expression-type-checking=200' in project and 'warn-long-expre
         'Debug and test builds must warn on slow type-checking')
 require(ship.index('proof = validate() if full else validate_targeted()') < ship.index("remote_run('main_push'"),
         'Publication worker validates and builds before publishing')
+require(ship.index('proof = dev_scope.validate(plan)') < ship.index('ipa = build_ipa('),
+        'Automatic development selection must validate before building an IPA')
 
 # every Chinese text shown through LS has its English; every English entry is still shown somewhere
 english = json.loads((ROOT/'Ledger/en.json').read_text())

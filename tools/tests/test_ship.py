@@ -124,8 +124,12 @@ class ShipTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 ship.verify_proof(dict(proof, source_sha='other'), manifest)
 
-    def test_bare_dev_is_refused_before_validation_or_publish(self):
+    def test_automatic_selection_failure_stops_before_validation_or_publish(self):
+        import dev_scope
         with patch.object(ship, 'validate') as full, patch.object(ship, 'validate_targeted') as targeted, \
+             patch.object(ship, 'repository', return_value='example/app'), patch.object(ship, 'require_clean_main'), \
+             patch.object(ship, 'git', return_value='a'*40), \
+             patch.object(dev_scope, 'select', side_effect=ship.Failure('基线读取失败')), \
              patch.object(ship, 'build_ipa') as build, patch.dict(os.environ, {'LEDGER_CORE_FILTER': '', 'LEDGER_UI_TESTS': ''}):
             with self.assertRaises(ship.Failure):
                 ship.ship_dev()
@@ -134,8 +138,9 @@ class ShipTests(unittest.TestCase):
             build.assert_not_called()
 
     def test_scoped_dev_builds_without_running_full_tests_and_build_failure_never_pushes(self):
+        import dev_scope
         import release_notes
-        for failure in (None, 'build', 'push', 'upload', 'sources'):
+        for failure in (None, 'build', 'push', 'upload', 'sources', 'automatic'):
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp)
                 (root/'project.yml').write_text('MARKETING_VERSION: "1.0.0"')
@@ -163,7 +168,8 @@ class ShipTests(unittest.TestCase):
                         patch.object(ship, 'validate_targeted', return_value=dict(validator='local', scope='build',
                             static_checks=True, tools_tests=True, xcode='Xcode', demo_commit='demo', demo_sha256=DEMO_SHA)),
                         patch.object(ship, 'tag_exists', return_value=False),
-                        patch.dict(os.environ, {'LEDGER_CORE_FILTER': 'Example'}),
+                        patch.dict(os.environ, {'LEDGER_CORE_FILTER': '' if failure == 'automatic' else 'Example',
+                                                'LEDGER_UI_TESTS': '', 'GITHUB_STEP_SUMMARY': str(root/'summary.md')}),
                         patch.object(ship, 'fetch_releases', return_value=[dict(body='构建 3')]),
                         patch.object(ship, 'out', return_value=''), patch.object(ship, 'remote_has', return_value=False),
                         patch.object(ship, 'build_ipa', side_effect=build), patch.object(ship, 'run', side_effect=command),
@@ -172,9 +178,12 @@ class ShipTests(unittest.TestCase):
                         patch.object(release_notes, 'previous_changelog', return_value=''), patch('builtins.print'),
                     ):
                         mocks.enter_context(mocked)
+                    if failure == 'automatic':
+                        plan = dict(dev_scope.classify(['tools/ship.py']), base_sha='b'*40, source_sha='a'*40)
+                        mocks.enter_context(patch.object(dev_scope, 'select', return_value=plan))
                     run, full = ship.run, ship.validate
                     ship.progress.begin('dev')
-                    if failure:
+                    if failure and failure != 'automatic':
                         with self.assertRaises(ship.Failure):
                             ship.ship_dev()
                     else:
@@ -183,6 +192,10 @@ class ShipTests(unittest.TestCase):
                         self.assertEqual(evidence['scope'], 'build')
                         self.assertTrue(evidence['release_build'])
                         self.assertNotIn('interaction_tests', evidence)
+                        if failure == 'automatic':
+                            self.assertEqual(evidence['auto_selection'], plan)
+                            self.assertEqual(json.loads((root/'.ship/dev-test-plan.json').read_text()), plan)
+                            self.assertIn('Dev 自动测试范围', (root/'summary.md').read_text())
                         self.assertIn(unittest.mock.call(['git', 'push', 'origin', 'HEAD:refs/heads/main']), run.call_args_list)
                     effects = ship.progress.state.get('effects', {})
                     if failure == 'build':

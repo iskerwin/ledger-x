@@ -18,8 +18,8 @@ class CloudTests(unittest.TestCase):
     def test_public_entry_dispatches_instead_of_building_locally(self):
         with patch.dict(os.environ, {}, clear=True), patch.object(cloud, 'main', return_value=0) as dispatch, \
                 patch.object(ship, 'worker_main') as worker:
-            self.assertEqual(ship.main(['ship.py', 'dev', '--ui-test', 'LedgerUITests/Example/testSave']), 0)
-            dispatch.assert_called_once_with(['dev', '--ui-test', 'LedgerUITests/Example/testSave'])
+            self.assertEqual(ship.main(['ship.py', 'test', '--ui-test', 'LedgerUITests/Example/testSave']), 0)
+            dispatch.assert_called_once_with(['test', '--ui-test', 'LedgerUITests/Example/testSave'])
             worker.assert_not_called()
 
     def test_selected_dispatch_pushes_exact_source_and_carries_filters(self):
@@ -29,7 +29,7 @@ class CloudTests(unittest.TestCase):
             if '/dispatches' in ' '.join(cmd):
                 return json.dumps(dict(workflow_run_id=123, html_url='https://example.test/run'))
             return ''
-        args = argparse.Namespace(command='dev', full=False, core_filter='CalendarMarkTests',
+        args = argparse.Namespace(command='test', full=False, core_filter='CalendarMarkTests',
             ui_test=['LedgerUITests/Example/testSave'], device='iPhone SE (3rd generation)', accepted_build=None)
         with tempfile.TemporaryDirectory() as temp, patch.object(cloud, 'STATE', Path(temp)/'state.json'), \
              patch.object(cloud, 'output', side_effect=output), patch.object(ship, 'require_clean_main'), \
@@ -40,7 +40,7 @@ class CloudTests(unittest.TestCase):
             self.assertEqual(payload['inputs']['ui_tests'], args.ui_test[0])
             self.assertEqual(payload['inputs']['source_sha'], 'a'*40)
             self.assertTrue(payload['return_run_details'])
-            self.assertIn('repos/example/app/actions/workflows/dev.yml/dispatches', calls[1][0])
+            self.assertIn('repos/example/app/actions/workflows/ci.yml/dispatches', calls[1][0])
             self.assertNotIn('command', payload['inputs'])
             self.assertNotIn('request_id', payload['inputs'])
             self.assertEqual(json.loads(cloud.STATE.read_text())['run_id'], 123)
@@ -70,7 +70,7 @@ class CloudTests(unittest.TestCase):
                 elif command == 'test':
                     self.assertNotIn('full', payload['inputs'])
                 else:
-                    self.assertEqual(payload['inputs']['full'], 'true')
+                    self.assertEqual(payload['inputs'], dict(full='true'))
                 self.assertEqual(json.loads(cloud.STATE.read_text())['workflow'], filename)
 
     def test_release_requires_the_accepted_build_and_valid_package_digest(self):
@@ -94,7 +94,6 @@ class CloudTests(unittest.TestCase):
 
     def test_web_inputs_fail_before_source_checkout_or_testing(self):
         for inputs in (
-            dict(LEDGER_COMMAND='dev'),
             dict(LEDGER_COMMAND='dev', LEDGER_FULL='true', LEDGER_CORE_FILTER='Example'),
             dict(LEDGER_COMMAND='test', LEDGER_UI_TESTS='Example; echo bad'),
             dict(LEDGER_COMMAND='release', LEDGER_ACCEPTED_BUILD='123\nother'),
@@ -164,9 +163,18 @@ class CloudTests(unittest.TestCase):
                 cloud_worker.prepare()
             run.assert_not_called()
 
-    def test_bare_dev_is_refused_before_dispatch(self):
+    def test_bare_dev_dispatches_automatic_selection(self):
+        with patch.object(cloud, 'dispatch', return_value=0) as dispatch:
+            self.assertEqual(cloud.main(['dev']), 0)
+            self.assertFalse(dispatch.call_args.args[0].full)
+        with patch.dict(os.environ, dict(LEDGER_COMMAND='dev'), clear=True), \
+             patch.object(ship, 'worker_main', return_value=0) as worker:
+            self.assertEqual(cloud_worker.run(), 0)
+            worker.assert_called_once_with(['ship.py', 'dev'])
+
+    def test_dev_manual_selectors_are_redirected_to_test_without_dispatch(self):
         with patch.object(cloud, 'dispatch') as dispatch:
-            self.assertEqual(cloud.main(['dev']), 1)
+            self.assertEqual(cloud.main(['dev', '--core-filter', 'CalendarMarkTests']), 1)
             dispatch.assert_not_called()
 
     def test_prepare_allows_a_branch_test_of_its_own_head_without_fetching(self):
