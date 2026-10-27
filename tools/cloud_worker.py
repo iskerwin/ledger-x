@@ -55,6 +55,8 @@ def validate_inputs():
         raise ship.Failure('转正不允许筛选测试或更换机型')
     if command == 'release' and os.environ.get('LEDGER_FULL') == 'true':
         raise ship.Failure('Release 自动核对并补齐全量，不接受测试范围参数')
+    if command == 'dev' and os.environ.get('LEDGER_FULL') == 'true':
+        raise ship.Failure('Dev 只运行相关模块测试，不接受全量参数；全量验证在 Release 转正前执行')
     selectors = os.environ.get('LEDGER_UI_TESTS', '').split()
     if any(not re.fullmatch(r'Ledger(?:UI)?Tests/[A-Za-z0-9_]+(?:/[A-Za-z0-9_]+)?', value) for value in selectors):
         raise ship.Failure('ui_tests 请填 Target/Class[/method]，例如 LedgerTests/AppearanceTests；多个用空格分隔')
@@ -65,7 +67,7 @@ def run():
     command = os.environ['LEDGER_COMMAND']
     if command == 'release' and not re.fullmatch(r'[0-9a-f]{64}', os.environ.get('LEDGER_ACCEPTED_SHA256', '')):
         raise ship.Failure('缺少自动绑定的验收包校验值；请从 Ledger Release 工作流重新发起')
-    return ship.worker_main(['ship.py', command] + (['--full'] if command == 'dev' and os.environ.get('LEDGER_FULL') == 'true' else []))
+    return ship.worker_main(['ship.py', command])
 
 
 if __name__ == '__main__':

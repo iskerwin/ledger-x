@@ -3,7 +3,6 @@
 
   python3 tools/ship.py test                     cloud full validation, publishes nothing
   python3 tools/ship.py dev                      automatically select tests since the previous dev, then publish
-  python3 tools/ship.py dev --full               full validation, then publish the dev build
   python3 tools/ship.py release                  promote the phone-accepted dev package (requires --accepted-build N)
   python3 tools/ship.py version patch|minor|major|X.Y.Z
                                                  commit a version bump and a new CHANGELOG section
@@ -889,15 +888,13 @@ def require_clean_main():
         raise Failure('本地 main 落后于或偏离 GitHub main；先 git pull 再发布')
 
 
-def ship_dev(full=False):
+def ship_dev():
     import dev_scope
     import release_notes
-    if full and selected_tests():
-        raise Failure('全量与指定测试不能混用')
     repo = repository()
     require_clean_main()
     sha = git('rev-parse', 'HEAD')
-    if not full and not selected_tests():
+    if not selected_tests():
         plan = dev_scope.select(repo, sha)
         write_json(ROOT / '.ship/dev-test-plan.json', plan)
         summary = dev_scope.describe(plan)
@@ -907,7 +904,7 @@ def ship_dev(full=False):
                 target.write(summary)
         proof = dev_scope.validate(plan)
     else:
-        proof = validate() if full else validate_targeted()
+        proof = validate_targeted()
     version = re.search(r'MARKETING_VERSION: "([^"]+)"', (ROOT / 'project.yml').read_text())[1]
     changelog = (ROOT / 'CHANGELOG.md').read_text()
     require_open_version(version, changelog, tag_exists(repo, f'v{version}'))
@@ -1190,8 +1187,7 @@ def worker_main(argv):
     usage = __doc__.split('\n\n')[1]
     if command == 'watch' and argv[2:] in ([], ['--once']):
         return watch(once=argv[2:] == ['--once'])
-    full = command == 'dev' and argv[2:] == ['--full']
-    if command not in ('test', 'dev', 'release', 'version') or len(argv) != (3 if command == 'version' or full else 2):
+    if command not in ('test', 'dev', 'release', 'version') or len(argv) != (3 if command == 'version' else 2):
         print(usage, file=sys.stderr)
         return 2
     # One publication at a time on this Mac.
@@ -1219,16 +1215,14 @@ def worker_main(argv):
             else:
                 done(f'\n✓ 全部通过：核心 {proof["core_tests"]} 项，交互 {proof["interaction_tests"]} 项；{proof["reports"]}')
         elif command == 'dev':
-            if full:
-                progress.state['plan'] = list(PLAN['test'] + PLAN['dev'][1:])
-            elif selected_tests():
+            if selected_tests():
                 names = []
                 if os.environ.get('LEDGER_CORE_FILTER', '').strip():
                     names.append('指定 LedgerKit 回归')
                 if os.environ.get('LEDGER_UI_TESTS', '').strip():
                     names.append('指定 App 内与界面回归')
                 progress.state['plan'] = ['静态检查与流程回归', *names, *PLAN['dev'][1:]]
-            ship_dev(full=full)
+            ship_dev()
         elif command == 'release':
             ship_release()
         else:

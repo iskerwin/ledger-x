@@ -104,7 +104,7 @@ require('release delete' not in ship and '--force' not in ship.replace("'--force
 require('源码已在 main，未发布安装包' in ship, 'A cloud failure must say main is already pushed and no IPA was published')
 require('warn-long-expression-type-checking=200' in project and 'warn-long-expression-type-checking=200' in ship,
         'Debug and test builds must warn on slow type-checking')
-require(ship.index('proof = validate() if full else validate_targeted()') < ship.index("remote_run('main_push'"),
+require(ship.index('proof = validate_targeted()') < ship.index("remote_run('main_push'"),
         'Publication worker validates and builds before publishing')
 require(ship.index('proof = dev_scope.validate(plan)') < ship.index('ipa = build_ipa('),
         'Automatic development selection must validate before building an IPA')

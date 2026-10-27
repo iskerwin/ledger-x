@@ -1,12 +1,7 @@
 name: Ledger Dev
-run-name: 'Dev · ${{ inputs.full && ''全量测试'' || ''自动相关测试'' }} · ${{ github.ref_name }}'
+run-name: 'Dev · 自动相关测试 · ${{ github.ref_name }}'
 on:
   workflow_dispatch:
-    inputs:
-      full:
-        description: '可选：跑全量测试。默认不勾，自动比较上次开发版并运行相关测试；通过后发布开发版'
-        type: boolean
-        default: false
 permissions:
   contents: read
 # Dev 和 Release 共用发布锁。正在发布的不取消；排队只保留最新一次。
@@ -33,7 +28,6 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       LEDGER_COMMAND: dev
       LEDGER_SOURCE_SHA: ${{ github.sha }}
-      LEDGER_FULL: ${{ inputs.full }}
     steps:
       - uses: actions/checkout@v7
         with:

@@ -11,6 +11,6 @@
 
 不要在这个 PR 里发开发版或正式版。合并进 main 之后：
 
-1. `python3 tools/ship.py dev` 默认根据上次开发版之后的改动自动选相关测试，或显式 `--full`。测试通过才发布开发版；未知源码影响扩大到全量。
+1. `python3 tools/ship.py dev` 根据上次开发版之后的改动自动选相关测试，无法缩小时扩大到受影响模块。Dev 不运行完整全量，相关/模块测试通过才发布开发版。
 2. Kerwin 在手机上验收这一版的构建号。
 3. `python3 tools/ship.py release --accepted-build N` 在同一源码上跑完全量，再把同一个安装包转成正式版。版本号和构建号不变。
