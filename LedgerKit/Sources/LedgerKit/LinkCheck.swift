@@ -279,19 +279,43 @@ public func linkIssues(_ L: Ledger, subscriptions subs: [Subscription]) -> [Link
 
 /// the transaction's text with `link` added to (or, with `remove`, taken off) its header line
 public func headerLinkEdit(_ src: String, link: String, remove: Bool) -> String {
+    remove ? headerLinkReplace(src, link: link, with: nil) : headerWordAdd(src, "^" + link)
+}
+
+/// The words of a header line outside its strings (the flag, `#tag`, `^link`), and where a trailing comment starts
+/// (the line's length when there is none). A `"` escaped inside a string is part of it, not its end.
+func headerWords(_ c: [Character]) -> (words: [Range<Int>], comment: Int) {
+    let blank: (Character) -> Bool = { $0 == " " || $0 == "\t" }
+    var words: [Range<Int>] = []
+    var k = 0
+    while k < c.count, c[k] != ";" {
+        if blank(c[k]) { k += 1; continue }
+        if c[k] == "\"" {
+            k += 1
+            while k < c.count, c[k] != "\"" { k += c[k] == "\\" ? 2 : 1 }
+            k += 1
+            continue
+        }
+        let start = k
+        while k < c.count, !blank(c[k]), c[k] != "\"" { k += 1 }
+        words.append(start..<k)
+    }
+    return (words, min(k, c.count))
+}
+
+/// The transaction's text with `word` (`#tag` or `^link`) added to its header line, before a trailing comment.
+/// Unchanged when the header already has that word (the same text inside the payee, narration or comment
+/// does not count).
+public func headerWordAdd(_ src: String, _ word: String) -> String {
     var lines = src.components(separatedBy: "\n")
     guard let i = lines.firstIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) else { return src }
-    if remove {
-        return headerLinkReplace(src, link: link, with: nil)
-    } else if !lines[i].split(whereSeparator: { $0 == " " || $0 == "\t" }).contains(where: { String($0) == "^" + link }) {
-        // before a trailing comment, if any
-        let lastQuote = lines[i].range(of: "\"", options: .backwards)?.upperBound ?? lines[i].startIndex
-        if let r = lines[i].range(of: " ;", range: lastQuote..<lines[i].endIndex) {
-            lines[i] = String(lines[i][..<r.lowerBound]).trimmingCharacters(in: .whitespaces) + " ^" + link + " " + String(lines[i][r.lowerBound...]).trimmingCharacters(in: .whitespaces)
-        } else {
-            lines[i] = lines[i].replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression) + " ^" + link
-        }
-    }
+    let c = Array(lines[i])
+    let (words, comment) = headerWords(c)
+    if words.contains(where: { String(c[$0]) == word }) { return src }
+    var head = String(c[..<comment])
+    while head.last == " " || head.last == "\t" { head.removeLast() }
+    let rest = String(c[comment...])
+    lines[i] = head + " " + word + (rest.isEmpty ? "" : " " + rest)
     return lines.joined(separator: "\n")
 }
 
@@ -302,22 +326,7 @@ public func headerLinkReplace(_ src: String, link: String, with new: String?) ->
     guard let i = lines.firstIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) else { return src }
     var c = Array(lines[i])
     let blank: (Character) -> Bool = { $0 == " " || $0 == "\t" }
-    var words: [Range<Int>] = []
-    var k = 0
-    while k < c.count, c[k] != ";" {
-        if blank(c[k]) { k += 1; continue }
-        if c[k] == "\"" {
-            // a string: \" inside it is a quote, not its end
-            k += 1
-            while k < c.count, c[k] != "\"" { k += c[k] == "\\" ? 2 : 1 }
-            k += 1
-            continue
-        }
-        let start = k
-        while k < c.count, !blank(c[k]), c[k] != "\"" { k += 1 }
-        words.append(start..<k)
-    }
-    for r in words.reversed() where String(c[r]) == "^" + link {
+    for r in headerWords(c).words.reversed() where String(c[r]) == "^" + link {
         if let new = new {
             c.replaceSubrange(r, with: Array("^" + new))
         } else {
