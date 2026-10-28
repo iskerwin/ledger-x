@@ -181,6 +181,7 @@ struct QuickAddView: View {
                 }
                 .scrollDismissesKeyboard(.interactively)
                 .frame(maxHeight: .infinity)
+                .accessibilityIdentifier("quick.grid")
                 bottomPanel(d, L, D)
             }
         }
@@ -310,6 +311,9 @@ struct QuickAddView: View {
             .accessibilityIdentifier("quick.source")
             if store.draft.edited != nil {
                 Button { store.draft.edited = nil } label: { Label(LS("恢复自动生成"), systemImage: "arrow.counterclockwise") }
+            }
+            if store.draft.kind == .income && (isPersonal(store.draft.account) || isPersonal(store.draft.funding)) {
+                personButton(store.draft)
             }
             if store.draft.replacing == nil {
                 Divider()
@@ -652,38 +656,6 @@ struct QuickAddView: View {
         .dynamicTypeSize(...DynamicTypeSize.xxLarge)
     }
 
-    /// 保存至 <ledger>: a cell beside the day, when there is more than one ledger on this phone (and not while editing)
-    private var showsLedger: Bool { store.sources.count > 1 && store.draft.replacing == nil }
-
-    private var ledgerMenu: some View {
-        Menu {
-            Section(LS("保存至")) {
-                ForEach(store.sources) { s in
-                    Button {
-                        guard s.id != store.cfg.id else { return }
-                        Task {
-                            await store.switchLedger(s.id)
-                        }
-                    } label: {
-                        if s.id == store.cfg.id { Label(s.title, systemImage: "checkmark") } else { Text(s.title) }
-                    }
-                }
-            }
-        } label: {
-            HStack(spacing: AppSpacing.icon) {
-                Image(systemName: "book.closed").foregroundStyle(.secondary)
-                Text(store.cfg.title).lineLimit(1).truncationMode(.middle)
-                Spacer(minLength: 2)
-                Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.control)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(LS("保存至"))
-        .accessibilityValue(store.cfg.title)
-    }
-
     /// the picked group's other accounts, one tap each, and the path picked ("餐饮 › 咖啡") on the right
     @ViewBuilder
     private func subCategories(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
@@ -719,83 +691,80 @@ struct QuickAddView: View {
         store.repoConfig?.scanCards?.first { $0.value == a && $0.key.count == 4 && $0.key.allSatisfy(\.isNumber) }?.key
     }
 
-    // MARK: the paying account and the day; 报销 · 优惠 · 标签 · 更多
+    // MARK: the paying account, the day and 更多 (or 标签)
 
-    /// one card: the paying account, the day and the ledger saved to, side by side in equal parts; then the
-    /// marks, each a third (or a quarter with 更多)
+    /// one row in equal parts: the paying account (not for a transfer), the day, then 更多 for spending (报销, 优惠
+    /// and 标签 are in it) or 标签 for income and transfers. One row, so the grid above keeps its room when the
+    /// amount card grows a rate line. The ledger saved to is switched in the ⋯ menu at the top.
     private func choices(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                if d.kind != .transfer {
-                    fundingMenu(d, L, D).frame(maxWidth: .infinity)
-                    Divider().frame(height: 26)
-                }
-                Button { dating = true } label: {
-                    HStack(spacing: AppSpacing.icon) {
-                        Image(systemName: "calendar").foregroundStyle(.secondary)
-                        Text(dayLabel(d.date)).lineLimit(1)
-                        Spacer(minLength: 2)
-                        Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
-                    }
-                    .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.control)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(PressStyle())
-                .frame(maxWidth: .infinity)
-                .sheet(isPresented: $dating) {
-                    DaySheet(date: Binding(get: { store.draft.date }, set: { store.draft.date = $0; store.draft.edited = nil })) { dating = false }
-                        // a picker, but the month and its quick days need 500 pt: half a phone cuts the days off
-                        .presentationDetents([.height(500), .large])
-                        .presentationDragIndicator(.visible)
-                }
-                if showsLedger {
-                    Divider().frame(height: 26)
-                    ledgerMenu.frame(maxWidth: .infinity)
-                }
+        HStack(spacing: 0) {
+            if d.kind != .transfer {
+                fundingMenu(d, L, D).frame(maxWidth: .infinity)
+                Divider().frame(height: 26)
             }
-            Divider().padding(.horizontal, AppSpacing.control)
-            HStack(spacing: 0) {
-                if d.kind == .expense { reimbChip(d, D); Divider().frame(height: 20) }
-                if discountAllowed(d) {
-                    let v = evalAmount(d.discount) ?? 0
-                    Button { splittingPay = true } label: {
-                        mark(v > 0 ? LS("优惠 %@", money(v, d.currency)) : LS("优惠"), icon: "gift", on: v > 0)
-                    }
-                    .buttonStyle(PressStyle())
-                    Divider().frame(height: 20)
-                }
-                markChip(d, L)
-                if let more = moreMenu(d, L) { Divider().frame(height: 20); more }
+            Button { dating = true } label: {
+                cell(dayLabel(d.date), icon: "calendar", on: false)
             }
+            .buttonStyle(PressStyle())
+            .frame(maxWidth: .infinity)
+            .sheet(isPresented: $dating) {
+                DaySheet(date: Binding(get: { store.draft.date }, set: { store.draft.date = $0; store.draft.edited = nil })) { dating = false }
+                    // a picker, but the month and its quick days need 500 pt: half a phone cuts the days off
+                    .presentationDetents([.height(500), .large])
+                    .presentationDragIndicator(.visible)
+            }
+            Divider().frame(height: 26)
+            Group {
+                if d.kind == .expense { expenseMore(d, L, D) } else { markChip(d, L) }
+            }
+            .frame(maxWidth: .infinity)
         }
         .font(.subheadline)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
     }
 
-    /// 更多: AA, 组合付款, 本期补差 and 填写对方 where they apply (nil when none does)
-    private func moreMenu(_ d: Draft, _ L: Ledger) -> AnyView? {
-        let aa = d.kind == .expense && !d.reimb
-        let combo = d.kind == .expense
-        let topup = d.kind == .expense && store.ownedSubLinks.contains(d.link.trimmed)
-        let person = d.kind != .transfer && (isPersonal(d.account) || isPersonal(d.funding))
-        guard aa || combo || topup || person else { return nil }
-        let on = d.topup || hasCombo(d) || !d.person.trimmed.isEmpty
-        return AnyView(Menu {
-            if aa {
+    /// 更多 of spending: 报销, 优惠, 标签, then AA, 组合付款, 本期补差 and 填写对方 where they apply. It names what is set
+    /// (报销 and the tags; 优惠 and 组合付款 show under the amount) and turns the theme's colour.
+    private func expenseMore(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
+        let marks = markParts(d, L)
+        let topup = store.ownedSubLinks.contains(d.link.trimmed)
+        let person = isPersonal(d.account) || isPersonal(d.funding)
+        let discount = evalAmount(d.discount) ?? 0
+        let shown = (d.reimb ? [reimbLabel(d)] : []) + marks
+        let on = d.reimb || !marks.isEmpty || discount > 0 || d.topup || hasCombo(d) || !d.person.trimmed.isEmpty
+        return Menu {
+            Menu { reimbItems(d, D) } label: { Label(reimbLabel(d), systemImage: d.reimb ? "checkmark.circle.fill" : "doc.text") }
+            if discountAllowed(d) {
+                Button { splittingPay = true } label: {
+                    Label(discount > 0 ? LS("优惠 %@", money(discount, d.currency)) : LS("优惠…"), systemImage: "gift")
+                }
+            }
+            Button { marking = true } label: {
+                Label(marks.isEmpty ? LS("标签…") : marks.joined(separator: " "), systemImage: "tag")
+            }
+            Divider()
+            if !d.reimb {
                 Button { store.draft.split = true; store.draft.edited = nil; openFull() } label: { Label(LS("AA 分摊…"), systemImage: "person.2") }
             }
-            if combo { Button { splittingPay = true } label: { Label(LS("组合付款…"), systemImage: "square.split.2x1") } }
+            Button { splittingPay = true } label: { Label(LS("组合付款…"), systemImage: "square.split.2x1") }
             if topup {
                 Button { store.draft.topup.toggle(); store.draft.edited = nil } label: {
                     Label(LS("本期补差"), systemImage: d.topup ? "checkmark" : "plus.forwardslash.minus")
                 }
             }
-            if person {
-                Button { openFull() } label: { Label(d.person.trimmed.isEmpty ? LS("填写对方…") : LS("对方：%@", d.person), systemImage: "person") }
-            }
+            if person { personButton(d) }
         } label: {
-            mark(LS("更多"), icon: "ellipsis.circle", on: on)
-        })
+            cell(shown.isEmpty ? LS("更多") : shown.joined(separator: " "), icon: "ellipsis.circle", on: on)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(LS("更多"))
+        .accessibilityValue(shown.joined(separator: " "))
+        .accessibilityIdentifier("quick.more")
+    }
+
+    /// 填写对方: in spending's 更多, and in the ⋯ menu for income (its row has no 更多)
+    private func personButton(_ d: Draft) -> some View {
+        Button { openFull() } label: { Label(d.person.trimmed.isEmpty ? LS("填写对方…") : LS("对方：%@", d.person), systemImage: "person") }
     }
 
     private func fundingMenu(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
@@ -832,60 +801,69 @@ struct QuickAddView: View {
         .accessibilityValue(title)
     }
 
-    /// one of 报销 · 优惠 · 标签 · 更多: an icon over nothing, its name beside it, in the theme's colour when set
-    private func mark(_ text: String, icon: String, on: Bool) -> some View {
+    /// one part of the row: an icon, its text, and a chevron; in the theme's colour when something is set
+    private func cell(_ text: String, icon: String, on: Bool) -> some View {
         HStack(spacing: AppSpacing.icon) {
-            Image(systemName: icon).font(.footnote)
-            Text(text).lineLimit(1).minimumScaleFactor(0.8)
+            Image(systemName: icon).foregroundStyle(on ? Color.jadeInk : Color.secondary)
+            Text(text).foregroundStyle(on ? Color.jadeInk : Color.primary).lineLimit(1).truncationMode(.tail)
+            Spacer(minLength: 2)
+            Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
         }
-        .foregroundStyle(on ? Color.jadeInk : Color.primary)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, AppSpacing.icon)
+        .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.control)
         .contentShape(Rectangle())
     }
 
-    /// 标记: the entry's tags, its events and 待确认 (!) in one place; the chip says what is set
-    private func markChip(_ d: Draft, _ L: Ledger) -> some View {
+    /// the entry's events, tags and 待确认 (!)
+    private func markParts(_ d: Draft, _ L: Ledger) -> [String] {
         let evs = d.kind == .transfer ? [] : ledgerEvents(L, today: d.date).filter { d.events.contains($0.tag) }.map { $0.title }
-        let parts = evs + d.tags.map { "#" + $0 } + (d.flag == "!" ? ["!"] : [])
+        return evs + d.tags.map { "#" + $0 } + (d.flag == "!" ? ["!"] : [])
+    }
+
+    /// 标签 of income and transfers: the entry's tags, its events and 待确认 (!) in one place; the cell says what is set
+    private func markChip(_ d: Draft, _ L: Ledger) -> some View {
+        let parts = markParts(d, L)
         return Button { marking = true } label: {
-            mark(parts.isEmpty ? LS("标签") : parts.joined(separator: " "), icon: "tag", on: !parts.isEmpty)
+            cell(parts.isEmpty ? LS("标签") : parts.joined(separator: " "), icon: "tag", on: !parts.isEmpty)
         }
         .buttonStyle(PressStyle())
+        .accessibilityLabel(LS("标签"))
+        .accessibilityValue(parts.joined(separator: " "))
+    }
+
+    private func reimbLabel(_ d: Draft) -> String {
+        let onFloat = d.reimb && isFloatLink(d.link.trimmed)
+        let label = !d.reimb ? LS("报销") : onFloat ? LS("报销 · 备用金") : LS("报销 · 垫付")
+        return label + (d.reimb && !d.voucher.isEmpty ? " · " + d.voucher : "")
     }
 
     /// 报销: off, paid from a petty cash (the newest with money left, by default), or advanced by oneself
-    private func reimbChip(_ d: Draft, _ D: Derived) -> some View {
+    @ViewBuilder
+    private func reimbItems(_ d: Draft, _ D: Derived) -> some View {
         let floats = D.floats.filter { $0.left > 0.005 }
         let onFloat = d.reimb && isFloatLink(d.link.trimmed)
-        let label = !d.reimb ? LS("报销") : onFloat ? LS("报销 · 备用金") : LS("报销 · 垫付")
-        func set(_ on: Bool, _ link: String) {
+        let set = { (on: Bool, link: String) in
             store.draft.reimb = on
             store.draft.link = link
             store.draft.edited = nil
         }
-        return Menu {
-            Button { set(false, isFloatLink(d.link.trimmed) ? "" : d.link) } label: {
-                if !d.reimb { Label(LS("不报销"), systemImage: "checkmark") } else { Text(LS("不报销")) }
+        Button { set(false, isFloatLink(d.link.trimmed) ? "" : d.link) } label: {
+            if !d.reimb { Label(LS("不报销"), systemImage: "checkmark") } else { Text(LS("不报销")) }
+        }
+        ForEach(floats) { f in
+            Button { set(true, f.link) } label: {
+                let t = LS("备用金 %@（剩 %@）", f.date, money(f.left, f.currency))
+                if d.reimb && d.link == f.link { Label(t, systemImage: "checkmark") } else { Text(t) }
             }
-            ForEach(floats) { f in
-                Button { set(true, f.link) } label: {
-                    let t = LS("备用金 %@（剩 %@）", f.date, money(f.left, f.currency))
-                    if d.reimb && d.link == f.link { Label(t, systemImage: "checkmark") } else { Text(t) }
-                }
+        }
+        Button { set(true, isFloatLink(d.link.trimmed) ? "" : d.link) } label: {
+            if d.reimb && !onFloat { Label(LS("自己垫付"), systemImage: "checkmark") } else { Text(LS("自己垫付")) }
+        }
+        if d.reimb {
+            Divider()
+            Picker(LS("凭证类型"), selection: Binding(get: { store.draft.voucher }, set: { store.draft.voucher = $0; store.draft.edited = nil })) {
+                Text(LS("凭证：不填")).tag("")
+                ForEach(voucherKinds, id: \.self) { Text(LS("凭证：%@", $0)).tag($0) }
             }
-            Button { set(true, isFloatLink(d.link.trimmed) ? "" : d.link) } label: {
-                if d.reimb && !onFloat { Label(LS("自己垫付"), systemImage: "checkmark") } else { Text(LS("自己垫付")) }
-            }
-            if d.reimb {
-                Divider()
-                Picker(LS("凭证类型"), selection: Binding(get: { store.draft.voucher }, set: { store.draft.voucher = $0; store.draft.edited = nil })) {
-                    Text(LS("凭证：不填")).tag("")
-                    ForEach(voucherKinds, id: \.self) { Text(LS("凭证：%@", $0)).tag($0) }
-                }
-            }
-        } label: {
-            mark(label + (d.reimb && !d.voucher.isEmpty ? " · " + d.voucher : ""), icon: d.reimb ? "checkmark.circle.fill" : "doc.text", on: d.reimb)
         }
     }
 

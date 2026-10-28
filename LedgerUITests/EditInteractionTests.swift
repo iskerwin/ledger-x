@@ -307,16 +307,50 @@ final class EditInteractionTests: XCTestCase {
 
     func testTagPickerCancelDoesNotChangeDraft() {
         let app = launch(filled: false)
-        app.buttons["标签"].tap()
+        // spending's 标签 is in 更多
+        app.buttons["quick.more"].tap(); tapPoint(app.buttons["标签…"].firstMatch, timeout: 5)
         let input = app.textFields["新标签，如 trip-shanghai"]
         XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("phase-two")
         app.buttons["添加"].tap()
         app.navigationBars.buttons["取消"].tap()
-        app.buttons["标签"].tap()
+        app.buttons["quick.more"].tap(); tapPoint(app.buttons["标签…"].firstMatch, timeout: 5)
         XCTAssertFalse(app.staticTexts["#phase-two"].exists)
         app.navigationBars.buttons["取消"].tap()
         app.buttons["关闭"].tap()
         XCTAssertTrue(app.buttons["关闭"].waitForNonExistence(timeout: 5))
+    }
+
+    /// The account, the day and 更多 (标签 for income and transfers) are one row, the same height for every kind, so
+    /// the grid keeps its room; a line under the amount (here the fee) takes less than the row that was saved.
+    func testChoicesAreOneRowAndTheGridKeepsItsRoom() {
+        let app = launch()
+        let grid = app.scrollViews["quick.grid"]
+        let more = app.buttons["quick.more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 5))
+        let funding = app.buttons["付款账户"].firstMatch
+        XCTAssertEqual(funding.frame.midY, more.frame.midY, accuracy: 1)
+        XCTAssertFalse(app.buttons["保存至"].exists)
+        let height = grid.frame.height
+        let row = more.frame.height
+        for kind in ["收入", "转账"] {
+            tapKind(app, kind)
+            let tag = app.buttons["标签"].firstMatch
+            XCTAssertTrue(tag.waitForExistence(timeout: 5))
+            XCTAssertFalse(more.exists)
+            XCTAssertEqual(grid.frame.height, height, accuracy: 1, kind)
+            XCTAssertEqual(tag.frame.height, row, accuracy: 1, kind)
+        }
+        tapKind(app, "支出")
+        XCTAssertTrue(more.waitForExistence(timeout: 5))
+        app.buttons["draft.rate"].tap()
+        let fee = app.textFields["transfer.fee.amount"]
+        tapPoint(fee, timeout: 5)
+        assertCanType(app, into: fee)
+        fee.typeText("2")
+        app.buttons["收起键盘"].tap()
+        app.navigationBars.buttons["完成"].tap()
+        XCTAssertTrue(app.buttons["expense.fee"].waitForExistence(timeout: 5))
+        XCTAssertLessThan(height - grid.frame.height, row, "the fee line costs less than the row the choices gave back")
     }
 
     func testManualFundingSurvivesPayeeSuggestionInFullForm() {
