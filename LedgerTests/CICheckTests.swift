@@ -3,6 +3,7 @@ import XCTest
 
 /// The bean-check run is asked for after a sync only when there is something new to know; it used to be asked
 /// after every sync, even when nothing had changed.
+@MainActor
 final class CICheckTests: XCTestCase {
     func testTheRunIsAskedForOnlyWhenThereIsSomethingNew() {
         let head = "c2"
