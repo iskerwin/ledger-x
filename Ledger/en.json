@@ -1170,6 +1170,7 @@
  "文件夹不能是 . 或 ..": "The folder can't be . or ..",
  "文件夹名称": "Folder name",
  "文件尚未下载，暂时无法撤回": "The file isn't downloaded yet; can't undo right now",
+ "Token 未能保存在本机，连接未保存": "The token couldn't be stored on this device; the connection wasn't saved",
  "文件已经变了，请刷新后再试": "The file has changed; refresh and try again",
  "文本（Beancount 指令）": "Text (Beancount directives)",
  "断言不符": "Balance mismatch",
