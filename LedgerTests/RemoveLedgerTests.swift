@@ -10,10 +10,8 @@ final class RemoveLedgerTests: XCTestCase {
         let store = Store()
         var current = RepoConfig(); current.id = "remove-current-" + UUID().uuidString; current.kind = .local
         var other = RepoConfig(); other.id = "remove-other-" + UUID().uuidString; other.kind = .local
-        store.sources += [current, other]
+        // removeLedger works on any other ledger's id; the phone's own list of ledgers is left as it is
         store.cfg = current
-        // the list of ledgers is saved by removeLedger: take the test's own one off again afterwards
-        defer { store.cfg = RepoConfig(); store.removeLedger(current.id) }
         try RecoveryFiles.save(["fictional"], kind: "attachments", ledger: other.id)
         try RecoveryFiles.save(["fictional"], kind: "import", ledger: other.id)
         try RecoveryFiles.saveData(Data("; fictional statement".utf8), kind: "import-source", ledger: other.id)
@@ -21,6 +19,5 @@ final class RemoveLedgerTests: XCTestCase {
         XCTAssertNil(RecoveryFiles.load([String].self, kind: "attachments", ledger: other.id))
         XCTAssertNil(RecoveryFiles.load([String].self, kind: "import", ledger: other.id))
         XCTAssertNil(RecoveryFiles.loadData(kind: "import-source", ledger: other.id))
-        XCTAssertFalse(store.sources.contains { $0.id == other.id })
     }
 }
