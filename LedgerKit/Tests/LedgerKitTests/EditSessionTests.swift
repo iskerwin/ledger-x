@@ -10,6 +10,22 @@ final class EditSessionTests: XCTestCase {
         return d
     }
 
+    /// A new form left open over midnight, untouched, moves to the new day; a filled form, an edit and a date
+    /// picked by hand stay on theirs
+    func testAnUntouchedNewFormMovesToTheNewDay() {
+        var blank = Draft(); blank.date = "2026-10-27"
+        let rolled = DraftSession(draft: blank, baseline: blank).rollingDate(from: "2026-10-27", to: "2026-10-28")
+        XCTAssertEqual(rolled?.draft.date, "2026-10-28")
+        XCTAssertEqual(rolled?.baseline.date, "2026-10-28")
+        XCTAssertEqual(rolled?.shouldKeep, false, "still an untouched form")
+        var filled = blank; filled.amount = "12"
+        XCTAssertNil(DraftSession(draft: filled, baseline: blank).rollingDate(from: "2026-10-27", to: "2026-10-28"))
+        var picked = blank; picked.date = "2026-10-20"
+        XCTAssertNil(DraftSession(draft: picked, baseline: blank).rollingDate(from: "2026-10-27", to: "2026-10-28"))
+        var editing = edit(); editing.date = "2026-10-27"
+        XCTAssertNil(DraftSession(draft: editing, baseline: editing).rollingDate(from: "2026-10-27", to: "2026-10-28"))
+    }
+
     func testOnlySwitchingTypeOnEmptyCreationDoesNotKeepDraft() {
         var initial = Draft(); initial.funding = "Assets:Bank"; initial.events = ["trip"]
         var session = DraftSession(draft: initial, baseline: initial)

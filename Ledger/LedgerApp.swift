@@ -55,7 +55,11 @@ struct LedgerApp: App {
             .onChange(of: phase) { _, p in
                 if p != .active { store.persistActiveDraft() }
                 lock.scenePhase(p)
-                if p == .active { Task { await store.refresh() } }
+                if p == .active { store.dayMayHaveChanged(); Task { await store.refresh() } }
+            }
+            // midnight while the app is open (delivered on return when it passed in the background)
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
+                store.dayMayHaveChanged()
             }
         }
     }
