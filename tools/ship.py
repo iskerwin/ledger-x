@@ -393,12 +393,22 @@ def fresh_simulator(boot_timeout=120, ready_timeout=None):
     udid = out(['xcrun', 'simctl', 'create', SIM_NAME, device['identifier'], runtime['identifier']])
     disable_hardware_keyboard(udid)
     ready = BOOT_TIMEOUT if ready_timeout is None else ready_timeout
-    try:
-        subprocess.run(['xcrun', 'simctl', 'boot', udid], check=True, capture_output=True, timeout=boot_timeout)
-        subprocess.run(['xcrun', 'simctl', 'bootstatus', udid, '-b'], check=True, capture_output=True, timeout=ready)
-        subprocess.run(['xcrun', 'simctl', 'getenv', udid, 'HOME'], check=True, capture_output=True, timeout=60)
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
-        raise Failure(f'模拟器环境失败（测试尚未开始）：{error}。这不是测试结论，可直接重跑')
+    # a simulator that hangs while starting (getenv HOME timing out on the runner) is replaced once with a new
+    # one: no test has started, so this is the same as rerunning, without failing the whole job first
+    for attempt in (1, 2):
+        try:
+            subprocess.run(['xcrun', 'simctl', 'boot', udid], check=True, capture_output=True, timeout=boot_timeout)
+            subprocess.run(['xcrun', 'simctl', 'bootstatus', udid, '-b'], check=True, capture_output=True, timeout=ready)
+            subprocess.run(['xcrun', 'simctl', 'getenv', udid, 'HOME'], check=True, capture_output=True, timeout=60)
+            break
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+            if attempt == 2:
+                raise Failure(f'模拟器环境失败（测试尚未开始，已换新模拟器重试一次）：{error}。这不是测试结论，可直接重跑')
+            print(f'模拟器启动失败，换一个新模拟器再试一次（测试尚未开始）：{error}', flush=True)
+            subprocess.run(['xcrun', 'simctl', 'shutdown', udid], capture_output=True, timeout=60)
+            subprocess.run(['xcrun', 'simctl', 'delete', udid], capture_output=True, timeout=60)
+            udid = out(['xcrun', 'simctl', 'create', SIM_NAME, device['identifier'], runtime['identifier']])
+            disable_hardware_keyboard(udid)
     return udid, f'{device["name"]} · {runtime["name"]}'
 
 
