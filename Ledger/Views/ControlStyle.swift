@@ -451,10 +451,16 @@ struct PeriodBar: View {
         return (1...12).map { Day.monthLabel(String(format: "%@-%02d", String(year), $0)) }.max { $0.count < $1.count } ?? Day.monthLabel(month)
     }
 
+    /// drawn and laid out at 24 × 28 as before, touched over 44 × 44 (it was hard to hit): the button is the larger
+    /// size and the negative padding gives the bar its old room back, so nothing around it moves
     private func arrow(_ symbol: String, _ label: String, enabled: Bool, _ go: @escaping () -> Void) -> some View {
-        Button(action: go) { Image(systemName: symbol).font(.body.weight(.semibold)).frame(minWidth: 24, minHeight: 28) }
-            .disabled(!enabled)
-            .accessibilityLabel(label)
+        Button(action: go) {
+            Image(systemName: symbol).font(.body.weight(.semibold))
+                .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+        }
+        .padding(.horizontal, -10).padding(.vertical, -8)
+        .disabled(!enabled)
+        .accessibilityLabel(label)
     }
 
     private func back(_ label: some View) -> some View {
@@ -678,6 +684,8 @@ struct ActionRow: View {
             horizontalPadding: containsLabel ? AppSpacing.content : AppSpacing.icon,
             enabled: isEnabled
         ))
+        // a date row's filled capsule is the day chosen: VoiceOver says so
+        .accessibilityAddTraits(containsLabel && filled ? .isSelected : [])
     }
 }
 
