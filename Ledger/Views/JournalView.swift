@@ -251,7 +251,6 @@ struct JournalView: View {
                     } label: { Label(selecting ? LS("完成") : LS("选择"), systemImage: selecting ? "checkmark" : "checkmark.circle").labelStyle(ControlLabelStyle()) }
                 }
             }
-            .topBar { if !selecting { QuickSearchBar(q: $q) } }
             .safeAreaInset(edge: .bottom) { if selecting { batchBar } }
             .sheet(item: $savingFilter) { e in QuickSearchSheet(edit: e) }
             // one sheet for whichever day is picked: switching days changes what it shows instead of
@@ -428,6 +427,12 @@ struct JournalView: View {
         ScrollViewReader { proxy in
             List {
                 Section {
+                    // the saved searches scroll with the list: pinned under the search box (iOS 26 safeAreaBar), the
+                    // large title collapsing moved the bar, which pushed the list back and opened the title again,
+                    // over and over
+                    if !selecting && !(store.quickSearches.isEmpty && q.trimmed.isEmpty) {
+                        QuickSearchBar(q: $q).listRowInsets(EdgeInsets())
+                    }
                     // looking by date, the calendar takes the quick filters' place (what is on stays, with its ✕)
                     if showCalendar {
                         JournalCalendar(L: L, entries: matches, account: account, openDay: $calendarDay)

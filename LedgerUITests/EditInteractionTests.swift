@@ -462,6 +462,31 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertNotEqual(search.value as? String, "Coffee")
     }
 
+    /// The saved searches (and 保存 for the one applied) scroll with the list. Pinned under the search box, the large
+    /// title collapsing moved them, which pushed the list back and opened the title again, over and over.
+    func testQuickSearchesScrollWithTheJournal() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures")
+        app.launchEnvironment = ["LEDGER_DEMO": fixtures.path, "LEDGER_EXTRA": fixtures.appendingPathComponent("journal-extra.bean").path,
+                                 "LEDGER_TAB": "journal", "LEDGER_LANG": "zh"]
+        app.launchArguments = ["-AppleLanguages", "(zh-Hans)"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["Coffee"].firstMatch.waitForExistence(timeout: 20))
+        let search = app.searchFields.firstMatch
+        tapPoint(search, timeout: 5)
+        search.typeText("Cafe\n")
+        let save = app.buttons["保存"].firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        XCTAssertTrue(save.isHittable)
+        let window = app.windows.firstMatch.frame
+        let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: window.midX, dy: window.midY + 120))
+        for _ in 0..<3 {
+            start.press(forDuration: 0, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -260)), withVelocity: .slow, thenHoldForDuration: 0.2)
+        }
+        XCTAssertFalse(save.exists && save.isHittable, "scrolled away with the list, not pinned under the search box")
+    }
+
     func testCopiedExpenseShowsPartyAndDescriptionInQuickEditor() {
         continueAfterFailure = false
         let app = XCUIApplication()
