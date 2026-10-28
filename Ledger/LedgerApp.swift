@@ -1,11 +1,46 @@
 import SwiftUI
+import UIKit
 import UserNotifications
 import LedgerKit
+
+/// The lock screen in its own window, above the app window.
+///
+/// Two earlier shapes both failed one side of this. An overlay inside the
+/// app window did not cover sheets, which are presented above it. Removing
+/// RootView while locked covered sheets but threw away every open sheet
+/// and navigation stack, so unlocking returned to the tab root. A window
+/// above the app window covers sheets too (window level beats presentation
+/// order) while the app window keeps its sheets and navigation exactly as
+/// they were underneath it.
+@MainActor
+final class LockWindow {
+    private var window: UIWindow?
+
+    func sync(locked: Bool, lock: AppLock, scheme: ColorScheme?) {
+        if locked {
+            if window != nil { return }
+            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first else { return }
+            let w = UIWindow(windowScene: scene)
+            w.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue + 1)
+            w.rootViewController = UIHostingController(rootView: LockScreen().environment(lock).preferredColorScheme(scheme))
+            w.makeKeyAndVisible()
+            window = w
+        } else if let w = window {
+            let scene = w.windowScene
+            w.isHidden = true
+            w.rootViewController = nil
+            window = nil
+            scene?.windows.first { !$0.isHidden }?.makeKeyAndVisible()
+        }
+    }
+}
 
 @main
 struct LedgerApp: App {
     @State private var store = Store.shared
     @State private var lock = AppLock()
+    @State private var lockWindow = LockWindow()
     @Environment(\.scenePhase) private var phase
     @AppStorage(AppAppearance.key) private var appearance = AppAppearance.system.rawValue
 
@@ -17,23 +52,13 @@ struct LedgerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                // Locked means locked: the lock screen used to be only an overlay
-                // inside this window, so a sheet opened before locking (for example
-                // a day's transactions) stayed visible above it. While locked the
-                // app's own views are not in the hierarchy at all, so nothing they
-                // presented can stay on screen; unlocking rebuilds them on the
-                // current tab. The inactive privacy cover keeps its overlay form:
-                // it only hides the app switcher snapshot while unlocked.
-                if lock.locked {
-                    LockScreen().transition(.opacity)
-                } else {
-                    ZStack {
-                        RootView()
-                        if phase != .active && lock.enabled {
-                            PrivacyCover().zIndex(1)
-                        }
-                    }
+            // RootView always stays mounted: the lock screen lives in its own
+            // window above it (see LockWindow), so locking never tears down
+            // an open sheet or a navigation stack.
+            ZStack {
+                RootView()
+                if phase != .active && lock.enabled {
+                    PrivacyCover().zIndex(1)
                 }
             }
             .environment(store)
@@ -44,8 +69,12 @@ struct LedgerApp: App {
                 NotificationRouter.shared.open = { [store] t in
                     if let tab = Tab(rawValue: t), tab != .add { store.tab = tab } else { store.openAdd() }
                 }
+                lockWindow.sync(locked: lock.locked, lock: lock, scheme: AppAppearance(rawValue: appearance)?.scheme)
                 if lock.locked { Task { await lock.unlock() } }
                 await store.start()
+            }
+            .onChange(of: lock.locked) { _, locked in
+                lockWindow.sync(locked: locked, lock: lock, scheme: AppAppearance(rawValue: appearance)?.scheme)
             }
             .onOpenURL { url in
                 // ledgerx://add (Shortcuts, notifications)
@@ -55,6 +84,7 @@ struct LedgerApp: App {
             .onChange(of: phase) { _, p in
                 if p != .active { store.persistActiveDraft() }
                 lock.scenePhase(p)
+                lockWindow.sync(locked: lock.locked, lock: lock, scheme: AppAppearance(rawValue: appearance)?.scheme)
                 if p == .active { Task { await store.refresh() } }
             }
         }
