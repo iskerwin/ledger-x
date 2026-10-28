@@ -72,9 +72,9 @@ struct ImportView: View {
                 defer { if ok { url.stopAccessingSecurityScopedResource() } }
                 // a bill export is a few megabytes; a much larger file is not read into memory at all
                 if let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > 20 << 20 {
-                    store.show(LS("文件超过 20 MB，不像是账单导出；请导出较短时间范围的账单再试")); return
+                    store.showFailure(LS("文件超过 20 MB，不像是账单导出；请导出较短时间范围的账单再试")); return
                 }
-                guard let d = try? Data(contentsOf: url) else { store.show(LS("无法读取文件")); return }
+                guard let d = try? Data(contentsOf: url) else { store.showFailure(LS("无法读取文件")); return }
                 load(d, name: url.lastPathComponent)
             }
             .sheet(item: Binding(get: { pickAccount.map { IntBox(v: $0) } }, set: { pickAccount = $0?.v })) { b in
@@ -157,7 +157,7 @@ struct ImportView: View {
             let parsed = await BillLoader.shared.read(d, name: name, columns: columns)
             guard !Task.isCancelled, token == parseToken, store.cfg.id == ledgerID else { return }
             defer { parsing = false }
-            guard let table = parsed else { store.show(LS("无法识别该文件")); return }
+            guard let table = parsed else { store.showFailure(LS("无法识别该文件")); return }
             timing.record("import-parse-finished", count: table.rows.count)
             restoring = checkpoint != nil
             if let saved = checkpoint {
@@ -188,7 +188,7 @@ struct ImportView: View {
         }
         if !restoring {
             do { try RecoveryFiles.saveData(d, kind: "import-source", ledger: ownerLedgerID); sourceRetained = true }
-            catch { store.show(LS("无法保留导入文件：%@", error.localizedDescription)) }
+            catch { store.showFailure(LS("无法保留导入文件：%@", error.localizedDescription)) }
             _ = persistCheckpoint()
         }
     }
@@ -514,7 +514,7 @@ struct ImportView: View {
             try RecoveryFiles.save(saved, kind: "import", ledger: ownerLedgerID)
             return true
         }
-        catch { store.show(LS("无法保留导入进度：%@", error.localizedDescription)); return false }
+        catch { store.showFailure(LS("无法保留导入进度：%@", error.localizedDescription)); return false }
     }
 
     private func restore(_ saved: ImportCheckpoint) {

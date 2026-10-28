@@ -364,7 +364,7 @@ struct AdvancedPage: View {
         defer { resetting = false }
         guard await store.resetCache() else { return }
         if let e = store.loadError { store.show(e) }
-        else if store.syncState == .error || store.syncState == .offline { store.show(LS("重新下载失败：%@", store.syncError)) }
+        else if store.syncState == .error || store.syncState == .offline { store.showFailure(LS("重新下载失败：%@", store.syncError)) }
         else { store.show(LS("已清除缓存并重新下载")) }
     }
 }

@@ -177,6 +177,10 @@ struct ToastView: View {
         if let t = store.toast {
             HStack(spacing: AppSpacing.control) {
                 if t.success { SavedCheck() }
+                if t.failure {
+                    Image(systemName: "exclamationmark.circle.fill").font(.body.weight(.semibold))
+                        .foregroundStyle(Color.loss).accessibilityHidden(true).accessibilityIdentifier("toast.failure")
+                }
                 Text(t.text).font(.subheadline.weight(.medium)).lineLimit(2)
                     .accessibilityIdentifier("toast.message")
                 if let a = t.action {

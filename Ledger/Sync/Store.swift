@@ -38,11 +38,14 @@ struct Toast: Identifiable, Equatable {
     var action: String?
     /// something was saved: the notice leads with a check
     var success = false
-    init(id: UUID = UUID(), text: String, action: String? = nil, success: Bool = false) {
+    /// something failed or was refused: the notice leads with a warning mark
+    var failure = false
+    init(id: UUID = UUID(), text: String, action: String? = nil, success: Bool = false, failure: Bool = false) {
         self.id = id
         self.text = text
         self.action = action
         self.success = success
+        self.failure = failure
     }
 }
 
@@ -325,9 +328,9 @@ enum Prefs {
 
     /// save the connection settings of a ledger and make it the active one
     func saveConfig(_ c: RepoConfig) async {
-        guard !drafts.isSaving && !committing && !attachmentUploading else { show(LS("正在保存，请稍后切换账本")); return }
+        guard !drafts.isSaving && !committing && !attachmentUploading else { showFailure(LS("正在保存，请稍后切换账本")); return }
         await waitForSavedSync()
-        guard !drafts.isSaving && !committing && !attachmentUploading else { show(LS("正在保存，请稍后切换账本")); return }
+        guard !drafts.isSaving && !committing && !attachmentUploading else { showFailure(LS("正在保存，请稍后切换账本")); return }
         let same = c.id == cfg.id
         let changedRepo = !same || c.kind != cfg.kind || c.owner != cfg.owner || c.repo != cfg.repo || c.branch != cfg.branch
             || c.server != cfg.server || c.bookmark != cfg.bookmark
@@ -388,11 +391,11 @@ enum Prefs {
     }
 
     func switchLedger(_ id: String) async {
-        guard !drafts.isSaving && !committing && !attachmentUploading else { show(LS("正在保存，请稍后切换账本")); return }
+        guard !drafts.isSaving && !committing && !attachmentUploading else { showFailure(LS("正在保存，请稍后切换账本")); return }
         guard id != cfg.id, let c = sources.first(where: { $0.id == id }) else { return }
         await waitForSavedSync()
         await waitForPush()
-        guard !drafts.isSaving && !committing && !attachmentUploading else { show(LS("正在保存，请稍后切换账本")); return }
+        guard !drafts.isSaving && !committing && !attachmentUploading else { showFailure(LS("正在保存，请稍后切换账本")); return }
         switchLedgerState(c)
         if tree != nil { await rebuild(quietly: true) }
         await refresh()
@@ -876,7 +879,7 @@ enum Prefs {
     /// shown once afterwards, already including the balance line.
     @discardableResult
     func commit(_ ops0: [Op], word: String = LS("已入账"), undo: (() async -> Void)? = nil, checked: Bool = false, cancellable: Bool = false, onQueued: (() -> Void)? = nil) async -> Bool {
-        guard !committing else { show(LS("正在保存，请稍后重试")); return false }
+        guard !committing else { showFailure(LS("正在保存，请稍后重试")); return false }
         let ledgerID = cfg.id
         guard !cancellable || !Task.isCancelled else { return false }
         committing = true
@@ -1300,6 +1303,9 @@ enum Prefs {
         }
     }
 
+    /// a notice that something failed or was refused
+    func showFailure(_ text: String) { show(text, feedback: .failure) }
+
     func show(_ text: String, action: String? = nil, settle: Bool = false, feedback: ToastFeedback? = nil, _ fn: (() async -> Void)? = nil) {
         let notice = ToastNotice(text: text, action: action, feedback: feedback)
         if let fn { toastActions[notice.id] = fn }
@@ -1338,13 +1344,19 @@ enum Prefs {
         toastActions = toastActions.filter { live.contains($0.key) }
         if let visible = toastSchedule.visible {
             if toast?.id != visible.id || toast?.text != visible.text || toast?.action != visible.action {
-                toast = Toast(id: visible.id, text: visible.text, action: visible.action, success: visible.feedback == .success)
+                toast = Toast(id: visible.id, text: visible.text, action: visible.action,
+                              success: visible.feedback == .success, failure: visible.feedback == .failure)
             }
             toastAction = toastActions[visible.id]
-            switch toastSchedule.announce()?.feedback {
-            case .success: Haptics.success()
-            case .selection: Haptics.selection()
-            case nil: break
+            if let shown = toastSchedule.announce() {
+                switch shown.feedback {
+                case .success: Haptics.success()
+                case .selection: Haptics.selection()
+                case .failure: Haptics.error()
+                case nil: break
+                }
+                // read out by VoiceOver as it comes up (it used to be silent)
+                UIAccessibility.post(notification: .announcement, argument: shown.text)
             }
         } else if toast != nil || toastAction != nil {
             toast = nil
@@ -1451,12 +1463,12 @@ enum Prefs {
         guard let r = history.first(where: { $0.id == id }), r.undone == nil else { return false }
         var cur: [String: String] = [:]
         for p in Set(r.undo.map { $0.path }) where existsLocally(p) {
-            guard let t = try? await fileText(p) else { show(LS("文件尚未下载，暂时无法撤回")); return false }
+            guard let t = try? await fileText(p) else { showFailure(LS("文件尚未下载，暂时无法撤回")); return false }
             cur[p] = t
         }
         switch undoOps(r, current: { cur[$0] }) {
         case .failure(.changedSince(let path)):
-            show(LS("无法撤回：%@ 中的这部分内容之后又被修改过", path))
+            showFailure(LS("无法撤回：%@ 中的这部分内容之后又被修改过", path))
             return false
         case .success(var ops):
             // a removal that also deleted its file: the file goes back first, or nothing is taken back
@@ -1478,7 +1490,7 @@ enum Prefs {
     @discardableResult
     func resetCache(from source: LedgerBackend? = nil) async -> Bool {
         await waitForSavedSync()
-        guard !drafts.isSaving && !committing && !attachmentUploading else { show(LS("正在保存，请稍后再清除缓存")); return false }
+        guard !drafts.isSaving && !committing && !attachmentUploading else { showFailure(LS("正在保存，请稍后再清除缓存")); return false }
         let ledgerID = cfg.id
         let api = source ?? backend
         let fresh: RepoTree
@@ -1499,7 +1511,7 @@ enum Prefs {
                 }
             }
         } catch {
-            show(LS("重新下载失败，本机副本保持不变：%@", error.localizedDescription))
+            showFailure(LS("重新下载失败，本机副本保持不变：%@", error.localizedDescription))
             return false
         }
         guard cfg.id == ledgerID else { return false }
