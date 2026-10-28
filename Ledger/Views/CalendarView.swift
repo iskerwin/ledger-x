@@ -3,7 +3,7 @@ import Charts
 import LedgerKit
 
 /// Shared month grid with the journal’s existing filtered daily totals.
-/// The open day is the sheet: the first tap opens it, and tapping that day again closes it.
+/// The open day is the sheet: a tap opens it, tapping that day again keeps it open, and another day switches it.
 struct JournalCalendar: View {
     @Environment(Store.self) var store
     let L: Ledger
