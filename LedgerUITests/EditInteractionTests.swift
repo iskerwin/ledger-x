@@ -343,6 +343,14 @@ final class EditInteractionTests: XCTestCase {
         }
         tapKind(app, "支出")
         XCTAssertTrue(more.waitForExistence(timeout: 5))
+        XCTAssertEqual(grid.frame.height, height, accuracy: 0.5)
+        // picking a category changes the symbol beside 收付款方 · 摘要, not the height below the grid
+        for category in ["category.Expenses:Food", "category.Expenses:Fee"] {
+            let cell = app.buttons[category].firstMatch
+            guard cell.waitForExistence(timeout: 5) else { continue }
+            cell.tap()
+            XCTAssertEqual(grid.frame.height, height, accuracy: 0.5, category)
+        }
         app.buttons["draft.rate"].tap()
         let fee = app.textFields["transfer.fee.amount"]
         tapPoint(fee, timeout: 5)

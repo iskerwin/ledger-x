@@ -960,7 +960,8 @@ struct QuickAddView: View {
         let icon = d.account.isEmpty ? "storefront" : store.catIcon(catOf(d.account))
         return Button { startWriting(d.payee.trimmed.isEmpty ? .payee : .narration) } label: {
             HStack(spacing: AppSpacing.icon) {
-                Image(systemName: icon).foregroundStyle(.secondary).frame(width: 22)
+                // a scaled square: the category's symbol changes with the pick and must not change the row's height
+                ControlIcon(systemName: icon).foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
                     if summary.isEmpty {
                         Text(d.kind == .income ? LS("付款方 · 摘要") : LS("收付款方 · 摘要")).foregroundStyle(.secondary)
