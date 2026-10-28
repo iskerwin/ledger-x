@@ -14,7 +14,7 @@ class SimulatorRetryTests(unittest.TestCase):
         created, calls = [], []
         def out(cmd, **kwargs):
             if cmd[:4] == ['xcrun', 'simctl', 'list', 'devices']:
-                return '{"devices": {}}'
+                return '{"devices": {"iOS": [{"name": "%s", "udid": "old"}]}}' % ship.SIM_NAME
             if cmd[:4] == ['xcrun', 'simctl', 'list', 'runtimes']:
                 return '{"runtimes": []}'
             if cmd[:3] == ['xcrun', 'simctl', 'create']:
@@ -35,6 +35,8 @@ class SimulatorRetryTests(unittest.TestCase):
         self.assertEqual(created, ['sim-1', 'sim-2'])
         self.assertEqual(udid, 'sim-2')
         self.assertIn(['xcrun', 'simctl', 'delete', 'sim-1'], calls)
+        # the previous round's simulator is shut down before it is deleted
+        self.assertLess(calls.index(['xcrun', 'simctl', 'shutdown', 'old']), calls.index(['xcrun', 'simctl', 'delete', 'old']))
 
     def test_a_second_hang_fails_as_an_environment_failure(self):
         with self.assertRaises(ship.Failure) as failure:
