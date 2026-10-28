@@ -1,0 +1,29 @@
+name: Ledger Preview
+run-name: 'Preview · ${{ github.ref_name }}'
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+# 预览包只占自己的队列，不挡开发版和正式版；同一时间只保留最新一次。安装源推送冲突时自动重试。
+concurrency:
+  group: ledger-preview
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: macos-26
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      LEDGER_COMMAND: preview
+      LEDGER_SOURCE_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: ./.github/actions/ledger-run
+        with:
+          cache_epoch: ${{ vars.LEDGER_CACHE_EPOCH || '1' }}

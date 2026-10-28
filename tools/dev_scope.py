@@ -214,6 +214,39 @@ def select(repo, sha):
     return dict(plan, base_sha=base, source_sha=sha, mode='automatic')
 
 
+# what decides which tests a plan runs; a PR proof is reusable only when all of these match
+SELECTION = ('base_sha', 'core_filter', 'ui_tests', 'narrow_tests')
+
+
+def pr_proof(proof, plan, tree, repo):
+    """What Dev keeps from a PR gate that ran this same plan on this same tree; None when anything differs."""
+    selection = proof.get('auto_selection') or {}
+    if proof.get('tree') != tree or any(selection.get(key) != plan.get(key) for key in SELECTION):
+        return None
+    if not re.fullmatch(f'https://github.com/{re.escape(repo)}/actions/runs/[0-9]+', str(proof.get('run_url', ''))):
+        return None
+    kept = {key: proof[key] for key in ('selected_core', 'selected_interaction', 'additional_interaction') if key in proof}
+    return dict(kept, auto_selection=plan, reused_pr=dict(run_url=proof['run_url'], source_sha=proof.get('source_sha')))
+
+
+def reusable_pr_proof(repo, plan, tree):
+    """The newest passing PR gate whose proof matches; with `require up to date` on main, the merge has that tree."""
+    import ship
+    runs = ship.gh_api(f'repos/{repo}/actions/workflows/ci.yml/runs?event=pull_request&status=success&per_page=30')
+    for item in runs['workflow_runs']:
+        name = f'ledger-pr-proof-{item["id"]}'
+        artifacts = ship.gh_api(f'repos/{repo}/actions/runs/{item["id"]}/artifacts')['artifacts']
+        if not any(a['name'] == name and not a['expired'] for a in artifacts):
+            continue
+        with tempfile.TemporaryDirectory() as temp:
+            ship.run(['gh', 'run', 'download', str(item['id']), '--repo', repo, '--name', name, '--dir', temp])
+            proof = ship.read_json(Path(temp) / 'pr-proof.json')
+        kept = pr_proof(proof, plan, tree, repo)
+        if kept:
+            return kept
+    return None
+
+
 def describe(plan):
     lines = ['## Dev 自动测试范围',
              f'- 基线：{plan["base_sha"] or "无（首次开发版）"}',

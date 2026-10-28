@@ -52,29 +52,27 @@ class SmallBuildTests(unittest.TestCase):
                 self.assertEqual(cmd[cmd.index('-scheme') + 1], expected)
             self.assertLessEqual({'-only-testing:' + s for s in selectors.split()}, set(executions[0]))
 
-    def test_pr_source_only_builds_app_and_hosted_test_edit_keeps_its_class(self):
-        for path, action, expected in (
-            ('Ledger/Views/SyncAppearance.swift', 'build', 'Ledger'),
-            ('Ledger/en.json', 'build', 'Ledger'),
-            ('LedgerTests/AppearanceTests.swift', 'build-for-testing', 'LedgerHostedTests'),
-        ):
-            calls = []
-            with self.subTest(path=path), patch.object(pr_gate, 'changed_paths', return_value=[path]), \
-                 patch.object(pr_gate, 'changed_diff', return_value=''), \
-                 patch.object(pr_gate, 'run_limited', side_effect=lambda cmd, *a, **kw: calls.append(cmd)), \
-                 patch.object(ship, 'use_xcode'), \
-                 patch.object(ship, 'fresh_simulator', return_value=('fake-id', 'fake-device')), \
-                 patch.object(pr_gate.subprocess, 'run'):
-                self.assertEqual(pr_gate.main(['gate', 'a' * 40]), 0)
-            builds = [cmd for cmd in calls if cmd[0] == 'xcodebuild' and action in cmd]
-            self.assertEqual(len(builds), 1)
-            self.assertEqual(builds[0][builds[0].index('-scheme') + 1], expected)
-            executions = [cmd for cmd in calls if 'test-without-building' in cmd]
-            if path.startswith('LedgerTests/'):
-                self.assertEqual(len(executions), 1)
-                self.assertIn('-only-testing:LedgerTests/AppearanceTests', executions[0])
-            else:
-                self.assertEqual(executions, [])
+    def test_pr_gate_runs_the_dev_plan_with_the_dev_executor_and_keeps_a_proof(self):
+        import dev_scope
+        plan = dict(dev_scope.classify(['Ledger/Views/CalendarView.swift']), base_sha='b'*40, source_sha='a'*40)
+        seen = {}
+        def validate(selected):
+            seen.update(plan=selected, command=os.environ.get('LEDGER_COMMAND'))
+            return dict(validator='github-actions', run_url='https://github.com/example/app/actions/runs/1',
+                        scope='build', auto_selection=selected)
+        def git(*args):
+            return {('rev-parse', 'HEAD'): 'a'*40, ('status', '--porcelain'): ''}.get(args, 'tree')
+        with tempfile.TemporaryDirectory() as temp, patch.object(pr_gate, 'PROOF', Path(temp)/'pr-proof.json'), \
+             patch.dict(os.environ, dict(GITHUB_REPOSITORY='example/app')), \
+             patch.object(dev_scope, 'select', return_value=plan) as select, \
+             patch.object(dev_scope, 'validate', side_effect=validate), \
+             patch.object(ship, 'git', side_effect=git), patch('builtins.print'):
+            self.assertEqual(pr_gate.main(['gate']), 0)
+            select.assert_called_once_with('example/app', 'a'*40)
+            self.assertEqual(seen, dict(plan=plan, command='dev'))
+            proof = ship.read_json(pr_gate.PROOF)
+        self.assertEqual((proof['tree'], proof['source_sha'], proof['auto_selection']), ('tree', 'a'*40, plan))
+        self.assertIsNotNone(dev_scope.pr_proof(proof, dict(plan, source_sha='c'*40), 'tree', 'example/app'))
 
 
 if __name__ == '__main__':

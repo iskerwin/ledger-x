@@ -14,22 +14,25 @@ Ledger X 是原生 SwiftUI 的 iOS 17+ 记账 App，账本是用户自己的 Bea
 
 ## 命令与流程
 
-测试、模拟器、编译、打包和发布全部在 GitHub macOS runner 执行，本机只编辑、做轻量静态/工具检查、开 Pull Request 和发起任务。完整流程与命令见 [04 云端测试与发布](docs/development/04-云端测试与发布.md)。合并前「Ledger PR / gate」必须通过：按改动做相关测试和静态检查，只读，不发布。Kerwin 把它设成 main 的必需状态检查，做法见 04。
+测试、模拟器、编译、打包和发布全部在 GitHub macOS runner 执行，本机只编辑、跑 `ship.py check`、推送分支、开 Pull Request 和发起任务；不直接推 main。完整流程与命令见 [04 云端测试与发布](docs/development/04-云端测试与发布.md)。
+
+流程：分支 → PR（「Ledger CI / gate」与开发版同一套选测和执行程序，必须通过）→ 需要上手机确认时发预览包 → 合并 → 开发版（main 与 PR 测过的文件树一致时复用 PR 测试记录，只编译发布）→ 手机验收 → 正式版。
 
 ```sh
+python3 tools/ship.py check                               # 本机：与云端第一步相同的静态检查和工具测试
+python3 tools/ship.py preview                             # 已推送的分支：静态检查 + 编译，约 10 分钟出手机预览包（构建 N.k，不能转正）
 python3 tools/ship.py test --core-filter PostingOrderTests
 python3 tools/ship.py test --ui-test LedgerUITests/EditInteractionTests/testCalendarUsesFullRowWidthWithoutHint
-python3 tools/ship.py dev --core-filter CalendarMarkTests   # 相关回归通过后打包发布
-python3 tools/ship.py dev --full                          # 全量通过后打包发布
+python3 tools/ship.py dev                                 # 最新 main：复用 PR 记录或自动选测，通过后打包发布
 python3 tools/ship.py test                                # 云端全量，只验证
 python3 tools/ship.py release --accepted-build N           # 仅 Kerwin 手机验收后授权，原 IPA 转正
 python3 tools/ship.py watch --once
-python3 tools/ship.py version patch|minor|major|X.Y.Z      # 本机轻量版本提交
+python3 tools/ship.py version patch|minor|major|X.Y.Z      # 在分支上本地提交版本，经 PR 合并
 ```
 
-不带筛选的 `dev` 会拒绝，不会发布。`dev` 必须带 `--core-filter` / `--ui-test`，或显式 `--full`。筛选回归不算全量。开发版和正式版只能对着 main 上的源码；云端失败时源码可以已在 main，但安装包不发布。正式版须匹配已验收构建号与 SHA256，在该安装包的同一源码上全量通过，沿用原版本号和构建号，不重新编译 IPA。失败日志、截图与 `.xcresult` 保存在 Actions artifacts（日志 7 天，全量证据 30 天），实际范围与链接写入验证记录。
+`test` / `preview` 针对当前已推送的分支；`dev` / `release` 只在与 GitHub 一致的 main 上发起，`dev` 不接受测试参数或 `--full`。筛选回归不算全量。开发版和正式版只能对着 main 上的源码；云端失败时源码可以已在 main，但安装包不发布。正式版须匹配已验收构建号与 SHA256，在该安装包的同一源码上全量通过，沿用原版本号和构建号，不重新编译 IPA。失败日志、截图与 `.xcresult` 保存在 Actions artifacts（日志 7 天，全量证据 30 天），实际范围与链接写入验证记录。
 
-本机可运行 `python3 tools/check_project.py`、`python3 -m unittest discover -s tools/tests -p 'test_*.py'` 和 `git diff --check`。不在本机启动 Xcode、Swift 测试或模拟器。冻结样本与独立预期规则仍见 05。
+本机可运行 `python3 tools/ship.py check`（即 `check_project.py` 加全部工具测试）和 `git diff --check`。不在本机启动 Xcode、Swift 测试或模拟器。冻结样本与独立预期规则仍见 05。
 
 ## 架构要点
 

@@ -80,6 +80,9 @@ def render(current, previous, repo, sha, version, build, proof, channel="dev", i
         plan = proof['auto_selection']
         validation += (f' 自动选测基线：{plan["base_sha"] or "首次开发版"} → {plan["source_sha"]}。'
                        + '；'.join(plan['reasons']) + '。')
+    if proof.get('reused_pr'):
+        validation += (' 以上相关测试由 PR 检查在同一份代码（文件树一致、选测相同）上完成，开发版没有重复运行：'
+                       f'[PR 检查记录]({proof["reused_pr"]["run_url"]})。')
     if proof.get('run_url'):
         validation += f' [GitHub Actions 验证记录]({proof["run_url"]})。'
     parts += ['---', f'## 添加{label} IPA 源',

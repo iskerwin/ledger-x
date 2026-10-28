@@ -16,12 +16,12 @@ def prepare():
     if not re.fullmatch(r'[0-9a-f]{40}', sha):
         raise ship.Failure('源码须为完整 40 位 SHA')
     ref = os.environ.get('GITHUB_REF', '')
-    # A branch may run read-only tests of its own tip. Publication stays on main.
-    if ref and ref != 'refs/heads/main':
-        if command != 'test':
+    # A branch may run read-only tests of its own tip, or build a preview of it. Dev and Release stay on main.
+    if (ref and ref != 'refs/heads/main') or command == 'preview':
+        if command not in ('test', 'preview'):
             raise ship.Failure('开发版和正式版只能在 main 上发布')
         if ship.git('rev-parse', 'HEAD') != sha:
-            raise ship.Failure('分支上的测试只能验证该分支当前提交，且不发布')
+            raise ship.Failure('分支上的任务只能针对该分支当前提交')
         return
     ship.run(['git', 'fetch', 'origin', 'main'])
     if __import__('subprocess').run(['git', 'merge-base', '--is-ancestor', sha, 'origin/main'], cwd=ship.ROOT).returncode:
@@ -45,12 +45,14 @@ def prepare():
 
 def validate_inputs():
     command = os.environ.get('LEDGER_COMMAND', '')
-    if command not in ('test', 'dev', 'release'):
+    if command not in ('test', 'dev', 'preview', 'release'):
         raise ship.Failure('未知云端任务')
     if command == 'release' and not re.fullmatch(r'[1-9][0-9]*', os.environ.get('LEDGER_ACCEPTED_BUILD', '')):
         raise ship.Failure('请填写手机验收过的构建号，只填正整数，例如 123；校验值由程序自动获取')
     if os.environ.get('LEDGER_FULL') == 'true' and ship.selected_tests():
         raise ship.Failure('全量与指定测试不能混用')
+    if command == 'preview' and (ship.selected_tests() or os.environ.get('LEDGER_FULL') == 'true'):
+        raise ship.Failure('预览包只做静态检查和编译，不接受测试参数')
     if command == 'release' and (ship.selected_tests() or os.environ.get('LEDGER_SIMULATOR_DEVICE')):
         raise ship.Failure('转正不允许筛选测试或更换机型')
     if command == 'release' and os.environ.get('LEDGER_FULL') == 'true':

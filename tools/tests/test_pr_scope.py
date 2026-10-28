@@ -46,10 +46,6 @@ class PRScopeTests(unittest.TestCase):
         self.assertTrue(plan['xcode_build'])
         self.assertEqual(plan['xcode_tests'], ())
 
-    def test_gate_rejects_a_base_that_is_not_a_full_sha(self):
-        with self.assertRaises(ship.Failure):
-            pr_gate.changed_paths('main')
-
     def test_calendar_helpers_run_calendar_cases_only(self):
         path = 'LedgerUITests/EditInteractionTests.swift'
         text = (ROOT / path).read_text()
@@ -98,15 +94,12 @@ class PRScopeTests(unittest.TestCase):
     def test_pull_request_gate_times_out_instead_of_hanging(self):
         pull = (ROOT / '.github/workflows/ci.yml').read_text()
         gate = (ROOT / 'tools/pr_gate.py').read_text()
-        self.assertIn('\n    timeout-minutes: 60\n', pull)
-        self.assertIn('TEST_ALLOWANCE = 180', gate)
-        self.assertIn('BOOT_LIMIT = 120', gate)
-        self.assertIn("'-test-timeouts-enabled', 'YES'", gate)
-        self.assertIn("'-maximum-test-execution-time-allowance', str(TEST_ALLOWANCE)", gate)
-        self.assertIn('boot_timeout=BOOT_LIMIT, ready_timeout=BOOT_LIMIT', gate)
-        self.assertIn('run_limited(command, SWIFT_LIMIT', gate)
-        self.assertIn('BUILD_LIMIT, log=', gate)
-        self.assertIn('UI_LIMIT, log=', gate)
+        self.assertIn('\n    timeout-minutes: 90\n', pull)
+        # the gate runs Dev's executor, whose phases and cases are bounded
+        self.assertIn("os.environ['LEDGER_COMMAND'] = 'dev'", gate)
+        ship = (ROOT / 'tools/ship.py').read_text()
+        self.assertIn("str(180 if os.environ.get('LEDGER_COMMAND') == 'dev' else TEST_TIMEOUT)", ship)
+        self.assertIn("timeout=dev_limit(25 * 60)", ship)
 
 
 def _diff(path, lines):

@@ -6,8 +6,8 @@ Published on the `ipa` branch, in two variants with the same file names:
   dev.json, release.json                 every address points directly at GitHub
   mirror/dev.json, mirror/release.json   every address (source, icon, IPA) goes through gh-proxy.com
 
-release.json lists the published versions (v*), newest first; dev.json the latest dev build
-first, then the published versions.
+release.json lists the published versions (v*), newest first; dev.json the latest dev build and the latest
+preview, newest build first, then the published versions.
 
 Usage: ipa_source.py <owner/repo> <out dir>   (needs `gh` with a token)
 """
@@ -83,13 +83,17 @@ for r in releases:
 published.sort(key=lambda v: tuple(map(int, v["version"].split("."))), reverse=True)
 
 dev = []
+has_dev = False
 for r in releases:
-    if r["tag_name"] == "dev" and not r.get("draft"):
+    # the dev build and the latest preview (a branch build, numbered 41.1, 41.2 … after dev 41), newest build first
+    if r["tag_name"] in ("dev", "preview") and not r.get("draft"):
         m = re.search(r"版本 (\S+?)[ ·]", r.get("body") or "")
         if m:
             e = entry(r, m.group(1), notes(r.get("body")))
             if e:
                 dev.append(e)
+                has_dev |= r["tag_name"] == "dev"
+dev.sort(key=lambda v: tuple(int(p) for p in v["buildVersion"].split(".") if p.isdigit()), reverse=True)
 
 # A source with no versions removes the app from every phone that follows it. GitHub's release list has come back
 # empty or without its assets for a moment (2026-10-22): check it against the tags, which git serves on its own,
@@ -97,7 +101,7 @@ for r in releases:
 missing = []
 if any(re.fullmatch(r"v\d+\.\d+\.\d+", t) for t in tag_names) and not published:
     missing.append("正式版")
-if "dev" in tag_names and not dev:
+if "dev" in tag_names and not has_dev:
     missing.append("开发版")
 if missing:
     sys.exit(f"GitHub 返回的发布列表里找不到{'、'.join(missing)}的安装包，没有写入 IPA 源（已发布的源保持不变）；稍后重试")
