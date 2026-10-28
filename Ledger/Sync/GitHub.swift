@@ -276,7 +276,11 @@ enum BlobCache {
         key.count == 40 && key.allSatisfy({ $0.isHexDigit }) ? key : sha1Hex(Data(key.utf8))
     }
     static func get(_ sha: String) -> String? { try? String(contentsOf: dir.appendingPathComponent(name(sha)), encoding: .utf8) }
-    static func set(_ sha: String, _ text: String) { try? Data(text.utf8).write(to: dir.appendingPathComponent(name(sha)), options: .atomic) }
+    static func set(_ sha: String, _ text: String) { try? save(sha, text) }
+    /// where the copy on the phone is all there is (download, 清除缓存并重新下载): a full disk is reported, not skipped
+    static func save(_ sha: String, _ text: String) throws { try writeFile(Data(text.utf8), dir.appendingPathComponent(name(sha))) }
+    /// tests stand in a disk that refuses
+    static var writeFile: (Data, URL) throws -> Void = { try $0.write(to: $1, options: .atomic) }
     /// delete every cached version except `keep` (the files of each ledger's current tree): every commit
     /// leaves the previous version of the files it changed behind, and those are never read again
     static func prune(keep: Set<String>) {

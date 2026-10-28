@@ -695,7 +695,7 @@ enum Prefs {
         let api = backend
         try await withThrowingTaskGroup(of: (String, String).self) { group in
             for (path, sha) in missing { group.addTask { (sha, try await api.read(path, version: sha)) } }
-            for try await (sha, text) in group { BlobCache.set(sha, text) }
+            for try await (sha, text) in group { try BlobCache.save(sha, text) }
         }
     }
 
@@ -1503,11 +1503,17 @@ enum Prefs {
             return false
         }
         guard cfg.id == ledgerID else { return false }
+        // the new copies first: when the phone can't store them, the old ones are still there
+        do {
+            for (sha, text) in texts { try BlobCache.save(sha, text) }
+        } catch {
+            show(LS("重新下载失败，本机副本保持不变：%@", error.localizedDescription))
+            return false
+        }
         let others = otherLedgerVersions()
-        for sha in Set(tree?.files.values.map { $0 } ?? []).union(fresh.files.values) where !others.contains(sha) {
+        for sha in Set(tree?.files.values.map { $0 } ?? []).union(fresh.files.values) where !others.contains(sha) && texts[sha] == nil {
             BlobCache.remove(sha)
         }
-        for (sha, text) in texts { BlobCache.set(sha, text) }
         builtServerFiles = nil
         builtLedger = nil
         builtLedgerComplete = false
