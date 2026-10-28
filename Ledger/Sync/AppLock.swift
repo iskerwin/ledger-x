@@ -16,12 +16,15 @@ import LedgerKit
     private(set) var offerPasscode = false
     @ObservationIgnored private var gate: LockGate
 
-    var enabled: Bool { UserDefaults.standard.bool(forKey: Self.enabledKey) }
-    var grace: TimeInterval { TimeInterval(UserDefaults.standard.integer(forKey: Self.graceKey)) }
+    var enabled: Bool { Self.testing || UserDefaults.standard.bool(forKey: Self.enabledKey) }
+    var grace: TimeInterval { Self.testing ? 0 : TimeInterval(UserDefaults.standard.integer(forKey: Self.graceKey)) }
+    /// interface tests (demo only): the lock is on, never asks by itself, and its button unlocks without Face ID
+    static let testing = ProcessInfo.processInfo.environment["LEDGER_DEMO"] != nil
+        && ProcessInfo.processInfo.environment["LEDGER_LOCK"] != nil
 
     init() {
         let demo = ProcessInfo.processInfo.environment["LEDGER_DEMO"] != nil
-        let on = !demo && UserDefaults.standard.bool(forKey: Self.enabledKey)
+        let on = Self.testing || (!demo && UserDefaults.standard.bool(forKey: Self.enabledKey))
         locked = on
         gate = LockGate(enabled: false, grace: 0, locked: on)
     }
@@ -38,12 +41,13 @@ import LedgerKit
         gate.grace = grace
         let ask = gate.phase(phase, now: Date())
         if gate.locked != locked { locked = gate.locked }
-        if ask { Task { await unlock() } }
+        if ask && !Self.testing { Task { await unlock() } }
     }
 
     /// passcode: skip biometry and ask for the device passcode straight away
     func unlock(passcode: Bool = false) async {
         guard locked, !authenticating else { return }
+        if Self.testing { gate.unlock(); locked = false; return }
         authenticating = true
         defer { authenticating = false }
         let ctx = LAContext()
@@ -131,6 +135,7 @@ struct LockScreen: View {
             }
             .primaryButton()
             .disabled(lock.authenticating)
+            .accessibilityIdentifier("unlock")
             .padding(.bottom, lock.offerPasscode && b.symbol != "lock" ? 0 : 48)
             if lock.offerPasscode && b.symbol != "lock" {
                 Button(LS("使用%@解锁", LS("设备密码"))) {
@@ -155,5 +160,44 @@ struct PrivacyCover: View {
             Image("Logo").resizable().frame(width: 64, height: 64)
                 .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
         }
+    }
+}
+
+/// the lock screen and the app switcher cover, in a window of their own above the app's: they cover every sheet
+/// and alert the app has open, and taking them away leaves those sheets, and what was typed into them, as they were
+@MainActor final class CoverWindow {
+    static let shared = CoverWindow()
+    private var window: UIWindow?
+
+    func show(_ content: some View) {
+        guard window == nil, let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first
+        else { return }
+        // a field being typed into keeps its text; its keyboard must not show above the cover
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        let host = UIHostingController(rootView: content)
+        host.view.backgroundColor = .clear
+        host.view.accessibilityViewIsModal = true
+        let w = UIWindow(windowScene: scene)
+        w.windowLevel = .alert + 1
+        w.rootViewController = host
+        w.makeKeyAndVisible()
+        window = w
+    }
+
+    func hide() {
+        guard let w = window else { return }
+        window = nil
+        UIView.animate(withDuration: 0.2, animations: { w.alpha = 0 }) { _ in
+            w.isHidden = true
+            w.windowScene?.windows.first { $0 !== w && !$0.isHidden }?.makeKey()
+        }
+    }
+}
+
+/// what the cover window shows: the lock screen, or (unlocked, while the app is in the app switcher) the cover
+struct CoverView: View {
+    @Environment(AppLock.self) var lock
+    var body: some View {
+        if lock.locked { LockScreen() } else { PrivacyCover() }
     }
 }

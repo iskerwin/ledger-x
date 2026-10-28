@@ -1016,6 +1016,33 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["10月16日 周五"].waitForExistence(timeout: 5))
     }
 
+    /// An open sheet stays open through the lock: going to the background locks the app, the lock screen covers
+    /// the sheet, and unlocking shows the same sheet again. Locking used to close it.
+    func testLockingKeepsTheOpenSheet() {
+        let app = launchTab("journal", env: ["LEDGER_CALENDAR": "1", "LEDGER_LOCK": "1"])
+        let unlock = app.buttons["unlock"]
+        XCTAssertTrue(unlock.waitForExistence(timeout: 20))
+        unlock.tap()
+        XCTAssertTrue(unlock.waitForNonExistence(timeout: 5))
+        _ = openGlassCalendar(app)
+        chooseCalendarMonth(app, year: "2026", month: "10")
+        tapPoint(app.buttons["calendar.day.2026-10-01"], timeout: 5)
+        let sheet = app.navigationBars["10月1日 周四"]
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        XCTAssertTrue(unlock.waitForExistence(timeout: 10))
+        XCTAssertFalse(sheet.exists && sheet.isHittable, "the lock screen covers the sheet")
+        let locked = XCTAttachment(screenshot: app.screenshot())
+        locked.name = "locked-over-sheet"
+        locked.lifetime = .keepAlways
+        add(locked)
+        unlock.tap()
+        XCTAssertTrue(unlock.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5), "the same sheet is back after unlocking")
+        XCTAssertTrue(sheet.isHittable)
+    }
+
     private func assertNoDaySummary(_ app: XCUIApplication) {
         XCTAssertFalse(app.staticTexts["本月暂无记录"].exists)
         XCTAssertFalse(app.staticTexts["查看当天明细"].exists)
