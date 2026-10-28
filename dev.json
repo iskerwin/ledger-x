@@ -20,13 +20,13 @@
       "versions": [
         {
           "version": "1.0.8",
-          "buildVersion": "41.8",
+          "buildVersion": "41.9",
           "date": "2026-10-28T05:02:00Z",
-          "localizedDescription": "# Ledger X 1.0.8 预览\n\n版本 1.0.8 · 构建 41.8 · preview/batch-5 aa7c9c7 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "localizedDescription": "# Ledger X 1.0.8 预览\n\n版本 1.0.8 · 构建 41.9 · preview/batch-6 480691d 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
           "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-          "size": 10694871,
+          "size": 10679268,
           "minOSVersion": "17.0",
-          "sha256": "f4de98546cb66f69390a93beb787f9b338c0d565da550d3a8f4b72721af15b29"
+          "sha256": "61ae43f87e558068534095f110a2a6162fa06d0e9c51c2dd33be607eee383d18"
         },
         {
           "version": "1.0.8",
@@ -129,9 +129,9 @@
       },
       "version": "1.0.8",
       "versionDate": "2026-10-28T05:02:00Z",
-      "versionDescription": "# Ledger X 1.0.8 预览\n\n版本 1.0.8 · 构建 41.8 · preview/batch-5 aa7c9c7 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+      "versionDescription": "# Ledger X 1.0.8 预览\n\n版本 1.0.8 · 构建 41.9 · preview/batch-6 480691d 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
       "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-      "size": 10694871
+      "size": 10679268
     }
   ],
   "news": []
