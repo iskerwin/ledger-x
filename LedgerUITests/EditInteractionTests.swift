@@ -329,6 +329,7 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(more.waitForExistence(timeout: 5))
         let funding = app.buttons["付款账户"].firstMatch
         XCTAssertEqual(funding.frame.midY, more.frame.midY, accuracy: 1)
+        XCTAssertEqual(funding.frame.height, more.frame.height, accuracy: 0.5)
         XCTAssertFalse(app.buttons["保存至"].exists)
         let height = grid.frame.height
         let row = more.frame.height
@@ -337,8 +338,8 @@ final class EditInteractionTests: XCTestCase {
             let tag = app.buttons["标签"].firstMatch
             XCTAssertTrue(tag.waitForExistence(timeout: 5))
             XCTAssertFalse(more.exists)
-            XCTAssertEqual(grid.frame.height, height, accuracy: 1, kind)
-            XCTAssertEqual(tag.frame.height, row, accuracy: 1, kind)
+            XCTAssertEqual(grid.frame.height, height, accuracy: 0.5, kind)
+            XCTAssertEqual(tag.frame.height, row, accuracy: 0.5, kind)
         }
         tapKind(app, "支出")
         XCTAssertTrue(more.waitForExistence(timeout: 5))

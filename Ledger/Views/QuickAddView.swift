@@ -788,7 +788,7 @@ struct QuickAddView: View {
             }
         } label: {
             HStack(spacing: AppSpacing.icon) {
-                Image(systemName: d.funding.isEmpty ? "creditcard" : store.groupIcon(d.funding).symbol).foregroundStyle(Color.jadeInk)
+                ControlIcon(systemName: d.funding.isEmpty ? "creditcard" : store.groupIcon(d.funding).symbol).foregroundStyle(Color.jadeInk)
                 Text(title).foregroundStyle(d.funding.isEmpty ? Color.secondary : Color.primary).lineLimit(1).truncationMode(.middle)
                 Spacer(minLength: 2)
                 Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
@@ -801,10 +801,12 @@ struct QuickAddView: View {
         .accessibilityValue(title)
     }
 
-    /// one part of the row: an icon, its text, and a chevron; in the theme's colour when something is set
+    /// one part of the row: an icon, its text, and a chevron; in the theme's colour when something is set. The icon
+    /// sits in the same scaled square in every part (a taller glyph such as ellipsis.circle made 更多 taller than 标签,
+    /// and the row jumped when the kind was switched).
     private func cell(_ text: String, icon: String, on: Bool) -> some View {
         HStack(spacing: AppSpacing.icon) {
-            Image(systemName: icon).foregroundStyle(on ? Color.jadeInk : Color.secondary)
+            ControlIcon(systemName: icon).foregroundStyle(on ? Color.jadeInk : Color.secondary)
             Text(text).foregroundStyle(on ? Color.jadeInk : Color.primary).lineLimit(1).truncationMode(.tail)
             Spacer(minLength: 2)
             Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
