@@ -179,6 +179,16 @@ struct DayMark {
     var out: Int = 0
     var inn: Int = 0
     var other = false
+
+    /// the dots drawn under the day, left to right: spending (red, or the theme colour where income has no dot of
+    /// its own), then income in green; grey alone when there are only other entries
+    func dots(themeMarks: Bool) -> [(level: Int, color: Color)] {
+        var out: [(level: Int, color: Color)] = []
+        if self.out > 0 { out.append((self.out, themeMarks ? .jade : .loss)) }
+        if inn > 0 && !themeMarks { out.append((inn, .gain)) }
+        if out.isEmpty && other { out.append((1, .secondary)) }
+        return out
+    }
 }
 
 /// Six fixed rows, shared by Journal and subscriptions.
@@ -357,12 +367,10 @@ struct GlassMonthCalendar<Totals: View, Footer: View>: View {
                         Circle().fill(today ? Color.jade : selected ? Color.jade.opacity(0.2) : Color.clear)
                             .frame(width: min(dateSize * 1.9, width - 2), height: min(dateSize * 1.9, width - 2))
                     }
+                // only the dots there are, centred under the date: one dot sits in the middle, not in its slot
                 HStack(spacing: 3) {
-                    if mark.out > 0 || mark.inn > 0 {
-                        dot(level: mark.out, color: themeMarks ? .jade : .loss).opacity(mark.out > 0 ? 1 : 0)
-                        if !themeMarks { dot(level: mark.inn, color: .gain).opacity(mark.inn > 0 ? 1 : 0) }
-                    } else if mark.other {
-                        dot(level: 1, color: .secondary)
+                    ForEach(Array(mark.dots(themeMarks: themeMarks).enumerated()), id: \.offset) { _, d in
+                        dot(level: d.level, color: d.color)
                     }
                 }
                 .frame(height: 7).accessibilityHidden(true)
