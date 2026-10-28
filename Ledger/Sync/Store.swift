@@ -692,11 +692,7 @@ enum Prefs {
         guard let tree = tree else { return }
         let missing = tree.files.filter { isLedgerFile($0.key) && BlobCache.get($0.value) == nil }.map { ($0.key, $0.value) }
         if missing.isEmpty { return }
-        let api = backend
-        try await withThrowingTaskGroup(of: (String, String).self) { group in
-            for (path, sha) in missing { group.addTask { (sha, try await api.read(path, version: sha)) } }
-            for try await (sha, text) in group { BlobCache.set(sha, text) }
-        }
+        try await backend.readEach(missing) { sha, text in BlobCache.set(sha, text) }
     }
 
     /// an op writing the whole of `path`, remembering the text it replaces: if another device changes the file
