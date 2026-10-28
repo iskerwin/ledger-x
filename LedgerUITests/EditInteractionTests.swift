@@ -1268,6 +1268,17 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertLessThan(search.frame.minY, app.windows.firstMatch.frame.height / 3)
     }
 
+    /// 关于 shows the build with the version, so a preview and the dev build of one version are told apart
+    func testAboutShowsTheBuildNumber() {
+        let app = launchTab("settings")
+        let about = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "关于 Ledger X")).firstMatch
+        for _ in 0..<6 { if about.exists && about.isHittable { break }; app.swipeUp() }
+        about.tap()
+        let version = app.staticTexts["about.version"]
+        XCTAssertTrue(version.waitForExistence(timeout: 5))
+        XCTAssertTrue(version.label.range(of: #"^版本 \d+\.\d+\.\d+（构建 \d+(\.\d+)?）$"#, options: .regularExpression) != nil, version.label)
+    }
+
     /// The month bars of 概览 and 报表 swipe like their arrows: to the right goes back a month, to the left on again
     func testAMonthBarSwipesToTheNextMonth() {
         var app = launchTab("overview")

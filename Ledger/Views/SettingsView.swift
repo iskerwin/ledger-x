@@ -73,13 +73,11 @@ struct SettingsView: View {
                         HStack(spacing: AppSpacing.control) { LedgerCheckRow(); Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary) }
                             .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
                 } header: { Text(LS("账本与同步")) }
                 // 记账偏好
                 Section {
                     NavigationLink { BookkeepingPrefsPage() } label: { row("square.and.pencil", LS("记账偏好"), "") }
                     Button { managingCats = true } label: { row("square.grid.2x2", LS("分类与常用交易"), "", chevron: true) }
-                        .buttonStyle(.plain)
                     NavigationLink { NetWorthSettingsView() } label: { row("chart.bar", LS("统计范围"), exclusionSummary) }
                     NavigationLink { Form { RemindersSection() }.navigationTitle(LS("提醒")) } label: {
                         row("bell", LS("提醒"), Reminders.enabled ? LS("已开启") : LS("未开启"))
@@ -377,7 +375,10 @@ struct AboutPage: View {
                 VStack(spacing: AppSpacing.icon) {
                     Image("Logo").resizable().frame(width: 72, height: 72).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     Text("Ledger X").font(.title2.weight(.bold))
-                    Text(LS("版本 %@", Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")).foregroundStyle(.secondary)
+                    // with the build: two installs of the same version (a preview, the dev build) are told apart
+                    Text(LS("版本 %@（构建 %@）", Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
+                            Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "")).foregroundStyle(.secondary)
+                        .accessibilityIdentifier("about.version")
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, AppSpacing.icon)
