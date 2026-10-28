@@ -249,7 +249,7 @@ struct AccountsView: View {
                         NavigationLink(value: AccountDest(name: item.0)) {
                             HStack(spacing: AppSpacing.icon) {
                                 IconBadge(symbol: item.0.hasPrefix("Income") ? "arrow.down.circle.fill" : store.catIcon(item.0),
-                                          color: item.0.hasPrefix("Income") ? .green : .gray, size: 28)
+                                          color: IconTint.color(store.catStyle.colors?[item.0]) ?? (item.0.hasPrefix("Income") ? .green : .gray), size: 28)
                                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
                                     Text(leaf(item.0))
                                     Text(acctZH(item.0) ?? (item.0.hasPrefix("Income") ? LS("收入") : LS("支出"))).font(.caption).foregroundStyle(.secondary)
