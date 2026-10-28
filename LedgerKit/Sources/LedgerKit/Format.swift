@@ -397,6 +397,27 @@ public func replaceBlock(_ text: String, _ old: String, _ new: String, anchorLin
     return lines.joined(separator: "\n")
 }
 
+/// Replacing `e` with `text`, or removing it when `text` is nil: anchored to its first line, so an identical copy
+/// elsewhere in the file (two of the same coffee on one day) is left alone.
+public func entryOp(_ e: Entry, text: String?) -> Op {
+    var op = Op(kind: text == nil ? .remove : .replace, path: e.file)
+    op.old = e.src
+    op.text = text
+    op.date = e.date
+    op.anchorLine = e.line
+    return op
+}
+
+/// Edits of one file made against the same text, ordered from the bottom up: one that adds or drops lines then
+/// leaves the lines the later ones are anchored to where they were. Other files keep their order.
+public func bottomUp(_ ops: [Op]) -> [Op] {
+    ops.enumerated().sorted { a, b in
+        guard a.element.path == b.element.path else { return a.offset < b.offset }
+        let x = a.element.anchorLine ?? 0, y = b.element.anchorLine ?? 0
+        return x != y ? x > y : a.offset < b.offset
+    }.map(\.element)
+}
+
 private func accountRegex(_ name: String) -> NSRegularExpression? {
     try? NSRegularExpression(pattern: "(?<![\\p{L}\\p{N}:\\-])" + NSRegularExpression.escapedPattern(for: name) + "(?![\\p{L}\\p{N}\\-])")
 }

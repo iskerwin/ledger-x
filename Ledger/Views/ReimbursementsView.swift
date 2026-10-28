@@ -9,10 +9,7 @@ extension Store {
     /// write 支出类型 (`category:`) or 凭证类型 (`voucher:`) on an advance; nil value clears it
     func setAdvanceMeta(_ t: Entry, key: String, value: String?) async {
         guard let D = D, let text = setPostingMeta(t.src, account: D.receivable, key: key, value: value), text != t.src else { return }
-        var op = Op(kind: .replace, path: t.file)
-        op.old = t.src
-        op.text = text
-        op.date = t.date
+        var op = entryOp(t, text: text)
         let what = key == categoryMeta ? LS("支出类型") : LS("凭证类型")
         op.label = LS("%@：%@ %@ → %@", what, t.date, t.payee, value.map { key == categoryMeta ? acctLabel($0) : $0 } ?? LS("清除"))
         await commit([op], word: LS("已修改"))

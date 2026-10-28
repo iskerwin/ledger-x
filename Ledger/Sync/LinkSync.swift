@@ -33,10 +33,7 @@ extension Store {
             if added.count == 1 { words = words.map { $0 == "^" + l ? "^" + added[0] : $0 } }
             else { words.removeAll { $0 == "^" + l } }
             lines[0] = words.joined(separator: " ")
-            var op = Op(kind: .replace, path: p.file)
-            op.old = p.src
-            op.text = lines.joined(separator: "\n")
-            op.date = p.date
+            var op = entryOp(p, text: lines.joined(separator: "\n"))
             op.silent = true
             ops.append(op)
         }
