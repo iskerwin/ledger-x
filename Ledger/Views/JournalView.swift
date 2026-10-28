@@ -177,9 +177,20 @@ struct JournalView: View {
     private static let calendarKey = "ledger.journal.calendar"
     /// a day picked on the calendar: its sheet
     @State private var calendarDay: CalendarDay?
+    /// whether the day sheet is presented. This is deliberately separate from
+    /// `calendarDay`: driving the sheet from the day itself (`.sheet(item:)`)
+    /// rebuilt the presentation whenever the day changed, and the rebuilt
+    /// sheet came back at the largest detent with its drag indicator gone —
+    /// at that height background interaction is off, so no other date could
+    /// be tapped at all. With a stable presentation only the content changes.
+    @State private var daySheetOpen = false
     /// the day sheet's detent: on short screens it starts at a lower fraction, so the first
     /// calendar rows stay above the sheet and remain tappable to switch days
-    @State private var dayDetent: PresentationDetent = UIScreen.main.bounds.height < 700 ? .fraction(0.4) : .medium
+    @State private var dayDetent: PresentationDetent = Self.initialDayDetent
+
+    private static var initialDayDetent: PresentationDetent {
+        UIScreen.main.bounds.height < 700 ? .fraction(0.4) : .medium
+    }
 
     private static var dayDetents: Set<PresentationDetent> {
         UIScreen.main.bounds.height < 700 ? [.fraction(0.4), .medium, .large] : [.medium, .large]
@@ -254,10 +265,18 @@ struct JournalView: View {
             .topBar { if !selecting { QuickSearchBar(q: $q) } }
             .safeAreaInset(edge: .bottom) { if selecting { batchBar } }
             .sheet(item: $savingFilter) { e in QuickSearchSheet(edit: e) }
-            .sheet(item: $calendarDay, onDismiss: {
+            .sheet(isPresented: $daySheetOpen, onDismiss: {
+                calendarDay = nil
                 if let t = afterSheet { afterSheet = nil; path.append(t) }
-            }) { d in
-                if let L = store.L { daySheet(d.day, L) }
+            }) {
+                if let day = calendarDay?.day, let L = store.L { daySheet(day, L) }
+            }
+            // A picked day opens the sheet; switching days only swaps its
+            // content and puts the height back to half, so the rows above it
+            // stay tappable and the drag indicator stays put. Dragging the
+            // sheet on one day does not touch this: the day has not changed.
+            .onChange(of: calendarDay?.day) { _, day in
+                if day != nil { dayDetent = Self.initialDayDetent; daySheetOpen = true }
             }
             .sheet(item: $batch) { m in
                 BatchEditSheet(entries: selectedEntries, mode: m) { selecting = false; selected = [] }
@@ -324,7 +343,7 @@ struct JournalView: View {
         } : []
         return CalendarDaySheet(L: L, day: day, entries: ts, account: a, documents: docs) { t in
             afterSheet = TxDest(t)
-            calendarDay = nil
+            daySheetOpen = false
         }
         .presentationDetents(Self.dayDetents, selection: $dayDetent)
         .presentationDragIndicator(.visible)

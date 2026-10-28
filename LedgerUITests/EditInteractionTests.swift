@@ -997,6 +997,13 @@ final class EditInteractionTests: XCTestCase {
         spot.tap()
         XCTAssertTrue(opened.waitForExistence(timeout: 5), "Tapping the open day again keeps its sheet open")
         XCTAssertEqual(first.value as? String, "已选中")
+        // Switching days while the sheet is open must keep it at half height:
+        // at full height background interaction is off, so no other date is
+        // tappable until the sheet is dragged back down.
+        let second = app.buttons["calendar.day.2026-10-02"]
+        tapPoint(second, timeout: 5)
+        XCTAssertTrue(app.navigationBars["10月2日 周五"].waitForExistence(timeout: 5))
+        XCTAssertTrue(first.isHittable, "The first row stays tappable after switching days")
         tapPoint(app.buttons["完成"], timeout: 5)
         XCTAssertTrue(opened.waitForNonExistence(timeout: 5), "The sheet's Done button dismisses it")
         XCTAssertNotEqual(first.value as? String, "已选中")
