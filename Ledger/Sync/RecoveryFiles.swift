@@ -39,6 +39,7 @@ enum RecoveryFiles {
 /// The sync queue of each ledger, in a file of its own written to a temporary file and swapped in. It used to be
 /// kept in UserDefaults, which holds it whole in memory and reads it at every launch, and a whole-file write puts
 /// the file's full text in the queue. The UserDefaults copy is moved over the first time.
+@MainActor
 enum PendingQueue {
     private static let kind = "pending"
 

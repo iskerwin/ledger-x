@@ -4,6 +4,7 @@ import LedgerKit
 
 /// The sync queue lives in a file of its own per ledger; a queue left in UserDefaults by an earlier version is
 /// moved over once, and forgetting a ledger removes both.
+@MainActor
 final class PendingQueueTests: XCTestCase {
     private func op(_ text: String) -> Op {
         var op = Op(kind: .write, path: "main.bean")
