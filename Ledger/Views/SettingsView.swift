@@ -135,7 +135,8 @@ struct SettingsView: View {
                         Text(store.cfg.title).font(.headline)
                         Text(store.cfg.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         HStack(spacing: AppSpacing.icon) {
-                            Image(systemName: store.syncAppearance.symbol)
+                            // a scaled square: each state's symbol has its own height, which moved the card
+                            ControlIcon(systemName: store.syncAppearance.symbol)
                                 .foregroundStyle(store.syncAppearance.color)
                             Text(syncSummary).font(.caption).foregroundStyle(.secondary)
                         }

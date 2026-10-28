@@ -1492,6 +1492,28 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertEqual(range.frame.minY - parts.frame.minY, gap, accuracy: 0.5)
     }
 
+    /// One chart per currency (amounts kept in their own currencies): picking a month adds its line under or above
+    /// each chart in a place kept for it, so the charts are as tall before as after
+    func testChartsPerCurrencyKeepTheirHeightWhenAMonthIsPicked() {
+        let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures")
+        for (report, extra, id) in [("income", "flow-extra.bean", "flow.charts"), ("balance", "worth-extra.bean", "networth.charts")] {
+            let app = launchTab("reports", env: ["LEDGER_EXTRA": fixtures.appendingPathComponent(extra).path, "LEDGER_REPORT": report,
+                                                 "LEDGER_CURRENCY_MODE": "units"])
+            let charts = app.otherElements[id]
+            XCTAssertTrue(charts.waitForExistence(timeout: 20), report)
+            scrollIntoView(charts, in: app)
+            let height = charts.frame.height
+            // inside the first chart: under the currency's title (and the legend of 月度收支)
+            charts.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0)).withOffset(CGVector(dx: 0, dy: 100)).tap()
+            let line = report == "income"
+                ? app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "收入 ")).firstMatch
+                : app.staticTexts.matching(NSPredicate(format: "label ENDSWITH %@", "月末")).firstMatch
+            XCTAssertTrue(line.waitForExistence(timeout: 5), report)
+            XCTAssertEqual(charts.frame.height, height, accuracy: 0.5, report)
+            app.terminate()
+        }
+    }
+
     /// The trial balance's 币种 · 借方合计 · 贷方合计 span the card in three equal centred columns (they hugged the left)
     func testTheTrialBalanceColumnsSpanTheCard() {
         let app = launchTab("reports", env: ["LEDGER_REPORT": "trial"])
