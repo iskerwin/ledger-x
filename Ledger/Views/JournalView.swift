@@ -254,10 +254,12 @@ struct JournalView: View {
             .topBar { if !selecting { QuickSearchBar(q: $q) } }
             .safeAreaInset(edge: .bottom) { if selecting { batchBar } }
             .sheet(item: $savingFilter) { e in QuickSearchSheet(edit: e) }
-            .sheet(item: $calendarDay, onDismiss: {
+            // one sheet for whichever day is picked: switching days changes what it shows instead of
+            // presenting a new sheet, which came back at full height
+            .sheet(isPresented: Binding(get: { calendarDay != nil }, set: { if !$0 { calendarDay = nil } }), onDismiss: {
                 if let t = afterSheet { afterSheet = nil; path.append(t) }
-            }) { d in
-                if let L = store.L { daySheet(d.day, L) }
+            }) {
+                if let d = calendarDay, let L = store.L { daySheet(d.day, L) }
             }
             .sheet(item: $batch) { m in
                 BatchEditSheet(entries: selectedEntries, mode: m) { selecting = false; selected = [] }
