@@ -249,7 +249,7 @@ enum Prefs {
 
     /// write ledger-x.json (one commit), then reload with it
     func saveRepoConfig(_ c: LedgerXConfig) async -> Bool {
-        var op = await fileWriteOp(LedgerXConfig.path, text: c.json())
+        guard var op = await fileWriteOp(LedgerXConfig.path, text: c.json()) else { return false }
         op.label = LS("更新仓库结构（%@）", LedgerXConfig.path)
         return await commit([op], word: LS("已保存到 %@", LedgerXConfig.path), checked: true)
     }
@@ -700,11 +700,15 @@ enum Prefs {
     }
 
     /// an op writing the whole of `path`, remembering the text it replaces: if another device changes the file
-    /// before this one is pushed, the push merges (ledger-x.json) or parks it instead of overwriting their change
-    func fileWriteOp(_ path: String, text: String) async -> Op {
+    /// before this one is pushed, the push merges (ledger-x.json) or parks it instead of overwriting their change.
+    /// nil (with a notice) when the file is there but can't be read now: without its text the push would overwrite it.
+    func fileWriteOp(_ path: String, text: String) async -> Op? {
         var op = Op(kind: .write, path: path)
         op.text = text
-        op.old = try? await fileText(path)
+        do { op.old = try await fileText(path) } catch {
+            show(LS("%@ 尚未下载，暂时无法保存", path))
+            return nil
+        }
         return op
     }
 
@@ -1163,7 +1167,7 @@ enum Prefs {
     }
 
     private func writeBQL(_ path: String, _ qs: [SavedQuery], label: String, word: String) async -> Bool {
-        var op = await fileWriteOp(path, text: serializeBQL(qs))
+        guard var op = await fileWriteOp(path, text: serializeBQL(qs)) else { return false }
         op.label = label
         return await commit([op], word: word, checked: true)
     }
