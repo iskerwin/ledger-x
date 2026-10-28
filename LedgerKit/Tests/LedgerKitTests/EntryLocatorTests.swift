@@ -69,6 +69,42 @@ final class EntryLocatorTests: XCTestCase {
         XCTAssertEqual(parseFile(editedFirst, file: "2026.bean").entries.map(\.narration), ["First", "Top-up"])
     }
 
+    func testEntryOpChangesOnlyTheCopyItWasMadeFrom() throws {
+        let coffee = """
+        2026-10-28 * "Cafe" "Latte"
+          Expenses:Food  18.00 CNY
+          Assets:Bank
+        """
+        let file = coffee + "\n\n" + coffee + "\n"
+        let entries = parseFile(file, file: "2026.bean").entries
+        let second = try XCTUnwrap(entries.last)
+        let tagged = try applyOps(file, path: "2026.bean", ops: [entryOp(second, text: second.src.replacingOccurrences(of: "\"Latte\"", with: "\"Latte\" #work"))])
+        XCTAssertEqual(parseFile(tagged, file: "2026.bean").entries.map(\.tags), [[], ["work"]])
+        let removed = try applyOps(file, path: "2026.bean", ops: [entryOp(entries[0], text: nil)])
+        XCTAssertEqual(parseFile(removed, file: "2026.bean").entries.count, 1)
+        XCTAssertEqual(entryOp(second, text: nil).kind, .remove)
+    }
+
+    func testBottomUpKeepsLaterAnchorsValidWhenAnEditAddsLines() throws {
+        let coffee = """
+        2026-10-28 * "Cafe" "Latte"
+          Expenses:Food  18.00 CNY
+          Assets:Bank
+        """
+        let file = [coffee, coffee, coffee].joined(separator: "\n\n") + "\n"
+        let entries = parseFile(file, file: "2026.bean").entries
+        // the first and the third copy each gain a metadata line, as a batch edit does
+        let ops = [entries[0], entries[2]].map { e in
+            entryOp(e, text: e.src.replacingOccurrences(of: "\"Latte\"", with: "\"Latte\"\n  note: \"batch\""))
+        }
+        XCTAssertNil(try? applyOps(file, path: "2026.bean", ops: ops, strict: true), "top-down, the third copy's line has moved")
+        let edited = try applyOps(file, path: "2026.bean", ops: bottomUp(ops), strict: true)
+        XCTAssertEqual(parseFile(edited, file: "2026.bean").entries.map { $0.meta["note"] != nil }, [true, false, true])
+        var other = Op(kind: .insert, path: "other.bean")
+        other.anchorLine = 99
+        XCTAssertEqual(bottomUp([other] + ops).map(\.anchorLine), [99, entries[2].line, entries[0].line])
+    }
+
     func testOldQueuedEditDecodesWithoutAnchorLine() throws {
         let json = """
         {"id":"00000000-0000-0000-0000-000000000001","kind":"remove","path":"2026.bean","old":"x"}
