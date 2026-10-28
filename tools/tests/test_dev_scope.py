@@ -226,5 +226,44 @@ class DevScopeTests(unittest.TestCase):
         self.assertEqual(len([value for value in plan['ui_tests'] if value.startswith('LedgerUITests/')]), 14)
 
 
+
+class PRProofTests(unittest.TestCase):
+    PLAN = dict(base_sha='b'*40, source_sha='a'*40, core_filter='SearchTests',
+                ui_tests=['LedgerUITests/EditInteractionTests/testQuickAndFullFormsShareAmount'], narrow_tests=[])
+    PROOF = dict(tree='tree', source_sha='m'*40, run_url='https://github.com/example/app/actions/runs/9',
+                 auto_selection=dict(PLAN, source_sha='m'*40),
+                 selected_core=dict(filter='SearchTests', passed=5),
+                 selected_interaction=dict(selectors=PLAN['ui_tests'], passed=1, simulator='iPhone'))
+
+    def test_reused_only_for_the_same_tree_baseline_and_selection(self):
+        import dev_scope
+        kept = dev_scope.pr_proof(self.PROOF, self.PLAN, 'tree', 'example/app')
+        self.assertEqual(kept['selected_core'], self.PROOF['selected_core'])
+        self.assertEqual(kept['auto_selection'], self.PLAN)
+        self.assertEqual(kept['reused_pr']['run_url'], self.PROOF['run_url'])
+        for change in (dict(tree='other'), dict(run_url='https://github.com/other/app/actions/runs/9'), dict(run_url='')):
+            with self.subTest(change=change):
+                self.assertIsNone(dev_scope.pr_proof(dict(self.PROOF, **change), self.PLAN, 'tree', 'example/app'))
+        for key, value in (('base_sha', 'c'*40), ('core_filter', '.*'), ('ui_tests', []), ('narrow_tests', ['x'])):
+            with self.subTest(key=key):
+                self.assertIsNone(dev_scope.pr_proof(self.PROOF, dict(self.PLAN, **{key: value}), 'tree', 'example/app'))
+
+    def test_lookup_skips_runs_without_a_live_proof(self):
+        import dev_scope
+        import ship
+        def api(path):
+            if path.endswith('per_page=30'):
+                return dict(workflow_runs=[dict(id=1), dict(id=2)])
+            run = path.split('/runs/')[1].split('/')[0]
+            return dict(artifacts=[dict(name=f'ledger-pr-proof-{run}', expired=run == '1')])
+        def download(cmd, **kwargs):
+            Path(cmd[-1], 'pr-proof.json').write_text(json.dumps(self.PROOF))
+        with patch.object(ship, 'gh_api', side_effect=api), patch.object(ship, 'run', side_effect=download) as run:
+            kept = dev_scope.reusable_pr_proof('example/app', self.PLAN, 'tree')
+        self.assertEqual(kept['reused_pr']['source_sha'], 'm'*40)
+        self.assertEqual(run.call_count, 1)
+        self.assertIn('2', run.call_args.args[0])
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -27,7 +27,7 @@ jobs:
   gate:
     if: github.event_name == 'pull_request'
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
         with:
@@ -50,8 +50,31 @@ jobs:
           python3 -m pip install 'beancount==3.2.0'
       - name: Checks for this pull request
         env:
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          # Read-only: the plan's baseline is the current dev package, as in Dev.
+          GH_TOKEN: ${{ github.token }}
         run: python3 tools/pr_gate.py
+      # Dev reuses this when main becomes this same tree with the same plan.
+      - name: Keep PR proof
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: 'ledger-pr-proof-${{ github.run_id }}'
+          include-hidden-files: true
+          retention-days: 30
+          if-no-files-found: error
+          path: .ship/pr-proof.json
+      - name: Keep logs and results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: 'ledger-pr-${{ github.run_id }}'
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            *-tests.log
+            demo-build.log
+            interaction-tests*.xcresult/
   test:
     if: github.event_name == 'workflow_dispatch'
     runs-on: macos-26

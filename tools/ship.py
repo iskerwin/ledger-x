@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Dispatch validation and publication to GitHub macOS; execute only on the runner.
 
+  python3 tools/ship.py check                    local static checks and tool tests, the same as the cloud's first stage
   python3 tools/ship.py test                     cloud full validation, publishes nothing
+  python3 tools/ship.py preview                  phone build of the pushed branch: static checks and compile only
   python3 tools/ship.py dev                      automatically select tests since the previous dev, then publish
   python3 tools/ship.py release                  promote the phone-accepted dev package (requires --accepted-build N)
   python3 tools/ship.py version patch|minor|major|X.Y.Z
@@ -54,6 +56,7 @@ PLAN = {
     'release': ('下载并校验开发版', '确认正式版全量验证', '发布正式版', '更新 IPA 源'),
 }
 PLAN['dev'] = ('静态检查与流程回归', '编译 Release 安装包', '打包并校验安装包', '推送 main 到 GitHub', '发布开发版', '更新 IPA 源')
+PLAN['preview'] = ('静态检查与流程回归', '编译 Release 安装包', '打包并校验安装包', '发布预览包', '更新 IPA 源')
 
 
 class Failure(Exception):
@@ -223,6 +226,8 @@ def failure_message(error, interrupted=False, state=None):
     state = state if state is not None else progress.state or {}
     effects = state.get('effects', {})
     if not effects:
+        if state.get('command') == 'preview':
+            return message + '\n未发布预览包。'
         # On the runner the client has already pushed main. Locally, nothing has been sent yet.
         if os.environ.get('GITHUB_ACTIONS') == 'true':
             return message + '\n源码已在 main，未发布安装包。'
@@ -231,9 +236,11 @@ def failure_message(error, interrupted=False, state=None):
         'main_push': ('main', '已推送', '未发起推送', '已发起推送，结果待核实'),
         'dev_release': ('开发版', '已发布', '未开始发布', '已发起更新，结果待核实'),
         'release': ('正式版', '已发布', '未开始发布', '已发起发布，结果待核实'),
+        'preview_release': ('预览包', '已发布', '未开始发布', '已发起更新，结果待核实'),
         'ipa_source': ('IPA 安装源', '已更新', '尚未更新', '已发起更新，结果待核实'),
     }
     keys = ('release', 'ipa_source') if state.get('command') == 'release' \
+        else ('preview_release', 'ipa_source') if state.get('command') == 'preview' \
         else ('main_push', 'dev_release', 'ipa_source')
     for key in keys:
         name, done, pending, uncertain = states[key]
@@ -680,6 +687,22 @@ def next_build(releases, listed=()):
     return str(max(builds, default=0) + 1)
 
 
+def preview_build(releases, listed=(), previous=''):
+    """A preview sits between dev builds: 41.1, 41.2 … after dev 41. It never takes a dev number, and the next dev
+    (42) still installs over it."""
+    base = int(next_build(releases, listed)) - 1
+    m = re.search(r'构建 (\d+)\.(\d+)', previous or '')
+    return f'{base}.{int(m[2]) + 1 if m and int(m[1]) == base else 1}'
+
+
+def listed_builds():
+    """Every build the ipa branch's sources have listed."""
+    if not remote_has('ipa'):
+        return []
+    run(['git', 'fetch', '-q', 'origin', 'ipa'])
+    return source_builds(out(['git', 'log', 'FETCH_HEAD', '-p', '--format=', '--', 'dev.json', 'release.json']))
+
+
 def require_open_version(version, changelog, already_released):
     """A dev build keeps the open version. A version that already shipped stable needs `ship.py version` first."""
     semver(version)
@@ -772,8 +795,9 @@ def verify_proof(proof, manifest, require_full=False):
             raise ValueError('全量验证记录缺少两个测试目标的完整通过数，需要补跑')
 
 
-def verify_package(folder, manifest, proof, repo):
-    promoted_identity(manifest)
+def verify_package(folder, manifest, proof, repo, preview=False):
+    if not preview:
+        promoted_identity(manifest)
     if manifest['repository'] != repo:
         raise ValueError('安装包清单的仓库不一致')
     verify_proof(proof, manifest)
@@ -906,7 +930,15 @@ def remote_has(branch):
 
 
 def update_sources(repo):
-    """Regenerate the IPA sources (dev.json, release.json and mirrors) and push them to the ipa branch."""
+    """Regenerate the IPA sources (dev.json, release.json and mirrors) and push them to the ipa branch. A preview and a
+    dev may publish at the same time: a rejected push is regenerated from the other one's state and sent again."""
+    for attempt in range(3):
+        if write_sources(repo):
+            return
+    raise Failure('IPA 源推送三次被拒绝（同时有其他发布），请稍后重新发起')
+
+
+def write_sources(repo):
     step('更新 IPA 源（ipa 分支）')
     site = DIST / 'site'
     shutil.rmtree(site, ignore_errors=True)
@@ -926,8 +958,11 @@ def update_sources(repo):
             run(['git', '-C', tree, 'add', 'dev.json', 'release.json', 'mirror/dev.json', 'mirror/release.json'])
             if subprocess.run(['git', '-C', str(tree), 'diff', '--cached', '--quiet']).returncode:
                 run(['git', '-C', tree, 'commit', '-qm', 'Update installation sources'])
-                remote_run('ipa_source', ['git', '-C', tree, 'push', '-q', 'origin', 'HEAD:refs/heads/ipa'])
+                progress.effect('ipa_source', 'started')
+                if run(['git', '-C', tree, 'push', '-q', 'origin', 'HEAD:refs/heads/ipa'], check=False):
+                    return False
             progress.effect('ipa_source', 'done')
+            return True
         finally:
             run(['git', 'worktree', 'remove', '--force', tree])
 
@@ -960,18 +995,20 @@ def ship_dev():
         if os.environ.get('GITHUB_STEP_SUMMARY'):
             with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as target:
                 target.write(summary)
-        proof = dev_scope.validate(plan)
+        # The PR gate ran this same plan on this same tree: Dev only builds.
+        reused = dev_scope.reusable_pr_proof(repo, plan, git('rev-parse', f'{sha}^{{tree}}'))
+        if reused:
+            report(f'复用 PR 检查的相关测试：{reused["reused_pr"]["run_url"]}')
+            proof = dict(validate_development(), **reused)
+        else:
+            proof = dev_scope.validate(plan)
     else:
         proof = validate_targeted()
     version = re.search(r'MARKETING_VERSION: "([^"]+)"', (ROOT / 'project.yml').read_text())[1]
     changelog = (ROOT / 'CHANGELOG.md').read_text()
     require_open_version(version, changelog, tag_exists(repo, f'v{version}'))
     releases = fetch_releases(repo, release_tags(out(['git', 'ls-remote', '--tags', 'origin'])))
-    listed = []
-    if remote_has('ipa'):
-        run(['git', 'fetch', '-q', 'origin', 'ipa'])
-        listed = source_builds(out(['git', 'log', 'FETCH_HEAD', '-p', '--format=', '--', 'dev.json', 'release.json']))
-    build = next_build(releases, listed)
+    build = next_build(releases, listed_builds())
     shutil.rmtree(DIST, ignore_errors=True)
     DIST.mkdir()
     verify_demo_snapshot(proof['demo_commit'], proof['demo_sha256'])
@@ -1017,6 +1054,67 @@ def ship_dev():
     update_sources(repo)
     done(f'\n✓ 已发布 Ledger X {version} 开发版（构建 {build}），main {sha[:7]}'
          f'\n  https://github.com/{repo}/releases/tag/dev\n  手机验收：待 Kerwin 执行')
+
+
+def preview_notes(repo, sha, branch, version, build, pr):
+    return '\n\n'.join([
+        f'# Ledger X {version} 预览',
+        f'版本 {version} · 构建 {build} · {branch} {sha[:7]}' + (f' · PR #{pr}' if pr else '') + ' 。',
+        '只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。'
+        '合并后的开发版构建号更大，会直接覆盖安装。',
+        '---',
+        f'- [源码提交](https://github.com/{repo}/commit/{sha})',
+    ]) + '\n'
+
+
+def ship_preview():
+    """A phone build of a pushed branch: static checks, tool tests and the Release compile. Published as the
+    `preview` prerelease and listed in the dev source; never promoted."""
+    repo = repository()
+    sha = git('rev-parse', 'HEAD')
+    branch = os.environ.get('GITHUB_REF_NAME') or git('branch', '--show-current')
+    proof = validate_development()
+    version = re.search(r'MARKETING_VERSION: "([^"]+)"', (ROOT / 'project.yml').read_text())[1]
+    releases = fetch_releases(repo, release_tags(out(['git', 'ls-remote', '--tags', 'origin'])))
+    previous = next((r.get('body') or '' for r in releases if r.get('tag_name') == 'preview'), '')
+    build = preview_build(releases, listed_builds(), previous)
+    shutil.rmtree(DIST, ignore_errors=True)
+    DIST.mkdir()
+    ipa = build_ipa(version, build, proof['demo_commit'])
+    proof['release_build'] = True
+    if git('rev-parse', 'HEAD') != sha or git('status', '--porcelain'):
+        raise Failure('编译期间源码有变化：\n' + git('status', '--short'))
+    tree = git('rev-parse', f'{sha}^{{tree}}')
+    proof = dict(schema=2, source_sha=sha, tree=tree, **proof)
+    manifest = dict(schema=2, repository=repo, source_sha=sha, tree=tree, version=version, build=build,
+                    sha256=hashlib.sha256(ipa.read_bytes()).hexdigest(), size=ipa.stat().st_size,
+                    channel='preview', branch=branch, phone_acceptance='pending', xcode=proof['xcode'],
+                    demo_commit=proof['demo_commit'], demo_sha256=proof['demo_sha256'],
+                    built_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
+    (DIST / 'validation-evidence.json').write_text(json.dumps(proof, ensure_ascii=False, indent=2) + '\n')
+    (DIST / 'build-manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+    verify_package(DIST, manifest, proof, repo, preview=True)
+
+    step('发布预览包')
+    try:
+        pulls = gh_api(f'repos/{repo}/commits/{sha}/pulls')
+    except (subprocess.CalledProcessError, ValueError):
+        pulls = []  # the PR number is only a label in the notes
+    (DIST / 'release-notes.md').write_text(preview_notes(repo, sha, branch, version, build, pulls[0]['number'] if pulls else None))
+    assets = [DIST / name for name in FILES]
+    title = f'Ledger X {version} 预览'
+    progress.effect('preview_release', 'started')
+    if release_for_tag(repo, 'preview'):
+        run(['gh', 'release', 'upload', 'preview', '--repo', repo, *assets, '--clobber'])
+        run(['gh', 'api', '-X', 'PATCH', f'repos/{repo}/git/refs/tags/preview', '-f', f'sha={sha}', '-F', 'force=true'])
+        run(['gh', 'release', 'edit', 'preview', '--repo', repo, '--prerelease', '--title', title, '--notes-file', DIST / 'release-notes.md'])
+    else:
+        run(['gh', 'release', 'create', 'preview', '--repo', repo, *assets, '--target', sha, '--prerelease',
+             '--title', title, '--notes-file', DIST / 'release-notes.md'])
+    progress.effect('preview_release', 'done')
+    update_sources(repo)
+    done(f'\n✓ 已发布预览包 Ledger X {version}（构建 {build}），{branch} {sha[:7]}'
+         f'\n  在开发版安装源里更新即可安装；不能转正')
 
 
 def release_validation(manifest, proof):
@@ -1092,7 +1190,8 @@ def ship_release():
 
 
 def select_version(choice):
-    require_clean_main()
+    if git('status', '--porcelain'):
+        raise Failure('工作区有未提交的改动；先提交或还原')
     project = ROOT / 'project.yml'
     current = re.search(r'MARKETING_VERSION: "([^"]+)"', project.read_text())[1]
     version = next_version(current, choice)
@@ -1106,7 +1205,7 @@ def select_version(choice):
     run([sys.executable, 'tools/check_project.py'])
     run(['git', 'add', 'project.yml', 'CHANGELOG.md'])
     run(['git', 'commit', '-qm', f'Prepare Ledger X {version}'])
-    print(f'✓ 已提交版本 {version}；下一次带相关测试或 --full 的 python3 tools/ship.py dev 会推送并发布')
+    print(f'✓ 已在本地提交版本 {version}；推送分支并开 PR，合并后再发开发版')
 
 
 # Watching a run: reads .ship/status.json and the stage's log; never writes, never locks.
@@ -1245,7 +1344,7 @@ def worker_main(argv):
     usage = __doc__.split('\n\n')[1]
     if command == 'watch' and argv[2:] in ([], ['--once']):
         return watch(once=argv[2:] == ['--once'])
-    if command not in ('test', 'dev', 'release', 'version') or len(argv) != (3 if command == 'version' else 2):
+    if command not in ('test', 'dev', 'preview', 'release', 'version') or len(argv) != (3 if command == 'version' else 2):
         print(usage, file=sys.stderr)
         return 2
     # One publication at a time on this Mac.
@@ -1283,6 +1382,8 @@ def worker_main(argv):
             ship_dev()
         elif command == 'release':
             ship_release()
+        elif command == 'preview':
+            ship_preview()
         else:
             select_version(argv[2])
     except KeyboardInterrupt as error:
@@ -1299,9 +1400,22 @@ def worker_main(argv):
     return 0
 
 
+def local_check():
+    """What every cloud run does first, on this Mac: no Xcode, simulator or network."""
+    env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
+    for cmd in ([sys.executable, 'tools/check_project.py'],
+                [sys.executable, '-m', 'unittest', 'discover', '-q', '-s', 'tools/tests', '-p', 'test_*.py']):
+        if subprocess.run(cmd, cwd=ROOT, env=env).returncode:
+            return 1
+    print('✓ 静态检查与工具测试通过（与云端第一步相同）；App 编译和测试仍以 PR 检查为准')
+    return 0
+
+
 def main(argv):
     if len(argv) > 1 and argv[1] == 'version':
         return worker_main(argv)
+    if argv[1:] == ['check']:
+        return local_check()
     if os.environ.get('GITHUB_ACTIONS') == 'true':
         return worker_main(argv)
     import cloud

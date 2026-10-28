@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 STATE = ROOT / '.ship/cloud.json'
-WORKFLOWS = dict(test='ci.yml', dev='dev.yml', release='release.yml')
+WORKFLOWS = dict(test='ci.yml', dev='dev.yml', release='release.yml', preview='preview.yml')
 
 
 def output(command, **kwargs):
@@ -22,15 +22,31 @@ def accepted_manifest(manifest, build):
     return manifest['sha256']
 
 
+def require_pushed(main_only):
+    """The cloud runs what GitHub already has. Nothing is pushed from here: main changes only through PRs."""
+    import ship
+    if ship.git('status', '--porcelain'):
+        raise ValueError('工作区有未提交的改动；先提交并推送分支')
+    branch = ship.git('branch', '--show-current')
+    if not branch or (main_only and branch != 'main'):
+        raise ValueError('开发版和正式版只能对着 main 发起：先 git switch main && git pull' if main_only
+                         else '请在一个已推送的分支上执行')
+    output(['git', 'fetch', '-q', 'origin', branch])
+    if ship.git('rev-parse', 'HEAD') != ship.git('rev-parse', 'FETCH_HEAD'):
+        raise ValueError(f'本地 {branch} 与 GitHub 上的不一致；' +
+                         ('main 只经 PR 合并，先 git pull' if branch == 'main' else f'先 git push origin {branch}'))
+    return branch
+
+
 def dispatch(args):
     import ship
-    ship.require_clean_main()
+    branch = require_pushed(args.command in ('dev', 'release'))
     repo = ship.repository()
     sha = ship.git('rev-parse', 'HEAD')
     workflow = WORKFLOWS[args.command]
     inputs = dict(source_sha=sha, core_filter=args.core_filter or '',
                   ui_tests='\n'.join(args.ui_test), device=args.device or '')
-    if args.command == 'dev':
+    if args.command in ('dev', 'preview'):
         inputs = {}
     if args.command == 'release':
         if not args.accepted_build:
@@ -40,14 +56,12 @@ def dispatch(args):
             manifest = json.loads((Path(temp) / 'build-manifest.json').read_text())
         accepted_manifest(manifest, args.accepted_build)
         inputs = dict(accepted_build=args.accepted_build)
-    # Source must be on main before GitHub can check it. A failed cloud check publishes no IPA.
-    output(['git', 'push', 'origin', 'HEAD:refs/heads/main'])
     response = output(['gh', 'api', '--method', 'POST', f'repos/{repo}/actions/workflows/{workflow}/dispatches',
-                       '--input', '-'], input=json.dumps(dict(ref='main', inputs=inputs, return_run_details=True)))
+                       '--input', '-'], input=json.dumps(dict(ref=branch, inputs=inputs, return_run_details=True)))
     STATE.parent.mkdir(exist_ok=True)
     state = dict(repository=repo, source_sha=sha, command=args.command, workflow=workflow)
     STATE.write_text(json.dumps(state, indent=2))
-    print(f'已推送 main {sha[:7]}，已发起云端 {args.command}；尚无测试或发布结论。', flush=True)
+    print(f'已发起云端 {args.command}：{branch} {sha[:7]}；尚无测试或发布结论。', flush=True)
     details = json.loads(response)
     state['run_id'] = details['workflow_run_id']
     STATE.write_text(json.dumps(state, indent=2))
@@ -77,7 +91,7 @@ def watch(once):
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
-    for name in ('test', 'dev', 'release'):
+    for name in ('test', 'dev', 'preview', 'release'):
         p = sub.add_parser(name)
         p.add_argument('--full', action='store_true')
         p.add_argument('--core-filter')
@@ -96,6 +110,8 @@ def main(argv):
             raise ValueError('--accepted-build 只用于手机验收后的转正')
         if args.command == 'release' and (args.core_filter or args.ui_test or args.device or args.full):
             raise ValueError('转正自动核对并补齐同一源码的全量记录，不接受测试筛选')
+        if args.command == 'preview' and (args.core_filter or args.ui_test or args.device or args.full):
+            raise ValueError('预览包只做静态检查和编译，不接受测试参数；测试由 PR 检查完成')
         if args.command == 'dev' and (args.core_filter or args.ui_test or args.device):
             raise ValueError('Dev 已自动选择相关测试，无需填写测试或机型；手动复查请用 test --core-filter / --ui-test / --device')
         if args.command == 'dev' and args.full:
@@ -104,7 +120,7 @@ def main(argv):
             raise ValueError('--ui-test 须为 Target/Class[/method]')
         return dispatch(args)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
-        print(f'云端任务未确认完成：{error}；请核查 main、Actions、Release 与安装源实际状态。', file=sys.stderr)
+        print(f'云端任务未确认完成：{error}；请核查分支、Actions、Release 与安装源实际状态。', file=sys.stderr)
         return 1
 
 

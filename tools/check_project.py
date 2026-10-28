@@ -73,14 +73,24 @@ ship = (ROOT/'tools/ship.py').read_text()
 ci = (ROOT/'.github/workflows/ci.yml').read_text()
 dev = (ROOT/'.github/workflows/dev.yml').read_text()
 release = (ROOT/'.github/workflows/release.yml').read_text()
+preview = (ROOT/'.github/workflows/preview.yml').read_text()
 runner = (ROOT/'.github/actions/ledger-run/action.yml').read_text()
-workflow = '\n'.join((ci, dev, release, runner, (ROOT/'tools/select_xcode.sh').read_text()))
+workflow = '\n'.join((ci, dev, release, preview, runner, (ROOT/'tools/select_xcode.sh').read_text()))
 for name, publication in (('Dev', dev), ('Release', release)):
     require('workflow_dispatch:' in publication and 'pull_request:' not in publication
             and 'runs-on: macos-26' in publication and 'group: ledger-publication' in publication
             and 'cancel-in-progress: false' in publication and "if: github.ref == 'refs/heads/main'" in publication
             and 'contents: write' in publication and 'actions: write' in publication,
             f'{name} must be manual, main-only and share a non-cancelling publication lock')
+# A preview builds any branch, never promotes, and queues apart from Dev/Release.
+require('workflow_dispatch:' in preview and 'pull_request:' not in preview and 'group: ledger-preview' in preview
+        and 'group: ledger-publication' not in preview and 'LEDGER_COMMAND: preview' in preview
+        and 'actions: write' not in preview and 'uses: ./.github/actions/ledger-run' in preview,
+        'Preview must be manual, separate from the publication lock and unable to promote')
+require("tag_exists(repo, 'preview')" not in ship and "'release', 'create', 'preview'" in ship and "'--latest'" not in ship.split('def ship_preview', 1)[1].split('\ndef ', 1)[0],
+        'Preview publishes only the preview prerelease')
+require("'git', 'push'" not in (ROOT/'tools/cloud.py').read_text(),
+        'The local client must not push: main changes only through pull requests')
 gate = ci.split('\n  gate:', 1)[-1].split('\n  test:', 1)[0]
 require('pull_request:' in ci and 'runs-on: macos-26' in gate
         and "cancel-in-progress: ${{ github.event_name == 'pull_request' }}" in ci
@@ -94,10 +104,10 @@ require('actions/checkout@v7' in workflow and 'actions/setup-python@v7' in workf
         'Cloud workflow must use current major versions of checkout, setup-python and cache')
 require('Xcode_26.6.app' in workflow and 'bash tools/select_xcode.sh' in runner and 'bash tools/select_xcode.sh' in gate
         and 'inputs.cache_epoch' in runner and 'contents: write' not in ci
-        and all('uses: ./.github/actions/ledger-run' in item for item in (ci, dev, release)),
+        and all('uses: ./.github/actions/ledger-run' in item for item in (ci, dev, release, preview)),
         'Cloud workflow must pin Xcode 26.6 and split read and write permissions')
 require(not re.search(r'\b(?:vars|secrets)\s*[.\[]', runner)
-        and all("cache_epoch: ${{ vars.LEDGER_CACHE_EPOCH || '1' }}" in item for item in (ci, dev, release))
+        and all("cache_epoch: ${{ vars.LEDGER_CACHE_EPOCH || '1' }}" in item for item in (ci, dev, release, preview))
         and "check_only: 'true'" in gate,
         'Shared action must receive workflow configuration through inputs and load in the PR gate')
 require('retention-days: 7' in runner and 'retention-days: 30' in runner,

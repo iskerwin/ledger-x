@@ -181,6 +181,7 @@ class ShipTests(unittest.TestCase):
                     if failure == 'automatic':
                         plan = dict(dev_scope.classify(['tools/ship.py']), base_sha='b'*40, source_sha='a'*40)
                         mocks.enter_context(patch.object(dev_scope, 'select', return_value=plan))
+                        mocks.enter_context(patch.object(dev_scope, 'reusable_pr_proof', return_value=None))
                     run, full = ship.run, ship.validate
                     ship.progress.begin('dev')
                     if failure and failure != 'automatic':

@@ -22,7 +22,7 @@ class CloudTests(unittest.TestCase):
             dispatch.assert_called_once_with(['test', '--ui-test', 'LedgerUITests/Example/testSave'])
             worker.assert_not_called()
 
-    def test_selected_dispatch_pushes_exact_source_and_carries_filters(self):
+    def test_selected_dispatch_never_pushes_and_carries_filters(self):
         calls = []
         def output(cmd, **kwargs):
             calls.append((cmd, kwargs))
@@ -32,21 +32,23 @@ class CloudTests(unittest.TestCase):
         args = argparse.Namespace(command='test', full=False, core_filter='CalendarMarkTests',
             ui_test=['LedgerUITests/Example/testSave'], device='iPhone SE (3rd generation)', accepted_build=None)
         with tempfile.TemporaryDirectory() as temp, patch.object(cloud, 'STATE', Path(temp)/'state.json'), \
-             patch.object(cloud, 'output', side_effect=output), patch.object(ship, 'require_clean_main'), \
+             patch.object(cloud, 'output', side_effect=output), patch.object(cloud, 'require_pushed', return_value='fix/x'), \
              patch.object(ship, 'repository', return_value='example/app'), patch.object(ship, 'git', return_value='a'*40):
             self.assertEqual(cloud.dispatch(args), 0)
-            self.assertEqual(calls[0][0], ['git', 'push', 'origin', 'HEAD:refs/heads/main'])
-            payload = json.loads(calls[1][1]['input'])
+            self.assertFalse([cmd for cmd, _ in calls if cmd[:2] == ['git', 'push']])
+            self.assertEqual(len(calls), 1)
+            payload = json.loads(calls[0][1]['input'])
+            self.assertEqual(payload['ref'], 'fix/x')
             self.assertEqual(payload['inputs']['ui_tests'], args.ui_test[0])
             self.assertEqual(payload['inputs']['source_sha'], 'a'*40)
             self.assertTrue(payload['return_run_details'])
-            self.assertIn('repos/example/app/actions/workflows/ci.yml/dispatches', calls[1][0])
+            self.assertIn('repos/example/app/actions/workflows/ci.yml/dispatches', calls[0][0])
             self.assertNotIn('command', payload['inputs'])
             self.assertNotIn('request_id', payload['inputs'])
             self.assertEqual(json.loads(cloud.STATE.read_text())['run_id'], 123)
 
     def test_each_command_dispatches_only_its_workflows_inputs(self):
-        for command, filename in (('test', 'ci.yml'), ('dev', 'dev.yml'), ('release', 'release.yml')):
+        for command, filename in (('test', 'ci.yml'), ('dev', 'dev.yml'), ('release', 'release.yml'), ('preview', 'preview.yml')):
             calls = []
             def output(cmd, **kwargs):
                 calls.append((cmd, kwargs))
@@ -59,7 +61,7 @@ class CloudTests(unittest.TestCase):
                                       ui_test=[], device=None, accepted_build='123' if command == 'release' else None)
             with self.subTest(command=command), tempfile.TemporaryDirectory() as temp, \
                  patch.object(cloud, 'STATE', Path(temp)/'state.json'), patch.object(cloud, 'output', side_effect=output), \
-                 patch.object(ship, 'require_clean_main'), patch.object(ship, 'repository', return_value='example/app'), \
+                 patch.object(cloud, 'require_pushed', return_value='main'), patch.object(ship, 'repository', return_value='example/app'), \
                  patch.object(ship, 'git', return_value='a'*40):
                 self.assertEqual(cloud.dispatch(args), 0)
                 dispatch = next(call for call in calls if '/dispatches' in ' '.join(call[0]))
@@ -73,12 +75,42 @@ class CloudTests(unittest.TestCase):
                     self.assertEqual(payload['inputs'], {})
                 self.assertEqual(json.loads(cloud.STATE.read_text())['workflow'], filename)
 
+    def test_dispatch_requires_a_pushed_branch_and_main_for_publication(self):
+        def git(head, branch, dirty=''):
+            values = {('status', '--porcelain'): dirty, ('branch', '--show-current'): branch,
+                      ('rev-parse', 'HEAD'): head, ('rev-parse', 'FETCH_HEAD'): 'a'*40}
+            return lambda *args: values[args]
+        cases = (
+            (dict(head='a'*40, branch='fix/x'), False, 'fix/x'),
+            (dict(head='a'*40, branch='main'), True, 'main'),
+            (dict(head='a'*40, branch='fix/x'), True, None),          # dev/release off main
+            (dict(head='b'*40, branch='fix/x'), False, None),         # not pushed yet
+            (dict(head='a'*40, branch='main', dirty=' M x'), True, None),
+        )
+        for state, main_only, expected in cases:
+            with self.subTest(state=state, main_only=main_only), patch.object(ship, 'git', side_effect=git(**state)), \
+                 patch.object(cloud, 'output', return_value='') as network:
+                if expected:
+                    self.assertEqual(cloud.require_pushed(main_only), expected)
+                    network.assert_called_once_with(['git', 'fetch', '-q', 'origin', expected])
+                else:
+                    with self.assertRaises(ValueError):
+                        cloud.require_pushed(main_only)
+                self.assertFalse([c for c in network.call_args_list if c.args[0][:2] == ['git', 'push']])
+
+    def test_preview_takes_no_test_arguments(self):
+        with patch.object(cloud, 'dispatch') as dispatch:
+            for argv in (['preview', '--full'], ['preview', '--core-filter', 'X'], ['preview', '--ui-test', 'LedgerUITests/A/b']):
+                self.assertEqual(cloud.main(argv), 1)
+            dispatch.assert_not_called()
+            self.assertEqual(cloud.main(['preview']), dispatch.return_value)
+
     def test_release_requires_the_accepted_build_and_valid_package_digest(self):
         self.assertEqual(cloud.accepted_manifest(dict(build='40', sha256='a'*64), '40'), 'a'*64)
         for record in (dict(build='41', sha256='a'*64), dict(build='40', sha256='bad')):
             with self.assertRaises(ValueError):
                 cloud.accepted_manifest(record, '40')
-        with patch.object(cloud, 'output') as network, patch.object(ship, 'require_clean_main'), \
+        with patch.object(cloud, 'output') as network, patch.object(cloud, 'require_pushed', return_value='main'), \
              patch.object(ship, 'repository'), patch.object(ship, 'git'):
             args = argparse.Namespace(command='release', full=False, core_filter=None, ui_test=[], device=None, accepted_build=None)
             with self.assertRaises(ValueError):
@@ -184,6 +216,19 @@ class CloudTests(unittest.TestCase):
              patch.object(ship, 'run') as run:
             cloud_worker.prepare()
             run.assert_not_called()
+
+    def test_prepare_allows_a_preview_of_the_branch_head_only(self):
+        for head, ok in (('a'*40, True), ('b'*40, False)):
+            for ref in ('refs/heads/feature', 'refs/heads/main'):
+                env = dict(LEDGER_SOURCE_SHA='a'*40, LEDGER_COMMAND='preview', GITHUB_REF=ref)
+                with self.subTest(head=head, ref=ref), patch.dict(os.environ, env, clear=True), \
+                     patch.object(ship, 'git', return_value=head), patch.object(ship, 'run') as run:
+                    if ok:
+                        cloud_worker.prepare()
+                    else:
+                        with self.assertRaises(ship.Failure):
+                            cloud_worker.prepare()
+                    run.assert_not_called()
 
     def test_prepare_refuses_publication_or_a_different_commit_on_a_branch(self):
         for env in (
