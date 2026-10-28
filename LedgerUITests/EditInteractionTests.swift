@@ -936,8 +936,15 @@ final class EditInteractionTests: XCTestCase {
 
     private func chooseCalendarMonth(_ app: XCUIApplication, year: String, month: String) {
         tapPoint(app.buttons["calendar.monthTitle"], timeout: 5)
-        app.pickers["calendar.yearWheel"].pickerWheels.firstMatch.adjust(toPickerWheelValue: year)
-        app.pickers["calendar.monthWheel"].pickerWheels.firstMatch.adjust(toPickerWheelValue: month)
+        // the wheels can only be turned once the popover has finished appearing: turning one while it still
+        // animates in fails with "Failed to get possible values for picker"
+        for (name, value) in [("calendar.yearWheel", year), ("calendar.monthWheel", month)] {
+            let wheel = app.pickers[name].pickerWheels.firstMatch
+            XCTAssertTrue(wheel.waitForExistence(timeout: 5))
+            let ready = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: wheel)
+            wait(for: [ready], timeout: 5)
+            wheel.adjust(toPickerWheelValue: value)
+        }
         tapPoint(app.buttons["完成"], timeout: 5)
     }
 
