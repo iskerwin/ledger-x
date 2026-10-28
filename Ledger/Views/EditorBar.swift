@@ -58,7 +58,7 @@ final class EditorBar: UIView {
             v.layer.borderColor = UIColor.separator.cgColor
             bordered.append(v)
         }
-        v.layer.cornerRadius = barHeight / 2
+        v.layer.cornerRadius = Self.barHeight / 2
         v.layer.cornerCurve = .continuous
         v.clipsToBounds = true
         return v
