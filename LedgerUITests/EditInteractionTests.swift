@@ -1061,6 +1061,7 @@ final class EditInteractionTests: XCTestCase {
         let opened = app.navigationBars["10月1日 周四"]
         XCTAssertTrue(opened.waitForExistence(timeout: 5))
         let top = opened.frame.minY
+        XCTAssertGreaterThan(top, app.frame.height * 0.55, "the day sheet starts low on every phone, not only short ones")
         let second = app.buttons["calendar.day.2026-10-02"]
         XCTAssertTrue(second.isHittable, "the first row stays above the half sheet")
         second.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()

@@ -23,15 +23,14 @@ class DevScopeTests(unittest.TestCase):
         self.assertNotIn('inputs.full', workflow)
         self.assertIn('LEDGER_SOURCE_SHA: ${{ github.sha }}', workflow)
 
-    def test_calendar_source_runs_core_journal_subscription_and_narrow_regressions(self):
+    def test_calendar_source_runs_core_journal_and_subscription_regressions(self):
         plan = dev_scope.classify(['Ledger/Views/CalendarView.swift'])
         self.assertFalse(plan['core_all'])
         self.assertEqual(plan['core_filter'], 'CalendarMarkTests|SearchTests|SubTests')
         self.assertIn('LedgerUITests/EditInteractionTests/testGlassCalendarFixedRowsAndDaySelection', plan['ui_tests'])
         self.assertIn('LedgerUITests/EditInteractionTests/testGlassSubscriptionCalendarRangeAndSelectionAtLargeText', plan['ui_tests'])
         self.assertEqual(set(plan['ui_tests']), set(dev_scope.MAPPINGS['Ledger/Views/CalendarView.swift']['ui']) | set(dev_scope.CRITICAL_UI))
-        self.assertEqual(len(plan['narrow_tests']), 3)
-        self.assertNotIn('LedgerUITests/EditInteractionTests/testGlassCalendarFixedRowsAndDaySelection', plan['narrow_tests'])
+        self.assertEqual(plan['narrow_tests'], [])
         self.assertNotIn('LedgerUITests/EditInteractionTests/testTransferFeeCancelCompleteAndKeyboardDismissal', plan['ui_tests'])
         self.assertTrue(dev_scope.validate_selectors(plan, ROOT))
 

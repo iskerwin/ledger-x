@@ -10,6 +10,9 @@ final class EditorBar: UIView {
     private let language: CodeLanguage
     private static let barHeight: CGFloat = 44
     private static let margin: CGFloat = AppSpacing.icon
+    /// the 1-pixel lines (dividers, the pre-glass border), sized from the screen this bar is on
+    private var hairlines: [NSLayoutConstraint] = []
+    private var bordered: [UIView] = []
 
     init(textView: UITextView, language: CodeLanguage) {
         self.textView = textView
@@ -18,6 +21,18 @@ final class EditorBar: UIView {
         autoresizingMask = .flexibleHeight
         backgroundColor = .clear
         build()
+        registerForTraitChanges([UITraitDisplayScale.self]) { (bar: EditorBar, _: UITraitCollection) in bar.sizeHairlines() }
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        sizeHairlines()
+    }
+
+    private func sizeHairlines() {
+        let hair = 1 / max(traitCollection.displayScale, 1)
+        hairlines.forEach { $0.constant = hair }
+        bordered.forEach { $0.layer.borderWidth = hair }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -29,7 +44,7 @@ final class EditorBar: UIView {
     // A rounded glass bar floating above the keyboard, like the system's own (Notes, Mail), with 完成 as a round
     // button of its own beside it. Glass where the system has it (iOS 26), a thick blur before.
 
-    private static func glass() -> UIVisualEffectView {
+    private func glass() -> UIVisualEffectView {
         let v: UIVisualEffectView
         if #available(iOS 26.0, *) {
             let g = UIGlassEffect()
@@ -39,8 +54,9 @@ final class EditorBar: UIView {
             v = UIVisualEffectView(effect: g)
         } else {
             v = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterial))
-            v.layer.borderWidth = 1 / UIScreen.main.scale
+            v.layer.borderWidth = 1 / max(traitCollection.displayScale, 1)
             v.layer.borderColor = UIColor.separator.cgColor
+            bordered.append(v)
         }
         v.layer.cornerRadius = barHeight / 2
         v.layer.cornerCurve = .continuous
@@ -49,7 +65,7 @@ final class EditorBar: UIView {
     }
 
     private func build() {
-        let bar = Self.glass()
+        let bar = glass()
         let scroll = UIScrollView()
         scroll.showsHorizontalScrollIndicator = false
         scroll.alwaysBounceHorizontal = true
@@ -61,7 +77,7 @@ final class EditorBar: UIView {
         scroll.addSubview(stack)
         bar.contentView.addSubview(scroll)
 
-        let doneBack = Self.glass()
+        let doneBack = glass()
         var cfg = UIButton.Configuration.plain()
         cfg.image = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .semibold))
         cfg.baseForegroundColor = .tintColor
@@ -134,7 +150,9 @@ final class EditorBar: UIView {
         let v = UIView()
         v.backgroundColor = .separator
         v.translatesAutoresizingMaskIntoConstraints = false
-        v.widthAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale).isActive = true
+        let width = v.widthAnchor.constraint(equalToConstant: 1 / max(traitCollection.displayScale, 1))
+        width.isActive = true
+        hairlines.append(width)
         v.heightAnchor.constraint(equalToConstant: 18).isActive = true
         let pad = UIView()
         pad.translatesAutoresizingMaskIntoConstraints = false
