@@ -1604,6 +1604,8 @@
  "组合付款与优惠": "Several accounts & discount",
  "组合付款时，各账户要与支出同币种。": "With several paying accounts, each must be in the expense's currency.",
  "结余": "Saved",
+ "净额": "Net",
+ "%@ 年收支": "%@ income & spending",
  "结余 ": "Net ",
  "结束": "End",
  "结果 · %@ 行 × %@ 列": "Results · %@ rows × %@ columns",
