@@ -273,8 +273,7 @@ struct SubDueRow: View {
             } label: {
                 Label(LS("记一笔"), systemImage: "plus.circle").labelStyle(ControlLabelStyle()).font(.subheadline.weight(.semibold))
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
+            .rowButton(filled: true)
             .disabled(busy)
         }
     }
@@ -360,7 +359,7 @@ struct SubscriptionsView: View {
                             }
                             Spacer()
                             Text(money(c.amount, c.currency)).monospacedDigit().sensitive()
-                            Button { editing = SubDraft(c) } label: { Label(LS("加入"), systemImage: "plus").labelStyle(ControlLabelStyle()) }.buttonStyle(.bordered).controlSize(.small)
+                            Button { editing = SubDraft(c) } label: { Label(LS("加入"), systemImage: "plus").labelStyle(ControlLabelStyle()) }.rowButton()
                         }
                         .rowActions { Button { store.ignoreCandidate(c) } label: { Label(LS("忽略"), systemImage: "eye.slash") }.tint(.gray) }
                     }
