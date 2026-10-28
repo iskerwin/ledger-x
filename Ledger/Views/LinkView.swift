@@ -36,11 +36,7 @@ extension Store {
     func linkEditOp(_ e: Entry, link: String, remove: Bool) -> Op? {
         let text = headerLinkEdit(e.src, link: link, remove: remove)
         guard text != e.src else { return nil }
-        var op = Op(kind: .replace, path: e.file)
-        op.old = e.src
-        op.text = text
-        op.date = e.date
-        return op
+        return entryOp(e, text: text)
     }
 
     /// one commit: put `link` on all of `txns`

@@ -104,8 +104,7 @@ extension Store {
             if let oldLink = e.links.first(where: { $0.hasPrefix("sub-") }) {
                 var lines = e.src.components(separatedBy: "\n")
                 lines[0] = lines[0].components(separatedBy: " ").map { $0 == "^" + oldLink ? "^" + link : $0 }.joined(separator: " ")
-                var op = Op(kind: .replace, path: e.file)
-                op.old = e.src; op.text = lines.joined(separator: "\n"); op.date = e.date
+                var op = entryOp(e, text: lines.joined(separator: "\n"))
                 if ops.isEmpty, let l = label { op.label = l } else { op.silent = true }
                 ops.append(op)
             } else {
@@ -127,10 +126,7 @@ extension Store {
         guard !lines.isEmpty else { return nil }
         let words = lines[0].components(separatedBy: " ").filter { $0 != "^" + link }
         lines[0] = words.joined(separator: " ")
-        var op = Op(kind: .replace, path: e.file)
-        op.old = e.src
-        op.text = lines.joined(separator: "\n")
-        op.date = e.date
+        var op = entryOp(e, text: lines.joined(separator: "\n"))
         op.label = LS("取消订阅关联：%@ %@", e.date, e.payee)
         return op
     }
@@ -787,8 +783,7 @@ struct SubscriptionDetailView: View {
         let e = c.txn
         let text = setTxnMeta(e.src, key: subTopupMeta, value: on ? "TRUE" : nil)
         guard text != e.src else { return }
-        var op = Op(kind: .replace, path: e.file)
-        op.old = e.src; op.text = text; op.date = e.date
+        var op = entryOp(e, text: text)
         op.label = on ? LS("订阅补差：%@ %@ %@", s.name, e.date, money(c.amount, s.currency))
             : LS("订阅单独一期：%@ %@ %@", s.name, e.date, money(c.amount, s.currency))
         Task { await store.commit([op], word: on ? LS("已并入上一期") : LS("已改为单独一期")) }
@@ -1282,16 +1277,13 @@ struct SubEditSheet: View {
                 ops += linked
             case .correct:
                 guard let o = draft.original, let e = o.entry else { return }
-                var op = Op(kind: .replace, path: e.file)
-                op.old = e.src; op.text = text; op.date = e.date; op.label = label
+                var op = entryOp(e, text: text)
+                op.label = label
                 ops = [op]
                 // a new name: rename the other lines too
                 if s.name != o.name {
                     for other in o.entries where other !== e {
-                        var r = Op(kind: .replace, path: other.file)
-                        r.old = other.src
-                        r.text = other.src.replacingOccurrences(of: "\"subscription\" " + quoted(o.name), with: "\"subscription\" " + quoted(s.name))
-                        r.date = other.date
+                        var r = entryOp(other, text: other.src.replacingOccurrences(of: "\"subscription\" " + quoted(o.name), with: "\"subscription\" " + quoted(s.name)))
                         r.silent = true
                         ops.append(r)
                     }

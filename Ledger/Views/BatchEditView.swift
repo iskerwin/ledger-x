@@ -174,12 +174,17 @@ extension Store {
             op.old = old
             op.text = new
             op.date = t.date
-            op.label = ops.isEmpty ? label : nil
+            // this copy, not an identical one elsewhere in the file
+            op.anchorLine = t.line
             op.summary = [t.payee, t.narration].filter { !$0.isEmpty }.joined(separator: " ")
-            op.silent = ops.isEmpty ? nil : true
             ops.append(op)
         }
         guard !ops.isEmpty else { show(LS("没有需要修改的交易")); return false }
+        ops = bottomUp(ops)
+        for i in ops.indices {
+            ops[i].label = i == 0 ? label : nil
+            ops[i].silent = i == 0 ? nil : true
+        }
         let n = ops.count
         guard let checked = await review(ops) else { return false }
         before()

@@ -1177,6 +1177,7 @@ struct DayOrderSheet: View {
         op.old = r.old
         op.text = r.new
         op.date = date
+        op.anchorLine = inFile.first.map { $0.startLine + 1 }
         op.label = LS("调整 %@ 的顺序", date)
         op.summary = op.label
         guard let ops = await store.review([op]) else { return }
