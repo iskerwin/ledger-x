@@ -244,9 +244,7 @@ struct EventSheet: View {
         defer { saving = false }
         let ops: [Op]
         if let e = event?.entry {
-            var op = Op(kind: .replace, path: e.file)
-            op.old = e.src
-            op.text = t
+            var op = entryOp(e, text: t)
             op.date = start
             op.label = LS("修改事件：%@", title.trimmed)
             op.summary = op.label

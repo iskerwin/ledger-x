@@ -377,9 +377,7 @@ struct AccountEditView: View {
     private func saveOpen(_ L: Ledger) {
         let text = openText(L)
         if let e = openEntry(L) {
-            var op = Op(kind: .replace, path: e.file)
-            op.old = e.src
-            op.text = text
+            var op = entryOp(e, text: text)
             op.date = openDate
             op.label = LS("修改账户：%@", name ?? "")
             op.summary = op.label
@@ -404,9 +402,7 @@ struct AccountEditView: View {
             Section {
                 LabeledContent(LS("关闭日期"), value: ce.date)
                 Button {
-                    var op = Op(kind: .remove, path: ce.file)
-                    op.old = ce.src
-                    op.date = ce.date
+                    var op = entryOp(ce, text: nil)
                     op.label = LS("重新开启账户：%@", n)
                     op.summary = op.label
                     Task { await store.commit([op], word: LS("已重新开启"), closing: { dismiss() }) }

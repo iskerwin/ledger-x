@@ -186,9 +186,7 @@ struct BudgetsView: View {
         let line = budgetLine(date, b.account, b.period, 0, b.currency)
         // a budget set this month: turn that line into the zero one instead of adding a second line
         if b.date == date, let e = b.entry {
-            var op = Op(kind: .replace, path: e.file)
-            op.old = e.src
-            op.text = line
+            var op = entryOp(e, text: line)
             op.date = date
             op.label = LS("停用预算：%@", b.account)
             Task { await store.commit([op], word: LS("已停用预算")) }
@@ -199,9 +197,7 @@ struct BudgetsView: View {
     }
 
     private func remove(_ e: Entry) {
-        var op = Op(kind: .remove, path: e.file)
-        op.old = e.src
-        op.date = e.date
+        var op = entryOp(e, text: nil)
         op.label = LS("删除预算：%@ %@", e.values.compactMap { (v: MetaValue) -> String? in if case .raw(let a) = v { return a }; return nil }.first ?? "", e.date)
         Task { await store.commit([op], word: LS("已删除")) }
     }
@@ -296,9 +292,7 @@ struct BudgetEditSheet: View {
         let label = LS("预算：%@ %@", draft.account, money(a, draft.currency))
         // same account and date already: replace that line
         if let e = draft.original ?? budgets(L).first(where: { $0.account == draft.account && $0.date == draft.date })?.entry {
-            var op = Op(kind: .replace, path: e.file)
-            op.old = e.src
-            op.text = line
+            var op = entryOp(e, text: line)
             op.date = draft.date
             op.label = label
             commit([op], word: LS("已更新预算"), ledgerID: ledgerID)
