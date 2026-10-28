@@ -1319,6 +1319,22 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertLessThan(search.frame.minY, app.windows.firstMatch.frame.height / 3)
     }
 
+    /// The month arrows are touched over 44 × 44 while the bar keeps its height: a finger beside the chevron
+    /// still turns the month
+    func testMonthArrowsHaveAFullSizeTapArea() {
+        let app = launchTab("overview")
+        let period = app.staticTexts["overview.period"]
+        XCTAssertTrue(period.waitForExistence(timeout: 20))
+        let first = period.label
+        let back = app.buttons["上个月"].firstMatch
+        XCTAssertTrue(back.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(back.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(back.frame.height, 44)
+        // near the edge of the touch area, away from the chevron itself
+        back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1)).tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", first), object: period)], timeout: 5), .completed)
+    }
+
     /// 关于 shows the build with the version, so a preview and the dev build of one version are told apart
     func testAboutShowsTheBuildNumber() {
         let app = launchTab("settings")
