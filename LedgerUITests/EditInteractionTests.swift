@@ -346,6 +346,20 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(app.buttons["快捷记账"].waitForExistence(timeout: 5))
     }
 
+    /// The full form's date has 今天, 昨天, 前天 like the entry's date sheet; the one picked is shown as chosen
+    func testFormDateHasTheSameThreeDays() {
+        let app = launch()
+        openFull(app)
+        let before = app.buttons["前天"].firstMatch
+        for _ in 0..<4 where !(before.exists && before.isHittable) { app.swipeUp() }
+        XCTAssertTrue(app.buttons["今天"].firstMatch.exists)
+        XCTAssertTrue(app.buttons["昨天"].firstMatch.exists)
+        XCTAssertTrue(app.buttons["今天"].firstMatch.isSelected, "a new entry starts on today")
+        tapPoint(before, timeout: 5)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "isSelected == true"), object: before)], timeout: 5), .completed)
+        XCTAssertFalse(app.buttons["今天"].firstMatch.isSelected)
+    }
+
     /// The fee is set in 币种、汇率与手续费 (no row of its own); once set, its line under the amount opens it again.
     func testTransferFeeCancelCompleteAndKeyboardDismissal() {
         let app = launch()

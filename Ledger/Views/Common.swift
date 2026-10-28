@@ -600,19 +600,21 @@ struct AccountField: View {
 
 // MARK: - date field
 
+/// a form's date: the picker, with 今天, 昨天, 前天 under it as the same three buttons as 记一笔's date sheet
+/// (it used to have two small chips of its own)
 struct DateField: View {
     @Binding var value: String
     var body: some View {
-        HStack(spacing: AppSpacing.icon) {
+        let today = Day.today()
+        let quick = [(LS("今天"), today), (LS("昨天"), Day.shift(today, -1)), (LS("前天"), Day.shift(today, -2))]
+        VStack(alignment: .leading, spacing: AppSpacing.control) {
             DatePicker(LS("日期"), selection: Binding(get: { Day.date(value) ?? Date() }, set: { value = Day.string($0) }), displayedComponents: .date)
                 .labelsHidden()
-            Spacer(minLength: 0)
-            ForEach(0..<2, id: \.self) { k in
-                let d = Day.shift(Day.today(), -k)
-                Chip(label: k == 0 ? LS("今天") : LS("昨天"), selected: value == d) { value = d }
-                    .fixedSize()
-            }
+            ActionRow(size: .small, items: quick.map { q in
+                ActionRow.Item(title: q.0, systemImage: "calendar", emphasis: value == q.1 ? .primary : .regular) { value = q.1 }
+            }, containsLabel: true)
         }
+        .padding(.vertical, AppSpacing.detail)
     }
 }
 
