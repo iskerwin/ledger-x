@@ -634,6 +634,8 @@ struct ActionRow: View {
             horizontalPadding: containsLabel ? AppSpacing.content : AppSpacing.icon,
             enabled: isEnabled
         ))
+        // a date row's filled capsule is the day chosen: VoiceOver says so
+        .accessibilityAddTraits(containsLabel && filled ? .isSelected : [])
     }
 }
 
