@@ -294,7 +294,7 @@ enum Prefs {
         cfg = c
         let id = c.id
         draftWorkspace = Prefs.get(Store.key("draftWorkspace", id), DraftWorkspace())
-        pending = Prefs.get(Store.key("pending", id), [Op]())
+        pending = PendingQueue.load(ledger: id)
         tree = Prefs.get(Store.key("tree", id), RepoTree?.none)
         lastSync = Prefs.get(Store.key("lastSync", id), Date?.none)
         ci = Prefs.get(Store.key("ci", id), GitHub.CI?.none)
@@ -363,7 +363,7 @@ enum Prefs {
         journalReturn = nil
         Prefs.set("activeSource", c.id)
         L = nil; D = nil; ci = nil; ledgerQueries = []; loadError = nil
-        pending = Prefs.get(pk("pending"), [Op]())
+        pending = PendingQueue.load(ledger: cfg.id)
         history = Prefs.get(pk("history"), [ChangeRecord]())
         tree = Prefs.get(pk("tree"), RepoTree?.none)
         lastSync = Prefs.get(pk("lastSync"), Date?.none)
@@ -410,6 +410,7 @@ enum Prefs {
         persistSources()
         Keychain.delete(account: id == "default" ? "token" : "token." + id)
         try? RecoveryFiles.remove(kind: "inflight", ledger: id)
+        PendingQueue.remove(ledger: id)
         // everything kept per ledger on this phone (see pk(_:))
         for k in ["pending", "tree", "lastSync", "ci", "history", "draftWorkspace", "pageContexts", "mainFile", "journalPattern", "receivable", "subsFile",
                   "sub.ignored", "link.ignored", "remind.cards", "alerts.dismissed", "alerts.seen", "backup.last", "config.migrated"] {
@@ -421,7 +422,10 @@ enum Prefs {
     private func saveTree() { Prefs.set(pk("tree"), tree) }
     /// forget the cached files of this ledger (they are read again on the next refresh)
     func forgetTree() { tree = nil; saveTree() }
-    func savePending() { Prefs.set(pk("pending"), pending) }
+    /// a queue that can't be written down would be lost if the app were closed now: say so
+    func savePending() {
+        do { try PendingQueue.save(pending, ledger: cfg.id) } catch { show(LS("待同步的改动没能存到手机上：%@", error.localizedDescription)) }
+    }
     private func saveHistory() { Prefs.set(pk("history"), history) }
 
     // MARK: - boot / refresh
@@ -453,6 +457,7 @@ enum Prefs {
         try? FileManager.default.removeItem(at: root)
         try? FileManager.default.copyItem(at: URL(fileURLWithPath: dir), to: root)
         for key in ["pending", "history", "tree", "draftWorkspace", "lastSync"] { Prefs.d.removeObject(forKey: "ledger." + Store.key(key, c.id)) }
+        PendingQueue.remove(ledger: c.id)
         await saveConfig(c)
         mainFile = "main.bean"
         await refresh()
@@ -1051,7 +1056,12 @@ enum Prefs {
             let changes = plan.changes.map { FileChange(path: $0.path, text: $0.text, version: tree?.files[$0.path]) }
             let versions: [String: String]
             // written down before it goes out: if the app is killed once the host has it, the next push knows
-            try? RecoveryFiles.save(InFlightPush(ids: plan.included, changes: plan.changes), kind: "inflight", ledger: cfg.id)
+            // not written down: sending anyway could apply the same edits twice after a crash, so it waits
+            do {
+                try RecoveryFiles.save(InFlightPush(ids: plan.included, changes: plan.changes), kind: "inflight", ledger: cfg.id)
+            } catch {
+                throw SyncRecordError(underlying: error)
+            }
             do {
                 versions = try await backend.writeMany(changes, message: message)
             } catch let e as PartialWriteError {

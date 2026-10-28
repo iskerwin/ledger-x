@@ -1403,6 +1403,8 @@
  "正在上传附件…": "Uploading attachment…",
  "正在下载演示账本…": "Downloading the demo ledger…",
  "正在保存，请稍后切换账本": "Saving. Switch ledgers after it finishes.",
+ "待同步的改动没能存到手机上：%@": "Couldn't save the changes waiting to sync on this iPhone: %@",
+ "没能在手机上记下这次上传，稍后再试：%@": "Couldn't note this upload on this iPhone; try again later: %@",
  "正在保存，请稍后再清除缓存": "Saving. Clear the cache after it finishes.",
  "重新下载失败，本机副本保持不变：%@": "Redownload failed; this phone's copy is unchanged: %@",
  "正在保存，请稍后重试": "Saving. Please try again shortly.",
