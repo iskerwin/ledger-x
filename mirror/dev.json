@@ -20,13 +20,13 @@
       "versions": [
         {
           "version": "1.0.8",
-          "buildVersion": "41.2",
+          "buildVersion": "41.3",
           "date": "2026-10-28T05:02:00Z",
-          "localizedDescription": "# Ledger X 1.0.8 预览\n\n版本 1.0.8 · 构建 41.2 · fix/calendar-switch-day-keeps-half 12bf8bb · PR #20 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.8-41.2",
-          "size": 10636671,
+          "localizedDescription": "# Ledger X 1.0.8 预览\n\n版本 1.0.8 · 构建 41.3 · fix/lock-keeps-open-sheets 9e79e79 · PR #22 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.8-41.3",
+          "size": 10640327,
           "minOSVersion": "17.0",
-          "sha256": "f27e337797762dfbcc3f3fa500f1cb722b0a9913709f4af0f82c162ea640451b"
+          "sha256": "f19115487a658420c1664eaf626a870d40e734bbc6a76aef6b626db8c323d817"
         },
         {
           "version": "1.0.8",
@@ -129,9 +129,9 @@
       },
       "version": "1.0.8",
       "versionDate": "2026-10-28T05:02:00Z",
-      "versionDescription": "# Ledger X 1.0.8 预览\n\n版本 1.0.8 · 构建 41.2 · fix/calendar-switch-day-keeps-half 12bf8bb · PR #20 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.8-41.2",
-      "size": 10636671
+      "versionDescription": "# Ledger X 1.0.8 预览\n\n版本 1.0.8 · 构建 41.3 · fix/lock-keeps-open-sheets 9e79e79 · PR #22 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.8-41.3",
+      "size": 10640327
     }
   ],
   "news": []
