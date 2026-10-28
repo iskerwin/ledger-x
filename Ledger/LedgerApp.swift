@@ -55,7 +55,7 @@ struct LedgerApp: App {
             .onChange(of: phase) { _, p in
                 if p != .active { store.persistActiveDraft() }
                 lock.scenePhase(p)
-                if p == .active { Task { await store.refresh() } }
+                if p == .active { Task { await store.refreshOnReturn() } }
             }
         }
     }
