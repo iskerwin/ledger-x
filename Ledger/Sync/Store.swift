@@ -324,10 +324,13 @@ enum Prefs {
     }
 
     /// save the connection settings of a ledger and make it the active one
-    func saveConfig(_ c: RepoConfig) async {
-        guard !drafts.isSaving && !committing && !attachmentUploading else { show(LS("正在保存，请稍后切换账本")); return }
+    /// false when a save is still going on: nothing is changed, and it says so
+    @discardableResult func saveConfig(_ c: RepoConfig) async -> Bool {
+        // editing this ledger's connection is not switching ledgers
+        let busy = c.id == cfg.id ? LS("正在保存，请稍后再保存连接") : LS("正在保存，请稍后切换账本")
+        guard !drafts.isSaving && !committing && !attachmentUploading else { show(busy); return false }
         await waitForSavedSync()
-        guard !drafts.isSaving && !committing && !attachmentUploading else { show(LS("正在保存，请稍后切换账本")); return }
+        guard !drafts.isSaving && !committing && !attachmentUploading else { show(busy); return false }
         let same = c.id == cfg.id
         let changedRepo = !same || c.kind != cfg.kind || c.owner != cfg.owner || c.repo != cfg.repo || c.branch != cfg.branch
             || c.server != cfg.server || c.bookmark != cfg.bookmark
@@ -335,7 +338,7 @@ enum Prefs {
         if !same {
             await waitForPush()
             switchLedgerState(c)
-            return
+            return true
         }
         cfg = c
         Prefs.set("activeSource", c.id)
@@ -343,6 +346,7 @@ enum Prefs {
             tree = nil; L = nil; D = nil
             Prefs.set(pk("tree"), RepoTree?.none)
         }
+        return true
     }
 
     /// switch to another ledger: its own cached files, queue and settings
@@ -692,11 +696,7 @@ enum Prefs {
         guard let tree = tree else { return }
         let missing = tree.files.filter { isLedgerFile($0.key) && BlobCache.get($0.value) == nil }.map { ($0.key, $0.value) }
         if missing.isEmpty { return }
-        let api = backend
-        try await withThrowingTaskGroup(of: (String, String).self) { group in
-            for (path, sha) in missing { group.addTask { (sha, try await api.read(path, version: sha)) } }
-            for try await (sha, text) in group { BlobCache.set(sha, text) }
-        }
+        try await backend.readEach(missing) { sha, text in BlobCache.set(sha, text) }
     }
 
     /// an op writing the whole of `path`, remembering the text it replaces: if another device changes the file
