@@ -284,10 +284,7 @@ enum BlobCache {
         guard let files = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return }
         for f in files where !names.contains(f) { try? FileManager.default.removeItem(at: dir.appendingPathComponent(f)) }
     }
-        static func clear() {
-        try? FileManager.default.removeItem(at: dir)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-    }
+    static func remove(_ sha: String) { try? FileManager.default.removeItem(at: dir.appendingPathComponent(name(sha))) }
 }
 
 enum Keychain {

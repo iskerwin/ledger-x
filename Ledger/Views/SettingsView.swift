@@ -343,11 +343,11 @@ struct AdvancedPage: View {
                 }
                 .disabled(reloading || resetting)
             } footer: {
-                Text(LS("只清除这台手机上的副本，同步队列中的变更会保留。"))
+                Text(LS("需要联网：先重新下载账本文件，全部成功后才替换这台手机上的副本；同步队列中的变更会保留。"))
             }
         }
         .navigationTitle(LS("高级设置"))
-        .confirmationDialog(LS("清除本机缓存？同步队列中的变更将保留。"), isPresented: $confirmReset, titleVisibility: .visible) {
+        .confirmationDialog(LS("清除并重新下载本机缓存？需要联网，下载失败时本机副本保持不变；同步队列中的变更将保留。"), isPresented: $confirmReset, titleVisibility: .visible) {
             Button(role: .destructive) { Task { await reset() } } label: { Text(LS("清除并重新下载")) }
         }
     }

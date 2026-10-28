@@ -621,11 +621,7 @@ enum Prefs {
     private func pruneCache() {
         let k = "ledger.cache.pruned"
         guard UserDefaults.standard.string(forKey: k) != Day.today() else { return }
-        var keep = Set(tree?.files.values.map { $0 } ?? [])
-        for s in sources where s.id != cfg.id {
-            let t: RepoTree? = Prefs.get(Store.key("tree", s.id), RepoTree?.none)
-            keep.formUnion(t?.files.values.map { $0 } ?? [])
-        }
+        let keep = Set(tree?.files.values.map { $0 } ?? []).union(otherLedgerVersions())
         guard !keep.isEmpty else { return }
         BlobCache.prune(keep: keep)
         UserDefaults.standard.set(Day.today(), forKey: k)
@@ -700,11 +696,7 @@ enum Prefs {
         guard let tree = tree else { return }
         let missing = tree.files.filter { isLedgerFile($0.key) && BlobCache.get($0.value) == nil }.map { ($0.key, $0.value) }
         if missing.isEmpty { return }
-        let api = backend
-        try await withThrowingTaskGroup(of: (String, String).self) { group in
-            for (path, sha) in missing { group.addTask { (sha, try await api.read(path, version: sha)) } }
-            for try await (sha, text) in group { BlobCache.set(sha, text) }
-        }
+        try await backend.readEach(missing) { sha, text in BlobCache.set(sha, text) }
     }
 
     /// an op writing the whole of `path`, remembering the text it replaces: if another device changes the file
@@ -1480,19 +1472,59 @@ enum Prefs {
 
     func githubURL(_ file: String, line: Int? = nil) -> URL? { backend.webURL(file, line: line) }
 
-    /// false when a save is still running and nothing was cleared
+    /// Download every ledger file of the server's tree again, and only once all of them have arrived replace this
+    /// ledger's copies on the phone. False when nothing was changed: a save is still running, or a download failed
+    /// (offline), so the copy on the phone stays readable. The other ledgers' copies are left alone.
     @discardableResult
-    func resetCache() async -> Bool {
+    func resetCache(from source: LedgerBackend? = nil) async -> Bool {
         await waitForSavedSync()
-        guard !drafts.isSaving && !committing && !attachmentUploading else { show(LS("正在保存，请稍后切换账本")); return false }
+        guard !drafts.isSaving && !committing && !attachmentUploading else { show(LS("正在保存，请稍后再清除缓存")); return false }
+        let ledgerID = cfg.id
+        let api = source ?? backend
+        let fresh: RepoTree
+        var texts: [String: String] = [:]
+        do {
+            fresh = try await api.fetchTree()
+            var waiting = fresh.files.filter { isLedgerFile($0.key) }.map { ($0.key, $0.value) }
+            try await withThrowingTaskGroup(of: (String, String).self) { group in
+                // a few at a time: a ledger with many files must not hit the host's rate limit
+                func next() {
+                    guard let file = waiting.popLast() else { return }
+                    group.addTask { (file.1, try await api.read(file.0, version: file.1)) }
+                }
+                for _ in 0..<4 { next() }
+                for try await (sha, text) in group {
+                    texts[sha] = text
+                    next()
+                }
+            }
+        } catch {
+            show(LS("重新下载失败，本机副本保持不变：%@", error.localizedDescription))
+            return false
+        }
+        guard cfg.id == ledgerID else { return false }
+        let others = otherLedgerVersions()
+        for sha in Set(tree?.files.values.map { $0 } ?? []).union(fresh.files.values) where !others.contains(sha) {
+            BlobCache.remove(sha)
+        }
+        for (sha, text) in texts { BlobCache.set(sha, text) }
         builtServerFiles = nil
         builtLedger = nil
         builtLedgerComplete = false
-        BlobCache.clear()
-        tree = nil
+        tree = fresh
         saveTree()
         await refresh()
         return true
+    }
+
+    /// the file versions the other ledgers on this phone use
+    private func otherLedgerVersions() -> Set<String> {
+        var used = Set<String>()
+        for s in sources where s.id != cfg.id {
+            let t: RepoTree? = Prefs.get(Store.key("tree", s.id), RepoTree?.none)
+            used.formUnion(t?.files.values.map { $0 } ?? [])
+        }
+        return used
     }
 }
 

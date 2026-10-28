@@ -214,6 +214,23 @@ final class LinkTests: XCTestCase {
         XCTAssertEqual(headerLinkEdit(added, link: "refund-x", remove: true).components(separatedBy: "\n")[0], "2025-01-01 * \"A ;b\" \"c\" ; note")
     }
 
+    /// a subscription or refund link is swapped or taken off by its link word only: the same text in the payee,
+    /// narration or a trailing comment stays, and a tab before the link is a separator like a space
+    func testHeaderLinkReplaceTouchesOnlyTheLinkWord() {
+        let t = "2025-01-01 * \"Demo ^sub-old 会员\" \"说 \\\"^sub-old\\\"\"\t^sub-old #tag ; ^sub-old\n  Expenses:Food  1 CNY\n  Assets:Bank"
+        let swapped = headerLinkReplace(t, link: "sub-old", with: "sub-new")
+        XCTAssertEqual(swapped.components(separatedBy: "\n")[0],
+                       "2025-01-01 * \"Demo ^sub-old 会员\" \"说 \\\"^sub-old\\\"\"\t^sub-new #tag ; ^sub-old")
+        let removed = headerLinkReplace(t, link: "sub-old", with: nil)
+        XCTAssertEqual(removed.components(separatedBy: "\n")[0], "2025-01-01 * \"Demo ^sub-old 会员\" \"说 \\\"^sub-old\\\"\" #tag ; ^sub-old")
+        XCTAssertEqual(removed.components(separatedBy: "\n").dropFirst(), t.components(separatedBy: "\n").dropFirst())
+        XCTAssertEqual(headerLinkReplace(t, link: "sub-none", with: nil), t)
+        let L = loadLedger(root: "main.bean") { _ in "2025-01-01 open Expenses:Food\n2025-01-01 open Assets:Bank\n" + swapped + "\n" }
+        XCTAssertEqual(L.txns.first?.links, ["sub-new"])
+        XCTAssertEqual(L.txns.first?.payee, "Demo ^sub-old 会员")
+        XCTAssertEqual(L.txns.first?.narration, "说 \"^sub-old\"")
+    }
+
     /// ^doc-… is written when an attachment is uploaded. It is on its one transaction by design, so it is not a
     /// "link on this transaction only" problem, and has no figures: the detail page shows the files under 附件.
     func testAttachmentLinkIsNotALinkProblem() {
