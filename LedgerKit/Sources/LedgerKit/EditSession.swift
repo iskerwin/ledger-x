@@ -9,6 +9,16 @@ public struct DraftSession: Codable, Equatable {
     public var hasChanges: Bool { !sameDraftContent(draft, baseline) }
     public var shouldKeep: Bool { hasChanges || (draft.replacing == nil && draftHasContent(draft)) }
 
+    /// The day changed while a new, untouched form was open on it: the form moves to the new day, as if opened
+    /// now. A form with anything filled in, an edit, or a date picked by hand stays as it is (nil).
+    public func rollingDate(from old: String, to new: String) -> DraftSession? {
+        guard draft.replacing == nil, !shouldKeep, draft.date == old, old != new else { return nil }
+        var draft = draft, baseline = baseline
+        draft.date = new
+        baseline.date = new
+        return DraftSession(draft: draft, baseline: baseline)
+    }
+
     /// A type change on an untouched creation form selects its initial layout, not a transaction edit.
     /// Preserve the original baseline once any other field has changed, including account-only input.
     public func selectingKind(_ next: Draft) -> DraftSession {
