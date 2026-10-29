@@ -263,7 +263,7 @@ struct CardDueSection: View {
                                 Text(money(c.remaining, c.currency)).monospacedDigit().sensitive()
                             }
                         }
-                        Button { store.repaying = c } label: { Label(LS("还款"), systemImage: "arrow.up.right").labelStyle(ControlLabelStyle()) }.buttonStyle(.borderedProminent).controlSize(.small)
+                        Button { store.repaying = c } label: { Label(LS("还款"), systemImage: "arrow.up.right").labelStyle(ControlLabelStyle()) }.rowButton(filled: true)
                     }
                     .entryActions(c.bill, edit: { editingBill = c })
                 }

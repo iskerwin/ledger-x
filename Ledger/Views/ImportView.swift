@@ -387,7 +387,7 @@ struct ImportView: View {
                     .primaryButton()
                 if !ready.isEmpty {
                     Button { save() } label: { Label(LS("仅导入已确认的 %@ 笔", ready.count), systemImage: "square.and.arrow.down").labelStyle(ControlLabelStyle()).frame(maxWidth: .infinity) }
-                        .buttonStyle(.bordered)
+                        .secondaryButton()
                     Text(LS("待确认的不会写入，留在这里可以稍后再导入。")).font(.caption2).foregroundStyle(.secondary)
                 }
             } else {

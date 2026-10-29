@@ -102,9 +102,7 @@ extension Store {
                 showFailure(LS("记录或账本已变化，请重新打开后再试")); return nil
             }
             if let oldLink = e.links.first(where: { $0.hasPrefix("sub-") }) {
-                var lines = e.src.components(separatedBy: "\n")
-                lines[0] = lines[0].components(separatedBy: " ").map { $0 == "^" + oldLink ? "^" + link : $0 }.joined(separator: " ")
-                var op = entryOp(e, text: lines.joined(separator: "\n"))
+                var op = entryOp(e, text: headerLinkReplace(e.src, link: oldLink, with: link))
                 if ops.isEmpty, let l = label { op.label = l } else { op.silent = true }
                 ops.append(op)
             } else {
@@ -122,11 +120,7 @@ extension Store {
 
     /// take `^link` off a transaction
     func unlinkOp(_ e: Entry, link: String) -> Op? {
-        var lines = e.src.components(separatedBy: "\n")
-        guard !lines.isEmpty else { return nil }
-        let words = lines[0].components(separatedBy: " ").filter { $0 != "^" + link }
-        lines[0] = words.joined(separator: " ")
-        var op = entryOp(e, text: lines.joined(separator: "\n"))
+        var op = entryOp(e, text: headerLinkReplace(e.src, link: link, with: nil))
         op.label = LS("取消订阅关联：%@ %@", e.date, e.payee)
         return op
     }
@@ -273,8 +267,7 @@ struct SubDueRow: View {
             } label: {
                 Label(LS("记一笔"), systemImage: "plus.circle").labelStyle(ControlLabelStyle()).font(.subheadline.weight(.semibold))
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
+            .rowButton(filled: true)
             .disabled(busy)
         }
     }
@@ -360,7 +353,7 @@ struct SubscriptionsView: View {
                             }
                             Spacer()
                             Text(money(c.amount, c.currency)).monospacedDigit().sensitive()
-                            Button { editing = SubDraft(c) } label: { Label(LS("加入"), systemImage: "plus").labelStyle(ControlLabelStyle()) }.buttonStyle(.bordered).controlSize(.small)
+                            Button { editing = SubDraft(c) } label: { Label(LS("加入"), systemImage: "plus").labelStyle(ControlLabelStyle()) }.rowButton()
                         }
                         .rowActions { Button { store.ignoreCandidate(c) } label: { Label(LS("忽略"), systemImage: "eye.slash") }.tint(.gray) }
                     }
