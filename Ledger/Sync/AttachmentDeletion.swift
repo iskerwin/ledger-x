@@ -42,15 +42,13 @@ extension Store {
         }
         let data: Data
         do { data = try await backend.readData(path) } catch {
-            Haptics.error()
-            show(LS("无法下载文件，没有做任何改动：%@", error.localizedDescription))
+            showFailure(LS("无法下载文件，没有做任何改动：%@", error.localizedDescription))
             return false
         }
         guard cfg.id == ledgerID else { return false }
         var item = DeletedAttachment(path: path, version: version, record: nil, time: Date(), text: e.src, file: e.file)
         do { try RecoveryFiles.saveData(data, kind: Self.copyKind(item.id), ledger: ledgerID) } catch {
-            Haptics.error()
-            show(LS("无法在本机保存副本，没有做任何改动：%@", error.localizedDescription))
+            showFailure(LS("无法在本机保存副本，没有做任何改动：%@", error.localizedDescription))
             return false
         }
         let before = history.first?.id
@@ -136,7 +134,7 @@ extension Store {
         // the directive again, with its path relative to the file it now goes into
         guard let text = item.text, let old = parseFile(text, file: item.file ?? main).entries.first(where: { $0.type == .document }),
               let account = old.account else {
-            show(LS("文件已恢复，但找不到原来的记录，请重新添加附件"))
+            showFailure(LS("文件已恢复，但找不到原来的记录，请重新添加附件"))
             return false
         }
         let line = documentText(date: old.date, account: account, path: item.path) + old.links.map { " ^" + $0 }.joined()
@@ -161,7 +159,7 @@ extension Store {
         guard let item = deletedAttachments(ledger: ledgerID).first(where: { $0.id == given.id }) else { return true }
         if item.state == .deleted {
             guard let data = RecoveryFiles.loadData(kind: Self.copyKind(item.id), ledger: ledgerID) else {
-                show(LS("本机副本已不存在，无法恢复 %@", (item.path as NSString).lastPathComponent))
+                showFailure(LS("本机副本已不存在，无法恢复 %@", (item.path as NSString).lastPathComponent))
                 return false
             }
             do { try await backend.writeData(item.path, data: data, message: LS("恢复附件：%@", item.path)) } catch {

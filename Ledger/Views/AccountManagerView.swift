@@ -350,28 +350,10 @@ struct AccountEditView: View {
     private func openText(_ L: Ledger) -> String {
         let n = isNew ? account.trimmed : (name ?? "")
         let ccy = currencies.uppercased().split(whereSeparator: { $0 == "," || $0 == " " }).map(String.init).filter { !$0.isEmpty }
-        var head = "\(openDate) open \(n)"
-        if !ccy.isEmpty { head += String(repeating: " ", count: max(1, 56 - head.count)) + ccy.joined(separator: ",") }
-        if !booking.isEmpty { head += " \"\(booking)\"" }
-        var lines = [head]
-        // keep the other metadata of the original directive
-        if let e = openEntry(L) {
-            for l in e.src.components(separatedBy: "\n").dropFirst() {
-                let t = l.trimmingCharacters(in: .whitespaces)
-                if t.hasPrefix("name:") || t.hasPrefix(creditLimitKey + ":") || t.hasPrefix(allowNegativeKey + ":")
-                    || t.hasPrefix(statementDayKey + ":") || t.hasPrefix(dueDayKey + ":") || t.isEmpty { continue }
-                lines.append(l)
-            }
-        }
         let limit = creditLimitText.replacingOccurrences(of: ",", with: "").trimmed
-        if n.hasPrefix("Liabilities:"), let v = Double(limit), v > 0 { lines.insert("  \(creditLimitKey): \(jsNumberString(v))", at: 1) }
-        if n.hasPrefix("Assets:"), allowNegative { lines.insert("  \(allowNegativeKey): TRUE", at: 1) }
-        if n.hasPrefix("Liabilities:"), dueDay > 0 { lines.insert("  \(dueDayKey): \(dueDay)", at: 1) }
-        if n.hasPrefix("Liabilities:") || n.hasPrefix("Assets:"), statementDay > 0 { lines.insert("  \(statementDayKey): \(statementDay)", at: 1) }
-        if !display.trimmed.isEmpty {
-            lines.insert("  name: \"\(display.trimmed.replacingOccurrences(of: "\"", with: "'"))\"", at: 1)
-        }
-        return lines.joined(separator: "\n")
+        return openDirectiveText(date: openDate, account: n, currencies: ccy, booking: booking, name: display.trimmed,
+                                 creditLimit: Double(limit), allowNegative: allowNegative, statementDay: statementDay,
+                                 dueDay: dueDay, keep: openEntry(L)?.src)
     }
 
     private func saveOpen(_ L: Ledger) {
@@ -512,7 +494,7 @@ struct AccountEditView: View {
         guard !ops.isEmpty else { store.show(LS("账本中没有出现该账户")); return }
         // file rules and the accounts left out of 净资产 / 资产负债表 follow the account
         if let c = store.repoConfig?.renamingAccount(from, to: to) {
-            var op = await store.fileWriteOp(LedgerXConfig.path, text: c.json())
+            guard var op = await store.fileWriteOp(LedgerXConfig.path, text: c.json()) else { return }
             op.silent = true
             ops.append(op)
         }
