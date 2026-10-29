@@ -444,19 +444,28 @@ struct IncomeStatementView: View {
                 Card {
                     VStack(alignment: .leading, spacing: AppSpacing.control) {
                         Text(rangeLabel(r)).font(.caption).foregroundStyle(.secondary)
-                        VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                        let several = CurrencyTable.rows([inc, exp], base: L.base).count > 1
+                        if several {
+                            // several currencies as booked: a row each (the savings rate needs one currency)
                             Text(LS("净收益")).font(.subheadline).foregroundStyle(.secondary)
-                            InventoryHeadline(inv: net, base: L.base)
-                        }
-                        HStack(alignment: .top, spacing: AppSpacing.control) {
-                            InventoryFigure(label: LS("收入"), inv: inc, base: L.base, color: .gain)
-                            Spacer()
-                            InventoryFigure(label: LS("支出"), inv: exp, base: L.base, color: .loss)
-                            Spacer()
-                            Figure(label: LS("储蓄率"), value: one && i1 > 0 ? String(format: "%.1f%%", (i1 - e1) / i1 * 100) : "—", alignment: .trailing)
-                        }
-                        if one && (i1 > 0 || e1 > 0) {
-                            RatioBar(parts: [(i1, Color.gain), (e1, Color.loss)])
+                            CurrencyTable(columns: [.init(title: LS("收入"), color: .gain), .init(title: LS("支出"), color: .loss),
+                                                    .init(title: LS("净收益"), signed: true)],
+                                          rows: CurrencyTable.rows([inc, exp, net], base: L.base))
+                        } else {
+                            VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                                Text(LS("净收益")).font(.subheadline).foregroundStyle(.secondary)
+                                InventoryHeadline(inv: net, base: L.base)
+                            }
+                            HStack(alignment: .top, spacing: AppSpacing.control) {
+                                InventoryFigure(label: LS("收入"), inv: inc, base: L.base, color: .gain)
+                                Spacer()
+                                InventoryFigure(label: LS("支出"), inv: exp, base: L.base, color: .loss)
+                                Spacer()
+                                Figure(label: LS("储蓄率"), value: one && i1 > 0 ? String(format: "%.1f%%", (i1 - e1) / i1 * 100) : "—", alignment: .trailing)
+                            }
+                            if one && (i1 > 0 || e1 > 0) {
+                                RatioBar(parts: [(i1, Color.gain), (e1, Color.loss)])
+                            }
                         }
                     }
                 }
@@ -875,20 +884,28 @@ struct BalanceSheetView: View {
                 Card {
                     VStack(alignment: .leading, spacing: AppSpacing.control) {
                         Text(LS("截至 %@", date)).font(.caption).foregroundStyle(.secondary)
-                        VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                        let several = CurrencyTable.rows([assets, liab], base: L.base).count > 1
+                        if several {
+                            // several currencies as booked: a row each (the ratio needs one currency)
                             Text(LS("净资产")).font(.subheadline).foregroundStyle(.secondary)
-                            InventoryHeadline(inv: bs.netWorthShown, base: L.base)
-                        }
-                        HStack(alignment: .top, spacing: AppSpacing.control) {
-                            InventoryFigure(label: LS("资产总额"), inv: assets, base: L.base)
-                            Spacer()
-                            InventoryFigure(label: LS("负债总额"), inv: liab, base: L.base)
-                            Spacer()
-                            Figure(label: LS("资产负债率"), value: ratio, alignment: .trailing)
-                        }
-                        if let a = a1, ratio != "—" || (l1?.amount ?? 0) < 0.005 {
-                            let l = max(0, l1?.amount ?? 0)
-                            RatioBar(parts: [(max(0, a.amount - l), Color.jadeInk), (l, Color.secondary)])
+                            CurrencyTable(columns: [.init(title: LS("资产")), .init(title: LS("负债")), .init(title: LS("净额"), signed: true)],
+                                          rows: CurrencyTable.rows([assets, liab, bs.netWorthShown], base: L.base))
+                        } else {
+                            VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                                Text(LS("净资产")).font(.subheadline).foregroundStyle(.secondary)
+                                InventoryHeadline(inv: bs.netWorthShown, base: L.base)
+                            }
+                            HStack(alignment: .top, spacing: AppSpacing.control) {
+                                InventoryFigure(label: LS("资产总额"), inv: assets, base: L.base)
+                                Spacer()
+                                InventoryFigure(label: LS("负债总额"), inv: liab, base: L.base)
+                                Spacer()
+                                Figure(label: LS("资产负债率"), value: ratio, alignment: .trailing)
+                            }
+                            if let a = a1, ratio != "—" || (l1?.amount ?? 0) < 0.005 {
+                                let l = max(0, l1?.amount ?? 0)
+                                RatioBar(parts: [(max(0, a.amount - l), Color.jadeInk), (l, Color.secondary)])
+                            }
                         }
                     }
                 }

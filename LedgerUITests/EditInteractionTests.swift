@@ -1306,19 +1306,44 @@ final class EditInteractionTests: XCTestCase {
 
     /// 全部 and 收支 on the accounts page: the 收支 card was shorter, so the switch under it moved away from the finger
     func testAccountsCardKeepsItsHeightBetweenTabs() {
-        // a second currency puts net worth on two lines: taller than the year's flows
-        let app = launchTab("accounts", env: ["LEDGER_EXTRA": heightExtra])
-        let flows = app.buttons["收支"]
-        XCTAssertTrue(flows.waitForExistence(timeout: 20))
-        // the tab is remembered: start from 全部
-        app.buttons["全部"].tap()
-        XCTAssertTrue(app.staticTexts["资产负债率"].waitForExistence(timeout: 5))
-        // the other tab's card keeps its place unseen: VoiceOver does not read it
-        XCTAssertFalse(app.staticTexts["储蓄率"].exists)
-        let before = flows.frame.minY
-        flows.tap()
-        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "年结余")).firstMatch.waitForExistence(timeout: 5))
-        XCTAssertEqual(flows.frame.minY, before, accuracy: 0.5)
+        // one currency: a figure each; the card keeps the taller tab's height
+        for extra in [nil, heightExtra] {
+            let app = launchTab("accounts", env: extra.map { ["LEDGER_EXTRA": $0] } ?? [:])
+            let flows = app.buttons["收支"]
+            XCTAssertTrue(flows.waitForExistence(timeout: 20))
+            // the tab is remembered: start from 全部
+            app.buttons["全部"].tap()
+            // a second currency (HKD without a price): both tabs are a table, a row per currency
+            let several = extra != nil
+            XCTAssertTrue(app.staticTexts[several ? "净额" : "资产负债率"].waitForExistence(timeout: 5))
+            // the other tab's card keeps its place unseen: VoiceOver does not read it
+            XCTAssertFalse(app.staticTexts[several ? "结余" : "储蓄率"].exists)
+            let before = flows.frame.minY
+            flows.tap()
+            XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", several ? "年收支" : "年结余")).firstMatch.waitForExistence(timeout: 5))
+            XCTAssertEqual(flows.frame.minY, before, accuracy: 0.5)
+            app.terminate()
+        }
+    }
+
+    /// Several currencies as booked: the accounts card, the balance sheet and the income statement list each currency
+    /// once, a row with its figures (they listed every currency under each figure, three times over)
+    func testSeveralCurrenciesAreOneRowEach() {
+        let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures")
+        for (tab, report, extra) in [("accounts", nil, "fx-extra.bean"), ("reports", "balance", "fx-extra.bean"), ("reports", "income", "flow-extra.bean")] {
+            var env = ["LEDGER_EXTRA": fixtures.appendingPathComponent(extra).path, "LEDGER_CURRENCY_MODE": "units"]
+            if let report { env["LEDGER_REPORT"] = report }
+            let app = launchTab(tab, env: env)
+            if tab == "accounts" {
+                XCTAssertTrue(app.buttons["全部"].waitForExistence(timeout: 20))
+                app.buttons["全部"].tap()
+            }
+            let table = app.otherElements["currency.table"].firstMatch
+            XCTAssertTrue(table.waitForExistence(timeout: 20), report ?? tab)
+            XCTAssertEqual(table.staticTexts.matching(identifier: "HKD").count, 1, report ?? tab)
+            XCTAssertTrue(table.staticTexts["CNY"].exists, report ?? tab)
+            app.terminate()
+        }
     }
 
     /// Under the bar both tabs of the card have a line: 净资产 against last month, 收支 by the month (收支 had
