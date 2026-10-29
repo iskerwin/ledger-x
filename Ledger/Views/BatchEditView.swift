@@ -117,18 +117,13 @@ struct BatchEditSheet: View {
     }
 
     private func transform(_ block: String) -> String? {
-        var lines = block.components(separatedBy: "\n")
-        guard !lines.isEmpty else { return nil }
         switch mode {
         case .account:
             return accountReplaced(in: block, from: from, to: to)
         case .tag, .link:
-            let add = (mode == .tag ? " #" : " ^") + cleanWord
-            if lines[0].components(separatedBy: " ").contains(add.trimmingCharacters(in: .whitespaces)) { return nil }
-            var head = lines[0]
-            while head.hasSuffix(" ") { head.removeLast() }
-            lines[0] = head + add
-            return lines.joined(separator: "\n")
+            // on the header, before a trailing comment (it used to go after it, inside the comment)
+            let new = headerWordAdd(block, (mode == .tag ? "#" : "^") + cleanWord)
+            return new == block ? nil : new
         }
     }
 

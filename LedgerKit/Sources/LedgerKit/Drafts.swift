@@ -1338,8 +1338,9 @@ public func refundDraft(_ t: Entry, _ L: Ledger, _ D: Derived, defaultFunding: S
 
 /// `^…` names on a transaction's header line, without the caret. The same reading the refund save uses.
 public func linksOnHeader(_ text: String) -> [String] {
-    let header = text.components(separatedBy: "\n").first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ?? ""
-    return header.split(separator: " ").filter { $0.hasPrefix("^") && $0.count > 1 }.map { String($0.dropFirst()) }
+    let header = Array(text.components(separatedBy: "\n").first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ?? "")
+    // only link words: a "^…" inside the payee, narration or a trailing comment is text
+    return headerWords(header).words.map { String(header[$0]) }.filter { $0.hasPrefix("^") && $0.count > 1 }.map { String($0.dropFirst()) }
 }
 
 /// the refund link to write onto the original purchase, taken from the text actually saved

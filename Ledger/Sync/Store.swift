@@ -752,7 +752,7 @@ enum Prefs {
         guard let tree = tree else { return }
         let missing = tree.files.filter { isLedgerFile($0.key) && BlobCache.get($0.value) == nil }.map { ($0.key, $0.value) }
         if missing.isEmpty { return }
-        try await backend.readEach(missing) { sha, text in BlobCache.set(sha, text) }
+        try await backend.readEach(missing) { sha, text in try BlobCache.save(sha, text) }
     }
 
     /// an op writing the whole of `path`, remembering the text it replaces: if another device changes the file
@@ -1577,11 +1577,17 @@ enum Prefs {
             return false
         }
         guard cfg.id == ledgerID else { return false }
+        // the new copies first: when the phone can't store them, the old ones are still there
+        do {
+            for (sha, text) in texts { try BlobCache.save(sha, text) }
+        } catch {
+            show(LS("重新下载失败，本机副本保持不变：%@", error.localizedDescription))
+            return false
+        }
         let others = otherLedgerVersions()
-        for sha in Set(tree?.files.values.map { $0 } ?? []).union(fresh.files.values) where !others.contains(sha) {
+        for sha in Set(tree?.files.values.map { $0 } ?? []).union(fresh.files.values) where !others.contains(sha) && texts[sha] == nil {
             BlobCache.remove(sha)
         }
-        for (sha, text) in texts { BlobCache.set(sha, text) }
         builtServerFiles = nil
         builtLedger = nil
         builtLedgerComplete = false
