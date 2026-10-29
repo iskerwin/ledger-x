@@ -72,4 +72,6 @@ GitHub  https://raw.githubusercontent.com/iskerwin/ledger-x/ipa/release.json
 
 [开发手册](docs/development/README.md) · [更新记录](CHANGELOG.md) · 问题反馈请用 [Issues](https://github.com/iskerwin/ledger-x/issues)
 
+提 PR 前先读开发手册的 [02 记账与数据规范](docs/development/02-记账与数据规范.md)、[03 技术架构](docs/development/03-技术架构与代码导航.md) 和 [04 云端测试与发布](docs/development/04-云端测试与发布.md)。一件事一个 PR；本机运行 `python3 tools/ship.py check`，合并前「Ledger CI / gate」须通过且已同步最新 main；界面或交互改动先发预览包确认。PR 模板列出了 CHANGELOG、英文翻译、使用指南和手机验收清单的要求。只用虚构数据，不要提交真实账单或账号。
+
 <sub>截图使用虚构演示数据。公开反馈时请不要上传真实账单、账号或交易编号。</sub>
