@@ -327,11 +327,12 @@ enum Prefs {
         Prefs.set("sources", sources.map { s -> RepoConfig in var x = s; x.token = ""; return x })
     }
 
-    /// add or update a ledger in the list (token to the Keychain)
-    func saveSource(_ c: RepoConfig) {
-        Keychain.save(c.token, account: c.keychainAccount)
+    /// add or update a ledger in the list (token to the Keychain); false (nothing changed) when the token can't be kept
+    func saveSource(_ c: RepoConfig) -> Bool {
+        guard Keychain.save(c.token, account: c.keychainAccount) else { return false }
         if let i = sources.firstIndex(where: { $0.id == c.id }) { sources[i] = c } else { sources.append(c) }
         persistSources()
+        return true
     }
 
     /// save the connection settings of a ledger and make it the active one
@@ -345,7 +346,7 @@ enum Prefs {
         let same = c.id == cfg.id
         let changedRepo = !same || c.kind != cfg.kind || c.owner != cfg.owner || c.repo != cfg.repo || c.branch != cfg.branch
             || c.server != cfg.server || c.bookmark != cfg.bookmark
-        saveSource(c)
+        guard saveSource(c) else { showFailure(LS("Token 未能保存在本机，连接未保存")); return false }
         if !same {
             await waitForPush()
             switchLedgerState(c)
