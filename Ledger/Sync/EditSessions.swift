@@ -83,8 +83,7 @@ extension Store {
         guard let file = try? await fileText(r.path), cfg.id == ledgerID else { return false }
         let original = parseFile(r.old, file: r.path).entries
         guard original.count == 1, EntryLocator(original[0], startLine: r.line.map { $0 - 1 }).text(in: file) != nil else {
-            Haptics.error()
-            show(LS("原记录已变化，草稿已保留。可复制草稿内容后核对。"))
+            showFailure(LS("原记录已变化，草稿已保留。可复制草稿内容后核对。"))
             return false
         }
         persistActiveDraft()

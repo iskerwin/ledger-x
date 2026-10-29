@@ -602,6 +602,9 @@ struct IncomeExpenseChart: View {
                 // once learned, its place is kept for the picked month's line, so picking one moves nothing
                 Text(LS("点按或左右滑动查看各月")).font(.caption).foregroundStyle(.secondary)
                     .opacity(chartLearned ? 0 : 1).accessibilityHidden(chartLearned)
+            } else {
+                // one chart per currency: the picked month's line has its place under each before one is picked
+                Text(verbatim: " ").font(.caption).accessibilityHidden(true)
             }
         }
         .padding(.vertical, AppSpacing.icon)
@@ -653,6 +656,8 @@ struct FlowCharts: View {
                 }
             }
             .padding(.vertical, AppSpacing.detail)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("flow.charts")
         }
     }
 }
@@ -724,6 +729,8 @@ struct WorthCharts: View {
                 }
             }
             .padding(.vertical, AppSpacing.detail)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("networth.charts")
         }
     }
 
@@ -989,6 +996,9 @@ struct NetWorthChart: View {
                     Spacer()
                     Text((last.netWorth >= first.netWorth && !KitPrivacy.masked ? "+" : "") + unitText(last.netWorth - first.netWorth, currency)).fontWeight(.semibold).monospacedDigit()
                         .foregroundStyle(Color.change(last.netWorth - first.netWorth)).sensitive()
+                } else {
+                    // one chart per currency: the picked month's line has its place above each before one is picked
+                    Text(verbatim: " ").fontWeight(.semibold).accessibilityHidden(true)
                 }
             }
             .font(compact ? .caption : .subheadline)
