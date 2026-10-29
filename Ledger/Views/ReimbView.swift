@@ -274,9 +274,9 @@ struct ReimbSheet: View {
             for i in selected.sorted() where p.indices.contains(i) {
                 let e = p[i].t
                 guard done.insert(ObjectIdentifier(e)).inserted else { continue }
-                guard let file = try? await store.fileText(e.file) else { store.show(LS("无法读取 %@", e.file)); return }
+                guard let file = try? await store.fileText(e.file) else { store.showFailure(LS("无法读取 %@", e.file)); return }
                 guard store.cfg.id == ledgerID, let current = EntryLocator(e).resolve(in: parseFile(file, file: e.file).entries) else {
-                    store.show(LS("记录或账本已变化，请重新打开后再试")); return
+                    store.showFailure(LS("记录或账本已变化，请重新打开后再试")); return
                 }
                 let lines = file.components(separatedBy: "\n")
                 guard current.startLine < lines.count else { return }

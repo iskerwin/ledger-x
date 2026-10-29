@@ -276,7 +276,11 @@ enum BlobCache {
         key.count == 40 && key.allSatisfy({ $0.isHexDigit }) ? key : sha1Hex(Data(key.utf8))
     }
     static func get(_ sha: String) -> String? { try? String(contentsOf: dir.appendingPathComponent(name(sha)), encoding: .utf8) }
-    static func set(_ sha: String, _ text: String) { try? Data(text.utf8).write(to: dir.appendingPathComponent(name(sha)), options: .atomic) }
+    static func set(_ sha: String, _ text: String) { try? save(sha, text) }
+    /// where the copy on the phone is all there is (download, 清除缓存并重新下载): a full disk is reported, not skipped
+    static func save(_ sha: String, _ text: String) throws { try writeFile(Data(text.utf8), dir.appendingPathComponent(name(sha))) }
+    /// tests stand in a disk that refuses
+    static var writeFile: (Data, URL) throws -> Void = { try $0.write(to: $1, options: .atomic) }
     /// delete every cached version except `keep` (the files of each ledger's current tree): every commit
     /// leaves the previous version of the files it changed behind, and those are never read again
     static func prune(keep: Set<String>) {
@@ -299,7 +303,9 @@ enum Keychain {
     /// Kept on this phone only: not carried to another device by a backup. When the keychain refuses (a sideloaded
     /// build without a keychain group), the token goes to a protected file of the app's own that backups leave out —
     /// never into the settings (UserDefaults), where it sat in plain text.
-    static func save(_ value: String, account: String = "token") {
+    /// false: neither the keychain nor the file took it (a token left in the settings by an earlier version stays there)
+    @discardableResult
+    static func save(_ value: String, account: String = "token") -> Bool {
         SecItemDelete(base(account) as CFDictionary)
         var item = base(account)
         item[kSecValueData as String] = Data(value.utf8)
@@ -307,9 +313,10 @@ enum Keychain {
         if add(item as CFDictionary) == errSecSuccess {
             Fallback.remove(account)
         } else {
-            Fallback.write(value, account)
+            guard Fallback.write(value, account) else { return false }
         }
         UserDefaults.standard.removeObject(forKey: Fallback.legacyKey(account))
+        return true
     }
 
     static func load(account: String = "token") -> String? {
@@ -356,9 +363,13 @@ enum Keychain {
             return dir.appendingPathComponent(account.replacingOccurrences(of: "/", with: "_"))
         }
 
-        static func write(_ value: String, _ account: String) {
-            guard let u = url(account) else { return }
-            try? Data(value.utf8).write(to: u, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        /// tests stand in a disk that refuses
+        static var writeFile: (Data, URL) throws -> Void = { try $0.write(to: $1, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication]) }
+
+        static func write(_ value: String, _ account: String) -> Bool {
+            guard let u = url(account) else { return false }
+            do { try writeFile(Data(value.utf8), u) } catch { return false }
+            return true
         }
 
         static func read(_ account: String) -> String? {

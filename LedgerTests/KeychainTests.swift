@@ -6,14 +6,17 @@ import XCTest
 final class KeychainTests: XCTestCase {
     private let account = "token.keychain-test"
     private var keychainAdd: ((CFDictionary) -> OSStatus)!
+    private var writeFile: ((Data, URL) throws -> Void)!
 
     override func setUp() {
         keychainAdd = Keychain.add
+        writeFile = Keychain.Fallback.writeFile
         Keychain.delete(account: account)
     }
 
     override func tearDown() {
         Keychain.add = keychainAdd
+        Keychain.Fallback.writeFile = writeFile
         Keychain.delete(account: account)
     }
 
@@ -39,5 +42,14 @@ final class KeychainTests: XCTestCase {
         XCTAssertEqual(Keychain.load(account: account), "secret-2")
         XCTAssertNil(inSettings, "moved out of the settings on first read")
         XCTAssertEqual(Keychain.load(account: account), "secret-2")
+    }
+
+    func testATokenNeitherPlaceTakesIsReportedAndTheOldOneStays() {
+        Keychain.add = { _ in errSecMissingEntitlement }
+        UserDefaults.standard.set("secret-3", forKey: "ledger.fallback." + account)
+        Keychain.Fallback.writeFile = { _, _ in throw CocoaError(.fileWriteOutOfSpace) }
+        XCTAssertFalse(Keychain.save("secret-4", account: account))
+        XCTAssertEqual(inSettings, "secret-3", "the earlier token is not thrown away")
+        XCTAssertFalse(Keychain.inFallback(account: account))
     }
 }

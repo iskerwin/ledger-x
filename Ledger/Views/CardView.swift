@@ -263,7 +263,7 @@ struct CardDueSection: View {
                                 Text(money(c.remaining, c.currency)).monospacedDigit().sensitive()
                             }
                         }
-                        Button { store.repaying = c } label: { Label(LS("还款"), systemImage: "arrow.up.right").labelStyle(ControlLabelStyle()) }.buttonStyle(.borderedProminent).controlSize(.small)
+                        Button { store.repaying = c } label: { Label(LS("还款"), systemImage: "arrow.up.right").labelStyle(ControlLabelStyle()) }.rowButton(filled: true)
                     }
                     .entryActions(c.bill, edit: { editingBill = c })
                 }
@@ -445,7 +445,7 @@ struct RepaySheet: View {
 
     private func save() {
         guard !saving, let a = evalAmount(amount), a.isFinite, a > 0, let L = store.L else { return }
-        guard accountTakes(from, cycle.currency, L) else { store.show(LS("付款账户不支持还款币种，请更换账户。")); return }
+        guard accountTakes(from, cycle.currency, L) else { store.showFailure(LS("付款账户不支持还款币种，请更换账户。")); return }
         let text = repaymentText(card: cycle.account, from: from, amount: a, currency: cycle.currency, date: date)
         guard let ops = store.makeOps(text, extra: OpExtra(label: LS("信用卡还款：%@ %@", acctLabel(cycle.account), money(a, cycle.currency))), single: true) else { return }
         let ledgerID = store.cfg.id

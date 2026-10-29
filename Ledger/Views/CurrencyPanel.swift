@@ -252,3 +252,89 @@ struct InventoryHeadline: View {
         }
     }
 }
+
+/// Several currencies as booked, at the top of a page: one row each with its figures in columns (资产 · 负债 · 净额),
+/// so each currency is listed once. The stacked lines it replaces listed every currency in each figure. At the
+/// accessibility text sizes a currency takes two lines: its code and the last figure, then the others in small type.
+struct CurrencyTable: View {
+    struct Column {
+        let title: String
+        var color: Color? = nil
+        /// red when below zero (净额, 结余)
+        var signed = false
+    }
+    let columns: [Column]
+    /// each currency's figures, in the columns' order
+    let rows: [(currency: String, values: [Double])]
+    @Environment(\.dynamicTypeSize) private var size
+
+    /// the currencies of `invs` (the base first, then by code) with each one's amount in every inventory
+    static func rows(_ invs: [Inventory], base: String) -> [(currency: String, values: [Double])] {
+        var all = Inventory()
+        for inv in invs { for (c, n) in inv.nonZero { all.add(abs(n), c) } }
+        return all.byCurrency(base: base).map { x in (x.currency, invs.map { $0.amounts[x.currency] ?? 0 }) }
+    }
+
+    var body: some View {
+        Group { if size.isAccessibilitySize { stacked } else { grid } }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("currency.table")
+    }
+
+    private var grid: some View {
+        Grid(alignment: .trailing, horizontalSpacing: AppSpacing.control, verticalSpacing: AppSpacing.detail) {
+            GridRow {
+                Text(LS("币种")).frame(maxWidth: .infinity, alignment: .leading)
+                ForEach(columns.indices, id: \.self) { i in Text(columns[i].title) }
+            }
+            .font(.caption).foregroundStyle(.secondary)
+            ForEach(rows, id: \.currency) { r in
+                GridRow {
+                    code(r.currency).frame(maxWidth: .infinity, alignment: .leading)
+                    ForEach(columns.indices, id: \.self) { i in
+                        figure(r.values[i], r.currency, columns[i]).font(.subheadline.weight(i == columns.count - 1 ? .semibold : .regular))
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var stacked: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.control) {
+            ForEach(rows, id: \.currency) { r in
+                VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                    HStack(spacing: AppSpacing.icon) {
+                        code(r.currency)
+                        Spacer(minLength: AppSpacing.icon)
+                        if let last = columns.indices.last { figure(r.values[last], r.currency, columns[last]).font(.subheadline.weight(.semibold)) }
+                    }
+                    Text(columns.indices.dropLast().map { columns[$0].title + " " + number(r.values[$0], r.currency) }.joined(separator: " · "))
+                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func code(_ c: String) -> some View {
+        HStack(spacing: AppSpacing.icon) {
+            Circle().fill(currencyColor(c)).frame(width: 8, height: 8)
+            Text(c).font(.subheadline.weight(.semibold)).lineLimit(1)
+        }
+    }
+
+    private func figure(_ v: Double, _ c: String, _ col: Column) -> some View {
+        Text(number(v, c)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+            .foregroundStyle(col.signed ? (v < -0.005 ? Color.loss : Color.primary) : col.color ?? .primary)
+            .sensitive()
+    }
+
+    /// the figure without its currency (the row says it): cents for money, as many digits as needed for shares
+    private func number(_ v: Double, _ c: String) -> String {
+        let currency = SYM[c] != nil || (c.count == 3 && c.allSatisfy { $0.isLetter })
+        let cents = abs(v * 100 - (v * 100).rounded()) < 1e-6
+        let whole = abs(v - v.rounded()) < 1e-9
+        return fmtNum(v, currency ? 2 : whole ? 0 : cents ? 2 : 4)
+    }
+}

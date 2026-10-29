@@ -494,7 +494,7 @@ struct AccountEditView: View {
         guard !ops.isEmpty else { store.show(LS("账本中没有出现该账户")); return }
         // file rules and the accounts left out of 净资产 / 资产负债表 follow the account
         if let c = store.repoConfig?.renamingAccount(from, to: to) {
-            var op = await store.fileWriteOp(LedgerXConfig.path, text: c.json())
+            guard var op = await store.fileWriteOp(LedgerXConfig.path, text: c.json()) else { return }
             op.silent = true
             ops.append(op)
         }

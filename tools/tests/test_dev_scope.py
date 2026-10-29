@@ -23,14 +23,14 @@ class DevScopeTests(unittest.TestCase):
         self.assertNotIn('inputs.full', workflow)
         self.assertIn('LEDGER_SOURCE_SHA: ${{ github.sha }}', workflow)
 
-    def test_calendar_source_runs_core_journal_subscription_and_narrow_regressions(self):
+    def test_calendar_source_runs_core_journal_and_subscription_regressions(self):
         plan = dev_scope.classify(['Ledger/Views/CalendarView.swift'])
         self.assertFalse(plan['core_all'])
         self.assertEqual(plan['core_filter'], 'CalendarMarkTests|SearchTests|SubTests')
         self.assertIn('LedgerUITests/EditInteractionTests/testGlassCalendarFixedRowsAndDaySelection', plan['ui_tests'])
         self.assertIn('LedgerUITests/EditInteractionTests/testGlassSubscriptionCalendarRangeAndSelectionAtLargeText', plan['ui_tests'])
         self.assertEqual(set(plan['ui_tests']), set(dev_scope.MAPPINGS['Ledger/Views/CalendarView.swift']['ui']) | set(dev_scope.CRITICAL_UI))
-        self.assertEqual(len(plan['narrow_tests']), 4)
+        self.assertEqual(plan['narrow_tests'], [])
         self.assertNotIn('LedgerUITests/EditInteractionTests/testTransferFeeCancelCompleteAndKeyboardDismissal', plan['ui_tests'])
         self.assertTrue(dev_scope.validate_selectors(plan, ROOT))
 
@@ -163,7 +163,9 @@ class DevScopeTests(unittest.TestCase):
                     dev_scope.select('example/app', 'c'*40)
 
     def test_calendar_executes_two_devices_keeps_both_results_and_restores_environment(self):
-        plan = dict(dev_scope.classify(['Ledger/Views/CalendarView.swift']), base_sha='a'*40, source_sha='b'*40)
+        # no mapping asks for the narrow screen now; the second round is still kept working for one that does
+        plan = dict(dev_scope.classify(['Ledger/Views/CalendarView.swift']), base_sha='a'*40, source_sha='b'*40,
+                    narrow_tests=['LedgerUITests/EditInteractionTests/testGlassCalendarFixedRowsAndDaySelection'])
         calls = []
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -188,7 +190,7 @@ class DevScopeTests(unittest.TestCase):
                 self.assertEqual(proof['auto_selection'], plan)
 
     def test_narrow_failure_propagates_and_module_expansion_never_runs_full(self):
-        plan = dev_scope.classify(['Ledger/Views/CalendarView.swift'])
+        plan = dict(dev_scope.classify(['Ledger/Views/CalendarView.swift']), narrow_tests=['LedgerUITests/EditInteractionTests/testGlassCalendarFixedRowsAndDaySelection'])
         with tempfile.TemporaryDirectory() as temp, patch.object(ship, 'ROOT', Path(temp)), \
              patch.object(ship, 'validate_targeted', side_effect=[dict(scope='build'), ship.Failure('narrow failed')]):
             with self.assertRaises(ship.Failure):
