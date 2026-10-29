@@ -163,7 +163,7 @@ struct LedgerEditView: View {
         testing = true
         defer { testing = false }
         guard let c = await testConnection(cfg, store) else { return }
-        await store.saveConfig(c)
+        guard await store.saveConfig(c) else { return }
         store.show(isNew ? LS("已连接，正在下载账本…") : LS("已保存"))
         dismiss()
         await store.refresh()
@@ -184,10 +184,10 @@ func testConnection(_ raw: RepoConfig, _ store: Store) async -> RepoConfig? {
         if !t.files.keys.contains(main), let any = t.files.keys.sorted().first(where: { $0.hasSuffix(".bean") || $0.hasSuffix(".beancount") }) {
             store.show(LS("未找到 %@，可在「设置 → 仓库结构」中指定主文件（如 %@）", main, any))
         } else if t.files.isEmpty {
-            store.show(LS("连接成功，但没有找到 .bean 文件"))
+            store.showFailure(LS("连接成功，但没有找到 .bean 文件"))
         }
     } catch {
-        store.show(LS("连接失败：%@", error.localizedDescription))
+        store.showFailure(LS("连接失败：%@", error.localizedDescription))
         return nil
     }
     return c

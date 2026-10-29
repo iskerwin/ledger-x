@@ -282,9 +282,7 @@ public func headerLinkEdit(_ src: String, link: String, remove: Bool) -> String 
     var lines = src.components(separatedBy: "\n")
     guard let i = lines.firstIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) else { return src }
     if remove {
-        var words = lines[i].components(separatedBy: " ")
-        words.removeAll { $0 == "^" + link }
-        lines[i] = words.joined(separator: " ")
+        return headerLinkReplace(src, link: link, with: nil)
     } else if !lines[i].split(whereSeparator: { $0 == " " || $0 == "\t" }).contains(where: { String($0) == "^" + link }) {
         // before a trailing comment, if any
         let lastQuote = lines[i].range(of: "\"", options: .backwards)?.upperBound ?? lines[i].startIndex
@@ -294,5 +292,40 @@ public func headerLinkEdit(_ src: String, link: String, remove: Bool) -> String 
             lines[i] = lines[i].replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression) + " ^" + link
         }
     }
+    return lines.joined(separator: "\n")
+}
+
+/// the transaction's text with `^link` on its header line changed to `^new`, or taken off (`new` nil). Only a link
+/// word counts: the same text inside the payee or narration, or in a trailing comment, stays as written
+public func headerLinkReplace(_ src: String, link: String, with new: String?) -> String {
+    var lines = src.components(separatedBy: "\n")
+    guard let i = lines.firstIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) else { return src }
+    var c = Array(lines[i])
+    let blank: (Character) -> Bool = { $0 == " " || $0 == "\t" }
+    var words: [Range<Int>] = []
+    var k = 0
+    while k < c.count, c[k] != ";" {
+        if blank(c[k]) { k += 1; continue }
+        if c[k] == "\"" {
+            // a string: \" inside it is a quote, not its end
+            k += 1
+            while k < c.count, c[k] != "\"" { k += c[k] == "\\" ? 2 : 1 }
+            k += 1
+            continue
+        }
+        let start = k
+        while k < c.count, !blank(c[k]), c[k] != "\"" { k += 1 }
+        words.append(start..<k)
+    }
+    for r in words.reversed() where String(c[r]) == "^" + link {
+        if let new = new {
+            c.replaceSubrange(r, with: Array("^" + new))
+        } else {
+            var from = r.lowerBound
+            while from > 0, blank(c[from - 1]) { from -= 1 }
+            c.removeSubrange(from..<r.upperBound)
+        }
+    }
+    lines[i] = String(c)
     return lines.joined(separator: "\n")
 }
