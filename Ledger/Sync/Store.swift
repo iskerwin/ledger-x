@@ -100,6 +100,12 @@ enum Prefs {
         installing = false
     }
 
+    /// the day turned over: an untouched new form left open moves to the new day
+    func rollDate(from old: String, to new: String) {
+        guard let baseline, let next = DraftSession(draft: draft, baseline: baseline).rollingDate(from: old, to: new) else { return }
+        install(next)
+    }
+
     /// A different entry starts with no remembered types. The same entry keeps them.
     func trackKinds(for draft: Draft, reset: Bool) {
         let key = draft.replacing.map { DraftWorkspace.editKey($0) } ?? "new"
@@ -589,6 +595,15 @@ enum Prefs {
         }
         cview = cv
         lastSync = Date()
+    }
+
+    /// the day the app last saw: past midnight, an untouched new form still on that day moves to today
+    @ObservationIgnored private var seenDay = Day.today()
+    func dayMayHaveChanged() {
+        let today = Day.today()
+        guard today != seenDay else { return }
+        drafts.rollDate(from: seenDay, to: today)
+        seenDay = today
     }
 
     /// back in front: fetch again unless that was done within the last minute and nothing is waiting to be sent
