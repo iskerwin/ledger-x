@@ -43,6 +43,22 @@ struct PartialWriteError: Error, LocalizedError {
 }
 
 extension LedgerBackend {
+    /// read `files` (path, version) a few at a time: a ledger with many files must not hit the host's rate limit.
+    /// `got` sees each text as it arrives, so after an error what came in before it is kept
+    func readEach(_ files: [(String, String)], atOnce limit: Int = 4, got: (_ version: String, _ text: String) -> Void) async throws {
+        var waiting = files
+        try await withThrowingTaskGroup(of: (String, String).self) { group in
+            func next() {
+                guard let file = waiting.popLast() else { return }
+                group.addTask { (file.1, try await self.read(file.0, version: file.1)) }
+            }
+            for _ in 0..<limit { next() }
+            for try await (version, text) in group {
+                got(version, text)
+                next()
+            }
+        }
+    }
     /// one file at a time (hosts without multi-file commits, or a plain folder)
     func writeSequentially(_ changes: [FileChange], message: String) async throws -> [String: String] {
         var out: [String: String] = [:]

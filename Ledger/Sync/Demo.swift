@@ -68,7 +68,7 @@ extension Store {
             do {
                 if bundledDemo != nil { try await installBundledDemo() } else { try await downloadDemo() }
             } catch {
-                show(LS("无法打开演示账本：%@", error.localizedDescription))
+                showFailure(LS("无法打开演示账本：%@", error.localizedDescription))
                 return
             }
         }
@@ -100,8 +100,8 @@ extension Store {
         do {
             try await downloadDemo(update)
         } catch {
-            guard update == nil, bundledDemo != nil else { show(LS("更新失败，已保留原演示账本：%@", error.localizedDescription)); return }
-            do { try await installBundledDemo() } catch { show(LS("重置失败，已保留原演示账本：%@", error.localizedDescription)); return }
+            guard update == nil, bundledDemo != nil else { showFailure(LS("更新失败，已保留原演示账本：%@", error.localizedDescription)); return }
+            do { try await installBundledDemo() } catch { showFailure(LS("重置失败，已保留原演示账本：%@", error.localizedDescription)); return }
             word = LS("连不上演示账本仓库，已恢复为 App 内置的版本")
         }
         if isDemo {
@@ -135,7 +135,7 @@ extension Store {
             let local = demoRoot
             var folder: URL? = FileManager.default.fileExists(atPath: local.appendingPathComponent("main.bean").path) ? local : bundledDemo
             if folder == nil {
-                do { try await downloadDemo(); folder = local } catch { show(LS("无法下载账户与分类：%@", error.localizedDescription)); return }
+                do { try await downloadDemo(); folder = local } catch { showFailure(LS("无法下载账户与分类：%@", error.localizedDescription)); return }
             }
             let src = folder!
             from = await Task.detached {
@@ -154,7 +154,7 @@ extension Store {
                 try Data(text.utf8).write(to: u, options: .atomic)
             }
         } catch {
-            show(LS("新建账本失败：%@", error.localizedDescription))
+            showFailure(LS("新建账本失败：%@", error.localizedDescription))
             return
         }
         var c = RepoConfig()
