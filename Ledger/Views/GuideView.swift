@@ -151,8 +151,8 @@ struct GuideView: View {
         Topic(symbol: "building.columns", title: tr("账户与核对", "Accounts and checking"), points: [
             tr("账户和科目详情按月分组：每月显示流出、流入和月末余额（科目显示当月合计），点一下展开当月的流水。",
                "An account's or category's page is grouped by month with money out, in and the month-end balance (a category shows its total); tap a month to open it."),
-            tr("每个大类的图标在记一笔、管理账户、账户页和报表里都一样；在管理账户里长按大类可以更换，只存在这台手机。",
-               "Each group has one icon on the Add card, Manage accounts, the Accounts page and in reports; hold a group under Manage accounts to change it (kept on this phone)."),
+            tr("每个大类的图标在记一笔、管理账户、账户页和报表里都一样；在管理账户里长按大类可以更换图标和颜色（记一笔里长按分类也可以），只存在这台手机。颜色用在管理账户、账户页和报表上，记一笔的宫格仍是黑白、选中时用主题色。",
+               "Each group has one icon on the Add card, Manage accounts, the Accounts page and in reports; hold a group under Manage accounts (or a category on the Add card) to change its icon and colour, kept on this phone. The colour shows in Manage accounts, Accounts and reports; the Add grid stays black and white and uses the theme colour when picked."),
             tr("账户页的分组（银行、信用卡…）和管理账户里的科目大类都可以点标题收起。",
                "Groups on the Accounts page (banks, cards…) and the categories under Manage accounts fold away with a tap on their heading."),
             tr("账户详情页点「余额核对」，输入银行 App 里的余额，一致时写入余额断言，不一致会显示差额。",
