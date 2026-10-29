@@ -307,16 +307,59 @@ final class EditInteractionTests: XCTestCase {
 
     func testTagPickerCancelDoesNotChangeDraft() {
         let app = launch(filled: false)
-        app.buttons["标签"].tap()
+        // spending's 标签 is in 更多
+        app.buttons["quick.more"].tap(); tapPoint(app.buttons["标签…"].firstMatch, timeout: 5)
         let input = app.textFields["新标签，如 trip-shanghai"]
         XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("phase-two")
         app.buttons["添加"].tap()
         app.navigationBars.buttons["取消"].tap()
-        app.buttons["标签"].tap()
+        app.buttons["quick.more"].tap(); tapPoint(app.buttons["标签…"].firstMatch, timeout: 5)
         XCTAssertFalse(app.staticTexts["#phase-two"].exists)
         app.navigationBars.buttons["取消"].tap()
         app.buttons["关闭"].tap()
         XCTAssertTrue(app.buttons["关闭"].waitForNonExistence(timeout: 5))
+    }
+
+    /// The account, the day and 更多 (标签 for income and transfers) are one row, the same height for every kind, so
+    /// the grid keeps its room; a line under the amount (here the fee) takes less than the row that was saved.
+    func testChoicesAreOneRowAndTheGridKeepsItsRoom() {
+        let app = launch()
+        let grid = app.scrollViews["quick.grid"]
+        let more = app.buttons["quick.more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 5))
+        let funding = app.buttons["付款账户"].firstMatch
+        XCTAssertEqual(funding.frame.midY, more.frame.midY, accuracy: 1)
+        XCTAssertEqual(funding.frame.height, more.frame.height, accuracy: 0.5)
+        XCTAssertFalse(app.buttons["保存至"].exists)
+        let height = grid.frame.height
+        let row = more.frame.height
+        for kind in ["收入", "转账"] {
+            tapKind(app, kind)
+            let tag = app.buttons["标签"].firstMatch
+            XCTAssertTrue(tag.waitForExistence(timeout: 5))
+            XCTAssertFalse(more.exists)
+            XCTAssertEqual(grid.frame.height, height, accuracy: 0.5, kind)
+            XCTAssertEqual(tag.frame.height, row, accuracy: 0.5, kind)
+        }
+        tapKind(app, "支出")
+        XCTAssertTrue(more.waitForExistence(timeout: 5))
+        XCTAssertEqual(grid.frame.height, height, accuracy: 0.5)
+        // picking a category changes the symbol beside 收付款方 · 摘要, not the height below the grid
+        for category in ["category.Expenses:Food", "category.Expenses:Fee"] {
+            let cell = app.buttons[category].firstMatch
+            guard cell.waitForExistence(timeout: 5) else { continue }
+            cell.tap()
+            XCTAssertEqual(grid.frame.height, height, accuracy: 0.5, category)
+        }
+        app.buttons["draft.rate"].tap()
+        let fee = app.textFields["transfer.fee.amount"]
+        tapPoint(fee, timeout: 5)
+        assertCanType(app, into: fee)
+        fee.typeText("2")
+        app.buttons["收起键盘"].tap()
+        app.navigationBars.buttons["完成"].tap()
+        XCTAssertTrue(app.buttons["expense.fee"].waitForExistence(timeout: 5))
+        XCTAssertLessThan(height - grid.frame.height, row, "the fee line costs less than the row the choices gave back")
     }
 
     func testManualFundingSurvivesPayeeSuggestionInFullForm() {
@@ -344,6 +387,20 @@ final class EditInteractionTests: XCTestCase {
     private func openFull(_ app: XCUIApplication) {
         app.navigationBars.buttons["更多"].firstMatch.tap(); app.buttons["完整表单"].tap()
         XCTAssertTrue(app.buttons["快捷记账"].waitForExistence(timeout: 5))
+    }
+
+    /// The full form's date has 今天, 昨天, 前天 like the entry's date sheet; the one picked is shown as chosen
+    func testFormDateHasTheSameThreeDays() {
+        let app = launch()
+        openFull(app)
+        let before = app.buttons["前天"].firstMatch
+        for _ in 0..<4 where !(before.exists && before.isHittable) { app.swipeUp() }
+        XCTAssertTrue(app.buttons["今天"].firstMatch.exists)
+        XCTAssertTrue(app.buttons["昨天"].firstMatch.exists)
+        XCTAssertTrue(app.buttons["今天"].firstMatch.isSelected, "a new entry starts on today")
+        tapPoint(before, timeout: 5)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "isSelected == true"), object: before)], timeout: 5), .completed)
+        XCTAssertFalse(app.buttons["今天"].firstMatch.isSelected)
     }
 
     /// The fee is set in 币种、汇率与手续费 (no row of its own); once set, its line under the amount opens it again.
@@ -460,6 +517,31 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(result.waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Example supplier"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertNotEqual(search.value as? String, "Coffee")
+    }
+
+    /// The saved searches (and 保存 for the one applied) scroll with the list. Pinned under the search box, the large
+    /// title collapsing moved them, which pushed the list back and opened the title again, over and over.
+    func testQuickSearchesScrollWithTheJournal() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures")
+        app.launchEnvironment = ["LEDGER_DEMO": fixtures.path, "LEDGER_EXTRA": fixtures.appendingPathComponent("journal-extra.bean").path,
+                                 "LEDGER_TAB": "journal", "LEDGER_LANG": "zh"]
+        app.launchArguments = ["-AppleLanguages", "(zh-Hans)"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["Coffee"].firstMatch.waitForExistence(timeout: 20))
+        let search = app.searchFields.firstMatch
+        tapPoint(search, timeout: 5)
+        search.typeText("Cafe\n")
+        let save = app.buttons["保存"].firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        XCTAssertTrue(save.isHittable)
+        let window = app.windows.firstMatch.frame
+        let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: window.midX, dy: window.midY + 120))
+        for _ in 0..<3 {
+            start.press(forDuration: 0, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -260)), withVelocity: .slow, thenHoldForDuration: 0.2)
+        }
+        XCTAssertFalse(save.exists && save.isHittable, "scrolled away with the list, not pinned under the search box")
     }
 
     func testCopiedExpenseShowsPartyAndDescriptionInQuickEditor() {
@@ -941,6 +1023,13 @@ final class EditInteractionTests: XCTestCase {
         for (name, value) in [("calendar.yearWheel", year), ("calendar.monthWheel", month)] {
             let wheel = app.pickers[name].pickerWheels.firstMatch
             XCTAssertTrue(wheel.waitForExistence(timeout: 5))
+            // asking for hittability before the wheel has a frame ({inf, inf}) fails the test outright instead of
+            // answering no, so wait for a real frame first
+            let placed = expectation(for: NSPredicate { _, _ in
+                let frame = wheel.frame
+                return !frame.isInfinite && !frame.isNull && frame.width > 0 && frame.height > 0
+            }, evaluatedWith: nil)
+            wait(for: [placed], timeout: 5)
             let ready = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: wheel)
             wait(for: [ready], timeout: 5)
             wheel.adjust(toPickerWheelValue: value)
@@ -1021,6 +1110,33 @@ final class EditInteractionTests: XCTestCase {
         for _ in 0..<4 where !(advance.exists && advance.isHittable) { app.swipeUp() }
         tapPoint(advance, timeout: 5)
         XCTAssertTrue(app.navigationBars["10月16日 周五"].waitForExistence(timeout: 5))
+    }
+
+    /// An open sheet stays open through the lock: going to the background locks the app, the lock screen covers
+    /// the sheet, and unlocking shows the same sheet again. Locking used to close it.
+    func testLockingKeepsTheOpenSheet() {
+        let app = launchTab("journal", env: ["LEDGER_CALENDAR": "1", "LEDGER_LOCK": "1"])
+        let unlock = app.buttons["unlock"]
+        XCTAssertTrue(unlock.waitForExistence(timeout: 20))
+        unlock.tap()
+        XCTAssertTrue(unlock.waitForNonExistence(timeout: 5))
+        _ = openGlassCalendar(app)
+        chooseCalendarMonth(app, year: "2026", month: "10")
+        tapPoint(app.buttons["calendar.day.2026-10-01"], timeout: 5)
+        let sheet = app.navigationBars["10月1日 周四"]
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        XCTAssertTrue(unlock.waitForExistence(timeout: 10))
+        XCTAssertFalse(sheet.exists && sheet.isHittable, "the lock screen covers the sheet")
+        let locked = XCTAttachment(screenshot: app.screenshot())
+        locked.name = "locked-over-sheet"
+        locked.lifetime = .keepAlways
+        add(locked)
+        unlock.tap()
+        XCTAssertTrue(unlock.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5), "the same sheet is back after unlocking")
+        XCTAssertTrue(sheet.isHittable)
     }
 
     /// With a day's sheet open at half height, tapping another date above it switches the sheet to that day
@@ -1290,6 +1406,33 @@ final class EditInteractionTests: XCTestCase {
         for _ in 0..<3 { app.swipeUp() }
         XCTAssertTrue(search.isHittable)
         XCTAssertLessThan(search.frame.minY, app.windows.firstMatch.frame.height / 3)
+    }
+
+    /// The month arrows are touched over 44 × 44 while the bar keeps its height: a finger beside the chevron
+    /// still turns the month
+    func testMonthArrowsHaveAFullSizeTapArea() {
+        let app = launchTab("overview")
+        let period = app.staticTexts["overview.period"]
+        XCTAssertTrue(period.waitForExistence(timeout: 20))
+        let first = period.label
+        let back = app.buttons["上个月"].firstMatch
+        XCTAssertTrue(back.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(back.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(back.frame.height, 44)
+        // near the edge of the touch area, away from the chevron itself
+        back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1)).tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", first), object: period)], timeout: 5), .completed)
+    }
+
+    /// 关于 shows the build with the version, so a preview and the dev build of one version are told apart
+    func testAboutShowsTheBuildNumber() {
+        let app = launchTab("settings")
+        let about = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "关于 Ledger X")).firstMatch
+        for _ in 0..<6 { if about.exists && about.isHittable { break }; app.swipeUp() }
+        about.tap()
+        let version = app.staticTexts["about.version"]
+        XCTAssertTrue(version.waitForExistence(timeout: 5))
+        XCTAssertTrue(version.label.range(of: #"^版本 \d+\.\d+\.\d+（构建 \d+(\.\d+)?）$"#, options: .regularExpression) != nil, version.label)
     }
 
     /// The month bars of 概览 and 报表 swipe like their arrows: to the right goes back a month, to the left on again
