@@ -389,6 +389,20 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(app.buttons["快捷记账"].waitForExistence(timeout: 5))
     }
 
+    /// The full form's date has 今天, 昨天, 前天 like the entry's date sheet; the one picked is shown as chosen
+    func testFormDateHasTheSameThreeDays() {
+        let app = launch()
+        openFull(app)
+        let before = app.buttons["前天"].firstMatch
+        for _ in 0..<4 where !(before.exists && before.isHittable) { app.swipeUp() }
+        XCTAssertTrue(app.buttons["今天"].firstMatch.exists)
+        XCTAssertTrue(app.buttons["昨天"].firstMatch.exists)
+        XCTAssertTrue(app.buttons["今天"].firstMatch.isSelected, "a new entry starts on today")
+        tapPoint(before, timeout: 5)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "isSelected == true"), object: before)], timeout: 5), .completed)
+        XCTAssertFalse(app.buttons["今天"].firstMatch.isSelected)
+    }
+
     /// The fee is set in 币种、汇率与手续费 (no row of its own); once set, its line under the amount opens it again.
     func testTransferFeeCancelCompleteAndKeyboardDismissal() {
         let app = launch()
@@ -1066,6 +1080,33 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["10月16日 周五"].waitForExistence(timeout: 5))
     }
 
+    /// An open sheet stays open through the lock: going to the background locks the app, the lock screen covers
+    /// the sheet, and unlocking shows the same sheet again. Locking used to close it.
+    func testLockingKeepsTheOpenSheet() {
+        let app = launchTab("journal", env: ["LEDGER_CALENDAR": "1", "LEDGER_LOCK": "1"])
+        let unlock = app.buttons["unlock"]
+        XCTAssertTrue(unlock.waitForExistence(timeout: 20))
+        unlock.tap()
+        XCTAssertTrue(unlock.waitForNonExistence(timeout: 5))
+        _ = openGlassCalendar(app)
+        chooseCalendarMonth(app, year: "2026", month: "10")
+        tapPoint(app.buttons["calendar.day.2026-10-01"], timeout: 5)
+        let sheet = app.navigationBars["10月1日 周四"]
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        XCTAssertTrue(unlock.waitForExistence(timeout: 10))
+        XCTAssertFalse(sheet.exists && sheet.isHittable, "the lock screen covers the sheet")
+        let locked = XCTAttachment(screenshot: app.screenshot())
+        locked.name = "locked-over-sheet"
+        locked.lifetime = .keepAlways
+        add(locked)
+        unlock.tap()
+        XCTAssertTrue(unlock.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5), "the same sheet is back after unlocking")
+        XCTAssertTrue(sheet.isHittable)
+    }
+
     /// With a day's sheet open at half height, tapping another date above it switches the sheet to that day
     /// at the same height: it used to come back at full screen, covering the calendar.
     func testSwitchingDaysKeepsTheSheetAtHalfHeight() {
@@ -1333,6 +1374,33 @@ final class EditInteractionTests: XCTestCase {
         for _ in 0..<3 { app.swipeUp() }
         XCTAssertTrue(search.isHittable)
         XCTAssertLessThan(search.frame.minY, app.windows.firstMatch.frame.height / 3)
+    }
+
+    /// The month arrows are touched over 44 × 44 while the bar keeps its height: a finger beside the chevron
+    /// still turns the month
+    func testMonthArrowsHaveAFullSizeTapArea() {
+        let app = launchTab("overview")
+        let period = app.staticTexts["overview.period"]
+        XCTAssertTrue(period.waitForExistence(timeout: 20))
+        let first = period.label
+        let back = app.buttons["上个月"].firstMatch
+        XCTAssertTrue(back.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(back.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(back.frame.height, 44)
+        // near the edge of the touch area, away from the chevron itself
+        back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1)).tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", first), object: period)], timeout: 5), .completed)
+    }
+
+    /// 关于 shows the build with the version, so a preview and the dev build of one version are told apart
+    func testAboutShowsTheBuildNumber() {
+        let app = launchTab("settings")
+        let about = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "关于 Ledger X")).firstMatch
+        for _ in 0..<6 { if about.exists && about.isHittable { break }; app.swipeUp() }
+        about.tap()
+        let version = app.staticTexts["about.version"]
+        XCTAssertTrue(version.waitForExistence(timeout: 5))
+        XCTAssertTrue(version.label.range(of: #"^版本 \d+\.\d+\.\d+（构建 \d+(\.\d+)?）$"#, options: .regularExpression) != nil, version.label)
     }
 
     /// The month bars of 概览 and 报表 swipe like their arrows: to the right goes back a month, to the left on again

@@ -588,7 +588,7 @@ struct TransactionAttachmentsView: View {
                         } label: {
                             if recovering == d.id { ProgressView() } else { Text(LS("恢复")) }
                         }
-                        .buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)
+                        .rowButton()
                         .disabled(recovering != nil || store.committing)
                     }
                 }
