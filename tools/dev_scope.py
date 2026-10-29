@@ -29,7 +29,8 @@ CALENDAR_TESTS = (
     'testCalendarUsesFullRowWidthWithoutHint',
     'testCalendarFiguresSitInEqualColumns',
 )
-NARROW_CALENDAR_TESTS = CALENDAR_TESTS[2:6]
+# the day-selection test runs on the regular screen only (Kerwin, 2026-10-29)
+NARROW_CALENDAR_TESTS = CALENDAR_TESTS[3:6]
 MAPPINGS = {
     'Ledger/Views/CalendarView.swift': dict(
         core=('CalendarMarkTests', 'SearchTests', 'SubTests'),

@@ -15,26 +15,25 @@ struct LedgerApp: App {
         UNUserNotificationCenter.current().delegate = NotificationRouter.shared
     }
 
+    /// up while locked, and (lock on) while the app is not in front, for the app switcher snapshot
+    private func updateCover(_ p: ScenePhase) {
+        if lock.locked || (p != .active && lock.enabled) {
+            CoverWindow.shared.show(CoverView().environment(lock).preferredColorScheme(AppAppearance(rawValue: appearance)?.scheme))
+        } else {
+            CoverWindow.shared.hide()
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
-            Group {
-                // Locked means locked: the lock screen used to be only an overlay
-                // inside this window, so a sheet opened before locking (for example
-                // a day's transactions) stayed visible above it. While locked the
-                // app's own views are not in the hierarchy at all, so nothing they
-                // presented can stay on screen; unlocking rebuilds them on the
-                // current tab. The inactive privacy cover keeps its overlay form:
-                // it only hides the app switcher snapshot while unlocked.
-                if lock.locked {
-                    LockScreen().transition(.opacity)
-                } else {
-                    ZStack {
-                        RootView()
-                        if phase != .active && lock.enabled {
-                            PrivacyCover().zIndex(1)
-                        }
-                    }
-                }
+            ZStack {
+                RootView()
+                // Locked means locked, and an open sheet stays open: the lock screen and the app switcher cover
+                // are in a window above this one (CoverWindow), so they cover every sheet; unlocking takes that
+                // window away and leaves the sheets, and what was typed into them, as they were (they used to be
+                // torn down by taking the app's views away while locked). Until that window is up on launch,
+                // this blank covers the app.
+                if lock.locked { Color(.systemGroupedBackground).ignoresSafeArea() }
             }
             .environment(store)
             .environment(store.drafts)
@@ -44,7 +43,8 @@ struct LedgerApp: App {
                 NotificationRouter.shared.open = { [store] t in
                     if let tab = Tab(rawValue: t), tab != .add { store.tab = tab } else { store.openAdd() }
                 }
-                if lock.locked { Task { await lock.unlock() } }
+                updateCover(phase)
+                if lock.locked && !AppLock.testing { Task { await lock.unlock() } }
                 await store.start()
             }
             .onOpenURL { url in
@@ -55,8 +55,10 @@ struct LedgerApp: App {
             .onChange(of: phase) { _, p in
                 if p != .active { store.persistActiveDraft() }
                 lock.scenePhase(p)
+                updateCover(p)
                 if p == .active { Task { await store.refresh() } }
             }
+            .onChange(of: lock.locked) { updateCover(phase) }
         }
     }
 }
