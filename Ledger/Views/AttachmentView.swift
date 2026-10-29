@@ -89,7 +89,7 @@ extension Store {
 
     func discardAttachmentJob(_ job: AttachmentUpload) {
         do { try saveAttachmentJob(job, remove: true) }
-        catch { show(LS("无法更新附件恢复记录：%@", error.localizedDescription)) }
+        catch { showFailure(LS("无法更新附件恢复记录：%@", error.localizedDescription)) }
     }
 
     /// Persist the confirmed path before starting the task. The sheet owns this job's identity.
@@ -264,17 +264,23 @@ extension Store {
 
 }
 
-/// shrink a photo for the ledger repository
 /// what can be attached, and what the app can show
 let attachmentFormatsHint = "支持 JPG、PNG、HEIC、PDF 等常见格式；拍照和照片会转成 JPG。其他格式也能保存，但可能无法在 App 内预览。"
 
-func jpegForUpload(_ image: UIImage) -> Data? {
-    let maxSide: CGFloat = 2000
-    let s = image.size
-    let scale = min(1, maxSide / max(s.width, s.height))
-    let size = CGSize(width: s.width * scale, height: s.height * scale)
-    let r = UIGraphicsImageRenderer(size: size)
-    let img = r.image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+/// shrink a photo for the ledger repository, off the main thread
+func jpegForUpload(_ image: UIImage) async -> Data? {
+    await Task.detached(priority: .userInitiated) { jpegData(image, maxPixels: 2000) }.value
+}
+
+/// at most `maxPixels` on the long side, in pixels: the renderer otherwise draws at the screen's scale, which made
+/// a 2000-point photo 6000 pixels wide on a 3× iPhone
+func jpegData(_ image: UIImage, maxPixels: CGFloat) -> Data? {
+    let w = image.size.width * image.scale, h = image.size.height * image.scale
+    let scale = min(1, maxPixels / max(w, h))
+    let size = CGSize(width: (w * scale).rounded(), height: (h * scale).rounded())
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = 1
+    let img = UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
     return img.jpegData(compressionQuality: 0.72)
 }
 
@@ -289,7 +295,8 @@ struct AttachmentsSection: View {
     @State private var viewing: DocItem?
     @State private var owningLedgerID: String?
     @State private var pending: PendingAttachment?
-    @State private var queuedFromCamera: PendingAttachment?
+    /// the photo just taken, shrinking while the camera closes; its path sheet opens once the camera is gone
+    @State private var cameraPhoto: Task<Data?, Never>?
 
     var body: some View {
         let docs = store.documents(for: t)
@@ -324,7 +331,7 @@ struct AttachmentsSection: View {
             .onChange(of: photo) { _, item in
                 guard let item = item else { return }
                 Task {
-                    if let d = try? await item.loadTransferable(type: Data.self), let img = UIImage(data: d), let jpg = jpegForUpload(img) {
+                    if let d = try? await item.loadTransferable(type: Data.self), let img = UIImage(data: d), let jpg = await jpegForUpload(img) {
                         pending = PendingAttachment(data: jpg, ext: "jpg")
                     }
                     photo = nil
@@ -338,18 +345,16 @@ struct AttachmentsSection: View {
                 let ext = url.pathExtension.isEmpty ? "dat" : url.pathExtension.lowercased()
                 pending = PendingAttachment(data: d, ext: ext)
             }
-            .fullScreenCover(isPresented: $showCamera) {
+            .fullScreenCover(isPresented: $showCamera, onDismiss: {
+                guard let photo = cameraPhoto else { return }
+                cameraPhoto = nil
+                Task { if let jpg = await photo.value { pending = PendingAttachment(data: jpg, ext: "jpg") } }
+            }) {
                 CameraPicker { img in
+                    if let img { cameraPhoto = Task { await jpegForUpload(img) } }
                     showCamera = false
-                    if let img = img, let jpg = jpegForUpload(img) { queuedFromCamera = PendingAttachment(data: jpg, ext: "jpg") }
                 }
                 .ignoresSafeArea()
-            }
-            .onChange(of: showCamera) { _, show in
-                if !show, let queued = queuedFromCamera {
-                    pending = queued
-                    queuedFromCamera = nil
-                }
             }
             .sheet(item: $pending) { item in
                 AttachmentPathSheet(entry: t, data: item.data, ext: item.ext, ledgerID: owningLedgerID ?? "", existingPaths: store.attachmentTakenPaths())
@@ -583,7 +588,7 @@ struct TransactionAttachmentsView: View {
                         } label: {
                             if recovering == d.id { ProgressView() } else { Text(LS("恢复")) }
                         }
-                        .buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)
+                        .rowButton()
                         .disabled(recovering != nil || store.committing)
                     }
                 }

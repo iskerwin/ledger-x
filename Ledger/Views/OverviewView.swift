@@ -863,11 +863,19 @@ struct FixButton: View {
     let fix: LedgerFix
     /// the day of the entry the error is on
     let at: String?
+    /// the fix is being written: a spinner in its place, and it can't be tapped twice
+    @State private var working = false
     var body: some View {
         switch fix {
         case .declareCommodity(let c):
-            Button { Task { await store.declareCommodity(c, firstUsed: at) } } label: { Label(LS("补上声明"), systemImage: "plus.circle").labelStyle(ControlLabelStyle()) }
-                .buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)
+            Button {
+                working = true
+                Task { await store.declareCommodity(c, firstUsed: at); working = false }
+            } label: {
+                if working { ProgressView().controlSize(.small) } else { Label(LS("补上声明"), systemImage: "plus.circle").labelStyle(ControlLabelStyle()) }
+            }
+            .rowButton()
+            .disabled(working || store.committing)
         }
     }
 }

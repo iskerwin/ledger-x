@@ -2,7 +2,8 @@ import Foundation
 
 /// The tap felt with a notice, as it comes on screen.
 public enum ToastFeedback: Sendable {
-    case success, selection
+    /// something went wrong or was refused: it looks and feels different, and stays longer to be read
+    case success, selection, failure
 }
 
 /// One line of transient feedback. An action (such as 撤销) stays up longer than plain text.
@@ -20,7 +21,7 @@ public struct ToastNotice: Equatable, Identifiable, Sendable {
     }
 
     public var duration: TimeInterval {
-        action == nil ? ToastSchedule.plain : ToastSchedule.undo
+        action != nil ? ToastSchedule.undo : feedback == .failure ? ToastSchedule.failure : ToastSchedule.plain
     }
 }
 
@@ -31,6 +32,8 @@ public struct ToastNotice: Equatable, Identifiable, Sendable {
 public struct ToastSchedule: Equatable, Sendable {
     public static let plain: TimeInterval = 3
     public static let undo: TimeInterval = 6
+    /// a failure says what happened and what is kept: a little longer than plain text
+    public static let failure: TimeInterval = 5
     /// Long enough for the 记一笔 sheet to leave. The countdown starts after this, not during it.
     public static let settle: TimeInterval = 0.5
 

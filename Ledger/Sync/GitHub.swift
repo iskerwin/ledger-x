@@ -303,7 +303,9 @@ enum Keychain {
     /// Kept on this phone only: not carried to another device by a backup. When the keychain refuses (a sideloaded
     /// build without a keychain group), the token goes to a protected file of the app's own that backups leave out —
     /// never into the settings (UserDefaults), where it sat in plain text.
-    static func save(_ value: String, account: String = "token") {
+    /// false: neither the keychain nor the file took it (a token left in the settings by an earlier version stays there)
+    @discardableResult
+    static func save(_ value: String, account: String = "token") -> Bool {
         SecItemDelete(base(account) as CFDictionary)
         var item = base(account)
         item[kSecValueData as String] = Data(value.utf8)
@@ -311,9 +313,10 @@ enum Keychain {
         if add(item as CFDictionary) == errSecSuccess {
             Fallback.remove(account)
         } else {
-            Fallback.write(value, account)
+            guard Fallback.write(value, account) else { return false }
         }
         UserDefaults.standard.removeObject(forKey: Fallback.legacyKey(account))
+        return true
     }
 
     static func load(account: String = "token") -> String? {
@@ -360,9 +363,13 @@ enum Keychain {
             return dir.appendingPathComponent(account.replacingOccurrences(of: "/", with: "_"))
         }
 
-        static func write(_ value: String, _ account: String) {
-            guard let u = url(account) else { return }
-            try? Data(value.utf8).write(to: u, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        /// tests stand in a disk that refuses
+        static var writeFile: (Data, URL) throws -> Void = { try $0.write(to: $1, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication]) }
+
+        static func write(_ value: String, _ account: String) -> Bool {
+            guard let u = url(account) else { return false }
+            do { try writeFile(Data(value.utf8), u) } catch { return false }
+            return true
         }
 
         static func read(_ account: String) -> String? {

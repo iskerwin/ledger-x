@@ -54,7 +54,9 @@ def entry(r, version, desc):
     version = {
         "version": version,
         "buildVersion": m.group(1) if m else "",
-        "date": r.get("published_at") or r["created_at"],
+        # when this package was uploaded: the dev and preview releases are reused, and their published_at stays
+        # the day the tag was first published (build 41 showed 10-21 for a build made on 10-27)
+        "date": ipa.get("updated_at") or ipa.get("created_at") or r.get("published_at") or r["created_at"],
         "localizedDescription": desc,
         "downloadURL": ipa["browser_download_url"],
         "size": ipa["size"],
