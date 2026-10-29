@@ -29,14 +29,14 @@ CALENDAR_TESTS = (
     'testCalendarUsesFullRowWidthWithoutHint',
     'testCalendarFiguresSitInEqualColumns',
 )
-# the day-selection test runs on the regular screen only (Kerwin, 2026-10-29)
-NARROW_CALENDAR_TESTS = CALENDAR_TESTS[3:6]
+# no layout depends on the device any more, so nothing runs on the narrow screen (Kerwin, 2026-10-29)
+NARROW_CALENDAR_TESTS = ()
 MAPPINGS = {
     'Ledger/Views/CalendarView.swift': dict(
         core=('CalendarMarkTests', 'SearchTests', 'SubTests'),
         ui=tuple('LedgerUITests/EditInteractionTests/' + name for name in CALENDAR_TESTS),
         narrow=tuple('LedgerUITests/EditInteractionTests/' + name for name in NARROW_CALENDAR_TESTS),
-        reason='共用月历：明细、订阅、系统月历回退、常用/较大字号与窄屏'),
+        reason='共用月历：明细、订阅、系统月历回退、常用/较大字号'),
     'Ledger/Views/SyncAppearance.swift': dict(
         core=(), ui=('LedgerTests/SyncAppearanceTests',), narrow=(),
         reason='同步状态显示及其颜色/图标规则'),
@@ -51,8 +51,8 @@ MAPPINGS.update({
     'Ledger/Views/SubPickers.swift': dict(
         core=('SubTests',),
         ui=tuple('LedgerUITests/EditInteractionTests/' + name for name in CALENDAR_TESTS[4:6]),
-        narrow=tuple('LedgerUITests/EditInteractionTests/' + name for name in CALENDAR_TESTS[4:6]),
-        reason='订阅日期选择：常用/较大字号与窄屏'),
+        narrow=(),
+        reason='订阅日期选择：常用/较大字号'),
     'Ledger/Sync/Demo.swift': dict(
         core=('DemoRepositoryTests',), ui=('LedgerTests/DemoBootstrapTests',), narrow=(),
         reason='演示加载及切换后的文件、队列隔离'),
