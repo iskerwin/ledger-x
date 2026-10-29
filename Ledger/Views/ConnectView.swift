@@ -184,10 +184,10 @@ func testConnection(_ raw: RepoConfig, _ store: Store) async -> RepoConfig? {
         if !t.files.keys.contains(main), let any = t.files.keys.sorted().first(where: { $0.hasSuffix(".bean") || $0.hasSuffix(".beancount") }) {
             store.show(LS("未找到 %@，可在「设置 → 仓库结构」中指定主文件（如 %@）", main, any))
         } else if t.files.isEmpty {
-            store.show(LS("连接成功，但没有找到 .bean 文件"))
+            store.showFailure(LS("连接成功，但没有找到 .bean 文件"))
         }
     } catch {
-        store.show(LS("连接失败：%@", error.localizedDescription))
+        store.showFailure(LS("连接失败：%@", error.localizedDescription))
         return nil
     }
     return c

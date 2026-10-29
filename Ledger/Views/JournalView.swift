@@ -1174,7 +1174,7 @@ struct DayOrderSheet: View {
     private func save() async {
         saving = true
         defer { saving = false }
-        guard let text = try? await store.fileText(file) else { store.show(LS("无法读取 %@", file)); return }
+        guard let text = try? await store.fileText(file) else { store.showFailure(LS("无法读取 %@", file)); return }
         let inFile = items.sorted { $0.startLine < $1.startLine }
         let order = items.compactMap { t in inFile.firstIndex { $0.id == t.id } }
         guard let r = reorderBlocks(text, ranges: inFile.map { ($0.startLine, $0.endLine) }, order: order) else {

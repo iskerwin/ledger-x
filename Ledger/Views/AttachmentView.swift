@@ -89,7 +89,7 @@ extension Store {
 
     func discardAttachmentJob(_ job: AttachmentUpload) {
         do { try saveAttachmentJob(job, remove: true) }
-        catch { show(LS("无法更新附件恢复记录：%@", error.localizedDescription)) }
+        catch { showFailure(LS("无法更新附件恢复记录：%@", error.localizedDescription)) }
     }
 
     /// Persist the confirmed path before starting the task. The sheet owns this job's identity.

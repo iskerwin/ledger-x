@@ -99,7 +99,7 @@ extension Store {
             if files[original.file] == nil { files[original.file] = try? await fileText(original.file) }
             guard cfg.id == ledgerID, let file = files[original.file],
                   let e = EntryLocator(original).resolve(in: parseFile(file, file: original.file).entries) else {
-                show(LS("记录或账本已变化，请重新打开后再试")); return nil
+                showFailure(LS("记录或账本已变化，请重新打开后再试")); return nil
             }
             if let oldLink = e.links.first(where: { $0.hasPrefix("sub-") }) {
                 var op = entryOp(e, text: headerLinkReplace(e.src, link: oldLink, with: link))
