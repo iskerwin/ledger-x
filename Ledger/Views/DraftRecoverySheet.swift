@@ -56,7 +56,7 @@ struct DraftRecoverySheet: View {
                                     if original.count == 1,
                                        let current = EntryLocator(original[0]).resolve(in: store.L?.entries ?? []) {
                                         source = EntrySourceTarget(entry: current, ledgerID: store.cfg.id, editing: true)
-                                    } else { store.show(LS("原记录已变化，草稿已保留。可复制草稿内容后核对。")) }
+                                    } else { store.showFailure(LS("原记录已变化，草稿已保留。可复制草稿内容后核对。")) }
                                 } label: {
                                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                                         Label(session.label, systemImage: "doc.text").labelStyle(ControlLabelStyle()).foregroundStyle(.primary)

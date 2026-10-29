@@ -88,4 +88,12 @@ final class ToastScheduleTests: XCTestCase {
         XCTAssertEqual(schedule.visible?.text, "看起来是每月扣费")
         XCTAssertTrue(schedule.queued.isEmpty)
     }
+
+    /// a failure stays a little longer than plain text, and an undo longer still
+    func testAFailureStaysLongerThanPlainText() {
+        XCTAssertEqual(ToastNotice(text: "已保存").duration, ToastSchedule.plain)
+        XCTAssertEqual(ToastNotice(text: "备份失败", feedback: .failure).duration, ToastSchedule.failure)
+        XCTAssertGreaterThan(ToastSchedule.failure, ToastSchedule.plain)
+        XCTAssertEqual(ToastNotice(text: "已删除", action: "撤销", feedback: .failure).duration, ToastSchedule.undo)
+    }
 }
