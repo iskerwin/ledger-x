@@ -41,7 +41,7 @@ struct SalaryView: View {
                                     Spacer(minLength: 0)
                                 }
                             }
-                            .buttonStyle(.borderedProminent).tint(.jade)
+                            .primaryButton()
                         }
                         .padding(.vertical, AppSpacing.detail)
                     }

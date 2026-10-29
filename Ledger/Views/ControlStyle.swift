@@ -157,6 +157,50 @@ extension View {
     func primaryButton(tint: Color = .jade) -> some View {
         buttonStyle(.borderedProminent).tint(tint).foregroundStyle(tint.onFill).controlSize(.large).fontWeight(.semibold)
     }
+
+    /// a small button inside a row (还款, 加入, 恢复, 置顶, 补上声明…): the capsule of ActionRow, sized to its label,
+    /// filled for the row's main action and outlined otherwise. These used to be the system's bordered buttons,
+    /// each a little different
+    func rowButton(filled: Bool = false, tint: Color = .jade) -> some View {
+        buttonStyle(RowCapsuleStyle(filled: filled, tint: tint)).font(.subheadline.weight(.medium))
+    }
+
+    /// the second action under a page's main one: full width, outlined in the theme colour
+    func secondaryButton(tint: Color = .jade) -> some View {
+        buttonStyle(RowCapsuleStyle(filled: false, tint: tint, wide: true)).font(.body.weight(.semibold))
+    }
+}
+
+private struct RowCapsuleStyle: ButtonStyle {
+    var filled: Bool
+    var tint: Color
+    var wide = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        RowCapsule(configuration: configuration, filled: filled, tint: tint, wide: wide)
+    }
+
+    private struct RowCapsule: View {
+        let configuration: Configuration
+        let filled: Bool
+        let tint: Color
+        let wide: Bool
+        @Environment(\.isEnabled) private var enabled
+
+        var body: some View {
+            configuration.label
+                .lineLimit(1)
+                .padding(.horizontal, wide ? AppSpacing.content : AppSpacing.control)
+                .frame(maxWidth: wide ? .infinity : nil, minHeight: wide ? 44 : 32)
+                .fixedSize(horizontal: !wide, vertical: false)
+                .foregroundStyle(filled ? tint.onFill : tint.readableInk)
+                .background(Capsule().fill(filled ? tint : Color.clear))
+                .overlay(Capsule().strokeBorder(filled ? Color.clear : tint, lineWidth: 1))
+                .contentShape(Capsule())
+                .opacity(enabled ? 1 : 0.45)
+                .modifier(PressedLook(pressed: configuration.isPressed))
+        }
+    }
 }
 
 /// What is wrong with a form, under what it would write: an error (red, ✕) blocks saving, a warning (orange, △)
