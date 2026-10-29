@@ -591,6 +591,12 @@ enum Prefs {
         lastSync = Date()
     }
 
+    /// back in front: fetch again unless that was done within the last minute and nothing is waiting to be sent
+    func refreshOnReturn() async {
+        guard ReturnRefresh.due(lastSync: lastSync, now: Date(), waiting: pending.contains { $0.failed == nil }) else { return }
+        await refresh()
+    }
+
     func refresh() async {
         guard !committing, !attachmentUploading, connected, !demo else { return }
         let ledgerID = cfg.id
