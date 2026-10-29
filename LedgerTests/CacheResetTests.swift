@@ -46,6 +46,18 @@ final class CacheResetTests: XCTestCase {
         }
     }
 
+    func testAPhoneThatCannotStoreTheNewCopyKeepsTheOldOne() async throws {
+        let store = try await fixture()
+        let sha = try XCTUnwrap(store.tree?.files["main.bean"])
+        let writeFile = BlobCache.writeFile
+        BlobCache.writeFile = { _, _ in throw CocoaError(.fileWriteOutOfSpace) }
+        defer { BlobCache.writeFile = writeFile }
+        let ok = await store.resetCache()
+        XCTAssertFalse(ok, "reported, not shown as done")
+        XCTAssertEqual(BlobCache.get(sha), source, "the cached file is kept")
+        XCTAssertNotNil(store.L)
+    }
+
     func testAResetKeepsFilesThisLedgerDoesNotUse() async throws {
         let store = try await fixture()
         let other = String(repeating: "a", count: 40)
