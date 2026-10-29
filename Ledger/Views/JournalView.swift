@@ -219,6 +219,9 @@ struct JournalView: View {
         }
     }
 
+    @State private var searched = LastResult<JournalSearch, [Entry]>()
+    @State private var summed = LastResult<JournalSearch, (Double, Double)>()
+
     /// what is searched: the box and the quick filters together
     private var fullQuery: String {
         ([q.trimmed] + quick.map { $0.query(store) }).filter { !$0.isEmpty }.joined(separator: " ")
@@ -413,7 +416,7 @@ struct JournalView: View {
     private func list(_ L: Ledger) -> some View {
         let matches = search(L)
         let shown = Array(matches.prefix(limit))
-        let sums = totals(matches, L)
+        let sums = summed.value(for: JournalSearch(ledger: L, account: account, query: fullQuery)) { totals(matches, L) }
         let days = groupByDay(shown)
         let filtered = !quick.isEmpty || account != nil || !q.trimmed.isEmpty
         // just saved from the form and in the list as it is (not filtered out, not past 加载更多): scrolled to, where
@@ -550,15 +553,20 @@ struct JournalView: View {
         }
     }
 
+    /// the transactions the conditions match, newest first. The list is drawn again for every small change (加载更多,
+    /// the keyboard, a day picked on the calendar) and used to search the whole ledger each time: the last search is
+    /// kept while the ledger, account and conditions stay the same
     private func search(_ L: Ledger) -> [Entry] {
-        var out: [Entry] = []
-        let a = account
-        let query = TxQuery(fullQuery)
-        for t in L.txns.reversed() {
-            if let a = a, !t.postings.contains(where: { $0.account == a || $0.account.hasPrefix(a + ":") }) { continue }
-            if query.matches(t, L) { out.append(t) }
+        let a = account, text = fullQuery
+        return searched.value(for: JournalSearch(ledger: L, account: a, query: text)) {
+            var out: [Entry] = []
+            let query = TxQuery(text)
+            for t in L.txns.reversed() {
+                if let a = a, !t.postings.contains(where: { $0.account == a || $0.account.hasPrefix(a + ":") }) { continue }
+                if query.matches(t, L) { out.append(t) }
+            }
+            return out
         }
-        return out
     }
 
     /// the conditions on, to take off one by one
@@ -1246,4 +1254,13 @@ struct FlowLayout: Layout {
         guard s.width > width, width.isFinite else { return s }
         return v.sizeThatFits(ProposedViewSize(width: width, height: nil))
     }
+}
+
+/// what a journal search was worked out from: the same loaded ledger (it never changes once loaded), account and
+/// conditions give the same transactions
+struct JournalSearch: Equatable {
+    let ledger: Ledger
+    let account: String?
+    let query: String
+    static func == (a: Self, b: Self) -> Bool { a.ledger === b.ledger && a.account == b.account && a.query == b.query }
 }
