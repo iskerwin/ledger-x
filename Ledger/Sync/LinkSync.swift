@@ -27,13 +27,7 @@ extension Store {
             // only a pair: with several refunds sharing the link, the others still need it
             let others = L.txns.filter { $0.links.contains(l) && !$0.synthetic && $0.src.trimmed != me }
             guard others.count == 1, let p = others.first else { continue }
-            var lines = p.src.components(separatedBy: "\n")
-            guard !lines.isEmpty else { continue }
-            var words = lines[0].components(separatedBy: " ")
-            if added.count == 1 { words = words.map { $0 == "^" + l ? "^" + added[0] : $0 } }
-            else { words.removeAll { $0 == "^" + l } }
-            lines[0] = words.joined(separator: " ")
-            var op = entryOp(p, text: lines.joined(separator: "\n"))
+            var op = entryOp(p, text: headerLinkReplace(p.src, link: l, with: added.count == 1 ? added[0] : nil))
             op.silent = true
             ops.append(op)
         }
