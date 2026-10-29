@@ -405,7 +405,7 @@ extension Store {
             var m = c.scanCards ?? [:]
             m[key] = account
             c.scanCards = m
-            var op = await fileWriteOp(LedgerXConfig.path, text: c.json())
+            guard var op = await fileWriteOp(LedgerXConfig.path, text: c.json()) else { return false }
             op.label = LS("截图记账：%@ 记为 %@", key, acctLabel(account))
             op.silent = true
             ops.append(op)
