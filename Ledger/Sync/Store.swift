@@ -141,6 +141,8 @@ enum Prefs {
     var demoUpdate: String?
     var lastSync: Date?
     var ci: GitHub.CI?
+    /// the commit `ci` was last asked about (this run only: the first sync after launch or a switch asks again)
+    @ObservationIgnored private var ciAskedAt: String?
     private(set) var tree: RepoTree?
     var loadError: String?
     var building = false
@@ -375,7 +377,7 @@ enum Prefs {
         journalJump = nil
         journalReturn = nil
         Prefs.set("activeSource", c.id)
-        L = nil; D = nil; ci = nil; ledgerQueries = []; loadError = nil
+        L = nil; D = nil; ci = nil; ciAskedAt = nil; ledgerQueries = []; loadError = nil
         pending = Prefs.get(pk("pending"), [Op]())
         history = Prefs.get(pk("history"), [ChangeRecord]())
         tree = Prefs.get(pk("tree"), RepoTree?.none)
@@ -626,8 +628,7 @@ enum Prefs {
             var pushed = false
             if pending.contains(where: { $0.failed == nil }) { try await pushPending(); pushed = true }
             if changed || pushed || L == nil { await rebuild() }
-            ci = await backend.check()
-            Prefs.set(pk("ci"), ci)
+            await updateCI()
             pruneCache()
             syncState = .idle
             syncError = ""
@@ -702,8 +703,28 @@ enum Prefs {
             syncError = ""
             lastSync = Date()
             Prefs.set(pk("lastSync"), lastSync)
-            ci = await backend.check()
+            await updateCI()
         } catch { fail(error); Haptics.error() }
+    }
+
+    /// the bean-check run, asked for again only when there is something new to know (it used to be asked after
+    /// every sync): a commit not asked about yet, a run still going or not readable last time, or the latest
+    /// commit's run not started yet. A ledger without the workflow (or without permission) asks once per commit
+    static func ciDue(_ ci: GitHub.CI?, askedAt: String?, head: String?) -> Bool {
+        guard let ci, askedAt == head else { return true }
+        switch ci.state {
+        case .running, .error: return true
+        case .ok, .fail: return ci.sha != head
+        case .empty, .noperm: return false
+        }
+    }
+
+    private func updateCI() async {
+        let head = tree?.commit
+        guard Self.ciDue(ci, askedAt: ciAskedAt, head: head) else { return }
+        ci = await backend.check()
+        ciAskedAt = head
+        Prefs.set(pk("ci"), ci)
     }
 
     // MARK: - files
