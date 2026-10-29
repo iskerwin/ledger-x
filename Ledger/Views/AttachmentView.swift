@@ -89,7 +89,7 @@ extension Store {
 
     func discardAttachmentJob(_ job: AttachmentUpload) {
         do { try saveAttachmentJob(job, remove: true) }
-        catch { show(LS("无法更新附件恢复记录：%@", error.localizedDescription)) }
+        catch { showFailure(LS("无法更新附件恢复记录：%@", error.localizedDescription)) }
     }
 
     /// Persist the confirmed path before starting the task. The sheet owns this job's identity.
@@ -588,7 +588,7 @@ struct TransactionAttachmentsView: View {
                         } label: {
                             if recovering == d.id { ProgressView() } else { Text(LS("恢复")) }
                         }
-                        .buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)
+                        .rowButton()
                         .disabled(recovering != nil || store.committing)
                     }
                 }

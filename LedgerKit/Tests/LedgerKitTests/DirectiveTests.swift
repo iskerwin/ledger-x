@@ -34,6 +34,21 @@ final class DirectiveTests: XCTestCase {
         XCTAssertEqual(L.events.first?.eventDescription, "深圳 \"南山\"")
     }
 
+    /// the account editor's display name keeps its double quotes (they used to become single quotes);
+    /// the other metadata of the directive being edited stays
+    func testOpenNameWithQuotesReadsBack() {
+        let old = "2024-01-01 open Liabilities:Card:Demo CNY\n  name: \"旧名\"\n  bank: \"示例银行\""
+        let text = openDirectiveText(date: "2024-01-01", account: "Liabilities:Card:Demo", currencies: ["CNY"], booking: "",
+                                     name: "示例 \"白金\" 卡", creditLimit: 5000, allowNegative: false, statementDay: 5,
+                                     dueDay: 25, keep: old)
+        let L = ledger(text + "\n")
+        XCTAssertTrue(L.errors.isEmpty, L.errors.map { $0.msg }.joined())
+        let meta = L.accounts["Liabilities:Card:Demo"]?.meta
+        XCTAssertEqual(meta?["name"]?.stringValue, "示例 \"白金\" 卡")
+        XCTAssertEqual(meta?["bank"]?.stringValue, "示例银行")
+        XCTAssertEqual(text.components(separatedBy: "\n").count, 6, "name, statement day, due day, limit, bank")
+    }
+
     func testWhereTheyGo() {
         let L = loadSet("realistic")
         let note = Entry(type: .note, date: "2026-01-01", file: "", line: 0, startLine: 0, endLine: 0)

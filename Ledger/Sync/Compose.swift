@@ -152,8 +152,7 @@ extension Store {
         let originals = parseFile(old, file: path).entries
         guard originals.count == 1, let current = try? await fileText(path), cfg.id == ledgerID,
               EntryLocator(originals[0], startLine: anchorLine.map { $0 - 1 }).text(in: current) != nil else {
-            Haptics.error()
-            show(LS("原记录已变化，草稿已保留。可复制草稿内容后核对。"))
+            showFailure(LS("原记录已变化，草稿已保留。可复制草稿内容后核对。"))
             return nil
         }
         var rm = Op(kind: .remove, path: path)
