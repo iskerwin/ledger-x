@@ -788,7 +788,8 @@ struct QuickAddView: View {
             }
         } label: {
             HStack(spacing: AppSpacing.icon) {
-                ControlIcon(systemName: d.funding.isEmpty ? "creditcard" : store.groupIcon(d.funding).symbol).foregroundStyle(Color.jadeInk)
+                ControlIcon(systemName: d.funding.isEmpty ? "creditcard" : store.groupIcon(d.funding).symbol)
+                    .foregroundStyle(d.funding.isEmpty ? Color.jadeInk : store.pickedTint(d.funding) ?? Color.jadeInk)
                 Text(title).foregroundStyle(d.funding.isEmpty ? Color.secondary : Color.primary).lineLimit(1).truncationMode(.middle)
                 Spacer(minLength: 2)
                 Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
