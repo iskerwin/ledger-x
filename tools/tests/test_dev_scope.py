@@ -30,7 +30,8 @@ class DevScopeTests(unittest.TestCase):
         self.assertIn('LedgerUITests/EditInteractionTests/testGlassCalendarFixedRowsAndDaySelection', plan['ui_tests'])
         self.assertIn('LedgerUITests/EditInteractionTests/testGlassSubscriptionCalendarRangeAndSelectionAtLargeText', plan['ui_tests'])
         self.assertEqual(set(plan['ui_tests']), set(dev_scope.MAPPINGS['Ledger/Views/CalendarView.swift']['ui']) | set(dev_scope.CRITICAL_UI))
-        self.assertEqual(len(plan['narrow_tests']), 4)
+        self.assertEqual(len(plan['narrow_tests']), 3)
+        self.assertNotIn('LedgerUITests/EditInteractionTests/testGlassCalendarFixedRowsAndDaySelection', plan['narrow_tests'])
         self.assertNotIn('LedgerUITests/EditInteractionTests/testTransferFeeCancelCompleteAndKeyboardDismissal', plan['ui_tests'])
         self.assertTrue(dev_scope.validate_selectors(plan, ROOT))
 

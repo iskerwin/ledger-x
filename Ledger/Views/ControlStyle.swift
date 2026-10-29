@@ -157,6 +157,50 @@ extension View {
     func primaryButton(tint: Color = .jade) -> some View {
         buttonStyle(.borderedProminent).tint(tint).foregroundStyle(tint.onFill).controlSize(.large).fontWeight(.semibold)
     }
+
+    /// a small button inside a row (还款, 加入, 恢复, 置顶, 补上声明…): the capsule of ActionRow, sized to its label,
+    /// filled for the row's main action and outlined otherwise. These used to be the system's bordered buttons,
+    /// each a little different
+    func rowButton(filled: Bool = false, tint: Color = .jade) -> some View {
+        buttonStyle(RowCapsuleStyle(filled: filled, tint: tint)).font(.subheadline.weight(.medium))
+    }
+
+    /// the second action under a page's main one: full width, outlined in the theme colour
+    func secondaryButton(tint: Color = .jade) -> some View {
+        buttonStyle(RowCapsuleStyle(filled: false, tint: tint, wide: true)).font(.body.weight(.semibold))
+    }
+}
+
+private struct RowCapsuleStyle: ButtonStyle {
+    var filled: Bool
+    var tint: Color
+    var wide = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        RowCapsule(configuration: configuration, filled: filled, tint: tint, wide: wide)
+    }
+
+    private struct RowCapsule: View {
+        let configuration: Configuration
+        let filled: Bool
+        let tint: Color
+        let wide: Bool
+        @Environment(\.isEnabled) private var enabled
+
+        var body: some View {
+            configuration.label
+                .lineLimit(1)
+                .padding(.horizontal, wide ? AppSpacing.content : AppSpacing.control)
+                .frame(maxWidth: wide ? .infinity : nil, minHeight: wide ? 44 : 32)
+                .fixedSize(horizontal: !wide, vertical: false)
+                .foregroundStyle(filled ? tint.onFill : tint.readableInk)
+                .background(Capsule().fill(filled ? tint : Color.clear))
+                .overlay(Capsule().strokeBorder(filled ? Color.clear : tint, lineWidth: 1))
+                .contentShape(Capsule())
+                .opacity(enabled ? 1 : 0.45)
+                .modifier(PressedLook(pressed: configuration.isPressed))
+        }
+    }
 }
 
 /// What is wrong with a form, under what it would write: an error (red, ✕) blocks saving, a warning (orange, △)
@@ -407,10 +451,16 @@ struct PeriodBar: View {
         return (1...12).map { Day.monthLabel(String(format: "%@-%02d", String(year), $0)) }.max { $0.count < $1.count } ?? Day.monthLabel(month)
     }
 
+    /// drawn and laid out at 24 × 28 as before, touched over 44 × 44 (it was hard to hit): the button is the larger
+    /// size and the negative padding gives the bar its old room back, so nothing around it moves
     private func arrow(_ symbol: String, _ label: String, enabled: Bool, _ go: @escaping () -> Void) -> some View {
-        Button(action: go) { Image(systemName: symbol).font(.body.weight(.semibold)).frame(minWidth: 24, minHeight: 28) }
-            .disabled(!enabled)
-            .accessibilityLabel(label)
+        Button(action: go) {
+            Image(systemName: symbol).font(.body.weight(.semibold))
+                .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+        }
+        .padding(.horizontal, -10).padding(.vertical, -8)
+        .disabled(!enabled)
+        .accessibilityLabel(label)
     }
 
     private func back(_ label: some View) -> some View {
@@ -634,6 +684,8 @@ struct ActionRow: View {
             horizontalPadding: containsLabel ? AppSpacing.content : AppSpacing.icon,
             enabled: isEnabled
         ))
+        // a date row's filled capsule is the day chosen: VoiceOver says so
+        .accessibilityAddTraits(containsLabel && filled ? .isSelected : [])
     }
 }
 
