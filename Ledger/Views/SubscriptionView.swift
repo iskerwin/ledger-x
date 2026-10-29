@@ -99,7 +99,7 @@ extension Store {
             if files[original.file] == nil { files[original.file] = try? await fileText(original.file) }
             guard cfg.id == ledgerID, let file = files[original.file],
                   let e = EntryLocator(original).resolve(in: parseFile(file, file: original.file).entries) else {
-                show(LS("记录或账本已变化，请重新打开后再试")); return nil
+                showFailure(LS("记录或账本已变化，请重新打开后再试")); return nil
             }
             if let oldLink = e.links.first(where: { $0.hasPrefix("sub-") }) {
                 var op = entryOp(e, text: headerLinkReplace(e.src, link: oldLink, with: link))
@@ -267,8 +267,7 @@ struct SubDueRow: View {
             } label: {
                 Label(LS("记一笔"), systemImage: "plus.circle").labelStyle(ControlLabelStyle()).font(.subheadline.weight(.semibold))
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
+            .rowButton(filled: true)
             .disabled(busy)
         }
     }
@@ -354,7 +353,7 @@ struct SubscriptionsView: View {
                             }
                             Spacer()
                             Text(money(c.amount, c.currency)).monospacedDigit().sensitive()
-                            Button { editing = SubDraft(c) } label: { Label(LS("加入"), systemImage: "plus").labelStyle(ControlLabelStyle()) }.buttonStyle(.bordered).controlSize(.small)
+                            Button { editing = SubDraft(c) } label: { Label(LS("加入"), systemImage: "plus").labelStyle(ControlLabelStyle()) }.rowButton()
                         }
                         .rowActions { Button { store.ignoreCandidate(c) } label: { Label(LS("忽略"), systemImage: "eye.slash") }.tint(.gray) }
                     }

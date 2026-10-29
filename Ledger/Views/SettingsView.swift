@@ -73,13 +73,11 @@ struct SettingsView: View {
                         HStack(spacing: AppSpacing.control) { LedgerCheckRow(); Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary) }
                             .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
                 } header: { Text(LS("账本与同步")) }
                 // 记账偏好
                 Section {
                     NavigationLink { BookkeepingPrefsPage() } label: { row("square.and.pencil", LS("记账偏好"), "") }
                     Button { managingCats = true } label: { row("square.grid.2x2", LS("分类与常用交易"), "", chevron: true) }
-                        .buttonStyle(.plain)
                     NavigationLink { NetWorthSettingsView() } label: { row("chart.bar", LS("统计范围"), exclusionSummary) }
                     NavigationLink { Form { RemindersSection() }.navigationTitle(LS("提醒")) } label: {
                         row("bell", LS("提醒"), Reminders.enabled ? LS("已开启") : LS("未开启"))
@@ -135,7 +133,8 @@ struct SettingsView: View {
                         Text(store.cfg.title).font(.headline)
                         Text(store.cfg.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         HStack(spacing: AppSpacing.icon) {
-                            Image(systemName: store.syncAppearance.symbol)
+                            // a scaled square: each state's symbol has its own height, which moved the card
+                            ControlIcon(systemName: store.syncAppearance.symbol)
                                 .foregroundStyle(store.syncAppearance.color)
                             Text(syncSummary).font(.caption).foregroundStyle(.secondary)
                         }
@@ -364,7 +363,7 @@ struct AdvancedPage: View {
         defer { resetting = false }
         guard await store.resetCache() else { return }
         if let e = store.loadError { store.show(e) }
-        else if store.syncState == .error || store.syncState == .offline { store.show(LS("重新下载失败：%@", store.syncError)) }
+        else if store.syncState == .error || store.syncState == .offline { store.showFailure(LS("重新下载失败：%@", store.syncError)) }
         else { store.show(LS("已清除缓存并重新下载")) }
     }
 }
@@ -377,7 +376,10 @@ struct AboutPage: View {
                 VStack(spacing: AppSpacing.icon) {
                     Image("Logo").resizable().frame(width: 72, height: 72).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     Text("Ledger X").font(.title2.weight(.bold))
-                    Text(LS("版本 %@", Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")).foregroundStyle(.secondary)
+                    // with the build: two installs of the same version (a preview, the dev build) are told apart
+                    Text(LS("版本 %@（构建 %@）", Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
+                            Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "")).foregroundStyle(.secondary)
+                        .accessibilityIdentifier("about.version")
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, AppSpacing.icon)
