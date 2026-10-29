@@ -100,7 +100,7 @@ enum Backup {
             if !quiet { store.show(LS("已备份到 %@", folderName ?? "")) }
             return true
         } catch {
-            if !quiet { store.show(LS("备份失败：%@", error.localizedDescription)) }
+            if !quiet { store.showFailure(LS("备份失败：%@", error.localizedDescription)) }
             return false
         }
     }
