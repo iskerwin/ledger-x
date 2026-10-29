@@ -231,6 +231,24 @@ final class LinkTests: XCTestCase {
         XCTAssertEqual(L.txns.first?.narration, "说 \"^sub-old\"")
     }
 
+    /// A tag or link added to a header goes before a trailing comment (batch edit put it after, inside the comment,
+    /// where Beancount never reads it), and only link words are read back: a "^…" in the narration or comment is text
+    func testHeaderWordsSkipStringsAndComments() {
+        let t = "2025-01-01 * \"Cafe\" \"see ^old #x\" ^paid ; note ^later\n  Expenses:Food  1 CNY\n  Assets:Bank"
+        let tagged = headerWordAdd(t, "#trip")
+        XCTAssertEqual(tagged.components(separatedBy: "\n")[0], "2025-01-01 * \"Cafe\" \"see ^old #x\" ^paid #trip ; note ^later")
+        XCTAssertEqual(headerWordAdd(tagged, "#trip"), tagged, "already there")
+        // the same text inside the narration is not the tag: it is still added
+        XCTAssertNotEqual(headerWordAdd(t, "#x"), t)
+        XCTAssertEqual(headerWordAdd("2025-01-01 * \"Cafe\"  \n  Assets:Bank", "^a").components(separatedBy: "\n")[0], "2025-01-01 * \"Cafe\" ^a")
+        XCTAssertEqual(linksOnHeader(t), ["paid"])
+        XCTAssertEqual(headerLinkEdit(t, link: "new", remove: false).components(separatedBy: "\n")[0],
+                       "2025-01-01 * \"Cafe\" \"see ^old #x\" ^paid ^new ; note ^later")
+        let L = loadLedger(root: "main.bean") { _ in "2025-01-01 open Expenses:Food\n2025-01-01 open Assets:Bank\n" + tagged + "\n" }
+        XCTAssertEqual(L.txns.first?.tags, ["trip"])
+        XCTAssertEqual(L.txns.first?.links, ["paid"])
+    }
+
     /// ^doc-… is written when an attachment is uploaded. It is on its one transaction by design, so it is not a
     /// "link on this transaction only" problem, and has no figures: the detail page shows the files under 附件.
     func testAttachmentLinkIsNotALinkProblem() {
