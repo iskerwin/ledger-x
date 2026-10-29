@@ -112,7 +112,7 @@ extension Store {
         } else {
             // The user may switch ledgers while the download is running. Clear only the demo's
             // old queue/cache, so it cannot replay pre-reset edits when opened again.
-            Prefs.set(Store.key("pending", Store.demoID), [Op]())
+            try? PendingQueue.save([], ledger: Store.demoID)
             Prefs.set(Store.key("tree", Store.demoID), RepoTree?.none)
         }
         show(word)
