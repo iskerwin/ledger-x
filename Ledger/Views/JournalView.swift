@@ -177,13 +177,11 @@ struct JournalView: View {
     private static let calendarKey = "ledger.journal.calendar"
     /// a day picked on the calendar: its sheet
     @State private var calendarDay: CalendarDay?
-    /// the day sheet's detent: on short screens it starts at a lower fraction, so the first
-    /// calendar rows stay above the sheet and remain tappable to switch days
-    @State private var dayDetent: PresentationDetent = UIScreen.main.bounds.height < 700 ? .fraction(0.4) : .medium
+    /// the day sheet's detent: it starts low on every phone, so the first calendar rows stay above
+    /// the sheet and remain tappable to switch days; it can be pulled up to half or full
+    @State private var dayDetent: PresentationDetent = .fraction(0.4)
 
-    private static var dayDetents: Set<PresentationDetent> {
-        UIScreen.main.bounds.height < 700 ? [.fraction(0.4), .medium, .large] : [.medium, .large]
-    }
+    private static let dayDetents: Set<PresentationDetent> = [.fraction(0.4), .medium, .large]
     /// a transaction tapped in that sheet, opened once the sheet has gone
     @State private var afterSheet: TxDest?
     /// the quick filters on (本月, 大额, 待确认, 报销), added to what is typed
@@ -221,6 +219,9 @@ struct JournalView: View {
         }
     }
 
+    @State private var searched = LastResult<JournalSearch, [Entry]>()
+    @State private var summed = LastResult<JournalSearch, (Double, Double)>()
+
     /// what is searched: the box and the quick filters together
     private var fullQuery: String {
         ([q.trimmed] + quick.map { $0.query(store) }).filter { !$0.isEmpty }.joined(separator: " ")
@@ -251,13 +252,14 @@ struct JournalView: View {
                     } label: { Label(selecting ? LS("完成") : LS("选择"), systemImage: selecting ? "checkmark" : "checkmark.circle").labelStyle(ControlLabelStyle()) }
                 }
             }
-            .topBar { if !selecting { QuickSearchBar(q: $q) } }
             .safeAreaInset(edge: .bottom) { if selecting { batchBar } }
             .sheet(item: $savingFilter) { e in QuickSearchSheet(edit: e) }
-            .sheet(item: $calendarDay, onDismiss: {
+            // one sheet for whichever day is picked: switching days changes what it shows instead of
+            // presenting a new sheet, which came back at full height
+            .sheet(isPresented: Binding(get: { calendarDay != nil }, set: { if !$0 { calendarDay = nil } }), onDismiss: {
                 if let t = afterSheet { afterSheet = nil; path.append(t) }
-            }) { d in
-                if let L = store.L { daySheet(d.day, L) }
+            }) {
+                if let d = calendarDay, let L = store.L { daySheet(d.day, L) }
             }
             .sheet(item: $batch) { m in
                 BatchEditSheet(entries: selectedEntries, mode: m) { selecting = false; selected = [] }
@@ -330,7 +332,7 @@ struct JournalView: View {
         .presentationDragIndicator(.visible)
         .presentationContentInteraction(.scrolls)
         // half sheet stays clear of the upper dates, so they stay visible and tappable
-        // to switch days; on short screens the sheet starts lower still (see dayDetent).
+        // to switch days; it starts lower still (see dayDetent).
         // The sheet itself closes by swiping down or with its Done button.
         .presentationBackgroundInteraction(.enabled(upThrough: .medium))
     }
@@ -414,7 +416,7 @@ struct JournalView: View {
     private func list(_ L: Ledger) -> some View {
         let matches = search(L)
         let shown = Array(matches.prefix(limit))
-        let sums = totals(matches, L)
+        let sums = summed.value(for: JournalSearch(ledger: L, account: account, query: fullQuery)) { totals(matches, L) }
         let days = groupByDay(shown)
         let filtered = !quick.isEmpty || account != nil || !q.trimmed.isEmpty
         // just saved from the form and in the list as it is (not filtered out, not past 加载更多): scrolled to, where
@@ -426,6 +428,12 @@ struct JournalView: View {
         ScrollViewReader { proxy in
             List {
                 Section {
+                    // the saved searches scroll with the list: pinned under the search box (iOS 26 safeAreaBar), the
+                    // large title collapsing moved the bar, which pushed the list back and opened the title again,
+                    // over and over
+                    if !selecting && !(store.quickSearches.isEmpty && q.trimmed.isEmpty) {
+                        QuickSearchBar(q: $q).listRowInsets(EdgeInsets())
+                    }
                     // looking by date, the calendar takes the quick filters' place (what is on stays, with its ✕)
                     if showCalendar {
                         JournalCalendar(L: L, entries: matches, account: account, openDay: $calendarDay)
@@ -545,15 +553,20 @@ struct JournalView: View {
         }
     }
 
+    /// the transactions the conditions match, newest first. The list is drawn again for every small change (加载更多,
+    /// the keyboard, a day picked on the calendar) and used to search the whole ledger each time: the last search is
+    /// kept while the ledger, account and conditions stay the same
     private func search(_ L: Ledger) -> [Entry] {
-        var out: [Entry] = []
-        let a = account
-        let query = TxQuery(fullQuery)
-        for t in L.txns.reversed() {
-            if let a = a, !t.postings.contains(where: { $0.account == a || $0.account.hasPrefix(a + ":") }) { continue }
-            if query.matches(t, L) { out.append(t) }
+        let a = account, text = fullQuery
+        return searched.value(for: JournalSearch(ledger: L, account: a, query: text)) {
+            var out: [Entry] = []
+            let query = TxQuery(text)
+            for t in L.txns.reversed() {
+                if let a = a, !t.postings.contains(where: { $0.account == a || $0.account.hasPrefix(a + ":") }) { continue }
+                if query.matches(t, L) { out.append(t) }
+            }
+            return out
         }
-        return out
     }
 
     /// the conditions on, to take off one by one
@@ -1167,7 +1180,7 @@ struct DayOrderSheet: View {
     private func save() async {
         saving = true
         defer { saving = false }
-        guard let text = try? await store.fileText(file) else { store.show(LS("无法读取 %@", file)); return }
+        guard let text = try? await store.fileText(file) else { store.showFailure(LS("无法读取 %@", file)); return }
         let inFile = items.sorted { $0.startLine < $1.startLine }
         let order = items.compactMap { t in inFile.firstIndex { $0.id == t.id } }
         guard let r = reorderBlocks(text, ranges: inFile.map { ($0.startLine, $0.endLine) }, order: order) else {
@@ -1241,4 +1254,13 @@ struct FlowLayout: Layout {
         guard s.width > width, width.isFinite else { return s }
         return v.sizeThatFits(ProposedViewSize(width: width, height: nil))
     }
+}
+
+/// what a journal search was worked out from: the same loaded ledger (it never changes once loaded), account and
+/// conditions give the same transactions
+struct JournalSearch: Equatable {
+    let ledger: Ledger
+    let account: String?
+    let query: String
+    static func == (a: Self, b: Self) -> Bool { a.ledger === b.ledger && a.account == b.account && a.query == b.query }
 }

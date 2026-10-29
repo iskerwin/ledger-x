@@ -217,8 +217,7 @@ struct AddForm: View {
                 }
                 Spacer()
                 Button { store.draft = store.newDraftFor(.expense) } label: { Label(LS("取消"), systemImage: "xmark").labelStyle(ControlLabelStyle()) }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+                    .rowButton()
             }
         } footer: {
             Text(LS("退款将冲减原支出科目，并通过同一 ^link 与原交易关联。"))
@@ -999,7 +998,7 @@ struct TemplateManager: View {
                             Button {
                                 store.pinTemplate(x.id, !x.pinned)
                             } label: { Label(x.pinned ? LS("已置顶") : LS("置顶"), systemImage: x.pinned ? "pin.fill" : "pin").labelStyle(ControlLabelStyle()) }
-                            .buttonStyle(.bordered).tint(x.pinned ? .jade : .gray).controlSize(.small)
+                            .rowButton(filled: x.pinned)
                         }
                         .rowActions {
                             Button(role: .destructive) {

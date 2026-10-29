@@ -23,9 +23,9 @@ extension Store {
         var done = Set<ObjectIdentifier>()
         for e in es {
             guard done.insert(ObjectIdentifier(e)).inserted else { continue }
-            guard let file = try? await fileText(e.file) else { show(LS("无法读取 %@", e.file)); return false }
+            guard let file = try? await fileText(e.file) else { showFailure(LS("无法读取 %@", e.file)); return false }
             guard cfg.id == ledgerID, let current = EntryLocator(e).resolve(in: parseFile(file, file: e.file).entries) else {
-                show(LS("记录或账本已变化，请重新打开后再试")); return false
+                showFailure(LS("记录或账本已变化，请重新打开后再试")); return false
             }
             let lines = file.components(separatedBy: "\n")
             guard current.startLine < lines.count else { return false }
