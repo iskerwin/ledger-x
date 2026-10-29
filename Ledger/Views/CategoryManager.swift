@@ -114,6 +114,7 @@ struct CategoryStyleSheet: View {
     @State private var title = ""
     @State private var icon = ""
     @State private var hidden = false
+    @State private var tint: String?
 
     private var key: String { Store.cellKey(target.group) }
 
@@ -160,6 +161,13 @@ struct CategoryStyleSheet: View {
                         .padding(.vertical, AppSpacing.icon)
                         Button { icon = Symbols.valid(defaultCategoryIcon(key)) ? defaultCategoryIcon(key) : "square.grid.2x2" } label: { Label(LS("恢复默认图标"), systemImage: "arrow.counterclockwise").labelStyle(ControlLabelStyle()) }
                     }
+                    Section {
+                        IconTintGrid(tint: $tint, fallback: .jade)
+                    } header: {
+                        Text(LS("颜色"))
+                    } footer: {
+                        Text(LS("用在管理账户、账户页和报表的图标上；记一笔的宫格仍是黑白，选中时用主题色。"))
+                    }
                 }
             }
             .navigationTitle(LS("分类样式"))
@@ -172,6 +180,7 @@ struct CategoryStyleSheet: View {
                 title = store.catStyle.titles[target.group.id] ?? ""
                 icon = store.catStyle.icons[key] ?? ""
                 hidden = store.catStyle.hidden.contains(target.group.id)
+                tint = store.catStyle.colors?[key]
             }
         }
     }
@@ -188,6 +197,7 @@ struct CategoryStyleSheet: View {
         s.icons[key] = icon.isEmpty || icon == defaultCategoryIcon(key) ? nil : icon
         s.hidden.removeAll { $0 == target.group.id }
         if hidden { s.hidden.append(target.group.id) }
+        s.colors = tinted(s.colors, key, tint)
         store.catStyle = s
     }
 
@@ -214,11 +224,48 @@ struct CategoryStyleSheet: View {
 struct IconTarget: Identifiable { let group: String; var id: String { group } }
 
 /// the icon of any account group, used wherever the group shows (grid, 管理账户, accounts, reports); kept on this phone
+/// the colours to give a group's icon, and 默认 for its own; the picked one ringed
+struct IconTintGrid: View {
+    @Binding var tint: String?
+    /// the colour 默认 stands for
+    let fallback: Color
+
+    var body: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: AppSpacing.icon), count: 7), spacing: AppSpacing.control) {
+            swatch(nil, fallback, LS("默认"))
+            ForEach(IconTint.all, id: \.name) { t in swatch(t.name, t.color, t.title) }
+        }
+        .padding(.vertical, AppSpacing.icon)
+    }
+
+    private func swatch(_ name: String?, _ color: Color, _ title: String) -> some View {
+        let on = tint == name
+        return Button { tint = name } label: {
+            ZStack {
+                Circle().fill(color).frame(width: 30, height: 30)
+                if name == nil { Image(systemName: "arrow.counterclockwise").font(.caption.weight(.bold)).foregroundStyle(.white) }
+            }
+            .frame(width: 40, height: 40)
+            .overlay(Circle().stroke(on ? Color.primary : Color.clear, lineWidth: 2))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(on ? .isSelected : [])
+        .accessibilityIdentifier("tint." + (name ?? "default"))
+    }
+}
+
 struct GroupIconSheet: View {
     @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     let group: String
     @State private var icon = ""
+    @State private var tint: String?
+
+    /// the built-in colour: the theme's for categories, the account kind's for the rest
+    private var builtInColor: Color {
+        group.hasPrefix("Expenses") || group.hasPrefix("Income") ? .jade : AccountKind.of(group).color
+    }
 
     /// the built-in one, without what was picked
     private var builtIn: String {
@@ -232,7 +279,7 @@ struct GroupIconSheet: View {
     ]
 
     var body: some View {
-        let color = store.groupIcon(group).color
+        let color = IconTint.color(tint) ?? builtInColor
         let current = icon.isEmpty ? store.groupIcon(group).symbol : icon
         let choices = (group.hasPrefix("Assets") || group.hasPrefix("Liabilities") ? Self.accountSymbols + CategoryStyleSheet.symbols
                        : CategoryStyleSheet.symbols + Self.accountSymbols)
@@ -267,6 +314,13 @@ struct GroupIconSheet: View {
                 } footer: {
                     Text(LS("这个大类在记一笔、管理账户、账户页和报表里都用这个图标；只存在这台手机。"))
                 }
+                Section {
+                    IconTintGrid(tint: $tint, fallback: builtInColor)
+                } header: {
+                    Text(LS("颜色"))
+                } footer: {
+                    Text(LS("用在管理账户、账户页和报表的图标上；记一笔的宫格仍是黑白，选中时用主题色。"))
+                }
             }
             .navigationTitle(LS("更换图标"))
             .navigationBarTitleDisplayMode(.inline)
@@ -276,13 +330,21 @@ struct GroupIconSheet: View {
                     Button {
                         var s = store.catStyle
                         s.icons[group] = icon.isEmpty || icon == builtIn ? nil : icon
+                        s.colors = tinted(s.colors, group, tint)
                         store.catStyle = s
                         dismiss()
                     } label: { SaveLabel() }
                     .fontWeight(.semibold)
                 }
             }
-            .onAppear { icon = store.catStyle.icons[group] ?? "" }
+            .onAppear { icon = store.catStyle.icons[group] ?? ""; tint = store.catStyle.colors?[group] }
         }
     }
+}
+
+/// the saved colours with `key`'s set to `tint` (nil: its own again); nil when none is left
+func tinted(_ colors: [String: String]?, _ key: String, _ tint: String?) -> [String: String]? {
+    var c = colors ?? [:]
+    c[key] = tint
+    return c.isEmpty ? nil : c
 }
