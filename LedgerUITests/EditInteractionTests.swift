@@ -1023,6 +1023,13 @@ final class EditInteractionTests: XCTestCase {
         for (name, value) in [("calendar.yearWheel", year), ("calendar.monthWheel", month)] {
             let wheel = app.pickers[name].pickerWheels.firstMatch
             XCTAssertTrue(wheel.waitForExistence(timeout: 5))
+            // asking for hittability before the wheel has a frame ({inf, inf}) fails the test outright instead of
+            // answering no, so wait for a real frame first
+            let placed = expectation(for: NSPredicate { _, _ in
+                let frame = wheel.frame
+                return !frame.isInfinite && !frame.isNull && frame.width > 0 && frame.height > 0
+            }, evaluatedWith: nil)
+            wait(for: [placed], timeout: 5)
             let ready = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: wheel)
             wait(for: [ready], timeout: 5)
             wheel.adjust(toPickerWheelValue: value)
