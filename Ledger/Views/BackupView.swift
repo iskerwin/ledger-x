@@ -44,7 +44,7 @@ struct BackupView: View {
                     Task {
                         busy = true
                         defer { busy = false }
-                        do { zip = try await Backup.makeZip(store) } catch { store.show(LS("备份失败：%@", error.localizedDescription)) }
+                        do { zip = try await Backup.makeZip(store) } catch { store.showFailure(LS("备份失败：%@", error.localizedDescription)) }
                     }
                 } label: { Label(LS("分享账本压缩包"), systemImage: "doc.zipper").labelStyle(ControlLabelStyle()) }
                 .disabled(busy)

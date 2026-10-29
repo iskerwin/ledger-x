@@ -146,7 +146,7 @@ struct ReimbExportSheet: View {
             if (try? reimbCSV(r, docs: docNames).data(using: .utf8)?.write(to: cu)) != nil { out.append(cu) }
         }
         files = out
-        if out.isEmpty { store.show(LS("生成失败")) }
+        if out.isEmpty { store.showFailure(LS("生成失败")) }
     }
 
     private func safeFileName(_ s: String) -> String {

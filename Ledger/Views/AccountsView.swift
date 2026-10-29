@@ -155,33 +155,42 @@ struct AccountsView: View {
         let flows = side == "flows"
         return Section {
             Card {
+                // several currencies as booked (按原币): both tabs a table, a row per currency
+                let several = CurrencyTable.rows([assets, liab], base: L.base).count > 1
                 ZStack(alignment: .topLeading) {
-                    netWorth(L, assets: assets, liab: liab).concealed(flows)
-                    yearFlows(L, year).concealed(!flows)
+                    netWorth(L, assets: assets, liab: liab, several: several).concealed(flows)
+                    yearFlows(L, year, several: several).concealed(!flows)
                 }
             }
             .cardRow()
         }
     }
 
-    /// 净资产 as chosen: one figure, or a line per currency
-    private func netWorth(_ L: Ledger, assets: Inventory, liab: Inventory) -> some View {
+    /// 净资产 as chosen: one figure, or (several currencies) a row per currency with its assets, debts and net
+    @ViewBuilder
+    private func netWorth(_ L: Ledger, assets: Inventory, liab: Inventory, several: Bool) -> some View {
         let a1 = assets.single(base: L.base), l1 = (-liab).single(base: L.base)
         let one = a1 != nil && l1 != nil && (a1!.currency == l1!.currency || abs(l1!.amount) < 0.005)
-        return VStack(alignment: .leading, spacing: AppSpacing.control) {
-            VStack(alignment: .leading, spacing: AppSpacing.detail) {
+        VStack(alignment: .leading, spacing: AppSpacing.control) {
+            if several {
                 Text(LS("净资产")).font(.subheadline).foregroundStyle(.secondary)
-                InventoryHeadline(inv: assets + liab, base: L.base)
-            }
-            HStack(alignment: .top, spacing: AppSpacing.control) {
-                InventoryFigure(label: LS("资产"), inv: assets, base: L.base)
-                Spacer()
-                InventoryFigure(label: LS("负债"), inv: -liab, base: L.base)
-                Spacer()
-                Figure(label: LS("资产负债率"), value: one && a1!.amount > 0 && l1!.amount > 0.005 ? String(format: "%.1f%%", l1!.amount / a1!.amount * 100) : "—", alignment: .trailing)
-            }
-            if one, let a = a1?.amount, let l = l1?.amount {
-                RatioBar(parts: [(max(0, a - max(0, l)), Color.jadeInk), (max(0, l), Color.secondary)])
+                CurrencyTable(columns: [.init(title: LS("资产")), .init(title: LS("负债")), .init(title: LS("净额"), signed: true)],
+                              rows: CurrencyTable.rows([assets, -liab, assets + liab], base: L.base))
+            } else {
+                VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                    Text(LS("净资产")).font(.subheadline).foregroundStyle(.secondary)
+                    InventoryHeadline(inv: assets + liab, base: L.base)
+                }
+                HStack(alignment: .top, spacing: AppSpacing.control) {
+                    InventoryFigure(label: LS("资产"), inv: assets, base: L.base)
+                    Spacer()
+                    InventoryFigure(label: LS("负债"), inv: -liab, base: L.base)
+                    Spacer()
+                    Figure(label: LS("资产负债率"), value: one && a1!.amount > 0 && l1!.amount > 0.005 ? String(format: "%.1f%%", l1!.amount / a1!.amount * 100) : "—", alignment: .trailing)
+                }
+                if one, let a = a1?.amount, let l = l1?.amount {
+                    RatioBar(parts: [(max(0, a - max(0, l)), Color.jadeInk), (max(0, l), Color.secondary)])
+                }
             }
             // a line under the bar here as under 收支's, so the two tabs say as much and are as tall
             NavigationLink(value: NetWorthSettingsDest()) {
@@ -201,26 +210,34 @@ struct AccountsView: View {
         return Text(Image(systemName: abs(c) <= 0.005 ? "minus" : c < 0 ? "arrow.down.right" : "arrow.up.right")).foregroundColor(color) + Text(figure).foregroundColor(color)
     }
 
-    /// this year's income, spending and what is left, for 收支
-    private func yearFlows(_ L: Ledger, _ year: String) -> some View {
+    /// this year's income, spending and what is left, for 收支: in the base currency, or (several currencies, as
+    /// 净资产 is shown) a row per currency as booked
+    private func yearFlows(_ L: Ledger, _ year: String, several: Bool) -> some View {
         let ie = ytd(L, year)
         let income = -ie.filter { $0.0.hasPrefix("Income") }.reduce(0.0) { $0 + $1.1 }
         let spent = ie.filter { $0.0.hasPrefix("Expenses") }.reduce(0.0) { $0 + $1.1 }
         return VStack(alignment: .leading, spacing: AppSpacing.control) {
-            VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                Text(LS("%@ 年结余", year)).font(.subheadline).foregroundStyle(.secondary)
-                Text(money(income - spent, L.base)).heroAmount().monospacedDigit()
-                    .rollingNumber(income - spent)
-                    .foregroundStyle(income - spent < 0 ? Color.loss : Color.primary).sensitive()
+            if several {
+                let f = ytdByCurrency(L, year)
+                Text(LS("%@ 年收支", year)).font(.subheadline).foregroundStyle(.secondary)
+                CurrencyTable(columns: [.init(title: LS("收入"), color: .gain), .init(title: LS("支出"), color: .loss), .init(title: LS("结余"), signed: true)],
+                              rows: CurrencyTable.rows([f.0, f.1, f.0 + (-f.1)], base: L.base))
+            } else {
+                VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                    Text(LS("%@ 年结余", year)).font(.subheadline).foregroundStyle(.secondary)
+                    Text(money(income - spent, L.base)).heroAmount().monospacedDigit()
+                        .rollingNumber(income - spent)
+                        .foregroundStyle(income - spent < 0 ? Color.loss : Color.primary).sensitive()
+                }
+                HStack(alignment: .top, spacing: AppSpacing.control) {
+                    Figure(label: LS("收入"), value: money(income, L.base), color: .gain)
+                    Spacer()
+                    Figure(label: LS("支出"), value: money(spent, L.base), color: .loss)
+                    Spacer()
+                    Figure(label: LS("储蓄率"), value: income > 0.005 ? String(format: "%.1f%%", (income - spent) / income * 100) : "—", alignment: .trailing)
+                }
+                RatioBar(parts: [(max(0, income - spent), Color.gain), (spent, Color.loss)])
             }
-            HStack(alignment: .top, spacing: AppSpacing.control) {
-                Figure(label: LS("收入"), value: money(income, L.base), color: .gain)
-                Spacer()
-                Figure(label: LS("支出"), value: money(spent, L.base), color: .loss)
-                Spacer()
-                Figure(label: LS("储蓄率"), value: income > 0.005 ? String(format: "%.1f%%", (income - spent) / income * 100) : "—", alignment: .trailing)
-            }
-            RatioBar(parts: [(max(0, income - spent), Color.gain), (spent, Color.loss)])
             // by the month, and the spending against the same days of last year (more in red, less in green)
             NavigationLink(value: YearReviewDest(year: year)) {
                 let pace = yearPace(L, year: year)
@@ -249,7 +266,7 @@ struct AccountsView: View {
                         NavigationLink(value: AccountDest(name: item.0)) {
                             HStack(spacing: AppSpacing.icon) {
                                 IconBadge(symbol: item.0.hasPrefix("Income") ? "arrow.down.circle.fill" : store.catIcon(item.0),
-                                          color: item.0.hasPrefix("Income") ? .green : .gray, size: 28)
+                                          color: IconTint.color(store.catStyle.colors?[item.0]) ?? (item.0.hasPrefix("Income") ? .green : .gray), size: 28)
                                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
                                     Text(leaf(item.0))
                                     Text(acctZH(item.0) ?? (item.0.hasPrefix("Income") ? LS("收入") : LS("支出"))).font(.caption).foregroundStyle(.secondary)
@@ -385,6 +402,19 @@ struct AccountsView: View {
         }
         .listSectionSpacing(.compact)
         .refreshable { await store.refresh() }
+    }
+
+    /// this year's income and spending in the currencies they were booked in (the ones counted, 币种与换算)
+    private func ytdByCurrency(_ L: Ledger, _ year: String) -> (Inventory, Inventory) {
+        let only = store.conly
+        var inc = Inventory(), exp = Inventory()
+        for t in L.txns where t.date.hasPrefix(year) {
+            for p in t.postings {
+                guard let u = p.units, let c = p.currency, only?.contains(c) ?? true else { continue }
+                if p.account.hasPrefix("Income:") { inc.add(-u, c) } else if p.account.hasPrefix("Expenses:") { exp.add(u, c) }
+            }
+        }
+        return (inc, exp)
     }
 
     private func ytd(_ L: Ledger, _ year: String) -> [(String, Double)] {

@@ -116,6 +116,25 @@ class PreviewSourceTests(unittest.TestCase):
             release = json.loads((Path(out)/'release.json').read_text())['apps'][0]['versions']
         return [v['buildVersion'] for v in dev], [v['buildVersion'] for v in release]
 
+    def test_a_reused_dev_release_is_dated_by_its_package(self):
+        dev = self.release('dev', '版本 1.0.8 · 构建 41 ·')
+        dev['published_at'] = '2026-10-21T17:58:29Z'
+        dev['assets'][0]['updated_at'] = '2026-10-27T23:40:07Z'
+        tags = 'x\trefs/tags/dev\n'
+        def fake(cmd, *args, **kwargs):
+            if cmd[:2] == ['git', 'hash-object']:
+                return 'f' * 40
+            if cmd[:3] == ['gh', 'api', '--paginate']:
+                return json.dumps([[dev]])
+            if cmd[:2] == ['git', 'ls-remote']:
+                return tags
+            raise AssertionError(cmd)
+        with tempfile.TemporaryDirectory() as out, patch.object(subprocess, 'check_output', side_effect=fake), \
+             patch('time.sleep'), patch.object(sys, 'argv', ['ipa_source.py', 'example/ledger-x', out]):
+            runpy.run_path(str(ROOT/'tools/release/ipa_source.py'), run_name='__main__')
+            versions = json.loads((Path(out)/'dev.json').read_text())['apps'][0]['versions']
+        self.assertEqual(versions[0]['date'], '2026-10-27T23:40:07Z')
+
     def test_dev_source_lists_the_newest_of_dev_and_preview_first_and_release_ignores_previews(self):
         published = self.release('v1.0.7', '版本 1.0.7 · 构建 30 ·')
         newer = [self.release('dev', '版本 1.0.8 · 构建 41 ·'), self.release('preview', '版本 1.0.8 · 构建 41.2 ·'), published]

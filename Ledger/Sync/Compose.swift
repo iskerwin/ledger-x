@@ -21,6 +21,19 @@ struct CatStyle: Codable, Equatable {
     var order: [String: [String]] = [:]
     /// groups left out of the grid (still in 完整表单 and the account picker)
     var hidden: [String] = []
+    /// a colour of one's own for a group's icon (an IconTint name). Optional, so a style saved before reads back whole.
+    var colors: [String: String]?
+}
+
+/// the colours a group's icon can take: system colours, each with its own shade in dark mode
+enum IconTint {
+    /// (computed: the titles follow the app's language when it is switched)
+    static var all: [(name: String, title: String, color: Color)] { [
+        ("red", LS("红"), .red), ("orange", LS("橙"), .orange), ("yellow", LS("黄"), .yellow), ("green", LS("绿"), .green),
+        ("mint", LS("薄荷"), .mint), ("teal", LS("青绿"), .teal), ("cyan", LS("青"), .cyan), ("blue", LS("蓝"), .blue),
+        ("indigo", LS("靛蓝"), .indigo), ("purple", LS("紫"), .purple), ("pink", LS("粉"), .pink), ("brown", LS("棕"), .brown),
+    ] }
+    static func color(_ name: String?) -> Color? { name.flatMap { n in all.first { $0.name == n }?.color } }
 }
 
 /// whether iOS has a symbol of this name (a typo or an older iOS draws nothing)
@@ -139,8 +152,7 @@ extension Store {
         let originals = parseFile(old, file: path).entries
         guard originals.count == 1, let current = try? await fileText(path), cfg.id == ledgerID,
               EntryLocator(originals[0], startLine: anchorLine.map { $0 - 1 }).text(in: current) != nil else {
-            Haptics.error()
-            show(LS("原记录已变化，草稿已保留。可复制草稿内容后核对。"))
+            showFailure(LS("原记录已变化，草稿已保留。可复制草稿内容后核对。"))
             return nil
         }
         var rm = Op(kind: .remove, path: path)
@@ -208,6 +220,7 @@ extension Store {
         s.titles = Dictionary(s.titles.map { (move($0.key), $0.value) }, uniquingKeysWith: { a, _ in a })
         s.order = s.order.mapValues { l in l.map(move).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } } }
         s.hidden = s.hidden.map(move).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+        s.colors = s.colors.map { c in Dictionary(c.map { (move($0.key), $0.value) }, uniquingKeysWith: { a, _ in a }) }
         if s != catStyle { catStyle = s }
     }
 
@@ -217,9 +230,9 @@ extension Store {
         let g = catOf(account)
         let base = AccountKind.of(g)
         let category = g.hasPrefix("Expenses") || g.hasPrefix("Income")
-        let color: Color = category ? .jade : base.color
+        let color = IconTint.color(catStyle.colors?[g]) ?? (category ? .jade : base.color)
         if let s = catStyle.icons[g], Symbols.valid(s) { return AccountKind(symbol: s, color: color) }
-        return category ? AccountKind(symbol: catIcon(g), color: color) : base
+        return AccountKind(symbol: category ? catIcon(g) : base.symbol, color: color)
     }
 
     /// what a cell's icon is kept under: its group (Expenses:Food, Assets:Bank)
