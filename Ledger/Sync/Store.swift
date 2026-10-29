@@ -428,10 +428,15 @@ enum Prefs {
         PendingQueue.remove(ledger: id)
         // everything kept per ledger on this phone (see pk(_:))
         for k in ["pending", "tree", "lastSync", "ci", "history", "draftWorkspace", "pageContexts", "mainFile", "journalPattern", "receivable", "subsFile",
-                  "sub.ignored", "link.ignored", "remind.cards", "alerts.dismissed", "alerts.seen", "backup.last", "config.migrated"] {
+                  "sub.ignored", "link.ignored", "remind.cards", "alerts.dismissed", "alerts.seen", "backup.last", "config.migrated",
+                  "import.methods"] {
             UserDefaults.standard.removeObject(forKey: "ledger." + Store.key(k, id))
         }
         UserDefaults.standard.removeObject(forKey: PriceFetch.lastKey + "@" + id)
+        // its unsent attachments (with the photos in them) and an unfinished import, with the statement it came from
+        try? RecoveryFiles.remove(kind: "attachments", ledger: id)
+        try? RecoveryFiles.remove(kind: "import", ledger: id)
+        try? RecoveryFiles.removeData(kind: "import-source", ledger: id)
     }
 
     private func saveTree() { Prefs.set(pk("tree"), tree) }
