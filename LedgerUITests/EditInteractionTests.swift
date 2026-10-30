@@ -215,6 +215,26 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(app.buttons["关闭"].waitForExistence(timeout: 5), "no way back to 快捷记账")
     }
 
+    /// 清空 in the full form starts the 分录 over in one tap; 撤销 in the toast brings the rows back
+    func testClearingTheFormStartsOverAndCanBeUndone() {
+        let app = launch()
+        app.buttons["category.Expenses:Food"].firstMatch.tap()
+        app.navigationBars.buttons["更多"].firstMatch.tap()
+        app.buttons["分录（多行）"].tap()
+        let row = app.textFields["draft.row.Expenses:Food"]
+        tapPoint(row, timeout: 5)
+        assertCanType(app, into: row)
+        row.typeText("9")
+        let typed = row.value as? String
+
+        app.buttons["form.clear"].tap()
+        XCTAssertTrue(row.waitForNonExistence(timeout: 5), "the rows are still there")
+        let undo = app.buttons["撤销"]
+        XCTAssertTrue(undo.waitForExistence(timeout: 5)); undo.tap()
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        XCTAssertEqual(row.value as? String, typed)
+    }
+
     func testQuickContentsOpenAsTextAndSourceWithoutClearing() {
         let app = launch()
         app.buttons["category.Expenses:Food"].firstMatch.tap()

@@ -47,6 +47,14 @@ struct AddForm: View {
             if let onBack = onBack {
                 ToolbarItem(placement: .cancellationAction) { Button(action: onBack) { Label(LS("快捷记账"), systemImage: "arrow.left").labelStyle(ControlLabelStyle()) } }
             }
+            // kept in place while there is nothing to clear, so the title doesn't move (refunds have none)
+            if store.draft.kind != .refund {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(store.draft.replacing != nil ? LS("还原") : LS("清空")) { store.clearForm() }
+                        .disabled(!store.formClears || store.drafts.isSaving)
+                        .accessibilityIdentifier("form.clear")
+                }
+            }
         }
         .task { if store.demoEnv["LEDGER_EDIT_TEXT"] != nil { try? await Task.sleep(nanoseconds: 800_000_000); editingText = true } }
     }

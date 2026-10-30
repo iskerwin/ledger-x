@@ -109,3 +109,13 @@ public func returningToSetAside(_ current: Draft, to kind: DraftKind) -> Draft? 
     next.setAside = nil
     return next
 }
+
+/// 清空 on a new entry: the form as a new one of the same kind opens (`fresh`), on the same day, with nothing set
+/// aside. 还原 on an edit: the entry as it was (`baseline`). Whatever was typed goes, rows, text, payee and note alike
+public func clearedDraft(_ current: Draft, fresh: Draft, baseline: Draft) -> Draft {
+    if current.replacing != nil { return baseline }
+    var next = fresh
+    next.kind = current.kind
+    next.date = current.date
+    return next
+}
