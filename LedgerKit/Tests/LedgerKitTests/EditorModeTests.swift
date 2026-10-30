@@ -156,8 +156,8 @@ final class EditorModeTests: XCTestCase {
     func testASplitTheQuickEditorsCantShowIsSetAsideToo() throws {
         let (L, D) = environment()
         var split = unfinishedSplit()
-        split.rows.append(DraftRow(account: "Assets:Cash"))
-        split.rows[1].amount = "-10.00"; split.rows[2].amount = "-2.00"
+        split.rows += [DraftRow(account: "Income:Salary"), DraftRow(account: "Assets:Cash")]
+        split.rows[1].amount = "3.00"; split.rows[2].amount = "-20.00"; split.rows[3].amount = "5.00"
         XCTAssertTrue(validateText(draftText(split, L, D), L, single: true).ok)
         guard case .failure(.notRepresentable) = convertingEditor(split, to: .expense, ledger: L, derived: D) else {
             return XCTFail("three lines shown as an expense")
