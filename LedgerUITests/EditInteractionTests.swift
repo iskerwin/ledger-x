@@ -194,7 +194,7 @@ final class EditInteractionTests: XCTestCase {
         app.navigationBars.buttons["更多"].firstMatch.tap()
         app.buttons["分录（多行）"].tap()
         let row = app.textFields["draft.row.Expenses:Food"]
-        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        tapPoint(row, timeout: 5)
         assertCanType(app, into: row)
         row.typeText("9")
         let unbalanced = row.value as? String
