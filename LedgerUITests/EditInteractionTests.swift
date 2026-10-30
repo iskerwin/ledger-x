@@ -186,6 +186,35 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertEqual(app.textFields["0.00"].value as? String, "12")
     }
 
+    /// 分录 left unbalanced used to lock the card: 支出 / 收入 / 转账 and 快捷记账 all said it couldn't convert. The rows
+    /// now wait, as they were, while the user leaves and comes back
+    func testAnUnfinishedSplitCanBeLeftAndComesBack() {
+        let app = launch()
+        app.buttons["category.Expenses:Food"].firstMatch.tap()
+        app.navigationBars.buttons["更多"].firstMatch.tap()
+        app.buttons["分录（多行）"].tap()
+        let row = app.textFields["draft.row.Expenses:Food"]
+        tapPoint(row, timeout: 5)
+        assertCanType(app, into: row)
+        row.typeText("9")
+        let unbalanced = row.value as? String
+        XCTAssertNotEqual(unbalanced, "12.00")
+
+        // the full form's type picker (the quick page under it has a 支出 / 收入 / 转账 one of its own), back in sight:
+        // typing in the row scrolled the form past it
+        let types = app.segmentedControls.containing(.button, identifier: "分录").firstMatch
+        for _ in 0..<6 where !(types.exists && types.isHittable) { app.swipeDown() }
+        XCTAssertTrue(types.isHittable)
+        types.buttons["支出"].tap()
+        XCTAssertTrue(app.textFields["field.amount"].waitForExistence(timeout: 5), "still locked in 分录")
+        types.buttons["分录"].tap()
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        XCTAssertEqual(row.value as? String, unbalanced)
+
+        app.buttons["快捷记账"].tap()
+        XCTAssertTrue(app.buttons["关闭"].waitForExistence(timeout: 5), "no way back to 快捷记账")
+    }
+
     func testQuickContentsOpenAsTextAndSourceWithoutClearing() {
         let app = launch()
         app.buttons["category.Expenses:Food"].firstMatch.tap()

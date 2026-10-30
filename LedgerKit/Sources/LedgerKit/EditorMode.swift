@@ -73,3 +73,39 @@ public func convertingEditor(_ current: Draft, to kind: DraftKind, ledger L: Led
     }
     return .success(next)
 }
+
+/// Leaving 分录 or 文本 while its content is not a whole entry yet: nothing is converted and nothing is lost. The
+/// other editor opens as it was last left (`previous`), or empty, with the date, payee and note brought along; the
+/// unfinished content rides along in `setAside` (saved with the draft) for the way back. Refusing locked the user in.
+public func settingAside(_ current: Draft, to kind: DraftKind, previous: Draft?) -> Draft {
+    var next: Draft
+    if let previous {
+        next = previous
+        next.date = current.date
+        next.payee = current.payee
+        next.narration = current.narration
+    } else {
+        next = current
+        next.rows = Draft().rows
+        next.raw = ""
+    }
+    var kept = current
+    kept.setAside = nil
+    next.kind = kind
+    next.edited = nil
+    next.replacing = current.replacing
+    next.setAside = [kept]
+    return next
+}
+
+/// Coming back to the 分录 or 文本 left unfinished: that content as it was, with the date, payee and note brought
+/// along, instead of a conversion of the current editor (whose own state the caller remembers). Nil otherwise.
+public func returningToSetAside(_ current: Draft, to kind: DraftKind) -> Draft? {
+    guard var next = current.setAside?.first, next.kind == kind else { return nil }
+    next.date = current.date
+    next.payee = current.payee
+    next.narration = current.narration
+    next.replacing = current.replacing
+    next.setAside = nil
+    return next
+}
