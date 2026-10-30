@@ -20,13 +20,13 @@
       "versions": [
         {
           "version": "1.0.9",
-          "buildVersion": "49",
-          "date": "2026-10-30T13:59:37Z",
-          "localizedDescription": "# Ledger X 1.0.9 开发版\n\n版本 1.0.9 · 构建 49 · main 30c8a48 。\n\n## 修复\n\n- 记一笔的「分录」或「文本」还没填完（例如两边不平）时，以前切「支出 / 收入 / 转账」和点「快捷记账」都提示「当前内容还不能转换」，只能放弃整张卡片；现在可以离开，没填完的内容原样保留，切回「分录」或「文本」继续填。已经完整、但快捷页显示不了的分录（例如三行以上）以前提示「目标模式无法完整保留」也出不去，现在同样原样保留后返回。从其他类型保存一笔后，保留的内容随之清掉；关闭卡片前会询问保留或放弃。",
-          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.9-49",
-          "size": 10719510,
+          "buildVersion": "50",
+          "date": "2026-10-30T14:50:44Z",
+          "localizedDescription": "# Ledger X 1.0.9 开发版\n\n版本 1.0.9 · 构建 50 · main 7d93992 。\n\n## 新增\n\n- 记一笔完整表单右上角新增「清空」：支出、收入、转账、分录、文本都可以一键清掉这一页填的内容（日期保留），不用逐行删除；编辑已有交易时这个按钮是「还原」，回到原记录。提示条上可以撤销。退款表单没有这个按钮。",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.9-50",
+          "size": 10728294,
           "minOSVersion": "17.0",
-          "sha256": "d29bdfdfcb427512c43bc21b9f2652be547fbdae3aa8fb28b1eae6517d2f65af"
+          "sha256": "95c8387630504fc33efddd53ef4adbe40e7a27320cb26148d4397de83da5afd9"
         },
         {
           "version": "1.0.9",
@@ -138,10 +138,10 @@
         }
       },
       "version": "1.0.9",
-      "versionDate": "2026-10-30T13:59:37Z",
-      "versionDescription": "# Ledger X 1.0.9 开发版\n\n版本 1.0.9 · 构建 49 · main 30c8a48 。\n\n## 修复\n\n- 记一笔的「分录」或「文本」还没填完（例如两边不平）时，以前切「支出 / 收入 / 转账」和点「快捷记账」都提示「当前内容还不能转换」，只能放弃整张卡片；现在可以离开，没填完的内容原样保留，切回「分录」或「文本」继续填。已经完整、但快捷页显示不了的分录（例如三行以上）以前提示「目标模式无法完整保留」也出不去，现在同样原样保留后返回。从其他类型保存一笔后，保留的内容随之清掉；关闭卡片前会询问保留或放弃。",
-      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.9-49",
-      "size": 10719510
+      "versionDate": "2026-10-30T14:50:44Z",
+      "versionDescription": "# Ledger X 1.0.9 开发版\n\n版本 1.0.9 · 构建 50 · main 7d93992 。\n\n## 新增\n\n- 记一笔完整表单右上角新增「清空」：支出、收入、转账、分录、文本都可以一键清掉这一页填的内容（日期保留），不用逐行删除；编辑已有交易时这个按钮是「还原」，回到原记录。提示条上可以撤销。退款表单没有这个按钮。",
+      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.9-50",
+      "size": 10728294
     }
   ],
   "news": []
