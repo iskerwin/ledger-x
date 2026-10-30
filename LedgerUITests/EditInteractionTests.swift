@@ -200,9 +200,11 @@ final class EditInteractionTests: XCTestCase {
         let unbalanced = row.value as? String
         XCTAssertNotEqual(unbalanced, "12.00")
 
-        app.segmentedControls.buttons["支出"].tap()
+        // the full form's type picker: the quick page under it has a 支出 / 收入 / 转账 picker of its own
+        let types = app.segmentedControls.containing(.button, identifier: "分录").firstMatch
+        types.buttons["支出"].tap()
         XCTAssertTrue(app.textFields["field.amount"].waitForExistence(timeout: 5), "still locked in 分录")
-        app.segmentedControls.buttons["分录"].tap()
+        types.buttons["分录"].tap()
         XCTAssertTrue(row.waitForExistence(timeout: 5))
         XCTAssertEqual(row.value as? String, unbalanced)
 
