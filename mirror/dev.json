@@ -19,6 +19,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "1.0.10",
+          "buildVersion": "50.1",
+          "date": "2026-10-30T17:06:09Z",
+          "localizedDescription": "# Ledger X 1.0.10 预览\n\n版本 1.0.10 · 构建 50.1 · preview/1.0.10-a fea1a1f 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.10-50.1",
+          "size": 10735720,
+          "minOSVersion": "17.0",
+          "sha256": "5f543998caadaa1a4249a3ad7ef439664f1b2049170102f21aebfa59f7c0fadb"
+        },
+        {
           "version": "1.0.9",
           "buildVersion": "50",
           "date": "2026-10-30T14:50:44Z",
@@ -27,16 +37,6 @@
           "size": 10728294,
           "minOSVersion": "17.0",
           "sha256": "95c8387630504fc33efddd53ef4adbe40e7a27320cb26148d4397de83da5afd9"
-        },
-        {
-          "version": "1.0.9",
-          "buildVersion": "48.3",
-          "date": "2026-10-30T14:00:33Z",
-          "localizedDescription": "# Ledger X 1.0.9 预览\n\n版本 1.0.9 · 构建 48.3 · feat/clear-form 7883541 · PR #61 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.9-48.3",
-          "size": 10728294,
-          "minOSVersion": "17.0",
-          "sha256": "1097bdb18641631ea4891443f9cfb1052b676315af751c1907d31abfafb42aad"
         },
         {
           "version": "1.0.9",
@@ -147,11 +147,11 @@
           "NSPhotoLibraryUsageDescription": "选择票据照片作为交易附件"
         }
       },
-      "version": "1.0.9",
-      "versionDate": "2026-10-30T14:50:44Z",
-      "versionDescription": "# Ledger X 1.0.9 开发版\n\n版本 1.0.9 · 构建 50 · main 7d93992 。\n\n## 新增\n\n- 记一笔完整表单右上角新增「清空」：支出、收入、转账、分录、文本都可以一键清掉这一页填的内容（日期保留），不用逐行删除；编辑已有交易时这个按钮是「还原」，回到原记录。提示条上可以撤销。退款表单没有这个按钮。",
-      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.9-50",
-      "size": 10728294
+      "version": "1.0.10",
+      "versionDate": "2026-10-30T17:06:09Z",
+      "versionDescription": "# Ledger X 1.0.10 预览\n\n版本 1.0.10 · 构建 50.1 · preview/1.0.10-a fea1a1f 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.10-50.1",
+      "size": 10735720
     }
   ],
   "news": []
