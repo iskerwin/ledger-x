@@ -1020,7 +1020,8 @@ struct CheckSheet: View {
                 .pickerStyle(.segmented)
                 .onChange(of: currency) { _, _ in armed = false }
             }
-            DatePicker(LS("断言日期"), selection: Binding(get: { Day.date(date) ?? Date() }, set: { date = Day.string($0); armed = false }), displayedComponents: .date)
+            DateField(value: $date, title: LS("断言日期"), days: [1, 0])
+                .onChange(of: date) { _, _ in armed = false }
         } header: {
             Text(LS("实际余额"))
         } footer: {
