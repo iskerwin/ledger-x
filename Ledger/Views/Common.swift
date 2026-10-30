@@ -89,7 +89,7 @@ struct Amount: View {
     var tint: Color { color ? (n > 1e-9 ? Color.gain : n < -1e-9 ? Color.loss : Color.secondary) : Color.primary }
     var body: some View {
         Text(signed ? signedMoney(n, c) : money(n, c, d))
-            .monospacedDigit()
+            .monospacedDigit().amountDigits()
             .foregroundStyle(tint)
             .sensitive()
     }

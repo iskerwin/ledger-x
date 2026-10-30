@@ -587,7 +587,7 @@ struct DayTotalsText: View {
     var body: some View {
         let parts = [inn != 0 ? LS("收入 ") + money(inn) : nil, out != 0 ? LS("支出 ") + money(out) : nil].compactMap { $0 }
         if !parts.isEmpty {
-            Text(parts.joined(separator: " · ")).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8).sensitive()
+            Text(parts.joined(separator: " · ")).monospacedDigit().amountDigits().lineLimit(1).minimumScaleFactor(0.8).sensitive()
         }
     }
 }

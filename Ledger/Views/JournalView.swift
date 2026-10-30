@@ -104,7 +104,7 @@ struct TxRow: View {
                 Spacer(minLength: 4)
                 VStack(alignment: .trailing, spacing: AppSpacing.detail) {
                     amountView(c)
-                    if let b = balance { Text(b).font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive() }
+                    if let b = balance { Text(b).font(.caption.monospacedDigit()).amountDigits().foregroundStyle(.secondary).sensitive() }
                 }
             }
         }
@@ -140,7 +140,7 @@ struct TxRow: View {
                 ForEach(byC.keys.sorted(), id: \.self) { cc in Amount(n: byC[cc]!, c: cc, signed: true, color: true).lineLimit(1) }
             }
         } else if c.kind == .transfer {
-            Text(money(c.amount, c.currency ?? "CNY")).monospacedDigit().foregroundStyle(.secondary).sensitive()
+            Text(money(c.amount, c.currency ?? "CNY")).monospacedDigit().amountDigits().foregroundStyle(.secondary).sensitive()
         } else {
             // in the transaction's own currency (as on the receipt), not converted; what the account was
             // charged in another currency underneath, for checking against the bank
@@ -149,7 +149,7 @@ struct TxRow: View {
                 .filter { p in !own.contains { $0.0 == p.0 } }
             VStack(alignment: .trailing, spacing: AppSpacing.detail) {
                 ForEach(own, id: \.0) { x in Amount(n: x.1, c: x.0, signed: true, color: true) }
-                ForEach(paid, id: \.0) { x in Text(money(x.1, x.0)).font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive() }
+                ForEach(paid, id: \.0) { x in Text(money(x.1, x.0)).font(.caption.monospacedDigit()).amountDigits().foregroundStyle(.secondary).sensitive() }
             }
         }
     }
