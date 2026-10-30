@@ -54,7 +54,7 @@ targets:
       base:
         PRODUCT_NAME: Ledger
         PRODUCT_BUNDLE_IDENTIFIER: com.iskerwin.ledger
-        MARKETING_VERSION: "1.0.9"
+        MARKETING_VERSION: "1.0.10"
         CURRENT_PROJECT_VERSION: "1"
         LEDGER_DEMO_COMMIT: ""
         LEDGER_DEMO_MIRROR: ""
