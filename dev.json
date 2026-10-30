@@ -20,6 +20,16 @@
       "versions": [
         {
           "version": "1.0.9",
+          "buildVersion": "48.1",
+          "date": "2026-10-30T12:19:37Z",
+          "localizedDescription": "# Ledger X 1.0.9 预览\n\n版本 1.0.9 · 构建 48.1 · fix/incomplete-split-switch 2bcd8f1 · PR #60 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
+          "size": 10718971,
+          "minOSVersion": "17.0",
+          "sha256": "bf8e364e30348627161f382f42297916fbd9573ebb91c413fe6233e4b3deae05"
+        },
+        {
+          "version": "1.0.9",
           "buildVersion": "48",
           "date": "2026-10-30T08:47:24Z",
           "localizedDescription": "# Ledger X 1.0.9 开发版\n\n版本 1.0.9 · 构建 48 · main a26532c 。\n\n## 改进\n\n- 同步和「清除缓存并重新下载」时，某个文件因为网络一时中断、超时或服务器繁忙没下载下来，会自动再试两次（约 0.5 秒、1.5 秒后），不再一次失败就整次同步失败、要手动重新同步。没有网络、凭据无效、权限不足或被限流、文件不存在时仍立即提示，不重试。",
@@ -27,16 +37,6 @@
           "size": 10713152,
           "minOSVersion": "17.0",
           "sha256": "5c4c0c11116d1fe95cc3919fb9b90a7213da718ffcdfff9509d4e4642cc0e970"
-        },
-        {
-          "version": "1.0.8",
-          "buildVersion": "45.1",
-          "date": "2026-10-30T03:57:48Z",
-          "localizedDescription": "# Ledger X 1.0.8 预览\n\n版本 1.0.8 · 构建 45.1 · fix/overview-alerts-scroll 84028e0 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-          "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-          "size": 10696366,
-          "minOSVersion": "17.0",
-          "sha256": "75648d9744b615b1ac9bac326d760e2294f0aa4b677bf96647241c3602767cc2"
         },
         {
           "version": "1.0.8",
@@ -138,10 +138,10 @@
         }
       },
       "version": "1.0.9",
-      "versionDate": "2026-10-30T08:47:24Z",
-      "versionDescription": "# Ledger X 1.0.9 开发版\n\n版本 1.0.9 · 构建 48 · main a26532c 。\n\n## 改进\n\n- 同步和「清除缓存并重新下载」时，某个文件因为网络一时中断、超时或服务器繁忙没下载下来，会自动再试两次（约 0.5 秒、1.5 秒后），不再一次失败就整次同步失败、要手动重新同步。没有网络、凭据无效、权限不足或被限流、文件不存在时仍立即提示，不重试。",
-      "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
-      "size": 10713152
+      "versionDate": "2026-10-30T12:19:37Z",
+      "versionDescription": "# Ledger X 1.0.9 预览\n\n版本 1.0.9 · 构建 48.1 · fix/incomplete-split-switch 2bcd8f1 · PR #60 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+      "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
+      "size": 10718971
     }
   ],
   "news": []
