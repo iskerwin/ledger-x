@@ -428,7 +428,7 @@ struct AccountsView: View {
     }
 }
 
-/// icon and colour for an account group
+/// icon and colour for an account group: never the green of money in or the red of money out, which a badge beside a balance would seem to say
 struct AccountKind {
     static let order = ["Bank", "EWallet", "Cash", "Brokerage", "Crypto", "Receivable", "CreditCard", "Loan"]
     let symbol: String
@@ -437,13 +437,13 @@ struct AccountKind {
     init(_ group: String) {
         switch group {
         case "Bank": symbol = "building.columns.fill"; color = .blue
-        case "EWallet": symbol = "wallet.pass.fill"; color = .teal
-        case "Cash": symbol = "banknote.fill"; color = .green
+        case "EWallet": symbol = "wallet.pass.fill"; color = .cyan
+        case "Cash": symbol = "banknote.fill"; color = .brown
         case "Brokerage": symbol = "chart.line.uptrend.xyaxis"; color = .purple
         case "Crypto": symbol = "bitcoinsign"; color = .orange
-        case "Receivable": symbol = "tray.and.arrow.down.fill"; color = .indigo
-        case "CreditCard": symbol = "creditcard.fill"; color = .red
-        case "Loan": symbol = "percent"; color = .pink
+        case "Receivable": symbol = "tray.and.arrow.down.fill"; color = .teal
+        case "CreditCard": symbol = "creditcard.fill"; color = .indigo
+        case "Loan": symbol = "percent"; color = .gray
         default: symbol = "folder.fill"; color = .gray
         }
     }

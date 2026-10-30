@@ -3,14 +3,29 @@ import Charts
 import UIKit
 import LedgerKit
 
-/// An identity keeps its colour when ranks, periods, labels or the accent theme change.
-func categoryColor(_ id: String) -> Color {
-    var hash: UInt64 = 14695981039346656037
-    for byte in id.utf8 { hash = (hash ^ UInt64(byte)) &* 1099511628211 }
-    let hue = CGFloat(hash % 3600) / 3600
-    return Color(uiColor: UIColor { traits in
-        UIColor(hue: hue, saturation: 0.52, brightness: traits.userInterfaceStyle == .dark ? 0.9 : 0.7, alpha: 1)
-    }).readableInk
+/// An identity keeps its colour when ranks, periods, labels or the accent theme change: a category its ledger's
+/// (`categoryColorSlots`), anything else the one its name points to.
+func categoryColor(_ id: String, _ L: Ledger? = nil) -> Color {
+    let n = CategoryPalette.colors.count
+    return CategoryPalette.color(L.flatMap { categoryColorSlots($0, count: n)[id] } ?? stableColorSlot(id, count: n))
+}
+
+/// The eight colours charts tell categories apart by (and 明细's category icons): hues kept apart, none of them
+/// the green of money in or the red of money out
+enum CategoryPalette {
+    /// light, dark
+    static let colors: [(UInt32, UInt32)] = [
+        (0x3B7DD8, 0x6AA4F0), (0xC98A1B, 0xE6B04A), (0x8E5BC9, 0xB48BE8), (0x1E9AA8, 0x4FC7D3),
+        (0xC2477F, 0xE886B3), (0x7A8A2E, 0xB3C25A), (0x5A5FC8, 0x8F93EE), (0xA0603A, 0xD49470),
+    ]
+
+    static func color(_ slot: Int) -> Color {
+        let (light, dark) = colors[slot % colors.count]
+        func ui(_ v: UInt32) -> UIColor {
+            UIColor(red: CGFloat(v >> 16 & 0xFF) / 255, green: CGFloat(v >> 8 & 0xFF) / 255, blue: CGFloat(v & 0xFF) / 255, alpha: 1)
+        }
+        return Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? ui(dark) : ui(light) }).readableInk
+    }
 }
 
 /// one ring segment
@@ -22,10 +37,17 @@ struct DonutSlice: Identifiable, Equatable {
     var color: Color = .gray
 
     /// largest `top` items, the rest merged into 其他; colours belong to identities, not ranks
-    static func make(_ items: [(id: String, label: String, value: Double)], top: Int = 6) -> [DonutSlice] {
+    /// With the ledger, categories take its colours (`categoryColor`); the rest (payees, accounts) are told apart
+    /// among themselves, in name order, so the same ones shown again get the same colours.
+    static func make(_ items: [(id: String, label: String, value: Double)], top: Int = 6, L: Ledger? = nil) -> [DonutSlice] {
         let pos = items.filter { $0.value > 0.005 }.sorted { $0.value > $1.value }
         let head = pos.count > top + 1 ? Array(pos.prefix(top)) : pos
-        var out = head.map { x in DonutSlice(id: x.id, label: x.label, value: x.value, color: categoryColor(x.id)) }
+        let n = CategoryPalette.colors.count
+        let ledger = L.map { categoryColorSlots($0, count: n) } ?? [:]
+        let local = colorSlots(head.map(\.id).filter { ledger[$0] == nil }.sorted(), count: n)
+        var out = head.map { x in
+            DonutSlice(id: x.id, label: x.label, value: x.value, color: CategoryPalette.color(ledger[x.id] ?? local[x.id] ?? 0))
+        }
         let rest = pos.dropFirst(head.count).reduce(0.0) { $0 + $1.value }
         if rest > 0.005 { out.append(DonutSlice(id: otherID, label: LS("其他"), value: rest, color: Color(.systemGray3))) }
         return out

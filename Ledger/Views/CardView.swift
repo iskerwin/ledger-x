@@ -35,7 +35,7 @@ struct CardHeroSection: View {
         Section {
             VStack(alignment: .leading, spacing: AppSpacing.control) {
                 HStack(spacing: AppSpacing.icon) {
-                    IconBadge(symbol: "creditcard.fill", color: .red, size: 34)
+                    IconBadge(symbol: "creditcard.fill", color: store.groupIcon(c.account).color, size: 34)
                     Text(LS("本期账单") + (tail.map { " · " + LS("尾号 %@", $0) } ?? "")).font(.subheadline).foregroundStyle(.secondary)
                 }
                 HStack(alignment: .top, spacing: AppSpacing.control) {

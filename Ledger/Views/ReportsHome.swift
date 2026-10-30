@@ -97,7 +97,7 @@ struct ReportsInsights: View {
                     GeometryReader { geo in
                         HStack(spacing: AppSpacing.detail) {
                             ForEach(top, id: \.key) { r in
-                                categoryColor(r.key).frame(width: max(2, geo.size.width * r.value / total - 2))
+                                categoryColor(r.key, L).frame(width: max(2, geo.size.width * r.value / total - 2))
                             }
                             if rest > 0.005 { Color.gray.opacity(0.4).frame(width: max(2, geo.size.width * rest / total - 2)) }
                         }
@@ -107,7 +107,7 @@ struct ReportsInsights: View {
                     ForEach(top, id: \.key) { r in
                         Button { store.showInJournal(.report(month: month, account: r.key)) } label: {
                             HStack(spacing: AppSpacing.icon) {
-                                Circle().fill(categoryColor(r.key)).frame(width: 9, height: 9)
+                                Circle().fill(categoryColor(r.key, L)).frame(width: 9, height: 9)
                                 // the bar above already shows the shares: the row gives its room to the name
                                 Text(catLabel(r.key)).lineLimit(1)
                                 Spacer(minLength: AppSpacing.icon)
