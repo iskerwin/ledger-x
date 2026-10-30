@@ -80,12 +80,25 @@ final class AppSettings {
     var hapticStrength: Int = UserDefaults.standard.object(forKey: "ledger.feedback.strength") as? Int ?? 0 {
         didSet { UserDefaults.standard.set(hapticStrength, forKey: "ledger.feedback.strength") }
     }
+    /// how a transaction row looks in every list (JournalStyle)
+    var journalStyle: String = UserDefaults.standard.string(forKey: JournalStyle.key) ?? JournalStyle.plain.rawValue {
+        didSet { UserDefaults.standard.set(journalStyle, forKey: JournalStyle.key) }
+    }
     var privacy: Bool = UserDefaults.standard.bool(forKey: "ledger.privacy") {
         didSet {
             UserDefaults.standard.set(privacy, forKey: "ledger.privacy")
             KitPrivacy.masked = privacy
         }
     }
+}
+
+/// 明细样式: 简洁 (words only, as it always was), 图标 (the category's icon in front), 紧凑 (one line a transaction)
+enum JournalStyle: String, CaseIterable, Identifiable {
+    case plain, icon, compact
+    var id: String { rawValue }
+    static let key = "ledger.journal.style"
+    static var current: JournalStyle { JournalStyle(rawValue: AppSettings.shared.journalStyle) ?? .plain }
+    var name: String { self == .plain ? LS("简洁") : self == .icon ? LS("图标") : LS("紧凑") }
 }
 
 /// 外观：跟随系统 / 浅色 / 深色

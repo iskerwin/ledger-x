@@ -193,6 +193,9 @@ extension SettingsView {
             Picker(LS("显示模式"), selection: $appearance) {
                 ForEach(AppAppearance.allCases) { Text($0.name).tag($0.rawValue) }
             }
+            Picker(LS("明细样式"), selection: Binding(get: { AppSettings.shared.journalStyle }, set: { AppSettings.shared.journalStyle = $0 })) {
+                ForEach(JournalStyle.allCases) { Text($0.name).tag($0.rawValue) }
+            }
             NavigationLink {
                 CodeThemePicker()
             } label: {

@@ -59,34 +59,47 @@ struct TxRow: View {
         if let L = store.L, let D = store.D {
             let c = classify(t, L)
             let cat = t.postings.first { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") }
-            HStack(alignment: .top, spacing: AppSpacing.icon) {
-                VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                    // who first, then the note; tags only where they fit whole (the first one and +N, else a
-                    // count like #2, else none), so a long tag no longer cuts the payee down to two characters
-                    let tags = t.tags.filter { $0 != "transfer" && $0 != "fx" }
-                    let who = Text(t.payee.isEmpty ? (t.narration.isEmpty ? LS("（无收付款方）") : t.narration) : t.payee).lineLimit(1)
-                    let note = (!t.payee.isEmpty && !t.narration.isEmpty) ? t.narration : nil
+            let style = JournalStyle.current
+            // who first, then the note; tags only where they fit whole (the first one and +N, else a
+            // count like #2, else none), so a long tag no longer cuts the payee down to two characters
+            let tags = t.tags.filter { $0 != "transfer" && $0 != "fx" }
+            let who = Text(t.payee.isEmpty ? (t.narration.isEmpty ? LS("（无收付款方）") : t.narration) : t.payee).lineLimit(1)
+            let note = (!t.payee.isEmpty && !t.narration.isEmpty) ? t.narration : nil
+            let route = (cat.map { acctDisplay($0.account) } ?? moneyRoute(t).map { D.shortName($0) }.joined(separator: " → ")) + withWhom(t)
+            HStack(alignment: style == .compact ? .center : .top, spacing: AppSpacing.icon) {
+                if style == .icon { icon(cat, L) }
+                if style == .compact {
+                    // one line: who, then where it went; the note and the tags are on its page
                     HStack(spacing: AppSpacing.icon) {
                         who.layoutPriority(3)
-                        if let note { Text(note).foregroundStyle(.secondary).lineLimit(1).layoutPriority(1) }
+                        Text((showDate ? t.date + " · " : "") + route).foregroundStyle(.secondary).lineLimit(1).layoutPriority(1)
                         if t.flag == "!" { Tag(text: LS("待确认"), warn: true).fixedSize().layoutPriority(2) }
                         if t.synthetic { Tag(text: "pad").fixedSize().layoutPriority(2) }
-                        if !tags.isEmpty {
-                            ViewThatFits(in: .horizontal) {
-                                HStack(spacing: AppSpacing.icon) {
-                                    Tag(text: "#" + tags[0]).fixedSize()
-                                    if tags.count > 1 { Tag(text: "+\(tags.count - 1)").fixedSize() }
-                                }
-                                Tag(text: "#\(tags.count)").fixedSize()
-                                Color.clear.frame(width: 0, height: 0)
-                            }
-                            .layoutPriority(2)
-                        }
                     }
                     .font(.body)
-                    Text((showDate ? t.date + "  " : "") + (cat.map { acctDisplay($0.account) } ?? moneyRoute(t).map { D.shortName($0) }.joined(separator: " → "))
-                         + withWhom(t))
-                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                } else {
+                    VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                        HStack(spacing: AppSpacing.icon) {
+                            who.layoutPriority(3)
+                            if let note { Text(note).foregroundStyle(.secondary).lineLimit(1).layoutPriority(1) }
+                            if t.flag == "!" { Tag(text: LS("待确认"), warn: true).fixedSize().layoutPriority(2) }
+                            if t.synthetic { Tag(text: "pad").fixedSize().layoutPriority(2) }
+                            if !tags.isEmpty {
+                                ViewThatFits(in: .horizontal) {
+                                    HStack(spacing: AppSpacing.icon) {
+                                        Tag(text: "#" + tags[0]).fixedSize()
+                                        if tags.count > 1 { Tag(text: "+\(tags.count - 1)").fixedSize() }
+                                    }
+                                    Tag(text: "#\(tags.count)").fixedSize()
+                                    Color.clear.frame(width: 0, height: 0)
+                                }
+                                .layoutPriority(2)
+                            }
+                        }
+                        .font(.body)
+                        Text((showDate ? t.date + "  " : "") + route)
+                            .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
                 }
                 Spacer(minLength: 4)
                 VStack(alignment: .trailing, spacing: AppSpacing.detail) {
@@ -95,6 +108,16 @@ struct TxRow: View {
                 }
             }
         }
+    }
+
+    /// 图标: the category's icon (the one picked in 分类管理, else the built-in guess) on its colour — the one picked,
+    /// else the category's colour in the charts, so 餐饮 is the same colour here and there. A transfer has no
+    /// category: arrows on grey.
+    private func icon(_ cat: Posting?, _ L: Ledger) -> some View {
+        let symbol = cat.map { store.groupIcon($0.account).symbol } ?? "arrow.left.arrow.right"
+        let color = cat.map { store.pickedTint($0.account) ?? categoryColor(catOf($0.account), L) } ?? Color(.systemGray)
+        return IconBadge(symbol: symbol, color: color, size: 32)
+            .accessibilityHidden(true)
     }
 
     /// " · 五姨、王五": who the personal receivable lines are with
