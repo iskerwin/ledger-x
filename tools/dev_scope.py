@@ -66,6 +66,77 @@ MAPPINGS.update({
 SAFE_FILES = {'README.md', 'AGENTS.md', 'CLAUDE.md', 'CHANGELOG.md'}
 
 
+def _ui(*names):
+    return tuple('LedgerUITests/EditInteractionTests/' + name for name in names)
+
+
+# Shared components: these files hold what many pages use, so a change selects the UI tests of the component it
+# touches (found from the diff: the top-level type, or the function of an `extension View`), not of the whole file,
+# which would be ~25 UI tests. Reviewed by hand like MAPPINGS. A change to an unmapped component says so in the
+# plan; its full coverage is the release run (#34 changed PeriodBar and the month bar test only ran there).
+MONTH_BAR_UI = _ui('testMonthArrowsHaveAFullSizeTapArea', 'testAMonthBarSwipesToTheNextMonth', 'testTheOverviewPeriodPickerSlides',
+                   'testMonthSwitchersShowTheWayBackBesideTheTitle', 'testTheMonthTitleStaysPutAtLargerTextSizes',
+                   'testTheOverviewMonthBarKeepsItsArrowsBesideTheMonth', 'testTheOverviewCardKeepsItsHeightWithTheWayBack')
+ACTION_UI = _ui('testCardBillActionsStayOnOneRowAtNormalTextSize', 'testCardBillActionsStackAtAccessibilityTextSize',
+                'testCardBillActionCanBeReachedAfterScrollingPastIt', 'testAccountActionsRemainReadableAndUsableAtLargestTextSize')
+CHART_UI = _ui('testTheTrendChartIsReadAndSlidAlong', 'testSwipingUpOnTheTrendChartScrollsThePage',
+               'testChartsPerCurrencyKeepTheirHeightWhenAMonthIsPicked')
+HINT_UI = _ui('testGestureHintsGoOnceTheGestureIsUsed', 'testARowsSwipeActionsAreInItsLongPressMenu')
+PICKER_UI = _ui('testAccountPickerCancelAndComplete', 'testAccountPickerKeepsGroupsInSight', 'testSeparateFeeAccountPickerStaysOpenAndApplies')
+FIGURE_UI = _ui('testOverviewFiguresSitCentredInEqualColumns', 'testOverviewFiguresStackAtAccessibilityTextSize',
+                'testCalendarFiguresSitInEqualColumns')
+COMPONENT_UI = {
+    'Ledger/Views/ControlStyle.swift': {
+        **dict.fromkeys(('PeriodBar', 'MonthSwipe', 'monthSwipe', 'SlidingTitle'), MONTH_BAR_UI),
+        **dict.fromkeys(('ActionRow', 'ActionCapsuleStyle', 'ActionRowLayout', 'PressedLook', 'RowCapsuleStyle',
+                         'rowButton', 'secondaryButton'), ACTION_UI),
+        **dict.fromkeys(('ChartPick', 'SidePan', 'chartPick', 'chartPickMonth'), CHART_UI),
+        **dict.fromkeys(('HintFooter', 'Learned', 'rowActions'), HINT_UI),
+        **dict.fromkeys(('PageSkeleton', 'PageLoading'), _ui('testPagesShowTheirShapeWhileTheLedgerLoads')),
+        'appSearchable': _ui('testAListsSearchStaysInSightWhileScrolling', 'testQuickSearchesScrollWithTheJournal'),
+    },
+    'Ledger/Views/Common.swift': {
+        **dict.fromkeys(('ToastView', 'SavedCheck'), _ui('testSaveToastStaysUpAfterTheCardCloses')),
+        'DateField': _ui('testFormDateHasTheSameThreeDays'),
+        **dict.fromkeys(('AccountPicker', 'AccountField', 'ChosenAccountIcon', 'accountMark', 'fuzzy'), PICKER_UI),
+        **dict.fromkeys(('Sensitive', 'sensitive', 'Amount', 'PrivacyButton', 'masked'),
+                        _ui('testHiddenAmountsStayHiddenInAccessibilityAtLargeTextSize')),
+        'EmptyAdd': _ui('testAnEmptyBudgetListOffersToAddOne'),
+    },
+    'Ledger/Views/Theme.swift': {
+        **dict.fromkeys(('Figure', 'FigureRow'), FIGURE_UI),
+        **dict.fromkeys(('Card', 'cardRow'), _ui('testOverviewCardKeepsItsHeightBetweenMonthAndYear', 'testAccountsCardKeepsItsHeightBetweenTabs')),
+        'AppTheme': ('LedgerUITests/ColorInteractionTests',),
+    },
+}
+TOP = re.compile(r'^(?:@\w+(?:\([^)]*\))?\s+)*(?:(?:public|private|fileprivate|internal|final)\s+)*'
+                 r'(struct|enum|class|extension|protocol|func|let|var)\s+([A-Za-z_][A-Za-z0-9_]*)')
+
+
+def components(text, lines):
+    """The component each changed line of a shared file belongs to: its top-level type, or inside an extension
+    the function it is in. Lines before the first declaration (imports) belong to the whole file: None."""
+    owners = set()
+    source = text.splitlines()
+    for line in sorted(lines):
+        top = member = None
+        for number in range(min(line, len(source)), 0, -1):
+            current = source[number - 1]
+            match = TOP.match(current)
+            if match:
+                top = match
+                break
+            if member is None:
+                inner = pr_scope.FUNC.match(current)
+                if inner:
+                    member = inner.group(1)
+        if top is None:
+            owners.add(None)
+        else:
+            owners.add(member if top.group(1) == 'extension' and member else top.group(2))
+    return owners
+
+
 def classify(paths, diff='', sources=None):
     """Union all changed-file requirements; unknown/deleted coverage expands, never disappears."""
     paths = sorted(set(paths))
@@ -76,6 +147,18 @@ def classify(paths, diff='', sources=None):
     for path in paths:
         critical |= (path.startswith('Ledger/') and path not in pr_scope.LOCALIZATION_FILES) or path == 'project.yml'
         mapping = MAPPINGS.get(path)
+        shared = COMPONENT_UI.get(path)
+        file_diff = pr_scope._diff_files(diff).get(path) if diff else None
+        text = pr_scope._source(path, sources) if shared and file_diff else None
+        if shared and text is not None:
+            critical = True
+            for name in sorted(components(text, pr_scope._changed_lines(file_diff)), key=lambda n: n or ''):
+                if name in shared:
+                    ui.update(shared[name])
+                    reasons.append(f'{path} → 共用组件 {name} 的界面测试')
+                else:
+                    reasons.append(f'{path} → 共用组件 {name or "（文件开头）"} 没有对应界面测试，完整覆盖留到转正前')
+            continue
         if path in pr_scope.LOCALIZATION_FILES:
             reasons.append(f'{path} → 本地化静态校验与安装包编译，不运行无关表单流程')
         elif mapping:
