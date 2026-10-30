@@ -1324,8 +1324,13 @@ enum Prefs {
     }
 
     /// alerts shown in the app aren't sent as a notification any more
+    /// called as each row scrolls into view, so it writes only when there is something new to remember
     func markAlertsSeen() {
-        Prefs.set(pk("alerts.seen"), Set(anomalyList.map { $0.id }).union(Prefs.get(pk("alerts.seen"), Set<String>())).filter { id in anomalyCache?.list.contains { $0.id == id } ?? true })
+        let old = Prefs.get(pk("alerts.seen"), Set<String>())
+        let live = anomalyCache.map { Set($0.list.map { $0.id }) }
+        let seen = Set(anomalyList.map { $0.id }).union(old).filter { live?.contains($0) ?? true }
+        guard seen != old else { return }
+        Prefs.set(pk("alerts.seen"), seen)
     }
 
     /// alerts not seen in the app yet
