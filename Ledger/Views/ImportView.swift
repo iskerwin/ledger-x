@@ -256,7 +256,7 @@ struct ImportView: View {
             items[k].account = it.account
             items[k].manual = true
         }
-        store.show(LS("已应用到「%@」的 %@ 笔", it.row.payee, items.filter { $0.row.payee == it.row.payee }.count))
+        store.showSuccess(LS("已应用到「%@」的 %@ 笔", it.row.payee, items.filter { $0.row.payee == it.row.payee }.count))
     }
 
     // MARK: list
@@ -520,7 +520,7 @@ struct ImportView: View {
     private func restore(_ saved: ImportCheckpoint) {
         guard saved.ledgerID == store.cfg.id,
               let raw = RecoveryFiles.loadData(kind: "import-source", ledger: saved.ledgerID) else {
-            store.show(LS("上次导入文件不可用，请重新选择文件")); return
+            store.showFailure(LS("上次导入文件不可用，请重新选择文件")); return
         }
         load(raw, name: saved.fileName, columns: saved.columns, checkpoint: saved)
     }

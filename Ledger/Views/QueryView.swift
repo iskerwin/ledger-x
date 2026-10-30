@@ -136,12 +136,12 @@ struct QueryEditorView: View {
                 Divider()
                 Button {
                     UIPasteboard.general.string = text
-                    store.show(LS("已复制查询语句"))
+                    store.showSuccess(LS("已复制查询语句"))
                 } label: { Label(LS("复制查询语句"), systemImage: "doc.on.doc") }
                 if let r = result, !r.rows.isEmpty {
                     Button {
                         UIPasteboard.general.string = csv(r)
-                        store.show(LS("已复制 %@ 行（CSV）", r.rows.count))
+                        store.showSuccess(LS("已复制 %@ 行（CSV）", r.rows.count))
                     } label: { Label(LS("复制结果（CSV）"), systemImage: "tablecells") }
                     ShareLink(item: CSVFile(name: q.name, text: csv(r)), preview: SharePreview(q.name + ".csv")) {
                         Label(LS("导出 CSV"), systemImage: "square.and.arrow.up")

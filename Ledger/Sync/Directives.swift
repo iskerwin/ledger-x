@@ -22,13 +22,13 @@ extension Store {
 
     /// a note (or an event directive) rewritten in place, or moved when its date changes
     func replaceDirective(_ e: Entry, with text: String, summary: String, word: String) async -> Bool {
-        guard let located = await locatedSource(e) else { Haptics.error(); show(LS("没有在文件里对上原来的文字，所以没有改动。")); return false }
+        guard let located = await locatedSource(e) else { showFailure(LS("没有在文件里对上原来的文字，所以没有改动。")); return false }
         guard let ops = await replaceOps(old: located.text, path: e.file, date: e.date, summary: summary, newText: text, transaction: false, anchorLine: located.line) else { return false }
         return await commit(ops, word: word, checked: true)
     }
 
     func deleteDirective(_ e: Entry, summary: String, pop: Bool = true) async -> Bool {
-        guard let located = await locatedSource(e) else { Haptics.error(); show(LS("没有在文件里对上原来的文字，所以没有改动。")); return false }
+        guard let located = await locatedSource(e) else { showFailure(LS("没有在文件里对上原来的文字，所以没有改动。")); return false }
         return await deleteEntry(path: e.file, old: located.text, date: e.date, summary: summary, pop: pop, anchorLine: located.line)
     }
 

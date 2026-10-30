@@ -93,7 +93,7 @@ private struct EntryDeletionModifier: ViewModifier {
             guard store.cfg.id == target.ledgerID,
                   let entry = target.locator.resolve(in: store.L?.entries ?? []) else {
                 Haptics.error()
-                store.show(LS("没有在文件里对上原来的文字，所以没有改动。"))
+                store.showFailure(LS("没有在文件里对上原来的文字，所以没有改动。"))
                 return
             }
             // The Store also reparses pending file text before making the operation.
@@ -209,7 +209,7 @@ private struct EntryActions: ViewModifier {
         Task { @MainActor in
             defer { opening = false }
             guard store.cfg.id == ledgerID, let current = locator.resolve(in: store.L?.entries ?? []) else {
-                Haptics.error(); store.show(LS("没有在文件里对上原来的文字，所以没有改动。")); return
+                store.showFailure(LS("没有在文件里对上原来的文字，所以没有改动。")); return
             }
             switch await store.beginEdit(current) {
             case .opened: break
@@ -219,7 +219,7 @@ private struct EntryActions: ViewModifier {
                 source = EntrySourceTarget(entry: current, ledgerID: ledgerID, editing: true)
             case .missing:
                 Haptics.error()
-                store.show(LS("没有在文件里对上原来的文字，所以没有改动。"))
+                store.showFailure(LS("没有在文件里对上原来的文字，所以没有改动。"))
             }
         }
     }
@@ -227,7 +227,7 @@ private struct EntryActions: ViewModifier {
     private func copy(_ text: String) {
         UIPasteboard.general.string = text
         Haptics.success()
-        store.show(LS("已复制到剪贴板"))
+        store.showSuccess(LS("已复制到剪贴板"))
     }
 
     private func refund() {

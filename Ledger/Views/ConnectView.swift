@@ -182,7 +182,7 @@ func testConnection(_ raw: RepoConfig, _ store: Store) async -> RepoConfig? {
         let t = try await makeBackend(c).fetchTree()
         let main = store.mainFile.trimmed.isEmpty ? "main.bean" : store.mainFile.trimmed
         if !t.files.keys.contains(main), let any = t.files.keys.sorted().first(where: { $0.hasSuffix(".bean") || $0.hasSuffix(".beancount") }) {
-            store.show(LS("未找到 %@，可在「设置 → 仓库结构」中指定主文件（如 %@）", main, any))
+            store.showFailure(LS("未找到 %@，可在「设置 → 仓库结构」中指定主文件（如 %@）", main, any))
         } else if t.files.isEmpty {
             store.showFailure(LS("连接成功，但没有找到 .bean 文件"))
         }

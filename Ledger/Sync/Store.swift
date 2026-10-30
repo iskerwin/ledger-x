@@ -823,7 +823,7 @@ enum Prefs {
         var op = Op(kind: .write, path: path)
         op.text = text
         do { op.old = try await fileText(path) } catch {
-            show(LS("%@ 尚未下载，暂时无法保存", path))
+            showFailure(LS("%@ 尚未下载，暂时无法保存", path))
             return nil
         }
         return op
@@ -1284,7 +1284,7 @@ enum Prefs {
     }
 
     func deleteBalance(_ e: Entry) async {
-        guard let op = await balanceRemoveOp(e) else { show(LS("未在 %@ 中找到该断言", e.file)); return }
+        guard let op = await balanceRemoveOp(e) else { showFailure(LS("未在 %@ 中找到该断言", e.file)); return }
         await commit([op], word: LS("已删除余额断言"))
     }
 
@@ -1313,7 +1313,7 @@ enum Prefs {
         if !asNew, let loc = bqlLocation(q.id) {
             path = loc.path
             qs = await bqlQueries(path)
-            guard loc.index < qs.count else { show(LS("查询已在别处被修改，请重新打开")); return nil }
+            guard loc.index < qs.count else { showFailure(LS("查询已在别处被修改，请重新打开")); return nil }
             qs[loc.index].name = name; qs[loc.index].text = text
             index = loc.index
         } else {
@@ -1438,12 +1438,14 @@ enum Prefs {
         let files = tree?.files ?? [:]
         switch LedgerKit.makeOps(text, L, layout: layout, pending: pending, fileExists: { files[$0] != nil }, extra: extra, single: single) {
         case .success(let ops): return ops
-        case .failure(let e): show(e.message); return nil
+        case .failure(let e): showFailure(e.message); return nil
         }
     }
 
     /// a notice that something failed or was refused
     func showFailure(_ text: String) { show(text, feedback: .failure) }
+    /// a notice that something was done (copied, backed up, applied): it leads with a check, like a saved entry's
+    func showSuccess(_ text: String) { show(text, feedback: .success) }
 
     func show(_ text: String, action: String? = nil, settle: Bool = false, feedback: ToastFeedback? = nil, _ fn: (() async -> Void)? = nil) {
         let notice = ToastNotice(text: text, action: action, feedback: feedback)

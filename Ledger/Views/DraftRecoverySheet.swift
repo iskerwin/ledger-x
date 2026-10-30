@@ -113,7 +113,7 @@ struct DraftRecoverySheet: View {
         UIPasteboard.general.string = text.isEmpty
             ? String(data: (try? JSONEncoder().encode(session.draft)) ?? Data(), encoding: .utf8) : text
         Haptics.success()
-        store.show(LS("已复制到剪贴板"))
+        store.showSuccess(LS("已复制到剪贴板"))
     }
 
     private func remove(_ key: String) {

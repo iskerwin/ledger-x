@@ -882,7 +882,7 @@ struct AddForm: View {
         defer { store.drafts.isSaving = false }
         let text = store.draft.raw.trimmed
         let v = validateText(text, L, single: false)
-        guard v.ok else { store.show(text.isEmpty ? LS("请输入 Beancount 文本") : (v.msg.flatMap { $0.isEmpty ? nil : $0 } ?? LS("内容校验未通过"))); return }
+        guard v.ok else { store.showFailure(text.isEmpty ? LS("请输入 Beancount 文本") : (v.msg.flatMap { $0.isEmpty ? nil : $0 } ?? LS("内容校验未通过"))); return }
         if !overwriteOK {
             let dups = duplicateBalances(v.entries, L)
             if !dups.isEmpty { confirmOverwrite = dups; showOverwrite = true; return }

@@ -142,7 +142,7 @@ extension Store {
         } catch is CancellationError {
             return false
         } catch {
-            show(LS("附件未完成，恢复副本已保留：%@", error.localizedDescription))
+            showFailure(LS("附件未完成，恢复副本已保留：%@", error.localizedDescription))
             return false
         }
     }
