@@ -309,6 +309,29 @@ final class EditInteractionTests: XCTestCase {
         return app
     }
 
+    /// A button in a row is drawn 32 pt high but answers from 44 pt: a tap just above its edge still works
+    func testARowButtonAnswersJustOutsideItsEdge() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures").path
+        app.launchEnvironment = ["LEDGER_DEMO": fixture, "LEDGER_TAB": "journal", "LEDGER_LANG": "zh"]
+        app.launchArguments = ["-AppleLanguages", "(zh-Hans)"]
+        app.launch()
+        let row = app.staticTexts["Coffee"].firstMatch
+        tapPoint(row, timeout: 20)
+        let refund = app.buttons["退款"]
+        if !refund.waitForExistence(timeout: 8) { tapPoint(row, timeout: 5) }
+        tapPoint(refund, timeout: 8)
+        XCTAssertTrue(app.staticTexts["登记退款"].waitForExistence(timeout: 10))
+        let cancel = app.buttons["refund.cancel"]
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5))
+        // what answers is 44 pt; the capsule drawn in its middle is 32 pt
+        XCTAssertGreaterThanOrEqual(cancel.frame.height, 44)
+        // 4 pt above the drawn capsule (16 pt above its middle): outside it, inside what answers
+        cancel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).withOffset(CGVector(dx: 0, dy: -20)).tap()
+        XCTAssertTrue(app.staticTexts["登记退款"].waitForNonExistence(timeout: 5), "the tap above the button was lost")
+    }
+
     /// After 保存再记 the cursor is put in the amount once: put the keyboard away at once, without typing, and it stays
     /// away (for 6s after the save the cursor was taken back each time, and the keyboard came up again)
     func testAfterSaveAgainTheKeyboardCanBePutAway() {

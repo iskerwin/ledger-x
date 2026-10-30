@@ -196,7 +196,11 @@ private struct RowCapsuleStyle: ButtonStyle {
                 .foregroundStyle(filled ? tint.onFill : tint.readableInk)
                 .background(Capsule().fill(filled ? tint : Color.clear))
                 .overlay(Capsule().strokeBorder(filled ? Color.clear : tint, lineWidth: 1))
-                .contentShape(Capsule())
+                // drawn 32 pt to sit in a row, but taken from 44 pt like every other control: the 6 pt above and
+                // below answer too, without making the row taller
+                .padding(.vertical, wide ? 0 : 6)
+                .contentShape(Rectangle())
+                .padding(.vertical, wide ? 0 : -6)
                 .opacity(enabled ? 1 : 0.45)
                 .modifier(PressedLook(pressed: configuration.isPressed))
         }
