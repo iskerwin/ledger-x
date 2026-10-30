@@ -20,6 +20,16 @@
       "versions": [
         {
           "version": "1.0.8",
+          "buildVersion": "45.1",
+          "date": "2026-10-30T03:57:48Z",
+          "localizedDescription": "# Ledger X 1.0.8 预览\n\n版本 1.0.8 · 构建 45.1 · fix/overview-alerts-scroll 84028e0 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.8-45.1",
+          "size": 10696366,
+          "minOSVersion": "17.0",
+          "sha256": "75648d9744b615b1ac9bac326d760e2294f0aa4b677bf96647241c3602767cc2"
+        },
+        {
+          "version": "1.0.8",
           "buildVersion": "45",
           "date": "2026-10-30T03:05:40Z",
           "localizedDescription": "# Ledger X 1.0.8 开发版\n\n版本 1.0.8 · 构建 45 · main 37cc58a 。\n\n## 本次更新\n\n- 本次没有新增用户可见的功能或修复记录，为重新构建或发布流程维护。",
@@ -27,16 +37,6 @@
           "size": 10696487,
           "minOSVersion": "17.0",
           "sha256": "f8c4dbbfc566f01b776deb8f040a694fdb56d0f5b75cbdef002b9ba8efefa3a3"
-        },
-        {
-          "version": "1.0.8",
-          "buildVersion": "43.1",
-          "date": "2026-10-29T18:10:05Z",
-          "localizedDescription": "# Ledger X 1.0.8 预览\n\n版本 1.0.8 · 构建 43.1 · improve/funding-icon-tint 84b9736 · PR #51 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.8-43.1",
-          "size": 10696233,
-          "minOSVersion": "17.0",
-          "sha256": "e02c2875fa3b5761958aca60c71c4d06b289fba320a81383ce1d4115d605de8a"
         },
         {
           "version": "1.0.7",
@@ -128,10 +128,10 @@
         }
       },
       "version": "1.0.8",
-      "versionDate": "2026-10-30T03:05:40Z",
-      "versionDescription": "# Ledger X 1.0.8 开发版\n\n版本 1.0.8 · 构建 45 · main 37cc58a 。\n\n## 本次更新\n\n- 本次没有新增用户可见的功能或修复记录，为重新构建或发布流程维护。",
-      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.8-45",
-      "size": 10696487
+      "versionDate": "2026-10-30T03:57:48Z",
+      "versionDescription": "# Ledger X 1.0.8 预览\n\n版本 1.0.8 · 构建 45.1 · fix/overview-alerts-scroll 84028e0 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.8-45.1",
+      "size": 10696366
     }
   ],
   "news": []
