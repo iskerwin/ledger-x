@@ -841,6 +841,8 @@ final class EditInteractionTests: XCTestCase {
     /// if its cell has left the accessibility tree, return toward this card at the top of the list.
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
         for _ in 0..<8 {
+            // a list still moving from the last drag takes a tap as "stop" rather than a press on the button
+            if element.exists { waitUntilStill(element) }
             if element.exists && element.isHittable { return }
             let window = app.windows.firstMatch.frame
             let navigation = app.navigationBars.firstMatch
@@ -858,6 +860,17 @@ final class EditInteractionTests: XCTestCase {
             let end = start.withOffset(CGVector(dx: 0, dy: delta > 0 ? -distance : distance))
             start.press(forDuration: 0, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0)
         }
+    }
+
+    /// the element reads the same frame twice in a row
+    private func waitUntilStill(_ element: XCUIElement) {
+        var last = CGRect.null
+        let still = expectation(for: NSPredicate { _, _ in
+            let frame = element.frame
+            defer { last = frame }
+            return frame == last
+        }, evaluatedWith: nil)
+        wait(for: [still], timeout: 5)
     }
 
     /// An exchange inside one account: its two currencies stack on the right, each on one line, and the payee
@@ -1553,10 +1566,13 @@ final class EditInteractionTests: XCTestCase {
             XCTAssertTrue(bar.waitForExistence(timeout: 20))
             let title = app.staticTexts["overview.period"], previous = bar.buttons["上个月"], next = bar.buttons["下个月"]
             let segment = app.segmentedControls.firstMatch.frame
-            XCTAssertLessThan(title.frame.minX - previous.frame.maxX, 24, size)
-            XCTAssertLessThan(next.frame.minX - title.frame.maxX, 24, size)
-            XCTAssertGreaterThan(previous.frame.minX - segment.maxX, 24, size)
-            XCTAssertEqual(next.frame.maxX, bar.frame.maxX, accuracy: 1, size)
+            // an arrow's button reaches 10 points past the arrow on each side (its 44 × 44 tap area, PeriodBar.arrow),
+            // so measure the arrow as drawn
+            let drawn = { (arrow: XCUIElement) in arrow.frame.insetBy(dx: 10, dy: 0) }
+            XCTAssertLessThan(title.frame.minX - drawn(previous).maxX, 24, size)
+            XCTAssertLessThan(drawn(next).minX - title.frame.maxX, 24, size)
+            XCTAssertGreaterThan(drawn(previous).minX - segment.maxX, 24, size)
+            XCTAssertEqual(drawn(next).maxX, bar.frame.maxX, accuracy: 1, size)
             // and nothing moves from one month to the next
             let at = (previous.frame.minX, title.frame.midX, next.frame.minX), name = title.label
             previous.tap()
