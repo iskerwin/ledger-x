@@ -230,10 +230,13 @@ extension Store {
         let g = catOf(account)
         let base = AccountKind.of(g)
         let category = g.hasPrefix("Expenses") || g.hasPrefix("Income")
-        let color = IconTint.color(catStyle.colors?[g]) ?? (category ? .jade : base.color)
+        let color = pickedTint(account) ?? (category ? .jade : base.color)
         if let s = catStyle.icons[g], Symbols.valid(s) { return AccountKind(symbol: s, color: color) }
         return AccountKind(symbol: category ? catIcon(g) : base.symbol, color: color)
     }
+
+    /// the colour picked for an account's group, nil when none was (each place then keeps its own)
+    func pickedTint(_ account: String) -> Color? { IconTint.color(catStyle.colors?[catOf(account)]) }
 
     /// what a cell's icon is kept under: its group (Expenses:Food, Assets:Bank)
     static func cellKey(_ g: CategoryGroup) -> String { g.id }

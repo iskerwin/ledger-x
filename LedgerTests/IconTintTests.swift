@@ -29,6 +29,9 @@ final class IconTintTests: XCTestCase {
         // the others keep their own: the theme's for categories, the kind's for accounts
         XCTAssertEqual(drawn(store.groupIcon("Expenses:Transport").color), drawn(.jade))
         XCTAssertEqual(drawn(store.groupIcon("Liabilities:CreditCard:Example").color), drawn(AccountKind.of("Liabilities:CreditCard").color))
+        // the Add card's 付款账户 cell takes the picked colour; without one it keeps the theme's
+        XCTAssertEqual(store.pickedTint("Assets:Bank:Example").map(drawn), drawn(.purple))
+        XCTAssertNil(store.pickedTint("Liabilities:CreditCard:Example"))
         store.renameInGrid("Expenses:Food", to: "Expenses:Dining")
         XCTAssertEqual(store.catStyle.colors?["Expenses:Dining"], "orange")
         XCTAssertNil(store.catStyle.colors?["Expenses:Food"])
