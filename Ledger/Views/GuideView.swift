@@ -159,6 +159,8 @@ struct GuideView: View {
                "Each group has one icon on the Add card, Manage accounts, the Accounts page and in reports; hold a group under Manage accounts (or a category on the Add card) to change its icon and colour, kept on this phone. The colour shows in Manage accounts, Accounts, reports and the Add card's account cell; the Add grid stays black and white and uses the theme colour when picked."),
             tr("账户页的分组（银行、信用卡…）和管理账户里的科目大类都可以点标题收起。",
                "Groups on the Accounts page (banks, cards…) and the categories under Manage accounts fold away with a tap on their heading."),
+            tr("信用卡页最上面的本期账单可以画成一张卡：在「设置 → 外观 → 信用卡账单」选「卡面」，卡的颜色就是这个账户图标的颜色（管理账户里长按可改），写着尾号、剩余应还、已还多少和还款日；下面的数字和按钮不变。",
+               "A card's bill can be drawn as the card itself: choose Card in Settings → Appearance → Card Statement. It takes the colour of the account's icon (long-press it in Manage accounts to change it) and shows the last four digits, what is left to pay, how much is paid and the due date; the figures and buttons below stay the same."),
             tr("账户详情页点「余额核对」，输入银行 App 里的余额，一致时写入余额断言，不一致会显示差额。断言日期下面有「明天」「今天」：核对今天日终的余额选明天。报销回款、账户备注和「从哪天起」的日期下面同样有今天、昨天、前天。",
                "On an account, Check balance takes the balance from your bank; when it matches, a balance assertion is written, otherwise the difference is shown. Under the date are Tomorrow and Today: for today's closing balance pick Tomorrow. The dates of a reimbursement payment, an account note and \u{201C}From\u{201D} have Today, Yesterday and the day before under them too."),
             tr("在账户编辑里设账单日 / 核对日，到期会提醒对账；信用卡还可设还款日和额度。",

@@ -911,7 +911,7 @@ final class EditInteractionTests: XCTestCase {
             """, file: file, line: line)
     }
 
-    private func launchCardAccount(accessibility: Bool) -> XCUIApplication {
+    private func launchCardAccount(accessibility: Bool, style: String? = nil) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
         let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures")
@@ -922,7 +922,7 @@ final class EditInteractionTests: XCTestCase {
             "LEDGER_OPEN_ACCOUNT": "Liabilities:CreditCard:Example",
             "LEDGER_LANG": "zh",
         ]
-        var args = ["-AppleLanguages", "(zh-Hans)"]
+        var args = ["-AppleLanguages", "(zh-Hans)"] + (style.map { ["-ledger.card.style", $0] } ?? [])
         if accessibility {
             args += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         }
@@ -992,6 +992,23 @@ final class EditInteractionTests: XCTestCase {
             add(shot)
             app.terminate()
         }
+    }
+
+    /// 设置 → 外观 → 信用卡账单 → 卡面: the bill's top is drawn as the card; the figures and buttons under it stay
+    func testCardFaceKeepsTheFiguresAndButtons() {
+        let app = launchCardAccount(accessibility: false, style: "card")
+        let face = app.descendants(matching: .any)["card.face"]
+        XCTAssertTrue(face.waitForExistence(timeout: 20))
+        XCTAssertTrue(face.label.contains("剩余应还"), face.label)
+        XCTAssertTrue(face.label.contains("已还"), face.label)
+        XCTAssertTrue(app.staticTexts["最低还款"].exists)
+        let bill = app.buttons["填写本期账单"].firstMatch
+        XCTAssertTrue(bill.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(bill.frame.minY, face.frame.maxY, "the buttons come after the card")
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "信用卡账单-卡面"
+        shot.lifetime = .keepAlways
+        add(shot)
     }
 
     func testCardBillActionsStayOnOneRowAtNormalTextSize() {

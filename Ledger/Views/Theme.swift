@@ -84,6 +84,10 @@ final class AppSettings {
     var journalStyle: String = UserDefaults.standard.string(forKey: JournalStyle.key) ?? JournalStyle.plain.rawValue {
         didSet { UserDefaults.standard.set(journalStyle, forKey: JournalStyle.key) }
     }
+    /// how a credit card's bill is drawn on its page (CardBillStyle)
+    var cardBillStyle: String = UserDefaults.standard.string(forKey: CardBillStyle.key) ?? CardBillStyle.plain.rawValue {
+        didSet { UserDefaults.standard.set(cardBillStyle, forKey: CardBillStyle.key) }
+    }
     var privacy: Bool = UserDefaults.standard.bool(forKey: "ledger.privacy") {
         didSet {
             UserDefaults.standard.set(privacy, forKey: "ledger.privacy")
@@ -99,6 +103,15 @@ enum JournalStyle: String, CaseIterable, Identifiable {
     static let key = "ledger.journal.style"
     static var current: JournalStyle { JournalStyle(rawValue: AppSettings.shared.journalStyle) ?? .plain }
     var name: String { self == .plain ? LS("简洁") : self == .icon ? LS("图标") : LS("紧凑") }
+}
+
+/// 信用卡账单: 普通 (the card it always was) or 卡面 (its top drawn as a bank card in the account's colour)
+enum CardBillStyle: String, CaseIterable, Identifiable {
+    case plain, card
+    var id: String { rawValue }
+    static let key = "ledger.card.style"
+    static var current: CardBillStyle { CardBillStyle(rawValue: AppSettings.shared.cardBillStyle) ?? .plain }
+    var name: String { self == .plain ? LS("普通") : LS("卡面") }
 }
 
 /// 外观：跟随系统 / 浅色 / 深色
