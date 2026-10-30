@@ -20,6 +20,16 @@
       "versions": [
         {
           "version": "1.0.9",
+          "buildVersion": "49",
+          "date": "2026-10-30T13:59:37Z",
+          "localizedDescription": "# Ledger X 1.0.9 开发版\n\n版本 1.0.9 · 构建 49 · main 30c8a48 。\n\n## 修复\n\n- 记一笔的「分录」或「文本」还没填完（例如两边不平）时，以前切「支出 / 收入 / 转账」和点「快捷记账」都提示「当前内容还不能转换」，只能放弃整张卡片；现在可以离开，没填完的内容原样保留，切回「分录」或「文本」继续填。已经完整、但快捷页显示不了的分录（例如三行以上）以前提示「目标模式无法完整保留」也出不去，现在同样原样保留后返回。从其他类型保存一笔后，保留的内容随之清掉；关闭卡片前会询问保留或放弃。",
+          "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
+          "size": 10719510,
+          "minOSVersion": "17.0",
+          "sha256": "d29bdfdfcb427512c43bc21b9f2652be547fbdae3aa8fb28b1eae6517d2f65af"
+        },
+        {
+          "version": "1.0.9",
           "buildVersion": "48.2",
           "date": "2026-10-30T12:47:28Z",
           "localizedDescription": "# Ledger X 1.0.9 预览\n\n版本 1.0.9 · 构建 48.2 · fix/incomplete-split-switch 7134537 · PR #60 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
@@ -27,16 +37,6 @@
           "size": 10719511,
           "minOSVersion": "17.0",
           "sha256": "fdb068465fece9783a89433a16c1078fd20e607563936afe9ecbc2510598e510"
-        },
-        {
-          "version": "1.0.9",
-          "buildVersion": "48",
-          "date": "2026-10-30T08:47:24Z",
-          "localizedDescription": "# Ledger X 1.0.9 开发版\n\n版本 1.0.9 · 构建 48 · main a26532c 。\n\n## 改进\n\n- 同步和「清除缓存并重新下载」时，某个文件因为网络一时中断、超时或服务器繁忙没下载下来，会自动再试两次（约 0.5 秒、1.5 秒后），不再一次失败就整次同步失败、要手动重新同步。没有网络、凭据无效、权限不足或被限流、文件不存在时仍立即提示，不重试。",
-          "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
-          "size": 10713152,
-          "minOSVersion": "17.0",
-          "sha256": "5c4c0c11116d1fe95cc3919fb9b90a7213da718ffcdfff9509d4e4642cc0e970"
         },
         {
           "version": "1.0.8",
@@ -138,10 +138,10 @@
         }
       },
       "version": "1.0.9",
-      "versionDate": "2026-10-30T12:47:28Z",
-      "versionDescription": "# Ledger X 1.0.9 预览\n\n版本 1.0.9 · 构建 48.2 · fix/incomplete-split-switch 7134537 · PR #60 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-      "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-      "size": 10719511
+      "versionDate": "2026-10-30T13:59:37Z",
+      "versionDescription": "# Ledger X 1.0.9 开发版\n\n版本 1.0.9 · 构建 49 · main 30c8a48 。\n\n## 修复\n\n- 记一笔的「分录」或「文本」还没填完（例如两边不平）时，以前切「支出 / 收入 / 转账」和点「快捷记账」都提示「当前内容还不能转换」，只能放弃整张卡片；现在可以离开，没填完的内容原样保留，切回「分录」或「文本」继续填。已经完整、但快捷页显示不了的分录（例如三行以上）以前提示「目标模式无法完整保留」也出不去，现在同样原样保留后返回。从其他类型保存一笔后，保留的内容随之清掉；关闭卡片前会询问保留或放弃。",
+      "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
+      "size": 10719510
     }
   ],
   "news": []
