@@ -325,9 +325,10 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["登记退款"].waitForExistence(timeout: 10))
         let cancel = app.buttons["refund.cancel"]
         XCTAssertTrue(cancel.waitForExistence(timeout: 5))
-        XCTAssertLessThan(cancel.frame.height, 40, "the capsule itself stays small")
-        // 4 pt above the capsule
-        cancel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).withOffset(CGVector(dx: 0, dy: -4)).tap()
+        // what answers is 44 pt; the capsule drawn in its middle is 32 pt
+        XCTAssertGreaterThanOrEqual(cancel.frame.height, 44)
+        // 4 pt above the drawn capsule (16 pt above its middle): outside it, inside what answers
+        cancel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).withOffset(CGVector(dx: 0, dy: -20)).tap()
         XCTAssertTrue(app.staticTexts["登记退款"].waitForNonExistence(timeout: 5), "the tap above the button was lost")
     }
 
