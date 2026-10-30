@@ -281,6 +281,9 @@ extension Store {
                 case .failure(.incomplete) where [.multi, .raw].contains(draft.kind):
                     next = settingAside(draft, to: k, previous: previous)
                     show(LS("「%@」里还没填完的内容已保留，切回「%@」可以继续", draft.kind.label, draft.kind.label))
+                case .failure(.notRepresentable) where [.multi, .raw].contains(draft.kind):
+                    next = settingAside(draft, to: k, previous: previous)
+                    show(LS("「%@」显示不了「%@」的内容，已原样保留，切回「%@」可以继续", k.label, draft.kind.label, draft.kind.label))
                 case .failure(let error): show(error.message); Haptics.warning(); return false
                 case .success(let converted): next = converted
                 }
@@ -302,15 +305,14 @@ extension Store {
     /// The back button must convert the latest split/text contents before showing the quick editor.
     func prepareQuickEditor() -> Bool {
         guard [.multi, .raw].contains(draft.kind), let L = L, let D = D else { return true }
-        let text = draftText(draft, L, D)
-        let transaction = validateText(text, L, single: true).txn
-        // unfinished: back to the kind it was opened as, the rows set aside (see setKind)
-        let opened = drafts.baseline.map(\.kind).flatMap { [.expense, .income, .transfer].contains($0) ? $0 : nil }
-        let kind = transaction.flatMap { editDraft($0, L, D)?.kind } ?? opened ?? .expense
-        guard [.expense, .income, .transfer].contains(kind) else {
-            show(EditorConversionError.notRepresentable.message); return false
-        }
-        return setKind(kind)
+        let simple: [DraftKind] = [.expense, .income, .transfer]
+        // a whole entry the quick page can show goes back as its kind; anything else (unbalanced, more lines than it
+        // shows) back to the kind the form was opened as, set aside for the way back (see setKind). A failed check
+        // still parses, so its transaction is not taken for a whole one
+        let checked = validateText(draftText(draft, L, D), L, single: true)
+        let shown = checked.ok ? checked.txn.flatMap { editDraft($0, L, D)?.kind }.flatMap { simple.contains($0) ? $0 : nil } : nil
+        let opened = drafts.baseline.map(\.kind).flatMap { simple.contains($0) ? $0 : nil }
+        return setKind(shown ?? opened ?? .expense)
     }
 
     func applyDraftSource(_ text: String) {

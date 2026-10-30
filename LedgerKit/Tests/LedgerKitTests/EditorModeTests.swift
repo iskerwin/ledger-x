@@ -151,4 +151,18 @@ final class EditorModeTests: XCTestCase {
         let toExpense = switchingKind(toIncome.draft, to: .expense, remembering: toIncome.snapshots, fundingCurrency: "CNY", defaultCurrency: "CNY")
         XCTAssertEqual(returningToSetAside(toExpense.draft, to: .multi)?.rows, split.rows)
     }
+
+    /// a whole split with more lines than the quick editors show is set aside the same way, untouched
+    func testASplitTheQuickEditorsCantShowIsSetAsideToo() throws {
+        let (L, D) = environment()
+        var split = unfinishedSplit()
+        split.rows.append(DraftRow(account: "Assets:Cash"))
+        split.rows[1].amount = "-10.00"; split.rows[2].amount = "-2.00"
+        XCTAssertTrue(validateText(draftText(split, L, D), L, single: true).ok)
+        guard case .failure(.notRepresentable) = convertingEditor(split, to: .expense, ledger: L, derived: D) else {
+            return XCTFail("three lines shown as an expense")
+        }
+        let quick = settingAside(split, to: .expense, previous: nil)
+        XCTAssertEqual(returningToSetAside(quick, to: .multi)?.rows, split.rows)
+    }
 }
