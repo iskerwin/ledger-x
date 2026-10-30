@@ -226,6 +226,7 @@ struct AddForm: View {
                 Spacer()
                 Button { store.draft = store.newDraftFor(.expense) } label: { Label(LS("取消"), systemImage: "xmark").labelStyle(ControlLabelStyle()) }
                     .rowButton()
+                    .accessibilityIdentifier("refund.cancel")
             }
         } footer: {
             Text(LS("退款将冲减原支出科目，并通过同一 ^link 与原交易关联。"))
