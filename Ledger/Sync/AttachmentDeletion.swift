@@ -10,10 +10,24 @@ extension Store {
     private static func copyKind(_ id: UUID) -> String { "deleted-attachment-" + id.uuidString }
 
     func deletedAttachments(ledger: String? = nil) -> [DeletedAttachment] {
-        RecoveryFiles.load([DeletedAttachment].self, kind: Self.deletedKind, ledger: ledger ?? cfg.id) ?? []
+        if case .value(let items) = readDeletedAttachments(ledger ?? cfg.id) { return items }
+        return []
+    }
+
+    private func readDeletedAttachments(_ ledger: String) -> RecoveryRead<[DeletedAttachment]> {
+        let read = RecoveryFiles.read([DeletedAttachment].self, kind: Self.deletedKind, ledger: ledger)
+        if case .damaged = read { noteUnreadable() }
+        return read
+    }
+
+    /// false while the list is there but can't be opened: nothing may be written over it
+    private func deletedAttachmentsWritable(_ ledger: String) -> Bool {
+        if case .unavailable = readDeletedAttachments(ledger) { return false }
+        return true
     }
 
     private func saveDeletedAttachments(_ items: [DeletedAttachment], ledger: String) {
+        guard deletedAttachmentsWritable(ledger) else { return }
         if items.isEmpty { try? RecoveryFiles.remove(kind: Self.deletedKind, ledger: ledger) }
         else { try? RecoveryFiles.save(items, kind: Self.deletedKind, ledger: ledger) }
     }
@@ -39,6 +53,11 @@ extension Store {
             guard await deleteDirective(e, summary: summary, pop: false) else { return false }
             show(LS("存储里没有这个文件，只移除了引用"))
             return true
+        }
+        // its copy could not be listed for 恢复 afterwards
+        guard deletedAttachmentsWritable(ledgerID) else {
+            showFailure(LS("已删除附件的恢复记录暂时读不出来，没有做任何改动，请稍后再试"))
+            return false
         }
         let data: Data
         do { data = try await backend.readData(path) } catch {

@@ -125,6 +125,13 @@ enum Prefs {
     var attachmentRevision = 0
     /// the attachment recovery jobs of one ledger, as last read or written (see attachmentJobs)
     @ObservationIgnored var attachmentJobCache: (ledger: String, jobs: [AttachmentUpload])?
+    /// the attachment jobs were there but couldn't be opened when last asked for: none may be written over them
+    @ObservationIgnored var attachmentJobsUnavailable = false
+    /// the sync queue was there but couldn't be opened (the phone not unlocked since it started): it is read
+    /// again before the queue is next written or pushed, so the changes in it aren't written over
+    @ObservationIgnored var pendingUnavailable = false
+    /// bumped when a record is set aside unread or one set aside is discarded (the sync page lists them)
+    var recoveryRevision = 0
     /// the one run of finishAttachmentDeletions in progress (see AttachmentDeletion.swift)
     @ObservationIgnored var attachmentDeletionRun: Task<Void, Never>?
     var cfg: RepoConfig
@@ -305,7 +312,13 @@ enum Prefs {
         cfg = c
         let id = c.id
         draftWorkspace = Prefs.get(Store.key("draftWorkspace", id), DraftWorkspace())
-        pending = PendingQueue.load(ledger: id)
+        let queue = PendingQueue.read(ledger: id)
+        switch queue {
+        case .value(let ops): pending = ops
+        case .none, .damaged: pending = []
+        case .unavailable: pending = []; pendingUnavailable = true
+        }
+        defer { if case .damaged = queue { noteUnreadable() } }
         tree = Prefs.get(Store.key("tree", id), RepoTree?.none)
         lastSync = Prefs.get(Store.key("lastSync", id), Date?.none)
         ci = Prefs.get(Store.key("ci", id), GitHub.CI?.none)
@@ -379,7 +392,7 @@ enum Prefs {
         journalReturn = nil
         Prefs.set("activeSource", c.id)
         L = nil; D = nil; ci = nil; ciAskedAt = nil; ledgerQueries = []; loadError = nil
-        pending = PendingQueue.load(ledger: cfg.id)
+        adoptPending(PendingQueue.read(ledger: cfg.id))
         history = Prefs.get(pk("history"), [ChangeRecord]())
         tree = Prefs.get(pk("tree"), RepoTree?.none)
         lastSync = Prefs.get(pk("lastSync"), Date?.none)
@@ -438,6 +451,7 @@ enum Prefs {
         try? RecoveryFiles.remove(kind: "attachments", ledger: id)
         try? RecoveryFiles.remove(kind: "import", ledger: id)
         try? RecoveryFiles.removeData(kind: "import-source", ledger: id)
+        for kind in UnreadableKind.allCases { RecoveryFiles.removeUnreadable(kind: kind, ledger: id) }
     }
 
     private func saveTree() { Prefs.set(pk("tree"), tree) }
@@ -445,7 +459,49 @@ enum Prefs {
     func forgetTree() { tree = nil; saveTree() }
     /// a queue that can't be written down would be lost if the app were closed now: say so
     func savePending() {
-        do { try PendingQueue.save(pending, ledger: cfg.id) } catch { show(LS("待同步的改动没能存到手机上：%@", error.localizedDescription)) }
+        guard reloadPendingIfNeeded() else {
+            showFailure(LS("待同步的改动暂时读不出来，新的改动还没存到手机上，请稍后再试"))
+            return
+        }
+        do { try PendingQueue.save(pending, ledger: cfg.id) } catch { showFailure(LS("待同步的改动没能存到手机上：%@", error.localizedDescription)) }
+    }
+
+    /// the queue read back for the ledger now open
+    private func adoptPending(_ read: RecoveryRead<[Op]>) {
+        pendingUnavailable = false
+        switch read {
+        case .value(let ops): pending = ops
+        case .none: pending = []
+        case .unavailable: pending = []; pendingUnavailable = true
+        case .damaged: pending = []; noteUnreadable()
+        }
+    }
+
+    /// a queue that couldn't be opened is read again, and what was queued meanwhile goes after it; false while
+    /// it still can't be
+    private func reloadPendingIfNeeded() -> Bool {
+        guard pendingUnavailable else { return true }
+        let read = PendingQueue.read(ledger: cfg.id)
+        if case .unavailable = read { return false }
+        let meanwhile = pending
+        adoptPending(read)
+        let known = Set(pending.map { $0.id })
+        pending += meanwhile.filter { !known.contains($0.id) }
+        return true
+    }
+
+    /// a record set aside unread: said once, and listed on the sync page. Found while a view is drawn too,
+    /// so the change waits for the next turn
+    func noteUnreadable() {
+        Task { @MainActor [weak self] in
+            self?.recoveryRevision += 1
+            self?.showFailure(LS("有记录在手机上读不出来，已另存，没有覆盖。可在「账本同步」页查看"))
+        }
+    }
+
+    func discardUnreadable(_ kind: UnreadableKind) {
+        RecoveryFiles.removeUnreadable(kind: kind, ledger: cfg.id)
+        recoveryRevision += 1
     }
     private func saveHistory() { Prefs.set(pk("history"), history) }
 
@@ -582,6 +638,11 @@ enum Prefs {
             o.date = "2026-10-20"; o.summary = "Held cafe"; o.label = "Held cafe"; o.held = "Interaction test"
             pending.append(o)
             savePending()
+        }
+        // interaction tests: a sync queue that doesn't read back, as a damaged file leaves it
+        if env["LEDGER_UNREADABLE"] != nil {
+            try? RecoveryFiles.saveData(Data("damaged".utf8), kind: "pending", ledger: cfg.id)
+            adoptPending(PendingQueue.read(ledger: cfg.id))
         }
         if env["LEDGER_TAB"] == "add" {
             openAdd(full: env["LEDGER_EDIT_TEXT"] != nil || env["LEDGER_ADD_FULL"] != nil ? true : nil)
@@ -1085,6 +1146,7 @@ enum Prefs {
     /// push everything that can go, as ONE commit (one per host request where the host can't),
     /// so bean-check on the server never sees half of a change
     private func pushOnce() async throws {
+        guard reloadPendingIfNeeded() else { throw UnreadableRecordError(message: LS("待同步的改动暂时读不出来，稍后再同步")) }
         try await settleInFlight()
         for _ in 0..<3 {   // repeat for ops queued while pushing
             let ops = pending.filter { $0.failed == nil && $0.held == nil }
@@ -1153,8 +1215,18 @@ enum Prefs {
     /// A push written down but never seen through (the app killed after the host took it, a reply lost): when the
     /// files on the host are exactly as it planned, its ops already landed and leave the queue instead of being
     /// written again. Read against a fresh tree: the one kept here may be from before that push.
+    /// One that can't be read stops the push: sent anyway, the same edits could be written twice. Set aside, it
+    /// waits on the sync page to be looked at or discarded.
     private func settleInFlight() async throws {
-        guard let flight = RecoveryFiles.load(InFlightPush.self, kind: "inflight", ledger: cfg.id) else { return }
+        let paused = UnreadableRecordError(message: LS("上次推送的记录读不出来，同步已暂停，请在「账本同步」页查看"))
+        if RecoveryFiles.unreadable(ledger: cfg.id).contains(where: { $0.kind == .inflight }) { throw paused }
+        let flight: InFlightPush
+        switch RecoveryFiles.read(InFlightPush.self, kind: "inflight", ledger: cfg.id) {
+        case .none: return
+        case .value(let f): flight = f
+        case .unavailable: throw UnreadableRecordError(message: LS("上次推送的记录暂时读不出来，稍后再同步"))
+        case .damaged: noteUnreadable(); throw paused
+        }
         tree = try await backend.fetchTree()
         saveTree()
         var current: [String: String?] = [:]
@@ -1586,7 +1658,7 @@ enum Prefs {
         do {
             for (sha, text) in texts { try BlobCache.save(sha, text) }
         } catch {
-            show(LS("重新下载失败，本机副本保持不变：%@", error.localizedDescription))
+            showFailure(LS("重新下载失败，本机副本保持不变：%@", error.localizedDescription))
             return false
         }
         let others = otherLedgerVersions()
