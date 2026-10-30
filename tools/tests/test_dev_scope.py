@@ -228,6 +228,54 @@ class DevScopeTests(unittest.TestCase):
         self.assertEqual(len([value for value in plan['ui_tests'] if value.startswith('LedgerUITests/')]), 14)
 
 
+    SHARED = (
+        'import SwiftUI\n'
+        '\n'
+        'struct PeriodBar: View {\n'
+        '    var body: some View { Text("") }\n'
+        '}\n'
+        '\n'
+        'extension View {\n'
+        '    func rowButton() -> some View { self }\n'
+        '    func primaryButton() -> some View { self }\n'
+        '}\n'
+    )
+
+    @staticmethod
+    def _diff(path, *lines):
+        hunks = ''.join(f'@@ -{n},1 +{n},1 @@\n-old\n+new\n' for n in lines)
+        return f'diff --git a/{path} b/{path}\n--- a/{path}\n+++ b/{path}\n' + hunks
+
+    def test_a_shared_component_change_selects_its_ui_tests(self):
+        path = 'Ledger/Views/ControlStyle.swift'
+        plan = dev_scope.classify([path], diff=self._diff(path, 4, 8), sources={path: self.SHARED})
+        self.assertTrue(set(dev_scope.MONTH_BAR_UI) <= set(plan['ui_tests']), 'a change in PeriodBar runs the month bar tests')
+        self.assertTrue(set(dev_scope.ACTION_UI) <= set(plan['ui_tests']), 'rowButton in an extension runs the action tests')
+        self.assertTrue(set(dev_scope.CRITICAL_UI) <= set(plan['ui_tests']))
+        self.assertNotIn('LedgerUITests/EditInteractionTests', plan['ui_tests'])
+        self.assertIn('共用组件 PeriodBar', '\n'.join(plan['reasons']))
+        self.assertTrue(dev_scope.validate_selectors(plan, ROOT))
+
+    def test_an_unmapped_shared_component_says_its_coverage_waits_for_the_release(self):
+        path = 'Ledger/Views/ControlStyle.swift'
+        plan = dev_scope.classify([path], diff=self._diff(path, 9), sources={path: self.SHARED})
+        self.assertEqual(set(plan['ui_tests']), set(dev_scope.CRITICAL_UI))
+        self.assertIn('共用组件 primaryButton 没有对应界面测试，完整覆盖留到转正前', '\n'.join(plan['reasons']))
+        # the imports: the whole file, said the same way
+        plan = dev_scope.classify([path], diff=self._diff(path, 1), sources={path: self.SHARED})
+        self.assertIn('（文件开头）', '\n'.join(plan['reasons']))
+
+    def test_every_component_mapping_resolves_to_existing_tests(self):
+        for path, components in dev_scope.COMPONENT_UI.items():
+            for name, tests in components.items():
+                with self.subTest(path=path, component=name):
+                    plan = dict(core_filter='', core_all=False, ui_tests=list(tests), narrow_tests=[])
+                    self.assertTrue(dev_scope.validate_selectors(plan, ROOT))
+            text = (ROOT / path).read_text()
+            for name in components:
+                with self.subTest(path=path, declared=name):
+                    self.assertRegex(text, r'\b(?:struct|enum|class|func)\s+' + name + r'\b')
+
 
 class PRProofTests(unittest.TestCase):
     PLAN = dict(base_sha='b'*40, source_sha='a'*40, core_filter='SearchTests',
