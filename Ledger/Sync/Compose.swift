@@ -273,9 +273,17 @@ extension Store {
         let next: Draft
         if [.multi, .raw].contains(k) || [.multi, .raw].contains(draft.kind) || draft.edited != nil {
             let previous = drafts.kindSnapshots[k] ?? (drafts.baseline?.kind == k ? drafts.baseline : nil)
-            switch convertingEditor(draft, to: k, ledger: L, derived: D, previous: previous) {
-            case .failure(let error): show(error.message); Haptics.warning(); return false
-            case .success(let converted): next = converted
+            if let back = returningToSetAside(draft, to: k) {
+                next = back
+            } else {
+                switch convertingEditor(draft, to: k, ledger: L, derived: D, previous: previous) {
+                // unfinished 分录 / 文本 waits for the way back instead of locking the user in
+                case .failure(.incomplete) where [.multi, .raw].contains(draft.kind):
+                    next = settingAside(draft, to: k, previous: previous)
+                    show(LS("「%@」里还没填完的内容已保留，切回「%@」可以继续", draft.kind.label, draft.kind.label))
+                case .failure(let error): show(error.message); Haptics.warning(); return false
+                case .success(let converted): next = converted
+                }
             }
             drafts.kindSnapshots[draft.kind] = draft
         } else {
@@ -296,7 +304,9 @@ extension Store {
         guard [.multi, .raw].contains(draft.kind), let L = L, let D = D else { return true }
         let text = draftText(draft, L, D)
         let transaction = validateText(text, L, single: true).txn
-        let kind = transaction.flatMap { editDraft($0, L, D)?.kind } ?? .expense
+        // unfinished: back to the kind it was opened as, the rows set aside (see setKind)
+        let opened = drafts.baseline.map(\.kind).flatMap { [.expense, .income, .transfer].contains($0) ? $0 : nil }
+        let kind = transaction.flatMap { editDraft($0, L, D)?.kind } ?? opened ?? .expense
         guard [.expense, .income, .transfer].contains(kind) else {
             show(EditorConversionError.notRepresentable.message); return false
         }

@@ -104,4 +104,51 @@ final class EditorModeTests: XCTestCase {
             XCTAssertFalse(DraftSession(draft: back, baseline: initial).shouldKeep)
         }
     }
+
+    /// 分录 left unbalanced: refused, the user was locked in it (no switching, no way back). Now the other editor
+    /// opens and the rows wait, exactly as they were, for the way back
+    private func unfinishedSplit() -> Draft {
+        var d = Draft()
+        d.kind = .multi; d.date = "2025-02-01"; d.payee = "Example"; d.funding = "Assets:Bank:Example"
+        d.rows = [DraftRow(account: "Expenses:Food"), DraftRow(account: "Assets:Bank:Example")]
+        d.rows[0].amount = "12.00"; d.rows[1].amount = "-10.00"
+        return d
+    }
+
+    func testAnUnfinishedSplitIsSetAsideAndComesBack() throws {
+        let (L, D) = environment()
+        let split = unfinishedSplit()
+        guard case .failure(.incomplete) = convertingEditor(split, to: .expense, ledger: L, derived: D) else {
+            return XCTFail("an unbalanced split converted")
+        }
+        var quick = settingAside(split, to: .expense, previous: nil)
+        XCTAssertEqual(quick.kind, .expense)
+        XCTAssertEqual(quick.payee, "Example")
+        XCTAssertEqual(quick.date, "2025-02-01")
+        XCTAssertTrue(quick.raw.isEmpty)
+        XCTAssertNil(returningToSetAside(quick, to: .raw), "only the editor it was left in")
+
+        quick.narration = "Typed meanwhile"
+        let back = try XCTUnwrap(returningToSetAside(quick, to: .multi))
+        XCTAssertEqual(back.rows, split.rows)
+        XCTAssertEqual(back.narration, "Typed meanwhile")
+        XCTAssertNil(back.setAside)
+    }
+
+    func testTheSetAsideSplitIsKeptAsTheFormIsKeptAndChanged() throws {
+        let split = unfinishedSplit()
+        let blank = Draft()
+        let quick = settingAside(split, to: .expense, previous: blank)
+        XCTAssertTrue(DraftSession(draft: quick, baseline: blank).shouldKeep, "closing asks before the rows are lost")
+
+        // saved with the draft
+        let data = try JSONEncoder().encode(DraftSession(draft: quick, baseline: blank))
+        let saved = try JSONDecoder().decode(DraftSession.self, from: data)
+        XCTAssertEqual(returningToSetAside(saved.draft, to: .multi)?.rows, split.rows)
+
+        // 支出 → 收入 → 支出 restores the remembered 支出 and still carries the rows
+        let toIncome = switchingKind(quick, to: .income, remembering: [:], fundingCurrency: "CNY", defaultCurrency: "CNY")
+        let toExpense = switchingKind(toIncome.draft, to: .expense, remembering: toIncome.snapshots, fundingCurrency: "CNY", defaultCurrency: "CNY")
+        XCTAssertEqual(returningToSetAside(toExpense.draft, to: .multi)?.rows, split.rows)
+    }
 }

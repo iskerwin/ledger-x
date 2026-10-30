@@ -94,6 +94,7 @@ func carryingSharedFields(from current: Draft, onto saved: Draft) -> Draft {
     draft.amount = current.amount
     draft.funding = current.funding
     draft.flag = current.flag
+    draft.setAside = current.setAside
     return draft
 }
 

@@ -149,6 +149,8 @@ public struct Draft: Codable, Equatable {
     public var feeMode: TransferFeeMode? = nil
     public var feeFunding: String? = nil
     public var selection: DraftSelection? = nil
+    /// 分录 / 文本 left before it was a whole entry, kept as it was for the way back (see `settingAside`)
+    public var setAside: [Draft]? = nil
     public var kind: DraftKind = .expense
     public var date = Day.today()
     public var payee = ""
