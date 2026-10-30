@@ -35,7 +35,15 @@ extension Store {
     func attachmentJobs() -> [AttachmentUpload] {
         let ledger = cfg.id
         if let cached = attachmentJobCache, cached.ledger == ledger { return cached.jobs }
-        var jobs = RecoveryFiles.load([AttachmentUpload].self, kind: "attachments", ledger: ledger) ?? []
+        var jobs: [AttachmentUpload]
+        switch RecoveryFiles.read([AttachmentUpload].self, kind: "attachments", ledger: ledger) {
+        case .value(let v): jobs = v
+        case .none: jobs = []
+        case .damaged: jobs = []; noteUnreadable()
+        // not kept: read again next time, and nothing is written over it meanwhile (saveAttachmentJob)
+        case .unavailable: attachmentJobsUnavailable = true; return []
+        }
+        attachmentJobsUnavailable = false
         var inline = false, moved = true
         for i in jobs.indices {
             if jobs[i].data.isEmpty {
@@ -73,6 +81,7 @@ extension Store {
     private func saveAttachmentJob(_ job: AttachmentUpload, remove: Bool = false) throws {
         guard job.ledgerID == cfg.id else { throw GitHubError(status: 0, message: LS("账本已变化，请返回原账本重试")) }
         let existing = attachmentJobs()
+        guard !attachmentJobsUnavailable else { throw GitHubError(status: 0, message: LS("附件记录暂时读不出来，请稍后再试")) }
         var jobs = existing.filter { $0.id != job.id }
         if !remove {
             // a job's bytes never change: written once, before the list that refers to them

@@ -1844,6 +1844,23 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(row.waitForNonExistence(timeout: 5))
     }
 
+    /// A sync queue that doesn't read back is set aside, not written over: 账本同步 lists it, to share or discard
+    func testAnUnreadableQueueIsListedOnTheSyncPage() {
+        let app = launchTab("overview", env: ["LEDGER_SYNC": "1", "LEDGER_UNREADABLE": "1"])
+        let row = app.descendants(matching: .any)["sync.unreadable.pending"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["分享原文件"].firstMatch.exists)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "账本同步-读不出来的记录"
+        shot.lifetime = .keepAlways
+        add(shot)
+        // discarded after asking (and the test ledger left as it was)
+        app.buttons["放弃"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["放弃这份记录？"].waitForExistence(timeout: 5))
+        app.sheets.buttons["放弃"].firstMatch.tap()
+        XCTAssertTrue(row.waitForNonExistence(timeout: 5))
+    }
+
     /// The keypad's long presses still work with the keys' pressed look: hold + for ×, hold ⌫ to clear
     func testKeypadLongPressesStillTypeAndClear() {
         let app = launch()   // 12 typed

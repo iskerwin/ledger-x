@@ -12,17 +12,22 @@ final class PendingQueueTests: XCTestCase {
         return op
     }
 
+    private func queue(_ ledger: String) -> [String?] {
+        if case .value(let ops) = PendingQueue.read(ledger: ledger) { return ops.map(\.text) }
+        return ["(not read)"]
+    }
+
     func testAQueueLeftInUserDefaultsMovesToItsFile() throws {
         let ledger = "queue-test-" + UUID().uuidString
         defer { PendingQueue.remove(ledger: ledger) }
         Prefs.set(Store.key("pending", ledger), [op("; fictional")])
-        XCTAssertEqual(PendingQueue.load(ledger: ledger).map(\.text), ["; fictional"])
+        XCTAssertEqual(queue(ledger), ["; fictional"])
         XCTAssertNil(UserDefaults.standard.data(forKey: "ledger." + Store.key("pending", ledger)), "moved, not copied")
-        XCTAssertEqual(PendingQueue.load(ledger: ledger).map(\.text), ["; fictional"], "read back from the file")
+        XCTAssertEqual(queue(ledger), ["; fictional"], "read back from the file")
 
         try PendingQueue.save([op("; one"), op("; two")], ledger: ledger)
-        XCTAssertEqual(PendingQueue.load(ledger: ledger).map(\.text), ["; one", "; two"])
+        XCTAssertEqual(queue(ledger), ["; one", "; two"])
         PendingQueue.remove(ledger: ledger)
-        XCTAssertTrue(PendingQueue.load(ledger: ledger).isEmpty)
+        XCTAssertTrue(queue(ledger).isEmpty)
     }
 }

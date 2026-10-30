@@ -34,6 +34,71 @@ enum RecoveryFiles {
         let path = try url(kind, ledger: ledger)
         if FileManager.default.fileExists(atPath: path.path) { try FileManager.default.removeItem(at: path) }
     }
+
+    /// A list or note read back the way `load` reads it, but telling apart what `load` takes for "nothing": a
+    /// file that can't be opened yet (the phone not unlocked since it started) stays as it is, and one whose
+    /// contents don't read back is moved aside as `<kind>-unreadable` (see `unreadable`). Either way the caller
+    /// must not write an empty list over it.
+    static func read<T: Decodable>(_ type: T.Type, kind: String, ledger: String, ext: String = "json") -> RecoveryRead<T> {
+        guard let path = try? url(kind, ledger: ledger, ext: ext) else { return .unavailable }
+        guard FileManager.default.fileExists(atPath: path.path) else { return .none }
+        guard let data = try? Data(contentsOf: path) else { return .unavailable }
+        if let value = try? JSONDecoder().decode(type, from: data) { return .value(value) }
+        return setAside(kind: kind, ledger: ledger, ext: ext) ? .damaged : .unavailable
+    }
+
+    /// the file moved out of the way, never written over: a newer unreadable copy replaces an older one
+    private static func setAside(kind: String, ledger: String, ext: String) -> Bool {
+        guard let from = try? url(kind, ledger: ledger, ext: ext),
+              let to = try? url(kind + unreadableSuffix, ledger: ledger, ext: ext) else { return false }
+        try? FileManager.default.removeItem(at: to)
+        return (try? FileManager.default.moveItem(at: from, to: to)) != nil
+    }
+
+    static let unreadableSuffix = "-unreadable"
+
+    /// the copies set aside for a ledger, with where they are, for the sync page to share or discard
+    static func unreadable(ledger: String) -> [UnreadableRecord] {
+        UnreadableKind.allCases.compactMap { k in
+            guard let path = try? url(k.rawValue + unreadableSuffix, ledger: ledger, ext: k.ext),
+                  FileManager.default.fileExists(atPath: path.path) else { return nil }
+            return UnreadableRecord(kind: k, url: path)
+        }
+    }
+
+    static func removeUnreadable(kind: UnreadableKind, ledger: String) {
+        if let path = try? url(kind.rawValue + unreadableSuffix, ledger: ledger, ext: kind.ext) { try? FileManager.default.removeItem(at: path) }
+    }
+}
+
+enum RecoveryRead<T> {
+    case none
+    case value(T)
+    /// there, but can't be opened now: left as it is
+    case unavailable
+    /// opened, but doesn't read back: moved aside
+    case damaged
+}
+
+struct UnreadableRecord: Identifiable {
+    let kind: UnreadableKind
+    let url: URL
+    var id: String { kind.rawValue }
+}
+
+/// the records that can be set aside unread, and what each is called on the sync page
+enum UnreadableKind: String, CaseIterable {
+    case pending, inflight, attachments
+    case deletedAttachments = "deleted-attachments"
+    var ext: String { self == .pending ? "bin" : "json" }
+    var title: String {
+        switch self {
+        case .pending: return LS("待同步的改动")
+        case .inflight: return LS("上次推送的记录")
+        case .attachments: return LS("待上传的附件")
+        case .deletedAttachments: return LS("已删除附件的恢复记录")
+        }
+    }
 }
 
 /// The sync queue of each ledger, in a file of its own written to a temporary file and swapped in. It used to be
@@ -43,15 +108,17 @@ enum RecoveryFiles {
 enum PendingQueue {
     private static let kind = "pending"
 
-    static func load(ledger: String) -> [Op] {
-        if let data = RecoveryFiles.loadData(kind: kind, ledger: ledger) {
-            if let ops = try? JSONDecoder().decode([Op].self, from: data) { return ops }
-            // unreadable: kept aside instead of written over, and the old copy (if any) used
-            try? RecoveryFiles.saveData(data, kind: kind + "-unreadable", ledger: ledger)
+    /// a file that can't be opened yet, or whose contents don't read back, is never taken for an empty queue:
+    /// writing that over it lost every change not yet pushed
+    static func read(ledger: String) -> RecoveryRead<[Op]> {
+        switch RecoveryFiles.read([Op].self, kind: kind, ledger: ledger, ext: "bin") {
+        case .none:
+            let old = Prefs.get(Store.key(kind, ledger), [Op]())
+            if (try? save(old, ledger: ledger)) != nil { Prefs.d.removeObject(forKey: "ledger." + Store.key(kind, ledger)) }
+            return .value(old)
+        case let read:
+            return read
         }
-        let old = Prefs.get(Store.key(kind, ledger), [Op]())
-        if (try? save(old, ledger: ledger)) != nil { Prefs.d.removeObject(forKey: "ledger." + Store.key(kind, ledger)) }
-        return old
     }
 
     static func save(_ ops: [Op], ledger: String) throws {
@@ -69,4 +136,10 @@ enum PendingQueue {
 struct SyncRecordError: LocalizedError {
     let underlying: Error
     var errorDescription: String? { LS("没能在手机上记下这次上传，稍后再试：%@", underlying.localizedDescription) }
+}
+
+/// A record the push depends on can't be read: it waits rather than risk writing the same edits twice
+struct UnreadableRecordError: LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
 }

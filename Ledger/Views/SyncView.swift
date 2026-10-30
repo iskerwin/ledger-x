@@ -20,6 +20,7 @@ struct SyncView: View {
             hero
             banner
             if recoveryCount > 0 { Section { AttachmentRecoveryRows() } }
+            UnreadableRecordsSection()
             if !store.pending.isEmpty {
                 Section(LS("待同步")) {
                     ForEach(failed + held + waiting) { o in opRow(o) }
@@ -172,6 +173,53 @@ struct SyncView: View {
         .rowActions {
             Button(role: .destructive) { removing = o } label: { Label(LS("移除"), systemImage: "trash") }
             if o.held != nil { Button { Task { await store.release(o) } } label: { Label(LS("推送"), systemImage: "icloud.and.arrow.up") }.tint(Color.jadeInk) }
+        }
+    }
+}
+
+/// Records on this phone that couldn't be read back (the sync queue, a push's note, attachment jobs, deleted
+/// attachments): set aside rather than written over, so what was in them can still be shared and looked at.
+/// While a push's note is here, pushing waits.
+private struct UnreadableRecordsSection: View {
+    @Environment(Store.self) private var store
+    @State private var sharing: UnreadableRecord?
+    @State private var discarding: UnreadableRecord?
+
+    var body: some View {
+        // a handful of file checks, read again when one is set aside or discarded
+        let _ = store.recoveryRevision
+        let records = RecoveryFiles.unreadable(ledger: store.cfg.id)
+        Group {
+            if !records.isEmpty {
+                Section {
+                    ForEach(records) { r in
+                        VStack(alignment: .leading, spacing: AppSpacing.icon) {
+                            Label(LS("%@读不出来", r.kind.title), systemImage: "exclamationmark.triangle")
+                                .labelStyle(ControlLabelStyle()).font(.subheadline).foregroundStyle(Color.warn)
+                                .accessibilityIdentifier("sync.unreadable." + r.kind.rawValue)
+                            if r.kind == .inflight {
+                                Text(LS("同步已暂停。放弃后继续同步；如果那次推送其实已经成功，同样的改动可能再写一次，请同步后核对账本。"))
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            ActionRow(size: .small, items: [
+                                ActionRow.Item(title: LS("分享原文件"), systemImage: "square.and.arrow.up") { sharing = r },
+                                ActionRow.Item(title: LS("放弃"), systemImage: "trash", emphasis: .destructive) { discarding = r },
+                            ])
+                        }
+                    }
+                } header: {
+                    Text(LS("读不出来的记录"))
+                } footer: {
+                    Text(LS("这些记录在手机上读不出来，已另存，没有被覆盖。分享原文件可以查看里面的内容；放弃后不能恢复。"))
+                }
+            }
+        }
+        .sheet(item: $sharing) { r in ShareSheet(items: [r.url]) }
+        .confirmationDialog(LS("放弃这份记录？"), isPresented: Binding(get: { discarding != nil }, set: { if !$0 { discarding = nil } }),
+                            titleVisibility: .visible, presenting: discarding) { r in
+            Button(role: .destructive) { store.discardUnreadable(r.kind) } label: { Text(LS("放弃")) }
+        } message: { _ in
+            Text(LS("手机上另存的这份记录会被删除，不能恢复。"))
         }
     }
 }
