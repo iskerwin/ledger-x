@@ -93,6 +93,8 @@ struct GuideView: View {
                "Payee and note are optional: an empty payee is left out and an empty note is written \"\"; the app adds the quotes."),
             tr("右上角「⋯」→ 完整表单：分录、直接写 Beancount 文本、AA、外币实付都在这里。",
                "⋯ → Full form for split entries, plain Beancount text, sharing with others and paying in another currency."),
+            tr("完整表单右上角「清空」把这一页填的内容一次清掉（日期保留），编辑已有交易时是「还原」，回到原记录；提示条上可以撤销。分录或文本没填完也可以直接切换类型或点「快捷记账」返回，没填完的内容会保留，切回去接着填。",
+               "Clear at the top right of the full form empties the page in one tap (the date stays); when editing an entry it's Revert, back to the entry as it was. Undo is on the banner. A split or text entry that isn't finished doesn't keep you there: switch type or go back to Quick entry, and it's kept for when you switch back."),
             tr("常用交易：近期重复出现的交易会列在卡片顶部，固定金额的点「入账」一步记好，提示条上可以撤销。",
                "Frequent entries appear at the top of the card; ones with a fixed amount are saved with one tap on Save, with undo on the banner."),
             tr("宫格的图标、名称、顺序可以在「⋯」→ 分类图标与排序里改，或长按某个分类。只存在本机，不改账本。",

@@ -302,6 +302,31 @@ extension Store {
         return true
     }
 
+    /// 清空 (a new entry) or 还原 (an edit) the full form; nothing to do when it already is that
+    /// (read on every keystroke: no new form is built for it)
+    var formClears: Bool {
+        guard drafts.baseline != nil, draft.kind != .refund else { return false }
+        if draft.replacing != nil { return drafts.hasChanges }
+        return draftHasContent(draft) || draft.setAside != nil || !draft.account.isEmpty || !draft.to.isEmpty
+            || draft.rows.contains { !$0.account.isEmpty && $0.account != draft.funding }
+    }
+
+    /// 清空 / 还原 the full form, taken back from the toast's 撤销 (the other kinds' remembered content too)
+    func clearForm() {
+        guard let baseline = drafts.baseline, formClears else { return }
+        let before = draft, snapshots = drafts.kindSnapshots
+        let editing = draft.replacing != nil
+        drafts.install(DraftSession(draft: clearedDraft(draft, fresh: newDraftFor(draft.kind), baseline: baseline), baseline: baseline))
+        drafts.kindSnapshots = [:]
+        persistActiveDraft()
+        show(editing ? LS("已还原为原记录") : LS("已清空"), action: LS("撤销")) { [weak self] in
+            guard let self, self.drafts.baseline == baseline else { return }
+            self.drafts.install(DraftSession(draft: before, baseline: baseline))
+            self.drafts.kindSnapshots = snapshots
+            self.persistActiveDraft()
+        }
+    }
+
     /// The back button must convert the latest split/text contents before showing the quick editor.
     func prepareQuickEditor() -> Bool {
         guard [.multi, .raw].contains(draft.kind), let L = L, let D = D else { return true }

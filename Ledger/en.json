@@ -2204,5 +2204,9 @@
  "放弃这份记录？": "Discard This Record?",
  "手机上另存的这份记录会被删除，不能恢复。": "The copy set aside on this iPhone will be deleted and can't be brought back.",
  "「%@」里还没填完的内容已保留，切回「%@」可以继续": "What you hadn't finished in %@ is kept. Switch back to %@ to carry on.",
- "「%@」显示不了「%@」的内容，已原样保留，切回「%@」可以继续": "%@ can't show what's in %@. It's kept as it is; switch back to %@ to carry on."
+ "「%@」显示不了「%@」的内容，已原样保留，切回「%@」可以继续": "%@ can't show what's in %@. It's kept as it is; switch back to %@ to carry on.",
+ "清空": "Clear",
+ "还原": "Revert",
+ "已清空": "Cleared",
+ "已还原为原记录": "Back to the original entry"
 }

@@ -165,4 +165,26 @@ final class EditorModeTests: XCTestCase {
         let quick = settingAside(split, to: .expense, previous: nil)
         XCTAssertEqual(returningToSetAside(quick, to: .multi)?.rows, split.rows)
     }
+
+    /// 清空 starts a new form of the same kind on the same day; 还原 on an edit brings back the entry as it was
+    func testClearingStartsOverAndRestoringBringsBackTheEntry() {
+        let (_, D) = environment()
+        var split = unfinishedSplit()
+        split.setAside = [simple(.expense)]
+        let fresh = newDraft(.multi, D, defaultFunding: "Assets:Bank:Example")
+        let cleared = clearedDraft(split, fresh: fresh, baseline: Draft())
+        XCTAssertEqual(cleared.kind, .multi)
+        XCTAssertEqual(cleared.date, split.date)
+        XCTAssertEqual(cleared.rows.map(\.account), ["", "Assets:Bank:Example"])
+        XCTAssertTrue(cleared.payee.isEmpty)
+        XCTAssertNil(cleared.setAside)
+
+        let original = simple(.expense)
+        var edited = original
+        edited.replacing = Replacing(path: "main.bean", old: "", date: original.date, summary: "", baseline: "")
+        var baseline = original
+        baseline.replacing = edited.replacing
+        edited.amount = "99"
+        XCTAssertEqual(clearedDraft(edited, fresh: fresh, baseline: baseline), baseline)
+    }
 }
