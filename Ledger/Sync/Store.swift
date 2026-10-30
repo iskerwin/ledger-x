@@ -1636,19 +1636,7 @@ enum Prefs {
         var texts: [String: String] = [:]
         do {
             fresh = try await api.fetchTree()
-            var waiting = fresh.files.filter { isLedgerFile($0.key) }.map { ($0.key, $0.value) }
-            try await withThrowingTaskGroup(of: (String, String).self) { group in
-                // a few at a time: a ledger with many files must not hit the host's rate limit
-                func next() {
-                    guard let file = waiting.popLast() else { return }
-                    group.addTask { (file.1, try await api.read(file.0, version: file.1)) }
-                }
-                for _ in 0..<4 { next() }
-                for try await (sha, text) in group {
-                    texts[sha] = text
-                    next()
-                }
-            }
+            try await api.readEach(fresh.files.filter { isLedgerFile($0.key) }.map { ($0.key, $0.value) }) { sha, text in texts[sha] = text }
         } catch {
             showFailure(LS("重新下载失败，本机副本保持不变：%@", error.localizedDescription))
             return false

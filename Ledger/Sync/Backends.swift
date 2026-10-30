@@ -42,15 +42,33 @@ struct PartialWriteError: Error, LocalizedError {
     var errorDescription: String? { underlying.localizedDescription }
 }
 
+/// A failure that may pass if tried again in a moment: a timeout, a dropped connection, a host that couldn't be
+/// reached or was busy. No network at all, credentials, permission or a rate limit (403), a missing file and the
+/// like fail the same way again, and are not retried
+func worthRetrying(_ error: Error) -> Bool {
+    if let e = error as? URLError { return [.timedOut, .networkConnectionLost, .cannotConnectToHost].contains(e.code) }
+    if let e = error as? GitHubError { return e.status == 429 || (500...599).contains(e.status) }
+    return false
+}
+
 extension LedgerBackend {
     /// read `files` (path, version) a few at a time: a ledger with many files must not hit the host's rate limit.
-    /// `got` sees each text as it arrives, so after an error what came in before it is kept
-    func readEach(_ files: [(String, String)], atOnce limit: Int = 4, got: (_ version: String, _ text: String) throws -> Void) async throws {
+    /// `got` sees each text as it arrives, so after an error what came in before it is kept. A read that fails for
+    /// a moment (see `worthRetrying`) is tried again after each of `retryAfter` before the whole read fails: one dropped
+    /// file used to fail the sync, or the download of every file again
+    func readEach(_ files: [(String, String)], atOnce limit: Int = 4, retryAfter: [UInt64] = [500_000_000, 1_500_000_000],
+                  got: (_ version: String, _ text: String) throws -> Void) async throws {
         var waiting = files
         try await withThrowingTaskGroup(of: (String, String).self) { group in
             func next() {
                 guard let file = waiting.popLast() else { return }
-                group.addTask { (file.1, try await self.read(file.0, version: file.1)) }
+                group.addTask {
+                    for pause in retryAfter {
+                        do { return (file.1, try await self.read(file.0, version: file.1)) }
+                        catch let error where worthRetrying(error) { try await Task.sleep(nanoseconds: pause) }
+                    }
+                    return (file.1, try await self.read(file.0, version: file.1))
+                }
             }
             for _ in 0..<limit { next() }
             for try await (version, text) in group {
