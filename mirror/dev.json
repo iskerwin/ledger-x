@@ -20,13 +20,13 @@
       "versions": [
         {
           "version": "1.0.8",
-          "buildVersion": "44",
-          "date": "2026-10-30T01:15:29Z",
-          "localizedDescription": "# Ledger X 1.0.8 开发版\n\n版本 1.0.8 · 构建 44 · main 606ebf8 。\n\n## 新增\n\n- 管理账户里长按大类「更换图标」、记一笔里长按分类的样式页，新增一排颜色（12 种系统色和「默认」）：选了以后这个大类的图标在管理账户、账户页、报表和记一笔的付款账户那一格里都用这个颜色，深色模式自动调亮；记一笔的宫格仍是黑白、选中时用主题色。只存在这台手机。",
-          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.8-44",
-          "size": 10696227,
+          "buildVersion": "45",
+          "date": "2026-10-30T03:05:40Z",
+          "localizedDescription": "# Ledger X 1.0.8 开发版\n\n版本 1.0.8 · 构建 45 · main 37cc58a 。\n\n## 本次更新\n\n- 本次没有新增用户可见的功能或修复记录，为重新构建或发布流程维护。",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.8-45",
+          "size": 10696487,
           "minOSVersion": "17.0",
-          "sha256": "79b4ac06c481d6e3a50678b2eb9063a65dab54b15b35ee76ff249ae410974f01"
+          "sha256": "f8c4dbbfc566f01b776deb8f040a694fdb56d0f5b75cbdef002b9ba8efefa3a3"
         },
         {
           "version": "1.0.8",
@@ -128,10 +128,10 @@
         }
       },
       "version": "1.0.8",
-      "versionDate": "2026-10-30T01:15:29Z",
-      "versionDescription": "# Ledger X 1.0.8 开发版\n\n版本 1.0.8 · 构建 44 · main 606ebf8 。\n\n## 新增\n\n- 管理账户里长按大类「更换图标」、记一笔里长按分类的样式页，新增一排颜色（12 种系统色和「默认」）：选了以后这个大类的图标在管理账户、账户页、报表和记一笔的付款账户那一格里都用这个颜色，深色模式自动调亮；记一笔的宫格仍是黑白、选中时用主题色。只存在这台手机。",
-      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.8-44",
-      "size": 10696227
+      "versionDate": "2026-10-30T03:05:40Z",
+      "versionDescription": "# Ledger X 1.0.8 开发版\n\n版本 1.0.8 · 构建 45 · main 37cc58a 。\n\n## 本次更新\n\n- 本次没有新增用户可见的功能或修复记录，为重新构建或发布流程维护。",
+      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.8-45",
+      "size": 10696487
     }
   ],
   "news": []
