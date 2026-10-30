@@ -75,7 +75,7 @@ struct CardFace: View {
     }
 
     private func dueText(_ c: CardCycle) -> some View {
-        Label(look.text + " · " + LS("还款日 %@", (c.dueEstimated ? "≈ " : "") + shortDay(c.due)), systemImage: look.icon)
+        Label(look.text + " · " + LS("还款日 %@", (c.dueEstimated ? "≈ " : "") + LS("%@月%@日", String(Int(c.due.dropFirst(5).prefix(2)) ?? 0), String(Int(c.due.suffix(2)) ?? 0))), systemImage: look.icon)
             .labelStyle(ControlLabelStyle()).fontWeight(.semibold)
     }
 }
