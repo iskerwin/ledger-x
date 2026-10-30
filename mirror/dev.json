@@ -20,13 +20,13 @@
       "versions": [
         {
           "version": "1.0.9",
-          "buildVersion": "48.1",
-          "date": "2026-10-30T12:19:37Z",
-          "localizedDescription": "# Ledger X 1.0.9 预览\n\n版本 1.0.9 · 构建 48.1 · fix/incomplete-split-switch 2bcd8f1 · PR #60 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.9-48.1",
-          "size": 10718971,
+          "buildVersion": "48.2",
+          "date": "2026-10-30T12:47:28Z",
+          "localizedDescription": "# Ledger X 1.0.9 预览\n\n版本 1.0.9 · 构建 48.2 · fix/incomplete-split-switch 7134537 · PR #60 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.9-48.2",
+          "size": 10719511,
           "minOSVersion": "17.0",
-          "sha256": "bf8e364e30348627161f382f42297916fbd9573ebb91c413fe6233e4b3deae05"
+          "sha256": "fdb068465fece9783a89433a16c1078fd20e607563936afe9ecbc2510598e510"
         },
         {
           "version": "1.0.9",
@@ -138,10 +138,10 @@
         }
       },
       "version": "1.0.9",
-      "versionDate": "2026-10-30T12:19:37Z",
-      "versionDescription": "# Ledger X 1.0.9 预览\n\n版本 1.0.9 · 构建 48.1 · fix/incomplete-split-switch 2bcd8f1 · PR #60 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.9-48.1",
-      "size": 10718971
+      "versionDate": "2026-10-30T12:47:28Z",
+      "versionDescription": "# Ledger X 1.0.9 预览\n\n版本 1.0.9 · 构建 48.2 · fix/incomplete-split-switch 7134537 · PR #60 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.9-48.2",
+      "size": 10719511
     }
   ],
   "news": []
