@@ -20,13 +20,13 @@
       "versions": [
         {
           "version": "1.0.12",
-          "buildVersion": "54.1",
-          "date": "2026-10-31T15:26:15Z",
-          "localizedDescription": "# Ledger X 1.0.12 预览\n\n版本 1.0.12 · 构建 54.1 · feat/account-face e038439 · PR #74 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "buildVersion": "54.2",
+          "date": "2026-10-31T16:04:06Z",
+          "localizedDescription": "# Ledger X 1.0.12 预览\n\n版本 1.0.12 · 构建 54.2 · feat/account-face 7782eb0 · PR #74 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
           "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-          "size": 10801700,
+          "size": 10804650,
           "minOSVersion": "17.0",
-          "sha256": "7e12bff56a3730e915a00908d89bd1b88e3d4ae551a880c37f05cf0dbb43cf39"
+          "sha256": "53fa867911418f39f7f938f36aeb29227d3f4eec57e0f1695c1f899893069404"
         },
         {
           "version": "1.0.11",
@@ -158,10 +158,10 @@
         }
       },
       "version": "1.0.12",
-      "versionDate": "2026-10-31T15:26:15Z",
-      "versionDescription": "# Ledger X 1.0.12 预览\n\n版本 1.0.12 · 构建 54.1 · feat/account-face e038439 · PR #74 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+      "versionDate": "2026-10-31T16:04:06Z",
+      "versionDescription": "# Ledger X 1.0.12 预览\n\n版本 1.0.12 · 构建 54.2 · feat/account-face 7782eb0 · PR #74 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
       "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-      "size": 10801700
+      "size": 10804650
     }
   ],
   "news": []
