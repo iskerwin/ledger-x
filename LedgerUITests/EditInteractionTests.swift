@@ -332,6 +332,28 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["登记退款"].waitForNonExistence(timeout: 5), "the tap above the button was lost")
     }
 
+    /// 设置 → 外观 → 明细样式: 图标 puts the category's icon before the payee, 紧凑 one line a transaction
+    func testJournalStylesMoveThePayeeAndShortenTheRow() {
+        func measure(_ style: String) -> CGRect {
+            let app = XCUIApplication()
+            let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures").path
+            app.launchEnvironment = ["LEDGER_DEMO": fixture, "LEDGER_TAB": "journal", "LEDGER_LANG": "zh"]
+            app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-ledger.journal.style", style]
+            app.launch()
+            let payee = app.staticTexts["Coffee"].firstMatch
+            XCTAssertTrue(payee.waitForExistence(timeout: 20))
+            let cell = app.cells.containing(.staticText, identifier: "Coffee").firstMatch
+            XCTAssertTrue(cell.exists)
+            let r = CGRect(x: payee.frame.minX - cell.frame.minX, y: 0, width: 0, height: cell.frame.height)
+            app.terminate()
+            return r
+        }
+        continueAfterFailure = false
+        let plain = measure("plain"), icon = measure("icon"), compact = measure("compact")
+        XCTAssertGreaterThan(icon.minX, plain.minX + 30, "the icon goes before the payee")
+        XCTAssertLessThan(compact.height, plain.height - 8, "one line instead of two")
+    }
+
     /// After 保存再记 the cursor is put in the amount once: put the keyboard away at once, without typing, and it stays
     /// away (for 6s after the save the cursor was taken back each time, and the keyboard came up again)
     func testAfterSaveAgainTheKeyboardCanBePutAway() {
