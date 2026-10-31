@@ -1069,28 +1069,35 @@ final class EditInteractionTests: XCTestCase {
             edit.tap()
             XCTAssertTrue(app.descendants(matching: .any)["face.preview"].waitForExistence(timeout: 5))
         }
+        /// the sheet is a long form: what is further down only exists once it has scrolled into view
+        func reveal(_ id: String) -> XCUIElement {
+            let e = app.descendants(matching: .any)[id].firstMatch
+            for _ in 0..<5 where !(e.exists && e.isHittable) { app.swipeUp() }
+            for _ in 0..<5 where !(e.exists && e.isHittable) { app.swipeDown(velocity: .slow) }
+            XCTAssertTrue(e.waitForExistence(timeout: 5), id)
+            return e
+        }
         openEditor()
-        let reset = app.buttons["face.reset"].firstMatch
-        XCTAssertTrue(reset.waitForExistence(timeout: 5))
+        var reset = reveal("face.reset")
         XCTAssertFalse(reset.isEnabled, "nothing changed yet")
-        app.buttons["face.pattern"].firstMatch.tap()
+        reveal("face.pattern").tap()
         let none = app.buttons["无"].firstMatch
         XCTAssertTrue(none.waitForExistence(timeout: 5))
         none.tap()
-        XCTAssertTrue(reset.isEnabled)
+        XCTAssertTrue(reveal("face.reset").isEnabled)
         app.buttons["face.save"].firstMatch.tap()
         XCTAssertTrue(app.descendants(matching: .any)["face.preview"].waitForNonExistence(timeout: 5))
 
         // kept: opened again, the change is there to be reset
         openEditor()
-        XCTAssertTrue(reset.waitForExistence(timeout: 5))
+        reset = reveal("face.reset")
         XCTAssertTrue(reset.isEnabled, "the texture picked is kept")
         reset.tap()
         XCTAssertFalse(reset.isEnabled)
         app.buttons["face.save"].firstMatch.tap()
         XCTAssertTrue(app.descendants(matching: .any)["face.preview"].waitForNonExistence(timeout: 5))
         openEditor()
-        XCTAssertFalse(app.buttons["face.reset"].firstMatch.isEnabled, "恢复默认 saved: the card is automatic again")
+        XCTAssertFalse(reveal("face.reset").isEnabled, "恢复默认 saved: the card is automatic again")
         app.terminate()
 
         // an icon put in (as if picked from the photo library)
@@ -1098,9 +1105,7 @@ final class EditInteractionTests: XCTestCase {
         app.launch()
         XCTAssertTrue(face.waitForExistence(timeout: 20))
         openEditor()
-        let iconStyle = app.descendants(matching: .any)["face.iconStyle"].firstMatch
-        if !iconStyle.waitForExistence(timeout: 3) { app.swipeUp() }
-        XCTAssertTrue(iconStyle.waitForExistence(timeout: 5), "the icon took the watermark")
+        XCTAssertTrue(reveal("face.iconStyle").exists, "the icon took the watermark")
         XCTAssertTrue(app.buttons["单色"].firstMatch.isSelected, "单色 by default")
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "编辑卡面-图标单色"
