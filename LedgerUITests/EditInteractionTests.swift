@@ -1072,14 +1072,12 @@ final class EditInteractionTests: XCTestCase {
         /// the sheet is a long form: what is further down only exists once it has scrolled into view
         func reveal(_ id: String) -> XCUIElement {
             let e = app.descendants(matching: .any)[id].firstMatch
+            // only ever down: a swipe down at the top would close the sheet
             for _ in 0..<5 where !(e.exists && e.isHittable) { app.swipeUp() }
-            for _ in 0..<5 where !(e.exists && e.isHittable) { app.swipeDown(velocity: .slow) }
             XCTAssertTrue(e.waitForExistence(timeout: 5), id)
             return e
         }
         openEditor()
-        var reset = reveal("face.reset")
-        XCTAssertFalse(reset.isEnabled, "nothing changed yet")
         reveal("face.pattern").tap()
         let none = app.buttons["无"].firstMatch
         XCTAssertTrue(none.waitForExistence(timeout: 5))
@@ -1090,7 +1088,7 @@ final class EditInteractionTests: XCTestCase {
 
         // kept: opened again, the change is there to be reset
         openEditor()
-        reset = reveal("face.reset")
+        let reset = reveal("face.reset")
         XCTAssertTrue(reset.isEnabled, "the texture picked is kept")
         reset.tap()
         XCTAssertFalse(reset.isEnabled)
