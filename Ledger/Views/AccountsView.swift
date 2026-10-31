@@ -799,7 +799,19 @@ struct RegisterView: View {
         let check = canCheck(L)
         let k = store.groupIcon(account)
         let isIEIcon = account.hasPrefix("Income") ? ("arrow.down.circle.fill", Color.gain) : ("arrow.up.circle.fill", Color.gray)
-        return Section {
+        if AccountCardStyle.current == .card, hasFace(account) {
+            let main = bs.first?.0 ?? L.base
+            return AnyView(Section {
+                VStack(alignment: .leading, spacing: AppSpacing.control) {
+                    AccountFace(account: account, title: store.displayName(account) ?? acctDisplay(account),
+                                tail: store.repoConfig?.scanCards?.first { $0.value == account && $0.key.count == 4 && $0.key.allSatisfy(\.isNumber) }?.key,
+                                balances: bs.isEmpty ? [(main, 0)] : bs, glance: accountGlance(L, account, currency: main))
+                    ActionRow(size: .small, items: accountActions(check: check))
+                }
+                .cardRow()
+            })
+        }
+        return AnyView(Section {
             Card {
                 VStack(alignment: .leading, spacing: AppSpacing.icon) {
                     HStack(spacing: AppSpacing.icon) {
@@ -820,7 +832,13 @@ struct RegisterView: View {
                 }
             }
             .cardRow()
-        }
+        })
+    }
+
+    /// 卡面 is for the accounts that hold money day to day: banks, wallets and stored-value cards, cash
+    private func hasFace(_ account: String) -> Bool {
+        let parts = account.split(separator: ":")
+        return parts.count > 1 && parts[0] == "Assets" && ["Bank", "EWallet", "Cash"].contains(String(parts[1]))
     }
 
     @ViewBuilder

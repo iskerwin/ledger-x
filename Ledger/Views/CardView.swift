@@ -20,7 +20,7 @@ struct CardStatusLook {
     }
 }
 
-/// 卡面: the top of a card's bill drawn as the card itself, in its account's colour: its name and last four digits,
+/// 卡面: the top of a card's bill on the same card as other accounts (AccountFace): its name and last four digits,
 /// what is still to pay, a bar of what was paid against the bill, and when it is due. The figures and buttons
 /// under it are the same as on the plain card.
 struct CardFace: View {
@@ -31,43 +31,34 @@ struct CardFace: View {
 
     var body: some View {
         let c = cycle
-        let tint = store.groupIcon(c.account).color
-        let ink = tint.onFill
         let paid = c.statementAmount > 0.005 ? min(1, max(0, c.paid / c.statementAmount)) : 1
-        VStack(alignment: .leading, spacing: AppSpacing.control) {
-            HStack(spacing: AppSpacing.icon) {
-                Text(acctDisplay(c.account)).font(.subheadline.weight(.semibold)).lineLimit(1)
-                Spacer(minLength: AppSpacing.icon)
-                if let tail { Text("•••• " + tail).font(.subheadline.monospacedDigit()) }
+        FaceCard(account: c.account, title: acctDisplay(c.account), tint: store.groupIcon(c.account).color) { ink in
+            VStack(alignment: .leading, spacing: AppSpacing.control) {
+                HStack(spacing: AppSpacing.icon) {
+                    Text(acctDisplay(c.account)).font(.subheadline.weight(.semibold)).lineLimit(1)
+                    Spacer(minLength: AppSpacing.icon)
+                    if let tail { Text("•••• " + tail).font(.subheadline.monospacedDigit()) }
+                }
+                VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                    Text(LS("剩余应还")).font(.caption)
+                    Text(money(c.remaining, c.currency)).heroAmount().monospacedDigit()
+                        .rollingNumber(c.remaining)
+                        .lineLimit(1).minimumScaleFactor(0.6).sensitive()
+                }
+                GeometryReader { geo in
+                    Capsule().fill(ink.opacity(0.25))
+                        .overlay(alignment: .leading) { Capsule().fill(ink).frame(width: geo.size.width * paid) }
+                }
+                .frame(height: 5)
+                .accessibilityHidden(true)
+                Rectangle().fill(ink.opacity(0.18)).frame(height: 1).accessibilityHidden(true)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: AppSpacing.icon) { paidText(c); Spacer(minLength: AppSpacing.icon); dueText(c) }
+                    VStack(alignment: .leading, spacing: AppSpacing.detail) { paidText(c); dueText(c) }
+                }
+                .font(.caption)
             }
-            VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                Text(LS("剩余应还")).font(.caption)
-                Text(money(c.remaining, c.currency)).heroAmount().monospacedDigit()
-                    .rollingNumber(c.remaining)
-                    .lineLimit(1).minimumScaleFactor(0.6).sensitive()
-            }
-            GeometryReader { geo in
-                Capsule().fill(ink.opacity(0.25))
-                    .overlay(alignment: .leading) { Capsule().fill(ink).frame(width: geo.size.width * paid) }
-            }
-            .frame(height: 5)
-            .accessibilityHidden(true)
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: AppSpacing.icon) { paidText(c); Spacer(minLength: AppSpacing.icon); dueText(c) }
-                VStack(alignment: .leading, spacing: AppSpacing.detail) { paidText(c); dueText(c) }
-            }
-            .font(.caption)
         }
-        .foregroundStyle(ink)
-        .padding(AppSpacing.content)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous).fill(tint)
-                .overlay(RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
-                    .fill(LinearGradient(colors: [.white.opacity(0.16), .clear], startPoint: .topLeading, endPoint: .bottomTrailing)))
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("card.face")
     }
 
     private func paidText(_ c: CardCycle) -> some View {
@@ -94,7 +85,7 @@ struct CardHeroSection: View {
         let look = CardStatusLook(c, today: today)
         Section {
             VStack(alignment: .leading, spacing: AppSpacing.control) {
-                if CardBillStyle.current == .card {
+                if AccountCardStyle.current == .card {
                     CardFace(cycle: c, tail: tail, look: look)
                 } else {
                     HStack(spacing: AppSpacing.icon) {

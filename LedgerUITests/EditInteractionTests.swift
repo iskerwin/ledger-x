@@ -994,7 +994,7 @@ final class EditInteractionTests: XCTestCase {
         }
     }
 
-    /// 设置 → 外观 → 信用卡账单 → 卡面: the bill's top is drawn as the card; the figures and buttons under it stay
+    /// 设置 → 外观 → 账户卡片 → 卡面: the bill's top is drawn as the card; the figures and buttons under it stay
     func testCardFaceKeepsTheFiguresAndButtons() {
         let app = launchCardAccount(accessibility: false, style: "card")
         let face = app.descendants(matching: .any)["card.face"]
@@ -1009,6 +1009,28 @@ final class EditInteractionTests: XCTestCase {
         shot.name = "信用卡账单-卡面"
         shot.lifetime = .keepAlways
         add(shot)
+    }
+
+    /// 设置 → 外观 → 账户卡片 → 卡面 on a bank account: its top is a card with the balance, when it was last checked
+    /// and this month's money in and out; the buttons stay under it
+    func testAssetAccountFaceKeepsTheBalanceAndButtons() {
+        for size in [nil, "UICTContentSizeCategoryAccessibilityXXXL"] {
+            let app = launchTab("accounts", textSize: size, env: ["LEDGER_OPEN_ACCOUNT": "Assets:Bank:CGB"], args: ["-ledger.card.style", "card"])
+            let face = app.descendants(matching: .any)["card.face"]
+            XCTAssertTrue(face.waitForExistence(timeout: 20))
+            XCTAssertTrue(face.label.contains("当前余额"), face.label)
+            XCTAssertTrue(face.label.contains("核对"), face.label)
+            XCTAssertTrue(face.label.contains("本月流入"), face.label)
+            XCTAssertLessThanOrEqual(face.frame.maxX, app.frame.width + 1, "the card fits the screen")
+            let check = app.buttons["余额核对"].firstMatch
+            XCTAssertTrue(check.waitForExistence(timeout: 5))
+            XCTAssertGreaterThan(check.frame.minY, face.frame.maxY, "the buttons come after the card")
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = "账户卡面-银行-\(size ?? "默认字号")"
+            shot.lifetime = .keepAlways
+            add(shot)
+            app.terminate()
+        }
     }
 
     func testCardBillActionsStayOnOneRowAtNormalTextSize() {
@@ -1403,7 +1425,7 @@ final class EditInteractionTests: XCTestCase {
         shot.name = "calendar-without-inner-card"; shot.lifetime = .keepAlways; add(shot)
     }
 
-    private func launchTab(_ tab: String, accessibility: Bool = false, textSize: String? = nil, env: [String: String] = [:]) -> XCUIApplication {
+    private func launchTab(_ tab: String, accessibility: Bool = false, textSize: String? = nil, env: [String: String] = [:], args: [String] = []) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
         let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures").path
@@ -1411,6 +1433,7 @@ final class EditInteractionTests: XCTestCase {
         app.launchArguments = ["-AppleLanguages", "(zh-Hans)"]
             + (accessibility ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : [])
             + (textSize.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
+            + args
         app.launch()
         return app
     }
