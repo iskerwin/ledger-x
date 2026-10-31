@@ -32,7 +32,7 @@ struct CardFace: View {
     var body: some View {
         let c = cycle
         let paid = c.statementAmount > 0.005 ? min(1, max(0, c.paid / c.statementAmount)) : 1
-        FaceCard(account: c.account, title: acctDisplay(c.account), tint: store.groupIcon(c.account).color) { ink in
+        FaceCard(account: c.account, title: store.displayName(c.account) ?? acctDisplay(c.account), tint: store.groupIcon(c.account).color) { ink in
             VStack(alignment: .leading, spacing: AppSpacing.control) {
                 HStack(spacing: AppSpacing.icon) {
                     Text(acctDisplay(c.account)).font(.subheadline.weight(.semibold)).lineLimit(1)
