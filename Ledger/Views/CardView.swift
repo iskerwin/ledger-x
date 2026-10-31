@@ -232,7 +232,7 @@ struct ListRowBottomShadowClamp: UIViewRepresentable {
     }
 }
 
-private final class ListRowBottomShadowClampView: UIView {
+final class ListRowBottomShadowClampView: UIView {
     override func didMoveToSuperview() {
         super.didMoveToSuperview()
         clamp()
