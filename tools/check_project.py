@@ -191,6 +191,28 @@ for name, keys in system_read.items():
     for key in english_of:
         require(key in keys, f'Ledger/{name}: {key!r} is no longer used')
 
+# a sheet hung on RootView sits outside the theme colour and language set inside it: each sets both again,
+# or its buttons fall back to the fixed AccentColor whatever the theme
+def closing(text, start, opening, close):
+    depth = 0
+    for i in range(start, len(text)):
+        depth += text[i] == opening
+        depth -= text[i] == close
+        if depth == 0:
+            return i
+    return len(text)
+
+app = (ROOT/'Ledger/LedgerApp.swift').read_text()
+root = app[app.index('struct RootView'):]
+root = root[:re.search(r'\n(?:private )?struct ', root[1:]).start() + 1]
+for m in re.finditer(r'\.(?:sheet|fullScreenCover)\(', root):
+    after = closing(root, m.end() - 1, '(', ')') + 1
+    body_start = root.index('{', after)
+    body = root[body_start:closing(root, body_start, '{', '}') + 1]
+    line = app[:app.index(root)].count('\n') + root[:m.start()].count('\n') + 1
+    require('.tint(Color.jadeInk)' in body and '.environment(\\.locale, AppLanguage.current.locale)' in body,
+            f'Ledger/LedgerApp.swift:{line}: a sheet on RootView must set .tint(Color.jadeInk) and the app language itself')
+
 if errors:
     print('\n'.join(errors), file=sys.stderr)
     sys.exit(1)

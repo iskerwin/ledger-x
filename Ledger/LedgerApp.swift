@@ -113,8 +113,16 @@ struct RootView: View {
                 .presentationDragIndicator(.visible)
         }
         // while the card is open it shows these itself (a sheet can't open under another)
-        .sheet(item: store.adding ? .constant(nil) : Bindable(store).subSuggestion) { c in SubEditSheet(draft: SubDraft(c)) }
-        .sheet(item: Bindable(store).repaying) { RepaySheet(cycle: $0) }
+        .sheet(item: store.adding ? .constant(nil) : Bindable(store).subSuggestion) { c in
+            SubEditSheet(draft: SubDraft(c))
+                .tint(Color.jadeInk)
+                .environment(\.locale, AppLanguage.current.locale)
+        }
+        .sheet(item: Bindable(store).repaying) {
+            RepaySheet(cycle: $0)
+                .tint(Color.jadeInk)
+                .environment(\.locale, AppLanguage.current.locale)
+        }
         .sheet(isPresented: Bindable(store).showSync) {
             NavigationStack {
                 SyncView()
@@ -130,6 +138,8 @@ struct RootView: View {
                 SettingsView()
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button { store.showSettings = false } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold) } }
             }
+            .tint(Color.jadeInk)
+            .environment(\.locale, AppLanguage.current.locale)
             // the window's toast is under this sheet: what is done in 设置 says so here
             .overlay(alignment: .bottom) { ToastView().animation(AppMotion.emphasized, value: store.toast) }
         }
