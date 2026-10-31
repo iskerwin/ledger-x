@@ -1149,12 +1149,15 @@ final class EditInteractionTests: XCTestCase {
             let wheel = app.pickers[name].pickerWheels.firstMatch
             XCTAssertTrue(wheel.waitForExistence(timeout: 5))
             // asking for hittability before the wheel has a frame ({inf, inf}) fails the test outright instead of
-            // answering no, so wait for a real frame first
+            // answering no, so wait for a real frame first; and it is already hittable while the sheet still slides
+            // up, so also wait until two reads in a row find it in the same place
+            var previous = CGRect.null
             let placed = expectation(for: NSPredicate { _, _ in
                 let frame = wheel.frame
-                return !frame.isInfinite && !frame.isNull && frame.width > 0 && frame.height > 0
+                defer { previous = frame }
+                return !frame.isInfinite && !frame.isNull && frame.width > 0 && frame.height > 0 && frame == previous
             }, evaluatedWith: nil)
-            wait(for: [placed], timeout: 5)
+            wait(for: [placed], timeout: 8)
             let ready = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: wheel)
             wait(for: [ready], timeout: 5)
             wheel.adjust(toPickerWheelValue: value)
