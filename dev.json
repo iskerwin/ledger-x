@@ -20,6 +20,16 @@
       "versions": [
         {
           "version": "1.0.11",
+          "buildVersion": "53",
+          "date": "2026-10-31T07:18:42Z",
+          "localizedDescription": "# Ledger X 1.0.11 开发版\n\n版本 1.0.11 · 构建 53 · main 462f1e4 。\n\n## 修复\n\n- 设置右上角的「完成」对勾、从提醒打开的信用卡「还款」和订阅建议「加入」后的编辑页，按钮和开关以前一直是青色，不跟所选主题色；现在都跟主题色一致，日期格式也跟界面语言一致。",
+          "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
+          "size": 10774733,
+          "minOSVersion": "17.0",
+          "sha256": "ef7d73a4d928b6ea44810cfa577ecdce48475b848a0b427e2f7d340d921007be"
+        },
+        {
+          "version": "1.0.11",
           "buildVersion": "52.1",
           "date": "2026-10-31T06:44:55Z",
           "localizedDescription": "# Ledger X 1.0.11 预览\n\n版本 1.0.11 · 构建 52.1 · fix/sheet-theme 4344f7e · PR #72 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
@@ -27,16 +37,6 @@
           "size": 10774746,
           "minOSVersion": "17.0",
           "sha256": "592c7f79101de68b4ff6f8ca68e17bf3331f4b449ddf2c9afbe45ac461d7b96f"
-        },
-        {
-          "version": "1.0.10",
-          "buildVersion": "52",
-          "date": "2026-10-31T05:44:34Z",
-          "localizedDescription": "# Ledger X 1.0.10 开发版\n\n版本 1.0.10 · 构建 52 · main 1b46168 。\n\n## 新增\n\n- 设置 → 外观新增「明细样式」：简洁（默认，和以前一样）、图标（每笔前面显示分类图标，颜色和报表里该分类一致）、紧凑（每笔一行，一屏看更多）。明细、账户页、搜索结果和日历当天都跟着变。\n- 设置 → 外观新增「信用卡账单」样式：选「卡面」后，信用卡页顶部的本期账单画成一张账户颜色的卡，显示尾号、剩余应还、已还进度条和还款日；下面的数字和按钮不变。默认仍是原来的样子。\n- 设置 → 外观新增「金额数字」：选「圆体」后，明细、汇总和每日小计里的金额也用圆润的数字（页面顶部的大号金额原本就是圆体），中文不变。默认仍是系统数字。",
-          "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
-          "size": 10773414,
-          "minOSVersion": "17.0",
-          "sha256": "286d90387e84e4d4661ef20f66bc50c953c63dc3c09c5b4dd5759284f3ec139f"
         },
         {
           "version": "1.0.9",
@@ -148,10 +148,10 @@
         }
       },
       "version": "1.0.11",
-      "versionDate": "2026-10-31T06:44:55Z",
-      "versionDescription": "# Ledger X 1.0.11 预览\n\n版本 1.0.11 · 构建 52.1 · fix/sheet-theme 4344f7e · PR #72 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-      "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-      "size": 10774746
+      "versionDate": "2026-10-31T07:18:42Z",
+      "versionDescription": "# Ledger X 1.0.11 开发版\n\n版本 1.0.11 · 构建 53 · main 462f1e4 。\n\n## 修复\n\n- 设置右上角的「完成」对勾、从提醒打开的信用卡「还款」和订阅建议「加入」后的编辑页，按钮和开关以前一直是青色，不跟所选主题色；现在都跟主题色一致，日期格式也跟界面语言一致。",
+      "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
+      "size": 10774733
     }
   ],
   "news": []
