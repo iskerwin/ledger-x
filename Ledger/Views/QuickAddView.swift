@@ -1157,7 +1157,7 @@ struct QuickAddView: View {
         if isExpression(store.draft.amount) { equals() }
         attemptedSave = true
         if store.draft.edited == nil, let L = store.L, let D = store.D, let issue = draftIssue(store.draft, L, D) {
-            Haptics.error(); store.show(issue.message)
+            store.showFailure(issue.message)
             blockedSaves += 1
             locate(issue)
             return

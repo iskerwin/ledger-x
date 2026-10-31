@@ -1083,7 +1083,7 @@ struct CheckSheet: View {
 
     private func save(_ L: Ledger, _ old0: BalanceResult?, _ a: Double?) {
         guard !busy else { return }
-        guard let a = a else { store.show(LS("请填写实际余额")); return }
+        guard let a = a else { store.showFailure(LS("请填写实际余额")); return }
         if let orig = preset.original {
             saveEdit(L, orig, old0, a)
             return
@@ -1127,7 +1127,7 @@ struct CheckSheet: View {
                 await store.commit([op], word: LS("已更新余额断言"), closing: { dismiss() })
                 return
             }
-            guard var rm = await store.balanceRemoveOp(orig) else { store.show(LS("未在 %@ 中找到原断言", orig.file)); return }
+            guard var rm = await store.balanceRemoveOp(orig) else { store.showFailure(LS("未在 %@ 中找到原断言", orig.file)); return }
             rm.label = op.label
             op.label = nil
             op.silent = true

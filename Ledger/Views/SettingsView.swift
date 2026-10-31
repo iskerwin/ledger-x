@@ -223,7 +223,7 @@ extension SettingsView {
             Toggle(isOn: Binding(get: { lockOn }, set: { on in
                 Task {
                     if await AppLock.verify(on ? LS("启用%@锁定", b.name) : LS("关闭%@锁定", b.name)) { lockOn = on }
-                    else { store.show(b.available ? LS("验证未通过") : LS("本机未设置密码，无法启用")) }
+                    else { store.showFailure(b.available ? LS("验证未通过") : LS("本机未设置密码，无法启用")) }
                 }
             })) {
                 SettingsRow(symbol: b.symbol, title: LS("%@锁定", b.name))
@@ -355,16 +355,16 @@ struct AdvancedPage: View {
         reloading = true
         defer { reloading = false }
         await store.rebuild()
-        store.show(store.loadError ?? LS("已重新加载"))
+        if let e = store.loadError { store.showFailure(e) } else { store.showSuccess(LS("已重新加载")) }
     }
 
     private func reset() async {
         resetting = true
         defer { resetting = false }
         guard await store.resetCache() else { return }
-        if let e = store.loadError { store.show(e) }
+        if let e = store.loadError { store.showFailure(e) }
         else if store.syncState == .error || store.syncState == .offline { store.showFailure(LS("重新下载失败：%@", store.syncError)) }
-        else { store.show(LS("已清除缓存并重新下载")) }
+        else { store.showSuccess(LS("已清除缓存并重新下载")) }
     }
 }
 

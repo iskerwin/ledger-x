@@ -926,7 +926,7 @@ struct TxDetailView: View {
                     switch await store.beginEdit(t) {
                     case .opened: break
                     case .needsSource: visualUnavailable = true
-                    case .missing: store.show(LS("没有在文件里对上原来的文字，所以没有改动。"))
+                    case .missing: store.showFailure(LS("没有在文件里对上原来的文字，所以没有改动。"))
                     }
                 }
             },
@@ -969,7 +969,7 @@ struct TxDetailView: View {
             Button {
                 UIPasteboard.general.string = t.src
                 Haptics.success()
-                store.show(LS("已复制到剪贴板"))
+                store.showSuccess(LS("已复制到剪贴板"))
             } label: { Label(LS("复制源文本"), systemImage: "doc.on.clipboard") }
             if let u = store.githubURL(t.file, line: t.line) { Link(destination: u) { Label(LS("在网页中打开"), systemImage: "arrow.up.right.square") } }
             if !t.synthetic {
@@ -1184,7 +1184,7 @@ struct DayOrderSheet: View {
         let inFile = items.sorted { $0.startLine < $1.startLine }
         let order = items.compactMap { t in inFile.firstIndex { $0.id == t.id } }
         guard let r = reorderBlocks(text, ranges: inFile.map { ($0.startLine, $0.endLine) }, order: order) else {
-            store.show(LS("文件已经变了，请刷新后再试")); return
+            store.showFailure(LS("文件已经变了，请刷新后再试")); return
         }
         var op = Op(kind: .replace, path: file)
         op.old = r.old

@@ -201,7 +201,7 @@ struct RemindersSection: View {
         Section {
             Toggle(isOn: Binding(get: { on }, set: { v in
                 Task {
-                    if v, !(await Reminders.requestPermission()) { store.show(LS("请在系统设置中允许 Ledger X 发送通知")); return }
+                    if v, !(await Reminders.requestPermission()) { store.showFailure(LS("请在系统设置中允许 Ledger X 发送通知")); return }
                     on = v
                     await Reminders.reschedule(store)
                 }

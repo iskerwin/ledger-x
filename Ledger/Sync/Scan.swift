@@ -52,8 +52,8 @@ extension Store {
     /// isn't one payment (or no amount was found)
     func scan(_ data: Data) async {
         let boxes: [OCRBox]
-        do { boxes = try await recognizeText(data) } catch { show(error.localizedDescription); return }
-        if boxes.isEmpty { show(LS("截图里没有识别出文字")); return }
+        do { boxes = try await recognizeText(data) } catch { showFailure(error.localizedDescription); return }
+        if boxes.isEmpty { showFailure(LS("截图里没有识别出文字")); return }
         await ensureLoaded()
         guard let L = L, let D = D else { scanResult = ScanResult(boxes: boxes, problem: LS("账本尚未加载")); return }
         let plan = scanPlan(parseScan(ocrText(boxes)), L, D, cards: repoConfig?.scanCards ?? [:], defaultFunding: defaultFunding)

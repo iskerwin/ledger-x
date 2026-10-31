@@ -165,7 +165,7 @@ extension Store {
         await saveConfig(c)
         await refresh()
         tab = .overview
-        show(LS("已新建「%@」，可以开始记账了", title))
+        showSuccess(LS("已新建「%@」，可以开始记账了", title))
     }
 }
 

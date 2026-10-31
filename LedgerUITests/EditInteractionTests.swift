@@ -915,7 +915,6 @@ final class EditInteractionTests: XCTestCase {
         for _ in 0..<8 {
             // a list still moving from the last drag takes a tap as "stop" rather than a press on the button
             if element.exists { waitUntilStill(element) }
-            if element.exists && element.isHittable { return }
             let window = app.windows.firstMatch.frame
             let navigation = app.navigationBars.firstMatch
             let search = app.searchFields.firstMatch
@@ -923,6 +922,8 @@ final class EditInteractionTests: XCTestCase {
             let top = max(navigation.exists ? navigation.frame.maxY : window.minY,
                           search.exists && search.isHittable ? search.frame.maxY : window.minY)
             let bottom = tabs.exists ? tabs.frame.minY : window.maxY
+            // hittable is not enough: under the large navigation bar it still is, and the tap lands on the bar
+            if element.exists && element.isHittable && element.frame.minY >= top && element.frame.maxY <= bottom { return }
             let height = bottom - top
             let middle = top + height / 2
             let delta = element.exists ? element.frame.midY - middle : -height

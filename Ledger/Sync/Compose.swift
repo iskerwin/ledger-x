@@ -113,7 +113,7 @@ extension Store {
     @discardableResult
     func deleteEntry(_ t: Entry) async -> Bool {
         guard let located = await locatedSource(t) else {
-            show(LS("没有在文件里对上原来的文字，所以没有改动。"))
+            showFailure(LS("没有在文件里对上原来的文字，所以没有改动。"))
             return false
         }
         let summary = [t.payee, t.narration].filter { !$0.isEmpty }.joined(separator: " ")
@@ -284,7 +284,7 @@ extension Store {
                 case .failure(.notRepresentable) where [.multi, .raw].contains(draft.kind):
                     next = settingAside(draft, to: k, previous: previous)
                     show(LS("「%@」显示不了「%@」的内容，已原样保留，切回「%@」可以继续", k.label, draft.kind.label, draft.kind.label))
-                case .failure(let error): show(error.message); Haptics.warning(); return false
+                case .failure(let error): showFailure(error.message); return false
                 case .success(let converted): next = converted
                 }
             }
@@ -401,7 +401,7 @@ extension Store {
         guard let L = L, let D = D else { return false }
         let d = draft
         if d.edited == nil, let issue = draftIssue(d, L, D) {
-            Haptics.error(); show(issue.message); return false
+            showFailure(issue.message); return false
         }
         let text = draftText(d, L, D, explicit: explicitAmounts).trimmed
         let v = validateText(text, L, single: draftIsSingle(d, L))
@@ -410,7 +410,7 @@ extension Store {
             Haptics.error()
             // an empty text means the form isn't complete yet: say what is missing
             let why = text.isEmpty ? draftMissing(d, L, D) : v.msg
-            show(why.flatMap { $0.isEmpty ? nil : $0 } ?? (text.isEmpty ? LS("还没填完整") : LS("内容校验未通过")))
+            showFailure(why.flatMap { $0.isEmpty ? nil : $0 } ?? (text.isEmpty ? LS("还没填完整") : LS("内容校验未通过")))
             return false
         }
         /// Runs only after the queue has the change. Clears this draft before the sheet goes away,

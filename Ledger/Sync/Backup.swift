@@ -71,7 +71,7 @@ enum Backup {
     @discardableResult
     static func run(_ store: Store, quiet: Bool = false) async -> Bool {
         guard let bm = UserDefaults.standard.data(forKey: folderKey) else {
-            if !quiet { store.show(LS("请先选择备份文件夹")) }
+            if !quiet { store.showFailure(LS("请先选择备份文件夹")) }
             return false
         }
         do {
@@ -97,7 +97,7 @@ enum Backup {
             if let e = writeError { throw e }
             prune(folder, prefix: baseName(store) + "-")
             Prefs.set(store.pk("backup.last"), Date())
-            if !quiet { store.show(LS("已备份到 %@", folderName ?? "")) }
+            if !quiet { store.showSuccess(LS("已备份到 %@", folderName ?? "")) }
             return true
         } catch {
             if !quiet { store.showFailure(LS("备份失败：%@", error.localizedDescription)) }

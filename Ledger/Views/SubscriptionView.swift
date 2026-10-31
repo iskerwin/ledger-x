@@ -70,7 +70,7 @@ extension Store {
     /// ^sub- link), dated today like any new entry; the date and amount can be changed before saving
     func recordSubscription(_ s: Subscription) {
         guard !s.account.isEmpty, !s.paymentAccount.isEmpty else {
-            show(LS("请先为「%@」设置支出科目和付款账户", s.name))
+            showFailure(LS("请先为「%@」设置支出科目和付款账户", s.name))
             return
         }
         var d = newDraftFor(.expense)

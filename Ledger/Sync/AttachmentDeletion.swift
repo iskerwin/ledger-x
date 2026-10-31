@@ -117,7 +117,7 @@ extension Store {
                 try await backend.delete(item.path, version: item.version, message: LS("删除附件：%@", item.path))
             } catch let e as GitHubError where e.status == 409 {
                 dropDeletedAttachment(item.id, ledger: ledgerID)
-                show(LS("%@ 在存储里已被改动，没有删除", (item.path as NSString).lastPathComponent))
+                showFailure(LS("%@ 在存储里已被改动，没有删除", (item.path as NSString).lastPathComponent))
                 continue
             } catch {
                 return      // offline or refused: tried again after the next sync
@@ -162,7 +162,7 @@ extension Store {
             ops[i].text = ops[i].text?.replacingOccurrences(of: "\"\(item.path)\"", with: "\"\(relativePath(item.path, from: ops[i].path))\"")
         }
         guard await commit(ops, word: LS("已恢复")) else {
-            show(LS("文件已恢复，但记录没有写回，可重新添加附件"))
+            showFailure(LS("文件已恢复，但记录没有写回，可重新添加附件"))
             return false
         }
         return true
@@ -183,7 +183,7 @@ extension Store {
             }
             do { try await backend.writeData(item.path, data: data, message: LS("恢复附件：%@", item.path)) } catch {
                 Haptics.error()
-                show(failure.replacingOccurrences(of: "%@", with: error.localizedDescription))
+                showFailure(failure.replacingOccurrences(of: "%@", with: error.localizedDescription))
                 return false
             }
         }

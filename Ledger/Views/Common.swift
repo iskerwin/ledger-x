@@ -181,7 +181,8 @@ struct ToastView: View {
                     Image(systemName: "exclamationmark.circle.fill").font(.body.weight(.semibold))
                         .foregroundStyle(Color.loss).accessibilityHidden(true).accessibilityIdentifier("toast.failure")
                 }
-                Text(t.text).font(.subheadline.weight(.medium)).lineLimit(2)
+                // the whole message: a reason cut off after two lines (a file name, what to do next) said nothing
+                Text(t.text).font(.subheadline.weight(.medium)).lineLimit(5).fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("toast.message")
                 if let a = t.action {
                     Button {
@@ -192,7 +193,8 @@ struct ToastView: View {
                 }
             }
             .padding(.horizontal, AppSpacing.content).padding(.vertical, AppSpacing.control)
-            .background(.regularMaterial, in: Capsule())
+            // a capsule on one line; longer, the same ends on a taller rectangle
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
             .padding(.bottom, top ? 0 : 64)
             .transition(.move(edge: top ? .top : .bottom).combined(with: .opacity))
