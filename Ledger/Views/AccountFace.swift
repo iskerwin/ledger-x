@@ -5,47 +5,132 @@ import LedgerKit
 /// its own colours; any other account its group's colour, its own texture (picked from the account's name, the same
 /// on every launch) and the first character of its name, large and faint, in the corner.
 struct FaceCard<Content: View>: View {
+    @Environment(Store.self) var store
     let account: String
     let title: String
     let tint: Color
+    /// the style to draw instead of the saved one (编辑卡面's preview); the preview is not itself editable
+    var preview: FaceStyle? = nil
     @ViewBuilder let content: (Color) -> Content
+    @State private var editing = false
 
     var body: some View {
-        let look = FaceLook.of(institution(account: account, name: title)?.id)
-        let fill = look?.color ?? tint
-        let ink = look?.ink ?? fill.onFill
-        let mark = look?.mark ?? FacePattern.mark(title)
-        content(ink)
-            .foregroundStyle(ink)
+        let d = FaceDesign(account: account, title: title, tint: tint, style: preview ?? store.faceStyles[account] ?? FaceStyle(), ledger: store.cfg.id)
+        content(d.ink)
+            .foregroundStyle(d.ink)
             .padding(AppSpacing.content)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
                 ZStack(alignment: .bottomTrailing) {
-                    LinearGradient(colors: [fill, look?.accent ?? fill], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    LinearGradient(colors: [d.fill, d.accent], startPoint: .topLeading, endPoint: .bottomTrailing)
                     LinearGradient(colors: [.white.opacity(0.16), .clear], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    (look?.pattern ?? FacePattern.of(account)).canvas(ink: ink)
+                    d.pattern.canvas(ink: d.ink)
                     // drawn, not laid out: a Text this large would reach past the card's bottom edge and with it
                     // the card's frame, over the buttons under it
-                    Canvas { context, size in
-                        // a short mark is drawn large and partly off the edge, a longer one smaller and further in
-                        let n = mark.count
-                        let font: CGFloat = n <= 1 ? 128 : n == 2 ? 96 : 64
-                        let drop: CGFloat = n <= 1 ? 34 : n == 2 ? 22 : 12
-                        let text = context.resolve(Text(mark).font(.system(size: font, weight: .heavy)).foregroundStyle(ink.opacity(0.12)))
-                        context.draw(text, at: CGPoint(x: size.width + 4, y: size.height + drop), anchor: .bottomTrailing)
-                    }
-                    .accessibilityHidden(true)
+                    Canvas { context, size in d.drawMark(in: &context, size: size) }
+                        .accessibilityHidden(true)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
             }
+            .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+            .contextMenu {
+                if preview == nil {
+                    Button { editing = true } label: { Label(LS("编辑卡面"), systemImage: "paintbrush") }
+                }
+            }
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("card.face")
+            .accessibilityAction(named: Text(LS("编辑卡面"))) { if preview == nil { editing = true } }
+            .sheet(isPresented: $editing) {
+                FaceStyleSheet(account: account, title: title, tint: tint)
+                    .tint(Color.jadeInk).environment(\.locale, AppLanguage.current.locale)
+            }
+    }
+}
+
+/// What a card is drawn with once its saved style, its institution and its group's colour are settled.
+struct FaceDesign {
+    let fill: Color
+    let accent: Color
+    let ink: Color
+    let pattern: FacePattern
+    /// the watermark: a text, an icon, or nothing
+    let mark: String?
+    let icon: UIImage?
+    let iconMono: Bool
+    let size: Double
+    let opacity: Double
+
+    init(account: String, title: String, tint: Color, style: FaceStyle, ledger: String) {
+        let look: FaceLook?
+        if let picked = style.institution {
+            look = picked == FaceStyle.noInstitution ? nil : FaceLook.of(picked)
+        } else {
+            look = FaceLook.of(institution(account: account, name: title)?.id)
+        }
+        let picked = IconTint.color(style.color)
+        fill = picked ?? look?.color ?? tint
+        // a colour of one's own is flat: the brand's second colour would not go with it
+        accent = picked == nil ? (look?.accent ?? fill) : fill
+        ink = picked == nil ? (look?.ink ?? fill.onFill) : fill.onFill
+        pattern = style.pattern.flatMap(FacePatternKind.init(rawValue:)).map(FacePattern.init(kind:)) ?? look?.pattern ?? FacePattern.of(account)
+        iconMono = style.iconMono ?? true
+        size = min(1.5, max(0.5, style.size ?? 1))
+        opacity = min(0.4, max(0.04, style.opacity ?? FaceStyle.defaultOpacity))
+        switch style.mark {
+        case .off?:
+            mark = nil; icon = nil
+        case .icon?:
+            mark = nil
+            icon = style.icon.flatMap { FaceIcons.image($0, ledger: ledger, mono: style.iconMono ?? true, strength: style.strength ?? FaceStyle.defaultStrength) }
+        case .text(let t)?:
+            mark = t.isEmpty ? nil : t; icon = nil
+        case nil:
+            mark = look?.mark ?? FacePattern.mark(title); icon = nil
+        }
+    }
+
+    /// a short mark large and partly off the edge, a longer one smaller and further in; an icon in the corner
+    func drawMark(in context: inout GraphicsContext, size box: CGSize) {
+        if let icon {
+            let side = 112 * size
+            let w = icon.size.width >= icon.size.height ? side : side * icon.size.width / icon.size.height
+            let h = icon.size.height >= icon.size.width ? side : side * icon.size.height / icon.size.width
+            let rect = CGRect(x: box.width - w - 12, y: box.height - h + side * 0.12, width: w, height: h)
+            if iconMono {
+                // the silhouette filled with the card's ink, as faint as a text mark
+                var shape = context.resolve(Image(uiImage: icon).renderingMode(.template))
+                shape.shading = .color(ink.opacity(opacity))
+                context.draw(shape, in: rect)
+            } else {
+                // its own colours read stronger than the ink: the same setting a little more opaque
+                var c = context
+                c.opacity = min(1, opacity * 2.5)
+                c.draw(Image(uiImage: icon), in: rect)
+            }
+            return
+        }
+        guard let mark, !mark.isEmpty else { return }
+        let n = mark.count
+        let font: CGFloat = (n <= 1 ? 128 : n == 2 ? 96 : 64) * size
+        let drop: CGFloat = (n <= 1 ? 34 : n == 2 ? 22 : 12) * size
+        let text = context.resolve(Text(mark).font(.system(size: font, weight: .heavy)).foregroundStyle(ink.opacity(opacity)))
+        context.draw(text, at: CGPoint(x: box.width + 4, y: box.height + drop), anchor: .bottomTrailing)
     }
 }
 
 /// A known bank's or wallet's card: close to its own colours (no logo), its texture and a short mark for the
 /// watermark. Picked by `institution(account:name:)`; any other account keeps its group's colour.
 struct FaceLook {
+    /// the institutions in the order 编辑卡面 lists them, with their names
+    static var named: [(id: String, name: String)] { [
+        ("cmb", LS("招商银行")), ("icbc", LS("工商银行")), ("ccb", LS("建设银行")), ("boc", LS("中国银行")), ("abc", LS("农业银行")),
+        ("bocom", LS("交通银行")), ("spdb", LS("浦发银行")), ("citic", LS("中信银行")), ("hsbc", LS("汇丰")), ("citi", LS("花旗")),
+        ("hangseng", LS("恒生银行")), ("bochk", LS("中银香港")), ("sc", LS("渣打银行")), ("za", LS("众安银行")), ("mox", "Mox"),
+        ("alipay", LS("支付宝")), ("wechat", LS("微信支付")), ("wise", "Wise"), ("octopus", LS("八达通")), ("alipayhk", "AlipayHK"),
+        ("payme", "PayMe"), ("paypal", "PayPal"), ("revolut", "Revolut"),
+    ] }
+
     let color: Color
     let accent: Color
     /// set where the colour's own choice of black or white reads poorly against the brand (Wise's green)
@@ -96,6 +181,18 @@ enum FacePattern: Equatable {
     case rings(gap: CGFloat)
     case dots(gap: CGFloat)
     case grid(gap: CGFloat)
+    case none
+
+    /// one picked by hand (编辑卡面 → 纹理)
+    init(kind: FacePatternKind) {
+        switch kind {
+        case .stripes: self = .stripes(angle: 45, gap: 16)
+        case .rings: self = .rings(gap: 22)
+        case .dots: self = .dots(gap: 16)
+        case .grid: self = .grid(gap: 20)
+        case .none: self = .none
+        }
+    }
 
     /// a stable choice from the account's name (Swift's own hash changes on every launch)
     static func of(_ account: String) -> FacePattern {
@@ -149,6 +246,8 @@ enum FacePattern: Equatable {
                 while x < size.width { context.fill(Path(CGRect(x: x, y: 0, width: 1, height: size.height)), with: .color(line)); x += gap }
                 var y: CGFloat = 0
                 while y < size.height { context.fill(Path(CGRect(x: 0, y: y, width: size.width, height: 1)), with: .color(line)); y += gap }
+            case .none:
+                break
             }
         }
         .accessibilityHidden(true)

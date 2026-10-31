@@ -181,6 +181,8 @@ enum Prefs {
     var addToken = 0
     /// icons, names, order and hidden groups of the 记一笔 category grid (kept on this phone, not in the ledger)
     var catStyle: CatStyle { didSet { Prefs.set("catStyle", catStyle) } }
+    /// 编辑卡面: each account's card as changed by hand, this ledger's, on this phone (not written to the ledger)
+    var faceStyles: [String: FaceStyle] = [:] { didSet { if !demo { Prefs.set(pk("faceStyles"), faceStyles) } } }
     /// 币种与换算: which currencies the reports, overview and accounts show, and how they are valued (this phone)
     var cview: CurrencyView { didSet { Prefs.set("currencyView", cview) } }
     var showSettings = false
@@ -328,6 +330,7 @@ enum Prefs {
         journalPattern = Prefs.get(Store.key("journalPattern", id), "")
         receivableAccount = Prefs.get(Store.key("receivable", id), "")
         subsFile = Prefs.get(Store.key("subsFile", id), "")
+        faceStyles = Prefs.get(Store.key("faceStyles", id), [String: FaceStyle]())
         myQueries = Prefs.get("queries", [SavedQuery]())
         catStyle = Prefs.get("catStyle", CatStyle()).normalized()
         cview = Prefs.get("currencyView", CurrencyView())
@@ -402,6 +405,7 @@ enum Prefs {
         journalPattern = Prefs.get(pk("journalPattern"), "")
         receivableAccount = Prefs.get(pk("receivable"), "")
         subsFile = Prefs.get(pk("subsFile"), "")
+        faceStyles = Prefs.get(pk("faceStyles"), [String: FaceStyle]())
         tplCache = nil
         resetToast()
         rebuildGen += 1     // drop a rebuild of the previous ledger still in flight
@@ -443,7 +447,7 @@ enum Prefs {
         // everything kept per ledger on this phone (see pk(_:))
         for k in ["pending", "tree", "lastSync", "ci", "history", "draftWorkspace", "pageContexts", "mainFile", "journalPattern", "receivable", "subsFile",
                   "sub.ignored", "link.ignored", "remind.cards", "alerts.dismissed", "alerts.seen", "backup.last", "config.migrated",
-                  "import.methods"] {
+                  "import.methods", "faceStyles"] {
             UserDefaults.standard.removeObject(forKey: "ledger." + Store.key(k, id))
         }
         UserDefaults.standard.removeObject(forKey: PriceFetch.lastKey + "@" + id)
@@ -452,6 +456,7 @@ enum Prefs {
         try? RecoveryFiles.remove(kind: "import", ledger: id)
         try? RecoveryFiles.removeData(kind: "import-source", ledger: id)
         for kind in UnreadableKind.allCases { RecoveryFiles.removeUnreadable(kind: kind, ledger: id) }
+        FaceIcons.removeAll(ledger: id)
     }
 
     private func saveTree() { Prefs.set(pk("tree"), tree) }
@@ -564,6 +569,7 @@ enum Prefs {
         receivableAccount = ""
         subsFile = ""
         draftWorkspace = DraftWorkspace()
+        faceStyles = [:]
         let env = ProcessInfo.processInfo.environment
         let base = URL(fileURLWithPath: dir)
         demoDir = base
