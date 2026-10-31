@@ -217,7 +217,7 @@ struct CardHeroSection: View {
 
 /// The bill card is a list row with a clear row background. The row's own drop shadow
 /// still falls on the next row (还款提醒). This view only clears that cell shadow.
-private struct ListRowBottomShadowClamp: UIViewRepresentable {
+struct ListRowBottomShadowClamp: UIViewRepresentable {
     func makeUIView(context: Context) -> ListRowBottomShadowClampView {
         let view = ListRowBottomShadowClampView()
         view.isUserInteractionEnabled = false

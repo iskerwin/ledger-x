@@ -801,26 +801,13 @@ struct RegisterView: View {
         let isIEIcon = account.hasPrefix("Income") ? ("arrow.down.circle.fill", Color.gain) : ("arrow.up.circle.fill", Color.gray)
         if AccountCardStyle.current == .card, hasFace(account) {
             let main = bs.first?.0 ?? L.base
-            // the same panel as a credit card's: the face on top, the buttons under it
-            return AnyView(Section {
-                VStack(alignment: .leading, spacing: AppSpacing.control) {
-                    AccountFace(account: account, title: store.displayName(account) ?? acctDisplay(account),
-                                tail: store.repoConfig?.scanCards?.first { $0.value == account && $0.key.count == 4 && $0.key.allSatisfy(\.isNumber) }?.key,
-                                path: account + closedNote,
-                                balances: bs.isEmpty ? [(main, 0)] : bs, glance: accountGlance(L, account, currency: main))
-                    ActionRow(size: .small, items: accountActions(check: check))
-                        .compositingGroup()
-                        .clipped()
-                }
-                .padding(AppSpacing.content)
-                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
-                .clipShape(RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
-                .cardRow()
-                .listRowSeparator(.hidden, edges: .bottom)
-                .background {
-                    ListRowBottomShadowClamp().allowsHitTesting(false)
-                }
-            })
+            let cards: [String: String] = store.repoConfig?.scanCards ?? [:]
+            let tail: String? = cards.first { $0.value == account && $0.key.count == 4 && $0.key.allSatisfy(\.isNumber) }?.key
+            let title: String = store.displayName(account) ?? acctDisplay(account)
+            let shown: [(String, Double)] = bs.isEmpty ? [(main, 0)] : bs
+            let face = AccountFace(account: account, title: title, tail: tail, path: account + closedNote,
+                                   balances: shown, glance: accountGlance(L, account, currency: main))
+            return AnyView(Section { facePanel(face, check: check) })
         }
         return AnyView(Section {
             Card {
@@ -844,6 +831,24 @@ struct RegisterView: View {
             }
             .cardRow()
         })
+    }
+
+    /// the same panel as a credit card's: the face on top, the buttons under it
+    private func facePanel(_ face: AccountFace, check: Bool) -> some View {
+        VStack(alignment: .leading, spacing: AppSpacing.control) {
+            face
+            ActionRow(size: .small, items: accountActions(check: check))
+                .compositingGroup()
+                .clipped()
+        }
+        .padding(AppSpacing.content)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+        .cardRow()
+        .listRowSeparator(.hidden, edges: .bottom)
+        .background {
+            ListRowBottomShadowClamp().allowsHitTesting(false)
+        }
     }
 
     /// 卡面 is for the accounts that hold money day to day: banks, wallets and stored-value cards, cash
