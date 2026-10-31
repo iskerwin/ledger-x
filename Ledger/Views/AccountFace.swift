@@ -61,7 +61,7 @@ struct FaceDesign {
     let size: Double
     let opacity: Double
 
-    init(account: String, title: String, tint: Color, style: FaceStyle, ledger: String) {
+    @MainActor init(account: String, title: String, tint: Color, style: FaceStyle, ledger: String) {
         let look: FaceLook?
         if let picked = style.institution {
             look = picked == FaceStyle.noInstitution ? nil : FaceLook.of(picked)
