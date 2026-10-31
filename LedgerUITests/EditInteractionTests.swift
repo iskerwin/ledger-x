@@ -1015,7 +1015,12 @@ final class EditInteractionTests: XCTestCase {
     /// and this month's money in and out; the buttons stay under it
     func testAssetAccountFaceKeepsTheBalanceAndButtons() {
         for size in [nil, "UICTContentSizeCategoryAccessibilityXXXL"] {
-            let app = launchTab("accounts", textSize: size, env: ["LEDGER_OPEN_ACCOUNT": "Assets:Bank:CGB"], args: ["-ledger.card.style", "card"])
+            let app = XCUIApplication()
+            let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures").path
+            app.launchEnvironment = ["LEDGER_DEMO": fixture, "LEDGER_TAB": "accounts", "LEDGER_OPEN_ACCOUNT": "Assets:Bank:CGB", "LEDGER_LANG": "zh"]
+            app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-ledger.card.style", "card"]
+                + (size.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
+            app.launch()
             let face = app.descendants(matching: .any)["card.face"]
             XCTAssertTrue(face.waitForExistence(timeout: 20))
             XCTAssertTrue(face.label.contains("当前余额"), face.label)
@@ -1425,7 +1430,7 @@ final class EditInteractionTests: XCTestCase {
         shot.name = "calendar-without-inner-card"; shot.lifetime = .keepAlways; add(shot)
     }
 
-    private func launchTab(_ tab: String, accessibility: Bool = false, textSize: String? = nil, env: [String: String] = [:], args: [String] = []) -> XCUIApplication {
+    private func launchTab(_ tab: String, accessibility: Bool = false, textSize: String? = nil, env: [String: String] = [:]) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
         let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures").path
@@ -1433,7 +1438,6 @@ final class EditInteractionTests: XCTestCase {
         app.launchArguments = ["-AppleLanguages", "(zh-Hans)"]
             + (accessibility ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : [])
             + (textSize.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
-            + args
         app.launch()
         return app
     }

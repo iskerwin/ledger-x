@@ -21,12 +21,13 @@ struct FaceCard<Content: View>: View {
                     tint
                     LinearGradient(colors: [.white.opacity(0.16), .clear], startPoint: .topLeading, endPoint: .bottomTrailing)
                     FacePattern.of(account).canvas(ink: ink)
-                    Text(FacePattern.mark(title))
-                        .font(.system(size: 128, weight: .heavy))
-                        .foregroundStyle(ink.opacity(0.12))
-                        .lineLimit(1).fixedSize()
-                        .offset(x: 6, y: 34)
-                        .accessibilityHidden(true)
+                    // drawn, not laid out: a Text this large would reach past the card's bottom edge and with it
+                    // the card's frame, over the buttons under it
+                    Canvas { context, size in
+                        let mark = context.resolve(Text(FacePattern.mark(title)).font(.system(size: 128, weight: .heavy)).foregroundStyle(ink.opacity(0.12)))
+                        context.draw(mark, at: CGPoint(x: size.width + 6, y: size.height + 34), anchor: .bottomTrailing)
+                    }
+                    .accessibilityHidden(true)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
             }
