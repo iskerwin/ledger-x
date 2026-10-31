@@ -2,26 +2,26 @@ import XCTest
 import UIKit
 
 final class ColorInteractionTests: XCTestCase {
-    func testHeldSyncKeepsItsExplanationInDarkYellowTheme() {
+    func testHeldSyncKeepsItsExplanationInDarkPlumTheme() {
         continueAfterFailure = false
         let app = XCUIApplication()
         let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures").path
         app.launchEnvironment = ["LEDGER_DEMO": fixture, "LEDGER_TAB": "overview", "LEDGER_LANG": "zh",
-                                 "LEDGER_THEME": "yellow", "LEDGER_SYNC": "1", "LEDGER_HELD": "1"]
+                                 "LEDGER_THEME": "plum", "LEDGER_SYNC": "1", "LEDGER_HELD": "1"]
         app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-ledger.appearance", "dark"]
         app.launch()
         XCTAssertTrue(app.staticTexts["已保存到本机"].waitForExistence(timeout: 20))
         XCTAssertTrue(app.staticTexts["暂存本机"].firstMatch.exists)
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "没通过提交前检查")).firstMatch.exists)
-        capture(app, name: "同步-暂存说明-黄色主题深色")
+        capture(app, name: "同步-暂存说明-梅主题深色")
     }
 
     func testBlueThemeChartKeepsSelectionAndModeLayout() {
         checkOverview(theme: "blue", appearance: "light")
     }
 
-    func testYellowThemeChartAtLargestTextInDarkMode() {
-        checkOverview(theme: "yellow", appearance: "dark", large: true)
+    func testPlumThemeChartAtLargestTextInDarkMode() {
+        checkOverview(theme: "plum", appearance: "dark", large: true)
     }
 
     /// Also run on the dedicated iPhone SE: chart selection and the figures stay in place on a narrow screen.
@@ -118,7 +118,7 @@ final class ColorInteractionTests: XCTestCase {
             let r = Int(pixels[i]), g = Int(pixels[i + 1]), b = Int(pixels[i + 2])
             guard max(r, g, b) - min(r, g, b) > 40 else { continue }
             coloured += 1
-            if theme == "blue" ? b > g && g > r : theme == "yellow" ? r > b && g > b : r > g && b > g {
+            if theme == "blue" ? b > g && g > r : r > g && b > g {
                 matched += 1
             }
         }

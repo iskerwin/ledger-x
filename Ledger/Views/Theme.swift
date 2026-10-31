@@ -3,13 +3,20 @@ import UIKit
 import Observation
 import LedgerKit
 
-/// accent colours; the Apple system palette plus the original jade
+/// accent colours: none of them the green of money in, the red of money out or the orange of a warning, each
+/// readable as text (yellow wasn't); the original jade and the new plum set by hand for light and dark
 enum AppTheme: String, CaseIterable, Identifiable {
-    case jade, blue, indigo, purple, pink, red, orange, yellow, green, mint, teal, graphite
+    case jade, blue, indigo, purple, plum, graphite
     var id: String { rawValue }
 
     static let key = "ledger.theme"
     static var current: AppTheme { AppTheme(rawValue: AppSettings.shared.theme) ?? .jade }
+
+    /// a theme kept from before 1.0.10 to the nearest one still offered: red and pink to plum, the rest to jade
+    static func migrated(_ raw: String) -> String {
+        if AppTheme(rawValue: raw) != nil { return raw }
+        return ["red", "pink"].contains(raw) ? AppTheme.plum.rawValue : AppTheme.jade.rawValue
+    }
 
     var name: String {
         switch self {
@@ -17,13 +24,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
         case .blue: return LS("蓝色")
         case .indigo: return LS("靛蓝")
         case .purple: return LS("紫色")
-        case .pink: return LS("粉色")
-        case .red: return LS("红色")
-        case .orange: return LS("橙色")
-        case .yellow: return LS("黄色")
-        case .green: return LS("绿色")
-        case .mint: return LS("薄荷")
-        case .teal: return LS("青色")
+        case .plum: return LS("梅")
         case .graphite: return LS("石墨")
         }
     }
@@ -37,13 +38,10 @@ enum AppTheme: String, CaseIterable, Identifiable {
         case .blue: return .systemBlue
         case .indigo: return .systemIndigo
         case .purple: return .systemPurple
-        case .pink: return .systemPink
-        case .red: return .systemRed
-        case .orange: return .systemOrange
-        case .yellow: return .systemYellow
-        case .green: return .systemGreen
-        case .mint: return .systemMint
-        case .teal: return .systemTeal
+        case .plum:
+            return UIColor { $0.userInterfaceStyle == .dark
+                ? UIColor(red: 0xE0 / 255, green: 0x7A / 255, blue: 0xB5 / 255, alpha: 1)
+                : UIColor(red: 0xA6 / 255, green: 0x37 / 255, blue: 0x7A / 255, alpha: 1) }
         case .graphite: return .systemGray
         }
     }
@@ -59,7 +57,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
 @Observable
 final class AppSettings {
     static let shared = AppSettings()
-    var theme: String = UserDefaults.standard.string(forKey: AppTheme.key) ?? AppTheme.jade.rawValue {
+    var theme: String = AppTheme.migrated(UserDefaults.standard.string(forKey: AppTheme.key) ?? AppTheme.jade.rawValue) {
         didSet { UserDefaults.standard.set(theme, forKey: AppTheme.key) }
     }
     var language: String = UserDefaults.standard.string(forKey: AppLanguage.key) ?? AppLanguage.system.rawValue {

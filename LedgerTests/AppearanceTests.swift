@@ -73,6 +73,16 @@ final class AppearanceTests: XCTestCase {
         }
     }
 
+    func testRemovedThemesMoveToTheNearestOneStillOffered() {
+        // red, green and orange were the colours of money out, money in and warnings; yellow was unreadable as text
+        XCTAssertEqual(AppTheme.migrated("red"), AppTheme.plum.rawValue)
+        XCTAssertEqual(AppTheme.migrated("pink"), AppTheme.plum.rawValue)
+        for raw in ["orange", "yellow", "green", "mint", "teal", "nonsense"] {
+            XCTAssertEqual(AppTheme.migrated(raw), AppTheme.jade.rawValue, raw)
+        }
+        for theme in AppTheme.allCases { XCTAssertEqual(AppTheme.migrated(theme.rawValue), theme.rawValue) }
+    }
+
     func testFilledThemeTextIsReadableInBothAppearances() {
         for theme in AppTheme.allCases {
             for scheme in [ColorScheme.light, .dark] {

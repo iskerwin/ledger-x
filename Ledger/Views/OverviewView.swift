@@ -451,7 +451,7 @@ struct OverviewView: View {
         let prev = previous(f.key)
         let before = groupTotals(F, prev.months)
         let hasBefore = !before.isEmpty
-        let slices = DonutSlice.make(groups.map { (id: $0.name, label: acctZH($0.name) ?? leaf($0.name), value: $0.total) })
+        let slices = DonutSlice.make(groups.map { (id: $0.name, label: acctZH($0.name) ?? leaf($0.name), value: $0.total) }, L: store.L)
         var colors: [String: Color] = [:]
         for x in slices { colors[x.id] = x.color }
         let total = groups.reduce(0.0) { $0 + max(0, $1.total) }
@@ -490,7 +490,7 @@ struct OverviewView: View {
     private func donutCategorySection(_ s: Summary, _ F: Flows) -> some View {
         let f = focus(s)
         let groups = categoryGroups(F, f.key)
-        let slices = DonutSlice.make(groups.map { (id: $0.name, label: acctZH($0.name) ?? leaf($0.name), value: $0.total) })
+        let slices = DonutSlice.make(groups.map { (id: $0.name, label: acctZH($0.name) ?? leaf($0.name), value: $0.total) }, L: store.L)
         let total = groups.reduce(0.0) { $0 + max(0, $1.total) }
         return Section {
             if slices.isEmpty {
