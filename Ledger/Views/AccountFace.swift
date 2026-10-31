@@ -108,6 +108,8 @@ struct AccountFace: View {
     let account: String
     let title: String
     let tail: String?
+    /// the account's full name under its title, as on the plain header (with 已于…关闭 when closed)
+    let path: String
     /// the balance in each currency, the account's main one first
     let balances: [(String, Double)]
     let glance: AccountGlance
@@ -152,7 +154,10 @@ struct AccountFace: View {
     }
 
     private var name: some View {
-        Text(title + (tail.map { " •••• " + $0 } ?? "")).font(.subheadline.weight(.semibold)).lineLimit(1)
+        VStack(alignment: .leading, spacing: AppSpacing.detail) {
+            Text(title + (tail.map { " •••• " + $0 } ?? "")).font(.subheadline.weight(.semibold)).lineLimit(1)
+            Text(path).font(.caption).opacity(0.8).lineLimit(1)
+        }
     }
 
     private func checkPill(_ ink: Color) -> some View {

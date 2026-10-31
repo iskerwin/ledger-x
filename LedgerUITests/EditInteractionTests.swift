@@ -1026,10 +1026,24 @@ final class EditInteractionTests: XCTestCase {
             XCTAssertTrue(face.label.contains("当前余额"), face.label)
             XCTAssertTrue(face.label.contains("核对"), face.label)
             XCTAssertTrue(face.label.contains("本月流入"), face.label)
+            XCTAssertTrue(face.label.contains("Assets:Bank:CGB"), "the account's full name, as on the plain header: \(face.label)")
             XCTAssertLessThanOrEqual(face.frame.maxX, app.frame.width + 1, "the card fits the screen")
+            // inside the same panel as a credit card's: the list's margin and the panel's own padding
+            XCTAssertGreaterThanOrEqual(face.frame.minX, 24, "the card sits inside the panel")
+            let detail = app.buttons["查看明细"].firstMatch
             let check = app.buttons["余额核对"].firstMatch
             XCTAssertTrue(check.waitForExistence(timeout: 5))
+            XCTAssertTrue(detail.exists)
             XCTAssertGreaterThan(check.frame.minY, face.frame.maxY, "the buttons come after the card")
+            XCTAssertGreaterThanOrEqual(detail.frame.minX, face.frame.minX - 1, "the buttons line up with the card")
+            XCTAssertLessThanOrEqual(check.frame.maxX, face.frame.maxX + 1, "the buttons line up with the card")
+            if size == nil {
+                // as on a credit card's panel: one row of two equal capsules
+                XCTAssertLessThan(abs(detail.frame.midY - check.frame.midY), 12)
+                XCTAssertEqual(detail.frame.height, check.frame.height, accuracy: 2)
+                XCTAssertEqual(detail.frame.width, check.frame.width, accuracy: 2)
+                XCTAssertGreaterThanOrEqual(detail.frame.height, 36)
+            }
             let shot = XCTAttachment(screenshot: app.screenshot())
             shot.name = "账户卡面-银行-\(size ?? "默认字号")"
             shot.lifetime = .keepAlways
