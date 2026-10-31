@@ -1317,9 +1317,10 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(allMonth.waitForExistence(timeout: 5))
         allMonth.tap()
         XCTAssertNotEqual(day.value as? String, "已选中")
-        app.buttons["下个月"].tap()
-        app.buttons["下个月"].tap()
         let last = formatter.string(from: Calendar.current.date(byAdding: .day, value: 62, to: Date())!)
+        // 62 days ahead is two months on, or three from the 30th/31st (10-31 → 01-01): step to the month it falls in
+        let months = { (d: String) in Int(d.prefix(4))! * 12 + Int(d.dropFirst(5).prefix(2))! }
+        for _ in 0..<(months(last) - months(today)) { app.buttons["下个月"].tap() }
         for cell in app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'calendar.day.'")).allElementsBoundByIndex {
             if String(cell.identifier.suffix(10)) > last { XCTAssertFalse(cell.isEnabled) }
         }

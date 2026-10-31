@@ -48,7 +48,7 @@ struct NoteSheet: View {
                     TextField(LS("如：致电银行，额度已调整"), text: $text, axis: .vertical)
                         .lineLimit(2...6)
                         .focused($focused)
-                    DatePicker(LS("日期"), selection: Binding(get: { Day.date(date) ?? Date() }, set: { date = Day.string($0) }), displayedComponents: .date)
+                    DateField(value: $date, title: LS("日期"))
                 } footer: {
                     Text(LS("写入账本：%@", noteText(date: date, account: note?.account ?? account, comment: text.isEmpty ? "…" : text)))
                         .font(.caption.monospaced())
@@ -131,7 +131,7 @@ struct LifeEventSheet: View {
                 }
                 Section {
                     TextField(LS("新的值，如 深圳"), text: $value)
-                    DatePicker(LS("从哪天起"), selection: Binding(get: { Day.date(date) ?? Date() }, set: { date = Day.string($0) }), displayedComponents: .date)
+                    DateField(value: $date, title: LS("从哪天起"))
                 } header: {
                     Text(LS("值"))
                 } footer: {

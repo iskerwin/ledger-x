@@ -144,7 +144,7 @@ struct ReimbSheet: View {
                 linkSection(x, D)
             }
             Section(LS("回款信息")) {
-                DatePicker(LS("回款日期"), selection: Binding(get: { Day.date(date) ?? Date() }, set: { date = Day.string($0) }), displayedComponents: .date)
+                DateField(value: $date, title: LS("回款日期"))
                 if target.link == nil {
                     LabeledContent(LS("关联")) {
                         TextField("reimburse-…", text: Binding(get: { link() }, set: { linkText = $0; linkTouched = true }))
