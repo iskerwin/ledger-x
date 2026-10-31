@@ -20,13 +20,13 @@
       "versions": [
         {
           "version": "1.0.12",
-          "buildVersion": "54.2",
-          "date": "2026-10-31T16:04:06Z",
-          "localizedDescription": "# Ledger X 1.0.12 预览\n\n版本 1.0.12 · 构建 54.2 · feat/account-face 7782eb0 · PR #74 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.12-54.2",
-          "size": 10804650,
+          "buildVersion": "54.3",
+          "date": "2026-10-31T16:34:52Z",
+          "localizedDescription": "# Ledger X 1.0.12 预览\n\n版本 1.0.12 · 构建 54.3 · feat/face-presets 14eedfa · PR #77 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.12-54.3",
+          "size": 10813979,
           "minOSVersion": "17.0",
-          "sha256": "53fa867911418f39f7f938f36aeb29227d3f4eec57e0f1695c1f899893069404"
+          "sha256": "7812b36f9216e84d0c414bb8574985be3f3478dc8ed9141dce6e2e6dc7da4a9f"
         },
         {
           "version": "1.0.11",
@@ -158,10 +158,10 @@
         }
       },
       "version": "1.0.12",
-      "versionDate": "2026-10-31T16:04:06Z",
-      "versionDescription": "# Ledger X 1.0.12 预览\n\n版本 1.0.12 · 构建 54.2 · feat/account-face 7782eb0 · PR #74 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.12-54.2",
-      "size": 10804650
+      "versionDate": "2026-10-31T16:34:52Z",
+      "versionDescription": "# Ledger X 1.0.12 预览\n\n版本 1.0.12 · 构建 54.3 · feat/face-presets 14eedfa · PR #77 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.12-54.3",
+      "size": 10813979
     }
   ],
   "news": []
