@@ -994,7 +994,7 @@ final class EditInteractionTests: XCTestCase {
         }
     }
 
-    /// 设置 → 外观 → 信用卡账单 → 卡面: the bill's top is drawn as the card; the figures and buttons under it stay
+    /// 设置 → 外观 → 账户卡片 → 卡面: the bill's top is drawn as the card; the figures and buttons under it stay
     func testCardFaceKeepsTheFiguresAndButtons() {
         let app = launchCardAccount(accessibility: false, style: "card")
         let face = app.descendants(matching: .any)["card.face"]
@@ -1009,6 +1009,47 @@ final class EditInteractionTests: XCTestCase {
         shot.name = "信用卡账单-卡面"
         shot.lifetime = .keepAlways
         add(shot)
+    }
+
+    /// 设置 → 外观 → 账户卡片 → 卡面 on a bank account: its top is a card with the balance, when it was last checked
+    /// and this month's money in and out; the buttons stay under it
+    func testAssetAccountFaceKeepsTheBalanceAndButtons() {
+        for size in [nil, "UICTContentSizeCategoryAccessibilityXXXL"] {
+            let app = XCUIApplication()
+            let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures").path
+            app.launchEnvironment = ["LEDGER_DEMO": fixture, "LEDGER_TAB": "accounts", "LEDGER_OPEN_ACCOUNT": "Assets:Bank:CGB", "LEDGER_LANG": "zh"]
+            app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-ledger.card.style", "card"]
+                + (size.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
+            app.launch()
+            let face = app.descendants(matching: .any)["card.face"]
+            XCTAssertTrue(face.waitForExistence(timeout: 20))
+            XCTAssertTrue(face.label.contains("当前余额"), face.label)
+            XCTAssertTrue(face.label.contains("核对"), face.label)
+            XCTAssertTrue(face.label.contains("本月流入"), face.label)
+            XCTAssertTrue(face.label.contains("Assets:Bank:CGB"), "the account's full name, as on the plain header: \(face.label)")
+            XCTAssertLessThanOrEqual(face.frame.maxX, app.frame.width + 1, "the card fits the screen")
+            // inside the same panel as a credit card's: the list's margin and the panel's own padding
+            XCTAssertGreaterThanOrEqual(face.frame.minX, 24, "the card sits inside the panel")
+            let detail = app.buttons["查看明细"].firstMatch
+            let check = app.buttons["余额核对"].firstMatch
+            XCTAssertTrue(check.waitForExistence(timeout: 5))
+            XCTAssertTrue(detail.exists)
+            XCTAssertGreaterThan(check.frame.minY, face.frame.maxY, "the buttons come after the card")
+            XCTAssertGreaterThanOrEqual(detail.frame.minX, face.frame.minX - 1, "the buttons line up with the card")
+            XCTAssertLessThanOrEqual(check.frame.maxX, face.frame.maxX + 1, "the buttons line up with the card")
+            if size == nil {
+                // as on a credit card's panel: one row of two equal capsules
+                XCTAssertLessThan(abs(detail.frame.midY - check.frame.midY), 12)
+                XCTAssertEqual(detail.frame.height, check.frame.height, accuracy: 2)
+                XCTAssertEqual(detail.frame.width, check.frame.width, accuracy: 2)
+                XCTAssertGreaterThanOrEqual(detail.frame.height, 36)
+            }
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = "账户卡面-银行-\(size ?? "默认字号")"
+            shot.lifetime = .keepAlways
+            add(shot)
+            app.terminate()
+        }
     }
 
     func testCardBillActionsStayOnOneRowAtNormalTextSize() {
