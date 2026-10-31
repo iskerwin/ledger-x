@@ -88,6 +88,10 @@ final class AppSettings {
     var cardBillStyle: String = UserDefaults.standard.string(forKey: CardBillStyle.key) ?? CardBillStyle.plain.rawValue {
         didSet { UserDefaults.standard.set(cardBillStyle, forKey: CardBillStyle.key) }
     }
+    /// 金额数字: rounded digits for the amounts in lists and summaries too (the big ones always were)
+    var roundedAmounts: Bool = UserDefaults.standard.bool(forKey: "ledger.amounts.rounded") {
+        didSet { UserDefaults.standard.set(roundedAmounts, forKey: "ledger.amounts.rounded") }
+    }
     var privacy: Bool = UserDefaults.standard.bool(forKey: "ledger.privacy") {
         didSet {
             UserDefaults.standard.set(privacy, forKey: "ledger.privacy")
@@ -141,6 +145,12 @@ extension Color {
         if abs(d) <= tolerance { return .secondary }
         return (d > 0) != upIsWorse ? .gain : .loss
     }
+}
+
+extension View {
+    /// an amount's digits: rounded when 设置 → 外观 → 金额数字 is 圆体, else the system's; Chinese is unchanged
+    /// either way (only the digits and Latin letters have a rounded design)
+    func amountDigits() -> some View { fontDesign(AppSettings.shared.roundedAmounts ? .rounded : nil) }
 }
 
 /// a round-rect SF Symbol badge, like the Settings app
@@ -331,7 +341,7 @@ struct Figure: View {
     var body: some View {
         VStack(alignment: alignment, spacing: AppSpacing.detail) {
             Text(label).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            Text(value).font(.subheadline.weight(.semibold)).monospacedDigit().foregroundStyle(color)
+            Text(value).font(.subheadline.weight(.semibold)).monospacedDigit().amountDigits().foregroundStyle(color)
                 .lineLimit(1).minimumScaleFactor(0.6).sensitive()
         }
     }
@@ -384,6 +394,6 @@ struct FigureRow: View {
     }
 
     private func value(_ x: Item) -> some View {
-        Text(x.value).font(.subheadline.weight(.semibold)).monospacedDigit().foregroundStyle(x.color).sensitive()
+        Text(x.value).font(.subheadline.weight(.semibold)).monospacedDigit().amountDigits().foregroundStyle(x.color).sensitive()
     }
 }
