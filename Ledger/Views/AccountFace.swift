@@ -1,9 +1,9 @@
 import SwiftUI
 import LedgerKit
 
-/// 账户卡片 → 卡面: the top of an account's page drawn as a card in its group's colour. Cards of one group share
-/// the colour, so each also gets its own texture (picked from the account's name, the same on every launch) and
-/// the first character of its name, large and faint, in the corner.
+/// 账户卡片 → 卡面: the top of an account's page drawn as a card. A known bank or wallet (`FaceLook`) gets close to
+/// its own colours; any other account its group's colour, its own texture (picked from the account's name, the same
+/// on every launch) and the first character of its name, large and faint, in the corner.
 struct FaceCard<Content: View>: View {
     let account: String
     let title: String
@@ -11,21 +11,28 @@ struct FaceCard<Content: View>: View {
     @ViewBuilder let content: (Color) -> Content
 
     var body: some View {
-        let ink = tint.onFill
+        let look = FaceLook.of(institution(account: account, name: title)?.id)
+        let fill = look?.color ?? tint
+        let ink = look?.ink ?? fill.onFill
+        let mark = look?.mark ?? FacePattern.mark(title)
         content(ink)
             .foregroundStyle(ink)
             .padding(AppSpacing.content)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
                 ZStack(alignment: .bottomTrailing) {
-                    tint
+                    LinearGradient(colors: [fill, look?.accent ?? fill], startPoint: .topLeading, endPoint: .bottomTrailing)
                     LinearGradient(colors: [.white.opacity(0.16), .clear], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    FacePattern.of(account).canvas(ink: ink)
+                    (look?.pattern ?? FacePattern.of(account)).canvas(ink: ink)
                     // drawn, not laid out: a Text this large would reach past the card's bottom edge and with it
                     // the card's frame, over the buttons under it
                     Canvas { context, size in
-                        let mark = context.resolve(Text(FacePattern.mark(title)).font(.system(size: 128, weight: .heavy)).foregroundStyle(ink.opacity(0.12)))
-                        context.draw(mark, at: CGPoint(x: size.width + 6, y: size.height + 34), anchor: .bottomTrailing)
+                        // a short mark is drawn large and partly off the edge, a longer one smaller and further in
+                        let n = mark.count
+                        let font: CGFloat = n <= 1 ? 128 : n == 2 ? 96 : 64
+                        let drop: CGFloat = n <= 1 ? 34 : n == 2 ? 22 : 12
+                        let text = context.resolve(Text(mark).font(.system(size: font, weight: .heavy)).foregroundStyle(ink.opacity(0.12)))
+                        context.draw(text, at: CGPoint(x: size.width + 4, y: size.height + drop), anchor: .bottomTrailing)
                     }
                     .accessibilityHidden(true)
                 }
@@ -34,6 +41,53 @@ struct FaceCard<Content: View>: View {
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("card.face")
     }
+}
+
+/// A known bank's or wallet's card: close to its own colours (no logo), its texture and a short mark for the
+/// watermark. Picked by `institution(account:name:)`; any other account keeps its group's colour.
+struct FaceLook {
+    let color: Color
+    let accent: Color
+    /// set where the colour's own choice of black or white reads poorly against the brand (Wise's green)
+    let ink: Color?
+    let pattern: FacePattern
+    let mark: String
+
+    static func of(_ id: String?) -> FaceLook? { id.flatMap { all[$0] } }
+
+    private static func hex(_ v: UInt32) -> Color {
+        Color(red: Double(v >> 16 & 0xFF) / 255, green: Double(v >> 8 & 0xFF) / 255, blue: Double(v & 0xFF) / 255)
+    }
+
+    private static func look(_ color: UInt32, _ accent: UInt32, _ pattern: FacePattern, _ mark: String, ink: UInt32? = nil) -> FaceLook {
+        FaceLook(color: hex(color), accent: hex(accent), ink: ink.map(hex), pattern: pattern, mark: mark)
+    }
+
+    private static let all: [String: FaceLook] = [
+        "cmb": look(0xC8152D, 0x8E0E20, .rings(gap: 22), "招"),
+        "icbc": look(0xC7000B, 0xE0393E, .stripes(angle: 20, gap: 16), "工"),
+        "ccb": look(0x0B5BA8, 0x073C70, .grid(gap: 20), "建"),
+        "boc": look(0xA71E32, 0x6E1020, .rings(gap: 22), "中"),
+        "abc": look(0x0A8A6E, 0x05624E, .stripes(angle: 110, gap: 16), "农"),
+        "bocom": look(0x1C3F94, 0x2E5BC4, .dots(gap: 16), "交"),
+        "spdb": look(0x0B3A73, 0x1A5AA6, .stripes(angle: 65, gap: 16), "浦"),
+        "citic": look(0xD6001C, 0x9A0014, .dots(gap: 16), "信"),
+        "hsbc": look(0xDB0011, 0xA3000D, .stripes(angle: 45, gap: 16), "HSBC"),
+        "citi": look(0x003B70, 0x056DAE, .stripes(angle: 20, gap: 16), "citi"),
+        "hangseng": look(0x00775B, 0x00543F, .rings(gap: 22), "恒"),
+        "bochk": look(0x9E1B32, 0xC23A4F, .dots(gap: 16), "中银"),
+        "sc": look(0x0072AA, 0x1E9E6A, .stripes(angle: 155, gap: 16), "渣"),
+        "za": look(0x12B6A8, 0x0A7F75, .grid(gap: 20), "ZA"),
+        "mox": look(0x1C1C20, 0x3A3A44, .rings(gap: 22), "Mox"),
+        "alipay": look(0x1677FF, 0x0B4FCC, .rings(gap: 22), "支"),
+        "wechat": look(0x07C160, 0x058F47, .dots(gap: 16), "微"),
+        "wise": look(0x9FE870, 0x7FD44A, .stripes(angle: 155, gap: 16), "W", ink: 0x163300),
+        "octopus": look(0xF08C00, 0xD06A00, .grid(gap: 20), "八"),
+        "alipayhk": look(0x1677FF, 0x00A0E9, .stripes(angle: 20, gap: 16), "HK"),
+        "payme": look(0xDB0011, 0xA3000D, .dots(gap: 16), "Me"),
+        "paypal": look(0x003087, 0x009CDE, .rings(gap: 22), "P"),
+        "revolut": look(0x191C1F, 0x3B4048, .grid(gap: 20), "R"),
+    ]
 }
 
 /// a card's texture: thin lines in the card's own ink, faint enough to sit under the figures
