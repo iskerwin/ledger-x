@@ -1150,6 +1150,61 @@ final class EditInteractionTests: XCTestCase {
         add(shot)
     }
 
+    /// 编辑卡面 → 水印 → 图标: a built-in icon picked from the grid is kept when saved
+    func testPickingABuiltInIconIsKept() {
+        let app = XCUIApplication()
+        let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures")
+        app.launchEnvironment = ["LEDGER_DEMO": fixtures.path, "LEDGER_TAB": "accounts", "LEDGER_OPEN_ACCOUNT": "Assets:Bank:CGB", "LEDGER_LANG": "zh"]
+        app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-ledger.card.style", "card"]
+        app.launch()
+        let face = app.descendants(matching: .any)["card.face"].firstMatch
+        XCTAssertTrue(face.waitForExistence(timeout: 20))
+        func openEditor() {
+            // the account page may still be sliding in: a press while it moves is taken by the push, not the menu.
+            // Right after a cold launch on CI each look at the card can take seconds: it gets as long as the launch wait
+            var previous = CGRect.null
+            let still = expectation(for: NSPredicate { _, _ in
+                let frame = face.frame
+                defer { previous = frame }
+                return !frame.isEmpty && frame == previous && face.isHittable
+            }, evaluatedWith: nil)
+            wait(for: [still], timeout: 20)
+            face.press(forDuration: 1.0)
+            let edit = app.buttons["编辑卡面"].firstMatch
+            XCTAssertTrue(edit.waitForExistence(timeout: 5))
+            edit.tap()
+            XCTAssertTrue(app.descendants(matching: .any)["face.preview"].waitForExistence(timeout: 5))
+        }
+        /// the sheet is a long form: what is further down only exists once it has scrolled into view
+        func reveal(_ id: String) -> XCUIElement {
+            let e = app.descendants(matching: .any)[id].firstMatch
+            // only ever down: a swipe down at the top would close the sheet
+            for _ in 0..<5 where !(e.exists && e.isHittable) { app.swipeUp() }
+            XCTAssertTrue(e.waitForExistence(timeout: 5), id)
+            return e
+        }
+        openEditor()
+        reveal("face.mark").tap()
+        let icon = app.buttons["图标"].firstMatch
+        XCTAssertTrue(icon.waitForExistence(timeout: 5))
+        icon.tap()
+        // the fixture's account is named after 广发 (CGB): its own icon is the one picked first
+        XCTAssertTrue(reveal("face.symbol.cgb").isSelected)
+        let hsbc = reveal("face.symbol.hsbc")
+        hsbc.tap()
+        XCTAssertTrue(hsbc.isSelected)
+        XCTAssertFalse(app.descendants(matching: .any)["face.iconStyle"].exists, "单色 / 原色 is for an uploaded icon only")
+        app.buttons["face.save"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["face.preview"].waitForNonExistence(timeout: 5))
+
+        openEditor()
+        XCTAssertTrue(reveal("face.symbol.hsbc").isSelected, "the icon picked is kept")
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "编辑卡面-内置图标"
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
+
     /// 长按卡面 → 卡片信息: a card filled in (made-up number) is kept, shown only on 显示, and its last four digits and
     /// expiry go on the face; a wrong expiry cannot be saved; 删除卡片信息 takes it off the face again
     func testCardDetailsAreKeptHiddenAndGoOnTheFace() {
@@ -1190,10 +1245,13 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["有效期写成 月/年，如 06/28。"].waitForExistence(timeout: 5))
         XCTAssertFalse(save.isEnabled, "not a month")
         expiry.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 5) + "0628")
+        // read right after typing, the field and the button can lag the last keys: wait for what they settle on
+        // (as typed: 06/28 is what it is saved as)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "0628"), object: expiry)], timeout: 3), .completed, String(describing: expiry.value))
         let cvv = app.textFields["cardinfo.field.cvv"]
         cvv.tap()
         cvv.typeText("123")
-        XCTAssertTrue(save.isEnabled)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: save)], timeout: 3), .completed, "a right expiry can be saved")
         save.tap()
         // saved and shown for a moment; 隐藏 masks it
         let shown = app.staticTexts["cardinfo.number"]

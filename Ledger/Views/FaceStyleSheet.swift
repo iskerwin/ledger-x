@@ -26,14 +26,15 @@ struct FaceStyleSheet: View {
             switch style.mark {
             case nil: .auto
             case .text?: .text
-            case .icon?: .icon
+            case .icon?, .symbol?: .icon
             case .off?: .off
             }
         } set: { c in
             switch c {
             case .auto: style.mark = nil
             case .text: style.mark = .text(FacePattern.mark(title))
-            case .icon: style.mark = .icon
+            // the built-in icon of the institution the card is for; an uploaded one when there is one
+            case .icon: style.mark = style.icon != nil ? .icon : institutionID.map(FaceStyle.Mark.symbol) ?? .icon
             case .off: style.mark = .off
             }
         }
@@ -49,6 +50,11 @@ struct FaceStyleSheet: View {
     /// what 自动 stands for: the institution recognised from the account's name
     private var recognised: String? {
         institution(account: account, name: title).flatMap { i in FaceLook.named.first { $0.id == i.id }?.name }
+    }
+
+    /// the institution the card is drawn for: the one picked, else the one recognised
+    private var institutionID: String? {
+        style.institution.map { $0 == FaceStyle.noInstitution ? nil : $0 } ?? institution(account: account, name: title)?.id
     }
 
     var body: some View {
@@ -162,13 +168,14 @@ struct FaceStyleSheet: View {
                     .accessibilityIdentifier("face.markText")
             }
             if markChoice.wrappedValue == .icon {
+                SymbolGrid(mark: $style.mark, uploaded: style.icon != nil)
                 PhotosPicker(selection: $photo, matching: .images) {
                     Label(style.icon == nil ? LS("从照片选择图标") : LS("从照片换一个图标"), systemImage: "photo").labelStyle(ControlLabelStyle())
                 }
                 Button { choosingFile = true } label: {
                     Label(LS("从文件选择图标"), systemImage: "folder").labelStyle(ControlLabelStyle())
                 }
-                if style.icon != nil {
+                if style.icon != nil, style.mark == .icon {
                     Picker(LS("图标样式"), selection: Binding { style.iconMono ?? true } set: { style.iconMono = $0 }) {
                         Text(LS("单色")).tag(true)
                         Text(LS("原色")).tag(false)
@@ -189,7 +196,7 @@ struct FaceStyleSheet: View {
         } footer: {
             if markChoice.wrappedValue == .icon {
                 Text(iconFailed ? LS("这个文件不是能读的图片，换一张试试。")
-                     : LS("单色时图标变成卡面文字颜色的剪影，和卡面风格一致：透明背景的 PNG 直接用它的形状；有底色的图片按四个角的颜色去掉背景，去不干净时调「强度」。"))
+                     : LS("点一个内置图标直接换；也可以从照片或文件选自己的图标。单色时图标变成卡面文字颜色的剪影：透明背景的 PNG 直接用它的形状；有底色的图片按四个角的颜色去掉背景，去不干净时调「强度」。"))
             }
         }
     }
@@ -214,6 +221,41 @@ struct FaceStyleSheet: View {
             store.faceStyles[account] = s.isEmpty ? nil : s
         }
         dismiss()
+    }
+}
+
+/// 水印 → 图标: the built-in institution icons to pick from, and the uploaded one when there is one
+private struct SymbolGrid: View {
+    @Binding var mark: FaceStyle.Mark?
+    let uploaded: Bool
+
+    var body: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: AppSpacing.icon), count: 6), spacing: AppSpacing.control) {
+            if uploaded {
+                cell(.icon, LS("自己的图标")) { Image(systemName: "photo").font(.title3) }
+            }
+            ForEach(FaceLook.named, id: \.id) { i in
+                if let image = FaceMarks.image(i.id) {
+                    cell(.symbol(i.id), i.name) { image.renderingMode(.template).resizable().scaledToFit().frame(width: 26, height: 26) }
+                        .accessibilityIdentifier("face.symbol." + i.id)
+                }
+            }
+        }
+        .padding(.vertical, AppSpacing.icon)
+    }
+
+    private func cell<V: View>(_ value: FaceStyle.Mark, _ title: String, @ViewBuilder _ image: () -> V) -> some View {
+        let on = mark == value
+        return Button { mark = value } label: {
+            image()
+                .foregroundStyle(Color.primary)
+                .frame(width: 44, height: 44)
+                .background(RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous).fill(Color(.tertiarySystemFill)))
+                .overlay(RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous).stroke(on ? Color.primary : Color.clear, lineWidth: 2))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 }
 

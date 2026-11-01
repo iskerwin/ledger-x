@@ -14,12 +14,22 @@ final class InstitutionTests: XCTestCase {
         XCTAssertEqual(id("Assets:EWallet:Octopus"), "octopus")
         XCTAssertEqual(id("Assets:Bank:HangSeng"), "hangseng")
         XCTAssertEqual(id("Assets:Bank:StandardChartered"), "sc")
+        XCTAssertEqual(id("Liabilities:CreditCard:CGB-2"), "cgb")
+        XCTAssertEqual(id("Liabilities:CreditCard:CEB"), "ceb")
+        XCTAssertEqual(id("Liabilities:CreditCard:HXB"), "hxb")
+        XCTAssertEqual(id("Assets:Bank:IFASTGB"), "ifast")
+        XCTAssertEqual(id("Assets:Bank:N26"), "n26")
+        // a wallet's own fund goes with its wallet
+        XCTAssertEqual(id("Assets:EWallet:YuEBao"), "alipay")
+        XCTAssertEqual(id("Assets:EWallet:MiniFund"), "wechat")
     }
 
     func testTheNameShownFindsItToo() {
         XCTAssertEqual(id("Assets:Bank:Main", "招商银行一卡通"), "cmb")
         XCTAssertEqual(id("Assets:EWallet:Change", "微信零钱"), "wechat")
         XCTAssertEqual(id("Assets:Bank:Salary", "Hang Seng Integrated"), "hangseng")
+        XCTAssertEqual(id("Liabilities:CreditCard:Main", "广发信用卡"), "cgb")
+        XCTAssertEqual(id("Liabilities:CreditCard:Main", "光大银行信用卡"), "ceb")
     }
 
     /// names that share a part go to the more specific one
