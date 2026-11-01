@@ -91,6 +91,33 @@ class PRScopeTests(unittest.TestCase):
         whole = pr_scope.classify([path], diff=_diff(path, [1]), sources={path: source})
         self.assertEqual(whole['xcode_tests'], ('LedgerUITests/SampleTests',))
 
+    def test_a_local_helper_inside_a_test_stays_part_of_that_test(self):
+        # testGestureHints… opens with `func text(...)`: a change to the test was read as a change to a helper
+        # called text, and every case calling anything named text( ran (39 cases, past the UI stage's limit)
+        path = 'LedgerUITests/SampleTests.swift'
+        source = '\n'.join([
+            'import XCTest',
+            'final class SampleTests: XCTestCase {',
+            '    func testHints() {',
+            '        func text(_ s: String) -> String { s + "{" }',
+            '        let a = text("x")',
+            '        let b = a',
+            '    }',
+            '    func testOther() { let t = text("y") }',
+            '    private func text(_ s: String) -> String { s }',
+            '}',
+            '',
+        ])
+        def at(snippet):
+            return source.splitlines().index(snippet) + 1
+        local = pr_scope.classify([path], diff=_diff(path, [at('        let b = a')]), sources={path: source})
+        self.assertEqual(local['xcode_tests'], ('LedgerUITests/SampleTests/testHints',))
+        helper = pr_scope.classify([path], diff=_diff(path, [at('    private func text(_ s: String) -> String { s }')]), sources={path: source})
+        self.assertEqual(helper['xcode_tests'], (
+            'LedgerUITests/SampleTests/testHints',
+            'LedgerUITests/SampleTests/testOther',
+        ))
+
     def test_pull_request_gate_times_out_instead_of_hanging(self):
         pull = (ROOT / '.github/workflows/ci.yml').read_text()
         gate = (ROOT / 'tools/pr_gate.py').read_text()
