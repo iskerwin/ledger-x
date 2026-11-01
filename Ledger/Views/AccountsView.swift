@@ -531,7 +531,7 @@ struct AccountRow: View {
     /// under the name: the currencies held, else the card's last digits, else when it was last checked, else its name
     private func subtitle(_ leafName: String) -> String {
         if balances.count > 1 { return balances.map { $0.0 }.joined(separator: " · ") }
-        if let tail = store.repoConfig?.scanCards?.first(where: { $0.value == account && $0.key.count == 4 && $0.key.allSatisfy(\.isNumber) })?.key {
+        if let tail = store.cardTail(account) {
             return LS("尾号 %@", tail)
         }
         if let L = store.L, let last = L.balanceResults.filter({ $0.ok && $0.entry.account == account }).map({ $0.entry.date }).max() {

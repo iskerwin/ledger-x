@@ -914,7 +914,7 @@ struct TxDetailView: View {
                     LabeledContent(label) {
                         VStack(alignment: .trailing, spacing: AppSpacing.detail) {
                             Text(accountTitle(L, a)).foregroundStyle(.primary).lineLimit(1)
-                            if let tail = store.repoConfig?.scanCards?.first(where: { $0.value == a && $0.key.count == 4 && $0.key.allSatisfy(\.isNumber) })?.key {
+                            if let tail = store.cardTail(a) {
                                 Text(LS("尾号 %@", tail)).font(.caption)
                             }
                         }
