@@ -183,6 +183,8 @@ enum Prefs {
     var catStyle: CatStyle { didSet { Prefs.set("catStyle", catStyle) } }
     /// 编辑卡面: each account's card as changed by hand, this ledger's, on this phone (not written to the ledger)
     var faceStyles: [String: FaceStyle] = [:] { didSet { if !demo { Prefs.set(pk("faceStyles"), faceStyles) } } }
+    /// 卡片信息: what each card's face shows of the card kept in the keychain (`CardVault`), this ledger's
+    var cardHints: [String: CardHint] = [:]
     /// 币种与换算: which currencies the reports, overview and accounts show, and how they are valued (this phone)
     var cview: CurrencyView { didSet { Prefs.set("currencyView", cview) } }
     var showSettings = false
@@ -331,6 +333,7 @@ enum Prefs {
         receivableAccount = Prefs.get(Store.key("receivable", id), "")
         subsFile = Prefs.get(Store.key("subsFile", id), "")
         faceStyles = Prefs.get(Store.key("faceStyles", id), [String: FaceStyle]())
+        cardHints = CardVault.hints(CardVault.load(ledger: id))
         myQueries = Prefs.get("queries", [SavedQuery]())
         catStyle = Prefs.get("catStyle", CatStyle()).normalized()
         cview = Prefs.get("currencyView", CurrencyView())
@@ -406,6 +409,7 @@ enum Prefs {
         receivableAccount = Prefs.get(pk("receivable"), "")
         subsFile = Prefs.get(pk("subsFile"), "")
         faceStyles = Prefs.get(pk("faceStyles"), [String: FaceStyle]())
+        cardHints = CardVault.hints(CardVault.load(ledger: cfg.id))
         tplCache = nil
         resetToast()
         rebuildGen += 1     // drop a rebuild of the previous ledger still in flight
@@ -457,6 +461,7 @@ enum Prefs {
         try? RecoveryFiles.removeData(kind: "import-source", ledger: id)
         for kind in UnreadableKind.allCases { RecoveryFiles.removeUnreadable(kind: kind, ledger: id) }
         FaceIcons.removeAll(ledger: id)
+        CardVault.delete(ledger: id)
     }
 
     private func saveTree() { Prefs.set(pk("tree"), tree) }
@@ -570,6 +575,9 @@ enum Prefs {
         subsFile = ""
         draftWorkspace = DraftWorkspace()
         faceStyles = [:]
+        // the interface tests' cards start empty on every launch
+        CardVault.delete(ledger: cfg.id)
+        cardHints = [:]
         let env = ProcessInfo.processInfo.environment
         let base = URL(fileURLWithPath: dir)
         demoDir = base

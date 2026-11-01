@@ -11,8 +11,11 @@ struct FaceCard<Content: View>: View {
     let tint: Color
     /// the style to draw instead of the saved one (编辑卡面's preview); the preview is not itself editable
     var preview: FaceStyle? = nil
+    /// a bank card or a credit card: 卡片信息 is offered beside 编辑卡面
+    var holdsCard = false
     @ViewBuilder let content: (Color) -> Content
     @State private var editing = false
+    @State private var cardInfo = false
 
     var body: some View {
         let d = FaceDesign(account: account, title: title, tint: tint, style: preview ?? store.faceStyles[account] ?? FaceStyle(), ledger: store.cfg.id)
@@ -36,13 +39,21 @@ struct FaceCard<Content: View>: View {
             .contextMenu {
                 if preview == nil {
                     Button { editing = true } label: { Label(LS("编辑卡面"), systemImage: "paintbrush") }
+                    if holdsCard {
+                        Button { cardInfo = true } label: { Label(LS("卡片信息"), systemImage: "creditcard") }
+                    }
                 }
             }
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("card.face")
             .accessibilityAction(named: Text(LS("编辑卡面"))) { if preview == nil { editing = true } }
+            .accessibilityAction(named: Text(LS("卡片信息"))) { if preview == nil && holdsCard { cardInfo = true } }
             .sheet(isPresented: $editing) {
                 FaceStyleSheet(account: account, title: title, tint: tint)
+                    .tint(Color.jadeInk).environment(\.locale, AppLanguage.current.locale)
+            }
+            .sheet(isPresented: $cardInfo) {
+                CardInfoSheet(account: account, title: title)
                     .tint(Color.jadeInk).environment(\.locale, AppLanguage.current.locale)
             }
     }
@@ -261,6 +272,8 @@ struct AccountFace: View {
     let account: String
     let title: String
     let tail: String?
+    /// 卡片信息's expiry (not in privacy mode)
+    var expiry: String? = nil
     /// the account's full name under its title, as on the plain header (with 已于…关闭 when closed)
     let path: String
     /// the balance in each currency, the account's main one first
@@ -269,7 +282,7 @@ struct AccountFace: View {
 
     var body: some View {
         let main = balances.first ?? (glance.currency, 0)
-        FaceCard(account: account, title: title, tint: store.groupIcon(account).color) { ink in
+        FaceCard(account: account, title: title, tint: store.groupIcon(account).color, holdsCard: account.hasPrefix("Assets:Bank:")) { ink in
             VStack(alignment: .leading, spacing: AppSpacing.control) {
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: AppSpacing.icon) { name; Spacer(minLength: AppSpacing.icon); checkPill(ink) }
@@ -309,7 +322,7 @@ struct AccountFace: View {
     private var name: some View {
         VStack(alignment: .leading, spacing: AppSpacing.detail) {
             Text(title + (tail.map { " •••• " + $0 } ?? "")).font(.subheadline.weight(.semibold)).lineLimit(1)
-            Text(path).font(.caption).opacity(0.8).lineLimit(1)
+            Text(path + (expiry.map { " · " + LS("有效期 %@", $0) } ?? "")).font(.caption).opacity(0.8).lineLimit(1)
         }
     }
 

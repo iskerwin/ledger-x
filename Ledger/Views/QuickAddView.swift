@@ -602,7 +602,7 @@ struct QuickAddView: View {
     /// "尾号 6666 · 余额 ¥152,421 → ¥151,421", "欠款 ¥2,195 · 到账 HKD"
     private func transferDetail(_ a: String, currency: String, change: Double?, arriving: String?, _ L: Ledger) -> String {
         var parts: [String] = []
-        if let tail = store.repoConfig?.scanCards?.first(where: { $0.value == a && $0.key.count == 4 && $0.key.allSatisfy(\.isNumber) })?.key {
+        if let tail = store.cardTail(a) {
             parts.append(LS("尾号 %@", tail))
         }
         let now = L.final[a]?[currency] ?? 0
@@ -686,10 +686,8 @@ struct QuickAddView: View {
         return a.components(separatedBy: ":").last ?? a
     }
 
-    /// the last four digits a card is known by (ledger-x.json scan_cards), for the paying account's line
-    private func cardTail(_ a: String) -> String? {
-        store.repoConfig?.scanCards?.first { $0.value == a && $0.key.count == 4 && $0.key.allSatisfy(\.isNumber) }?.key
-    }
+    /// the last four digits a card is known by (ledger-x.json scan_cards, else 卡片信息), for the paying account's line
+    private func cardTail(_ a: String) -> String? { store.cardTail(a) }
 
     // MARK: the paying account, the day and 更多 (or 标签)
 

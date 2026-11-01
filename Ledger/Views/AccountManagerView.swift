@@ -413,7 +413,10 @@ struct AccountEditView: View {
 
     private func close(_ L: Ledger) {
         guard let n = name, let ops = store.makeOps("\(closeDate) close \(n)", single: false) else { return }
-        Task { await store.commit(ops, word: LS("已关闭账户"), closing: { dismiss() }) }
+        Task {
+            // a closed card's details are not kept: its number, expiry and code go from this phone too
+            if await store.commit(ops, word: LS("已关闭账户"), closing: { dismiss() }) { store.setCardInfo(CardInfo(), for: n) }
+        }
     }
 
     // MARK: rename / merge

@@ -224,6 +224,7 @@ extension Store {
         if s != catStyle { catStyle = s }
         let faces = renamedFaceStyles(faceStyles, from: from, to: to)
         if faces != faceStyles { faceStyles = faces }
+        renameCards(from, to: to)
     }
 
     /// a group's icon everywhere (the grid, 管理账户, the account list, reports): the one picked, else the built-in one —
