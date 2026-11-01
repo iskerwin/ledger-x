@@ -29,6 +29,9 @@ public let institutions: [Institution] = [
     Institution(id: "bocom", words: ["bocom", "bankcomm"], names: ["交通银行", "交行"]),
     Institution(id: "spdb", words: ["spdb"], names: ["浦发"]),
     Institution(id: "citic", words: ["citic"], names: ["中信银行"]),
+    Institution(id: "cgb", words: ["cgb", "gdb"], names: ["广发银行", "广发"]),
+    Institution(id: "ceb", words: ["ceb", "cebbank"], names: ["光大银行"]),
+    Institution(id: "hxb", words: ["hxb", "huaxia"], names: ["华夏银行"]),
     Institution(id: "boc", words: ["boc", "bankofchina"], names: ["中国银行", "中行"]),
     Institution(id: "hsbc", words: ["hsbc"], names: ["汇丰"]),
     Institution(id: "citi", words: ["citi", "citibank"], names: ["花旗"]),
@@ -36,6 +39,8 @@ public let institutions: [Institution] = [
     Institution(id: "sc", words: ["scb", "stanchart", "standardchartered"], names: ["渣打"]),
     Institution(id: "za", words: ["za", "zabank"], names: ["众安"]),
     Institution(id: "mox", words: ["mox", "moxbank"], names: []),
+    Institution(id: "ifast", words: ["ifast", "ifastgb"], names: []),
+    Institution(id: "n26", words: ["n26"], names: []),
 ]
 
 /// The institution `account` belongs to, judged by its own name below the group (`Assets:Bank:…`) and the name

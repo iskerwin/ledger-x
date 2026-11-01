@@ -149,8 +149,10 @@ struct FaceLook {
     /// the institutions in the order 编辑卡面 lists them, with their names
     static var named: [(id: String, name: String)] { [
         ("cmb", LS("招商银行")), ("icbc", LS("工商银行")), ("ccb", LS("建设银行")), ("boc", LS("中国银行")), ("abc", LS("农业银行")),
-        ("bocom", LS("交通银行")), ("spdb", LS("浦发银行")), ("citic", LS("中信银行")), ("hsbc", LS("汇丰")), ("citi", LS("花旗")),
+        ("bocom", LS("交通银行")), ("spdb", LS("浦发银行")), ("citic", LS("中信银行")),
+        ("cgb", LS("广发银行")), ("ceb", LS("光大银行")), ("hxb", LS("华夏银行")), ("hsbc", LS("汇丰")), ("citi", LS("花旗")),
         ("hangseng", LS("恒生银行")), ("bochk", LS("中银香港")), ("sc", LS("渣打银行")), ("za", LS("众安银行")), ("mox", "Mox"),
+        ("ifast", "iFAST"), ("n26", "N26"),
         ("alipay", LS("支付宝")), ("wechat", LS("微信支付")), ("wise", "Wise"), ("octopus", LS("八达通")), ("alipayhk", "AlipayHK"),
         ("payme", "PayMe"), ("paypal", "PayPal"), ("revolut", "Revolut"),
     ] }
@@ -181,6 +183,9 @@ struct FaceLook {
         "bocom": look(0x1C3F94, 0x2E5BC4, .dots(gap: 16), "交"),
         "spdb": look(0x0B3A73, 0x1A5AA6, .stripes(angle: 65, gap: 16), "浦"),
         "citic": look(0xD6001C, 0x9A0014, .dots(gap: 16), "信"),
+        "cgb": look(0xE60012, 0xA8000D, .grid(gap: 20), "广"),
+        "ceb": look(0x5E2B83, 0x8A4BB4, .rings(gap: 22), "光"),
+        "hxb": look(0xD7000F, 0x96000A, .stripes(angle: 110, gap: 16), "华"),
         "hsbc": look(0xDB0011, 0xA3000D, .stripes(angle: 45, gap: 16), "HSBC"),
         "citi": look(0x003B70, 0x056DAE, .stripes(angle: 20, gap: 16), "citi"),
         "hangseng": look(0x00775B, 0x00543F, .rings(gap: 22), "恒"),
@@ -188,6 +193,8 @@ struct FaceLook {
         "sc": look(0x0072AA, 0x1E9E6A, .stripes(angle: 155, gap: 16), "渣"),
         "za": look(0x12B6A8, 0x0A7F75, .grid(gap: 20), "ZA"),
         "mox": look(0x1C1C20, 0x3A3A44, .rings(gap: 22), "Mox"),
+        "ifast": look(0x0B3C7D, 0x1F6FB8, .stripes(angle: 65, gap: 16), "iF"),
+        "n26": look(0x36A18B, 0x24806C, .dots(gap: 16), "N26"),
         "alipay": look(0x1677FF, 0x0B4FCC, .rings(gap: 22), "支"),
         "wechat": look(0x07C160, 0x058F47, .dots(gap: 16), "微"),
         "wise": look(0x9FE870, 0x7FD44A, .stripes(angle: 155, gap: 16), "W", ink: 0x163300),

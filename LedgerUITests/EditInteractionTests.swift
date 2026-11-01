@@ -1185,8 +1185,9 @@ final class EditInteractionTests: XCTestCase {
         let icon = app.buttons["图标"].firstMatch
         XCTAssertTrue(icon.waitForExistence(timeout: 5))
         icon.tap()
+        // the fixture's account is named after 广发 (CGB): its own icon is the one picked first
+        XCTAssertTrue(reveal("face.symbol.cgb").isSelected)
         let hsbc = reveal("face.symbol.hsbc")
-        XCTAssertFalse(hsbc.isSelected, "an account no institution is recognised for starts on none")
         hsbc.tap()
         XCTAssertTrue(hsbc.isSelected)
         XCTAssertFalse(app.descendants(matching: .any)["face.iconStyle"].exists, "单色 / 原色 is for an uploaded icon only")
