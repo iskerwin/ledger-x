@@ -1123,6 +1123,14 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(face.waitForExistence(timeout: 20))
         XCTAssertFalse(face.label.contains("••••"), face.label)
         func open() {
+            // the account page may still be sliding in: a press while it moves is taken by the push, not the menu
+            var previous = CGRect.null
+            let still = expectation(for: NSPredicate { _, _ in
+                let frame = face.frame
+                defer { previous = frame }
+                return !frame.isEmpty && frame == previous && face.isHittable
+            }, evaluatedWith: nil)
+            wait(for: [still], timeout: 10)
             face.press(forDuration: 1.0)
             let item = app.buttons["卡片信息"].firstMatch
             XCTAssertTrue(item.waitForExistence(timeout: 5))
