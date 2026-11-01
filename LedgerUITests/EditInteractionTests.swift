@@ -1941,6 +1941,15 @@ final class EditInteractionTests: XCTestCase {
         app.buttons["月"].firstMatch.tap()
         let chart = app.otherElements["overview.trend"]
         XCTAssertTrue(chart.waitForExistence(timeout: 20))
+        // the fixture's Coffee is in October 2026: from a later month (it failed on 1 November) step back to it,
+        // so the chart's last month and the payees' list are October's whatever today is
+        let period = app.staticTexts["overview.period"], bar = app.descendants(matching: .any)["overview.monthbar"].firstMatch
+        for _ in 0..<36 where period.label != "2026年10月" {
+            let name = period.label
+            bar.buttons["上个月"].tap()
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", name), object: period)], timeout: 5), .completed)
+        }
+        XCTAssertEqual(period.label, "2026年10月")
         scrollIntoView(chart, in: app)
         let chartHint = text(app, "点按或左右滑动查看月份")
         XCTAssertTrue(chartHint.exists)
