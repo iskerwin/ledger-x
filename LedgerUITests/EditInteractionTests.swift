@@ -1111,6 +1111,83 @@ final class EditInteractionTests: XCTestCase {
         add(shot)
     }
 
+    /// 长按卡面 → 卡片信息: a card filled in (made-up number) is kept, shown only on 显示, and its last four digits and
+    /// expiry go on the face; a wrong expiry cannot be saved; 删除卡片信息 takes it off the face again
+    func testCardDetailsAreKeptHiddenAndGoOnTheFace() {
+        let app = XCUIApplication()
+        let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures")
+        app.launchEnvironment = ["LEDGER_DEMO": fixtures.path, "LEDGER_TAB": "accounts", "LEDGER_OPEN_ACCOUNT": "Assets:Bank:CGB", "LEDGER_LANG": "zh"]
+        app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-ledger.card.style", "card"]
+        app.launch()
+        let face = app.descendants(matching: .any)["card.face"].firstMatch
+        XCTAssertTrue(face.waitForExistence(timeout: 20))
+        XCTAssertFalse(face.label.contains("••••"), face.label)
+        func open() {
+            face.press(forDuration: 1.0)
+            let item = app.buttons["卡片信息"].firstMatch
+            XCTAssertTrue(item.waitForExistence(timeout: 5))
+            item.tap()
+        }
+        // nothing kept yet: the sheet opens on the fields
+        open()
+        let number = app.textFields["cardinfo.field.number"]
+        XCTAssertTrue(number.waitForExistence(timeout: 5))
+        number.tap()
+        number.typeText("4111111111111111")
+        XCTAssertEqual(number.value as? String, "4111 1111 1111 1111", "typed in groups of four")
+        let expiry = app.textFields["cardinfo.field.expiry"]
+        expiry.tap()
+        expiry.typeText("13/28")
+        let save = app.buttons["cardinfo.save"].firstMatch
+        XCTAssertTrue(app.staticTexts["有效期写成 月/年，如 06/28。"].waitForExistence(timeout: 5))
+        XCTAssertFalse(save.isEnabled, "not a month")
+        expiry.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 5) + "0628")
+        let cvv = app.textFields["cardinfo.field.cvv"]
+        cvv.tap()
+        cvv.typeText("123")
+        XCTAssertTrue(save.isEnabled)
+        save.tap()
+        // saved and shown for a moment; 隐藏 masks it
+        let shown = app.staticTexts["cardinfo.number"]
+        XCTAssertTrue(shown.waitForExistence(timeout: 5))
+        XCTAssertEqual(shown.label, "4111 1111 1111 1111")
+        XCTAssertEqual(app.staticTexts["cardinfo.expiry"].label, "06/28")
+        app.buttons["cardinfo.reveal"].firstMatch.tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "•••• 1111"), object: shown)], timeout: 5), .completed)
+        XCTAssertEqual(app.staticTexts["cardinfo.cvv"].label, "•••")
+        app.buttons["cardinfo.close"].firstMatch.tap()
+        XCTAssertTrue(shown.waitForNonExistence(timeout: 5))
+        // on the face: the last four and the expiry
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "•••• 1111"), object: face)], timeout: 5), .completed)
+        XCTAssertTrue(face.label.contains("有效期 06/28"), face.label)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "卡片信息-卡面尾号"
+        shot.lifetime = .keepAlways
+        add(shot)
+
+        // opened again: hidden until 显示
+        open()
+        XCTAssertTrue(shown.waitForExistence(timeout: 5))
+        XCTAssertEqual(shown.label, "•••• 1111")
+        XCTAssertFalse(app.buttons["cardinfo.copy.number"].exists, "nothing to copy while hidden")
+        let delete = app.buttons["cardinfo.delete"].firstMatch
+        let before = (shown.frame.midY, delete.frame.minY)
+        app.buttons["cardinfo.reveal"].firstMatch.tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "4111 1111 1111 1111"), object: shown)], timeout: 5), .completed)
+        // 显示 changes nothing's place: the rows and the buttons under them stay where they were
+        XCTAssertEqual(shown.frame.midY, before.0, accuracy: 0.5)
+        XCTAssertEqual(delete.frame.minY, before.1, accuracy: 0.5)
+        XCTAssertEqual(app.staticTexts["cardinfo.cvv"].label, "123")
+        XCTAssertTrue(app.buttons["cardinfo.copy.cvv"].exists)
+        // deleted: off the face
+        delete.tap()
+        let confirm = app.buttons["删除"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        confirm.tap()
+        XCTAssertTrue(shown.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "NOT (label CONTAINS %@)", "••••"), object: face)], timeout: 5), .completed)
+    }
+
     func testCardBillActionsStayOnOneRowAtNormalTextSize() {
         let app = launchCardAccount(accessibility: false)
         let bill = app.buttons["填写本期账单"].firstMatch

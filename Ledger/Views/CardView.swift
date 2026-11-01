@@ -32,12 +32,15 @@ struct CardFace: View {
     var body: some View {
         let c = cycle
         let paid = c.statementAmount > 0.005 ? min(1, max(0, c.paid / c.statementAmount)) : 1
-        FaceCard(account: c.account, title: store.displayName(c.account) ?? acctDisplay(c.account), tint: store.groupIcon(c.account).color) { ink in
+        FaceCard(account: c.account, title: store.displayName(c.account) ?? acctDisplay(c.account), tint: store.groupIcon(c.account).color, holdsCard: true) { ink in
             VStack(alignment: .leading, spacing: AppSpacing.control) {
                 HStack(spacing: AppSpacing.icon) {
                     Text(acctDisplay(c.account)).font(.subheadline.weight(.semibold)).lineLimit(1)
                     Spacer(minLength: AppSpacing.icon)
-                    if let tail { Text("•••• " + tail).font(.subheadline.monospacedDigit()) }
+                    if let tail {
+                        let expiry = KitPrivacy.masked ? nil : store.cardHints[c.account]?.expiry
+                        Text("•••• " + tail + (expiry.map { " · " + $0 } ?? "")).font(.subheadline.monospacedDigit())
+                    }
                 }
                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
                     Text(LS("剩余应还")).font(.caption)
@@ -81,7 +84,7 @@ struct CardHeroSection: View {
     var body: some View {
         let today = Day.today()
         let c = cycle
-        let tail = store.repoConfig?.scanCards?.first { $0.value == c.account && $0.key.count == 4 && $0.key.allSatisfy(\.isNumber) }?.key
+        let tail = store.cardTail(c.account)
         let look = CardStatusLook(c, today: today)
         Section {
             VStack(alignment: .leading, spacing: AppSpacing.control) {

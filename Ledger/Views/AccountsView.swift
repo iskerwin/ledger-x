@@ -801,11 +801,10 @@ struct RegisterView: View {
         let isIEIcon = account.hasPrefix("Income") ? ("arrow.down.circle.fill", Color.gain) : ("arrow.up.circle.fill", Color.gray)
         if AccountCardStyle.current == .card, hasFace(account) {
             let main = bs.first?.0 ?? L.base
-            let cards: [String: String] = store.repoConfig?.scanCards ?? [:]
-            let tail: String? = cards.first { $0.value == account && $0.key.count == 4 && $0.key.allSatisfy(\.isNumber) }?.key
+            let tail: String? = store.cardTail(account)
             let title: String = store.displayName(account) ?? acctDisplay(account)
             let shown: [(String, Double)] = bs.isEmpty ? [(main, 0)] : bs
-            let face = AccountFace(account: account, title: title, tail: tail, path: account + closedNote,
+            let face = AccountFace(account: account, title: title, tail: tail, expiry: KitPrivacy.masked ? nil : store.cardHints[account]?.expiry, path: account + closedNote,
                                    balances: shown, glance: accountGlance(L, account, currency: main))
             return AnyView(Section { facePanel(face, check: check) })
         }
