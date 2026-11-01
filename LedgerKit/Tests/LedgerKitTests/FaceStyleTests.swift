@@ -51,6 +51,18 @@ final class FaceStyleTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(FaceStyle.self, from: Data("{}".utf8)), FaceStyle())
     }
 
+    /// a built-in icon is kept by its institution's id, beside a style saved before there were any
+    func testABuiltInIconReadsBackWithOlderStyles() throws {
+        var s = FaceStyle()
+        s.mark = .symbol("hsbc")
+        XCTAssertEqual(try JSONDecoder().decode(FaceStyle.self, from: JSONEncoder().encode(s)).mark, .symbol("hsbc"))
+        var old = FaceStyle()
+        old.mark = .icon
+        old.icon = "a.png"
+        let saved = try JSONEncoder().encode(old)
+        XCTAssertEqual(try JSONDecoder().decode(FaceStyle.self, from: saved), old)
+    }
+
     func testARenamedAccountKeepsItsCard() {
         var a = FaceStyle(); a.mark = .off
         var b = FaceStyle(); b.pattern = "grid"

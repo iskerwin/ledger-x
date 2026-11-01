@@ -1148,6 +1148,59 @@ final class EditInteractionTests: XCTestCase {
         add(shot)
     }
 
+    /// 编辑卡面 → 水印 → 图标: a built-in icon picked from the grid is kept when saved
+    func testPickingABuiltInIconIsKept() {
+        let app = XCUIApplication()
+        let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures")
+        app.launchEnvironment = ["LEDGER_DEMO": fixtures.path, "LEDGER_TAB": "accounts", "LEDGER_OPEN_ACCOUNT": "Assets:Bank:CGB", "LEDGER_LANG": "zh"]
+        app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-ledger.card.style", "card"]
+        app.launch()
+        let face = app.descendants(matching: .any)["card.face"].firstMatch
+        XCTAssertTrue(face.waitForExistence(timeout: 20))
+        func openEditor() {
+            // the account page may still be sliding in: a press while it moves is taken by the push, not the menu
+            var previous = CGRect.null
+            let still = expectation(for: NSPredicate { _, _ in
+                let frame = face.frame
+                defer { previous = frame }
+                return !frame.isEmpty && frame == previous && face.isHittable
+            }, evaluatedWith: nil)
+            wait(for: [still], timeout: 10)
+            face.press(forDuration: 1.0)
+            let edit = app.buttons["编辑卡面"].firstMatch
+            XCTAssertTrue(edit.waitForExistence(timeout: 5))
+            edit.tap()
+            XCTAssertTrue(app.descendants(matching: .any)["face.preview"].waitForExistence(timeout: 5))
+        }
+        /// the sheet is a long form: what is further down only exists once it has scrolled into view
+        func reveal(_ id: String) -> XCUIElement {
+            let e = app.descendants(matching: .any)[id].firstMatch
+            // only ever down: a swipe down at the top would close the sheet
+            for _ in 0..<5 where !(e.exists && e.isHittable) { app.swipeUp() }
+            XCTAssertTrue(e.waitForExistence(timeout: 5), id)
+            return e
+        }
+        openEditor()
+        reveal("face.mark").tap()
+        let icon = app.buttons["图标"].firstMatch
+        XCTAssertTrue(icon.waitForExistence(timeout: 5))
+        icon.tap()
+        let hsbc = reveal("face.symbol.hsbc")
+        XCTAssertFalse(hsbc.isSelected, "an account no institution is recognised for starts on none")
+        hsbc.tap()
+        XCTAssertTrue(hsbc.isSelected)
+        XCTAssertFalse(app.descendants(matching: .any)["face.iconStyle"].exists, "单色 / 原色 is for an uploaded icon only")
+        app.buttons["face.save"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["face.preview"].waitForNonExistence(timeout: 5))
+
+        openEditor()
+        XCTAssertTrue(reveal("face.symbol.hsbc").isSelected, "the icon picked is kept")
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "编辑卡面-内置图标"
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
+
     /// 长按卡面 → 卡片信息: a card filled in (made-up number) is kept, shown only on 显示, and its last four digits and
     /// expiry go on the face; a wrong expiry cannot be saved; 删除卡片信息 takes it off the face again
     func testCardDetailsAreKeptHiddenAndGoOnTheFace() {

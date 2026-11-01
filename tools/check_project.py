@@ -213,6 +213,21 @@ for m in re.finditer(r'\.(?:sheet|fullScreenCover)\(', root):
     require('.tint(Color.jadeInk)' in body and '.environment(\\.locale, AppLanguage.current.locale)' in body,
             f'Ledger/LedgerApp.swift:{line}: a sheet on RootView must set .tint(Color.jadeInk) and the app language itself')
 
+# every institution the card face knows has its built-in icon, and every icon an institution: a single-colour
+# vector drawn in the card's ink
+face = (ROOT/'Ledger/Views/AccountFace.swift').read_text()
+looks = set(re.findall(r'^\s*"(\w+)": look\(', face, re.M))
+marks_dir = ROOT/'Ledger/Assets.xcassets/FaceMarks'
+marks = {p.stem for p in marks_dir.glob('*.imageset')}
+require(looks and looks == marks, f'Ledger/Assets.xcassets/FaceMarks: icons {sorted(marks - looks)} have no institution, institutions {sorted(looks - marks)} have no icon')
+for name in sorted(marks & looks):
+    spec = json.loads((marks_dir/f'{name}.imageset/Contents.json').read_text())
+    files = [i.get('filename') for i in spec.get('images', [])]
+    require(files == [f'{name}.svg'] and (marks_dir/f'{name}.imageset/{name}.svg').exists()
+            and spec.get('properties', {}).get('template-rendering-intent') == 'template'
+            and spec.get('properties', {}).get('preserves-vector-representation') is True,
+            f'Ledger/Assets.xcassets/FaceMarks/{name}.imageset: one {name}.svg, template rendering, vector kept')
+
 if errors:
     print('\n'.join(errors), file=sys.stderr)
     sys.exit(1)

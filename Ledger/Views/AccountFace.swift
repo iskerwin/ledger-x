@@ -2,8 +2,9 @@ import SwiftUI
 import LedgerKit
 
 /// 账户卡片 → 卡面: the top of an account's page drawn as a card. A known bank or wallet (`FaceLook`) gets close to
-/// its own colours; any other account its group's colour, its own texture (picked from the account's name, the same
-/// on every launch) and the first character of its name, large and faint, in the corner.
+/// its own colours and its built-in icon (`FaceMarks`), large and faint, in the corner; any other account its
+/// group's colour, its own texture (picked from the account's name, the same on every launch) and the first
+/// character of its name.
 struct FaceCard<Content: View>: View {
     @Environment(Store.self) var store
     let account: String
@@ -68,17 +69,15 @@ struct FaceDesign {
     /// the watermark: a text, an icon, or nothing
     let mark: String?
     let icon: UIImage?
+    /// a built-in icon: drawn in the card's ink like a single-colour uploaded one
+    let symbol: Image?
     let iconMono: Bool
     let size: Double
     let opacity: Double
 
     @MainActor init(account: String, title: String, tint: Color, style: FaceStyle, ledger: String) {
-        let look: FaceLook?
-        if let picked = style.institution {
-            look = picked == FaceStyle.noInstitution ? nil : FaceLook.of(picked)
-        } else {
-            look = FaceLook.of(institution(account: account, name: title)?.id)
-        }
+        let id = style.institution.map { $0 == FaceStyle.noInstitution ? nil : $0 } ?? institution(account: account, name: title)?.id
+        let look = FaceLook.of(id)
         let picked = IconTint.color(style.color)
         fill = picked ?? look?.color ?? tint
         // a colour of one's own is flat: the brand's second colour would not go with it
@@ -90,19 +89,33 @@ struct FaceDesign {
         opacity = min(0.4, max(0.04, style.opacity ?? FaceStyle.defaultOpacity))
         switch style.mark {
         case .off?:
-            mark = nil; icon = nil
+            mark = nil; icon = nil; symbol = nil
         case .icon?:
-            mark = nil
+            mark = nil; symbol = nil
             icon = style.icon.flatMap { FaceIcons.image($0, ledger: ledger, mono: style.iconMono ?? true, strength: style.strength ?? FaceStyle.defaultStrength) }
+        case .symbol(let s)?:
+            mark = nil; icon = nil
+            symbol = FaceMarks.image(s)
         case .text(let t)?:
-            mark = t.isEmpty ? nil : t; icon = nil
+            mark = t.isEmpty ? nil : t; icon = nil; symbol = nil
         case nil:
-            mark = look?.mark ?? FacePattern.mark(title); icon = nil
+            icon = nil
+            // a known institution's own icon; its short mark only while it has none
+            symbol = look == nil ? nil : id.flatMap(FaceMarks.image)
+            mark = symbol == nil ? look?.mark ?? FacePattern.mark(title) : nil
         }
     }
 
     /// a short mark large and partly off the edge, a longer one smaller and further in; an icon in the corner
     func drawMark(in context: inout GraphicsContext, size box: CGSize) {
+        if let symbol {
+            // square, in the same corner as an uploaded icon
+            let side = 112 * size
+            var shape = context.resolve(symbol.renderingMode(.template))
+            shape.shading = .color(ink.opacity(opacity))
+            context.draw(shape, in: CGRect(x: box.width - side - 12, y: box.height - side + side * 0.12, width: side, height: side))
+            return
+        }
         if let icon {
             let side = 112 * size
             let w = icon.size.width >= icon.size.height ? side : side * icon.size.width / icon.size.height
@@ -130,8 +143,8 @@ struct FaceDesign {
     }
 }
 
-/// A known bank's or wallet's card: close to its own colours (no logo), its texture and a short mark for the
-/// watermark. Picked by `institution(account:name:)`; any other account keeps its group's colour.
+/// A known bank's or wallet's card: close to its own colours, its texture and a short mark for the watermark when it
+/// has no built-in icon. Picked by `institution(account:name:)`; any other account keeps its group's colour.
 struct FaceLook {
     /// the institutions in the order 编辑卡面 lists them, with their names
     static var named: [(id: String, name: String)] { [
@@ -372,5 +385,14 @@ struct TrendLine: View {
             context.fill(Path(ellipseIn: CGRect(x: last.x - 3, y: last.y - 3, width: 6, height: 6)), with: .color(ink))
         }
         .accessibilityLabel(LS("近 30 天余额走势"))
+    }
+}
+
+/// The built-in institution icons: one single-colour vector per `FaceLook` id in Assets.xcassets/FaceMarks, simple
+/// solid shapes after each one's own mark, drawn in the card's ink. A new one is an imageset named after the id
+/// (template rendering, vector kept); check_project keeps the two lists the same.
+enum FaceMarks {
+    static func image(_ id: String) -> Image? {
+        UIImage(named: "FaceMarks/" + id) == nil ? nil : Image("FaceMarks/" + id)
     }
 }

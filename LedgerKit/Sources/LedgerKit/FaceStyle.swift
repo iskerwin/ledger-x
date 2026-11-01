@@ -23,7 +23,10 @@ public struct FaceStyle: Codable, Equatable {
 
     public enum Mark: Codable, Equatable {
         case text(String)
+        /// the uploaded icon (`icon`)
         case icon
+        /// a built-in institution icon, by its `Institution` id
+        case symbol(String)
         case off
     }
 
