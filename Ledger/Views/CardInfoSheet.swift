@@ -151,17 +151,18 @@ struct CardInfoSheet: View {
             if let value {
                 Text(revealed ? value : hidden).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
                     .accessibilityIdentifier("cardinfo." + id)
-                // there while hidden too, only not seen: the row keeps its height from one to the other
-                Button { copyValue(copy, id: id) } label: {
-                    Image(systemName: copied == id ? "checkmark" : "doc.on.doc")
-                        .frame(minWidth: 44, minHeight: 44)
+                // while hidden an unseen stand-in of the same size: the row keeps its height from one to the other
+                if revealed {
+                    Button { copyValue(copy, id: id) } label: {
+                        Image(systemName: copied == id ? "checkmark" : "doc.on.doc")
+                            .frame(minWidth: 44, minHeight: 44)
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel(LS("复制%@", name))
+                    .accessibilityIdentifier("cardinfo.copy." + id)
+                } else {
+                    Image(systemName: "doc.on.doc").frame(minWidth: 44, minHeight: 44).hidden()
                 }
-                .buttonStyle(.borderless)
-                .opacity(revealed ? 1 : 0)
-                .disabled(!revealed)
-                .accessibilityHidden(!revealed)
-                .accessibilityLabel(LS("复制%@", name))
-                .accessibilityIdentifier("cardinfo.copy." + id)
             } else {
                 Text(LS("未填写")).foregroundStyle(.tertiary)
             }
@@ -174,15 +175,24 @@ struct CardInfoSheet: View {
     private var editForm: some View {
         let digits = cardDigits(number)
         Section {
-            TextField(LS("卡号"), text: Binding { number } set: { number = groupedCardNumber(cardDigits($0)) })
+            // regrouped after each change: a binding that rewrites what is typed leaves the field showing the raw text
+            TextField(LS("卡号"), text: $number)
                 .keyboardType(.numberPad).textContentType(.creditCardNumber).monospacedDigit()
                 .accessibilityIdentifier("cardinfo.field.number")
+                .onChange(of: number) { _, v in
+                    let grouped = groupedCardNumber(cardDigits(v))
+                    if grouped != v { number = grouped }
+                }
             TextField(LS("有效期（月/年，如 06/28）"), text: $expiry)
                 .keyboardType(.numbersAndPunctuation).monospacedDigit()
                 .accessibilityIdentifier("cardinfo.field.expiry")
-            TextField(LS("安全码（卡背面 3 或 4 位）"), text: Binding { draft.cvv } set: { draft.cvv = String($0.filter { $0.isASCII && $0.isNumber }.prefix(4)) })
+            TextField(LS("安全码（卡背面 3 或 4 位）"), text: $draft.cvv)
                 .keyboardType(.numberPad).monospacedDigit()
                 .accessibilityIdentifier("cardinfo.field.cvv")
+                .onChange(of: draft.cvv) { _, v in
+                    let digits = String(v.filter { $0.isASCII && $0.isNumber }.prefix(4))
+                    if digits != v { draft.cvv = digits }
+                }
             TextField(LS("持卡人"), text: $draft.holder)
                 .textContentType(.name).autocorrectionDisabled()
                 .accessibilityIdentifier("cardinfo.field.holder")

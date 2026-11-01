@@ -1341,6 +1341,8 @@ final class EditInteractionTests: XCTestCase {
             wheel.adjust(toPickerWheelValue: value)
         }
         tapPoint(app.buttons["完成"], timeout: 5)
+        // the title opens nothing while the popover is still on its way out, so the next month waits for it to go
+        XCTAssertTrue(app.pickers["calendar.yearWheel"].waitForNonExistence(timeout: 5))
     }
 
     func testGlassCalendarFixedRowsAndDaySelection() {
