@@ -1052,6 +1052,65 @@ final class EditInteractionTests: XCTestCase {
         }
     }
 
+    /// 长按卡面 → 编辑卡面: a change shows in the preview's sheet, is kept when saved and gone again after 恢复默认;
+    /// an icon put in takes the watermark and offers 单色 / 原色
+    func testEditingACardFaceIsKeptAndResets() {
+        let app = XCUIApplication()
+        let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures")
+        app.launchEnvironment = ["LEDGER_DEMO": fixtures.path, "LEDGER_TAB": "accounts", "LEDGER_OPEN_ACCOUNT": "Assets:Bank:CGB", "LEDGER_LANG": "zh"]
+        app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-ledger.card.style", "card"]
+        app.launch()
+        let face = app.descendants(matching: .any)["card.face"].firstMatch
+        XCTAssertTrue(face.waitForExistence(timeout: 20))
+        func openEditor() {
+            face.press(forDuration: 1.0)
+            let edit = app.buttons["编辑卡面"].firstMatch
+            XCTAssertTrue(edit.waitForExistence(timeout: 5))
+            edit.tap()
+            XCTAssertTrue(app.descendants(matching: .any)["face.preview"].waitForExistence(timeout: 5))
+        }
+        /// the sheet is a long form: what is further down only exists once it has scrolled into view
+        func reveal(_ id: String) -> XCUIElement {
+            let e = app.descendants(matching: .any)[id].firstMatch
+            // only ever down: a swipe down at the top would close the sheet
+            for _ in 0..<5 where !(e.exists && e.isHittable) { app.swipeUp() }
+            XCTAssertTrue(e.waitForExistence(timeout: 5), id)
+            return e
+        }
+        openEditor()
+        reveal("face.pattern").tap()
+        let none = app.buttons["无"].firstMatch
+        XCTAssertTrue(none.waitForExistence(timeout: 5))
+        none.tap()
+        XCTAssertTrue(reveal("face.reset").isEnabled)
+        app.buttons["face.save"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["face.preview"].waitForNonExistence(timeout: 5))
+
+        // kept: opened again, the change is there to be reset
+        openEditor()
+        let reset = reveal("face.reset")
+        XCTAssertTrue(reset.isEnabled, "the texture picked is kept")
+        reset.tap()
+        XCTAssertFalse(reset.isEnabled)
+        app.buttons["face.save"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["face.preview"].waitForNonExistence(timeout: 5))
+        openEditor()
+        XCTAssertFalse(reveal("face.reset").isEnabled, "恢复默认 saved: the card is automatic again")
+        app.terminate()
+
+        // an icon put in (as if picked from the photo library)
+        app.launchEnvironment["LEDGER_FACE_ICON"] = fixtures.appendingPathComponent("face-icon.png").path
+        app.launch()
+        XCTAssertTrue(face.waitForExistence(timeout: 20))
+        openEditor()
+        XCTAssertTrue(reveal("face.iconStyle").exists, "the icon took the watermark")
+        XCTAssertTrue(app.buttons["单色"].firstMatch.isSelected, "单色 by default")
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "编辑卡面-图标单色"
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
+
     func testCardBillActionsStayOnOneRowAtNormalTextSize() {
         let app = launchCardAccount(accessibility: false)
         let bill = app.buttons["填写本期账单"].firstMatch

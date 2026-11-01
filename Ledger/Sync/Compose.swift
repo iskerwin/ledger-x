@@ -222,6 +222,8 @@ extension Store {
         s.hidden = s.hidden.map(move).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
         s.colors = s.colors.map { c in Dictionary(c.map { (move($0.key), $0.value) }, uniquingKeysWith: { a, _ in a }) }
         if s != catStyle { catStyle = s }
+        let faces = renamedFaceStyles(faceStyles, from: from, to: to)
+        if faces != faceStyles { faceStyles = faces }
     }
 
     /// a group's icon everywhere (the grid, 管理账户, the account list, reports): the one picked, else the built-in one —
