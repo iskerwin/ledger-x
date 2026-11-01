@@ -39,6 +39,16 @@
           "sha256": "8c802211d168f86a9ca60694fdadc928252b521e4ad44c6183630c2391b545c9"
         },
         {
+          "version": "1.0.13",
+          "buildVersion": "57",
+          "date": "2026-11-01T13:45:44Z",
+          "localizedDescription": "# Ledger X 1.0.13 正式版\n\n版本 1.0.13 · 构建 57 · main cd7016c 。\n\n## 新增\n\n- 银行卡和信用卡可以存卡号、有效期、安全码和持卡人：长按卡面选「卡片信息」填写。只存在这台手机的钥匙串里，不写进账本、备份或 iCloud；打开时都隐藏，「显示」和「编辑」要先验证面容 ID 或密码，30 秒后或离开 App 自动隐藏；每项可复制，60 秒后从剪贴板清除；账本里没设尾号时，卡面、账户列表、记一笔的账户卡片和交易详情都显示这里卡号的后 4 位，卡面还写有效期；关闭账户或删除账本时一起删除。",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/v1.0.13/Ledger.ipa?v=1.0.13-57",
+          "size": 10993115,
+          "minOSVersion": "17.0",
+          "sha256": "8ebbbbe156f1820ee64b78b988d6fee24536960fce187df1b59118f9fcf45e9a"
+        },
+        {
           "version": "1.0.12",
           "buildVersion": "56",
           "date": "2026-11-01T06:33:32Z",

@@ -19,6 +19,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "1.0.13",
+          "buildVersion": "57",
+          "date": "2026-11-01T13:45:44Z",
+          "localizedDescription": "# Ledger X 1.0.13 正式版\n\n版本 1.0.13 · 构建 57 · main cd7016c 。\n\n## 新增\n\n- 银行卡和信用卡可以存卡号、有效期、安全码和持卡人：长按卡面选「卡片信息」填写。只存在这台手机的钥匙串里，不写进账本、备份或 iCloud；打开时都隐藏，「显示」和「编辑」要先验证面容 ID 或密码，30 秒后或离开 App 自动隐藏；每项可复制，60 秒后从剪贴板清除；账本里没设尾号时，卡面、账户列表、记一笔的账户卡片和交易详情都显示这里卡号的后 4 位，卡面还写有效期；关闭账户或删除账本时一起删除。",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/v1.0.13/Ledger.ipa?v=1.0.13-57",
+          "size": 10993115,
+          "minOSVersion": "17.0",
+          "sha256": "8ebbbbe156f1820ee64b78b988d6fee24536960fce187df1b59118f9fcf45e9a"
+        },
+        {
           "version": "1.0.12",
           "buildVersion": "56",
           "date": "2026-11-01T06:33:32Z",
@@ -147,11 +157,11 @@
           "NSPhotoLibraryUsageDescription": "选择票据照片作为交易附件"
         }
       },
-      "version": "1.0.12",
-      "versionDate": "2026-11-01T06:33:32Z",
-      "versionDescription": "# Ledger X 1.0.12 正式版\n\n版本 1.0.12 · 构建 56 · main 2254fd1 。\n\n## 新增\n\n- 银行卡、电子钱包和储值卡、现金账户也能画成卡面：「设置 → 外观 → 信用卡账单」改为「账户卡片」，选「卡面」后这些账户页的顶部是一张大类颜色的卡，写着多久没核对、当前余额、近 30 天余额走势、其他币种和本月流入流出；每张卡按名称自带一种纹理和首字水印，同色的卡也好区分。信用卡的卡面同样加上纹理和水印；原来选了卡面的继续是卡面。\n- 卡面认得 23 家常见银行和钱包：招商、工商、建设、中国、农业、交通、浦发、中信、汇丰、花旗、恒生、中银香港、渣打、众安、Mox、支付宝、微信支付、Wise、八达通、AlipayHK、PayMe、PayPal、Revolut。账户名用英文简称（如 `Assets:Bank:CMB`）或显示名里有中文名（如「招商银行一卡通」）时，卡面改用接近它的配色和简写水印，不放标志。\n- 卡面可以按账户自己改：长按卡面选「编辑卡面」，换机构、颜色、纹理和水印（文字、上传的图标或不显示），调水印大小和透明度，顶部预览随改随变；上传的图标默认变成卡面文字颜色的单色剪影（白底图片自动去背景，可调强度），也可以用原色。设置和图标只存在这台手机、按账本分开，「恢复默认」回到自动。",
-      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/v1.0.12/Ledger.ipa?v=1.0.12-56",
-      "size": 10915459
+      "version": "1.0.13",
+      "versionDate": "2026-11-01T13:45:44Z",
+      "versionDescription": "# Ledger X 1.0.13 正式版\n\n版本 1.0.13 · 构建 57 · main cd7016c 。\n\n## 新增\n\n- 银行卡和信用卡可以存卡号、有效期、安全码和持卡人：长按卡面选「卡片信息」填写。只存在这台手机的钥匙串里，不写进账本、备份或 iCloud；打开时都隐藏，「显示」和「编辑」要先验证面容 ID 或密码，30 秒后或离开 App 自动隐藏；每项可复制，60 秒后从剪贴板清除；账本里没设尾号时，卡面、账户列表、记一笔的账户卡片和交易详情都显示这里卡号的后 4 位，卡面还写有效期；关闭账户或删除账本时一起删除。",
+      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/v1.0.13/Ledger.ipa?v=1.0.13-57",
+      "size": 10993115
     }
   ],
   "news": []
