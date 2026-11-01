@@ -175,14 +175,7 @@ struct CardInfoSheet: View {
     private var editForm: some View {
         let digits = cardDigits(number)
         Section {
-            // regrouped after each change: a binding that rewrites what is typed leaves the field showing the raw text
-            TextField(LS("卡号"), text: $number)
-                .keyboardType(.numberPad).textContentType(.creditCardNumber).monospacedDigit()
-                .accessibilityIdentifier("cardinfo.field.number")
-                .onChange(of: number) { _, v in
-                    let grouped = groupedCardNumber(cardDigits(v))
-                    if grouped != v { number = grouped }
-                }
+            CardNumberField(text: $number, placeholder: LS("卡号"))
             TextField(LS("有效期（月/年，如 06/28）"), text: $expiry)
                 .keyboardType(.numbersAndPunctuation).monospacedDigit()
                 .accessibilityIdentifier("cardinfo.field.expiry")
@@ -286,5 +279,71 @@ struct CardInfoSheet: View {
                                       options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(Self.clipboardFor)])
         copied = id
         Haptics.success()
+    }
+}
+
+/// The card number grouped in fours as it is typed. Grouped inside the key press itself: a SwiftUI field rewritten
+/// after a change (onChange or a rewriting binding) either keeps showing the raw digits or drops the keys that
+/// arrive while it is being rewritten.
+struct CardNumberField: UIViewRepresentable {
+    @Binding var text: String
+    var placeholder: String
+
+    func makeUIView(context: Context) -> UITextField {
+        let field = UITextField()
+        field.keyboardType = .numberPad
+        field.textContentType = .creditCardNumber
+        field.font = UIFontMetrics(forTextStyle: .body).scaledFont(for: .monospacedDigitSystemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize, weight: .regular))
+        field.adjustsFontForContentSizeCategory = true
+        field.placeholder = placeholder
+        field.accessibilityIdentifier = "cardinfo.field.number"
+        field.delegate = context.coordinator
+        // AutoFill and the like can set the text without asking the delegate
+        field.addTarget(context.coordinator, action: #selector(Coordinator.edited(_:)), for: .editingChanged)
+        field.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return field
+    }
+
+    func updateUIView(_ field: UITextField, context: Context) {
+        context.coordinator.text = $text
+        if field.text != text { field.text = text }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        var text: Binding<String>
+        init(text: Binding<String>) { self.text = text }
+
+        @objc func edited(_ field: UITextField) {
+            let grouped = groupedCardNumber(cardDigits(field.text ?? ""))
+            if field.text != grouped { field.text = grouped }
+            if text.wrappedValue != grouped { text.wrappedValue = grouped }
+        }
+
+        func textField(_ field: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+            let old = (field.text ?? "") as NSString
+            var range = range
+            // deleting just the space between groups takes the digit before it, or nothing would seem to happen
+            if string.isEmpty, range.length == 1, old.substring(with: range) == " ", range.location > 0 {
+                range = NSRange(location: range.location - 1, length: 2)
+            }
+            let changed = old.replacingCharacters(in: range, with: string)
+            // the caret goes after the same number of digits as it would in the ungrouped text
+            let before = cardDigits(String(changed.prefix(range.location + (string as NSString).length))).count
+            let grouped = groupedCardNumber(cardDigits(changed))
+            field.text = grouped
+            var seen = 0, offset = 0
+            for ch in grouped where seen < before {
+                offset += 1
+                if ch.isNumber { seen += 1 }
+            }
+            if let place = field.position(from: field.beginningOfDocument, offset: offset) {
+                field.selectedTextRange = field.textRange(from: place, to: place)
+            }
+            text.wrappedValue = grouped
+            return false
+        }
     }
 }
