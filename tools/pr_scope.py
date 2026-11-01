@@ -7,6 +7,7 @@ IDENT = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
 FUNC = re.compile(
     r'^[ \t]+(?:(?:public|private|internal|fileprivate|open|final|override|static|class|mutating|nonisolated)\s+)*'
     r'func\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:<[^>\n]*>)?\s*\(')
+STRING = re.compile(r'"(?:\\.|[^"\\])*"')
 HUNK = re.compile(r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@')
 ROOT = Path(__file__).resolve().parents[1]
 # Reviewed file dependencies. Unknown core files still run the entire module.
@@ -20,12 +21,19 @@ def _norm(path):
 
 
 def _funcs(text):
+    """The file's own functions. A function written inside another one's body (a test's local helper) is part
+    of that function, not a helper of its own that every caller of the same name would follow."""
     lines = text.splitlines()
     starts = []
+    depth = 0
+    opened = None
     for index, line in enumerate(lines, 1):
         match = FUNC.match(line)
-        if match:
+        if match and (opened is None or depth <= opened):
             starts.append((match.group(1), index))
+            opened = depth
+        code = STRING.sub('""', line).split('//')[0]
+        depth += code.count('{') - code.count('}')
     funcs = []
     for place, (name, start) in enumerate(starts):
         end = starts[place + 1][1] if place + 1 < len(starts) else len(lines) + 1
