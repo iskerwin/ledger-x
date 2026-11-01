@@ -14,8 +14,8 @@ public struct Institution: Equatable {
 /// Most specific first: AlipayHK before Alipay, 中银香港 before 中国银行, 中信 before 花旗, 农业银行 before 中国银行.
 public let institutions: [Institution] = [
     Institution(id: "alipayhk", words: ["alipayhk"], names: ["支付宝香港"]),
-    Institution(id: "alipay", words: ["alipay", "zhifubao"], names: ["支付宝"]),
-    Institution(id: "wechat", words: ["wechat", "wechatpay", "weixin", "wxpay"], names: ["微信"]),
+    Institution(id: "alipay", words: ["alipay", "zhifubao", "yuebao"], names: ["支付宝", "余额宝"]),
+    Institution(id: "wechat", words: ["wechat", "wechatpay", "weixin", "wxpay", "minifund"], names: ["微信", "零钱通"]),
     Institution(id: "wise", words: ["wise", "transferwise"], names: []),
     Institution(id: "octopus", words: ["octopus"], names: ["八达通"]),
     Institution(id: "payme", words: ["payme"], names: []),

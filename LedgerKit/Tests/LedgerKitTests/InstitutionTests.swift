@@ -19,6 +19,9 @@ final class InstitutionTests: XCTestCase {
         XCTAssertEqual(id("Liabilities:CreditCard:HXB"), "hxb")
         XCTAssertEqual(id("Assets:Bank:IFASTGB"), "ifast")
         XCTAssertEqual(id("Assets:Bank:N26"), "n26")
+        // a wallet's own fund goes with its wallet
+        XCTAssertEqual(id("Assets:EWallet:YuEBao"), "alipay")
+        XCTAssertEqual(id("Assets:EWallet:MiniFund"), "wechat")
     }
 
     func testTheNameShownFindsItToo() {
