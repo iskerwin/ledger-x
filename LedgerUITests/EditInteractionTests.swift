@@ -1062,14 +1062,15 @@ final class EditInteractionTests: XCTestCase {
         let face = app.descendants(matching: .any)["card.face"].firstMatch
         XCTAssertTrue(face.waitForExistence(timeout: 20))
         func openEditor() {
-            // the account page may still be sliding in: a press while it moves is taken by the push, not the menu
+            // the account page may still be sliding in: a press while it moves is taken by the push, not the menu.
+            // Right after a cold launch on CI each look at the card can take seconds: it gets as long as the launch wait
             var previous = CGRect.null
             let still = expectation(for: NSPredicate { _, _ in
                 let frame = face.frame
                 defer { previous = frame }
                 return !frame.isEmpty && frame == previous && face.isHittable
             }, evaluatedWith: nil)
-            wait(for: [still], timeout: 10)
+            wait(for: [still], timeout: 20)
             face.press(forDuration: 1.0)
             let edit = app.buttons["编辑卡面"].firstMatch
             XCTAssertTrue(edit.waitForExistence(timeout: 5))
@@ -1117,14 +1118,15 @@ final class EditInteractionTests: XCTestCase {
         let face = app.descendants(matching: .any)["card.face"].firstMatch
         XCTAssertTrue(face.waitForExistence(timeout: 20))
         func openEditor() {
-            // the account page may still be sliding in: a press while it moves is taken by the push, not the menu
+            // the account page may still be sliding in: a press while it moves is taken by the push, not the menu.
+            // Right after a cold launch on CI each look at the card can take seconds: it gets as long as the launch wait
             var previous = CGRect.null
             let still = expectation(for: NSPredicate { _, _ in
                 let frame = face.frame
                 defer { previous = frame }
                 return !frame.isEmpty && frame == previous && face.isHittable
             }, evaluatedWith: nil)
-            wait(for: [still], timeout: 10)
+            wait(for: [still], timeout: 20)
             face.press(forDuration: 1.0)
             let edit = app.buttons["编辑卡面"].firstMatch
             XCTAssertTrue(edit.waitForExistence(timeout: 5))
@@ -1160,14 +1162,15 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(face.waitForExistence(timeout: 20))
         XCTAssertFalse(face.label.contains("••••"), face.label)
         func open() {
-            // the account page may still be sliding in: a press while it moves is taken by the push, not the menu
+            // the account page may still be sliding in: a press while it moves is taken by the push, not the menu.
+            // Right after a cold launch on CI each look at the card can take seconds: it gets as long as the launch wait
             var previous = CGRect.null
             let still = expectation(for: NSPredicate { _, _ in
                 let frame = face.frame
                 defer { previous = frame }
                 return !frame.isEmpty && frame == previous && face.isHittable
             }, evaluatedWith: nil)
-            wait(for: [still], timeout: 10)
+            wait(for: [still], timeout: 20)
             face.press(forDuration: 1.0)
             let item = app.buttons["卡片信息"].firstMatch
             XCTAssertTrue(item.waitForExistence(timeout: 5))
