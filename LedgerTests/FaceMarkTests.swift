@@ -1,5 +1,6 @@
 import XCTest
 import SwiftUI
+import LedgerKit
 @testable import Ledger
 
 /// A built-in institution icon is a watermark: drawn in the card's ink as faint as 透明度 sets, never solid.
@@ -23,7 +24,11 @@ final class FaceMarkTests: XCTestCase {
                                     bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
             context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
         }
-        return stride(from: 0, to: bytes.count, by: 4).map { Int(max(bytes[$0], bytes[$0 + 1], bytes[$0 + 2])) }.max() ?? 0
+        var top: UInt8 = 0
+        for i in stride(from: 0, to: bytes.count, by: 4) {
+            top = max(top, bytes[i], bytes[i + 1], bytes[i + 2])
+        }
+        return Int(top)
     }
 
     func testABuiltInIconIsAsFaintAsTheOpacitySet() throws {
