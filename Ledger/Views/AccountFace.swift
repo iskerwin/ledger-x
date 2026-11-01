@@ -111,9 +111,12 @@ struct FaceDesign {
         if let symbol {
             // square, in the same corner as an uploaded icon
             let side = 112 * size
-            var shape = context.resolve(symbol.renderingMode(.template))
-            shape.shading = .color(ink.opacity(opacity))
-            context.draw(shape, in: CGRect(x: box.width - side - 12, y: box.height - side + side * 0.12, width: side, height: side))
+            // the faintness on the layer: an asset's vector drops the alpha of a shading colour and drew solid ink
+            var c = context
+            c.opacity = opacity
+            var shape = c.resolve(symbol.renderingMode(.template))
+            shape.shading = .color(ink)
+            c.draw(shape, in: CGRect(x: box.width - side - 12, y: box.height - side + side * 0.12, width: side, height: side))
             return
         }
         if let icon {
