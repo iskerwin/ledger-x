@@ -1063,7 +1063,7 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(face.waitForExistence(timeout: 20))
         func openEditor() {
             // the account page may still be sliding in: a press while it moves is taken by the push, not the menu.
-            // Right after a cold launch on CI each look at the card can take seconds, so as long as the launch wait
+            // Right after a cold launch on CI each look at the card can take seconds: it gets as long as the launch wait
             var previous = CGRect.null
             let still = expectation(for: NSPredicate { _, _ in
                 let frame = face.frame
@@ -1119,7 +1119,7 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(face.waitForExistence(timeout: 20))
         func openEditor() {
             // the account page may still be sliding in: a press while it moves is taken by the push, not the menu.
-            // Right after a cold launch on CI each look at the card can take seconds, so as long as the launch wait
+            // Right after a cold launch on CI each look at the card can take seconds: it gets as long as the launch wait
             var previous = CGRect.null
             let still = expectation(for: NSPredicate { _, _ in
                 let frame = face.frame
@@ -1163,7 +1163,7 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertFalse(face.label.contains("••••"), face.label)
         func open() {
             // the account page may still be sliding in: a press while it moves is taken by the push, not the menu.
-            // Right after a cold launch on CI each look at the card can take seconds, so as long as the launch wait
+            // Right after a cold launch on CI each look at the card can take seconds: it gets as long as the launch wait
             var previous = CGRect.null
             let still = expectation(for: NSPredicate { _, _ in
                 let frame = face.frame
