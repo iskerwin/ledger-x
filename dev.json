@@ -19,6 +19,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "1.0.13",
+          "buildVersion": "56.1",
+          "date": "2026-11-01T06:53:16Z",
+          "localizedDescription": "# Ledger X 1.0.13 预览\n\n版本 1.0.13 · 构建 56.1 · feat/card-info 2fef4be · PR #82 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
+          "size": 10986598,
+          "minOSVersion": "17.0",
+          "sha256": "f0da49f37a139067b2d178c7cd49b2a22ecfb2d63abed65827c523b36645c10d"
+        },
+        {
           "version": "1.0.12",
           "buildVersion": "56",
           "date": "2026-11-01T05:24:02Z",
@@ -27,16 +37,6 @@
           "size": 10915459,
           "minOSVersion": "17.0",
           "sha256": "907142b2363ad9d8c034923d53384fd8edee75a9c66f0134f78b8f81065d5a73"
-        },
-        {
-          "version": "1.0.12",
-          "buildVersion": "54.4",
-          "date": "2026-10-31T23:20:09Z",
-          "localizedDescription": "# Ledger X 1.0.12 预览\n\n版本 1.0.12 · 构建 54.4 · feat/face-editor 3eaf5b2 · PR #78 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-          "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-          "size": 10915363,
-          "minOSVersion": "17.0",
-          "sha256": "b0191e25b255606c7184bbb1be614ce34567ac975681c2a48414214779d80ebe"
         },
         {
           "version": "1.0.12",
@@ -167,11 +167,11 @@
           "NSPhotoLibraryUsageDescription": "选择票据照片作为交易附件"
         }
       },
-      "version": "1.0.12",
-      "versionDate": "2026-11-01T05:24:02Z",
-      "versionDescription": "# Ledger X 1.0.12 开发版\n\n版本 1.0.12 · 构建 56 · main 2254fd1 。\n\n## 本次更新\n\n- 本次没有新增用户可见的功能或修复记录，为重新构建或发布流程维护。",
-      "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
-      "size": 10915459
+      "version": "1.0.13",
+      "versionDate": "2026-11-01T06:53:16Z",
+      "versionDescription": "# Ledger X 1.0.13 预览\n\n版本 1.0.13 · 构建 56.1 · feat/card-info 2fef4be · PR #82 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+      "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
+      "size": 10986598
     }
   ],
   "news": []
