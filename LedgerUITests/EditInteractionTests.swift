@@ -1245,10 +1245,12 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["有效期写成 月/年，如 06/28。"].waitForExistence(timeout: 5))
         XCTAssertFalse(save.isEnabled, "not a month")
         expiry.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 5) + "0628")
+        // read right after typing, the field and the button can lag the last keys: wait for what they settle on
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "06/28"), object: expiry)], timeout: 3), .completed, String(describing: expiry.value))
         let cvv = app.textFields["cardinfo.field.cvv"]
         cvv.tap()
         cvv.typeText("123")
-        XCTAssertTrue(save.isEnabled)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: save)], timeout: 3), .completed, "a right expiry can be saved")
         save.tap()
         // saved and shown for a moment; 隐藏 masks it
         let shown = app.staticTexts["cardinfo.number"]
