@@ -1063,6 +1063,14 @@ final class EditInteractionTests: XCTestCase {
         let face = app.descendants(matching: .any)["card.face"].firstMatch
         XCTAssertTrue(face.waitForExistence(timeout: 20))
         func openEditor() {
+            // the account page may still be sliding in: a press while it moves is taken by the push, not the menu
+            var previous = CGRect.null
+            let still = expectation(for: NSPredicate { _, _ in
+                let frame = face.frame
+                defer { previous = frame }
+                return !frame.isEmpty && frame == previous && face.isHittable
+            }, evaluatedWith: nil)
+            wait(for: [still], timeout: 10)
             face.press(forDuration: 1.0)
             let edit = app.buttons["编辑卡面"].firstMatch
             XCTAssertTrue(edit.waitForExistence(timeout: 5))
