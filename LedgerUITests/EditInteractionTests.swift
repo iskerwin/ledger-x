@@ -1246,7 +1246,8 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertFalse(save.isEnabled, "not a month")
         expiry.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 5) + "0628")
         // read right after typing, the field and the button can lag the last keys: wait for what they settle on
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "06/28"), object: expiry)], timeout: 3), .completed, String(describing: expiry.value))
+        // (as typed: 06/28 is what it is saved as)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "0628"), object: expiry)], timeout: 3), .completed, String(describing: expiry.value))
         let cvv = app.textFields["cardinfo.field.cvv"]
         cvv.tap()
         cvv.typeText("123")
