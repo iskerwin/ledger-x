@@ -20,6 +20,16 @@
       "versions": [
         {
           "version": "1.0.14",
+          "buildVersion": "58",
+          "date": "2026-11-02T09:38:03Z",
+          "localizedDescription": "# Ledger X 1.0.14 开发版\n\n版本 1.0.14 · 构建 58 · main 12c2b32 。\n\n## 新增\n\n- 卡面水印有了内置的机构图标：认得出的银行和钱包（招商、汇丰、支付宝、微信支付等，并新认得广发、光大、华夏、iFAST、N26，共 28 家，余额宝算支付宝、零钱通算微信支付）的卡面右下角，现在是照它标志简化的单色图标，替代原来的简写文字；长按卡面选「编辑卡面」，水印选「图标」时先列出全部内置图标，点一个直接换，从照片或文件选自己的图标改为备选。\n- 现金账户的卡面水印换成内置的钞票图标，不再是名称首字；「编辑卡面 → 水印 → 图标」里也能给别的卡选它。\n\n## 改进\n\n- 卡面上众安银行、iFAST、N26 的图标照各家现在的标志重画（众安是两道平行的 Z，iFAST 是点阵弧线围着 i，N26 是上下两道横线夹着 N），卡面颜色改用它们的官方颜色：众安薄荷绿、iFAST 深蓝绿、N26 深青绿。",
+          "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
+          "size": 11057069,
+          "minOSVersion": "17.0",
+          "sha256": "848b55b27beb8758838c1fd10ecb067734a9c0079b6174b03eafe7e6f097a448"
+        },
+        {
+          "version": "1.0.14",
           "buildVersion": "57.4",
           "date": "2026-11-02T06:08:47Z",
           "localizedDescription": "# Ledger X 1.0.14 预览\n\n版本 1.0.14 · 构建 57.4 · feat/face-icons-redraw f472b62 · PR #88 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
@@ -27,16 +37,6 @@
           "size": 11056766,
           "minOSVersion": "17.0",
           "sha256": "35911815bafaf408c6662d912691675287d1327f7262752fee4781979a669000"
-        },
-        {
-          "version": "1.0.13",
-          "buildVersion": "57",
-          "date": "2026-11-01T12:02:48Z",
-          "localizedDescription": "# Ledger X 1.0.13 开发版\n\n版本 1.0.13 · 构建 57 · main cd7016c 。\n\n## 新增\n\n- 银行卡和信用卡可以存卡号、有效期、安全码和持卡人：长按卡面选「卡片信息」填写。只存在这台手机的钥匙串里，不写进账本、备份或 iCloud；打开时都隐藏，「显示」和「编辑」要先验证面容 ID 或密码，30 秒后或离开 App 自动隐藏；每项可复制，60 秒后从剪贴板清除；账本里没设尾号时，卡面、账户列表、记一笔的账户卡片和交易详情都显示这里卡号的后 4 位，卡面还写有效期；关闭账户或删除账本时一起删除。",
-          "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
-          "size": 10993115,
-          "minOSVersion": "17.0",
-          "sha256": "8ebbbbe156f1820ee64b78b988d6fee24536960fce187df1b59118f9fcf45e9a"
         },
         {
           "version": "1.0.13",
@@ -178,10 +178,10 @@
         }
       },
       "version": "1.0.14",
-      "versionDate": "2026-11-02T06:08:47Z",
-      "versionDescription": "# Ledger X 1.0.14 预览\n\n版本 1.0.14 · 构建 57.4 · feat/face-icons-redraw f472b62 · PR #88 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-      "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-      "size": 11056766
+      "versionDate": "2026-11-02T09:38:03Z",
+      "versionDescription": "# Ledger X 1.0.14 开发版\n\n版本 1.0.14 · 构建 58 · main 12c2b32 。\n\n## 新增\n\n- 卡面水印有了内置的机构图标：认得出的银行和钱包（招商、汇丰、支付宝、微信支付等，并新认得广发、光大、华夏、iFAST、N26，共 28 家，余额宝算支付宝、零钱通算微信支付）的卡面右下角，现在是照它标志简化的单色图标，替代原来的简写文字；长按卡面选「编辑卡面」，水印选「图标」时先列出全部内置图标，点一个直接换，从照片或文件选自己的图标改为备选。\n- 现金账户的卡面水印换成内置的钞票图标，不再是名称首字；「编辑卡面 → 水印 → 图标」里也能给别的卡选它。\n\n## 改进\n\n- 卡面上众安银行、iFAST、N26 的图标照各家现在的标志重画（众安是两道平行的 Z，iFAST 是点阵弧线围着 i，N26 是上下两道横线夹着 N），卡面颜色改用它们的官方颜色：众安薄荷绿、iFAST 深蓝绿、N26 深青绿。",
+      "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
+      "size": 11057069
     }
   ],
   "news": []
