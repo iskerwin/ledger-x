@@ -64,7 +64,6 @@ public func convertingEditor(_ current: Draft, to kind: DraftKind, ledger L: Led
     }
     next.replacing = current.replacing
     next.refundOf = current.refundOf
-    next.scan = current.scan
     next.eventsTouched = true
     next.selection = current.selection
     let back = validateText(draftText(next, L, D), L, single: true)

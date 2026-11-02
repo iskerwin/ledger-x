@@ -288,13 +288,11 @@ struct QuickAddView: View {
             }
     }
 
-    /// above the grid: which entry is being edited, what a screenshot gave, or the frequent entries
+    /// above the grid: which entry is being edited, or the frequent entries
     @ViewBuilder
     private func topStrip(_ d: Draft) -> some View {
         if let r = d.replacing {
             editingBanner(r).padding(.horizontal, AppSpacing.content).padding(.top, AppSpacing.icon)
-        } else if let s = store.scanInfo {
-            ScanBanner(info: s).padding(.horizontal, AppSpacing.control).padding(.top, AppSpacing.icon)
         } else {
             templateCapsules(d.kind)
         }
@@ -686,7 +684,7 @@ struct QuickAddView: View {
         return a.components(separatedBy: ":").last ?? a
     }
 
-    /// the last four digits a card is known by (ledger-x.json scan_cards, else 卡片信息), for the paying account's line
+    /// the last four digits a card is known by (卡片信息), for the paying account's line
     private func cardTail(_ a: String) -> String? { store.cardTail(a) }
 
     // MARK: the paying account, the day and 更多 (or 标签)

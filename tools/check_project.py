@@ -156,8 +156,8 @@ for key in sorted(shown):
 for key in english:
     require(key in shown or '"' + key.replace('"', '\\"').replace('\n', '\\n') + '"' in sources, f'Ledger/en.json: {key!r} is no longer used')
 
-# what iOS reads from the bundle itself, not through LS (shortcut names, their parameters and Siri phrases, the
-# permission prompts): each one has its English in a string catalog, or an English iPhone shows it in Chinese
+# what iOS reads from the bundle itself, not through LS (the permission prompts): each one has its English in a
+# string catalog, or an English iPhone shows it in Chinese
 def catalog(name):
     path = ROOT/'Ledger'/name
     if not path.exists():
@@ -165,18 +165,7 @@ def catalog(name):
     data = json.loads(path.read_text())
     return {k: v.get('localizations', {}).get('en', {}).get('stringUnit', {}).get('value') for k, v in data['strings'].items()}
 
-def literal(m):
-    # a Swift literal as its catalog key: \(\.$amount) is ${amount}, \(.applicationName) is ${applicationName}
-    m = re.sub(r'\\\(\\?\.\$?(\w+)\)', r'${\1}', m)
-    return m.replace('\\"', '"')
-
 system_read = {
-    'Localizable.xcstrings': {literal(m) for pattern in (r'LocalizedStringResource = "((?:[^"\\]|\\.)*)"', r'IntentDescription\("((?:[^"\\]|\\.)*)"',
-                                                         r'@Parameter\(title: "((?:[^"\\]|\\.)*)"', r'shortTitle: "((?:[^"\\]|\\.)*)"',
-                                                         r'Summary\("((?:[^"\\]|\\.)*)"')
-                              for m in re.findall(pattern, sources)},
-    'AppShortcuts.xcstrings': {literal(m) for phrases in re.findall(r'phrases: \[([^\]]*)\]', sources)
-                               for m in re.findall(r'"((?:[^"\\]|\\.)*)"', phrases)},
     'InfoPlist.xcstrings': set(re.findall(r'^\s+(NS\w+UsageDescription):', project, re.M)),
 }
 # the permission prompts in Chinese are the ones in project.yml (the catalog's are what the phone shows)

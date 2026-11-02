@@ -20,8 +20,7 @@ class SmallScopeTests(unittest.TestCase):
         self.assertIn('LedgerUITests/EditInteractionTests/testJournalSearchAppliesOnSubmitAndClearRestores', dev['ui_tests'])
 
     def test_localization_has_static_coverage_and_no_unrelated_form_flows(self):
-        for path in ('Ledger/en.json', 'Ledger/Localizable.xcstrings',
-                     'Ledger/AppShortcuts.xcstrings', 'Ledger/InfoPlist.xcstrings'):
+        for path in ('Ledger/en.json', 'Ledger/InfoPlist.xcstrings'):
             with self.subTest(path=path):
                 plan = dev_scope.classify([path])
                 # check_project validates keys, English values and system prompt consistency.

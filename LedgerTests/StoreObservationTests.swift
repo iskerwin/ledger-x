@@ -18,7 +18,6 @@ final class StoreObservationTests: XCTestCase {
         store.attachmentRevision += 1
         store.closeAddRequested = true
         store.popToken += 1
-        store.scanInfo = nil
         XCTAssertFalse(redrawn)
     }
 

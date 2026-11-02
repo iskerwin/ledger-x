@@ -138,7 +138,6 @@ extension Store {
 
     /// the card closed while editing: back to a new entry
     func endEdit() {
-        scanInfo = nil
         guard draft.replacing != nil else { return }
         persistActiveDraft()
         restoreCreationDraft()
@@ -387,7 +386,7 @@ extension Store {
     /// Check and save the form (not 文本, which asks about replacing balance assertions first). True once it is
     /// queued; the form is then ready for the next entry, keeping the kind, paying account and date.
     @discardableResult
-    /// save the form (a screenshot's card is remembered with the entry, see saveForm)
+    /// save the form
     func saveDraft(onQueued: (() -> Void)? = nil) async -> Bool {
         let timing = SaveTiming()
         guard !drafts.isSaving else { return false }
@@ -395,7 +394,6 @@ extension Store {
         defer { drafts.isSaving = false }
         guard await saveForm(onQueued: onQueued) else { return false }
         timing.record("draft-save-finished")
-        scanInfo = nil
         return true
     }
 
@@ -438,22 +436,6 @@ extension Store {
         guard var ops = makeOps(text, single: draftIsSingle(d, L)) else { return false }
         // the original purchase gets the refund link that is actually in the saved text (it may have been edited)
         if let o = d.refundOf, let link = refundLinkOp(o, savedText: text) { ops.append(link) }
-        // a screenshot's card saved with an account it wasn't known by: remembered in ledger-x.json (all devices),
-        // in the same commit as the entry
-        var word = LS("已入账")
-        // (the settings as they are in the file now, with what is queued for it)
-        let current = (try? await fileText(LedgerXConfig.path)).flatMap(LedgerXConfig.parse) ?? effectiveConfig
-        if let (key, account) = scanCardToRemember(d, cards: current.scanCards ?? [:]) {
-            var c = current
-            var m = c.scanCards ?? [:]
-            m[key] = account
-            c.scanCards = m
-            guard var op = await fileWriteOp(LedgerXConfig.path, text: c.json()) else { return false }
-            op.label = LS("截图记账：%@ 记为 %@", key, acctLabel(account))
-            op.silent = true
-            ops.append(op)
-            word = LS("已入账，并记住了这张卡")
-        }
         guard let checked = await review(ops) else { return false }
         var nd = newDraftFor(d.kind == .refund ? .expense : d.kind)
         nd.funding = d.funding
@@ -464,7 +446,7 @@ extension Store {
             nd.events = d.eventsTouched ? d.events : autoEvents(on: nd.date)
             nd.eventsTouched = d.eventsTouched
         }
-        return markSaved(text, await commit(checked, word: word, checked: true, onQueued: { queued(nd) }))
+        return markSaved(text, await commit(checked, checked: true, onQueued: { queued(nd) }))
     }
 
     /// after a save from the form: its row in 明细 lights up for a moment

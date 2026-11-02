@@ -82,7 +82,6 @@ struct SettingsView: View {
                     NavigationLink { Form { RemindersSection() }.navigationTitle(LS("提醒")) } label: {
                         row("bell", LS("提醒"), Reminders.enabled ? LS("已开启") : LS("未开启"))
                     }
-                    NavigationLink { ShortcutsSettingsView() } label: { row("bolt.horizontal.circle", LS("快捷指令与 Apple Pay"), "") }
                 } header: { Text(LS("记账偏好")) }
                 // 外观
                 Section {
