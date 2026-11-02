@@ -33,8 +33,9 @@ struct FaceStyleSheet: View {
             switch c {
             case .auto: style.mark = nil
             case .text: style.mark = .text(FacePattern.mark(title))
-            // the built-in icon of the institution the card is for; an uploaded one when there is one
-            case .icon: style.mark = style.icon != nil ? .icon : institutionID.map(FaceStyle.Mark.symbol) ?? .icon
+            // the built-in icon of the institution the card is for, else its group's; an uploaded one when there is one
+            case .icon: style.mark = style.icon != nil ? .icon
+                : (institutionID ?? FaceMarks.group(of: account)).map(FaceStyle.Mark.symbol) ?? .icon
             case .off: style.mark = .off
             }
         }
@@ -224,7 +225,7 @@ struct FaceStyleSheet: View {
     }
 }
 
-/// 水印 → 图标: the built-in institution icons to pick from, and the uploaded one when there is one
+/// 水印 → 图标: the built-in institution and group icons to pick from, and the uploaded one when there is one
 private struct SymbolGrid: View {
     @Binding var mark: FaceStyle.Mark?
     let uploaded: Bool
@@ -234,7 +235,7 @@ private struct SymbolGrid: View {
             if uploaded {
                 cell(.icon, LS("自己的图标")) { Image(systemName: "photo").font(.title3) }
             }
-            ForEach(FaceLook.named, id: \.id) { i in
+            ForEach(FaceLook.named + FaceMarks.groupsNamed, id: \.id) { i in
                 if let image = FaceMarks.image(i.id) {
                     cell(.symbol(i.id), i.name) { image.renderingMode(.template).resizable().scaledToFit().frame(width: 26, height: 26) }
                         .accessibilityIdentifier("face.symbol." + i.id)

@@ -3,8 +3,8 @@ import LedgerKit
 
 /// 账户卡片 → 卡面: the top of an account's page drawn as a card. A known bank or wallet (`FaceLook`) gets close to
 /// its own colours and its built-in icon (`FaceMarks`), large and faint, in the corner; any other account its
-/// group's colour, its own texture (picked from the account's name, the same on every launch) and the first
-/// character of its name.
+/// group's colour, its own texture (picked from the account's name, the same on every launch) and its group's icon
+/// (cash) or else the first character of its name.
 struct FaceCard<Content: View>: View {
     @Environment(Store.self) var store
     let account: String
@@ -100,8 +100,8 @@ struct FaceDesign {
             mark = t.isEmpty ? nil : t; icon = nil; symbol = nil
         case nil:
             icon = nil
-            // a known institution's own icon; its short mark only while it has none
-            symbol = look == nil ? nil : id.flatMap(FaceMarks.image)
+            // a known institution's own icon, else its group's (cash); its short mark only while it has none
+            symbol = look == nil ? FaceMarks.group(of: account).flatMap(FaceMarks.image) : id.flatMap(FaceMarks.image)
             mark = symbol == nil ? look?.mark ?? FacePattern.mark(title) : nil
         }
     }
@@ -194,10 +194,10 @@ struct FaceLook {
         "hangseng": look(0x00775B, 0x00543F, .rings(gap: 22), "恒"),
         "bochk": look(0x9E1B32, 0xC23A4F, .dots(gap: 16), "中银"),
         "sc": look(0x0072AA, 0x1E9E6A, .stripes(angle: 155, gap: 16), "渣"),
-        "za": look(0x12B6A8, 0x0A7F75, .grid(gap: 20), "ZA"),
+        "za": look(0x00CF9A, 0x00A57B, .grid(gap: 20), "ZA"),
         "mox": look(0x1C1C20, 0x3A3A44, .rings(gap: 22), "Mox"),
-        "ifast": look(0x0B3C7D, 0x1F6FB8, .stripes(angle: 65, gap: 16), "iF"),
-        "n26": look(0x36A18B, 0x24806C, .dots(gap: 16), "N26"),
+        "ifast": look(0x054F68, 0x00A3B2, .stripes(angle: 65, gap: 16), "iF"),
+        "n26": look(0x008376, 0x00655B, .dots(gap: 16), "N26"),
         "alipay": look(0x1677FF, 0x0B4FCC, .rings(gap: 22), "支"),
         "wechat": look(0x07C160, 0x058F47, .dots(gap: 16), "微"),
         "wise": look(0x9FE870, 0x7FD44A, .stripes(angle: 155, gap: 16), "W", ink: 0x163300),
@@ -399,10 +399,21 @@ struct TrendLine: View {
 }
 
 /// The built-in institution icons: one single-colour vector per `FaceLook` id in Assets.xcassets/FaceMarks, simple
-/// solid shapes after each one's own mark, drawn in the card's ink. A new one is an imageset named after the id
-/// (template rendering, vector kept); check_project keeps the two lists the same.
+/// solid shapes after each one's own mark, drawn in the card's ink, and one per account group in `groups`. A new one
+/// is an imageset named after the id (template rendering, vector kept); check_project keeps the lists the same.
 enum FaceMarks {
+    /// a group's own icon, for an account in it that is no known institution
+    static let groups = ["Cash": "cash"]
+    /// the group icons in the order 水印 → 图标 lists them after the institutions, with their names
+    static var groupsNamed: [(id: String, name: String)] { [("cash", LS("现金"))] }
+
     static func image(_ id: String) -> Image? {
         UIImage(named: "FaceMarks/" + id) == nil ? nil : Image("FaceMarks/" + id)
+    }
+
+    /// the icon of the group `account` is in (Assets:Cash, Assets:Cash:Wallet → cash), nil when its group has none
+    static func group(of account: String) -> String? {
+        let parts = account.split(separator: ":")
+        return parts.count > 1 && parts[0] == "Assets" ? groups[String(parts[1])] : nil
     }
 }

@@ -43,7 +43,13 @@ struct CardInfoSheet: View {
     /// the app is on its way off the screen (the app switcher): nothing shows in its snapshot
     @State private var covered = false
 
-    static let shownFor: Duration = .seconds(30)
+    /// 30 seconds; an interface test (demo) may set its own (LEDGER_CARD_SHOWN, seconds): a slow simulator can stall
+    /// longer than that between saving and reading what is shown
+    static let shownFor: Duration = {
+        let env = ProcessInfo.processInfo.environment
+        guard env["LEDGER_DEMO"] != nil, let s = env["LEDGER_CARD_SHOWN"].flatMap(Int.init), s > 0 else { return .seconds(30) }
+        return .seconds(s)
+    }()
     static let clipboardFor: TimeInterval = 60
 
     var body: some View {
