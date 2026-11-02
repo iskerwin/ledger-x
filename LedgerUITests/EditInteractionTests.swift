@@ -1210,7 +1210,9 @@ final class EditInteractionTests: XCTestCase {
     func testCardDetailsAreKeptHiddenAndGoOnTheFace() {
         let app = XCUIApplication()
         let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures")
-        app.launchEnvironment = ["LEDGER_DEMO": fixtures.path, "LEDGER_TAB": "accounts", "LEDGER_OPEN_ACCOUNT": "Assets:Bank:CGB", "LEDGER_LANG": "zh"]
+        // shown for 10 minutes, not 30 seconds: on CI the app can stall a minute between 保存 and reading what it shows
+        app.launchEnvironment = ["LEDGER_DEMO": fixtures.path, "LEDGER_TAB": "accounts", "LEDGER_OPEN_ACCOUNT": "Assets:Bank:CGB", "LEDGER_LANG": "zh",
+                                 "LEDGER_CARD_SHOWN": "600"]
         app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-ledger.card.style", "card"]
         app.launch()
         let face = app.descendants(matching: .any)["card.face"].firstMatch
