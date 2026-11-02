@@ -12,8 +12,7 @@ HUNK = re.compile(r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@')
 ROOT = Path(__file__).resolve().parents[1]
 # Reviewed file dependencies. Unknown core files still run the entire module.
 KIT_SOURCE_TESTS = {'LedgerKit/Sources/LedgerKit/Search.swift': ('SearchTests',)}
-LOCALIZATION_FILES = frozenset(('Ledger/en.json', 'Ledger/Localizable.xcstrings',
-                                'Ledger/AppShortcuts.xcstrings', 'Ledger/InfoPlist.xcstrings'))
+LOCALIZATION_FILES = frozenset(('Ledger/en.json', 'Ledger/InfoPlist.xcstrings'))
 
 
 def _norm(path):

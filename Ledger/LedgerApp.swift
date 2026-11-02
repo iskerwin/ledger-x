@@ -48,7 +48,7 @@ struct LedgerApp: App {
                 await store.start()
             }
             .onOpenURL { url in
-                // ledgerx://add (Shortcuts, notifications)
+                // ledgerx://add (notifications)
                 if url.host == "add" { store.openAdd() }
                 else if let t = Tab(rawValue: url.host ?? "") { store.tab = t }
             }
@@ -99,11 +99,6 @@ struct RootView: View {
         // The open 记一笔 card draws the same toast itself. Showing both at once made one save appear twice.
         .overlay(alignment: .bottom) {
             if !store.adding { ToastView().animation(AppMotion.emphasized, value: store.toast) }
-        }
-        .sheet(item: Bindable(store).scanResult) { r in
-            ScanResultView(result: r)
-                .tint(Color.jadeInk)
-                .environment(\.locale, AppLanguage.current.locale)
         }
         .sheet(isPresented: Bindable(store).adding, onDismiss: { store.endEdit() }) {
             // a sheet doesn't inherit what is set on the view it hangs from: the theme and language again

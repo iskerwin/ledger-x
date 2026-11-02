@@ -198,7 +198,7 @@ final class EditSessionTests: XCTestCase {
         XCTAssertTrue(workspace.edits.isEmpty)
     }
 
-    func testWorkspaceRoundTripPreservesComplexAndScannedDrafts() throws {
+    func testWorkspaceRoundTripPreservesComplexDrafts() throws {
         var initial = edit(); initial.kind = .multi
         initial.rows = [DraftRow(account: "Expenses:Food"), DraftRow(account: "Assets:Bank")]
         initial.rows[0].amount = "12+"; initial.rows[0].meta = ["invoice": "A123"]
@@ -206,8 +206,6 @@ final class EditSessionTests: XCTestCase {
         initial.extraFunds = [ExtraFund(account: "Assets:Cash", amount: "2")]
         initial.keepMeta = [KeptMeta(key: "note", value: "\"keep\"")]
         initial.fxRate = KeptRate(text: "1 USD = 7.8 HKD", amount: 1, toAmount: 7.8)
-        var fields = ScanFields(); fields.kind = .several(2); fields.last4 = "1234"
-        initial.scan = ScanMemo(fields: fields, cardKey: "1234", funding: "Assets:Bank", sure: true)
         var changed = initial; changed.narration = "after restart"
         var workspace = DraftWorkspace()
         workspace.remember(DraftSession(draft: changed, baseline: initial))
@@ -215,7 +213,6 @@ final class EditSessionTests: XCTestCase {
         let restored = try JSONDecoder().decode(DraftWorkspace.self, from: data)
         XCTAssertEqual(restored, workspace)
         XCTAssertEqual(restored.session(for: initial).draft.rows[0].amount, "12+")
-        XCTAssertEqual(restored.session(for: initial).draft.scan?.fields.kind, .several(2))
     }
 
     func testSourceDraftStaysSeparateAndRejectsDifferentOriginalIdentity() {

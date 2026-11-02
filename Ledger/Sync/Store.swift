@@ -67,7 +67,6 @@ enum Prefs {
 @Observable final class DraftModel {
     var draft = Draft() {
         didSet {
-            if draft.funding != oldValue.funding { fundingChanged?() }
             if !installing { changed?() }
         }
     }
@@ -114,8 +113,6 @@ enum Prefs {
             kindSnapshotKey = key
         }
     }
-    /// told when the paying account changes, however it is changed (pickers bind to the draft directly)
-    @ObservationIgnored var fundingChanged: (() -> Void)?
 }
 
 @MainActor
@@ -169,12 +166,8 @@ enum Prefs {
         set { drafts.draft = newValue }
     }
     var tab: Tab = .overview
-    /// the 记一笔 card is open (it opens over any tab: the + tab, ledgerx://add, Shortcuts, 再记一笔…)
+    /// the 记一笔 card is open (it opens over any tab: the + tab, ledgerx://add, 再记一笔…)
     var adding = false
-    /// 截图记账: what was just read off a screenshot (shown until closed)
-    var scanResult: ScanResult?
-    /// 截图记账: the card was filled in from a screenshot; what to check, and what to remember on saving
-    var scanInfo: ScanInfo?
     /// the card opens on the full form (分录, 文本, 退款, AA…) instead of the quick one
     @ObservationIgnored var addFull = false
     /// bumped by every request to open the card, so an open card goes back to the page asked for
@@ -294,14 +287,11 @@ enum Prefs {
     static func key(_ k: String, _ id: String) -> String { id == "default" ? k : k + "@" + id }
     func pk(_ k: String) -> String { Store.key(k, cfg.id) }
 
-    /// the one store, shared by the app and its Shortcuts actions
+    /// the one store, shared by the app and its notifications
     static let shared = Store()
 
     init() {
-        // a card filled in from a screenshot follows the paying account: its rate and amount charged go on
-        // when a foreign card is picked, and come off again for an account in the bill's currency
         defer {
-            drafts.fundingChanged = { [weak self] in self?.scanFundingChanged() }
             drafts.changed = { [weak self] in self?.scheduleActiveDraft() }
         }
         var list: [RepoConfig] = Prefs.get("sources", [RepoConfig]())
@@ -977,13 +967,6 @@ enum Prefs {
             timing.record("review-finished", count: result.count)
             return result
         }.value
-    }
-
-    /// load the ledger if it isn't yet (Shortcuts run the app in the background)
-    func ensureLoaded() async {
-        if L != nil { return }
-        if tree != nil { await rebuild(quietly: true) }
-        if L == nil { await refresh() }
     }
 
     /// push items that were kept on this device (checked again first: if they still break something, ask)

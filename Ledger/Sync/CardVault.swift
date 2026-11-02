@@ -50,10 +50,9 @@ extension Store {
         return true
     }
 
-    /// the last four digits on a card's face: the ledger's own (扫码记账's 尾号), else the number kept on this phone
+    /// the last four digits on a card's face: the number kept on this phone
     func cardTail(_ account: String) -> String? {
-        repoConfig?.scanCards?.first { $0.value == account && $0.key.count == 4 && $0.key.allSatisfy(\.isNumber) }?.key
-            ?? cardHints[account]?.last4
+        cardHints[account]?.last4
     }
 
     /// an account renamed or merged: its card goes along

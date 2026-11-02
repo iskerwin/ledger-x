@@ -253,10 +253,6 @@ final class NotificationRouter: NSObject, UNUserNotificationCenterDelegate {
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
         let info = response.notification.request.content.userInfo
         let tab = info["tab"] as? String ?? "add"
-        let draft = info["draft"] as? Bool ?? false
-        await MainActor.run {
-            // a Shortcuts entry waiting for confirmation: open it in the form
-            if draft { Store.shared.applyIntentDraft() } else { open?(tab) }
-        }
+        await MainActor.run { open?(tab) }
     }
 }

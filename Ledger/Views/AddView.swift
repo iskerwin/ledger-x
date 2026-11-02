@@ -82,9 +82,6 @@ struct AddForm: View {
         let v: Validation? = text.trimmed.isEmpty ? nil : validateText(text, L, single: draftIsSingle(d, L))
         ScrollViewReader { proxy in
         Form {
-            if let s = store.scanInfo {
-                Section { ScanBanner(info: s).listRowInsets(EdgeInsets()).listRowBackground(Color.clear) }
-            }
             if d.kind == .refund {
                 refundBanner(d)
             } else {
@@ -97,7 +94,7 @@ struct AddForm: View {
                     .listRowInsets(EdgeInsets())
                 }
             }
-            if (d.kind == .expense || d.kind == .income) && store.scanInfo == nil && d.replacing == nil { templateSection(d.kind, L, D) }
+            if (d.kind == .expense || d.kind == .income) && d.replacing == nil { templateSection(d.kind, L, D) }
             switch d.kind {
             case .multi: multiSection(L, D).id(DraftIssueField.rows)
             case .raw: EmptyView()

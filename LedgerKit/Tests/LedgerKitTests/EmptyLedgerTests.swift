@@ -22,6 +22,6 @@ final class EmptyLedgerTests: XCTestCase {
         // ledger-x.json reads back, with nothing of the other ledger's own
         let cfg = try! JSONSerialization.jsonObject(with: Data(files["ledger-x.json"]!.utf8)) as! [String: Any]
         XCTAssertEqual(cfg["main"] as? String, "main.bean")
-        XCTAssertNil(cfg["payslips"]); XCTAssertNil(cfg["scan_cards"]); XCTAssertNil(cfg["default_funding"])
+        XCTAssertNil(cfg["payslips"]); XCTAssertNil(cfg["default_funding"])
     }
 }
