@@ -39,4 +39,16 @@ final class FaceMarkTests: XCTestCase {
         XCTAssertGreaterThan(stronger, faint + 30, "a higher 透明度 draws it stronger")
         XCTAssertLessThan(stronger, 130)
     }
+
+    /// a cash account no institution claims takes the built-in cash icon on 自动, not the first character of its name
+    func testACashAccountTakesTheCashIcon() {
+        let cash = FaceDesign(account: "Assets:Cash:Wallet", title: "钱包", tint: .brown, style: FaceStyle(), ledger: "test")
+        XCTAssertNotNil(cash.symbol, "the cash icon")
+        XCTAssertNil(cash.mark)
+        let bank = FaceDesign(account: "Assets:Bank:Village", title: "村镇银行", tint: .blue, style: FaceStyle(), ledger: "test")
+        XCTAssertNil(bank.symbol, "a bank no one knows keeps its first character")
+        XCTAssertEqual(bank.mark, "村")
+        XCTAssertEqual(FaceMarks.group(of: "Assets:Cash"), "cash", "a ledger's one cash account")
+        XCTAssertNil(FaceMarks.group(of: "Expenses:Cash"))
+    }
 }

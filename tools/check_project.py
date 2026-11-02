@@ -213,10 +213,12 @@ for m in re.finditer(r'\.(?:sheet|fullScreenCover)\(', root):
     require('.tint(Color.jadeInk)' in body and '.environment(\\.locale, AppLanguage.current.locale)' in body,
             f'Ledger/LedgerApp.swift:{line}: a sheet on RootView must set .tint(Color.jadeInk) and the app language itself')
 
-# every institution the card face knows has its built-in icon, and every icon an institution: a single-colour
-# vector drawn in the card's ink
+# every institution the card face knows has its built-in icon, and every icon an institution or an account group's
+# (FaceMarks.groups): a single-colour vector drawn in the card's ink
 face = (ROOT/'Ledger/Views/AccountFace.swift').read_text()
 looks = set(re.findall(r'^\s*"(\w+)": look\(', face, re.M))
+group_marks = re.search(r'static let groups = \[([^\]]*)\]', face)
+looks |= set(re.findall(r'"\w+": "(\w+)"', group_marks.group(1) if group_marks else ''))
 marks_dir = ROOT/'Ledger/Assets.xcassets/FaceMarks'
 marks = {p.stem for p in marks_dir.glob('*.imageset')}
 require(looks and looks == marks, f'Ledger/Assets.xcassets/FaceMarks: icons {sorted(marks - looks)} have no institution, institutions {sorted(looks - marks)} have no icon')
