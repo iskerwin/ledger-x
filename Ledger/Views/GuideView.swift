@@ -179,6 +179,8 @@ struct GuideView: View {
         Topic(symbol: "chart.bar.xaxis", title: tr("报表", "Reports"), points: [
             tr("报表页有损益表、资产负债表、试算平衡表、预算、现金流预测、订阅、报销、工资、事件、收付款方和值得留意。",
                "Reports has the income statement, balance sheet, trial balance, budgets, forecast, subscriptions, reimbursements, salary, events, payees and things to check."),
+            tr("值得留意：点开一条核对，没问题就标记「核对无误」（也可左滑），只清除这一条提示，不影响以后的检查。",
+               "Things to check: open one to check it; if all is fine, mark it checked (or swipe left). Only that alert goes; later checks are unaffected."),
             tr("单项趋势图和排行条使用主题色；收入与支出同时比较时，收入绿色、支出红色，并用图例、线型或符号区分。分类和多币种构成保留各自颜色，同一分类不会因为换月或排名变化而换色；颜色只帮助识别，具体金额和含义看名称、图例与数字。",
                "Single-series trends and ranking bars use the theme colour. When income and spending are compared, income is green and spending red, with legends, line styles or symbols to distinguish them. Categories and currency compositions keep their own colours; a category keeps its colour when the month or rank changes. Use names, legends and figures for the precise amounts and meaning."),
             tr("现金流预测的曲线用主题色，可能余额不足的最低点用红色三角标出，并显示日期和金额；预算正常用主题色，进度过快用橙色，超支用红色并配斜纹和文字。",

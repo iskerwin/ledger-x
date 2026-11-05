@@ -225,7 +225,7 @@ struct SubscriptionOverviewSection: View {
             ForEach(due) { d in SubDueRow(due: d) }
             NavigationLink(value: SubscriptionsDest()) {
                 HStack(spacing: AppSpacing.icon) {
-                    IconBadge(symbol: "repeat", size: 28)
+                    ControlIcon(systemName: "repeat").foregroundStyle(.secondary)
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(subs.isEmpty ? LS("订阅管理") : LS("%@ 个订阅 · 月均 %@", subs.count, money(monthly, L.base, 0)))
                             .sensitive()
@@ -277,7 +277,6 @@ struct SubDueRow: View {
 
 struct SubscriptionsView: View {
     @Environment(Store.self) var store
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var editing: SubDraft?
     @State private var demoDetail: String?
 
@@ -398,13 +397,10 @@ struct SubscriptionsView: View {
         let countLine = LS("已扣 %@ 期 · 累计 %@", count, money(s.totalPaid, s.currency, 0))
         // each by its category's icon (as on its detail page), so they tell apart at a glance; paused or ended grey
         let icon = s.status == .active ? store.subIcon(s) : s.status == .paused ? "pause" : "xmark"
-        let tint: Color = s.status == .active ? .purple : .gray
-        // charged today or tomorrow: the icon breathes
-        let dueSoon = s.status == .active && next >= today && next <= Day.shift(today, 1)
+        let tint: Color = s.status == .active ? .secondary : Color(.tertiaryLabel)
         return NavigationLink(value: SubDetailDest(name: s.name)) {
             HStack(spacing: AppSpacing.icon) {
-                IconBadge(symbol: icon, color: tint, size: 30)
-                    .symbolEffect(.pulse, options: .repeating, isActive: dueSoon && !reduceMotion)
+                ControlIcon(systemName: icon).foregroundStyle(tint)
                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
                     HStack(spacing: AppSpacing.detail) {
                         Text(s.name)

@@ -150,14 +150,14 @@ struct HoldingsView: View {
                     HStack(alignment: .top, spacing: 0) {
                         VStack(alignment: .leading, spacing: AppSpacing.detail) {
                             Text(LS("持仓成本")).font(.caption).foregroundStyle(.secondary)
-                            Text(money(cost, L.base)).font(.callout.weight(.semibold).monospacedDigit()).sensitive()
+                            Text(money(cost, L.base)).font(.callout.weight(.medium).monospacedDigit()).sensitive()
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         Divider().frame(height: 34)
                         VStack(alignment: .leading, spacing: AppSpacing.detail) {
                             Text(LS("浮动盈亏")).font(.caption).foregroundStyle(.secondary)
                             HStack(spacing: AppSpacing.icon) {
-                                Text(signedMoney(value - cost, L.base)).font(.callout.weight(.semibold).monospacedDigit())
+                                Text(signedMoney(value - cost, L.base)).font(.callout.weight(.medium).monospacedDigit())
                                     .foregroundStyle(up ? Color.gain : Color.loss).lineLimit(1).minimumScaleFactor(0.7)
                                 if cost != 0 {
                                     Text(String(format: "%@%.1f%%", up ? "+" : "", (value - cost) / cost * 100))
@@ -211,7 +211,7 @@ struct HoldingsView: View {
                     }
                     Spacer(minLength: 6)
                     VStack(alignment: .trailing, spacing: AppSpacing.detail) {
-                        Text(money(r.value ?? r.cost, r.q)).font(.body.weight(.semibold)).monospacedDigit().sensitive()
+                        Text(money(r.value ?? r.cost, r.q)).font(.body.weight(.medium)).monospacedDigit().sensitive()
                         if let p = r.pnl {
                             Text(signedMoney(p, r.q) + (r.cost != 0 ? String(format: "  %@%.1f%%", p >= 0 ? "+" : "", p / r.cost * 100) : ""))
                                 .font(.caption.monospacedDigit())

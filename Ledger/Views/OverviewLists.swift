@@ -125,7 +125,7 @@ struct LiabilityRow: View {
         let today = Day.today()
         VStack(alignment: .leading, spacing: AppSpacing.icon) {
             HStack(spacing: AppSpacing.icon) {
-                IconBadge(symbol: store.groupIcon(account).symbol, color: store.groupIcon(account).color, size: 28)
+                ControlIcon(systemName: store.groupIcon(account).symbol).foregroundStyle(store.groupIcon(account).color.readableInk)
                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
                     Text(acctLabel(account)).lineLimit(1)
                     if let c = cycle {

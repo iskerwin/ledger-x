@@ -117,19 +117,19 @@ struct CardHeroSection: View {
                 HStack(spacing: 0) {
                     VStack(spacing: AppSpacing.detail) {
                         Text(LS("本期账单")).font(.caption).foregroundStyle(.secondary)
-                        Text(money(c.statementAmount, c.currency)).font(.callout.weight(.semibold).monospacedDigit()).sensitive()
+                        Text(money(c.statementAmount, c.currency)).font(.callout.weight(.medium).monospacedDigit()).sensitive()
                     }
                     .frame(maxWidth: .infinity)
                     Divider().frame(height: 32)
                     VStack(spacing: AppSpacing.detail) {
                         Text(LS("最低还款")).font(.caption).foregroundStyle(.secondary)
-                        Text((c.minimumEstimated ? "≈ " : "") + money(c.minimum, c.currency)).font(.callout.weight(.semibold).monospacedDigit()).sensitive()
+                        Text((c.minimumEstimated ? "≈ " : "") + money(c.minimum, c.currency)).font(.callout.weight(.medium).monospacedDigit()).sensitive()
                     }
                     .frame(maxWidth: .infinity)
                     Divider().frame(height: 32)
                     VStack(spacing: AppSpacing.detail) {
                         Text(LS("已还")).font(.caption).foregroundStyle(.secondary)
-                        Text(money(c.paid, c.currency)).font(.callout.weight(.semibold).monospacedDigit()).sensitive()
+                        Text(money(c.paid, c.currency)).font(.callout.weight(.medium).monospacedDigit()).sensitive()
                     }
                     .frame(maxWidth: .infinity)
                 }

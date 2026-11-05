@@ -342,7 +342,7 @@ struct Figure: View {
     var body: some View {
         VStack(alignment: alignment, spacing: AppSpacing.detail) {
             Text(label).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            Text(value).font(.subheadline.weight(.semibold)).monospacedDigit().amountDigits().foregroundStyle(color)
+            Text(value).font(.subheadline.weight(.medium)).monospacedDigit().amountDigits().foregroundStyle(color)
                 .lineLimit(1).minimumScaleFactor(0.6).sensitive()
         }
     }
@@ -395,6 +395,6 @@ struct FigureRow: View {
     }
 
     private func value(_ x: Item) -> some View {
-        Text(x.value).font(.subheadline.weight(.semibold)).monospacedDigit().amountDigits().foregroundStyle(x.color).sensitive()
+        Text(x.value).font(.subheadline.weight(.medium)).monospacedDigit().amountDigits().foregroundStyle(x.color).sensitive()
     }
 }

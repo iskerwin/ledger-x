@@ -344,7 +344,7 @@ struct YearReviewOverviewSection: View {
             let y = m == 1 ? String((Int(today.prefix(4)) ?? 2000) - 1) : String(today.prefix(4))
             Section {
                 NavigationLink(value: YearReviewDest(year: y)) {
-                    ReportRow(symbol: "sparkles", title: LS("%@ 年度回顾", y), detail: LS("全年收支、净资产、支出构成与大事"))
+                    ReportRow(symbol: "calendar", title: LS("%@ 年度回顾", y))
                 }
             }
         }

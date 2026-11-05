@@ -220,7 +220,7 @@ struct InventoryFigure: View {
             Text(label).font(.caption).foregroundStyle(.secondary)
             let xs = inv.byCurrency(base: base)
             ForEach(xs.isEmpty ? [CurrencyAmount(base, 0)] : xs) { x in
-                Text(unitText(x.amount, x.currency)).font(.subheadline.weight(.semibold)).monospacedDigit()
+                Text(unitText(x.amount, x.currency)).font(.subheadline.weight(.medium)).monospacedDigit()
                     .foregroundStyle(color ?? .primary).sensitive()
             }
         }

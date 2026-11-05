@@ -286,7 +286,7 @@ struct OverviewView: View {
                             Group {
                                 if s.prev > 0 {
                                     Text(Image(systemName: abs(delta) <= 0.005 ? "minus" : delta > 0 ? "arrow.up.right" : "arrow.down.right")).foregroundColor(.change(delta, upIsWorse: true))
-                                        + Text(money(abs(delta), cur)).fontWeight(.semibold).foregroundColor(.change(delta, upIsWorse: true))
+                                        + Text(money(abs(delta), cur)).fontWeight(.medium).foregroundColor(.change(delta, upIsWorse: true))
                                         + Text(" " + LS("较") + s.prevLabel + LS("（") + money(s.prev, cur) + LS("）")).foregroundColor(.secondary)
                                 } else {
                                     Text(s.prevLabel + LS("无支出记录")).foregroundStyle(.secondary)
@@ -679,7 +679,7 @@ struct OverviewView: View {
                 ForEach(rows, id: \.id) { x in
                     NavigationLink(value: AccountDest(name: x.a)) {
                         HStack(spacing: AppSpacing.icon) {
-                            IconBadge(symbol: store.groupIcon(x.a).symbol, color: store.groupIcon(x.a).color, size: 28)
+                            ControlIcon(systemName: store.groupIcon(x.a).symbol).foregroundStyle(store.groupIcon(x.a).color.readableInk)
                             Text(acctLabel(x.a))
                             Spacer()
                             Amount(n: x.n, c: x.c)

@@ -74,7 +74,7 @@ struct ChangeReviewView: View {
                 Section {
                     ForEach(issues) { i in
                         HStack(alignment: .top, spacing: AppSpacing.icon) {
-                            IconBadge(symbol: symbol(i.kind), color: color(i.kind), size: 28)
+                            ControlIcon(systemName: symbol(i.kind)).foregroundStyle(color(i.kind))
                             VStack(alignment: .leading, spacing: AppSpacing.detail) {
                                 Text(i.title).font(.subheadline.weight(.semibold))
                                 if !i.detail.isEmpty { Text(i.detail).font(.caption).foregroundStyle(.secondary).sensitive() }

@@ -36,7 +36,7 @@ struct ForecastOverviewSection: View {
             Section {
                 NavigationLink(value: ForecastDest()) {
                     HStack(spacing: AppSpacing.icon) {
-                        IconBadge(symbol: warn ? "exclamationmark.triangle" : "chart.line.uptrend.xyaxis", color: warn ? .loss : .jade, size: 28)
+                        ControlIcon(systemName: warn ? "exclamationmark.triangle" : "chart.line.uptrend.xyaxis").foregroundStyle(warn ? Color.loss : Color.secondary)
                         VStack(alignment: .leading, spacing: AppSpacing.detail) {
                             Text(LS("30 天后约 %@", money(f.end, f.currency, 0))).sensitive()
                             Text(warn ? LS("%@ 可能余额不足（%@）", f.firstBelow(0)?.date ?? low.date, money(low.value, f.currency, 0))
@@ -132,7 +132,7 @@ struct ForecastView: View {
                 if f.events.isEmpty { Text(LS("没有发现周期性收支")).foregroundStyle(.secondary) }
                 ForEach(f.events) { e in
                     HStack(spacing: AppSpacing.icon) {
-                        IconBadge(symbol: symbol(e.kind), color: color(e.kind), size: 28)
+                        ControlIcon(systemName: symbol(e.kind)).foregroundStyle(.secondary)
                         VStack(alignment: .leading, spacing: AppSpacing.detail) {
                             Text(e.title).lineLimit(1)
                             Text(e.date + " · " + kindName(e.kind)).font(.caption).foregroundStyle(.secondary)
@@ -218,21 +218,13 @@ struct ForecastView: View {
 
     private func symbol(_ k: ForecastEvent.Kind) -> String {
         switch k {
-        case .income: return "arrow.down.circle.fill"
+        case .income: return "arrow.down.circle"
         case .recurring: return "arrow.triangle.2.circlepath"
         case .subscription: return "repeat"
-        case .card: return "creditcard.fill"
+        case .card: return "creditcard"
         }
     }
 
-    private func color(_ k: ForecastEvent.Kind) -> Color {
-        switch k {
-        case .income: return .green
-        case .recurring: return .blue
-        case .subscription: return .purple
-        case .card: return .orange
-        }
-    }
 
     private func kindName(_ k: ForecastEvent.Kind) -> String {
         switch k {

@@ -575,7 +575,7 @@ enum AppMotion {
     /// something opening, closing or moving to another place: a group, the calendar, the month, a scroll
     static let standard = Animation.spring(duration: 0.35, bounce: 0)
     /// a moment to notice: a notice coming in, something just saved
-    static let emphasized = Animation.spring(duration: 0.35, bounce: 0.15)
+    static let emphasized = Animation.spring(duration: 0.35, bounce: 0)
 }
 
 /// A light answer to a finger on a drawn control (a card, a chip, a category): it shrinks a little and dims while

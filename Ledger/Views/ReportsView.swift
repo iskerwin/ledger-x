@@ -17,40 +17,40 @@ struct ReportsView: View {
                 ReportsInsights(path: $path)
                 Section {
                     NavigationLink(value: YearReviewDest()) {
-                        ReportRow(symbol: "sparkles", title: LS("年度回顾"), detail: LS("全年收支、净资产、支出构成、工资与大事"))
+                        ReportRow(symbol: "calendar", title: LS("年度回顾"))
                     }
                     NavigationLink(value: ReportKind.income) {
-                        ReportRow(symbol: "chart.bar.doc.horizontal", title: LS("损益表"), detail: LS("收入、支出与净收益"))
+                        ReportRow(symbol: "chart.bar.doc.horizontal", title: LS("损益表"))
                     }
                     NavigationLink(value: ReportKind.balance) {
-                        ReportRow(symbol: "building.columns", title: LS("资产负债表"), detail: LS("资产、负债、权益与净资产走势"))
+                        ReportRow(symbol: "building.columns", title: LS("资产负债表"))
                     }
                     NavigationLink(value: ReportKind.trial) {
-                        ReportRow(symbol: "scale.3d", title: LS("试算平衡表"), detail: LS("全部科目余额与借贷平衡校验"))
+                        ReportRow(symbol: "scale.3d", title: LS("试算平衡表"))
                     }
                     NavigationLink(value: BudgetsDest()) {
-                        ReportRow(symbol: "chart.bar.doc.horizontal.fill", title: LS("预算"), detail: LS("按月 / 按年的分类额度与执行进度"))
+                        ReportRow(symbol: "gauge.medium", title: LS("预算"))
                     }
                     NavigationLink(value: ForecastDest()) {
-                        ReportRow(symbol: "chart.line.uptrend.xyaxis", title: LS("现金流预测"), detail: LS("未来 30～90 天可用资金走势与收支"))
+                        ReportRow(symbol: "chart.line.uptrend.xyaxis", title: LS("现金流预测"))
                     }
                     NavigationLink(value: SubscriptionsDest()) {
-                        ReportRow(symbol: "repeat", title: LS("订阅管理"), detail: LS("周期扣费、到期提醒与一键入账"))
+                        ReportRow(symbol: "repeat", title: LS("订阅管理"))
                     }
                     NavigationLink(value: ReimbursementsDest()) {
-                        ReportRow(symbol: "doc.text", title: LS("报销"), detail: LS("待报销、备用金、报销单与历史明细，导出报销单"))
+                        ReportRow(symbol: "doc.text", title: LS("报销"))
                     }
                     NavigationLink(value: SalaryDest()) {
-                        ReportRow(symbol: "banknote", title: LS("工资"), detail: LS("按工资条逐项记工资，每年税前收入与扣款"))
+                        ReportRow(symbol: "banknote", title: LS("工资"))
                     }
                     NavigationLink(value: EventsDest()) {
-                        ReportRow(symbol: "flag", title: LS("事件"), detail: LS("出差、旅行等按 #标签汇总的花费"))
+                        ReportRow(symbol: "flag", title: LS("事件"))
                     }
                     NavigationLink(value: PayeesDest()) {
-                        ReportRow(symbol: "person.2", title: LS("收付款方"), detail: LS("使用次数与金额，重命名、合并收付款方"))
+                        ReportRow(symbol: "person.2", title: LS("收付款方"))
                     }
                     NavigationLink(value: AlertsDest()) {
-                        ReportRow(symbol: "exclamationmark.triangle", color: .warn, title: LS("值得留意"), detail: LS("重复扣款、大额支出、分类超常、订阅调价"))
+                        ReportRow(symbol: "exclamationmark.triangle", color: .warn, title: LS("值得留意"))
                     }
                 } header: {
                     Text(LS("更多报表"))
@@ -162,16 +162,12 @@ struct ReportsView: View {
 
 struct ReportRow: View {
     let symbol: String
-    var color: Color = .jade
+    var color: Color = .secondary
     let title: String
-    let detail: String
     var body: some View {
         HStack(spacing: AppSpacing.icon) {
-            IconBadge(symbol: symbol, color: color)
-            VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                Text(title)
-                Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            }
+            ControlIcon(systemName: symbol).foregroundStyle(color)
+            Text(title)
         }
         .padding(.vertical, AppSpacing.detail)
     }
@@ -275,9 +271,9 @@ struct AccountTreeRows: View {
                     // the same group icon as 管理账户 and the 记一笔 grid; sub-accounts line up under the name
                     if depth == 0 {
                         let k = store.groupIcon(node.name)
-                        IconBadge(symbol: k.symbol, color: k.color, size: 26)
+                        ControlIcon(systemName: k.symbol).foregroundStyle(k.color.readableInk)
                     } else {
-                        Color.clear.frame(width: 26, height: 1)
+                        ControlIcon(systemName: "circle").hidden()
                     }
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(node.label).lineLimit(1)

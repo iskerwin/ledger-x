@@ -33,7 +33,7 @@ struct SettingsView: View {
                 Section {
                     Button { Task { await store.openDemo() } } label: {
                         if store.demoBusy { ProgressView(LS("正在下载演示账本…")) }
-                        else { Label(LS("先看看演示账本"), systemImage: "sparkles").labelStyle(ControlLabelStyle()) }
+                        else { Label(LS("先看看演示账本"), systemImage: "book.closed").labelStyle(ControlLabelStyle()) }
                     }
                     Button { Task { await store.createEmptyLedger() } } label: {
                         Label(LS("在本机新建空账本"), systemImage: "iphone").labelStyle(ControlLabelStyle())
@@ -95,7 +95,7 @@ struct SettingsView: View {
                 Section {
                     NavigationLink { AdvancedPage() } label: { row("gearshape.2", LS("高级设置"), "") }
                     NavigationLink { GuideView() } label: { row("questionmark.circle", LS("使用指南与常见问题"), "") }
-                    Toggle(isOn: $demoEntry) { SettingsRow(symbol: "sparkles", title: LS("概览显示演示账本入口")) }
+                    Toggle(isOn: $demoEntry) { SettingsRow(symbol: "book.closed", title: LS("概览显示演示账本入口")) }
                     .tint(.jade)
                     NavigationLink { AboutPage() } label: {
                         row("info.circle", LS("关于 Ledger X"), Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")

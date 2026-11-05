@@ -640,13 +640,13 @@ struct JournalView: View {
                 HStack(alignment: .top, spacing: 0) {
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(LS("支出合计")).font(.caption).foregroundStyle(.secondary)
-                        Text(money(sums.0)).font(.title3.weight(.bold).monospacedDigit()).foregroundStyle(Color.loss)
+                        Text(money(sums.0)).font(.title3.weight(.medium).monospacedDigit()).foregroundStyle(Color.loss)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     Divider().frame(height: 36)
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(LS("收入合计")).font(.caption).foregroundStyle(.secondary)
-                        Text(money(sums.1)).font(.title3.weight(.bold).monospacedDigit()).foregroundStyle(Color.gain)
+                        Text(money(sums.1)).font(.title3.weight(.medium).monospacedDigit()).foregroundStyle(Color.gain)
                     }
                     .padding(.leading, AppSpacing.control)
                     .frame(maxWidth: .infinity, alignment: .leading)

@@ -375,11 +375,6 @@ struct AlertsOverviewSection: View {
                     Spacer()
                     NavigationLink(value: AlertsDest()) { Image(systemName: "slider.horizontal.3").font(.footnote) }
                 }
-            } footer: {
-                // how it works, until the first one has been checked
-                if store.confirmedAlertIDs.isEmpty {
-                    Text(LS("点开核对，没问题就标记「核对无误」（也可左滑），只清除这一条提示，不影响以后的检查。"))
-                }
             }
         }
     }

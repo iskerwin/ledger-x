@@ -735,7 +735,7 @@ struct RegisterView: View {
                     if isIE {
                         // a category: what it came to (spending positive, income positive)
                         let total = account.hasPrefix("Income") ? m.outflow - m.inflow : m.inflow - m.outflow
-                        Text(money(total, c)).font(.subheadline.weight(.semibold).monospacedDigit()).sensitive()
+                        Text(money(total, c)).font(.subheadline.weight(.medium).monospacedDigit()).sensitive()
                     } else {
                         if m.outflow > 0.004 {
                             Text(LS("流出 %@", money(m.outflow, c))).font(.caption.weight(.medium).monospacedDigit()).foregroundStyle(Color.loss).sensitive()
