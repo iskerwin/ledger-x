@@ -19,6 +19,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "1.0.15",
+          "buildVersion": "59.1",
+          "date": "2026-11-05T15:22:44Z",
+          "localizedDescription": "# Ledger X 1.0.15 预览\n\n版本 1.0.15 · 构建 59.1 · feat/unslop-polish 6c4b24f · PR #92 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
+          "size": 10837138,
+          "minOSVersion": "17.0",
+          "sha256": "110add934abf9542217e76877df046210cd8d44b6d99325691f74a301e4010c2"
+        },
+        {
           "version": "1.0.14",
           "buildVersion": "59",
           "date": "2026-11-02T15:22:15Z",
@@ -27,16 +37,6 @@
           "size": 10843517,
           "minOSVersion": "17.0",
           "sha256": "6a00fccaef1c9d67608a64769964b9a18db7d691976956342b30d37d42539f46"
-        },
-        {
-          "version": "1.0.14",
-          "buildVersion": "57.4",
-          "date": "2026-11-02T06:08:47Z",
-          "localizedDescription": "# Ledger X 1.0.14 预览\n\n版本 1.0.14 · 构建 57.4 · feat/face-icons-redraw f472b62 · PR #88 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-          "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-          "size": 11056766,
-          "minOSVersion": "17.0",
-          "sha256": "35911815bafaf408c6662d912691675287d1327f7262752fee4781979a669000"
         },
         {
           "version": "1.0.14",
@@ -187,11 +187,11 @@
           "NSPhotoLibraryUsageDescription": "选择票据照片作为交易附件"
         }
       },
-      "version": "1.0.14",
-      "versionDate": "2026-11-02T15:22:15Z",
-      "versionDescription": "# Ledger X 1.0.14 开发版\n\n版本 1.0.14 · 构建 59 · main 535c38e 。\n\n## 改进\n\n- 去掉截图记账和快捷指令：设置里不再有「快捷指令与 Apple Pay」，「快捷指令」App 和 Siri 里不再有 Ledger X 的操作（快速记一笔、记一笔、截图记账、本月支出、待付款项），已经设好的 Apple Pay 自动化或轻点背面快捷指令需要在「快捷指令」App 里自己删掉；记一笔照旧从 App 里打开。账本 ledger-x.json 里以前截图记账记住的卡号尾号（scan_cards）不再读取，卡面尾号只看长按卡面「卡片信息」里填的卡号。",
-      "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
-      "size": 10843517
+      "version": "1.0.15",
+      "versionDate": "2026-11-05T15:22:44Z",
+      "versionDescription": "# Ledger X 1.0.15 预览\n\n版本 1.0.15 · 构建 59.1 · feat/unslop-polish 6c4b24f · PR #92 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+      "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
+      "size": 10837138
     }
   ],
   "news": []
