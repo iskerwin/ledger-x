@@ -292,13 +292,20 @@ public func ledgerConfig(folder: URL) -> LedgerXConfig? {
 
 /// the ledger in a folder on this computer, starting from ledger-x.json's main file, else main.bean; nil without that file
 public func loadLedger(folder: URL) -> Ledger? {
-    let written = ledgerConfig(folder: folder)?.main?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    let root = written.isEmpty ? "main.bean" : written
+    let root = folderMain(folder)
     guard FileManager.default.fileExists(atPath: folder.appendingPathComponent(root).path) else { return nil }
-    let list = { ((try? FileManager.default.subpathsOfDirectory(atPath: folder.path)) ?? []).filter { !$0.hasPrefix(".git/") } }
-    return loadLedger(root: root, listFiles: list) { path in
+    return loadLedger(root: root, listFiles: { folderFiles(folder) }) { path in
         try String(contentsOf: folder.appendingPathComponent(path), encoding: .utf8)
     }
+}
+
+func folderMain(_ folder: URL) -> String {
+    let written = ledgerConfig(folder: folder)?.main?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return written.isEmpty ? "main.bean" : written
+}
+
+func folderFiles(_ folder: URL) -> [String] {
+    ((try? FileManager.default.subpathsOfDirectory(atPath: folder.path)) ?? []).filter { !$0.hasPrefix(".git/") }
 }
 
 /// readFile(path) returns the text of a repo file (paths relative to the repo root); `listFiles` gives every file in
