@@ -1,31 +1,12 @@
 import SwiftUI
 import LedgerKit
 
-// The overview's list-style charts: a share bar with a ranked list (and the change from the period
+// The overview's list-style charts: a ranked list of categories with bars (and the change from the period
 // before), a payee ranking with bars, and each liability's use of its credit limit.
 
 enum OverviewChart {
     static let styleKey = "ledger.overview.chart"
     static let trendKey = "ledger.overview.trend"
-}
-
-/// one horizontal bar split by share
-struct ShareBar: View {
-    let slices: [DonutSlice]
-    var body: some View {
-        let total = slices.reduce(0) { $0 + $1.value }
-        GeometryReader { g in
-            HStack(spacing: 2) {
-                ForEach(slices) { s in
-                    Rectangle().fill(s.color)
-                        .frame(width: max(2, (g.size.width - CGFloat(max(0, slices.count - 1)) * 2) * CGFloat(s.value / max(total, 0.01))))
-                }
-            }
-        }
-        .frame(height: 14)
-        .clipShape(RoundedRectangle(cornerRadius: 5))
-        .accessibilityHidden(true)
-    }
 }
 
 /// "↑ ¥320" against the period before: red when spending went up, green when down; faint when small
@@ -53,25 +34,39 @@ struct DeltaText: View {
 }
 
 struct CategoryListRow: View {
+    let symbol: String
     let color: Color
     let name: String
     let value: Double
+    /// against the largest category shown
+    let frac: Double
     let share: Int?
     let before: Double?
     let expanded: Bool
     @Environment(\.displayCurrency) private var cur
     var body: some View {
-        HStack(spacing: AppSpacing.icon) {
-            Circle().fill(color).frame(width: 10, height: 10)
-            Text(name).lineLimit(1)
-            Spacer(minLength: 6)
-            VStack(alignment: .trailing, spacing: AppSpacing.detail) {
-                Text(money(value, cur)).monospacedDigit().sensitive()
-                if let b = before { DeltaText(now: value, before: b) }
+        HStack(spacing: AppSpacing.control) {
+            IconBadge(symbol: symbol, color: color, size: 34)
+            VStack(alignment: .leading, spacing: AppSpacing.icon) {
+                HStack(spacing: AppSpacing.icon) {
+                    Text(name).lineLimit(1)
+                    if let s = share { Text("\(s)%").font(.caption).foregroundStyle(.secondary) }
+                    if let b = before { DeltaText(now: value, before: b) }
+                    Spacer(minLength: 6)
+                    Text(money(value, cur)).fontWeight(.semibold).monospacedDigit().sensitive()
+                    Image(systemName: "chevron.down").font(.caption2).foregroundStyle(.tertiary).rotationEffect(.degrees(expanded ? 180 : 0))
+                }
+                GeometryReader { g in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(.quaternary)
+                        Capsule().fill(color).frame(width: max(2, g.size.width * max(0, min(1, frac))))
+                    }
+                }
+                .frame(height: 4)
+                .accessibilityHidden(true)
             }
-            Text(share.map { "\($0)%" } ?? "").font(.caption).foregroundStyle(.secondary).frame(minWidth: 32, alignment: .trailing)
-            Image(systemName: "chevron.down").font(.caption2).foregroundStyle(.tertiary).rotationEffect(.degrees(expanded ? 180 : 0))
         }
+        .padding(.vertical, AppSpacing.detail)
         .contentShape(Rectangle())
     }
 }
