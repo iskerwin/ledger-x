@@ -131,7 +131,6 @@ enum AppAppearance: String, CaseIterable, Identifiable {
 extension Color {
     /// the accent colour chosen in 设置 → 外观
     static var jade: Color { AppTheme.current.color }
-    static var jadeSoft: Color { AppTheme.current.color.opacity(0.28) }
     /// Text and thin marks need more contrast than a filled accent surface.
     static var jadeInk: Color { jade.readableInk }
     static var onJade: Color { AppTheme.current.onColor }

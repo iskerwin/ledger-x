@@ -441,7 +441,7 @@ struct IncomeStatementView: View {
                 CurrencyBanner()
             }
             Section {
-                Card {
+                Card(padding: AppSpacing.summary) {
                     VStack(alignment: .leading, spacing: AppSpacing.control) {
                         Text(rangeLabel(r)).font(.caption).foregroundStyle(.secondary)
                         let several = CurrencyTable.rows([inc, exp], base: L.base).count > 1
@@ -454,7 +454,7 @@ struct IncomeStatementView: View {
                         } else {
                             VStack(alignment: .leading, spacing: AppSpacing.detail) {
                                 Text(LS("净收益")).font(.subheadline).foregroundStyle(.secondary)
-                                InventoryHeadline(inv: net, base: L.base)
+                                InventoryHeadline(inv: net, base: L.base, size: HeroAmount.summary)
                             }
                             HStack(alignment: .top, spacing: AppSpacing.control) {
                                 InventoryFigure(label: LS("收入"), inv: inc, base: L.base, color: .gain)
@@ -881,7 +881,7 @@ struct BalanceSheetView: View {
                 CurrencyBanner()
             }
             Section {
-                Card {
+                Card(padding: AppSpacing.summary) {
                     VStack(alignment: .leading, spacing: AppSpacing.control) {
                         Text(LS("截至 %@", date)).font(.caption).foregroundStyle(.secondary)
                         let several = CurrencyTable.rows([assets, liab], base: L.base).count > 1
@@ -893,7 +893,7 @@ struct BalanceSheetView: View {
                         } else {
                             VStack(alignment: .leading, spacing: AppSpacing.detail) {
                                 Text(LS("净资产")).font(.subheadline).foregroundStyle(.secondary)
-                                InventoryHeadline(inv: bs.netWorthShown, base: L.base)
+                                InventoryHeadline(inv: bs.netWorthShown, base: L.base, size: HeroAmount.summary)
                             }
                             HStack(alignment: .top, spacing: AppSpacing.control) {
                                 InventoryFigure(label: LS("资产总额"), inv: assets, base: L.base)
