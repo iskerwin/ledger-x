@@ -140,6 +140,8 @@ struct NewEntrySheet: View {
                     .fixedSize()
                 }
             }
+            // as tall with its menu as without, so the rows below stay put when an account brings one
+            .frame(minHeight: 24)
         }
     }
 
