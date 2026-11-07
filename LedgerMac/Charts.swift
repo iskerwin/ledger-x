@@ -12,7 +12,8 @@ private func monthNumber(_ month: String) -> String { String(Int(month.suffix(2)
 
 /// 净资产: what it comes to, how it has moved, month by month. The pointer on the chart shows that month in the same place.
 struct WorthCard: View {
-    let total: Double
+    let assets: Double
+    let liabilities: Double
     let points: [NetWorthPoint]
     let base: String
     @State private var picked: String?
@@ -21,24 +22,11 @@ struct WorthCard: View {
         let shown = points.first { $0.month == picked }
         let change = (points.last?.netWorth ?? 0) - (points.first?.netWorth ?? 0)
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(shown.map { $0.month + " 月末" } ?? "净资产")
-                        .foregroundStyle(.secondary)
-                    Text(money(shown?.netWorth ?? total, base))
-                        .font(.largeTitle.weight(.semibold))
-                        .fontDesign(.rounded)
-                        .monospacedDigit()
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-                }
-                Spacer()
-                Text(signedMoney(change, base))
-                    .monospacedDigit()
-                    .foregroundStyle(change < 0 ? Color.loss : Color.gain)
-                    .help("区间变动")
-            }
+            Headline(label: shown.map { $0.month + " 月末" } ?? "净资产", value: money(shown?.netWorth ?? assets + liabilities, base))
             chart.frame(height: 180)
+            SummaryFigures(items: [("资产", money(assets, base), .primary),
+                                   ("负债", money(liabilities, base), .primary),
+                                   ("近 \(points.count) 个月", signedMoney(change, base), change < 0 ? .loss : .gain)])
         }
     }
 
@@ -63,7 +51,7 @@ struct WorthCard: View {
             }
         }
         .chartYScale(domain: (lo - pad)...(hi + pad))
-        .chartYAxis { AxisMarks(position: .trailing) }
+        .chartYAxis(.hidden)
         .chartXAxis {
             AxisMarks(values: labelled(points.map(\.month))) { value in
                 AxisValueLabel { if let month = value.as(String.self) { Text(monthNumber(month)) } }
@@ -73,7 +61,7 @@ struct WorthCard: View {
     }
 }
 
-/// 月度收支, in the operating currency at each month's rates: a pair of bars a month
+/// 月度收支, in the operating currency at each month's rates: a pair of bars a month. The figures are the latest month's, or the one under the pointer, in the same places.
 struct FlowCard: View {
     let months: [String]
     let income: [String: Double]
@@ -82,7 +70,10 @@ struct FlowCard: View {
     @State private var picked: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let month = picked ?? months.last
+        let came = month.flatMap { income[$0] } ?? 0, went = month.flatMap { expenses[$0] } ?? 0
+        VStack(alignment: .leading, spacing: 12) {
+            Headline(label: (month.map(monthNumber) ?? "") + "结余", value: money(came - went, base), color: came - went < 0 ? .loss : .primary)
             Chart {
                 ForEach(months, id: \.self) { month in
                     BarMark(x: .value("月份", month), y: .value("金额", income[month] ?? 0))
@@ -98,8 +89,8 @@ struct FlowCard: View {
                 }
             }
             .chartForegroundStyleScale(["收入": Color.gain, "支出": Color.loss])
-            .chartLegend(position: .top, alignment: .leading)
-            .chartYAxis { AxisMarks(position: .trailing) }
+            .chartLegend(.hidden)
+            .chartYAxis(.hidden)
             .chartXAxis {
                 AxisMarks(values: labelled(months)) { value in
                     AxisGridLine()
@@ -107,22 +98,8 @@ struct FlowCard: View {
                 }
             }
             .pickingMonth($picked)
-            .frame(height: 200)
-            // always a line here, so pointing at a month moves nothing
-            HStack(spacing: 12) {
-                if let picked {
-                    let net = (income[picked] ?? 0) - (expenses[picked] ?? 0)
-                    Text(picked).fontWeight(.medium)
-                    Text("收入 " + money(income[picked] ?? 0, base)).foregroundStyle(Color.gain)
-                    Text("支出 " + money(expenses[picked] ?? 0, base)).foregroundStyle(Color.loss)
-                    Spacer()
-                    Text("结余 " + money(net, base)).foregroundStyle(net < 0 ? Color.loss : Color.secondary)
-                } else {
-                    Text(verbatim: " ")
-                }
-            }
-            .font(.caption.monospacedDigit())
-            .lineLimit(1)
+            .frame(height: 180)
+            SummaryFigures(items: [("收入", money(came, base), .gain), ("支出", money(went, base), .loss)])
         }
     }
 }

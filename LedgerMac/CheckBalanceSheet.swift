@@ -24,16 +24,29 @@ struct CheckBalanceSheet: View {
     }
 
     var body: some View {
+        let book = balance(ledger, account: account, currency: currency, endOf: day)
+        let actual = number(amount)
         VStack(spacing: 0) {
+            Card(summary: true) { Headline(label: accountTitle(ledger, account) + " · 账面余额", value: money(book, currency)) }
+                .padding([.horizontal, .top], 20)
             Form {
-                LabeledContent("账户", value: accountTitle(ledger, account))
-                DateRow(title: "日期", day: $day, latest: Date())
-                Picker("币种", selection: $currency) {
-                    ForEach(currencies, id: \.self) { Text($0).tag($0) }
+                if currencies.count > 1 {
+                    Picker("币种", selection: $currency) {
+                        ForEach(currencies, id: \.self) { Text($0).tag($0) }
+                    }
                 }
                 TextField("实际余额", text: $amount)
+                // always in its place, so the sheet doesn't move while typing
+                LabeledContent("差额") {
+                    Text(actual.map { signedMoney($0 - book, currency) } ?? " ")
+                        .monospacedDigit()
+                        .foregroundStyle(actual.map { abs($0 - book) > 0.005 } == true ? Color.loss : Color.secondary)
+                }
+                DateRow(title: "日期", day: $day, latest: Date())
             }
             .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .frame(height: currencies.count > 1 ? 210 : 170)
             Text(message)
                 .font(.callout)
                 .foregroundStyle(.red)
@@ -50,10 +63,15 @@ struct CheckBalanceSheet: View {
             .padding([.horizontal, .bottom], 16)
         }
         .frame(width: 460)
+        .background(Color.page)
+    }
+
+    private func number(_ text: String) -> Double? {
+        Double(text.replacingOccurrences(of: ",", with: "").trimmingCharacters(in: .whitespaces))
     }
 
     private func save() {
-        guard let value = Double(amount.replacingOccurrences(of: ",", with: "").trimmingCharacters(in: .whitespaces)) else {
+        guard let value = number(amount) else {
             message = "请输入有效的余额"
             return
         }
