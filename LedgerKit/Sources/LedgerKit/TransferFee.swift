@@ -42,6 +42,15 @@ public func transferBreakdown(_ d: Draft, target: String) -> TransferBreakdown? 
                              netReceived: net, fee: fee, feeCurrency: feeCcy, feePayer: payer)
 }
 
+/// what a transfer that paid a fee moved: `classify` reads it as the fee spent, the only part that left the accounts
+public func transferWithFee(_ t: Entry) -> (amount: Double, currency: String)? {
+    guard isTransferTag(t), t.postings.contains(where: { $0.account == transferFeeAccount }),
+          t.postings.allSatisfy({ $0.account == transferFeeAccount || $0.account.hasPrefix("Assets:") || $0.account.hasPrefix("Liabilities:") }),
+          let to = t.postings.first(where: { $0.account != transferFeeAccount && ($0.units ?? 0) > 0 }),
+          let amount = to.units, let currency = to.currency else { return nil }
+    return (amount, currency)
+}
+
 /// Convert between the two amounts shown in the sheet, with the fee applied once.
 public func solveTransferRate(_ part: RatePart, draft: Draft, amount: Double?, rate: Double?, received: Double?) -> Double? {
     let fee = evalAmount(draft.transferFee ?? "") ?? 0

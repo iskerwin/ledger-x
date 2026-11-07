@@ -139,51 +139,85 @@ private extension Entry {
     var key: String { "\(file):\(line)" }
 }
 
+/// as the phone's: who and the note, where it went underneath; the amount, and what the account holds after it underneath
 private struct JournalRow: View {
     let entry: Entry
     let ledger: Ledger
     let balance: Inventory?
 
     var body: some View {
-        HStack(spacing: 16) {
-            Text(entry.payee.isEmpty ? entry.narration : entry.payee)
-                .lineLimit(1)
-            if !entry.payee.isEmpty && !entry.narration.isEmpty {
-                Text(entry.narration)
-                    .lineLimit(1)
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
+                    Text(entry.payee.isEmpty ? entry.narration : entry.payee)
+                        .lineLimit(1)
+                    if !entry.payee.isEmpty && !entry.narration.isEmpty {
+                        Text(entry.narration)
+                            .lineLimit(1)
+                            .foregroundStyle(.secondary)
+                    }
+                    if entry.flag == "!" { RowTag(text: "待确认", color: .orange) }
+                    if entry.synthetic { RowTag(text: "pad", color: .secondary) }
+                }
+                Text(route)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
             Spacer(minLength: 16)
-            VStack(alignment: .trailing) {
-                ForEach(amounts, id: \.self) { Text($0).monospacedDigit() }
-            }
-            .foregroundStyle(isTransfer ? .secondary : .primary)
-            if let balance {
-                VStack(alignment: .trailing) {
+            VStack(alignment: .trailing, spacing: 2) {
+                ForEach(amounts, id: \.0) { amount in
+                    Text(amount.0).monospacedDigit().foregroundStyle(amount.1)
+                }
+                if let balance {
                     ForEach(balance.order, id: \.self) { currency in
-                        Text(money(balance.amounts[currency] ?? 0, currency)).monospacedDigit().lineLimit(1)
+                        Text(money(balance.amounts[currency] ?? 0, currency))
+                            .font(.caption)
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .help("余额")
                     }
                 }
-                .foregroundStyle(.secondary)
-                .frame(width: 140, alignment: .trailing)
-                .help("余额")
             }
+            .lineLimit(1)
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 3)
     }
 
-    private var isTransfer: Bool { classify(entry, ledger).kind == .transfer }
+    private var route: String {
+        let categories = entry.postings.filter { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") }
+        if transferWithFee(entry) == nil, let category = categories.first { return acctDisplay(category.account) }
+        return moneyRoute(entry).filter { account in !categories.contains { $0.account == account } }.map(acctDisplay).joined(separator: " → ")
+    }
 
-    /// as in the phone's journal: a transfer's amount, else what was spent or earned in each currency as booked
-    private var amounts: [String] {
+    /// as in the phone's journal: a transfer's amount, else what was spent or earned in each currency as booked. A transfer
+    /// that paid a fee shows both what it moved and the fee
+    private var amounts: [(String, Color)] {
         let shown = classify(entry, ledger)
-        if shown.kind == .transfer { return [money(shown.amount, shown.currency ?? "CNY")] }
+        if shown.kind == .transfer { return [(money(shown.amount, shown.currency ?? "CNY"), .secondary)] }
         var order: [String] = [], sums: [String: Double] = [:]
         for posting in entry.postings where posting.account.hasPrefix("Expenses:") || posting.account.hasPrefix("Income:") {
             guard let units = posting.units, let currency = posting.currency else { continue }
             if sums[currency] == nil { order.append(currency) }
             sums[currency, default: 0] -= units
         }
-        return order.map { signedMoney(sums[$0]!, $0) }
+        let spent = order.map { (signedMoney(sums[$0]!, $0), sums[$0]! < 0 ? Color.loss : Color.gain) }
+        if let moved = transferWithFee(entry) { return [(money(moved.amount, moved.currency), .secondary)] + spent }
+        return spent
+    }
+}
+
+private struct RowTag: View {
+    let text: String
+    let color: Color
+
+    var body: some View {
+        Text(text)
+            .font(.caption2)
+            .foregroundStyle(color)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(color.opacity(0.14), in: Capsule())
+            .fixedSize()
     }
 }

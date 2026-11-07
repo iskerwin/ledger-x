@@ -174,4 +174,32 @@ final class TransferFeeTests: XCTestCase {
         XCTAssertEqual(draftIssue(d, L, D)?.field, .fee)
     }
 
+    func testATransferWithAFeeKnowsWhatItMoved() throws {
+        let L = loadLedger { _ in """
+        2025-01-01 open Assets:Bank:Example CNY
+        2025-01-01 open Assets:Cash CNY
+        2025-01-01 open Expenses:Fee:Bank CNY
+        2025-01-01 open Expenses:Food CNY
+
+        2025-02-01 * "Transfer" "With fee" #transfer
+          Assets:Bank:Example  -102.00 CNY
+          Assets:Cash  100.00 CNY
+          Expenses:Fee:Bank  2.00 CNY
+
+        2025-02-02 * "Transfer" "Plain" #transfer
+          Assets:Bank:Example  -5.00 CNY
+          Assets:Cash  5.00 CNY
+
+        2025-02-03 * "Shop" "Bought with a fee"
+          Expenses:Food  3.00 CNY
+          Expenses:Fee:Bank  1.00 CNY
+          Assets:Cash  -4.00 CNY
+
+        """ }
+        let moved = try XCTUnwrap(transferWithFee(L.txns.first { $0.narration == "With fee" }!))
+        XCTAssertEqual(moved.amount, 100)
+        XCTAssertEqual(moved.currency, "CNY")
+        XCTAssertNil(transferWithFee(L.txns.first { $0.narration == "Plain" }!))
+        XCTAssertNil(transferWithFee(L.txns.first { $0.narration == "Bought with a fee" }!))
+    }
 }
