@@ -139,39 +139,20 @@ struct HoldingsView: View {
         let income = investIncome(L, String(Day.today().prefix(4))).reduce(0.0) { $0 + $1.2 }
         let up = value >= cost
         return Section {
-            Card {
-                VStack(alignment: .leading, spacing: AppSpacing.control) {
+            Card(padding: AppSpacing.summary) {
+                VStack(alignment: .leading, spacing: AppSpacing.content) {
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         Text(LS("总市值 · %@", L.base)).font(.subheadline).foregroundStyle(.secondary)
-                        Text(money(value, L.base)).heroAmount().monospacedDigit()
+                        Text(money(value, L.base)).heroAmount(HeroAmount.summary).monospacedDigit()
                             .rollingNumber(value)
                             .lineLimit(1).minimumScaleFactor(0.6).sensitive()
                     }
-                    HStack(alignment: .top, spacing: 0) {
-                        VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                            Text(LS("持仓成本")).font(.caption).foregroundStyle(.secondary)
-                            Text(money(cost, L.base)).font(.callout.weight(.semibold).monospacedDigit()).sensitive()
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        Divider().frame(height: 34)
-                        VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                            Text(LS("浮动盈亏")).font(.caption).foregroundStyle(.secondary)
-                            HStack(spacing: AppSpacing.icon) {
-                                Text(signedMoney(value - cost, L.base)).font(.callout.weight(.semibold).monospacedDigit())
-                                    .foregroundStyle(up ? Color.gain : Color.loss).lineLimit(1).minimumScaleFactor(0.7)
-                                if cost != 0 {
-                                    Text(String(format: "%@%.1f%%", up ? "+" : "", (value - cost) / cost * 100))
-                                        .font(.caption.weight(.semibold).monospacedDigit())
-                                        .padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.detail)
-                                        .background((up ? Color.gain : Color.loss).soft, in: Capsule())
-                                        .foregroundStyle(up ? Color.gain : Color.loss)
-                                }
-                            }
-                            .sensitive()
-                        }
-                        .padding(.leading, AppSpacing.control)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
+                    Divider()
+                    FigureRow(items: [
+                        .init(label: LS("持仓成本"), value: money(cost, L.base, 0)),
+                        .init(label: LS("浮动盈亏"), value: signedMoney(value - cost, L.base), color: up ? .gain : .loss),
+                        .init(label: LS("收益率"), value: cost != 0 ? masked(String(format: "%@%.1f%%", up ? "+" : "", (value - cost) / cost * 100)) : "—", color: cost != 0 ? (up ? .gain : .loss) : .primary),
+                    ], alignment: .center)
                     if abs(income) > 0.005 {
                         Text(LS("累计收益 %@（浮动盈亏 + 已实现收益、股息、利息）", signedMoney(value - cost + income, L.base)))
                             .font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
