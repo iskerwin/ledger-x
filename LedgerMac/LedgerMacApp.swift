@@ -40,6 +40,10 @@ private struct ContentView: View {
     @Binding var picking: Bool
     @State private var ledger: Ledger?
     @State private var missing = false
+    @State private var watcher: FolderWatcher?
+    /// which folder and opening is on screen: while it stays the same, a reload keeps the old list up until the new one is ready
+    @State private var source = ""
+    @State private var changes = 0
 
     var body: some View {
         Group {
@@ -58,11 +62,15 @@ private struct ContentView: View {
         }
         .frame(minWidth: 560, minHeight: 400)
         .navigationTitle(folder.isEmpty ? "Ledger X" : URL(fileURLWithPath: folder).lastPathComponent)
-        .task(id: "\(opened)|\(folder)") {
-            ledger = nil
-            missing = false
+        .task(id: "\(changes)|\(opened)|\(folder)") {
             guard !folder.isEmpty else { return }
             let url = URL(fileURLWithPath: folder)
+            if source != "\(opened)|\(folder)" {
+                source = "\(opened)|\(folder)"
+                ledger = nil
+                missing = false
+                watcher = FolderWatcher(url) { changes += 1 }
+            }
             let loaded = await Task.detached { loadLedger(folder: url) }.value
             guard !Task.isCancelled else { return }
             ledger = loaded
