@@ -211,6 +211,30 @@ public struct BalanceSheet {
     public var netWorthShown: Inventory { assets.shown + liabilities.shown }
 }
 
+/// the entry is what a report counts for `account` over these days: it moves that account or one under it (with no account, any entry of those days)
+public func entryCounts(_ entry: Entry, for account: String?, from: String?, to: String?) -> Bool {
+    (from.map { entry.date >= $0 } ?? true) && (to.map { entry.date <= $0 } ?? true)
+        && (account.map { account in entry.postings.contains { isExcluded($0.account, [account]) } } ?? true)
+}
+
+/// what `account` and those under it hold just after each entry that moves them, in the currencies it moves, in the order the ledger counts them
+public func runningBalances(_ L: Ledger, account: String) -> [ObjectIdentifier: Inventory] {
+    var out: [ObjectIdentifier: Inventory] = [:]
+    var running = Inventory()
+    for t in L.txns {
+        var after = Inventory()
+        for p in t.postings where isExcluded(p.account, [account]) {
+            guard let u = p.units, let c = p.currency else { continue }
+            running.add(u, c)
+            if after.amounts[c] == nil { after.add(0, c) }
+        }
+        if after.order.isEmpty { continue }
+        for c in after.order { after.amounts[c] = running.amounts[c] }
+        out[ObjectIdentifier(t)] = after
+    }
+    return out
+}
+
 /// `account` is one of `list` or under one of them
 public func isExcluded(_ account: String, _ list: [String]) -> Bool {
     list.contains { account == $0 || account.hasPrefix($0 + ":") }

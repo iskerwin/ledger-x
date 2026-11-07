@@ -190,10 +190,10 @@ final class FolderSaveTests: XCTestCase {
     }
 
     func testEntriesTheSheetCantShowAreNotOffered() throws {
-        let linked = "2026-10-16 * \"Sample Shop\" \"Lunch\" ^refund-1\n  Expenses:Food  35.00 CNY\n  Assets:Bank  -35.00 CNY\n"
         let commented = "2026-10-16 * \"Sample Shop\" \"Lunch\"\n  Expenses:Food  35.00 CNY ; a comment\n  Assets:Bank  -35.00 CNY\n"
         let split = "2026-10-16 * \"Sample Shop\" \"Lunch\"\n  Expenses:Food  30.00 CNY\n  Expenses:Food  5.00 CNY\n  Assets:Bank  -20.00 CNY\n  Assets:Cash  -15.00 CNY\n"
-        for text in [linked, commented, split] {
+        let advanced = "2025-01-01 open Assets:Receivable:Reimburse CNY\n\n2026-10-16 * \"Sample Shop\" \"Lunch\" #reimbursed ^reimburse-1\n  Assets:Receivable:Reimburse  35.00 CNY\n  Assets:Bank  -35.00 CNY\n"
+        for text in [commented, split, advanced] {
             try write("main.bean", opens + "\n" + text)
             let (found, ledger) = try entry()
             XCTAssertNil(folderEditDraft(found, ledger, Derived(ledger)), text)
@@ -209,12 +209,89 @@ final class FolderSaveTests: XCTestCase {
         XCTAssertLessThan(try XCTUnwrap(after.txns.first { $0.narration == "Lunch" }).line, found.line)
     }
 
-    func testDeletingALinkedEntryIsRefused() throws {
-        let linked = opens + "\n2026-10-16 * \"Sample Shop\" \"Lunch\" ^refund-1\n  Expenses:Food  35.00 CNY\n  Assets:Bank  -35.00 CNY\n"
-        try write("main.bean", linked)
+    private let purchase = """
+    2026-10-16 * "Sample Shop" "Lunch" ^refund-1
+      Expenses:Food  35.00 CNY
+      Assets:Bank  -35.00 CNY
+
+    """
+
+    private let refund = """
+    2026-10-17 * "Sample Shop" "Lunch back" #refund ^refund-1
+      Expenses:Food  -35.00 CNY
+      Assets:Bank  35.00 CNY
+
+    """
+
+    func testEditingALinkedEntryKeepsItsLinkAndLeavesTheOtherAlone() throws {
+        try write("main.bean", opens + "\n" + purchase + "\n" + refund)
+        var draft = try editing()
+        draft.amount = "50"
+        try commitFolderSave(try prepared(draft), folder: folder)
+        let after = try XCTUnwrap(loadLedger(folder: folder))
+        let edited = try XCTUnwrap(after.txns.first { $0.narration == "Lunch" })
+        XCTAssertEqual(edited.links, ["refund-1"])
+        XCTAssertEqual(edited.postings.first { $0.account == "Expenses:Food" }?.units, 50)
+        let other = try XCTUnwrap(after.txns.first { $0.narration == "Lunch back" })
+        XCTAssertEqual(other.links, ["refund-1"])
+        XCTAssertEqual(other.postings.first { $0.account == "Expenses:Food" }?.units, -35)
+    }
+
+    func testAnUnchangedLinkedEntryWritesNothing() throws {
+        try write("main.bean", opens + "\n" + purchase + "\n" + refund)
+        XCTAssertTrue(try prepared(try editing()).files.isEmpty)
+    }
+
+    func testEditingARefundKeepsWhatMakesItOne() throws {
+        try write("main.bean", opens + "\n" + purchase + "\n" + refund)
+        let (found, ledger) = try entry("Lunch back")
+        var draft = try XCTUnwrap(folderEditDraft(found, ledger, Derived(ledger)))
+        XCTAssertEqual(draft.kind, .refund)
+        XCTAssertEqual(draft.amount, "35")
+        draft.narration = "Changed"
+        try commitFolderSave(try prepared(draft), folder: folder)
+        let edited = try XCTUnwrap(try XCTUnwrap(loadLedger(folder: folder)).txns.first { $0.narration == "Changed" })
+        XCTAssertEqual(edited.links, ["refund-1"])
+        XCTAssertTrue(edited.tags.contains("refund"))
+        XCTAssertEqual(edited.postings.first { $0.account == "Expenses:Food" }?.units, -35)
+    }
+
+    func testDeletingOneOfAPairTakesTheLinkOffTheOther() throws {
+        try write("main.bean", opens + "\n" + purchase + "\n" + refund)
+        let (found, _) = try entry("Lunch back")
+        try commitFolderSave(try prepareFolderDelete(found, folder: folder).get(), folder: folder)
+        let after = try XCTUnwrap(loadLedger(folder: folder))
+        XCTAssertNil(after.txns.first { $0.narration == "Lunch back" })
+        XCTAssertEqual(try XCTUnwrap(after.txns.first { $0.narration == "Lunch" }).links, [])
+    }
+
+    func testThePairCanBeInTwoFiles() throws {
+        try write("main.bean", "include \"journals/2026.bean\"\ninclude \"journals/2027.bean\"\n" + opens)
+        try write("journals/2026.bean", purchase)
+        try write("journals/2027.bean", refund.replacingOccurrences(of: "2026-10-17", with: "2027-01-05"))
+        let (found, _) = try entry("Lunch back")
+        try commitFolderSave(try prepareFolderDelete(found, folder: folder).get(), folder: folder)
+        XCTAssertFalse(try read("journals/2026.bean").contains("^refund-1"))
+        XCTAssertFalse(try read("journals/2027.bean").contains("Lunch back"))
+    }
+
+    func testALinkSharedBySeveralStaysOnTheOthers() throws {
+        let second = refund.replacingOccurrences(of: "Lunch back", with: "Lunch back again").replacingOccurrences(of: "2026-10-17", with: "2026-10-18")
+        try write("main.bean", opens + "\n" + purchase + "\n" + refund + "\n" + second)
+        let (found, _) = try entry("Lunch back")
+        try commitFolderSave(try prepareFolderDelete(found, folder: folder).get(), folder: folder)
+        let after = try XCTUnwrap(loadLedger(folder: folder))
+        XCTAssertEqual(try XCTUnwrap(after.txns.first { $0.narration == "Lunch" }).links, ["refund-1"])
+        XCTAssertEqual(try XCTUnwrap(after.txns.first { $0.narration == "Lunch back again" }).links, ["refund-1"])
+    }
+
+    func testAnotherKindOfLinkIsLeftOnTheOtherEntry() throws {
+        let one = sample.replacingOccurrences(of: "\"Lunch\"", with: "\"Lunch\" ^sub-sample")
+        let two = one.replacingOccurrences(of: "2026-10-16", with: "2026-10-17").replacingOccurrences(of: "\"Lunch\"", with: "\"Dinner\"")
+        try write("main.bean", opens + "\n" + one + "\n" + two)
         let (found, _) = try entry()
-        guard case .failure = prepareFolderDelete(found, folder: folder) else { return XCTFail("should be refused") }
-        XCTAssertEqual(try read("main.bean"), linked)
+        try commitFolderSave(try prepareFolderDelete(found, folder: folder).get(), folder: folder)
+        XCTAssertEqual(try XCTUnwrap(try XCTUnwrap(loadLedger(folder: folder)).txns.first { $0.narration == "Dinner" }).links, ["sub-sample"])
     }
 
     func testDeletingThatBreaksAnAssertionIsReportedBeforeWriting() throws {
@@ -222,6 +299,40 @@ final class FolderSaveTests: XCTestCase {
         try write("main.bean", start)
         let (found, _) = try entry()
         XCTAssertTrue(try prepareFolderDelete(found, folder: folder).get().issues.contains { $0.kind == .balance })
+        XCTAssertEqual(try read("main.bean"), start)
+    }
+
+    private func prepareBalance(_ amount: Double, day: String = "2026-10-16") -> Result<FolderSave, FolderSaveError> {
+        prepareFolderBalance(account: "Assets:Bank", day: day, amount: amount, currency: "CNY", folder: folder)
+    }
+
+    func testABalanceThatAgreesIsAssertedForTheNextMorning() throws {
+        try write("main.bean", opens + "\n" + sample)
+        try commitFolderSave(try prepareBalance(965).get(), folder: folder)
+        XCTAssertTrue(try read("main.bean").contains(balanceLine("2026-10-17", "Assets:Bank", 965, "CNY")))
+        let result = try XCTUnwrap(try XCTUnwrap(loadLedger(folder: folder)).balanceResults.first)
+        XCTAssertTrue(result.ok)
+        XCTAssertEqual(result.entry.date, "2026-10-17")
+    }
+
+    func testEntriesOnTheDayItselfCount() throws {
+        try write("main.bean", opens + "\n" + sample)
+        XCTAssertNoThrow(try prepareBalance(1000, day: "2026-10-15").get())
+        guard case .failure = prepareBalance(1000) else { return XCTFail("the day's own entry should count") }
+    }
+
+    func testABalanceThatDiffersIsRefusedWithTheDifference() throws {
+        try write("main.bean", opens + "\n" + sample)
+        let before = try read("main.bean")
+        guard case .failure(let error) = prepareBalance(960) else { return XCTFail("should be refused") }
+        XCTAssertTrue(error.message.contains("965"), error.message)
+        XCTAssertEqual(try read("main.bean"), before)
+    }
+
+    func testASecondAssertionForTheSameDayIsRefused() throws {
+        let start = opens + "\n" + sample + "\n" + balanceLine("2026-10-17", "Assets:Bank", 965, "CNY") + "\n"
+        try write("main.bean", start)
+        guard case .failure = prepareBalance(965) else { return XCTFail("should be refused") }
         XCTAssertEqual(try read("main.bean"), start)
     }
 

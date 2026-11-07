@@ -17,20 +17,6 @@ extension Store {
     /// transaction (`oldText`) is edited into `newText` or deleted (`newText` nil)
     func pairedLinkOps(oldText: String, newText: String?) -> [Op] {
         guard let L = L else { return [] }
-        let oldLinks = Set(linksIn(oldText)), newLinks = Set(newText.map(linksIn) ?? [])
-        let removed = oldLinks.subtracting(newLinks).filter { $0.hasPrefix("refund") }
-        guard !removed.isEmpty else { return [] }
-        let added = Array(newLinks.subtracting(oldLinks).filter { $0.hasPrefix("refund") })
-        let me = oldText.trimmed
-        var ops: [Op] = []
-        for l in removed.sorted() {
-            // only a pair: with several refunds sharing the link, the others still need it
-            let others = L.txns.filter { $0.links.contains(l) && !$0.synthetic && $0.src.trimmed != me }
-            guard others.count == 1, let p = others.first else { continue }
-            var op = entryOp(p, text: headerLinkReplace(p.src, link: l, with: added.count == 1 ? added[0] : nil))
-            op.silent = true
-            ops.append(op)
-        }
-        return ops
+        return LedgerKit.pairedLinkOps(L, oldText: oldText, newText: newText)
     }
 }

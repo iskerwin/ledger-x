@@ -4,64 +4,108 @@ import LedgerKit
 struct AccountsPage: View {
     let ledger: Ledger
     let config: LedgerXConfig?
+    let folder: URL
+    let scope: (String) -> JournalScope
+    @State private var checking: CheckedAccount?
+
+    private struct CheckedAccount: Identifiable {
+        let id: String
+    }
 
     var body: some View {
         let sheet = balanceSheet(ledger, at: nil, exclude: config?.balanceExclude ?? [])
         let worth = netWorthNow(ledger, exclude: config?.netWorthExclude ?? [])
         List {
-            TreeSection(title: chinese ? "资产" : "Assets", root: sheet.assets, ledger: ledger)
-            TreeSection(title: chinese ? "负债" : "Liabilities", root: sheet.liabilities, ledger: ledger)
+            TreeSection(title: "资产", root: sheet.assets, ledger: ledger, scope: scope) { checking = CheckedAccount(id: $0) }
+            TreeSection(title: "负债", root: sheet.liabilities, ledger: ledger, scope: scope) { checking = CheckedAccount(id: $0) }
         }
         .listStyle(.inset)
         .safeAreaInset(edge: .top) {
-            Totals(items: [(chinese ? "净资产" : "Net Worth", money(worth.assets + worth.liabilities, ledger.base))])
+            Totals(items: [("净资产", money(worth.assets + worth.liabilities, ledger.base))])
         }
+        .sheet(item: $checking) { CheckBalanceSheet(ledger: ledger, account: $0.id, folder: folder) }
     }
 }
 
+/// the search box's own words for these spans, so a period here means what it means there
+enum ReportPeriod: String, CaseIterable {
+    case thisMonth = "本月", lastMonth = "上月", thisYear = "今年", lastYear = "去年"
+
+    var title: String { rawValue }
+
+    var span: (String, String)? { TxQuery(rawValue).dateSpan }
+}
+
 struct ReportsPage: View {
-    /// the search box's own words for these spans, so a period here means what it means there
-    private enum Period: String, CaseIterable {
-        case thisMonth = "本月", lastMonth = "上月", thisYear = "今年", lastYear = "去年"
-
-        var title: String {
-            if chinese { return rawValue }
-            switch self {
-            case .thisMonth: return "This Month"
-            case .lastMonth: return "Last Month"
-            case .thisYear: return "This Year"
-            case .lastYear: return "Last Year"
-            }
-        }
-    }
-
     let ledger: Ledger
-    @State private var period = Period.thisMonth
+    @Binding var period: ReportPeriod
 
     var body: some View {
-        let span = TxQuery(period.rawValue).dateSpan
+        let span = period.span
         let report = incomeStatement(ledger, from: span?.0, to: span?.1)
         let income = -report.income.shown, expenses = report.expenses.shown
+        let shown = period.title
+        let scope: (String) -> JournalScope = { JournalScope(title: accountTitle(ledger, $0) + " · " + shown, account: $0, from: span?.0, to: span?.1) }
         List {
-            TreeSection(title: chinese ? "收入" : "Income", root: report.income, ledger: ledger, negated: true)
-            TreeSection(title: chinese ? "支出" : "Expenses", root: report.expenses, ledger: ledger)
+            TreeSection(title: "收入", root: report.income, ledger: ledger, negated: true, scope: scope)
+            TreeSection(title: "支出", root: report.expenses, ledger: ledger, scope: scope)
         }
         .listStyle(.inset)
         .safeAreaInset(edge: .top) {
-            Totals(items: [(chinese ? "收入" : "Income", amountsText(income, ledger)),
-                           (chinese ? "支出" : "Expenses", amountsText(expenses, ledger)),
-                           (chinese ? "结余" : "Net", amountsText(income + (-expenses), ledger))])
+            Totals(items: [("收入", amountsText(income, ledger)),
+                           ("支出", amountsText(expenses, ledger)),
+                           ("结余", amountsText(income + (-expenses), ledger))])
         }
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Picker(selection: $period) {
-                    ForEach(Period.allCases, id: \.self) { Text($0.title) }
+                    ForEach(ReportPeriod.allCases, id: \.self) { Text($0.title) }
                 } label: {
                     EmptyView()
                 }
                 .pickerStyle(.segmented)
             }
         }
+    }
+}
+
+struct MonthsPage: View {
+    let ledger: Ledger
+    let scope: (String) -> JournalScope
+
+    var body: some View {
+        let flows = monthlyFlows(ledger, months: ledger.txns.map { Day.ym($0.date) }, mode: .units)
+        List {
+            Section {
+                ForEach(flows.sorted { $0.key > $1.key }, id: \.key) { month, flow in
+                    NavigationLink(value: scope(month)) {
+                        MonthRow(month: month, income: amountsText(flow.income, ledger), expenses: amountsText(flow.expenses, ledger),
+                                 net: amountsText(flow.income + (-flow.expenses), ledger))
+                    }
+                }
+            } header: {
+                MonthRow(month: "", income: "收入", expenses: "支出", net: "结余")
+            }
+        }
+        .listStyle(.inset)
+    }
+}
+
+private struct MonthRow: View {
+    let month: String
+    let income: String
+    let expenses: String
+    let net: String
+
+    var body: some View {
+        HStack(spacing: 16) {
+            Text(month).frame(width: 72, alignment: .leading)
+            Text(income).frame(maxWidth: .infinity, alignment: .trailing)
+            Text(expenses).frame(maxWidth: .infinity, alignment: .trailing)
+            Text(net).frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .monospacedDigit()
+        .lineLimit(1)
     }
 }
 
@@ -100,17 +144,20 @@ private struct TreeSection: View {
     let ledger: Ledger
     /// income is written as a negative amount; shown here as what came in
     var negated = false
+    let scope: (String) -> JournalScope
+    /// only where the row's account can hold an assertion
+    var check: ((String) -> Void)?
 
     var body: some View {
         Section {
-            OutlineGroup(root.children, children: \.kids) { node in
-                HStack(spacing: 16) {
-                    Text(name(node))
-                        .lineLimit(1)
-                    Spacer(minLength: 16)
-                    Text(amountsText(negated ? -node.shown : node.shown, ledger))
-                        .monospacedDigit()
-                        .lineLimit(1)
+            OutlineGroup(root.children, id: \.name, children: \.kids) { node in
+                NavigationLink(value: scope(node.name)) {
+                    TreeRow(name: name(node), amount: amountsText(negated ? -node.shown : node.shown, ledger))
+                }
+                .contextMenu {
+                    if let check, ledger.accounts[node.name] != nil {
+                        Button("核对余额…") { check(node.name) }
+                    }
                 }
             }
         } header: {
@@ -129,6 +176,27 @@ private struct TreeSection: View {
         let shown = title == acctLabel(node.name) ? node.label : title
         guard node.depth == 1, let group = acctZH(node.name) else { return shown }
         return shown + " · " + group
+    }
+}
+
+/// the highlight under the pointer shows that clicking opens the entries it counts
+private struct TreeRow: View {
+    let name: String
+    let amount: String
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(spacing: 16) {
+            Text(name)
+                .lineLimit(1)
+            Spacer(minLength: 16)
+            Text(amount)
+                .monospacedDigit()
+                .lineLimit(1)
+        }
+        .contentShape(Rectangle())
+        .background(hovering ? Color.primary.opacity(0.06) : Color.clear, in: RoundedRectangle(cornerRadius: 4).inset(by: -4))
+        .onHover { hovering = $0 }
     }
 }
 
