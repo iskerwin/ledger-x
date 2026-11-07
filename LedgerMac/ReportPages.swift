@@ -15,14 +15,16 @@ struct AccountsPage: View {
     var body: some View {
         let sheet = balanceSheet(ledger, at: nil, exclude: config?.balanceExclude ?? [])
         let worth = netWorthNow(ledger, exclude: config?.netWorthExclude ?? [])
-        List {
-            TreeSection(title: "资产", root: sheet.assets, ledger: ledger, scope: scope) { checking = CheckedAccount(id: $0) }
-            TreeSection(title: "负债", root: sheet.liabilities, ledger: ledger, scope: scope) { checking = CheckedAccount(id: $0) }
+        let series = netWorthSeries(ledger, exclude: config?.netWorthExclude ?? []).suffix(12)
+        ScrollView {
+            VStack(spacing: 16) {
+                Card { WorthCard(total: worth.assets + worth.liabilities, points: Array(series), base: ledger.base) }
+                TreeCard(title: "资产", root: sheet.assets, ledger: ledger, scope: scope) { checking = CheckedAccount(id: $0) }
+                TreeCard(title: "负债", root: sheet.liabilities, ledger: ledger, scope: scope) { checking = CheckedAccount(id: $0) }
+            }
+            .padding(20)
         }
-        .listStyle(.inset)
-        .safeAreaInset(edge: .top) {
-            Totals(items: [("净资产", money(worth.assets + worth.liabilities, ledger.base))])
-        }
+        .background(Color.page)
         .sheet(item: $checking) { CheckBalanceSheet(ledger: ledger, account: $0.id, folder: folder) }
     }
 }
@@ -46,16 +48,20 @@ struct ReportsPage: View {
         let income = -report.income.shown, expenses = report.expenses.shown
         let shown = period.title
         let scope: (String) -> JournalScope = { JournalScope(title: accountTitle(ledger, $0) + " · " + shown, account: $0, from: span?.0, to: span?.1) }
-        List {
-            TreeSection(title: "收入", root: report.income, ledger: ledger, negated: true, scope: scope)
-            TreeSection(title: "支出", root: report.expenses, ledger: ledger, scope: scope)
+        ScrollView {
+            VStack(spacing: 16) {
+                Card {
+                    Figures(items: [("收入", amountsText(income, ledger), .gain),
+                                    ("支出", amountsText(expenses, ledger), .loss),
+                                    ("结余", amountsText(income + (-expenses), ledger), .primary)])
+                }
+                Card { DonutCard(slices: DonutSlice.make(report.expenses, ledger), base: ledger.base, scope: scope) }
+                TreeCard(title: "收入", root: report.income, ledger: ledger, negated: true, scope: scope)
+                TreeCard(title: "支出", root: report.expenses, ledger: ledger, scope: scope)
+            }
+            .padding(20)
         }
-        .listStyle(.inset)
-        .safeAreaInset(edge: .top) {
-            Totals(items: [("收入", amountsText(income, ledger)),
-                           ("支出", amountsText(expenses, ledger)),
-                           ("结余", amountsText(income + (-expenses), ledger))])
-        }
+        .background(Color.page)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Picker(selection: $period) {
@@ -74,20 +80,38 @@ struct MonthsPage: View {
     let scope: (String) -> JournalScope
 
     var body: some View {
-        let flows = monthlyFlows(ledger, months: ledger.txns.map { Day.ym($0.date) }, mode: .units)
-        List {
-            Section {
-                ForEach(flows.sorted { $0.key > $1.key }, id: \.key) { month, flow in
-                    NavigationLink(value: scope(month)) {
-                        MonthRow(month: month, income: amountsText(flow.income, ledger), expenses: amountsText(flow.expenses, ledger),
-                                 net: amountsText(flow.income + (-flow.expenses), ledger))
+        let all = ledger.txns.map { Day.ym($0.date) }
+        let flows = monthlyFlows(ledger, months: all, mode: .units)
+        let months = flows.keys.sorted()
+        let recent = Array(months.suffix(12))
+        let valued = monthlyFlows(ledger, months: recent, mode: .convert(ledger.base))
+        ScrollView {
+            VStack(spacing: 16) {
+                Card {
+                    FlowCard(months: recent, income: valued.mapValues { $0.income.amounts[ledger.base] ?? 0 },
+                             expenses: valued.mapValues { $0.expenses.amounts[ledger.base] ?? 0 }, base: ledger.base)
+                }
+                Card {
+                    VStack(spacing: 0) {
+                        MonthRow(month: "", income: "收入", expenses: "支出", net: "结余", negative: false, heading: true)
+                            .padding(.bottom, 6)
+                        ForEach(months.reversed(), id: \.self) { month in
+                            let flow = flows[month]
+                            let net = (flow?.income ?? Inventory()) + -(flow?.expenses ?? Inventory())
+                            Divider()
+                            NavigationLink(value: scope(month)) {
+                                MonthRow(month: month, income: amountsText(flow?.income ?? Inventory(), ledger),
+                                         expenses: amountsText(flow?.expenses ?? Inventory(), ledger), net: amountsText(net, ledger),
+                                         negative: net.amounts.values.reduce(0, +) < 0, heading: false)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
-            } header: {
-                MonthRow(month: "", income: "收入", expenses: "支出", net: "结余")
             }
+            .padding(20)
         }
-        .listStyle(.inset)
+        .background(Color.page)
     }
 }
 
@@ -96,16 +120,26 @@ private struct MonthRow: View {
     let income: String
     let expenses: String
     let net: String
+    let negative: Bool
+    let heading: Bool
+    @State private var hovering = false
 
     var body: some View {
         HStack(spacing: 16) {
             Text(month).frame(width: 72, alignment: .leading)
             Text(income).frame(maxWidth: .infinity, alignment: .trailing)
+                .foregroundStyle(heading ? Color.secondary : Color.gain)
             Text(expenses).frame(maxWidth: .infinity, alignment: .trailing)
+                .foregroundStyle(heading ? Color.secondary : Color.loss)
             Text(net).frame(maxWidth: .infinity, alignment: .trailing)
+                .foregroundStyle(heading ? Color.secondary : negative ? Color.loss : Color.primary)
         }
         .monospacedDigit()
         .lineLimit(1)
+        .padding(.vertical, heading ? 0 : 6)
+        .contentShape(Rectangle())
+        .background(hovering && !heading ? Color.primary.opacity(0.06) : Color.clear, in: RoundedRectangle(cornerRadius: 4).inset(by: -4))
+        .onHover { hovering = $0 }
     }
 }
 
@@ -115,30 +149,32 @@ private func amountsText(_ amounts: Inventory, _ ledger: Ledger) -> String {
     return (shown.isEmpty ? [CurrencyAmount(ledger.base, 0)] : shown).map { money($0.amount, $0.currency) }.joined(separator: " · ")
 }
 
-private struct Totals: View {
-    let items: [(String, String)]
+/// three figures side by side in equal columns; a long one gets smaller, not cut off
+private struct Figures: View {
+    let items: [(String, String, Color)]
 
     var body: some View {
-        HStack(alignment: .top, spacing: 32) {
+        HStack(alignment: .top, spacing: 16) {
             ForEach(items, id: \.0) { item in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.0)
                         .foregroundStyle(.secondary)
                     Text(item.1)
-                        .font(.title2)
+                        .font(.title2.weight(.semibold))
+                        .fontDesign(.rounded)
                         .monospacedDigit()
+                        .foregroundStyle(item.2)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.5)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .background(.bar)
     }
 }
 
-private struct TreeSection: View {
+/// a group of accounts on a card: an arrow opens what's under a row, the row itself the entries it counts
+private struct TreeCard: View {
     let title: String
     let root: AccountNode
     let ledger: Ledger
@@ -147,34 +183,69 @@ private struct TreeSection: View {
     let scope: (String) -> JournalScope
     /// only where the row's account can hold an assertion
     var check: ((String) -> Void)?
+    @State private var open: Set<String> = []
 
     var body: some View {
-        Section {
-            OutlineGroup(root.children, id: \.name, children: \.kids) { node in
-                NavigationLink(value: scope(node.name)) {
-                    TreeRow(name: name(node), amount: amountsText(negated ? -node.shown : node.shown, ledger))
+        Card {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text(title).fontWeight(.medium)
+                    Spacer()
+                    Text(amountsText(negated ? -root.shown : root.shown, ledger))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
                 }
-                .contextMenu {
-                    if let check, ledger.accounts[node.name] != nil {
-                        Button("核对余额…") { check(node.name) }
-                    }
+                .padding(.bottom, 8)
+                ForEach(visible, id: \.name) { node in
+                    Divider()
+                    row(node)
                 }
-            }
-        } header: {
-            HStack {
-                Text(title)
-                Spacer()
-                Text(amountsText(negated ? -root.shown : root.shown, ledger))
-                    .monospacedDigit()
             }
         }
     }
 
-    /// the account's `name:` where it has one, else the last part of its name, with the Chinese group name on the top level
+    private var visible: [AccountNode] {
+        func under(_ node: AccountNode) -> [AccountNode] {
+            node.children.flatMap { [$0] + (open.contains($0.name) ? under($0) : []) }
+        }
+        return under(root)
+    }
+
+    private func row(_ node: AccountNode) -> some View {
+        HStack(spacing: 4) {
+            Button {
+                if open.contains(node.name) { open.remove(node.name) } else { open.insert(node.name) }
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .rotationEffect(.degrees(open.contains(node.name) ? 90 : 0))
+                    .frame(width: 16, height: 16)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .opacity(node.children.isEmpty ? 0 : 1)
+            .disabled(node.children.isEmpty)
+            .accessibilityLabel(open.contains(node.name) ? "收起" : "展开")
+            NavigationLink(value: scope(node.name)) {
+                TreeRow(name: name(node), amount: amountsText(negated ? -node.shown : node.shown, ledger))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.leading, CGFloat(node.depth - 1) * 16)
+        .padding(.vertical, 6)
+        .contextMenu {
+            if let check, ledger.accounts[node.name] != nil {
+                Button("核对余额…") { check(node.name) }
+            }
+        }
+    }
+
+    /// the account's `name:` where it has one, else the last part of its name, with the Chinese group name on the top level unless it's the same
     private func name(_ node: AccountNode) -> String {
         let title = accountTitle(ledger, node.name)
         let shown = title == acctLabel(node.name) ? node.label : title
-        guard node.depth == 1, let group = acctZH(node.name) else { return shown }
+        guard node.depth == 1, let group = acctZH(node.name), group != shown else { return shown }
         return shown + " · " + group
     }
 }
@@ -198,8 +269,4 @@ private struct TreeRow: View {
         .background(hovering ? Color.primary.opacity(0.06) : Color.clear, in: RoundedRectangle(cornerRadius: 4).inset(by: -4))
         .onHover { hovering = $0 }
     }
-}
-
-private extension AccountNode {
-    var kids: [AccountNode]? { children.isEmpty ? nil : children }
 }

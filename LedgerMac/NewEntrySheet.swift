@@ -39,7 +39,7 @@ struct NewEntrySheet: View {
             .disabled(draft.replacing != nil)
             .padding([.horizontal, .top], 20)
             Form {
-                DatePicker("日期", selection: date, displayedComponents: .date)
+                DateRow(title: "日期", day: $draft.date)
                 TextField("收付款方", text: $draft.payee)
                     .focused($payeeFocused)
                 TextField("备注", text: $draft.narration)
@@ -210,10 +210,6 @@ struct NewEntrySheet: View {
             Text("").tag("")
             ForEach(derived.rankAccounts(prefixes), id: \.self) { Text(acctDisplay($0)).tag($0) }
         }
-    }
-
-    private var date: Binding<Date> {
-        Binding(get: { Day.date(draft.date) ?? Date() }, set: { draft.date = Day.string($0) })
     }
 
     private var reviewing: Binding<Bool> {

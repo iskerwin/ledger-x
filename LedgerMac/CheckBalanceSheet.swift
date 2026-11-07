@@ -27,7 +27,7 @@ struct CheckBalanceSheet: View {
         VStack(spacing: 0) {
             Form {
                 LabeledContent("账户", value: accountTitle(ledger, account))
-                DatePicker("日期", selection: date, in: ...Date(), displayedComponents: .date)
+                DateRow(title: "日期", day: $day, latest: Date())
                 Picker("币种", selection: $currency) {
                     ForEach(currencies, id: \.self) { Text($0).tag($0) }
                 }
@@ -50,10 +50,6 @@ struct CheckBalanceSheet: View {
             .padding([.horizontal, .bottom], 16)
         }
         .frame(width: 460)
-    }
-
-    private var date: Binding<Date> {
-        Binding(get: { Day.date(day) ?? Date() }, set: { day = Day.string($0) })
     }
 
     private func save() {
