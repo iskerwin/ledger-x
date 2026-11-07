@@ -32,36 +32,6 @@ struct ChipRow<Content: View>: View {
     }
 }
 
-/// an account's kind on its colour, as the phone's account list
-struct AccountMark: View {
-    let account: String
-    var size: CGFloat = 28
-
-    var body: some View {
-        Image(systemName: accountSymbol(account))
-            .font(.system(size: size * 0.45, weight: .semibold))
-            .foregroundStyle(Color.jade)
-            .frame(width: size, height: size)
-            .background(Color.jade.soft, in: Circle())
-            .accessibilityHidden(true)
-    }
-}
-
-func accountSymbol(_ account: String) -> String {
-    let parts = account.components(separatedBy: ":")
-    switch parts.count > 1 ? parts[1] : account {
-    case "Bank": return "building.columns.fill"
-    case "EWallet": return "wallet.pass.fill"
-    case "Cash": return "banknote.fill"
-    case "Brokerage": return "chart.line.uptrend.xyaxis"
-    case "Crypto": return "bitcoinsign"
-    case "Receivable": return "tray.and.arrow.down.fill"
-    case "CreditCard": return "creditcard.fill"
-    case "Loan": return "percent"
-    default: return "folder.fill"
-    }
-}
-
 /// "支付宝 ¥50 + 招行 ¥40 · 优惠 ¥10": who pays what
 func payingSummary(_ draft: Draft, _ ledger: Ledger) -> String? {
     guard hasCombo(draft) else { return nil }
@@ -91,45 +61,6 @@ struct AccountField: View {
             if !account.isEmpty && !ranked.contains(account) { Text(acctDisplay(account)).tag(account) }
             ForEach(ranked, id: \.self) { Text(acctDisplay($0)).tag($0) }
         }
-    }
-}
-
-/// every account of a kind, searchable
-struct AccountChooser: View {
-    let accounts: [String]
-    let ledger: Ledger
-    let current: String
-    let pick: (String) -> Void
-    @Environment(\.dismiss) private var dismiss
-    @State private var query = ""
-
-    private var shown: [String] {
-        let typed = query.trimmed
-        guard !typed.isEmpty else { return accounts }
-        return accounts.filter { [$0, accountTitle(ledger, $0), acctDisplay($0)].contains { $0.localizedCaseInsensitiveContains(typed) } }
-    }
-
-    var body: some View {
-        VStack(spacing: 8) {
-            TextField("搜索", text: $query).textFieldStyle(.roundedBorder)
-            List(shown, id: \.self) { account in
-                Button {
-                    pick(account)
-                    dismiss()
-                } label: {
-                    HStack {
-                        Text(acctDisplay(account)).lineLimit(1)
-                        Spacer()
-                        if account == current { Image(systemName: "checkmark").foregroundStyle(Color.jade) }
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-            .listStyle(.plain)
-        }
-        .padding(12)
-        .frame(width: 300, height: 360)
     }
 }
 

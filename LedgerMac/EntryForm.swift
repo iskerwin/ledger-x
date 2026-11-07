@@ -1,7 +1,8 @@
 import SwiftUI
 import LedgerKit
 
-/// 完整表单, as on the phone: everything an entry can have, and the text it comes to
+/// 表单: the amount first, then the day, currency, accounts and category in two columns; what most entries don't need folds away.
+/// 分录 and 文本 fill the same place
 struct EntryForm: View {
     @Binding var draft: Draft
     let ledger: Ledger
@@ -10,8 +11,22 @@ struct EntryForm: View {
     let open: (EntryPanel) -> Void
     @State private var addingPerson = false
     @State private var newPerson = ""
-    @FocusState private var payeeFocused: Bool
+    @State private var more: Bool
+    @State private var showsText = false
+    @FocusState private var field: Field?
     @FocusState private var textFocused: Bool
+
+    private enum Field: Hashable { case amount, payee, narration }
+
+    init(draft: Binding<Draft>, ledger: Ledger, derived: Derived, subscriptionLinks: Set<String>, open: @escaping (EntryPanel) -> Void) {
+        _draft = draft
+        self.ledger = ledger
+        self.derived = derived
+        self.subscriptionLinks = subscriptionLinks
+        self.open = open
+        let held = draft.wrappedValue
+        _more = State(initialValue: held.reimb || held.split || hasCombo(held) || held.topup || !held.tags.isEmpty || held.flag == "!")
+    }
 
     var body: some View {
         let text = draftText(draft, ledger, derived)
@@ -37,34 +52,29 @@ struct EntryForm: View {
                         }
                         .onAppear { textFocused = true }
                 }
-            case .transfer:
-                amountSection
-                transferSection
-                payeeSection
-                marksRow
             default:
                 amountSection
+                detailSection
                 payeeSection
-                accountSection
-                if draft.kind == .expense { expenseSections }
-                if draft.kind == .refund { refundSection }
-                eventSection
-                marksRow
+                moreSections
             }
             if draft.kind != .raw && !text.trimmed.isEmpty {
                 Section {
-                    Text(text)
-                        .font(.system(size: 12, design: .monospaced))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    DisclosureGroup("Beancount 原文", isExpanded: $showsText) {
+                        Text(text)
+                            .font(.system(size: 12, design: .monospaced))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
             }
         }
         .formStyle(.grouped)
         .frame(maxHeight: .infinity)
+        .onAppear { if draft.kind != .multi && draft.kind != .raw { field = .amount } }
         // leaving the payee: a known one fills in what isn't picked yet
-        .onChange(of: payeeFocused) {
-            if !payeeFocused { draft = applyingPayee(draft, name: draft.payee.trimmed, derived, onlyBlanks: true) }
+        .onChange(of: field) { old, new in
+            if old == .payee && new != .payee { draft = applyingPayee(draft, name: draft.payee.trimmed, derived, onlyBlanks: true) }
         }
         // new AA parts follow the amount until typed by hand
         .onChange(of: draft.amount) {
@@ -80,22 +90,74 @@ struct EntryForm: View {
 
     private var amountSection: some View {
         Section {
-            LabeledContent(draft.kind == .transfer ? "转出金额" : "金额") {
-                HStack {
-                    if isExpression(draft.amount) {
-                        Text("= " + (evalAmount(draft.amount).map { fmtNum($0) } ?? "?")).monospacedDigit().foregroundStyle(.secondary)
-                    }
-                    TextField("金额", text: $draft.amount, prompt: Text("0.00"))
-                        .labelsHidden()
-                        .textFieldStyle(.plain)
-                        .multilineTextAlignment(.trailing)
-                        .font(.title2.weight(.semibold))
-                        .monospacedDigit()
+            VStack(spacing: 2) {
+                TextField("金额", text: $draft.amount, prompt: Text("0.00"))
+                    .labelsHidden()
+                    .textFieldStyle(.plain)
+                    .multilineTextAlignment(.center)
+                    .font(.system(size: 34, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .focused($field, equals: .amount)
+                // its line is always there, so typing a sum moves nothing
+                Text(isExpression(draft.amount) ? "= " + (evalAmount(draft.amount).map { fmtNum($0) } ?? "?") : " ")
+                    .font(.callout)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: 日期、币种、账户与科目
+
+    @ViewBuilder private var detailSection: some View {
+        let categoryRoot = draft.kind == .income ? "Income:" : "Expenses:"
+        let fundingTitle = draft.kind == .income ? "收款账户" : draft.kind == .refund ? "退回账户" : "付款账户"
+        let other = conversionCurrency(draft, ledger, derived)
+        Section {
+            HStack(alignment: .top, spacing: 16) {
+                FieldColumn(title: "日期") { DateRow(title: "日期", day: $draft.date).labelsHidden() }
+                FieldColumn(title: "币种") {
                     Picker("币种", selection: $draft.currency) {
                         ForEach(currencies, id: \.self) { Text($0).tag($0) }
                     }
                     .labelsHidden()
-                    .fixedSize()
+                }
+            }
+            if draft.kind == .transfer {
+                HStack(alignment: .top, spacing: 16) {
+                    FieldColumn(title: "转出账户") {
+                        AccountField(title: "转出账户", prefixes: ["Assets:", "Liabilities:"], derived: derived, account: Binding(get: { draft.funding }, set: { account in
+                            draft.funding = account
+                            draft.currency = derived.acctCcy[account] ?? draft.currency
+                        }))
+                        .labelsHidden()
+                    }
+                    FieldColumn(title: "转入账户") {
+                        AccountField(title: "转入账户", prefixes: ["Assets:", "Liabilities:"], derived: derived, account: $draft.to).labelsHidden()
+                    }
+                }
+                if !draft.to.isEmpty, let other, other != draft.currency {
+                    LabeledContent("入账金额 " + other) {
+                        TextField("入账金额", text: $draft.toAmount, prompt: Text("实际入账金额"))
+                            .labelsHidden()
+                            .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
+                    }
+                }
+            } else {
+                HStack(alignment: .top, spacing: 16) {
+                    FieldColumn(title: fundingTitle) {
+                        AccountField(title: fundingTitle, prefixes: ["Assets:", "Liabilities:"], derived: derived, account: $draft.funding).labelsHidden()
+                    }
+                    FieldColumn(title: "分类") {
+                        AccountField(title: "分类", prefixes: [categoryRoot], derived: derived, account: $draft.account).labelsHidden()
+                    }
+                }
+                if isPersonal(draft.account) || isPersonal(draft.funding) {
+                    TextField("对方", text: $draft.person)
+                }
+                if let other, other != draft.currency, !hasCombo(draft) {
+                    conversion(other)
                 }
             }
             if draft.kind == .expense || draft.kind == .transfer {
@@ -103,7 +165,6 @@ struct EntryForm: View {
                     Button(feeSummary) { open(.rate) }
                 }
             }
-            DateRow(title: "日期", day: $draft.date)
         }
     }
 
@@ -112,58 +173,69 @@ struct EntryForm: View {
         return "手续费 " + money(fee, draft.feeCurrency ?? draft.currency)
     }
 
-    // MARK: 转账
-
-    private var transferSection: some View {
-        Section {
-            AccountField(title: "转出", prefixes: ["Assets:", "Liabilities:"], derived: derived, account: Binding(get: { draft.funding }, set: { account in
-                draft.funding = account
-                draft.currency = derived.acctCcy[account] ?? draft.currency
-            }))
-            AccountField(title: "转入", prefixes: ["Assets:", "Liabilities:"], derived: derived, account: $draft.to)
-            if !draft.to.isEmpty, let target = conversionCurrency(draft, ledger, derived), target != draft.currency {
-                LabeledContent("入账金额 " + target) {
-                    TextField("入账金额", text: $draft.toAmount, prompt: Text("实际入账金额"))
-                        .labelsHidden()
-                        .multilineTextAlignment(.trailing)
-                        .monospacedDigit()
-                }
-            }
-        }
-    }
-
     // MARK: 收付款方
 
     private var payeeSection: some View {
         Section {
-            TextField("收付款方", text: $draft.payee)
-                .focused($payeeFocused)
-            TextField("摘要", text: $draft.narration)
+            FieldColumn(title: "收付款方") {
+                TextField("收付款方", text: $draft.payee)
+                    .labelsHidden()
+                    .textFieldStyle(.roundedBorder)
+                    .focused($field, equals: .payee)
+            }
+            FieldColumn(title: "摘要") {
+                TextField("摘要", text: $draft.narration, prompt: Text(narrations.first ?? ""))
+                    .labelsHidden()
+                    .textFieldStyle(.roundedBorder)
+                    .focused($field, equals: .narration)
+            }
+            // its line is always there, so moving between the fields moves nothing
+            suggestions.frame(height: 24)
         }
     }
 
-    // MARK: 科目与账户
+    private var narrations: [String] {
+        Array((derived.payee(draft.payee.trimmed)?.narrations ?? []).prefix(6))
+    }
 
-    private var accountSection: some View {
-        let categoryRoot = draft.kind == .income ? "Income:" : "Expenses:"
-        let fundingTitle = draft.kind == .income ? "收款账户" : draft.kind == .refund ? "退回账户" : "付款账户"
-        let other = conversionCurrency(draft, ledger, derived)
-        return Section {
-            AccountField(title: draft.kind == .income ? "收入科目" : "支出科目", prefixes: [categoryRoot], derived: derived, account: $draft.account)
-            AccountField(title: fundingTitle, prefixes: ["Assets:", "Liabilities:"], derived: derived, account: $draft.funding)
-            if isPersonal(draft.account) || isPersonal(draft.funding) {
-                TextField("对方", text: $draft.person)
-            }
-            if draft.kind == .expense {
-                LabeledContent("组合付款与优惠") {
-                    Button(comboIssue(draft, ledger, derived) ?? payingSummary(draft, ledger) ?? "未使用") { open(.pay) }
-                        .lineLimit(1)
+    /// who it might be while typing the payee, what it was for while typing the note
+    private var suggestions: some View {
+        ChipRow {
+            if field == .payee {
+                let typed = draft.payee.trimmed
+                let known = derived.payees.filter { typed.isEmpty || $0.name.localizedCaseInsensitiveContains(typed) }.prefix(6)
+                if !(known.count == 1 && known.first?.name == typed) {
+                    ForEach(Array(known), id: \.name) { payee in
+                        EntryChip(title: payee.name, selected: false) {
+                            draft = applyingPayee(draft, name: payee.name, derived)
+                            field = .narration
+                        }
+                    }
+                }
+            } else if field == .narration {
+                ForEach(narrations, id: \.self) { note in
+                    EntryChip(title: note, selected: draft.narration == note) { draft.narration = note }
                 }
             }
-            if let other, other != draft.currency, !hasCombo(draft) {
-                conversion(other)
+        }
+    }
+
+    // MARK: 更多
+
+    @ViewBuilder private var moreSections: some View {
+        if draft.kind == .refund { refundSection }
+        Section {
+            DisclosureGroup("更多选项", isExpanded: $more) {
+                if draft.kind == .expense {
+                    LabeledContent("组合付款与优惠") {
+                        Button(comboIssue(draft, ledger, derived) ?? payingSummary(draft, ledger) ?? "未使用") { open(.pay) }
+                            .lineLimit(1)
+                    }
+                }
+                marksRow
             }
         }
+        if more && draft.kind == .expense { expenseSections }
     }
 
     /// as the receipt has it: the amount charged, or the rate
@@ -340,29 +412,12 @@ struct EntryForm: View {
 
     // MARK: 事件、标签
 
-    @ViewBuilder private var eventSection: some View {
-        let events = ledgerEvents(ledger, today: draft.date).filter { ($0.entry != nil && $0.covers(draft.date)) || draft.events.contains($0.tag) }
-        if !events.isEmpty {
-            Section("事件") {
-                ChipRow {
-                    ForEach(events) { event in
-                        EntryChip(title: event.title, selected: draft.events.contains(event.tag)) {
-                            if let index = draft.events.firstIndex(of: event.tag) { draft.events.remove(at: index) } else { draft.events.append(event.tag) }
-                            draft.eventsTouched = true
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     private var marksRow: some View {
-        let parts = draft.tags.map { "#" + $0 } + (draft.flag == "!" ? ["!"] : [])
-        return Section {
-            LabeledContent("标签") {
-                Button(parts.isEmpty ? "添加…" : parts.joined(separator: " ")) { open(.marks) }
-                    .lineLimit(1)
-            }
+        let events = draft.kind == .transfer ? [] : ledgerEvents(ledger, today: draft.date).filter { draft.events.contains($0.tag) }.map(\.title)
+        let parts = events + draft.tags.map { "#" + $0 } + (draft.flag == "!" ? ["!"] : [])
+        return LabeledContent("事件与标签") {
+            Button(parts.isEmpty ? "添加…" : parts.joined(separator: " ")) { open(.marks) }
+                .lineLimit(1)
         }
     }
 
@@ -372,7 +427,7 @@ struct EntryForm: View {
         Section {
             DateRow(title: "日期", day: $draft.date)
             TextField("收付款方", text: $draft.payee)
-                .focused($payeeFocused)
+                .focused($field, equals: .payee)
             TextField("摘要", text: $draft.narration)
             TextField("标签与链接", text: $draft.tagsText, prompt: Text("#标签 ^链接"))
             Toggle("待确认（!）", isOn: Binding(get: { draft.flag == "!" }, set: { draft.flag = $0 ? "!" : "*" }))
@@ -386,6 +441,22 @@ struct EntryForm: View {
             }
             Button("添加分录行", systemImage: "plus.circle") { draft.rows.append(DraftRow()) }
         }
+    }
+}
+
+/// a field with its name above it, taking its share of the row
+private struct FieldColumn<Content: View>: View {
+    let title: String
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            content
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

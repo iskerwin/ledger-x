@@ -7,57 +7,62 @@ enum EntryPanel: String, Identifiable {
     var id: String { rawValue }
 }
 
-/// 记一笔, as on the phone: the card, or the full form for what it can't show (分录, 文本, 退款, AA)
+/// 记一笔: which kind of entry, and how it is written (表单, 分录, 文本)
 struct NewEntrySheet: View {
     let ledger: Ledger
     let folder: URL
+    private let config: LedgerXConfig?
     private let derived: Derived
-    private let frequent: [Template]
     private let subscriptionLinks: Set<String>
-    private let initial: Draft
+    private let editing: Bool
     @Environment(\.dismiss) private var dismiss
     @State private var draft: Draft
+    /// what counts as nothing changed: closing from it needs no asking
+    @State private var baseline: Draft
     /// each kind as it was left, to come back to
     @State private var snapshots: [DraftKind: Draft] = [:]
-    @State private var full: Bool
+    /// the kind 表单 goes back to from 分录 or 文本
+    @State private var formKind: DraftKind
+    /// a new form for each new entry, so the cursor starts in the amount again
+    @State private var entry = 0
     @State private var panel: EntryPanel?
     @State private var message = ""
     @State private var saving = false
     @State private var review: FolderSave?
+    @State private var another = false
+    @State private var leaving = false
 
-    private static let cardKinds: [DraftKind] = [.expense, .income, .transfer]
+    private static let formKinds: [DraftKind] = [.expense, .income, .transfer]
+
+    private enum Mode: Hashable { case form, multi, raw }
 
     init(ledger: Ledger, config: LedgerXConfig?, folder: URL, editing: Draft? = nil) {
         self.ledger = ledger
         self.folder = folder
+        self.config = config
+        self.editing = editing != nil
         let derived = folderDerived(ledger, config: config)
         self.derived = derived
-        frequent = templates(ledger, pinned: [], hidden: [])
         subscriptionLinks = Set(subscriptions(ledger).map(\.link))
-        var draft = editing ?? newDraft(.expense, derived, defaultFunding: config?.defaultFunding)
-        if editing == nil {
-            draft.currency = derived.acctCcy[draft.funding] ?? ledger.base
-            draft.events = activeEvents(ledger, on: draft.date).map(\.tag)
-        }
-        initial = draft
-        _draft = State(initialValue: draft)
-        _full = State(initialValue: Self.needsFullForm(draft))
+        let blank = Self.blank(.expense, ledger: ledger, derived: derived, config: config)
+        let opened = editing ?? KeptDraft.read(folder) ?? blank
+        _draft = State(initialValue: opened)
+        _baseline = State(initialValue: editing ?? blank)
+        _formKind = State(initialValue: Self.formKinds.contains(opened.kind) ? opened.kind : .expense)
     }
 
-    private static func needsFullForm(_ draft: Draft) -> Bool {
-        [.refund, .multi, .raw].contains(draft.kind) || draft.split
+    private static func blank(_ kind: DraftKind, ledger: Ledger, derived: Derived, config: LedgerXConfig?) -> Draft {
+        var draft = newDraft(kind, derived, defaultFunding: config?.defaultFunding)
+        draft.currency = derived.acctCcy[draft.funding] ?? ledger.base
+        draft.events = activeEvents(ledger, on: draft.date).map(\.tag)
+        return draft
     }
 
     var body: some View {
         VStack(spacing: 0) {
             header
-            if full {
-                EntryForm(draft: $draft, ledger: ledger, derived: derived, subscriptionLinks: subscriptionLinks) { panel = $0 }
-            } else {
-                EntryCard(draft: $draft, ledger: ledger, derived: derived, frequent: frequent, subscriptionLinks: subscriptionLinks,
-                          openFull: { full = true }, open: { panel = $0 })
-                    .frame(maxHeight: .infinity, alignment: .top)
-            }
+            EntryForm(draft: $draft, ledger: ledger, derived: derived, subscriptionLinks: subscriptionLinks) { panel = $0 }
+                .id(entry)
             Text(message)
                 .font(.callout)
                 .foregroundStyle(Color.loss)
@@ -66,17 +71,20 @@ struct NewEntrySheet: View {
                 .padding(.horizontal, 20)
             HStack {
                 Spacer()
-                Button("取消", role: .cancel) { dismiss() }
+                Button("取消", role: .cancel) { close() }
                     .keyboardShortcut(.cancelAction)
-                Button("保存") { save() }
+                if !editing {
+                    Button("保存再记") { save(another: true) }
+                        .keyboardShortcut(.return, modifiers: [.command, .shift])
+                        .disabled(saving)
+                }
+                Button("保存") { save(another: false) }
                     .keyboardShortcut(.defaultAction)
                     .disabled(saving)
             }
             .padding([.horizontal, .bottom], 16)
         }
-        .frame(width: 560, height: 600)
-        // the card has its own cards on the page; a form brings its own colours, and on the page its rows all but vanish in dark mode
-        .background(full ? Color.clear : Color.page)
+        .frame(width: 620, height: 640)
         .sheet(item: $panel) { panel in
             switch panel {
             case .rate: RateSheet(draft: $draft, ledger: ledger, derived: derived)
@@ -98,76 +106,79 @@ struct NewEntrySheet: View {
         } message: {
             Text(review?.issues.map(\.detail).joined(separator: "\n") ?? "")
         }
+        .confirmationDialog("这笔还没有保存", isPresented: $leaving) {
+            Button("继续编辑", role: .cancel) {}
+            if !editing {
+                Button("保留草稿") {
+                    KeptDraft.write(draft, folder)
+                    dismiss()
+                }
+            }
+            Button("放弃", role: .destructive) {
+                if !editing { KeptDraft.clear(folder) }
+                dismiss()
+            }
+        }
     }
 
-    /// the kind in the middle whichever page this is; the way back on its left, the other pages on its right
+    /// the kinds on the left, how it is written on the right; a refund stays one
     private var header: some View {
-        ZStack {
+        VStack(spacing: 12) {
+            Text(editing ? "编辑交易" : "记一笔").font(.headline)
             if draft.kind == .refund {
-                Text(draft.kind.label).font(.headline)
+                Text(draft.kind.label).foregroundStyle(.secondary)
             } else {
-                let kinds = full ? DraftKind.allCases.filter { $0 != .refund } : Self.cardKinds
-                Picker(selection: Binding(get: { draft.kind }, set: { setKind($0) })) {
-                    ForEach(kinds) { Text($0.label).tag($0) }
-                } label: {
-                    EmptyView()
+                HStack {
+                    Picker(selection: Binding(get: { draft.kind }, set: { setKind($0) })) {
+                        ForEach(Self.formKinds) { Text($0.label).tag($0) }
+                    } label: {
+                        EmptyView()
+                    }
+                    .frame(width: 220)
+                    Spacer()
+                    Picker(selection: Binding(get: { mode }, set: { setMode($0) })) {
+                        Text("表单").tag(Mode.form)
+                        Text(DraftKind.multi.label).tag(Mode.multi)
+                        Text(DraftKind.raw.label).tag(Mode.raw)
+                    } label: {
+                        EmptyView()
+                    }
+                    .frame(width: 200)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                .frame(width: full ? 340 : 220)
-            }
-            HStack {
-                // what opened here has no card to go back to: it would come up empty
-                if full && !Self.needsFullForm(initial) && draft.kind != .refund && (!draft.split || [.multi, .raw].contains(draft.kind)) {
-                    Button("记一笔", systemImage: "chevron.left") { backToCard() }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(Color.jade)
-                }
-                Spacer()
-                if !full {
-                    Menu {
-                        Button("完整表单", systemImage: "list.bullet.rectangle") { full = true }
-                        Button("分录（多行）", systemImage: "list.number") { if setKind(.multi) { full = true } }
-                        Button("文本（Beancount 指令）", systemImage: "text.alignleft") { if setKind(.raw) { full = true } }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                    .menuStyle(.borderlessButton)
-                    .menuIndicator(.hidden)
-                    .fixedSize()
-                    .help("更多")
-                }
             }
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .padding(.top, 14)
+        .padding(.bottom, 6)
     }
 
-    /// as the phone: content moves between the kinds it fits, and what 分录 or 文本 can't hand over waits there for the way back
-    @discardableResult
-    private func setKind(_ kind: DraftKind) -> Bool {
-        guard kind != draft.kind else { return true }
+    private var mode: Mode { draft.kind == .multi ? .multi : draft.kind == .raw ? .raw : .form }
+
+    private func setMode(_ mode: Mode) {
+        switch mode {
+        case .multi: setKind(.multi)
+        case .raw: setKind(.raw)
+        case .form:
+            // a whole entry goes back as the kind it reads as; one the form can't hold stays, and says why
+            let checked = validateText(draftText(draft, ledger, derived), ledger, single: true)
+            let shown = checked.ok ? checked.txn.flatMap { editDraft($0, ledger, derived)?.kind }.flatMap { Self.formKinds.contains($0) ? $0 : nil } : nil
+            setKind(shown ?? formKind)
+        }
+    }
+
+    /// content moves between the kinds only when none of it is lost; otherwise this stays as it is and says why
+    private func setKind(_ kind: DraftKind) {
+        guard kind != draft.kind else { return }
         message = ""
         let next: Draft
         if [.multi, .raw].contains(kind) || [.multi, .raw].contains(draft.kind) {
-            let leaving = [.multi, .raw].contains(draft.kind)
-            let previous = snapshots[kind] ?? (initial.kind == kind ? initial : nil)
-            if let back = returningToSetAside(draft, to: kind) {
-                next = back
-            } else {
-                switch convertingEditor(draft, to: kind, ledger: ledger, derived: derived, previous: previous) {
-                case .success(let converted):
-                    next = converted
-                case .failure(.incomplete) where leaving:
-                    next = settingAside(draft, to: kind, previous: previous)
-                    message = "「\(draft.kind.label)」里还没填完的内容已保留，切回「\(draft.kind.label)」可以继续"
-                case .failure(.notRepresentable) where leaving:
-                    next = settingAside(draft, to: kind, previous: previous)
-                    message = "「\(kind.label)」显示不了「\(draft.kind.label)」的内容，已原样保留，切回「\(draft.kind.label)」可以继续"
-                case .failure(let error):
-                    message = error.message
-                    return false
-                }
+            switch convertingEditor(draft, to: kind, ledger: ledger, derived: derived, previous: snapshots[kind]) {
+            case .success(let converted): next = converted
+            case .failure(let error):
+                message = error.message
+                return
             }
             snapshots[draft.kind] = draft
         } else {
@@ -175,27 +186,27 @@ struct NewEntrySheet: View {
             snapshots = switched.snapshots
             next = switched.draft
         }
+        if Self.formKinds.contains(kind) { formKind = kind }
         draft = next
-        return true
     }
 
-    /// a whole entry the card can show goes back as its kind; anything else to the kind this opened as, set aside for the way back
-    private func backToCard() {
-        if [.multi, .raw].contains(draft.kind) {
-            let checked = validateText(draftText(draft, ledger, derived), ledger, single: true)
-            let shown = checked.ok ? checked.txn.flatMap { editDraft($0, ledger, derived)?.kind }.flatMap { Self.cardKinds.contains($0) ? $0 : nil } : nil
-            guard setKind(shown ?? initial.kind) else { return }
+    private func close() {
+        if draft == baseline {
+            if !editing { KeptDraft.clear(folder) }
+            dismiss()
+        } else {
+            leaving = true
         }
-        full = Self.needsFullForm(draft)
     }
 
     private var reviewing: Binding<Bool> {
         Binding(get: { review != nil }, set: { if !$0 { review = nil } })
     }
 
-    private func save() {
+    private func save(another: Bool) {
         saving = true
         message = ""
+        self.another = another
         let draft = draft, folder = folder
         Task { @MainActor in
             let result = await Task.detached { prepareFolderSave(draft, folder: folder) }.value
@@ -211,9 +222,43 @@ struct NewEntrySheet: View {
     private func write(_ prepared: FolderSave) {
         do {
             try commitFolderSave(prepared, folder: folder)
-            dismiss()
+            if !editing { KeptDraft.clear(folder) }
+            if another { startNext() } else { dismiss() }
         } catch {
             message = error.localizedDescription
         }
+    }
+
+    /// the next entry of the same kind, on the same day from the same account
+    private func startNext() {
+        let kind = Self.formKinds.contains(draft.kind) ? draft.kind : formKind
+        var next = Self.blank(kind, ledger: ledger, derived: derived, config: config)
+        next.date = draft.date
+        if !draft.funding.isEmpty {
+            next.funding = draft.funding
+            next.currency = derived.acctCcy[draft.funding] ?? next.currency
+        }
+        draft = next
+        baseline = next
+        snapshots = [:]
+        message = ""
+        entry += 1
+    }
+}
+
+/// a new entry left unfinished, for this ledger alone
+private enum KeptDraft {
+    private static func key(_ folder: URL) -> String { "draft:" + folder.path }
+
+    static func read(_ folder: URL) -> Draft? {
+        UserDefaults.standard.data(forKey: key(folder)).flatMap { try? JSONDecoder().decode(Draft.self, from: $0) }
+    }
+
+    static func write(_ draft: Draft, _ folder: URL) {
+        UserDefaults.standard.set(try? JSONEncoder().encode(draft), forKey: key(folder))
+    }
+
+    static func clear(_ folder: URL) {
+        UserDefaults.standard.removeObject(forKey: key(folder))
     }
 }
