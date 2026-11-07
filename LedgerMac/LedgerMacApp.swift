@@ -54,7 +54,7 @@ private struct ContentView: View {
     var body: some View {
         Group {
             if let ledger {
-                MainView(ledger: ledger, config: config, folder: URL(fileURLWithPath: folder), adding: $adding)
+                MainView(ledger: ledger, config: config, folder: URL(fileURLWithPath: folder), changes: changes, adding: $adding)
             } else if folder.isEmpty || missing {
                 VStack(spacing: 12) {
                     if missing { Text(chinese ? "这个文件夹里没有账本" : "No ledger in this folder").foregroundStyle(.secondary) }

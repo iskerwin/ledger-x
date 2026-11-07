@@ -25,8 +25,13 @@ struct MainView: View {
     let ledger: Ledger
     let config: LedgerXConfig?
     let folder: URL
+    /// counts the changes seen in the folder's files
+    let changes: Int
     @Binding var adding: Bool
     @State private var page: Page? = .journal
+    @State private var git: FolderGitStatus?
+    @State private var gitReads = 0
+    @State private var syncing = false
 
     var body: some View {
         NavigationSplitView {
@@ -44,6 +49,12 @@ struct MainView: View {
             }
             .safeAreaInset(edge: .bottom) { ErrorBar(errors: ledger.errors.filter { !$0.soft }) }
             .toolbar {
+                if let git {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button { syncing = true } label: { Label(chinese ? "提交并推送" : "Commit and Push", systemImage: "arrow.up.circle") }
+                            .disabled(!git.canSync)
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button { adding = true } label: { Label(chinese ? "记一笔" : "New Entry", systemImage: "plus") }
                 }
@@ -52,6 +63,17 @@ struct MainView: View {
         .sheet(isPresented: $adding) {
             NewEntrySheet(ledger: ledger, config: config, folder: folder)
         }
+        .sheet(isPresented: $syncing) {
+            if let git { SyncSheet(folder: folder, status: git) { gitReads += 1 } }
+        }
+        .task(id: "\(changes)|\(gitReads)|\(folder.path)") {
+            let folder = folder
+            let status = await Task.detached { folderGitStatus(folder) }.value
+            guard !Task.isCancelled else { return }
+            git = status
+        }
+        // what happens in .git isn't watched: a commit made in a terminal is seen on coming back
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in gitReads += 1 }
     }
 }
 
