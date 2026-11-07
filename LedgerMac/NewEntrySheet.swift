@@ -117,7 +117,8 @@ struct NewEntrySheet: View {
                 .frame(width: full ? 340 : 220)
             }
             HStack {
-                if full && draft.kind != .refund && (!draft.split || [.multi, .raw].contains(draft.kind)) {
+                // what opened here has no card to go back to: it would come up empty
+                if full && !Self.needsFullForm(initial) && draft.kind != .refund && (!draft.split || [.multi, .raw].contains(draft.kind)) {
                     Button("记一笔", systemImage: "chevron.left") { backToCard() }
                         .buttonStyle(.plain)
                         .foregroundStyle(Color.jade)
@@ -183,8 +184,7 @@ struct NewEntrySheet: View {
         if [.multi, .raw].contains(draft.kind) {
             let checked = validateText(draftText(draft, ledger, derived), ledger, single: true)
             let shown = checked.ok ? checked.txn.flatMap { editDraft($0, ledger, derived)?.kind }.flatMap { Self.cardKinds.contains($0) ? $0 : nil } : nil
-            let opened = Self.cardKinds.contains(initial.kind) ? initial.kind : nil
-            guard setKind(shown ?? opened ?? .expense) else { return }
+            guard setKind(shown ?? initial.kind) else { return }
         }
         full = Self.needsFullForm(draft)
     }

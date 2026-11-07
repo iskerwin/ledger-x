@@ -45,7 +45,6 @@ struct CheckBalanceSheet: View {
                 DateRow(title: "日期", day: $day, latest: Date())
             }
             .formStyle(.grouped)
-            .scrollContentBackground(.hidden)
             .frame(height: currencies.count > 1 ? 210 : 170)
             Text(message)
                 .font(.callout)
@@ -63,7 +62,6 @@ struct CheckBalanceSheet: View {
             .padding([.horizontal, .bottom], 16)
         }
         .frame(width: 460)
-        .background(Color.page)
     }
 
     private func number(_ text: String) -> Double? {

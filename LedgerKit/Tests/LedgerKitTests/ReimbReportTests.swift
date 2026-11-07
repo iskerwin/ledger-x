@@ -174,4 +174,29 @@ final class ReimbReportTests: XCTestCase {
         XCTAssertEqual(reimbursementTotal(D.unclaimed.filter { $0.currency == "HKD" }, currency: "HKD"), 50)
     }
 
+    func testAnEntryIsShownUnderItsOwnCategoryOrWhatTheAdvanceWasFor() {
+        let L = ledger("""
+        2026-01-01 open Assets:Bank CNY
+        2026-01-01 open Assets:Cash CNY
+        2026-01-01 open Assets:Receivable:Reimbursement
+        2026-01-01 open Expenses:Travel
+        2026-01-01 open Expenses:Food
+
+        2026-08-10 * "Airline" "Advance" #reimbursed
+          Assets:Receivable:Reimbursement  50.00 CNY
+            category: "Expenses:Travel"
+          Assets:Bank  -50.00 CNY
+
+        2026-08-11 * "Cafe" "Lunch"
+          Expenses:Food  12.00 CNY
+          Assets:Bank  -12.00 CNY
+
+        2026-08-12 * "Move" "To cash"
+          Assets:Cash  20.00 CNY
+          Assets:Bank  -20.00 CNY
+
+        """)
+        XCTAssertEqual(L.txns.map { shownCategory($0) }, ["Expenses:Travel", "Expenses:Food", nil])
+    }
+
 }

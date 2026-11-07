@@ -66,7 +66,7 @@ struct CategoryBadge: View {
     var size: CGFloat = 28
 
     var body: some View {
-        let account = entry.postings.first { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") }?.account
+        let account = shownCategory(entry)
         let symbol = account.map { categorySymbol(catOf($0)) } ?? "arrow.left.arrow.right"
         let color = account.map { categoryColor($0) } ?? .gray
         Image(systemName: symbol)

@@ -63,10 +63,11 @@ struct JournalPage: View {
                 if let entry = rows.first(where: { $0.key == selected }) {
                     EntryDetail(entry: entry, ledger: ledger, edit: { edit(entry) }, copy: { copySource(entry) }, open: { openFile(entry) }, delete: { deleting = entry })
                 } else {
-                    Color.page
+                    Color.clear
                 }
             }
             .frame(width: 280)
+            .background(Color(nsColor: .controlBackgroundColor))
         }
         .searchable(text: $text, isPresented: $searching, placement: .toolbar)
         .sheet(item: $editing) { NewEntrySheet(ledger: ledger, config: config, folder: folder, editing: $0.draft) }
@@ -239,7 +240,7 @@ private struct EntryDetail: View {
                 ForEach(Array(accounts(shown.kind).enumerated()), id: \.offset) { _, row in
                     LabeledContent(row.0) { Text(row.1).lineLimit(1) }
                 }
-                ForEach(Array(Set(entry.postings.map(\.account).filter { $0.hasPrefix("Expenses:") || $0.hasPrefix("Income:") })).sorted(), id: \.self) { account in
+                ForEach(Array(Set(entry.postings.compactMap { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") ? $0.account : advanceCategory($0) })).sorted(), id: \.self) { account in
                     LabeledContent("分类") { Text(acctDisplay(account)).lineLimit(1) }
                 }
                 if !entry.payee.isEmpty && !entry.narration.isEmpty {
@@ -257,13 +258,14 @@ private struct EntryDetail: View {
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(Color.page)
     }
 
+    /// an advance reads as what paid for it: the line waiting to be paid back isn't an account it moved to
     private func accounts(_ kind: TxKind) -> [(String, String)] {
-        let held = moneyRoute(entry).filter { !$0.hasPrefix("Expenses:") && !$0.hasPrefix("Income:") && !$0.hasPrefix("Equity:") }
+        let advances = entry.postings.filter { advanceCategory($0) != nil }.map(\.account)
+        let held = moneyRoute(entry).filter { !$0.hasPrefix("Expenses:") && !$0.hasPrefix("Income:") && !$0.hasPrefix("Equity:") && !advances.contains($0) }
         return held.enumerated().map { index, account in
-            let label = kind == .transfer ? (index == 0 ? "转出账户" : "转入账户") : kind == .expense ? "付款账户" : "收款账户"
+            let label = !advances.isEmpty || kind == .expense ? "付款账户" : kind == .transfer ? (index == 0 ? "转出账户" : "转入账户") : "收款账户"
             return (label, accountTitle(ledger, account))
         }
     }
@@ -306,6 +308,7 @@ private struct JournalRow: View {
     /// the account being looked through: what moved in it, to read against the balance underneath
     let account: String?
     let balance: Inventory?
+    @Environment(\.backgroundProminence) private var prominence
 
     var body: some View {
         let tags = entry.tags.filter { $0 != "transfer" && $0 != "fx" }
@@ -345,7 +348,8 @@ private struct JournalRow: View {
             Spacer(minLength: 16)
             VStack(alignment: .trailing, spacing: 2) {
                 ForEach(amounts, id: \.0) { amount in
-                    Text(amount.0).monospacedDigit().foregroundStyle(amount.1)
+                    // red or green doesn't read on the selection's colour
+                    Text(amount.0).monospacedDigit().foregroundStyle(prominence == .increased ? .white : amount.1)
                 }
                 ForEach(charged, id: \.0) { paid in
                     Text(money(paid.1, paid.0))
@@ -370,7 +374,7 @@ private struct JournalRow: View {
 
     private var route: String {
         let categories = entry.postings.filter { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") }
-        if transferWithFee(entry) == nil, let category = categories.first { return acctDisplay(category.account) }
+        if transferWithFee(entry) == nil, let category = shownCategory(entry) { return acctDisplay(category) }
         return moneyRoute(entry).filter { account in !categories.contains { $0.account == account } }.map(acctDisplay).joined(separator: " → ")
     }
 
