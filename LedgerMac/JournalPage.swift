@@ -24,7 +24,8 @@ struct JournalPage: View {
         let query = TxQuery(text)
         let rows = ledger.txns.reversed().filter { (scope?.matches($0) ?? true) && query.matches($0, ledger) }
         let balances = heldAccount.map { runningBalances(ledger, account: $0) }
-        Group {
+        HStack(spacing: 0) {
+            Group {
             if rows.isEmpty && !query.isEmpty {
                 ContentUnavailableView.search(text: text)
             } else {
@@ -54,6 +55,18 @@ struct JournalPage: View {
                 }
                 .onDeleteCommand { deleting = rows.first { $0.key == selected } }
             }
+            }
+            .frame(maxWidth: .infinity)
+            Divider()
+            // always there, so picking a row moves nothing
+            Group {
+                if let entry = rows.first(where: { $0.key == selected }) {
+                    EntryDetail(entry: entry, ledger: ledger, edit: { edit(entry) }, copy: { copySource(entry) }, open: { openFile(entry) }, delete: { deleting = entry })
+                } else {
+                    Color.page
+                }
+            }
+            .frame(width: 280)
         }
         .searchable(text: $text, isPresented: $searching, placement: .toolbar)
         .sheet(item: $editing) { NewEntrySheet(ledger: ledger, config: config, folder: folder, editing: $0.draft) }
@@ -139,6 +152,121 @@ struct JournalPage: View {
 
 private extension Entry {
     var key: String { "\(file):\(line)" }
+
+    func isCategory(_ posting: Posting) -> Bool {
+        posting.account.hasPrefix("Expenses:") || posting.account.hasPrefix("Income:")
+    }
+
+    /// as in the phone's journal: what moved in the account being looked through, else a transfer's amount, else what was
+    /// spent or earned in each currency as booked. A transfer that paid a fee shows both what it moved and the fee
+    func shownAmounts(_ ledger: Ledger, account: String? = nil) -> [(String, Color)] {
+        if let account {
+            return sums(postings.filter { $0.account == account || $0.account.hasPrefix(account + ":") }, negate: false).map(signed)
+        }
+        let shown = classify(self, ledger)
+        if shown.kind == .transfer { return [(money(shown.amount, shown.currency ?? "CNY"), .secondary)] }
+        let spent = sums(postings.filter(isCategory), negate: true).map(signed)
+        if let moved = transferWithFee(self) { return [(money(moved.amount, moved.currency), .secondary)] + spent }
+        return spent
+    }
+
+    /// what the account was charged in another currency, for checking against the bank
+    func charged(_ ledger: Ledger) -> [(String, Double)] {
+        guard classify(self, ledger).kind != .transfer else { return [] }
+        let own = sums(postings.filter(isCategory), negate: true)
+        return sums(postings.filter { !isCategory($0) && !$0.account.hasPrefix("Equity:") }, negate: false)
+            .filter { paid in !own.contains { $0.0 == paid.0 } }
+    }
+
+    private func signed(_ amount: (String, Double)) -> (String, Color) {
+        (signedMoney(amount.1, amount.0), amount.1 < 0 ? .loss : .gain)
+    }
+
+    /// per currency, in the order they first appear (amounts too small to show left out)
+    private func sums(_ postings: [Posting], negate: Bool) -> [(String, Double)] {
+        var order: [String] = [], totals: [String: Double] = [:]
+        for posting in postings {
+            guard let units = posting.units, let currency = posting.currency else { continue }
+            if totals[currency] == nil { order.append(currency) }
+            totals[currency, default: 0] += negate ? -units : units
+        }
+        return order.compactMap { abs(totals[$0]!) > 0.004 ? ($0, totals[$0]!) : nil }
+    }
+}
+
+/// the picked entry beside the list, as the phone's page for it: who, how much, the accounts and category, what can be done with it
+private struct EntryDetail: View {
+    let entry: Entry
+    let ledger: Ledger
+    let edit: () -> Void
+    let copy: () -> Void
+    let open: () -> Void
+    let delete: () -> Void
+
+    var body: some View {
+        let shown = classify(entry, ledger)
+        let tags = entry.tags
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        CategoryBadge(entry: entry, ledger: ledger)
+                        Text(entry.payee.isEmpty ? (entry.narration.isEmpty ? "交易" : entry.narration) : entry.payee)
+                            .font(.headline)
+                            .lineLimit(2)
+                    }
+                    ForEach(entry.shownAmounts(ledger), id: \.0) { amount in
+                        Text(amount.0)
+                            .font(.system(size: 30, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(amount.1)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
+                    }
+                    ForEach(entry.charged(ledger), id: \.0) { paid in
+                        Text("实付 " + money(paid.1, paid.0)).font(.caption).monospacedDigit().foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 8) {
+                        Text(Day.dayLabel(entry.date) + (entry.date.prefix(4) != Day.today().prefix(4) ? " " + entry.date.prefix(4) : ""))
+                            .foregroundStyle(.secondary)
+                        if entry.flag == "!" { RowTag(text: "待确认", color: .orange) }
+                    }
+                    if !tags.isEmpty {
+                        HStack(spacing: 4) { ForEach(tags, id: \.self) { RowTag(text: "#" + $0, color: .secondary) } }
+                    }
+                }
+                Divider()
+                ForEach(Array(accounts(shown.kind).enumerated()), id: \.offset) { _, row in
+                    LabeledContent(row.0) { Text(row.1).lineLimit(1) }
+                }
+                ForEach(Array(Set(entry.postings.map(\.account).filter { $0.hasPrefix("Expenses:") || $0.hasPrefix("Income:") })).sorted(), id: \.self) { account in
+                    LabeledContent("分类") { Text(acctDisplay(account)).lineLimit(1) }
+                }
+                if !entry.payee.isEmpty && !entry.narration.isEmpty {
+                    LabeledContent("摘要") { Text(entry.narration).lineLimit(3) }
+                }
+                Divider()
+                VStack(alignment: .leading, spacing: 8) {
+                    Button("编辑…", action: edit).disabled(entry.synthetic)
+                    Button("复制原文", action: copy)
+                    Button("打开所在文件", action: open)
+                    Button("删除…", role: .destructive, action: delete).disabled(entry.synthetic)
+                }
+                .buttonStyle(.link)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(Color.page)
+    }
+
+    private func accounts(_ kind: TxKind) -> [(String, String)] {
+        let held = moneyRoute(entry).filter { !$0.hasPrefix("Expenses:") && !$0.hasPrefix("Income:") && !$0.hasPrefix("Equity:") }
+        return held.enumerated().map { index, account in
+            let label = kind == .transfer ? (index == 0 ? "转出账户" : "转入账户") : kind == .expense ? "付款账户" : "收款账户"
+            return (label, accountTitle(ledger, account))
+        }
+    }
 }
 
 /// as the phone's: the day, the year when it isn't this one, and what came in and went out that day
@@ -181,7 +309,8 @@ private struct JournalRow: View {
 
     var body: some View {
         let tags = entry.tags.filter { $0 != "transfer" && $0 != "fx" }
-        HStack(alignment: .top, spacing: 16) {
+        HStack(alignment: .top, spacing: 10) {
+            CategoryBadge(entry: entry, ledger: ledger)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 8) {
                     Text(entry.payee.isEmpty ? (entry.narration.isEmpty ? "（无收付款方）" : entry.narration) : entry.payee)
@@ -254,45 +383,9 @@ private struct JournalRow: View {
         return names.isEmpty ? "" : " · " + names.joined(separator: "、")
     }
 
-    /// as in the phone's journal: what moved in the account being looked through, else a transfer's amount, else what was
-    /// spent or earned in each currency as booked. A transfer that paid a fee shows both what it moved and the fee
-    private var amounts: [(String, Color)] {
-        if let account {
-            return sums(entry.postings.filter { $0.account == account || $0.account.hasPrefix(account + ":") }, negate: false).map(signed)
-        }
-        let shown = classify(entry, ledger)
-        if shown.kind == .transfer { return [(money(shown.amount, shown.currency ?? "CNY"), .secondary)] }
-        let spent = sums(entry.postings.filter(isCategory), negate: true).map(signed)
-        if let moved = transferWithFee(entry) { return [(money(moved.amount, moved.currency), .secondary)] + spent }
-        return spent
-    }
+    private var amounts: [(String, Color)] { entry.shownAmounts(ledger, account: account) }
 
-    /// what the account was charged in another currency, for checking against the bank
-    private var charged: [(String, Double)] {
-        guard account == nil, classify(entry, ledger).kind != .transfer else { return [] }
-        let own = sums(entry.postings.filter(isCategory), negate: true)
-        return sums(entry.postings.filter { !isCategory($0) && !$0.account.hasPrefix("Equity:") }, negate: false)
-            .filter { paid in !own.contains { $0.0 == paid.0 } }
-    }
-
-    private func isCategory(_ posting: Posting) -> Bool {
-        posting.account.hasPrefix("Expenses:") || posting.account.hasPrefix("Income:")
-    }
-
-    private func signed(_ amount: (String, Double)) -> (String, Color) {
-        (signedMoney(amount.1, amount.0), amount.1 < 0 ? .loss : .gain)
-    }
-
-    /// per currency, in the order they first appear (amounts too small to show left out)
-    private func sums(_ postings: [Posting], negate: Bool) -> [(String, Double)] {
-        var order: [String] = [], totals: [String: Double] = [:]
-        for posting in postings {
-            guard let units = posting.units, let currency = posting.currency else { continue }
-            if totals[currency] == nil { order.append(currency) }
-            totals[currency, default: 0] += negate ? -units : units
-        }
-        return order.compactMap { abs(totals[$0]!) > 0.004 ? ($0, totals[$0]!) : nil }
-    }
+    private var charged: [(String, Double)] { account == nil ? entry.charged(ledger) : [] }
 }
 
 private struct RowTag: View {
