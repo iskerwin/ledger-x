@@ -58,14 +58,14 @@ struct TxRow: View {
     var body: some View {
         if let L = store.L, let D = store.D {
             let c = classify(t, L)
-            let cat = t.postings.first { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") }
+            let cat = shownCategory(t)
             let style = JournalStyle.current
             // who first, then the note; tags only where they fit whole (the first one and +N, else a
             // count like #2, else none), so a long tag no longer cuts the payee down to two characters
             let tags = t.tags.filter { $0 != "transfer" && $0 != "fx" }
             let who = Text(t.payee.isEmpty ? (t.narration.isEmpty ? LS("（无收付款方）") : t.narration) : t.payee).lineLimit(1)
             let note = (!t.payee.isEmpty && !t.narration.isEmpty) ? t.narration : nil
-            let route = (cat.map { acctDisplay($0.account) } ?? moneyRoute(t).map { D.shortName($0) }.joined(separator: " → ")) + withWhom(t)
+            let route = (cat.map { acctDisplay($0) } ?? moneyRoute(t).map { D.shortName($0) }.joined(separator: " → ")) + withWhom(t)
             HStack(alignment: style == .compact ? .center : .top, spacing: AppSpacing.icon) {
                 if style == .icon { icon(cat, L) }
                 if style == .compact {
@@ -113,9 +113,9 @@ struct TxRow: View {
     /// 图标: the category's icon (the one picked in 分类管理, else the built-in guess) on its colour — the one picked,
     /// else the category's colour in the charts, so 餐饮 is the same colour here and there. A transfer has no
     /// category: arrows on grey.
-    private func icon(_ cat: Posting?, _ L: Ledger) -> some View {
-        let symbol = cat.map { store.groupIcon($0.account).symbol } ?? "arrow.left.arrow.right"
-        let color = cat.map { store.pickedTint($0.account) ?? categoryColor(catOf($0.account), L) } ?? Color(.systemGray)
+    private func icon(_ cat: String?, _ L: Ledger) -> some View {
+        let symbol = cat.map { store.groupIcon($0).symbol } ?? "arrow.left.arrow.right"
+        let color = cat.map { store.pickedTint($0) ?? categoryColor(catOf($0), L) } ?? Color(.systemGray)
         return IconBadge(symbol: symbol, color: color, size: 32)
             .accessibilityHidden(true)
     }
@@ -838,7 +838,7 @@ struct TxDetailView: View {
     /// the category's icon, who, how much, the kind and the day, the category
     private func hero(_ t: Entry, _ L: Ledger) -> some View {
         let c = classify(t, L)
-        let cat = t.postings.first { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") }?.account
+        let cat = shownCategory(t)
         let own = postingSums(t.postings.filter { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") }, negate: true)
         let paid = postingSums(t.postings.filter { !$0.account.hasPrefix("Expenses:") && !$0.account.hasPrefix("Income:") && !$0.account.hasPrefix("Equity:") }, negate: false)
             .filter { p in !own.contains { $0.0 == p.0 } }
@@ -847,7 +847,7 @@ struct TxDetailView: View {
             case .expense: return LS("支出")
             case .refund: return LS("退款")
             case .income: return LS("收入")
-            case .transfer: return LS("转账")
+            case .transfer: return t.postings.contains { advanceCategory($0) != nil } ? LS("报销") : LS("转账")
             }
         }()
         let icon = cat.map { store.catIcon(catOf($0)) } ?? "arrow.left.arrow.right"
@@ -896,12 +896,14 @@ struct TxDetailView: View {
     @ViewBuilder
     private func infoSection(_ t: Entry, _ L: Ledger, _ D: Derived) -> some View {
         let c = classify(t, L)
-        let accounts = moneyRoute(t).filter { !$0.hasPrefix("Expenses:") && !$0.hasPrefix("Income:") && !$0.hasPrefix("Equity:") }
+        // an advance reads as what paid for it: the line waiting to be paid back isn't an account it moved to
+        let advances = t.postings.filter { advanceCategory($0) != nil }.map(\.account)
+        let accounts = moneyRoute(t).filter { !$0.hasPrefix("Expenses:") && !$0.hasPrefix("Income:") && !$0.hasPrefix("Equity:") && !advances.contains($0) }
         let cats = t.postings.map { $0.account }.filter { $0.hasPrefix("Expenses:") || $0.hasPrefix("Income:") }
         Section {
             ForEach(Array(accounts.enumerated()), id: \.offset) { i, a in
-                let label = c.kind == .transfer ? (i == 0 ? LS("转出账户") : LS("转入账户"))
-                    : c.kind == .expense ? LS("付款账户") : LS("收款账户")
+                let label = !advances.isEmpty || c.kind == .expense ? LS("付款账户")
+                    : c.kind == .transfer ? (i == 0 ? LS("转出账户") : LS("转入账户")) : LS("收款账户")
                 NavigationLink(value: AccountDest(name: a)) {
                     LabeledContent(label) {
                         VStack(alignment: .trailing, spacing: AppSpacing.detail) {
@@ -928,6 +930,9 @@ struct TxDetailView: View {
                 .contextMenu {
                     Button { push?(AccountDest(name: a)) } label: { Label(LS("查看该分类明细"), systemImage: "list.bullet") }
                 }
+            }
+            ForEach(Array(Set(t.postings.compactMap(advanceCategory))).sorted(), id: \.self) { a in
+                LabeledContent(LS("分类"), value: acctDisplay(a))
             }
             if !t.payee.isEmpty && !t.narration.isEmpty { LabeledContent(LS("摘要"), value: t.narration) }
         }
