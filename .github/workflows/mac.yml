@@ -1,0 +1,51 @@
+name: Ledger Mac
+run-name: 'Mac · ${{ github.ref_name }}'
+on:
+  push:
+    branches: [main]
+    # dev_scope.needs_mac_build's paths, and this publisher
+    paths:
+      - 'LedgerMac/**'
+      - 'LedgerKit/Sources/**'
+      - 'LedgerKit/Package.swift'
+      - 'project.yml'
+      - 'tools/mac_release.py'
+      - '.github/workflows/mac.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+# 只占自己的队列，不挡开发版和正式版。正在发布的不取消；排队只保留最新一次。
+concurrency:
+  group: ledger-mac
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: macos-26
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Pin Xcode 26.6
+        run: bash tools/select_xcode.sh
+      - name: Install build tools
+        run: |
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          if ! command -v xcodegen >/dev/null 2>&1; then brew install xcodegen; fi
+      - name: Build and publish
+        run: python3 tools/mac_release.py
+      - name: Keep the build log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: 'ledger-mac-${{ github.run_id }}'
+          retention-days: 7
+          if-no-files-found: ignore
+          path: mac-build.log

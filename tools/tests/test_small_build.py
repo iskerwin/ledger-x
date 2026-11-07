@@ -7,6 +7,8 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import dev_scope
+import mac_release
 import pr_gate
 import ship
 
@@ -108,6 +110,51 @@ class SmallBuildTests(unittest.TestCase):
             if cmd[0] == 'xcodebuild':
                 raise ship.Failure('Mac 编译失败')
         self.assertEqual(self.gate_with(['LedgerMac/LedgerMacApp.swift'], run), (1, False))
+
+
+class MacReleaseTests(unittest.TestCase):
+    def publish(self, newest='abc1234567', published=True):
+        commands = []
+        with patch.object(ship, 'git', return_value='abc1234567'), patch.object(ship, 'step'), patch('builtins.print'), \
+             patch.dict('os.environ', {'GITHUB_REPOSITORY': 'example/app'}), \
+             patch.object(ship, 'run', side_effect=lambda cmd, **_: commands.append(cmd)), \
+             patch.object(ship, 'out', return_value=f'{newest}\trefs/heads/main\n'), \
+             patch.object(ship, 'release_for_tag', return_value={'tag_name': 'mac'} if published else None):
+            self.assertEqual(mac_release.main(), 0)
+        return [cmd for cmd in commands if cmd[0] == 'gh']
+
+    def test_the_newest_main_replaces_the_app_and_moves_the_tag(self):
+        calls = self.publish()
+        self.assertEqual([cmd[1:3] for cmd in calls], [['release', 'upload'], ['api', '-X'], ['release', 'edit']])
+        self.assertIn('--clobber', calls[0])
+        self.assertIn('sha=abc1234567', calls[1])
+
+    def test_the_first_publish_is_a_prerelease_of_that_commit(self):
+        calls = self.publish(published=False)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][1:4], ['release', 'create', 'mac'])
+        self.assertIn('--prerelease', calls[0])
+        self.assertEqual(calls[0][calls[0].index('--target') + 1], 'abc1234567')
+
+    def test_anything_but_the_newest_main_publishes_nothing(self):
+        self.assertEqual(self.publish(newest='fff0000000'), [])
+
+    def test_it_stays_out_of_the_phone_releases(self):
+        calls = self.publish() + self.publish(published=False)
+        self.assertFalse(any('--latest' in cmd for cmd in calls))
+        notes = next(cmd[cmd.index('--notes') + 1] for cmd in calls if '--notes' in cmd)
+        release = dict(tag_name='mac', body=notes)
+        self.assertEqual(ship.next_build([release, dict(tag_name='dev', body='构建 7')]), '8')
+        self.assertEqual(ship.release_tags('abc\trefs/tags/mac\n'), set())
+
+    def test_it_runs_for_whatever_the_gate_builds_the_mac_app_for(self):
+        workflow = (Path(__file__).resolve().parents[2] / '.github/workflows/mac.yml').read_text()
+        for path in ('LedgerMac/**', 'LedgerKit/Sources/**', 'LedgerKit/Package.swift', 'project.yml'):
+            self.assertIn(f"- '{path}'", workflow)
+        self.assertTrue(dev_scope.needs_mac_build(['LedgerMac/a.swift']) and dev_scope.needs_mac_build(['LedgerKit/Sources/a.swift'])
+                        and dev_scope.needs_mac_build(['LedgerKit/Package.swift']) and dev_scope.needs_mac_build(['project.yml']))
+        self.assertIn('group: ledger-mac', workflow)
+        self.assertIn('cancel-in-progress: false', workflow)
 
 
 if __name__ == '__main__':
