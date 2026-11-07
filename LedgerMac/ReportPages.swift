@@ -16,12 +16,12 @@ struct AccountsPage: View {
         let sheet = balanceSheet(ledger, at: nil, exclude: config?.balanceExclude ?? [])
         let worth = netWorthNow(ledger, exclude: config?.netWorthExclude ?? [])
         List {
-            TreeSection(title: chinese ? "资产" : "Assets", root: sheet.assets, ledger: ledger, open: open) { checking = CheckedAccount(id: $0) }
-            TreeSection(title: chinese ? "负债" : "Liabilities", root: sheet.liabilities, ledger: ledger, open: open) { checking = CheckedAccount(id: $0) }
+            TreeSection(title: "资产", root: sheet.assets, ledger: ledger, open: open) { checking = CheckedAccount(id: $0) }
+            TreeSection(title: "负债", root: sheet.liabilities, ledger: ledger, open: open) { checking = CheckedAccount(id: $0) }
         }
         .listStyle(.inset)
         .safeAreaInset(edge: .top) {
-            Totals(items: [(chinese ? "净资产" : "Net Worth", money(worth.assets + worth.liabilities, ledger.base))])
+            Totals(items: [("净资产", money(worth.assets + worth.liabilities, ledger.base))])
         }
         .sheet(item: $checking) { CheckBalanceSheet(ledger: ledger, account: $0.id, folder: folder) }
     }
@@ -31,15 +31,7 @@ struct AccountsPage: View {
 enum ReportPeriod: String, CaseIterable {
     case thisMonth = "本月", lastMonth = "上月", thisYear = "今年", lastYear = "去年"
 
-    var title: String {
-        if chinese { return rawValue }
-        switch self {
-        case .thisMonth: return "This Month"
-        case .lastMonth: return "Last Month"
-        case .thisYear: return "This Year"
-        case .lastYear: return "Last Year"
-        }
-    }
+    var title: String { rawValue }
 
     var span: (String, String)? { TxQuery(rawValue).dateSpan }
 }
@@ -54,14 +46,14 @@ struct ReportsPage: View {
         let report = incomeStatement(ledger, from: span?.0, to: span?.1)
         let income = -report.income.shown, expenses = report.expenses.shown
         List {
-            TreeSection(title: chinese ? "收入" : "Income", root: report.income, ledger: ledger, negated: true, open: open)
-            TreeSection(title: chinese ? "支出" : "Expenses", root: report.expenses, ledger: ledger, open: open)
+            TreeSection(title: "收入", root: report.income, ledger: ledger, negated: true, open: open)
+            TreeSection(title: "支出", root: report.expenses, ledger: ledger, open: open)
         }
         .listStyle(.inset)
         .safeAreaInset(edge: .top) {
-            Totals(items: [(chinese ? "收入" : "Income", amountsText(income, ledger)),
-                           (chinese ? "支出" : "Expenses", amountsText(expenses, ledger)),
-                           (chinese ? "结余" : "Net", amountsText(income + (-expenses), ledger))])
+            Totals(items: [("收入", amountsText(income, ledger)),
+                           ("支出", amountsText(expenses, ledger)),
+                           ("结余", amountsText(income + (-expenses), ledger))])
         }
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -118,19 +110,10 @@ private struct TreeSection: View {
     var body: some View {
         Section {
             OutlineGroup(root.children, children: \.kids) { node in
-                HStack(spacing: 16) {
-                    Text(name(node))
-                        .lineLimit(1)
-                    Spacer(minLength: 16)
-                    Text(amountsText(negated ? -node.shown : node.shown, ledger))
-                        .monospacedDigit()
-                        .lineLimit(1)
-                }
-                .contentShape(Rectangle())
-                .onTapGesture { open(node.name) }
+                TreeRow(name: name(node), amount: amountsText(negated ? -node.shown : node.shown, ledger)) { open(node.name) }
                 .contextMenu {
                     if let check, ledger.accounts[node.name] != nil {
-                        Button(chinese ? "核对余额…" : "Check Balance…") { check(node.name) }
+                        Button("核对余额…") { check(node.name) }
                     }
                 }
             }
@@ -150,6 +133,29 @@ private struct TreeSection: View {
         let shown = title == acctLabel(node.name) ? node.label : title
         guard node.depth == 1, let group = acctZH(node.name) else { return shown }
         return shown + " · " + group
+    }
+}
+
+/// clicking opens the entries it counts, which the highlight under the pointer shows it can do
+private struct TreeRow: View {
+    let name: String
+    let amount: String
+    let open: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(spacing: 16) {
+            Text(name)
+                .lineLimit(1)
+            Spacer(minLength: 16)
+            Text(amount)
+                .monospacedDigit()
+                .lineLimit(1)
+        }
+        .contentShape(Rectangle())
+        .background(hovering ? Color.primary.opacity(0.06) : Color.clear, in: RoundedRectangle(cornerRadius: 4).inset(by: -4))
+        .onHover { hovering = $0 }
+        .onTapGesture(perform: open)
     }
 }
 

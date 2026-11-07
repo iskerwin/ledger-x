@@ -26,12 +26,12 @@ struct CheckBalanceSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             Form {
-                LabeledContent(chinese ? "账户" : "Account", value: accountTitle(ledger, account))
-                DatePicker(chinese ? "日期" : "Date", selection: date, in: ...Date(), displayedComponents: .date)
-                Picker(chinese ? "币种" : "Currency", selection: $currency) {
+                LabeledContent("账户", value: accountTitle(ledger, account))
+                DatePicker("日期", selection: date, in: ...Date(), displayedComponents: .date)
+                Picker("币种", selection: $currency) {
                     ForEach(currencies, id: \.self) { Text($0).tag($0) }
                 }
-                TextField(chinese ? "实际余额" : "Actual Balance", text: $amount)
+                TextField("实际余额", text: $amount)
             }
             .formStyle(.grouped)
             Text(message)
@@ -41,9 +41,9 @@ struct CheckBalanceSheet: View {
                 .frame(maxWidth: .infinity, minHeight: 32)
             HStack {
                 Spacer()
-                Button(chinese ? "取消" : "Cancel", role: .cancel) { dismiss() }
+                Button("取消", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button(chinese ? "写入" : "Write") { save() }
+                Button("写入") { save() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(saving)
             }
@@ -58,7 +58,7 @@ struct CheckBalanceSheet: View {
 
     private func save() {
         guard let value = Double(amount.replacingOccurrences(of: ",", with: "").trimmingCharacters(in: .whitespaces)) else {
-            message = chinese ? "请输入有效的余额" : "Enter a valid balance"
+            message = "请输入有效的余额"
             return
         }
         saving = true

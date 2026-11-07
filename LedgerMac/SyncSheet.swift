@@ -14,7 +14,7 @@ struct SyncSheet: View {
             List(status.paths, id: \.self) { Text($0).lineLimit(1).truncationMode(.middle) }
                 .frame(height: 200)
             if status.ahead > 0 {
-                Text(chinese ? "另有 \(status.ahead) 个本机提交" : "Plus \(status.ahead) local commits")
+                Text("另有 \(status.ahead) 个本机提交")
                     .foregroundStyle(.secondary)
                     .padding(.top, 12)
             }
@@ -26,10 +26,10 @@ struct SyncSheet: View {
                 .padding(.horizontal, 16)
             HStack {
                 Spacer()
-                Button(chinese ? "取消" : "Cancel", role: .cancel) { dismiss() }
+                Button("取消", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
                     .disabled(syncing)
-                Button(chinese ? "提交并推送" : "Commit and Push") { sync() }
+                Button("提交并推送") { sync() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(syncing || !status.canSync)
             }

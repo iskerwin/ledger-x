@@ -27,20 +27,26 @@ struct JournalPage: View {
             if rows.isEmpty && !query.isEmpty {
                 ContentUnavailableView.search(text: text)
             } else {
-                List(rows, id: \.key, selection: $selected) { JournalRow(entry: $0, ledger: ledger) }
-                    .listStyle(.inset)
-                    .focused($listFocused)
-                    .onAppear { if !searching { listFocused = true } }
-                    // the system's own: double-click or Return for the primary action
-                    .contextMenu(forSelectionType: String.self) { keys in
-                        if let entry = rows.first(where: { keys.contains($0.key) }) {
-                            Button(chinese ? "编辑…" : "Edit…") { edit(entry) }
-                            Button(chinese ? "删除…" : "Delete…", role: .destructive) { deleting = entry }
+                List(selection: $selected) {
+                    ForEach(days(of: rows), id: \.first?.date) { day in
+                        Section(day[0].date) {
+                            ForEach(day, id: \.key) { JournalRow(entry: $0, ledger: ledger) }
                         }
-                    } primaryAction: { keys in
-                        if let entry = rows.first(where: { keys.contains($0.key) }) { edit(entry) }
                     }
-                    .onDeleteCommand { deleting = rows.first { $0.key == selected } }
+                }
+                .listStyle(.inset)
+                .focused($listFocused)
+                .onAppear { if !searching { listFocused = true } }
+                // the system's own: double-click or Return for the primary action
+                .contextMenu(forSelectionType: String.self) { keys in
+                    if let entry = rows.first(where: { keys.contains($0.key) }) {
+                        Button("编辑…") { edit(entry) }
+                        Button("删除…", role: .destructive) { deleting = entry }
+                    }
+                } primaryAction: { keys in
+                    if let entry = rows.first(where: { keys.contains($0.key) }) { edit(entry) }
+                }
+                .onDeleteCommand { deleting = rows.first { $0.key == selected } }
             }
         }
         .safeAreaInset(edge: .top) {
@@ -51,7 +57,7 @@ struct JournalPage: View {
                     Button { self.scope = nil } label: { Image(systemName: "xmark.circle.fill") }
                         .buttonStyle(.plain)
                         .foregroundStyle(.secondary)
-                        .accessibilityLabel(chinese ? "显示全部" : "Show All")
+                        .accessibilityLabel("显示全部")
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
@@ -60,21 +66,30 @@ struct JournalPage: View {
         }
         .searchable(text: $text, isPresented: $searching, placement: .toolbar)
         .sheet(item: $editing) { NewEntrySheet(ledger: ledger, config: config, folder: folder, editing: $0.draft) }
-        .alert(chinese ? "删除这笔交易？" : "Delete this entry?", isPresented: present($deleting), presenting: deleting) { entry in
-            Button(chinese ? "删除" : "Delete", role: .destructive) { delete(entry) }
-            Button(chinese ? "取消" : "Cancel", role: .cancel) {}
+        .alert("删除这笔交易？", isPresented: present($deleting), presenting: deleting) { entry in
+            Button("删除", role: .destructive) { delete(entry) }
+            Button("取消", role: .cancel) {}
         } message: { entry in
             Text([entry.date, entry.payee, entry.narration].filter { !$0.isEmpty }.joined(separator: " "))
         }
         .alert(review?.issues.first?.title ?? "", isPresented: present($review), presenting: review) { save in
             if !save.issues.contains(where: \.blocking) {
-                Button(chinese ? "仍然删除" : "Delete Anyway", role: .destructive) { write(save) }
+                Button("仍然删除", role: .destructive) { write(save) }
             }
-            Button(chinese ? "取消" : "Cancel", role: .cancel) {}
+            Button("取消", role: .cancel) {}
         } message: { save in
             Text(save.issues.map(\.detail).joined(separator: "\n"))
         }
         .alert(notice ?? "", isPresented: present($notice)) {}
+    }
+
+    /// entries come newest first, so each day's are together
+    private func days(of rows: [Entry]) -> [[Entry]] {
+        var days: [[Entry]] = []
+        for entry in rows {
+            if days.last?.first?.date == entry.date { days[days.count - 1].append(entry) } else { days.append([entry]) }
+        }
+        return days
     }
 
     private func present<Value>(_ value: Binding<Value?>) -> Binding<Bool> {
@@ -85,7 +100,7 @@ struct JournalPage: View {
         if let draft = folderEditDraft(entry, ledger, Derived(ledger)) {
             editing = EditedEntry(draft: draft)
         } else {
-            notice = chinese ? "这笔交易在 Mac 上还不能编辑，请在手机上修改" : "This entry can't be edited on the Mac yet: change it on your phone"
+            notice = "这笔交易在 Mac 上还不能编辑，请在手机上修改"
         }
     }
 
@@ -119,9 +134,6 @@ private struct JournalRow: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            Text(entry.date)
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
             Text(entry.payee.isEmpty ? entry.narration : entry.payee)
                 .lineLimit(1)
             if !entry.payee.isEmpty && !entry.narration.isEmpty {

@@ -2,8 +2,6 @@ import SwiftUI
 import UniformTypeIdentifiers
 import LedgerKit
 
-let chinese = (Locale.preferredLanguages.first ?? "zh").hasPrefix("zh")
-
 @main
 struct LedgerMacApp: App {
     @AppStorage("ledgerFolder") private var folder = ""
@@ -15,12 +13,14 @@ struct LedgerMacApp: App {
     @State private var opened = 0
 
     init() {
-        KitLocale.chinese = chinese
+        KitLocale.chinese = true
     }
 
     var body: some Scene {
         Window("Ledger X", id: "main") {
             ContentView(folder: folder, opened: opened, picking: $picking, adding: $adding, page: $page, searching: $searching)
+                // dates as the words around them, whatever the system's first language is
+                .environment(\.locale, Locale(identifier: "zh_CN"))
                 .fileImporter(isPresented: $picking, allowedContentTypes: [.folder]) { result in
                     if case .success(let url) = result {
                         folder = url.path
@@ -31,14 +31,14 @@ struct LedgerMacApp: App {
         .defaultSize(width: 1000, height: 700)
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button(chinese ? "记一笔…" : "New Entry…") { withoutSheet { adding = true } }
+                Button("记一笔…") { withoutSheet { adding = true } }
                     .keyboardShortcut("n")
                     .disabled(folder.isEmpty)
-                Button(chinese ? "打开账本…" : "Open Ledger…") { withoutSheet { picking = true } }
+                Button("打开账本…") { withoutSheet { picking = true } }
                     .keyboardShortcut("o")
             }
             CommandGroup(after: .textEditing) {
-                Button(chinese ? "搜索" : "Search") {
+                Button("搜索") {
                     withoutSheet {
                         page = .journal
                         // the box may have lost focus without closing: closing it first brings it back every time
@@ -87,8 +87,8 @@ private struct ContentView: View {
                 MainView(ledger: ledger, config: config, folder: URL(fileURLWithPath: folder), changes: changes, adding: $adding, page: $page, searching: $searching)
             } else if folder.isEmpty || missing {
                 VStack(spacing: 12) {
-                    if missing { Text(chinese ? "这个文件夹里没有账本" : "No ledger in this folder").foregroundStyle(.secondary) }
-                    Button(chinese ? "打开账本" : "Open Ledger") { picking = true }
+                    if missing { Text("这个文件夹里没有账本").foregroundStyle(.secondary) }
+                    Button("打开账本") { picking = true }
                         .controlSize(.large)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

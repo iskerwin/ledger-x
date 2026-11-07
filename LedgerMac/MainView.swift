@@ -6,9 +6,9 @@ enum Page: CaseIterable {
 
     var title: String {
         switch self {
-        case .journal: return chinese ? "明细" : "Journal"
-        case .accounts: return chinese ? "账户" : "Accounts"
-        case .reports: return chinese ? "报表" : "Reports"
+        case .journal: return "明细"
+        case .accounts: return "账户"
+        case .reports: return "报表"
         }
     }
 
@@ -77,17 +77,20 @@ struct MainView: View {
                             if pulling {
                                 ProgressView().controlSize(.small)
                             } else {
-                                Label(chinese ? "拉取" : "Pull", systemImage: git.behind > 0 ? "arrow.down.circle.fill" : "arrow.down.circle")
+                                Label("拉取", systemImage: git.behind > 0 ? "arrow.down.circle.fill" : "arrow.down.circle")
                                     .foregroundStyle(git.behind > 0 ? Color.accentColor : Color.primary)
                             }
                         }
                         .disabled(pulling || (remoteReached && git.behind == 0))
-                        Button { syncing = true } label: { Label(chinese ? "提交并推送" : "Commit and Push", systemImage: "arrow.up.circle") }
+                        .help("拉取")
+                        Button { syncing = true } label: { Label("提交并推送", systemImage: "arrow.up.circle") }
                             .disabled(!git.canSync)
+                            .help("提交并推送")
                     }
                 }
                 ToolbarItem(placement: .primaryAction) {
-                    Button { adding = true } label: { Label(chinese ? "记一笔" : "New Entry", systemImage: "plus") }
+                    Button { adding = true } label: { Label("记一笔", systemImage: "plus") }
+                        .help("记一笔")
                 }
             }
         }

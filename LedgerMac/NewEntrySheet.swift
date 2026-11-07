@@ -10,6 +10,7 @@ struct NewEntrySheet: View {
     @State private var message = ""
     @State private var saving = false
     @State private var review: FolderSave?
+    @FocusState private var payeeFocused: Bool
 
     init(ledger: Ledger, config: LedgerXConfig?, folder: URL, editing: Draft? = nil) {
         self.ledger = ledger
@@ -27,27 +28,30 @@ struct NewEntrySheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            Picker(selection: $draft.kind) {
+                ForEach([DraftKind.expense, .income, .transfer], id: \.self) { Text($0.label).tag($0) }
+            } label: {
+                EmptyView()
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .disabled(draft.replacing != nil)
+            .padding([.horizontal, .top], 20)
             Form {
-                Picker(selection: $draft.kind) {
-                    ForEach([DraftKind.expense, .income, .transfer], id: \.self) { Text($0.label).tag($0) }
-                } label: {
-                    EmptyView()
-                }
-                .pickerStyle(.segmented)
-                .disabled(draft.replacing != nil)
-                DatePicker(chinese ? "日期" : "Date", selection: date, displayedComponents: .date)
-                TextField(chinese ? "收付款方" : "Payee", text: $draft.payee)
-                TextField(chinese ? "备注" : "Note", text: $draft.narration)
-                TextField(chinese ? "金额" : "Amount", text: $draft.amount)
+                DatePicker("日期", selection: date, displayedComponents: .date)
+                TextField("收付款方", text: $draft.payee)
+                    .focused($payeeFocused)
+                TextField("备注", text: $draft.narration)
+                TextField("金额", text: $draft.amount)
                 accounts
                 // always in its place, so the form doesn't move when it's needed
-                TextField(chinese ? "入账金额" : "Amount Received", text: $draft.toAmount)
+                TextField("入账金额", text: $draft.toAmount)
                     .opacity(needsAmountReceived ? 1 : 0)
                     .disabled(!needsAmountReceived)
             }
             .formStyle(.grouped)
             // every row in sight whichever kind this is: left to itself a form in a sheet takes less than it needs, and scrolls
-            .frame(height: 400)
+            .frame(height: 360)
             Text(message)
                 .font(.callout)
                 .foregroundStyle(.red)
@@ -55,15 +59,16 @@ struct NewEntrySheet: View {
                 .frame(maxWidth: .infinity, minHeight: 32)
             HStack {
                 Spacer()
-                Button(chinese ? "取消" : "Cancel", role: .cancel) { dismiss() }
+                Button("取消", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button(chinese ? "保存" : "Save") { save() }
+                Button("保存") { save() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(saving)
             }
             .padding([.horizontal, .bottom], 16)
         }
         .frame(width: 460)
+        .onAppear { payeeFocused = true }
         .onChange(of: draft.kind) {
             draft.account = ""
             message = ""
@@ -73,9 +78,9 @@ struct NewEntrySheet: View {
         }
         .alert(review?.issues.first?.title ?? "", isPresented: reviewing) {
             if review?.issues.contains(where: \.blocking) == false {
-                Button(chinese ? "仍然保存" : "Save Anyway") { if let review { write(review) } }
+                Button("仍然保存") { if let review { write(review) } }
             }
-            Button(chinese ? "返回修改" : "Go Back", role: .cancel) {}
+            Button("返回修改", role: .cancel) {}
         } message: {
             Text(review?.issues.map(\.detail).joined(separator: "\n") ?? "")
         }
@@ -84,14 +89,14 @@ struct NewEntrySheet: View {
     @ViewBuilder private var accounts: some View {
         switch draft.kind {
         case .transfer:
-            accountPicker(chinese ? "转出账户" : "From", prefixes: ["Assets:", "Liabilities:"], selection: $draft.funding)
-            accountPicker(chinese ? "转入账户" : "To", prefixes: ["Assets:", "Liabilities:"], selection: $draft.to)
+            accountPicker("转出账户", prefixes: ["Assets:", "Liabilities:"], selection: $draft.funding)
+            accountPicker("转入账户", prefixes: ["Assets:", "Liabilities:"], selection: $draft.to)
         case .income:
-            accountPicker(chinese ? "收入科目" : "Category", prefixes: ["Income:"], selection: $draft.account)
-            accountPicker(chinese ? "收款账户" : "Account", prefixes: ["Assets:", "Liabilities:"], selection: $draft.funding)
+            accountPicker("收入科目", prefixes: ["Income:"], selection: $draft.account)
+            accountPicker("收款账户", prefixes: ["Assets:", "Liabilities:"], selection: $draft.funding)
         default:
-            accountPicker(chinese ? "支出科目" : "Category", prefixes: ["Expenses:"], selection: $draft.account)
-            accountPicker(chinese ? "付款账户" : "Account", prefixes: ["Assets:", "Liabilities:"], selection: $draft.funding)
+            accountPicker("支出科目", prefixes: ["Expenses:"], selection: $draft.account)
+            accountPicker("付款账户", prefixes: ["Assets:", "Liabilities:"], selection: $draft.funding)
         }
     }
 
