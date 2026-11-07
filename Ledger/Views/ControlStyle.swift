@@ -380,8 +380,6 @@ struct PeriodBar: View {
     /// chosen, are the same from one month to the next. Sized to the title itself, a wider month (2026年10月) could
     /// get another layout than a narrower one (2026年9月) and the title jumped as the way back came and went.
     var widest: String? = nil
-    /// the arrows' colour: the theme's, or the text's on a filled card
-    var ink: Color = .jadeInk
     let step: (Int) -> Void
     /// nil: no way back on the bar (the overview has it on its card)
     var toNow: (() -> Void)? = nil
@@ -405,7 +403,7 @@ struct PeriodBar: View {
             arrow("chevron.right", nextLabel, enabled: canGoOn) { step(1) }
         }
         .buttonStyle(.borderless)
-        .tint(ink)
+        .tint(Color.jadeInk)
         .onAppear { shown = key }
         .onChange(of: key) { _, k in shown = k }
     }

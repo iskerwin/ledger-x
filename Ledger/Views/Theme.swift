@@ -135,8 +135,6 @@ extension Color {
     /// Text and thin marks need more contrast than a filled accent surface.
     static var jadeInk: Color { jade.readableInk }
     static var onJade: Color { AppTheme.current.onColor }
-    /// the fill of a card with white text on it (the overview's cover)
-    static var cover: Color { jade.deepened }
     /// semantic colours, independent of the theme: money in (income, inflow) is `gain`, money out (spending,
     /// outflow) is `loss`, on every page
     static let gain = Color(uiColor: .systemGreen).readableInk
@@ -167,25 +165,6 @@ extension Color {
         return Color(uiColor: UIColor { traits in
             let light = fill.resolvedColor(with: traits).relativeLuminance
             return (light + 0.05) / 0.05 >= 1.05 / (light + 0.05) ? .black : .white
-        })
-    }
-
-    /// Keep the hue, only as much darker as small white text at 85% needs on it, in light and dark alike.
-    var deepened: Color {
-        let original = UIColor(self)
-        return Color(uiColor: UIColor { traits in
-            let color = original.resolvedColor(with: traits)
-            func contrast(_ fill: UIColor) -> Double { 1.05 / (fill.relativeLuminance + 0.05) }
-            if contrast(color) >= 6.4 { return color }
-            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-            color.getRed(&r, green: &g, blue: &b, alpha: &a)
-            func mixed(_ amount: CGFloat) -> UIColor { UIColor(red: r * (1 - amount), green: g * (1 - amount), blue: b * (1 - amount), alpha: 1) }
-            var low: CGFloat = 0, high: CGFloat = 1
-            for _ in 0..<20 {
-                let middle = (low + high) / 2
-                if contrast(mixed(middle)) >= 6.4 { high = middle } else { low = middle }
-            }
-            return mixed(high)
         })
     }
 
@@ -326,15 +305,6 @@ struct Card<Content: View>: View {
     }
 }
 
-private extension View {
-    @ViewBuilder func tile(_ on: Bool) -> some View {
-        if on {
-            padding(.vertical, AppSpacing.control).padding(.horizontal, AppSpacing.icon)
-                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.panel, style: .continuous))
-        } else { self }
-    }
-}
-
 extension View {
     /// a List row that draws its own card
     func cardRow() -> some View {
@@ -392,26 +362,22 @@ struct FigureRow: View {
     /// where each column's label and amount sit in it: centred for a row of figures side by side (the calendar's
     /// 支出 · 收入 · 结余, the overview card's 收入 · 结余 · 净资产)
     var alignment: HorizontalAlignment = .leading
-    /// each figure on a small card of its own, under a cover (the overview's)
-    var tiled = false
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        let gap = tiled ? AppSpacing.icon : AppSpacing.control
         ViewThatFits(in: .horizontal) {
             if !typeSize.isAccessibilitySize {
-                HStack(alignment: .top, spacing: gap) {
+                HStack(alignment: .top, spacing: AppSpacing.control) {
                     ForEach(items.indices, id: \.self) { i in
                         VStack(alignment: alignment, spacing: AppSpacing.detail) {
                             label(items[i])
                             value(items[i])
                         }
                         .frame(maxWidth: .infinity, alignment: Alignment(horizontal: alignment, vertical: .center))
-                        .tile(tiled)
                     }
                 }
             }
-            VStack(alignment: .leading, spacing: gap) {
+            VStack(alignment: .leading, spacing: AppSpacing.control) {
                 ForEach(items.indices, id: \.self) { i in
                     VStack(alignment: .leading, spacing: AppSpacing.detail) {
                         label(items[i])
@@ -419,7 +385,6 @@ struct FigureRow: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
-                    .tile(tiled)
                 }
             }
         }
