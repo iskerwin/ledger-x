@@ -61,23 +61,15 @@ struct MainView: View {
             }
             .navigationSplitViewColumnWidth(min: 140, ideal: 160)
         } detail: {
-            NavigationStack {
-                Group {
-                    switch page ?? .journal {
-                    case .journal: JournalPage(ledger: ledger, config: config, folder: folder, scope: nil, searching: $searching)
-                    case .accounts:
-                        AccountsPage(ledger: ledger, config: config, folder: folder) { JournalScope(title: accountTitle(ledger, $0), account: $0) }
-                    case .reports:
-                        ReportsPage(ledger: ledger, period: $period)
-                    case .months:
-                        MonthsPage(ledger: ledger) { JournalScope(title: $0, from: Day.ym($0) + "-01", to: Day.monthEnd($0)) }
-                    }
-                }
-                .navigationDestination(for: JournalScope.self) { scope in
-                    JournalPage(ledger: ledger, config: config, folder: folder, scope: scope, searching: $searching)
-                        .navigationTitle(scope.title)
-                        .onAppear { inScope = true }
-                        .onDisappear { inScope = false }
+            Group {
+                switch page ?? .journal {
+                case .journal: JournalPage(ledger: ledger, config: config, folder: folder, scope: nil, searching: $searching)
+                case .accounts:
+                    drillable { AccountsPage(ledger: ledger, config: config, folder: folder) { JournalScope(title: accountTitle(ledger, $0), account: $0) } }
+                case .reports:
+                    drillable { ReportsPage(ledger: ledger, period: $period) }
+                case .months:
+                    drillable { MonthsPage(ledger: ledger) { JournalScope(title: $0, from: Day.ym($0) + "-01", to: Day.monthEnd($0)) } }
                 }
             }
             // a list of its own for each page: left to reuse its rows, one page's row keeps what the last page's row did when clicked
@@ -129,6 +121,18 @@ struct MainView: View {
             // the box takes focus only when it opens with the page already there
             searching = false
             DispatchQueue.main.async { searching = true }
+        }
+    }
+
+    /// a row of the page opens the entries it counts, a level down; the journal is all entries already, and its search box needs no stack around it
+    private func drillable(@ViewBuilder _ page: () -> some View) -> some View {
+        NavigationStack {
+            page().navigationDestination(for: JournalScope.self) { scope in
+                JournalPage(ledger: ledger, config: config, folder: folder, scope: scope, searching: $searching)
+                    .navigationTitle(scope.title)
+                    .onAppear { inScope = true }
+                    .onDisappear { inScope = false }
+            }
         }
     }
 
