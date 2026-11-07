@@ -189,14 +189,19 @@ final class FolderSaveTests: XCTestCase {
         XCTAssertEqual(try read("main.bean"), changed)
     }
 
-    func testEntriesTheSheetCantShowAreNotOffered() throws {
+    func testAnEntryWithACommentIsNotOffered() throws {
         let commented = "2026-10-16 * \"Sample Shop\" \"Lunch\"\n  Expenses:Food  35.00 CNY ; a comment\n  Assets:Bank  -35.00 CNY\n"
+        try write("main.bean", opens + "\n" + commented)
+        let (found, ledger) = try entry()
+        XCTAssertNil(folderEditDraft(found, ledger, Derived(ledger)))
+    }
+
+    func testEntriesTheFullFormShowsAreOfferedAndUnchangedWriteNothing() throws {
         let split = "2026-10-16 * \"Sample Shop\" \"Lunch\"\n  Expenses:Food  30.00 CNY\n  Expenses:Food  5.00 CNY\n  Assets:Bank  -20.00 CNY\n  Assets:Cash  -15.00 CNY\n"
         let advanced = "2025-01-01 open Assets:Receivable:Reimburse CNY\n\n2026-10-16 * \"Sample Shop\" \"Lunch\" #reimbursed ^reimburse-1\n  Assets:Receivable:Reimburse  35.00 CNY\n  Assets:Bank  -35.00 CNY\n"
-        for text in [commented, split, advanced] {
+        for text in [split, advanced] {
             try write("main.bean", opens + "\n" + text)
-            let (found, ledger) = try entry()
-            XCTAssertNil(folderEditDraft(found, ledger, Derived(ledger)), text)
+            XCTAssertTrue(try prepared(try editing()).files.isEmpty, text)
         }
     }
 
@@ -330,7 +335,7 @@ final class FolderSaveTests: XCTestCase {
         XCTAssertTrue(added.tags.contains("fx"))
     }
 
-    func testAnExpenseWithAFeeIsStillNotOffered() throws {
+    func testAnExpenseWithAFeeIsOfferedAndKeepsItsFee() throws {
         let entry = """
         2026-10-16 * "Sample Shop" "Lunch"
           fee_mode: "added"
@@ -340,8 +345,65 @@ final class FolderSaveTests: XCTestCase {
 
         """
         try write("main.bean", opens + "\n" + feeOpens + "\n" + entry)
-        let (found, ledger) = try self.entry()
-        XCTAssertNil(folderEditDraft(found, ledger, Derived(ledger)))
+        var draft = try editing()
+        XCTAssertTrue(try prepared(draft).files.isEmpty)
+        draft.narration = "Changed"
+        try commitFolderSave(try prepared(draft), folder: folder)
+        let edited = try XCTUnwrap(try XCTUnwrap(loadLedger(folder: folder)).txns.first { $0.narration == "Changed" })
+        XCTAssertEqual(edited.postings.first { $0.account == transferFeeAccount }?.units, 1)
+        XCTAssertEqual(edited.postings.first { $0.account == "Assets:Bank" }?.units, -36)
+    }
+
+    func testASplitWithSomeoneOpensTheirReceivableAndNamesThem() throws {
+        var new = draft(.expense)
+        new.narration = "Shared"
+        new.split = true
+        new.shares = [Share(person: "Alex", amount: "10")]
+        try commitFolderSave(try prepared(new), folder: folder)
+        let ledger = try XCTUnwrap(loadLedger(folder: folder))
+        XCTAssertNotNil(ledger.accounts[personalAccount])
+        let added = try XCTUnwrap(ledger.txns.first { $0.narration == "Shared" })
+        let theirs = try XCTUnwrap(added.postings.first { isPersonal($0.account) })
+        XCTAssertEqual(theirs.units, 10)
+        XCTAssertEqual(theirs.meta["person"]?.stringValue, "Alex")
+        XCTAssertEqual(added.postings.first { $0.account == "Expenses:Food" }?.units, 25)
+    }
+
+    func testSplitRowsWriteTheBalancingAmountOut() throws {
+        var new = draft(.multi)
+        new.narration = "Rows"
+        var category = DraftRow(account: "Expenses:Food")
+        category.amount = "35"
+        new.rows = [category, DraftRow(account: "Assets:Bank")]
+        try commitFolderSave(try prepared(new), folder: folder)
+        let added = try XCTUnwrap(try XCTUnwrap(loadLedger(folder: folder)).txns.first { $0.narration == "Rows" })
+        XCTAssertEqual(added.postings.first { $0.account == "Assets:Bank" }?.units, -35)
+        XCTAssertTrue(try read("main.bean").contains("-35.00 CNY"))
+    }
+
+    func testTextIsAlignedAndReplacingAnAssertionIsAskedAbout() throws {
+        var new = Draft()
+        new.kind = .raw
+        new.raw = "2026-10-16 balance Assets:Bank 1000.00 CNY"
+        let first = try prepared(new)
+        XCTAssertTrue(first.issues.isEmpty)
+        try commitFolderSave(first, folder: folder)
+        XCTAssertTrue(try read("main.bean").contains(alignText(new.raw)))
+        let again = try prepared(new)
+        XCTAssertEqual(again.issues.first?.detail, "2026-10-16 Assets:Bank")
+        XCTAssertEqual(again.issues.first?.blocking, false)
+        try commitFolderSave(again, folder: folder)
+        XCTAssertEqual(try read("main.bean").components(separatedBy: " balance Assets:Bank").count, 2)
+    }
+
+    func testAKnownPayeeFillsOnlyWhatIsBlank() throws {
+        try write("main.bean", opens + "\n" + sample)
+        let derived = Derived(try XCTUnwrap(loadLedger(folder: folder)))
+        var new = Draft()
+        new.funding = "Assets:Cash"
+        let filled = applyingPayee(new, name: "Sample Shop", derived, onlyBlanks: true)
+        XCTAssertEqual(filled.account, "Expenses:Food")
+        XCTAssertEqual(filled.funding, "Assets:Cash")
     }
 
     func testEditingARefundKeepsWhatMakesItOne() throws {

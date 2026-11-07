@@ -20,7 +20,8 @@ public func prepareFolderSave(_ draft: Draft, folder: URL) -> Result<FolderSave,
     guard let ledger = loadLedger(folder: folder) else { return .failure(noLedgerInFolder) }
     let derived = Derived(ledger)
     if let issue = draftIssue(draft, ledger, derived) { return .failure(FolderSaveError(message: issue.message)) }
-    let text = draftText(draft, ledger, derived).trimmingCharacters(in: .whitespacesAndNewlines)
+    let typed = draftText(draft, ledger, derived).trimmingCharacters(in: .whitespacesAndNewlines)
+    let text = draft.kind == .raw ? alignText(typed) : typed
     let layout = folderLayout(ledger, folder: folder)
     let exists = { (path: String) in FileManager.default.fileExists(atPath: folder.appendingPathComponent(path).path) }
     var replaced: [Op] = []
@@ -48,16 +49,19 @@ public func prepareFolderSave(_ draft: Draft, folder: URL) -> Result<FolderSave,
     } else {
         ops = replaced + ops
     }
-    return folderSave(ops, before: ledger, main: layout.main, folder: folder)
+    let replacedBalances = draft.kind == .raw ? duplicateBalances(validateText(text, ledger, single: false).entries, ledger) : []
+    return folderSave(ops, before: ledger, main: layout.main, folder: folder).map { save in
+        guard !replacedBalances.isEmpty else { return save }
+        let detail = replacedBalances.map { "\($0.date) \($0.account ?? "")" }.joined(separator: "\n")
+        let issue = ChangeIssue(kind: .balance, title: tr("同一天已有余额断言", "That day already has a balance assertion"), detail: detail)
+        return FolderSave(issues: [issue] + save.issues, main: save.main, files: save.files)
+    }
 }
 
-/// the form for changing `entry` on this computer, or nil when the sheet can't show all of it. Its links stay as they are,
-/// so the other side of a link needs nothing.
+/// the form for changing `entry` on this computer, or nil when no form can hold all of it (then only its source can change).
+/// Its links stay as they are, so the other side of a link needs nothing.
 public func folderEditDraft(_ entry: Entry, _ ledger: Ledger, _ derived: Derived) -> Draft? {
-    guard var draft = editDraft(entry, ledger, derived), [.expense, .income, .transfer, .refund].contains(draft.kind),
-          !draft.reimb, !draft.split, draft.shares.isEmpty, draft.extraFunds.isEmpty, draft.discount.isEmpty, !draft.byRate,
-          draft.kind == .transfer || (draft.feeMode == nil && (draft.transferFee ?? "").isEmpty), draft.paid.isEmpty, draft.refundOf == nil, draft.refundFee == nil,
-          !draft.topup else { return nil }
+    guard var draft = editDraft(entry, ledger, derived) else { return nil }
     let summary = [entry.payee, entry.narration].filter { !$0.isEmpty }.joined(separator: " ")
     draft.replacing = Replacing(path: entry.file, old: entry.src, date: entry.date, summary: summary,
                                 baseline: draftText(draft, ledger, derived).trimmingCharacters(in: .whitespacesAndNewlines), line: entry.line)

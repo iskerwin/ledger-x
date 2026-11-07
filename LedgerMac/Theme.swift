@@ -8,9 +8,12 @@ extension Color {
     /// money in and money out, whatever the accent, dark enough to read as text
     static let gain = dynamic(0x248A3D, 0x30D158)
     static let loss = dynamic(0xD70015, 0xFF453A)
+    static let warn = dynamic(0xC76A00, 0xFF9F0A)
     /// the phone's grouped page and the cards on it: in dark mode the system's window and control colours are one colour, and the cards vanish
     static let page = dynamic(0xF2F2F7, 0x000000)
     static let card = dynamic(0xFFFFFF, 0x1C1C1E)
+
+    var soft: Color { opacity(0.14) }
 
     static func dynamic(_ light: UInt32, _ dark: UInt32) -> Color {
         func ns(_ v: UInt32) -> NSColor {
@@ -18,6 +21,16 @@ extension Color {
         }
         return Color(nsColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? ns(dark) : ns(light) })
     }
+}
+
+extension String {
+    var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
+}
+
+/// a category's symbol, or the grid's when this system doesn't have it
+func categorySymbol(_ account: String) -> String {
+    let symbol = defaultCategoryIcon(account)
+    return NSImage(systemSymbolName: symbol, accessibilityDescription: nil) == nil ? "square.grid.2x2" : symbol
 }
 
 /// the eight colours a category keeps on the phone and here
@@ -54,9 +67,9 @@ struct CategoryBadge: View {
 
     var body: some View {
         let account = entry.postings.first { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") }?.account
-        let symbol = account.map { defaultCategoryIcon(catOf($0)) } ?? "arrow.left.arrow.right"
+        let symbol = account.map { categorySymbol(catOf($0)) } ?? "arrow.left.arrow.right"
         let color = account.map { categoryColor($0) } ?? .gray
-        Image(systemName: NSImage(systemSymbolName: symbol, accessibilityDescription: nil) == nil ? "square.grid.2x2" : symbol)
+        Image(systemName: symbol)
             .font(.system(size: size * 0.5, weight: .semibold))
             .foregroundStyle(.white)
             .frame(width: size, height: size)
@@ -164,10 +177,7 @@ struct DateRow: View {
             Button(shown) { choosing = true }
                 .monospacedDigit()
                 .popover(isPresented: $choosing) {
-                    DatePicker(title, selection: date, in: Date.distantPast...(latest ?? Date.distantFuture), displayedComponents: .date)
-                        .datePickerStyle(.graphical)
-                        .labelsHidden()
-                        .padding(12)
+                    DayPicker(title: title, day: $day, latest: latest).padding(12)
                 }
         }
         .onChange(of: day) { choosing = false }
@@ -178,8 +188,18 @@ struct DateRow: View {
         if day == today { return "今天 · " + Day.dayLabel(day) }
         return Day.dayLabel(day) + (day.prefix(4) != today.prefix(4) ? " " + day.prefix(4) : "")
     }
+}
 
-    private var date: Binding<Date> {
-        Binding(get: { Day.date(day) ?? Date() }, set: { day = Day.string($0) })
+/// the calendar a day is picked on
+struct DayPicker: View {
+    let title: String
+    @Binding var day: String
+    var latest: Date?
+
+    var body: some View {
+        DatePicker(title, selection: Binding(get: { Day.date(day) ?? Date() }, set: { day = Day.string($0) }),
+                   in: Date.distantPast...(latest ?? Date.distantFuture), displayedComponents: .date)
+            .datePickerStyle(.graphical)
+            .labelsHidden()
     }
 }

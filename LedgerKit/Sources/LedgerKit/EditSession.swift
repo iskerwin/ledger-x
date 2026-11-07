@@ -291,3 +291,27 @@ public func applyingSuggestedAccounts(_ draft: Draft, category: String?, funding
     return d
 }
 
+/// a known payee fills in the category and paying account of its last entry; with `onlyBlanks`, only what isn't filled in
+public func applyingPayee(_ draft: Draft, name: String, _ D: Derived, onlyBlanks: Bool = false) -> Draft {
+    var d = draft
+    d.payee = name
+    d.edited = nil
+    guard let p = D.payee(name) else { return d }
+    let t = p.last
+    if d.kind == .multi {
+        if !d.rows.contains(where: { !$0.account.isEmpty || !$0.amount.trimmingCharacters(in: .whitespaces).isEmpty }) { d.rows = rowsFromTxn(t, withAmounts: false) }
+        return d
+    }
+    let cat = t.postings.first { $0.account.hasPrefix(d.kind == .income ? "Income:" : "Expenses:") }
+        ?? (d.kind == .expense ? t.postings.first { advanceCategory($0) != nil } : nil)
+    let fund = t.postings.first { $0.account.hasPrefix("Assets:") || $0.account.hasPrefix("Liabilities:") }
+    if let cat = cat {
+        let category = cat.account.hasPrefix("Expenses:") || cat.account.hasPrefix("Income:") ? cat.account : advanceCategory(cat)
+        d = applyingSuggestedAccounts(d, category: onlyBlanks && !d.account.isEmpty ? nil : category, funding: nil)
+        if d.selection?.category != true, !onlyBlanks, let c = cat.currency, cat.account == d.account { d.currency = c }
+    } else if !draftKindFits(d.kind, d.account) { d.account = "" }
+    if let fund = fund, !fund.account.hasPrefix("Assets:Receivable") {
+        d = applyingSuggestedAccounts(d, category: nil, funding: onlyBlanks && !d.funding.isEmpty ? nil : fund.account)
+    }
+    return d
+}

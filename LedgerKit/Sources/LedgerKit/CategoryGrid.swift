@@ -61,6 +61,15 @@ private func lastUsed(_ L: Ledger, root: String) -> [String: String] {
     return out
 }
 
+/// the name of a cell with none of one's own: a group of one its account's name, if it has one, else the group's (交通出行
+/// for a lone Transit:Metro)
+public func categoryGroupTitle(_ g: CategoryGroup, _ L: Ledger) -> String {
+    if g.single, let a = g.accounts.first, let v = L.accounts[a]?.meta["name"], !(v.stringValue ?? v.display).isEmpty {
+        return accountTitle(L, a)
+    }
+    return acctZH(g.id) ?? leaf(g.single ? g.accounts[0] : g.id)
+}
+
 /// A default SF Symbol for a category, from the English names in the account: the most specific part that is
 /// known decides ("Expenses:Transit:Fuel" is a fuel pump, "Expenses:Transit:Other" a car).
 public func defaultCategoryIcon(_ account: String) -> String {
