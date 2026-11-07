@@ -46,6 +46,8 @@ struct NewEntrySheet: View {
                     .disabled(!needsAmountReceived)
             }
             .formStyle(.grouped)
+            // every row in sight whichever kind this is: left to itself a form in a sheet takes less than it needs, and scrolls
+            .frame(height: 400)
             Text(message)
                 .font(.callout)
                 .foregroundStyle(.red)

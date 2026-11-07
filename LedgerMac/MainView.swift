@@ -67,6 +67,8 @@ struct MainView: View {
                     ReportsPage(ledger: ledger, period: $period) { open($0, title: accountTitle(ledger, $0) + " · " + period.title, span: period.span) }
                 }
             }
+            // a list of its own for each page: left to reuse its rows, one page's row keeps what the last page's row did when clicked
+            .id(page ?? .journal)
             .safeAreaInset(edge: .bottom) { ErrorBar(errors: ledger.errors.filter { !$0.soft }) }
             .toolbar {
                 if let git {

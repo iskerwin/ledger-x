@@ -28,6 +28,7 @@ struct LedgerMacApp: App {
                     }
                 }
         }
+        .defaultSize(width: 1000, height: 700)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button(chinese ? "记一笔…" : "New Entry…") { withoutSheet { adding = true } }
@@ -95,7 +96,7 @@ private struct ContentView: View {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .frame(minWidth: 720, minHeight: 400)
+        .frame(minWidth: 720, minHeight: 540)
         .navigationTitle(folder.isEmpty ? "Ledger X" : URL(fileURLWithPath: folder).lastPathComponent)
         .task(id: "\(changes)|\(opened)|\(folder)") {
             guard !folder.isEmpty else { return }
