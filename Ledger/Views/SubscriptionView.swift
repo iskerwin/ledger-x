@@ -320,13 +320,18 @@ struct SubscriptionsView: View {
         let cands = store.subCandidates
         return List {
             Section {
-                Card {
-                    HStack(alignment: .top, spacing: AppSpacing.control) {
-                        Figure(label: LS("月均"), value: money(monthly, L.base))
-                        Spacer()
-                        Figure(label: LS("%@ 年已付", year), value: money(paidThisYear, L.base, 0))
-                        Spacer()
-                        Figure(label: LS("订阅中"), value: "\(active.count)", alignment: .trailing)
+                Card(padding: AppSpacing.summary) {
+                    VStack(alignment: .leading, spacing: AppSpacing.content) {
+                        VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                            Text(LS("月均")).font(.subheadline).foregroundStyle(.secondary)
+                            Text(money(monthly, L.base)).heroAmount(HeroAmount.summary).monospacedDigit()
+                                .rollingNumber(monthly).sensitive()
+                        }
+                        Divider()
+                        FigureRow(items: [
+                            .init(label: LS("%@ 年已付", year), value: money(paidThisYear, L.base, 0)),
+                            .init(label: LS("订阅中"), value: "\(active.count)"),
+                        ], alignment: .center)
                     }
                 }
                 .cardRow()
