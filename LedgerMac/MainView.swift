@@ -1,7 +1,7 @@
 import SwiftUI
 import LedgerKit
 
-private enum Page: CaseIterable {
+enum Page: CaseIterable {
     case journal, accounts, reports
 
     var title: String {
@@ -38,7 +38,8 @@ struct MainView: View {
     /// counts the changes seen in the folder's files
     let changes: Int
     @Binding var adding: Bool
-    @State private var page: Page? = .journal
+    @Binding var page: Page?
+    @Binding var searching: Bool
     @State private var scope: JournalScope?
     @State private var period = ReportPeriod.thisMonth
     @State private var git: FolderGitStatus?
@@ -56,7 +57,7 @@ struct MainView: View {
         } detail: {
             Group {
                 switch page ?? .journal {
-                case .journal: JournalPage(ledger: ledger, config: config, folder: folder, scope: $scope)
+                case .journal: JournalPage(ledger: ledger, config: config, folder: folder, scope: $scope, searching: $searching)
                 case .accounts:
                     AccountsPage(ledger: ledger, config: config) { open($0, title: accountTitle(ledger, $0), span: nil) }
                 case .reports:

@@ -6,7 +6,10 @@ struct JournalPage: View {
     let config: LedgerXConfig?
     let folder: URL
     @Binding var scope: JournalScope?
+    @Binding var searching: Bool
     @State private var text = ""
+    @State private var selected: String?
+    @FocusState private var listFocused: Bool
     @State private var editing: EditedEntry?
     @State private var deleting: Entry?
     @State private var review: FolderSave?
@@ -24,16 +27,20 @@ struct JournalPage: View {
             if rows.isEmpty && !query.isEmpty {
                 ContentUnavailableView.search(text: text)
             } else {
-                List(rows.indices, id: \.self) { index in
-                    JournalRow(entry: rows[index], ledger: ledger)
-                        .contentShape(Rectangle())
-                        .onTapGesture(count: 2) { edit(rows[index]) }
-                        .contextMenu {
-                            Button(chinese ? "编辑…" : "Edit…") { edit(rows[index]) }
-                            Button(chinese ? "删除…" : "Delete…", role: .destructive) { deleting = rows[index] }
+                List(rows, id: \.key, selection: $selected) { JournalRow(entry: $0, ledger: ledger) }
+                    .listStyle(.inset)
+                    .focused($listFocused)
+                    .onAppear { if !searching { listFocused = true } }
+                    // the system's own: double-click or Return for the primary action
+                    .contextMenu(forSelectionType: String.self) { keys in
+                        if let entry = rows.first(where: { keys.contains($0.key) }) {
+                            Button(chinese ? "编辑…" : "Edit…") { edit(entry) }
+                            Button(chinese ? "删除…" : "Delete…", role: .destructive) { deleting = entry }
                         }
-                }
-                .listStyle(.inset)
+                    } primaryAction: { keys in
+                        if let entry = rows.first(where: { keys.contains($0.key) }) { edit(entry) }
+                    }
+                    .onDeleteCommand { deleting = rows.first { $0.key == selected } }
             }
         }
         .safeAreaInset(edge: .top) {
@@ -51,7 +58,7 @@ struct JournalPage: View {
                 .background(.bar)
             }
         }
-        .searchable(text: $text, placement: .toolbar)
+        .searchable(text: $text, isPresented: $searching, placement: .toolbar)
         .sheet(item: $editing) { NewEntrySheet(ledger: ledger, config: config, folder: folder, editing: $0.draft) }
         .alert(chinese ? "删除这笔交易？" : "Delete this entry?", isPresented: present($deleting), presenting: deleting) { entry in
             Button(chinese ? "删除" : "Delete", role: .destructive) { delete(entry) }
@@ -100,6 +107,10 @@ struct JournalPage: View {
             notice = error.localizedDescription
         }
     }
+}
+
+private extension Entry {
+    var key: String { "\(file):\(line)" }
 }
 
 private struct JournalRow: View {
