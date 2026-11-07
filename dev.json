@@ -20,6 +20,16 @@
       "versions": [
         {
           "version": "1.0.15",
+          "buildVersion": "61",
+          "date": "2026-11-07T16:25:27Z",
+          "localizedDescription": "# Ledger X 1.0.15 开发版\n\n版本 1.0.15 · 构建 61 · main 80ce0ae 。\n\n## 改进\n\n- 概览的摘要卡和近 12 个月图表合成一张卡：当前月的柱是实色、其他月份是淡色，点选月份、切换支出 / 收支和以前一样，图表没有了数值轴；收入、结余、净资产在卡片底部。支出构成每行有分类图标和一条长度按金额比较的细条，不再有顶部的分段比例条。\n- 报表「钱花在哪」和概览的支出构成一样，每行有分类图标和细条，不再有分段比例条，百分比取整。概览的收付款方排行也改成同样的细条，次数和均价移到名称旁边。账户页顶部的大金额和卡片留白与概览一致。\n- 持仓顶部的总市值放大，下面是持仓成本、浮动盈亏和收益率三栏；订阅管理顶部的月均改成大金额，今年已付和订阅数在下面。\n- 损益表和资产负债表顶部的大金额和卡片留白与账户页一致；概览展开分类后的子行、订阅管理的分类统计改用和支出构成一样的细条。\n- 日历点开某一天，汇总和图例里的「纯利」改叫「结余」，和月份汇总同一个词。",
+          "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
+          "size": 10859483,
+          "minOSVersion": "17.0",
+          "sha256": "78fdc91f8f18f28374d70c5a9d24f3caa04504cc02f9b87b1f9bf1984da4b9f3"
+        },
+        {
+          "version": "1.0.15",
           "buildVersion": "60.6",
           "date": "2026-11-07T16:25:18Z",
           "localizedDescription": "# Ledger X 1.0.15 预览\n\n版本 1.0.15 · 构建 60.6 · feat/phone-summary-rest 855a7f5 · PR #121 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
@@ -27,16 +37,6 @@
           "size": 10866847,
           "minOSVersion": "17.0",
           "sha256": "b0589dda99bc9eebb475daaa1296ff80097af1fbee103224761163b280515ae6"
-        },
-        {
-          "version": "1.0.15",
-          "buildVersion": "60",
-          "date": "2026-11-07T14:11:36Z",
-          "localizedDescription": "# Ledger X 1.0.15 开发版\n\n版本 1.0.15 · 构建 60 · main 2907dc8 。\n\n## 本次更新\n\n- 本次没有新增用户可见的功能或修复记录，为重新构建或发布流程维护。",
-          "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
-          "size": 10867879,
-          "minOSVersion": "17.0",
-          "sha256": "946bb2ca1437fa3e296a29979fa183752c2952665e6b9486ab2d7809f00779eb"
         },
         {
           "version": "1.0.14",
@@ -188,10 +188,10 @@
         }
       },
       "version": "1.0.15",
-      "versionDate": "2026-11-07T16:25:18Z",
-      "versionDescription": "# Ledger X 1.0.15 预览\n\n版本 1.0.15 · 构建 60.6 · feat/phone-summary-rest 855a7f5 · PR #121 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-      "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-      "size": 10866847
+      "versionDate": "2026-11-07T16:25:27Z",
+      "versionDescription": "# Ledger X 1.0.15 开发版\n\n版本 1.0.15 · 构建 61 · main 80ce0ae 。\n\n## 改进\n\n- 概览的摘要卡和近 12 个月图表合成一张卡：当前月的柱是实色、其他月份是淡色，点选月份、切换支出 / 收支和以前一样，图表没有了数值轴；收入、结余、净资产在卡片底部。支出构成每行有分类图标和一条长度按金额比较的细条，不再有顶部的分段比例条。\n- 报表「钱花在哪」和概览的支出构成一样，每行有分类图标和细条，不再有分段比例条，百分比取整。概览的收付款方排行也改成同样的细条，次数和均价移到名称旁边。账户页顶部的大金额和卡片留白与概览一致。\n- 持仓顶部的总市值放大，下面是持仓成本、浮动盈亏和收益率三栏；订阅管理顶部的月均改成大金额，今年已付和订阅数在下面。\n- 损益表和资产负债表顶部的大金额和卡片留白与账户页一致；概览展开分类后的子行、订阅管理的分类统计改用和支出构成一样的细条。\n- 日历点开某一天，汇总和图例里的「纯利」改叫「结余」，和月份汇总同一个词。",
+      "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
+      "size": 10859483
     }
   ],
   "news": []
