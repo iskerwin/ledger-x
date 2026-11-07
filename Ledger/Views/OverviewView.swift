@@ -782,10 +782,7 @@ struct CatBar: View {
                 if let s = share { Text("\(s)%").font(.caption).foregroundStyle(.secondary).frame(minWidth: 30, alignment: .trailing) }
                 if let c = chevron { Image(systemName: c ? "chevron.up" : "chevron.down").font(.caption2).foregroundStyle(.tertiary) }
             }
-            GeometryReader { g in
-                Capsule().fill(Color.jadeSoft).frame(width: max(2, g.size.width * max(0, min(1, frac))), height: 5)
-            }
-            .frame(height: 5)
+            ProportionBar(frac: frac, color: .jadeInk)
         }
         .contentShape(Rectangle())
         .padding(.vertical, AppSpacing.detail)
