@@ -62,6 +62,12 @@ GitHub  https://raw.githubusercontent.com/iskerwin/ledger-x/ipa/release.json
 镜像    https://gh-proxy.com/https://raw.githubusercontent.com/iskerwin/ledger-x/ipa/mirror/release.json
 ```
 
+**Mac 版**：安装或更新都运行这一条（要求 macOS 14 及以上，安装包未经 Apple 公证）
+
+```sh
+curl -fL https://github.com/iskerwin/ledger-x/releases/download/mac/LedgerMac.zip -o /tmp/LedgerMac.zip && ditto -x -k /tmp/LedgerMac.zip /Applications && open "/Applications/Ledger X.app"
+```
+
 每个版本的更新内容与验证记录见 [Releases](https://github.com/iskerwin/ledger-x/releases)。
 
 ## 先用演示账本试一遍
