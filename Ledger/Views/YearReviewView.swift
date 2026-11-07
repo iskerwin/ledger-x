@@ -92,25 +92,16 @@ struct YearReviewView: View {
 
     private func summarySection(_ r: YearReview) -> some View {
         Section {
-            Card {
-                VStack(alignment: .leading, spacing: AppSpacing.control) {
-                    Text(r.through < r.year + "-12-31" ? LS("%@ 年（截至 %@）", r.year, r.through) : LS("%@ 年", r.year))
-                        .font(.caption).foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                        Text(LS("结余")).font(.subheadline).foregroundStyle(.secondary)
-                        Text(money(r.net, r.currency)).font(.system(.largeTitle, design: .rounded).weight(.bold))
-                            .monospacedDigit().foregroundStyle(r.net < 0 ? Color.loss : Color.primary).sensitive()
-                    }
-                    HStack(alignment: .top, spacing: AppSpacing.control) {
-                        Figure(label: LS("收入"), value: money(r.income, r.currency), color: .gain)
-                        Spacer()
-                        Figure(label: LS("支出"), value: money(r.expenses, r.currency), color: .loss)
-                        Spacer()
-                        Figure(label: LS("储蓄率"), value: r.savingsRate.map { String(format: "%.1f%%", $0 * 100) } ?? "—", alignment: .trailing)
-                    }
-                    if r.income > 0 || r.expenses > 0 {
-                        RatioBar(parts: [(r.income, Color.gain), (r.expenses, Color.loss)])
-                    }
+            Card(padding: AppSpacing.summary) {
+                VStack(alignment: .leading, spacing: AppSpacing.content) {
+                    SummaryHeadline(label: r.through < r.year + "-12-31" ? LS("%@ 年结余（截至 %@）", r.year, r.through) : LS("%@ 年结余", r.year),
+                                    value: money(r.net, r.currency), color: r.net < 0 ? .loss : .primary)
+                    Divider()
+                    FigureRow(items: [
+                        .init(label: LS("收入"), value: money(r.income, r.currency), color: .gain),
+                        .init(label: LS("支出"), value: money(r.expenses, r.currency), color: .loss),
+                        .init(label: LS("储蓄率"), value: r.savingsRate.map { String(format: "%.1f%%", $0 * 100) } ?? "—"),
+                    ], alignment: .center)
                     if let pi = r.previousIncome, let pe = r.previousExpenses {
                         let a = change(r.income, pi), b = change(r.expenses, pe)
                         if a != nil || b != nil {

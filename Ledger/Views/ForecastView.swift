@@ -106,16 +106,15 @@ struct ForecastView: View {
                 .listRowInsets(EdgeInsets())
             }
             Section {
-                Card {
-                    VStack(alignment: .leading, spacing: AppSpacing.control) {
-                        HStack(alignment: .top, spacing: AppSpacing.control) {
-                            Figure(label: LS("今天"), value: money(f.start, f.currency, 0))
-                            Spacer()
-                            Figure(label: LS("%@ 天后", days), value: money(f.end, f.currency, 0), color: f.end < 0 ? .loss : .primary)
-                            Spacer()
-                            Figure(label: LS("最低 · %@", low.date), value: money(low.value, f.currency, 0), color: low.value < 0 ? .loss : .primary, alignment: .trailing)
-                        }
+                Card(padding: AppSpacing.summary) {
+                    VStack(alignment: .leading, spacing: AppSpacing.content) {
+                        SummaryHeadline(label: LS("%@ 天后", days), value: money(f.end, f.currency, 0), color: f.end < 0 ? .loss : .primary)
                         chart(f)
+                        Divider()
+                        FigureRow(items: [
+                            .init(label: LS("今天"), value: money(f.start, f.currency, 0)),
+                            .init(label: LS("最低 · %@", low.date), value: money(low.value, f.currency, 0), color: low.value < 0 ? .loss : .primary),
+                        ], alignment: .center)
                         // a line either way, so 30 / 60 / 90 天 keep the card's height
                         if let b = below {
                             Label(LS("预计 %@ 余额降到 0 以下，请提前安排资金", b.date), systemImage: "exclamationmark.triangle.fill").labelStyle(ControlLabelStyle())

@@ -44,6 +44,20 @@ struct HeroAmount: ViewModifier {
     }
 }
 
+/// the label and big amount that open a page's top summary card
+struct SummaryHeadline: View {
+    let label: String
+    let value: String
+    var color: Color = .primary
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.detail) {
+            Text(label).font(.subheadline).foregroundStyle(.secondary)
+            Text(value).heroAmount(HeroAmount.summary).monospacedDigit().foregroundStyle(color).sensitive()
+        }
+    }
+}
+
 /// Picking an x value (a month, a day) on a chart by finger. A tap picks it, or lets it go when it is the one picked;
 /// a finger drawn sideways follows it, with a light tick at each new value, and the last one stays picked. An
 /// up-and-down drag is left to the page, so the chart never takes the scroll.

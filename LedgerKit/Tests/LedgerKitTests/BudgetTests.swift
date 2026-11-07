@@ -27,6 +27,32 @@ final class BudgetTests: XCTestCase {
         XCTAssertEqual(food.spent, 27, accuracy: 0.005)
     }
 
+    /// The page's total adds the spending budgets only: an income target isn't money to spend, and amounts in two
+    /// currencies don't add up, so then there is no total at all.
+    func testTheBudgetTotalAddsSpendingBudgetsInOneCurrency() throws {
+        func ledger(_ second: String) -> Ledger {
+            loadLedger(root: "main.bean") { _ in """
+            2026-01-01 open Assets:Cash
+            2026-01-01 open Expenses:Food
+            2026-01-01 open Expenses:Home
+            2026-01-01 open Income:Salary
+            2026-01-01 custom "budget" Expenses:Food "monthly" 1000.00 CNY
+            2026-01-01 custom "budget" Income:Salary "monthly" 9000.00 CNY
+            \(second)
+            2026-09-05 * "Shop" "food"
+              Expenses:Food   1200.00 CNY
+              Assets:Cash
+            """ }
+        }
+        let same = try XCTUnwrap(budgetTotal(budgetProgress(ledger("2026-01-01 custom \"budget\" Expenses:Home \"monthly\" 500.00 CNY"), key: "2026-09", today: "2026-09-30")))
+        XCTAssertEqual(same.currency, "CNY")
+        XCTAssertEqual(same.limit, 1500, accuracy: 0.005)
+        XCTAssertEqual(same.spent, 1200, accuracy: 0.005)
+        XCTAssertEqual(same.remaining, 300, accuracy: 0.005)
+        XCTAssertNil(budgetTotal(budgetProgress(ledger("2026-01-01 custom \"budget\" Expenses:Home \"monthly\" 500.00 USD"), key: "2026-09", today: "2026-09-30")))
+        XCTAssertNil(budgetTotal([]))
+    }
+
     /// Over budget, the page says which spending did most of it: the biggest transaction in the span, by payee
     /// (or the narration when there is none), in the budget's currency.
     func testAnOverspentBudgetKnowsItsBiggestSpending() throws {

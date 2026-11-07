@@ -59,11 +59,17 @@ struct ReimbursementsView: View {
                 let inHand = D.floats.reduce(0.0) { $0 + max(0, $1.left) }
                 let balance = (L.final[D.receivable] ?? [:]).reduce(0.0) { $0 + (toCNY(L, $1.value, $1.key) ?? 0) }
                 Section {
-                    LabeledContent(LS("待报销")) { Amount(n: waiting) }
-                    if inHand > 0.005 { LabeledContent(LS("备用金剩余")) { Amount(n: inHand) } }
-                    LabeledContent(LS("报销应收余额")) { Amount(n: balance) }
-                } footer: {
-                    Text(LS("报销应收余额 = 垫付未回款 − 手上的备用金。"))
+                    Card(padding: AppSpacing.summary) {
+                        VStack(alignment: .leading, spacing: AppSpacing.content) {
+                            SummaryHeadline(label: LS("待报销"), value: money(waiting))
+                            Divider()
+                            FigureRow(items: [
+                                inHand > 0.005 ? FigureRow.Item(label: LS("备用金剩余"), value: money(inHand)) : nil,
+                                FigureRow.Item(label: LS("报销应收余额"), value: money(balance)),
+                            ].compactMap { $0 }, alignment: .center)
+                        }
+                    }
+                    .cardRow()
                 }
                 Section(LS("进行中")) {
                     NavigationLink(value: UnclaimedDest()) {

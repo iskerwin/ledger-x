@@ -80,37 +80,52 @@ struct EventDetailView: View {
     @State private var adding = false
     @State private var limit = 100
 
+    /// under the total: own spending, the advances where there are any, and the daily average
+    private func figures(_ s: EventSummary) -> [FigureRow.Item] {
+        var items = [FigureRow.Item(label: LS("自己的支出"), value: money(s.spent))]
+        if s.advanced > 0.005 { items.append(.init(label: LS("报销垫款"), value: money(s.advanced))) }
+        if let f = s.first, let l = s.last {
+            let days = max(1, daysBetween(f, l) + 1)
+            items.append(.init(label: LS("日均（%@ 天）", days), value: money(s.total / Double(days))))
+        }
+        return items
+    }
+
     var body: some View {
         List {
             if let L = store.L, let D = store.D, let e = ledgerEvents(L).first(where: { $0.tag == tag }) {
                 let s = eventSummary(L, tag, reimbursement: D.receivable, openLinks: Set(D.openLinks.map { $0.link }))
                 Section {
-                    LabeledContent(LS("合计")) { Amount(n: s.total) }
-                    LabeledContent(LS("自己的支出")) { Amount(n: s.spent) }
-                    if s.advanced > 0.005 {
-                        LabeledContent(LS("报销垫款")) { Amount(n: s.advanced) }
-                        if s.unpaid > 0.005 {
-                            LabeledContent(LS("其中未报销")) { Text(money(s.unpaid)).monospacedDigit().foregroundStyle(Color.warn).sensitive() }
+                    Card(padding: AppSpacing.summary) {
+                        VStack(alignment: .leading, spacing: AppSpacing.content) {
+                            SummaryHeadline(label: LS("合计"), value: money(s.total))
+                            Divider()
+                            FigureRow(items: figures(s), alignment: .center)
+                            if s.advanced > 0.005 && s.unpaid > 0.005 {
+                                Text(LS("其中未报销 %@", money(s.unpaid))).font(.caption.monospacedDigit()).foregroundStyle(Color.warn).sensitive()
+                            }
                         }
                     }
-                    if let f = s.first, let l = s.last {
-                        let days = max(1, daysBetween(f, l) + 1)
-                        LabeledContent(LS("日均（%@ 天）", days)) { Amount(n: s.total / Double(days)) }
-                    }
+                    .cardRow()
                 } header: {
                     Text(eventDates(e) + "  #" + tag).textCase(nil)
                 }
                 if !s.byCategory.isEmpty {
+                    let largest = s.byCategory.map(\.amount).max() ?? 0
                     Section(LS("支出构成")) {
                         ForEach(s.byCategory, id: \.account) { c in
-                            HStack(spacing: AppSpacing.control) {
-                                Text(catLabel(c.account))
-                                Spacer()
-                                if s.spent > 0.005 {
-                                    Text(String(format: "%.0f%%", c.amount / s.spent * 100)).font(.caption).foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: AppSpacing.icon) {
+                                HStack(spacing: AppSpacing.icon) {
+                                    Text(catLabel(c.account))
+                                    if s.spent > 0.005 {
+                                        Text(String(format: "%.0f%%", c.amount / s.spent * 100)).font(.caption).foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Amount(n: c.amount)
                                 }
-                                Amount(n: c.amount)
+                                ProportionBar(frac: largest > 0 ? c.amount / largest : 0, color: categoryColor(catOf(c.account), L))
                             }
+                            .padding(.vertical, AppSpacing.detail)
                         }
                     }
                 }

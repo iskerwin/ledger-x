@@ -507,19 +507,11 @@ struct JournalView: View {
                     }
                     if !filtered && !showCalendar {
                         // everything in the ledger, under the filters (a card of its own pushed the first entry down
-                        // the screen): say so, so the totals are not read as this month's
-                        VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                            HStack(spacing: AppSpacing.control) {
-                                Text(matches.last.map { LS("全部时间 · %@ 起", $0.date) } ?? LS("全部时间"))
-                                Spacer()
-                                Text(LS("%@ 笔", matches.count))
-                            }
-                            HStack(spacing: AppSpacing.control) {
-                                if sums.0 != 0 { Text(LS("支出 ") + money(sums.0)).foregroundStyle(Color.loss) }
-                                if sums.1 != 0 { Text(LS("收入 ") + money(sums.1)).foregroundStyle(Color.gain) }
-                                Spacer()
-                            }
-                            .monospacedDigit().sensitive()
+                        // the screen)
+                        HStack(spacing: AppSpacing.control) {
+                            Text(LS("全部时间"))
+                            Spacer()
+                            Text(LS("%@ 笔", matches.count))
                         }
                         .font(.footnote).foregroundStyle(.secondary)
                     }

@@ -72,10 +72,17 @@ struct CounterpartyView: View {
         let parts = [reimbBalance(L, D), empCNY] + ps.map { $0.netCNY }
         let owed = parts.filter { $0 > 0 }.reduce(0, +), owe = -parts.filter { $0 < 0 }.reduce(0, +)
         return Section {
-            LabeledContent(LS("别人欠我")) { Amount(n: owed) }
-            LabeledContent(LS("我欠别人")) { Amount(n: owe) }
-        } footer: {
-            Text(LS("报销应收（含备用金）、公司往来和每个人的个人往来（Assets:Receivable:Personal，按 person: 区分）与借款（Liabilities:Loan）合在一起，按人民币折算。"))
+            Card(padding: AppSpacing.summary) {
+                VStack(alignment: .leading, spacing: AppSpacing.content) {
+                    SummaryHeadline(label: LS("净额"), value: money(owed - owe), color: owed - owe < 0 ? .loss : .primary)
+                    Divider()
+                    FigureRow(items: [
+                        .init(label: LS("别人欠我"), value: money(owed), color: .gain),
+                        .init(label: LS("我欠别人"), value: money(owe), color: .loss),
+                    ], alignment: .center)
+                }
+            }
+            .cardRow()
         }
     }
 
