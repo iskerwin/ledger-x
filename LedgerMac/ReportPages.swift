@@ -76,8 +76,7 @@ struct MonthsPage: View {
         let flows = monthlyFlows(ledger, months: ledger.txns.map { Day.ym($0.date) }, mode: .units)
         List(selection: opening(open)) {
             Section {
-                ForEach(flows.keys.sorted(by: >), id: \.self) { month in
-                    let flow = flows[month] ?? MonthFlow()
+                ForEach(flows.sorted { $0.key > $1.key }, id: \.key) { month, flow in
                     MonthRow(month: month, income: amountsText(flow.income, ledger), expenses: amountsText(flow.expenses, ledger),
                              net: amountsText(flow.income + (-flow.expenses), ledger))
                 }
