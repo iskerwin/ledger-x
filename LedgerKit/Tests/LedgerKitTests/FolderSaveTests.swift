@@ -500,6 +500,23 @@ final class FolderSaveTests: XCTestCase {
         XCTAssertEqual(try read("main.bean"), start)
     }
 
+    func testAnAdvanceGoesToTheAccountLedgerXJsonNames() throws {
+        var config = LedgerXConfig()
+        config.receivable = "Assets:Receivable:Company"
+        try write(LedgerXConfig.path, String(decoding: try JSONEncoder().encode(config), as: UTF8.self))
+        try write("main.bean", opens + "\n2025-01-01 open Assets:Receivable:Company CNY\n")
+        var advance = draft(.expense)
+        advance.reimb = true
+        try commitFolderSave(try prepared(advance), folder: folder)
+        XCTAssertTrue(try read("main.bean").contains("Assets:Receivable:Company"))
+
+        let (found, ledger) = try entry("Sample")
+        let reopened = try XCTUnwrap(folderEditDraft(found, ledger, folderDerived(ledger, config: ledgerConfig(folder: folder))))
+        XCTAssertEqual(reopened.kind, .expense)
+        XCTAssertTrue(reopened.reimb)
+        XCTAssertEqual(reopened.account, "Expenses:Food")
+    }
+
     func testAFolderWithoutALedgerIsRefused() throws {
         try FileManager.default.removeItem(at: folder.appendingPathComponent("main.bean"))
         guard case .failure = prepareFolderSave(draft(.expense), folder: folder) else { return XCTFail("should be refused") }

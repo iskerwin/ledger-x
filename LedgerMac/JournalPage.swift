@@ -107,7 +107,7 @@ struct JournalPage: View {
     }
 
     private func edit(_ entry: Entry) {
-        if let draft = folderEditDraft(entry, ledger, Derived(ledger)) {
+        if let draft = folderEditDraft(entry, ledger, folderDerived(ledger, config: config)) {
             editing = EditedEntry(draft: draft)
         } else {
             notice = "这笔交易在 Mac 上还不能编辑，请在手机上修改"

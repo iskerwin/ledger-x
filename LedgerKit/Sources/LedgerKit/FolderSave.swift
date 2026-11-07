@@ -18,7 +18,7 @@ public struct FolderSaveError: Error, LocalizedError, Equatable {
 /// A draft with `replacing` changes that entry, which must still be there and be told apart from any copy of it.
 public func prepareFolderSave(_ draft: Draft, folder: URL) -> Result<FolderSave, FolderSaveError> {
     guard let ledger = loadLedger(folder: folder) else { return .failure(noLedgerInFolder) }
-    let derived = Derived(ledger)
+    let derived = folderDerived(ledger, config: ledgerConfig(folder: folder))
     if let issue = draftIssue(draft, ledger, derived) { return .failure(FolderSaveError(message: issue.message)) }
     let typed = draftText(draft, ledger, derived).trimmingCharacters(in: .whitespacesAndNewlines)
     let text = draft.kind == .raw ? alignText(typed) : typed
@@ -56,6 +56,12 @@ public func prepareFolderSave(_ draft: Draft, folder: URL) -> Result<FolderSave,
         let issue = ChangeIssue(kind: .balance, title: tr("同一天已有余额断言", "That day already has a balance assertion"), detail: detail)
         return FolderSave(issues: [issue] + save.issues, main: save.main, files: save.files)
     }
+}
+
+/// what the forms need, with the account advances wait in as ledger-x.json says, as on the phone
+public func folderDerived(_ ledger: Ledger, config: LedgerXConfig?) -> Derived {
+    guard let receivable = config?.receivable?.trimmingCharacters(in: .whitespaces), !receivable.isEmpty else { return Derived(ledger) }
+    return Derived(ledger, receivable: receivable)
 }
 
 /// the form for changing `entry` on this computer, or nil when no form can hold all of it (then only its source can change).

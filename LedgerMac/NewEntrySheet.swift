@@ -30,7 +30,7 @@ struct NewEntrySheet: View {
     init(ledger: Ledger, config: LedgerXConfig?, folder: URL, editing: Draft? = nil) {
         self.ledger = ledger
         self.folder = folder
-        let derived = Derived(ledger)
+        let derived = folderDerived(ledger, config: config)
         self.derived = derived
         frequent = templates(ledger, pinned: [], hidden: [])
         subscriptionLinks = Set(subscriptions(ledger).map(\.link))
