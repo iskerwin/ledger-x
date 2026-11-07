@@ -179,13 +179,12 @@ struct OverviewView: View {
             }
             // (screenshots: the banner on the sample ledger)
             if store.isDemo || store.demoEnv["LEDGER_DEMO_BANNER"] != nil { DemoBanner() }
-            heroSection(s, picked.map { monthSummary(F, $0) } ?? s, F.cur)
+            heroSection(s, picked.map { monthSummary(F, $0) } ?? s, F)
             DemoEntryCard()
             YearReviewOverviewSection()
             ReconcileBanner()
             AlertsOverviewSection()
             EventsOverviewSection(L: L)
-            chartSection(s, F)
             budgetSection(s, L)
             CardDueSection(L: L).id("cards")
             ForecastOverviewSection(L: L).id("forecast")
@@ -226,10 +225,11 @@ struct OverviewView: View {
                        avg: before.reduce(0.0) { $0 + (F.exp[$1] ?? 0) } / 11, nw: F.netWorth)
     }
 
-    /// the period picker (for `head`, the page's period) and the card (for `c`: the page's period, or the month
-    /// picked on the chart)
-    private func heroSection(_ head: Summary, _ c: Summary, _ cur: String) -> some View {
+    /// the cover: the period picker (for `head`, the page's period), the card's figures (for `c`: the page's period,
+    /// or the month picked on the chart) and the months' chart; under it 收入 · 结余 · 净资产
+    private func heroSection(_ head: Summary, _ c: Summary, _ F: Flows) -> some View {
         let s = c
+        let cur = F.cur
         let net = s.inc - s.exp
         let rate: Double? = s.inc > 0 ? net / s.inc * 100 : nil
         let delta = s.exp - s.prev
@@ -238,77 +238,75 @@ struct OverviewView: View {
         let thisYear = String(Day.today().prefix(4))
         let away = picked != nil || head.key != (head.yearMode ? thisYear : Day.ym(Day.today()))
         let backTitle = !head.yearMode ? LS("回到本月") : head.key == thisYear ? LS("回到全年") : LS("回到今年")
-        return Group {
-            Section {
-                // the largest text sizes: 月 / 年 over the month, so neither is cut short
-                let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: AppSpacing.control))
-                    : AnyLayout(HStackLayout(spacing: AppSpacing.control))
-                layout {
-                    Picker(LS("周期"), selection: $period) {
-                        Text(LS("月")).tag("month")
-                        Text(LS("年")).tag("year")
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(width: typeSize.isAccessibilitySize ? nil : 96)
-                    // the swipe stays off 月 / 年, so its own slide still works
-                    // the way back to now is on the card below, not here
-                    let span = head.yearMode ? 12 : 1
-                    PeriodBar(title: head.label, key: head.key,
-                              previousLabel: head.yearMode ? LS("上一年") : LS("上个月"), nextLabel: head.yearMode ? LS("下一年") : LS("下个月"),
-                              capsule: false, titleID: "overview.period", widest: head.yearMode ? nil : PeriodBar.widestMonth(month), step: { month = Day.addMonth(month, $0 * span) })
-                        .accessibilityElement(children: .contain).accessibilityIdentifier("overview.monthbar")
-                        .monthSwipe(back: { month = Day.addMonth(month, -span) }, forward: { month = Day.addMonth(month, span) })
-                }
-                .buttonStyle(.borderless)
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets(top: AppSpacing.detail, leading: AppSpacing.detail, bottom: AppSpacing.detail, trailing: AppSpacing.detail))
-            }
-            Section {
-                Card {
-                    VStack(alignment: .leading, spacing: AppSpacing.control) {
-                        VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                            HStack(spacing: AppSpacing.control) {
-                                Text(picked != nil ? LS("%@支出", s.label) : s.yearMode ? LS("本年支出") : LS("本月支出")).font(.subheadline).foregroundStyle(.secondary)
-                                Spacer()
-                                // its room always kept (it is taller than the heading), so its coming and going does
-                                // not make the card taller
-                                let back = Button { withAnimation(AppMotion.quick) { picked = nil; month = Day.ym(Day.today()) } } label: { Label(backTitle, systemImage: "calendar").labelStyle(ControlLabelStyle()) }
-                                    .font(.caption.weight(.semibold)).buttonStyle(.borderless)
-                                ZStack {
-                                    back.hidden().accessibilityHidden(true)
-                                    if away { back }
-                                }
-                            }
-                            Text(money(s.exp, cur)).heroAmount(40).monospacedDigit().accessibilityIdentifier("overview.spent")
-                                .rollingNumber(s.exp).sensitive()
-                            // how it compares, quieter than the figure: the change in its colour, the rest grey; one
-                            // text, so a large size wraps it like a sentence
-                            Group {
-                                if s.prev > 0 {
-                                    Text(Image(systemName: abs(delta) <= 0.005 ? "minus" : delta > 0 ? "arrow.up.right" : "arrow.down.right")).foregroundColor(.change(delta, upIsWorse: true))
-                                        + Text(money(abs(delta), cur)).fontWeight(.semibold).foregroundColor(.change(delta, upIsWorse: true))
-                                        + Text(" " + LS("较") + s.prevLabel + LS("（") + money(s.prev, cur) + LS("）")).foregroundColor(.secondary)
-                                } else {
-                                    Text(s.prevLabel + LS("无支出记录")).foregroundStyle(.secondary)
-                                }
-                            }
-                            .font(.caption.monospacedDigit())
-                            .sensitive()
-                            // a line in both views, so switching 月 / 年 keeps the card's height
-                            Text(averageLine(s, cur)).font(.caption.monospacedDigit()).foregroundStyle(.secondary).sensitive()
+        return Section {
+            VStack(spacing: AppSpacing.icon) {
+                VStack(alignment: .leading, spacing: AppSpacing.content) {
+                    // the largest text sizes: 月 / 年 over the month, so neither is cut short
+                    let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: AppSpacing.control))
+                        : AnyLayout(HStackLayout(spacing: AppSpacing.control))
+                    layout {
+                        Picker(LS("周期"), selection: $period) {
+                            Text(LS("月")).tag("month")
+                            Text(LS("年")).tag("year")
                         }
-                        Divider()
-                        FigureRow(items: [
-                            .init(label: LS("收入"), value: money(s.inc, cur, 0), color: .gain),
-                            .init(label: LS("结余") + (rate.map { String(format: " · %.0f%%", $0) } ?? ""), value: money(net, cur, 0), color: net < 0 ? Color.loss : Color.primary),
-                            .init(label: LS("净资产"), value: money(s.nw, cur, 0)),
-                        ], alignment: .center)
+                        .pickerStyle(.segmented)
+                        .frame(width: typeSize.isAccessibilitySize ? nil : 96)
+                        // the swipe stays off 月 / 年, so its own slide still works
+                        // the way back to now is on the card below, not here
+                        let span = head.yearMode ? 12 : 1
+                        PeriodBar(title: head.label, key: head.key,
+                                  previousLabel: head.yearMode ? LS("上一年") : LS("上个月"), nextLabel: head.yearMode ? LS("下一年") : LS("下个月"),
+                                  capsule: false, titleID: "overview.period", widest: head.yearMode ? nil : PeriodBar.widestMonth(month), ink: .white, step: { month = Day.addMonth(month, $0 * span) })
+                            .accessibilityElement(children: .contain).accessibilityIdentifier("overview.monthbar")
+                            .monthSwipe(back: { month = Day.addMonth(month, -span) }, forward: { month = Day.addMonth(month, span) })
                     }
+                    .buttonStyle(.borderless)
+                    VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                        HStack(spacing: AppSpacing.control) {
+                            Text(picked != nil ? LS("%@支出", s.label) : s.yearMode ? LS("本年支出") : LS("本月支出")).font(.subheadline).foregroundStyle(.white.opacity(0.85))
+                            Spacer()
+                            // its room always kept (it is taller than the heading), so its coming and going does
+                            // not make the card taller
+                            let back = Button { withAnimation(AppMotion.quick) { picked = nil; month = Day.ym(Day.today()) } } label: { Label(backTitle, systemImage: "calendar").labelStyle(ControlLabelStyle()) }
+                                .font(.caption.weight(.semibold)).buttonStyle(.borderless).tint(Color.white)
+                            ZStack {
+                                back.hidden().accessibilityHidden(true)
+                                if away { back }
+                            }
+                        }
+                        Text(money(s.exp, cur)).heroAmount(46).monospacedDigit().accessibilityIdentifier("overview.spent")
+                            .rollingNumber(s.exp).sensitive()
+                        // how it compares, quieter than the figure; one text, so a large size wraps it like a sentence
+                        Group {
+                            if s.prev > 0 {
+                                Text(Image(systemName: abs(delta) <= 0.005 ? "minus" : delta > 0 ? "arrow.up.right" : "arrow.down.right")).foregroundColor(.white)
+                                    + Text(money(abs(delta), cur)).fontWeight(.semibold).foregroundColor(.white)
+                                    + Text(" " + LS("较") + s.prevLabel + LS("（") + money(s.prev, cur) + LS("）")).foregroundColor(Color.white.opacity(0.85))
+                            } else {
+                                Text(s.prevLabel + LS("无支出记录")).foregroundStyle(.white.opacity(0.85))
+                            }
+                        }
+                        .font(.caption.monospacedDigit())
+                        .sensitive()
+                        // a line in both views, so switching 月 / 年 keeps the card's height
+                        Text(averageLine(s, cur)).font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.85)).sensitive()
+                    }
+                    trendChart(head, F)
                 }
-                .accessibilityElement(children: .contain)
-                .accessibilityIdentifier("overview.hero")
-                .cardRow()
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .foregroundStyle(.white)
+                .background(Color.cover, in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+                .environment(\.colorScheme, .dark)
+                FigureRow(items: [
+                    .init(label: LS("收入"), value: money(s.inc, cur, 0), color: .gain),
+                    .init(label: LS("结余") + (rate.map { String(format: " · %.0f%%", $0) } ?? ""), value: money(net, cur, 0), color: net < 0 ? Color.loss : Color.primary),
+                    .init(label: LS("净资产"), value: money(s.nw, cur, 0)),
+                ], alignment: .center, tiled: true)
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("overview.hero")
+            .cardRow()
         }
     }
 
@@ -320,46 +318,56 @@ struct OverviewView: View {
 
     private func monthLabelShort(_ m: String) -> String { String(Int(m.suffix(2)) ?? 0) }
 
-    private func chartSection(_ s: Summary, _ F: Flows) -> some View {
+    /// on the cover, in white: the picked or current month solid, the others faint
+    private func trendChart(_ s: Summary, _ F: Flows) -> some View {
         let months = s.months
         let shown = picked ?? (s.yearMode ? nil : month)
-        return Section {
-            Picker(LS("图表"), selection: $trend) {
-                Text(LS("支出")).tag("exp")
-                Text(LS("收支")).tag("flow")
+        let title = trend == "flow" ? (s.yearMode ? LS("%@ 年月度收支", s.key) : LS("近 12 个月收支")) : (s.yearMode ? LS("%@ 年月度支出", s.key) : LS("近 12 个月支出"))
+        let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: AppSpacing.icon))
+            : AnyLayout(HStackLayout(spacing: AppSpacing.control))
+        return VStack(alignment: .leading, spacing: AppSpacing.icon) {
+            layout {
+                // the hint in the title's place until it has been used, so its going moves nothing
+                Text(chartLearned ? title : LS("点按或左右滑动查看月份")).font(.footnote).foregroundStyle(.white.opacity(0.85)).lineLimit(1).minimumScaleFactor(0.7)
+                if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }
+                Picker(LS("图表"), selection: $trend) {
+                    Text(LS("支出")).tag("exp")
+                    Text(LS("收支")).tag("flow")
+                }
+                .pickerStyle(.segmented)
+                .frame(width: typeSize.isAccessibilitySize ? nil : 112)
+                .accessibilityIdentifier("overview.trendMode")
             }
-            .pickerStyle(.segmented)
-            .accessibilityIdentifier("overview.trendMode")
             Chart {
                 if trend == "flow" {
                     // income and spending as two lines, the selected month marked
                     // told apart by more than colour: income a solid line with dots, spending a dashed one with squares
                     ForEach(months, id: \.self) { m in
                         LineMark(x: .value("月", monthLabelShort(m)), y: .value("金额", F.inc[m] ?? 0), series: .value("类型", "inc"))
-                            .foregroundStyle(Color.gain).interpolationMethod(.monotone).symbol(.circle).symbolSize(m == shown ? 60 : 18)
+                            .foregroundStyle(Color.white).interpolationMethod(.monotone).symbol(.circle).symbolSize(m == shown ? 60 : 18)
                             .accessibilityLabel(Day.monthLabel(m) + " " + LS("收入")).accessibilityValue(money(F.inc[m] ?? 0, F.cur))
                         LineMark(x: .value("月", monthLabelShort(m)), y: .value("金额", F.exp[m] ?? 0), series: .value("类型", "exp"))
-                            .foregroundStyle(Color.loss).interpolationMethod(.monotone).symbol(.square).symbolSize(m == shown ? 60 : 18)
+                            .foregroundStyle(Color.white.opacity(0.7)).interpolationMethod(.monotone).symbol(.square).symbolSize(m == shown ? 60 : 18)
                             .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 3]))
                             .accessibilityLabel(Day.monthLabel(m) + " " + LS("支出")).accessibilityValue(money(F.exp[m] ?? 0, F.cur))
                     }
                 } else {
                     ForEach(months, id: \.self) { m in
                         BarMark(x: .value("月", monthLabelShort(m)), y: .value("支出", F.exp[m] ?? 0))
-                            .foregroundStyle(m == shown ? Color.jadeInk : Color.jadeInk.opacity(0.88))
+                            .foregroundStyle(m == shown ? Color.white : Color.white.opacity(0.32))
                             .cornerRadius(4)
                             .accessibilityLabel(Day.monthLabel(m) + " " + LS("支出")).accessibilityValue(money(F.exp[m] ?? 0, F.cur))
                     }
                 }
-                if let p = shown {
+                if let p = shown, trend == "flow" {
                     RuleMark(x: .value("月", monthLabelShort(p)))
-                        .foregroundStyle(Color.secondary)
+                        .foregroundStyle(Color.white.opacity(0.5))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
                 }
             }
             .chartLegend(.hidden)
-            .chartYAxis { AxisMarks(position: .trailing) }
-            .chartXAxis { AxisMarks { _ in AxisValueLabel().font(.caption2) } }
+            .chartYAxis(.hidden)
+            .chartXAxis { AxisMarks { _ in AxisValueLabel().font(.caption2).foregroundStyle(.white.opacity(0.85)) } }
             .chartPick(String.self, tap: { label in
                 let m = months.first { monthLabelShort($0) == label }
                 withAnimation(AppMotion.quick) { picked = (m == picked) ? nil : m }
@@ -367,9 +375,8 @@ struct OverviewView: View {
                 if let m = months.first(where: { monthLabelShort($0) == label }) { picked = m }
             })
             .accessibilityIdentifier("overview.trend")
-            .frame(height: 180)
+            .frame(height: 140)
             .sensitive()
-            .padding(.vertical, AppSpacing.icon)
             // one line under the chart whatever is shown (it came and went with 月 / 年, 支出 / 收支 and a picked
             // month, and the card's height with it): the picked or current month, else the year; for 收支 the dot
             // and the square before the figures say which line is which
@@ -377,19 +384,13 @@ struct OverviewView: View {
             let inc = shown.map { F.inc[$0] ?? 0 } ?? s.inc, exp = shown.map { F.exp[$0] ?? 0 } ?? s.exp
             trendLine(label, inc: inc, exp: exp, F.cur)
                 .accessibilityIdentifier("overview.trendLine")
-        } header: {
-            HStack(spacing: AppSpacing.control) {
-                Text(trend == "flow" ? (s.yearMode ? LS("%@ 年月度收支", s.key) : LS("近 12 个月收支")) : (s.yearMode ? LS("%@ 年月度支出", s.key) : LS("近 12 个月支出")))
-                Spacer()
-                if !chartLearned { Text(LS("点按或左右滑动查看月份")).textCase(nil) }
-            }
         }
     }
 
     private func trendLine(_ label: String, inc: Double, exp: Double, _ cur: String) -> some View {
         let figures: Text = trend == "flow"
-            ? Text(Image(systemName: "circle.fill")).foregroundColor(Color.gain) + Text(" " + LS("收入 %@", money(inc, cur, 0)) + "  ")
-                + Text(Image(systemName: "square.fill")).foregroundColor(Color.loss) + Text(" " + LS("支出 %@", money(exp, cur, 0)) + "  ")
+            ? Text(Image(systemName: "circle.fill")) + Text(" " + LS("收入 %@", money(inc, cur, 0)) + "  ")
+                + Text(Image(systemName: "square.fill")).foregroundColor(Color.white.opacity(0.7)) + Text(" " + LS("支出 %@", money(exp, cur, 0)) + "  ")
                 + Text(LS("结余 %@", money(inc - exp, cur, 0)))
             : Text(money(exp, cur))
         return (Text(label + "  ") + figures)
@@ -455,20 +456,21 @@ struct OverviewView: View {
         var colors: [String: Color] = [:]
         for x in slices { colors[x.id] = x.color }
         let total = groups.reduce(0.0) { $0 + max(0, $1.total) }
+        let top = groups.map(\.total).max() ?? 0
         let shown = allCats ? groups : Array(groups.prefix(8))
         return Section {
             if groups.isEmpty {
                 Text(f.label + LS("暂无支出记录")).foregroundStyle(.secondary)
             } else {
-                ShareBar(slices: slices).padding(.vertical, AppSpacing.icon)
                 ForEach(shown, id: \.name) { g in
                     Button {
                         withAnimation(AppMotion.quick) { selCat = selCat == g.name ? nil : g.name }
                     } label: {
-                        CategoryListRow(color: colors[g.name] ?? Color(.systemGray3), name: acctZH(g.name) ?? leaf(g.name), value: g.total,
-                                        share: share(g.total, total), before: hasBefore ? (before[g.name] ?? 0) : nil, expanded: selCat == g.name)
+                        CategoryListRow(symbol: store.groupIcon(g.name).symbol, color: colors[g.name] ?? Color(.systemGray3), name: acctZH(g.name) ?? leaf(g.name), value: g.total,
+                                        frac: g.total / max(top, 0.01), share: share(g.total, total), before: hasBefore ? (before[g.name] ?? 0) : nil, expanded: selCat == g.name)
                     }
                     .buttonStyle(.plain)
+                    .listRowSeparator(.hidden)
                     if selCat == g.name {
                         ForEach(g.leaves.filter { abs($0.1) > 0.005 }, id: \.0) { row in
                             NavigationLink(value: AccountDest(name: row.0)) {
