@@ -9,6 +9,8 @@ enum AppSpacing {
     static let icon: CGFloat = 8
     static let control: CGFloat = 12
     static let content: CGFloat = 16
+    /// inside a page's top summary card
+    static let summary: CGFloat = 20
 }
 
 /// Corner radii: a card 22, a panel inside one 14, a key or a control 12, a tile 8, a tiny mark 4
@@ -31,6 +33,8 @@ extension View {
 /// grows with the text size like the rest of the page. Only when a long amount would not fit on one line does it
 /// shrink, down to half.
 struct HeroAmount: ViewModifier {
+    /// the figure of a page's top summary card
+    static let summary: CGFloat = 44
     @ScaledMetric private var size: CGFloat
 
     init(_ base: CGFloat) { _size = ScaledMetric(wrappedValue: base, relativeTo: .largeTitle) }

@@ -33,6 +33,22 @@ struct DeltaText: View {
     }
 }
 
+/// a thin bar, on a faint track: how one row compares with the largest beside it
+struct ProportionBar: View {
+    let frac: Double
+    let color: Color
+    var body: some View {
+        GeometryReader { g in
+            ZStack(alignment: .leading) {
+                Capsule().fill(.quaternary)
+                Capsule().fill(color).frame(width: max(2, g.size.width * max(0, min(1, frac))))
+            }
+        }
+        .frame(height: 4)
+        .accessibilityHidden(true)
+    }
+}
+
 struct CategoryListRow: View {
     let symbol: String
     let color: Color
@@ -41,8 +57,9 @@ struct CategoryListRow: View {
     /// against the largest category shown
     let frac: Double
     let share: Int?
-    let before: Double?
-    let expanded: Bool
+    var before: Double? = nil
+    /// nil: the row opens another page rather than unfolding
+    var expanded: Bool? = nil
     @Environment(\.displayCurrency) private var cur
     var body: some View {
         HStack(spacing: AppSpacing.control) {
@@ -54,16 +71,9 @@ struct CategoryListRow: View {
                     if let b = before { DeltaText(now: value, before: b) }
                     Spacer(minLength: 6)
                     Text(money(value, cur)).fontWeight(.semibold).monospacedDigit().sensitive()
-                    Image(systemName: "chevron.down").font(.caption2).foregroundStyle(.tertiary).rotationEffect(.degrees(expanded ? 180 : 0))
+                    if let expanded { Image(systemName: "chevron.down").font(.caption2).foregroundStyle(.tertiary).rotationEffect(.degrees(expanded ? 180 : 0)) }
                 }
-                GeometryReader { g in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(.quaternary)
-                        Capsule().fill(color).frame(width: max(2, g.size.width * max(0, min(1, frac))))
-                    }
-                }
-                .frame(height: 4)
-                .accessibilityHidden(true)
+                ProportionBar(frac: frac, color: color)
             }
         }
         .padding(.vertical, AppSpacing.detail)
@@ -80,33 +90,26 @@ struct PayeeRankRow: View {
     let expanded: Bool
     @Environment(\.displayCurrency) private var cur
     var body: some View {
-        HStack(alignment: .center, spacing: AppSpacing.icon) {
-            Text("\(rank)").font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(rank <= 3 ? Color.jadeInk : Color.secondary)
-                .frame(width: 18)
-            VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                HStack(spacing: AppSpacing.control) {
-                    Text(name).lineLimit(1)
-                    Spacer()
-                    Text(money(value, cur)).monospacedDigit().sensitive()
-                }
+        HStack(spacing: AppSpacing.control) {
+            Text("\(rank)").font(.subheadline.weight(.semibold).monospacedDigit()).foregroundStyle(rank <= 3 ? Color.jadeInk : Color.secondary)
+                .frame(width: 34)
+            VStack(alignment: .leading, spacing: AppSpacing.icon) {
                 HStack(spacing: AppSpacing.icon) {
-                    GeometryReader { g in
-                        Capsule().fill(Color.jadeSoft).frame(width: max(2, g.size.width * max(0, min(1, frac))), height: 5)
-                            .frame(maxHeight: .infinity)
-                    }
-                    .frame(height: 10)
+                    Text(name).lineLimit(1)
                     Text(LS("%@ 次 · 均 %@", count, money(value / Double(max(count, 1)), cur, 0)))
-                        .font(.caption2.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
-                        .frame(width: 104, alignment: .trailing).sensitive()
+                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8).layoutPriority(1).sensitive()
+                    Spacer(minLength: 6)
+                    Text(money(value, cur)).fontWeight(.semibold).monospacedDigit().sensitive()
+                    Image(systemName: "chevron.down").font(.caption2).foregroundStyle(.tertiary).rotationEffect(.degrees(expanded ? 180 : 0))
                 }
+                ProportionBar(frac: frac, color: .jadeInk)
             }
-            Image(systemName: "chevron.down").font(.caption2).foregroundStyle(.tertiary).rotationEffect(.degrees(expanded ? 180 : 0))
         }
+        .padding(.vertical, AppSpacing.detail)
         .contentShape(Rectangle())
     }
 }
 
-/// a liability with how much of its limit is used and, for a card with a billing cycle, the bill
 struct LiabilityRow: View {
     @Environment(Store.self) var store
     let L: Ledger

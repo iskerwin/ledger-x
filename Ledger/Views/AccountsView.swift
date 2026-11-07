@@ -154,7 +154,7 @@ struct AccountsView: View {
     private func heroSection(_ L: Ledger, assets: Inventory, liab: Inventory, year: String) -> some View {
         let flows = side == "flows"
         return Section {
-            Card {
+            Card(padding: AppSpacing.summary) {
                 // several currencies as booked (按原币): both tabs a table, a row per currency
                 let several = CurrencyTable.rows([assets, liab], base: L.base).count > 1
                 ZStack(alignment: .topLeading) {
@@ -179,7 +179,7 @@ struct AccountsView: View {
             } else {
                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
                     Text(LS("净资产")).font(.subheadline).foregroundStyle(.secondary)
-                    InventoryHeadline(inv: assets + liab, base: L.base)
+                    InventoryHeadline(inv: assets + liab, base: L.base, size: HeroAmount.summary)
                 }
                 HStack(alignment: .top, spacing: AppSpacing.control) {
                     InventoryFigure(label: LS("资产"), inv: assets, base: L.base)
@@ -225,7 +225,7 @@ struct AccountsView: View {
             } else {
                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
                     Text(LS("%@ 年结余", year)).font(.subheadline).foregroundStyle(.secondary)
-                    Text(money(income - spent, L.base)).heroAmount().monospacedDigit()
+                    Text(money(income - spent, L.base)).heroAmount(HeroAmount.summary).monospacedDigit()
                         .rollingNumber(income - spent)
                         .foregroundStyle(income - spent < 0 ? Color.loss : Color.primary).sensitive()
                 }
