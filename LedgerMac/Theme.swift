@@ -33,13 +33,97 @@ enum CategoryPalette {
 }
 
 struct Card<Content: View>: View {
+    /// a page's top card, with the phone's summary card values
+    var summary = false
     @ViewBuilder var content: Content
 
     var body: some View {
         content
-            .padding(16)
+            .padding(summary ? 20 : 16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(Color.card, in: RoundedRectangle(cornerRadius: summary ? 22 : 12, style: .continuous))
+    }
+}
+
+/// the big figure of a summary card; a long one gets smaller, not cut off
+struct Headline: View {
+    let label: String
+    let value: String
+    var color = Color.primary
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.system(size: 44, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+        }
+    }
+}
+
+/// the figures under a summary card's big one, in equal columns below a line
+struct SummaryFigures: View {
+    let items: [(String, String, Color)]
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Divider()
+            HStack(alignment: .top, spacing: 16) {
+                ForEach(items, id: \.0) { item in
+                    VStack(spacing: 2) {
+                        Text(item.0)
+                            .foregroundStyle(.secondary)
+                        Text(item.1)
+                            .font(.title2.weight(.semibold))
+                            .fontDesign(.rounded)
+                            .monospacedDigit()
+                            .foregroundStyle(item.2)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+    }
+}
+
+/// two cards side by side when each has room, one above the other when not; the same views either way, so what's open in them stays open
+struct SideBySide: Layout {
+    private let spacing: CGFloat = 16
+    private let narrowest: CGFloat = 320
+
+    private func columnWidth(_ proposal: ProposedViewSize) -> CGFloat? {
+        guard let width = proposal.width, width >= narrowest * 2 + spacing else { return nil }
+        return (width - spacing) / 2
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        if let column = columnWidth(proposal) {
+            let heights = subviews.map { $0.sizeThatFits(ProposedViewSize(width: column, height: nil)).height }
+            return CGSize(width: proposal.width ?? 0, height: heights.max() ?? 0)
+        }
+        let sizes = subviews.map { $0.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil)) }
+        let gaps = spacing * CGFloat(max(subviews.count - 1, 0))
+        return CGSize(width: sizes.map(\.width).max() ?? 0, height: sizes.map(\.height).reduce(gaps, +))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let column = columnWidth(proposal)
+        let offered = ProposedViewSize(width: column ?? proposal.width, height: nil)
+        var x = bounds.minX, y = bounds.minY
+        for subview in subviews {
+            subview.place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: offered)
+            if let column {
+                x += column + spacing
+            } else {
+                y += subview.sizeThatFits(offered).height + spacing
+            }
+        }
     }
 }
 

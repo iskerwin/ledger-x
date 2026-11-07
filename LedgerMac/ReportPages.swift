@@ -18,9 +18,11 @@ struct AccountsPage: View {
         let series = netWorthSeries(ledger, exclude: config?.netWorthExclude ?? []).suffix(12)
         ScrollView {
             VStack(spacing: 16) {
-                Card { WorthCard(total: worth.assets + worth.liabilities, points: Array(series), base: ledger.base) }
-                TreeCard(title: "资产", root: sheet.assets, ledger: ledger, scope: scope) { checking = CheckedAccount(id: $0) }
-                TreeCard(title: "负债", root: sheet.liabilities, ledger: ledger, scope: scope) { checking = CheckedAccount(id: $0) }
+                Card(summary: true) { WorthCard(assets: worth.assets, liabilities: worth.liabilities, points: Array(series), base: ledger.base) }
+                SideBySide {
+                    TreeCard(title: "资产", root: sheet.assets, ledger: ledger, scope: scope) { checking = CheckedAccount(id: $0) }
+                    TreeCard(title: "负债", root: sheet.liabilities, ledger: ledger, scope: scope) { checking = CheckedAccount(id: $0) }
+                }
             }
             .padding(20)
         }
@@ -46,18 +48,23 @@ struct ReportsPage: View {
         let span = period.span
         let report = incomeStatement(ledger, from: span?.0, to: span?.1)
         let income = -report.income.shown, expenses = report.expenses.shown
+        let net = income + (-expenses)
         let shown = period.title
         let scope: (String) -> JournalScope = { JournalScope(title: accountTitle(ledger, $0) + " · " + shown, account: $0, from: span?.0, to: span?.1) }
         ScrollView {
             VStack(spacing: 16) {
-                Card {
-                    Figures(items: [("收入", amountsText(income, ledger), .gain),
-                                    ("支出", amountsText(expenses, ledger), .loss),
-                                    ("结余", amountsText(income + (-expenses), ledger), .primary)])
+                Card(summary: true) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Headline(label: shown + "支出", value: amountsText(expenses, ledger))
+                        SummaryFigures(items: [("收入", amountsText(income, ledger), .gain),
+                                               ("结余", amountsText(net, ledger), net.amounts.values.reduce(0, +) < 0 ? .loss : .primary)])
+                    }
                 }
-                Card { DonutCard(slices: DonutSlice.make(report.expenses, ledger), base: ledger.base, scope: scope) }
-                TreeCard(title: "收入", root: report.income, ledger: ledger, negated: true, scope: scope)
-                TreeCard(title: "支出", root: report.expenses, ledger: ledger, scope: scope)
+                Card(summary: true) { DonutCard(slices: DonutSlice.make(report.expenses, ledger), base: ledger.base, scope: scope) }
+                SideBySide {
+                    TreeCard(title: "收入", root: report.income, ledger: ledger, negated: true, scope: scope)
+                    TreeCard(title: "支出", root: report.expenses, ledger: ledger, scope: scope)
+                }
             }
             .padding(20)
         }
@@ -87,7 +94,7 @@ struct MonthsPage: View {
         let valued = monthlyFlows(ledger, months: recent, mode: .convert(ledger.base))
         ScrollView {
             VStack(spacing: 16) {
-                Card {
+                Card(summary: true) {
                     FlowCard(months: recent, income: valued.mapValues { $0.income.amounts[ledger.base] ?? 0 },
                              expenses: valued.mapValues { $0.expenses.amounts[ledger.base] ?? 0 }, base: ledger.base)
                 }
@@ -147,30 +154,6 @@ private struct MonthRow: View {
 private func amountsText(_ amounts: Inventory, _ ledger: Ledger) -> String {
     let shown = amounts.byCurrency(base: ledger.base)
     return (shown.isEmpty ? [CurrencyAmount(ledger.base, 0)] : shown).map { money($0.amount, $0.currency) }.joined(separator: " · ")
-}
-
-/// three figures side by side in equal columns; a long one gets smaller, not cut off
-private struct Figures: View {
-    let items: [(String, String, Color)]
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            ForEach(items, id: \.0) { item in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.0)
-                        .foregroundStyle(.secondary)
-                    Text(item.1)
-                        .font(.title2.weight(.semibold))
-                        .fontDesign(.rounded)
-                        .monospacedDigit()
-                        .foregroundStyle(item.2)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-    }
 }
 
 /// a group of accounts on a card: an arrow opens what's under a row, the row itself the entries it counts
