@@ -51,7 +51,7 @@ struct NewEntrySheet: View {
             }
             .formStyle(.grouped)
             // every row in sight whichever kind this is: left to itself a form in a sheet takes less than it needs, and scrolls
-            .frame(height: 360)
+            .frame(height: 310)
             Text(message)
                 .font(.callout)
                 .foregroundStyle(.red)

@@ -15,9 +15,9 @@ struct AccountsPage: View {
     var body: some View {
         let sheet = balanceSheet(ledger, at: nil, exclude: config?.balanceExclude ?? [])
         let worth = netWorthNow(ledger, exclude: config?.netWorthExclude ?? [])
-        List {
-            TreeSection(title: "资产", root: sheet.assets, ledger: ledger, open: open) { checking = CheckedAccount(id: $0) }
-            TreeSection(title: "负债", root: sheet.liabilities, ledger: ledger, open: open) { checking = CheckedAccount(id: $0) }
+        List(selection: opening(open)) {
+            TreeSection(title: "资产", root: sheet.assets, ledger: ledger) { checking = CheckedAccount(id: $0) }
+            TreeSection(title: "负债", root: sheet.liabilities, ledger: ledger) { checking = CheckedAccount(id: $0) }
         }
         .listStyle(.inset)
         .safeAreaInset(edge: .top) {
@@ -45,9 +45,9 @@ struct ReportsPage: View {
         let span = period.span
         let report = incomeStatement(ledger, from: span?.0, to: span?.1)
         let income = -report.income.shown, expenses = report.expenses.shown
-        List {
-            TreeSection(title: "收入", root: report.income, ledger: ledger, negated: true, open: open)
-            TreeSection(title: "支出", root: report.expenses, ledger: ledger, open: open)
+        List(selection: opening(open)) {
+            TreeSection(title: "收入", root: report.income, ledger: ledger, negated: true)
+            TreeSection(title: "支出", root: report.expenses, ledger: ledger)
         }
         .listStyle(.inset)
         .safeAreaInset(edge: .top) {
@@ -66,6 +66,12 @@ struct ReportsPage: View {
             }
         }
     }
+}
+
+/// A click on a row opens its account and leaves nothing selected. Through the list's selection, so it reaches this page:
+/// a tap gesture on a row can go on answering for whatever the list showed in that place before.
+private func opening(_ open: @escaping (String) -> Void) -> Binding<String?> {
+    Binding(get: { nil }, set: { if let account = $0 { open(account) } })
 }
 
 /// one line whatever the currencies, so the page doesn't move when the period changes
@@ -103,14 +109,13 @@ private struct TreeSection: View {
     let ledger: Ledger
     /// income is written as a negative amount; shown here as what came in
     var negated = false
-    let open: (String) -> Void
     /// only where the row's account can hold an assertion
     var check: ((String) -> Void)?
 
     var body: some View {
         Section {
-            OutlineGroup(root.children, children: \.kids) { node in
-                TreeRow(name: name(node), amount: amountsText(negated ? -node.shown : node.shown, ledger)) { open(node.name) }
+            OutlineGroup(root.children, id: \.name, children: \.kids) { node in
+                TreeRow(name: name(node), amount: amountsText(negated ? -node.shown : node.shown, ledger))
                 .contextMenu {
                     if let check, ledger.accounts[node.name] != nil {
                         Button("核对余额…") { check(node.name) }
@@ -136,11 +141,10 @@ private struct TreeSection: View {
     }
 }
 
-/// clicking opens the entries it counts, which the highlight under the pointer shows it can do
+/// the highlight under the pointer shows that clicking opens the entries it counts
 private struct TreeRow: View {
     let name: String
     let amount: String
-    let open: () -> Void
     @State private var hovering = false
 
     var body: some View {
@@ -155,7 +159,6 @@ private struct TreeRow: View {
         .contentShape(Rectangle())
         .background(hovering ? Color.primary.opacity(0.06) : Color.clear, in: RoundedRectangle(cornerRadius: 4).inset(by: -4))
         .onHover { hovering = $0 }
-        .onTapGesture(perform: open)
     }
 }
 
