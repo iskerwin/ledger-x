@@ -1,6 +1,53 @@
 import SwiftUI
 import LedgerKit
 
+/// one row of the table, with what it sorts by worked out once
+private struct JournalLine: Identifiable {
+    let entry: Entry
+    let id: String
+    let date: String
+    let payee: String
+    let category: String
+    let accounts: String
+    let amount: Double
+    let kind: TxKind
+
+    init(_ entry: Entry, _ ledger: Ledger) {
+        self.entry = entry
+        id = entry.key
+        date = entry.date
+        payee = entry.payee.isEmpty ? (entry.narration.isEmpty ? "（无收付款方）" : entry.narration) : entry.payee
+        category = shownCategory(entry).map(acctDisplay) ?? "转账"
+        accounts = entry.route
+        let shown = classify(entry, ledger)
+        amount = shown.amount
+        kind = shown.kind
+    }
+}
+
+private enum KindFilter: String, CaseIterable {
+    case all = "全部", expense = "支出", income = "收入", transfer = "转账"
+
+    func matches(_ kind: TxKind) -> Bool {
+        switch self {
+        case .all: return true
+        case .expense: return kind == .expense || kind == .refund
+        case .income: return kind == .income
+        case .transfer: return kind == .transfer
+        }
+    }
+}
+
+/// what the table's rows depend on: anything else redrawing the page doesn't work them out again
+private struct LinesKey: Hashable {
+    let ledger: ObjectIdentifier
+    let text: String
+    let period: ReportPeriod?
+    let kind: KindFilter
+    let day: String?
+    let sort: [KeyPathComparator<JournalLine>]
+}
+
 struct JournalPage: View {
     let ledger: Ledger
     let config: LedgerXConfig?
@@ -8,7 +55,17 @@ struct JournalPage: View {
     let scope: JournalScope?
     @Binding var searching: Bool
     @State private var text = ""
-    @State private var selected: String?
+    @State private var period: ReportPeriod?
+    @State private var kind = KindFilter.all
+    @State private var day: String?
+    @State private var choosingDay = false
+    @State private var lines: [JournalLine] = []
+    @State private var balances: [ObjectIdentifier: Inventory] = [:]
+    @State private var selected = Set<String>()
+    @State private var sortOrder = [KeyPathComparator(\JournalLine.date, order: .reverse)]
+    @State private var columns = TableColumnCustomization<JournalLine>()
+    @AppStorage("journalColumns") private var savedColumns = Data()
+    @AppStorage("journalDetail") private var showsDetail = true
     @FocusState private var listFocused: Bool
     @State private var editing: EditedEntry?
     @State private var deleting: Entry?
@@ -20,56 +77,50 @@ struct JournalPage: View {
         let draft: Draft
     }
 
+    private var key: LinesKey {
+        LinesKey(ledger: ObjectIdentifier(ledger), text: text, period: period, kind: kind, day: day, sort: sortOrder)
+    }
+
+    /// the one picked; several picked have nothing single to show
+    private var picked: Entry? {
+        guard selected.count == 1, let id = selected.first else { return nil }
+        return lines.first { $0.id == id }?.entry
+    }
+
     var body: some View {
-        let query = TxQuery(text)
-        let rows = ledger.txns.reversed().filter { (scope?.matches($0) ?? true) && query.matches($0, ledger) }
-        let balances = heldAccount.map { runningBalances(ledger, account: $0) }
-        HStack(spacing: 0) {
-            Group {
-            if rows.isEmpty && !query.isEmpty {
+        VStack(spacing: 0) {
+            filters
+            Divider()
+            if lines.isEmpty && !text.isEmpty {
                 ContentUnavailableView.search(text: text)
             } else {
-                List(selection: $selected) {
-                    ForEach(days(of: rows), id: \.first?.date) { day in
-                        Section {
-                            ForEach(day, id: \.key) { JournalRow(entry: $0, ledger: ledger, account: heldAccount, balance: balances?[ObjectIdentifier($0)]) }
-                        } header: {
-                            DayHeader(entries: day, ledger: ledger)
-                        }
-                    }
-                }
-                .listStyle(.inset)
-                .focused($listFocused)
-                .onAppear { if !searching { listFocused = true } }
-                // the system's own: double-click or Return for the primary action
-                .contextMenu(forSelectionType: String.self) { keys in
-                    if let entry = rows.first(where: { keys.contains($0.key) }) {
-                        Button("编辑…") { edit(entry) }
-                        Button("复制原文") { copySource(entry) }
-                        Button("打开所在文件") { openFile(entry) }
-                        Divider()
-                        Button("删除…", role: .destructive) { deleting = entry }
-                    }
-                } primaryAction: { keys in
-                    if let entry = rows.first(where: { keys.contains($0.key) }) { edit(entry) }
-                }
-                .onDeleteCommand { deleting = rows.first { $0.key == selected } }
+                table
             }
-            }
-            .frame(maxWidth: .infinity)
-            Divider()
+        }
+        .inspector(isPresented: $showsDetail) {
             // always there, so picking a row moves nothing
             Group {
-                if let entry = rows.first(where: { $0.key == selected }) {
-                    EntryDetail(entry: entry, ledger: ledger, edit: { edit(entry) }, copy: { copySource(entry) }, open: { openFile(entry) }, delete: { deleting = entry })
+                if let entry = picked {
+                    EntryDetail(entry: entry, ledger: ledger, edit: { edit(entry) }, copy: { copySource([entry]) }, open: { openFile(entry) }, delete: { deleting = entry })
                 } else {
                     Color.clear
                 }
             }
-            .frame(width: 280)
-            .background(Color(nsColor: .controlBackgroundColor))
+            .inspectorColumnWidth(min: 260, ideal: 300, max: 380)
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showsDetail.toggle() } label: { Label("详情", systemImage: "sidebar.right") }
+                    .help("详情")
+            }
         }
         .searchable(text: $text, isPresented: $searching, placement: .toolbar)
+        .onAppear {
+            if let saved = try? JSONDecoder().decode(TableColumnCustomization<JournalLine>.self, from: savedColumns) { columns = saved }
+            rebuild()
+        }
+        .onChange(of: key) { rebuild() }
+        .onChange(of: columns) { savedColumns = (try? JSONEncoder().encode(columns)) ?? Data() }
         .sheet(item: $editing) { NewEntrySheet(ledger: ledger, config: config, folder: folder, editing: $0.draft) }
         .alert("删除这笔交易？", isPresented: present($deleting), presenting: deleting) { entry in
             Button("删除", role: .destructive) { delete(entry) }
@@ -88,18 +139,139 @@ struct JournalPage: View {
         .alert(notice ?? "", isPresented: present($notice)) {}
     }
 
+    /// when, what kind, how many; a report's own span stays what it is
+    private var filters: some View {
+        HStack(spacing: 12) {
+            if scope?.from == nil {
+                Picker(selection: $period) {
+                    Text("全部时间").tag(ReportPeriod?.none)
+                    ForEach(ReportPeriod.allCases, id: \.self) { Text($0.title).tag(ReportPeriod?.some($0)) }
+                } label: {
+                    EmptyView()
+                }
+                .labelsHidden()
+                .fixedSize()
+                .disabled(day != nil)
+            }
+            Picker(selection: $kind) {
+                ForEach(KindFilter.allCases, id: \.self) { Text($0.rawValue) }
+            } label: {
+                EmptyView()
+            }
+            .labelsHidden()
+            .fixedSize()
+            Button { choosingDay = true } label: {
+                Label(day.map { Day.dayLabel($0) } ?? "月历", systemImage: "calendar")
+            }
+            .popover(isPresented: $choosingDay) {
+                DayPicker(title: "日期", day: Binding(get: { day ?? Day.today() }, set: {
+                    day = $0
+                    choosingDay = false
+                }))
+                .padding(12)
+            }
+            if day != nil {
+                Button("回到当前期间", systemImage: "xmark.circle.fill") { day = nil }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text("\(lines.count) 笔").monospacedDigit().foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+
+    private var table: some View {
+        Table(lines, selection: $selected, sortOrder: $sortOrder, columnCustomization: $columns) {
+            TableColumn("日期", value: \.date) { line in
+                Text(shortDate(line.date)).monospacedDigit().foregroundStyle(.secondary)
+            }
+            .width(min: 56, ideal: 72, max: 110)
+            .customizationID("date")
+            TableColumn("收付款方", value: \.payee) { line in
+                PayeeCell(entry: line.entry, ledger: ledger, title: line.payee)
+            }
+            .width(min: 160, ideal: 280)
+            .customizationID("payee")
+            TableColumn("分类", value: \.category) { line in
+                Text(line.category).lineLimit(1).foregroundStyle(.secondary)
+            }
+            .width(min: 70, ideal: 130)
+            .customizationID("category")
+            TableColumn("账户", value: \.accounts) { line in
+                Text(line.accounts + withWhom(line.entry)).lineLimit(1).foregroundStyle(.secondary)
+            }
+            .width(min: 70, ideal: 170)
+            .customizationID("accounts")
+            TableColumn("状态") { line in
+                StatusCell(entry: line.entry)
+            }
+            .width(min: 40, ideal: 90)
+            .customizationID("status")
+            TableColumn("金额", value: \.amount) { line in
+                AmountCell(entry: line.entry, ledger: ledger, account: heldAccount, balance: balances[ObjectIdentifier(line.entry)])
+            }
+            .width(min: 90, ideal: 120)
+            .alignment(.trailing)
+            .customizationID("amount")
+        }
+        .focused($listFocused)
+        .onAppear { if !searching { listFocused = true } }
+        // the system's own: double-click or Return for the primary action
+        .contextMenu(forSelectionType: String.self) { keys in
+            let chosen = lines.filter { keys.contains($0.id) }.map(\.entry)
+            if chosen.count == 1, let entry = chosen.first {
+                Button("编辑…") { edit(entry) }.disabled(entry.synthetic)
+                Button("复制原文") { copySource(chosen) }
+                Button("打开所在文件") { openFile(entry) }
+                Divider()
+                Button("删除…", role: .destructive) { deleting = entry }.disabled(entry.synthetic)
+            } else if !chosen.isEmpty {
+                Button("复制 \(chosen.count) 笔原文") { copySource(chosen) }
+            }
+        } primaryAction: { keys in
+            if keys.count == 1, let entry = lines.first(where: { keys.contains($0.id) })?.entry, !entry.synthetic { edit(entry) }
+        }
+        .onDeleteCommand { deleting = picked }
+    }
+
+    private func rebuild() {
+        let query = TxQuery(text)
+        let span: (String, String)? = day.map { ($0, $0) } ?? period?.span
+        var built: [JournalLine] = []
+        for entry in ledger.txns.reversed() {
+            if let scope, !scope.matches(entry) { continue }
+            if let span, entry.date < span.0 || entry.date > span.1 { continue }
+            guard query.matches(entry, ledger) else { continue }
+            let line = JournalLine(entry, ledger)
+            if kind.matches(line.kind) { built.append(line) }
+        }
+        lines = built.sorted(using: sortOrder)
+        balances = heldAccount.map { runningBalances(ledger, account: $0) } ?? [:]
+        let shown = Set(lines.map(\.id))
+        if !selected.isSubset(of: shown) { selected.formIntersection(shown) }
+    }
+
     /// the account in view when what it holds adds up over time; a category only has totals for a period
     private var heldAccount: String? {
         scope?.account.flatMap { $0.hasPrefix("Assets") || $0.hasPrefix("Liabilities") ? $0 : nil }
     }
 
-    /// entries come newest first, so each day's are together
-    private func days(of rows: [Entry]) -> [[Entry]] {
-        var days: [[Entry]] = []
-        for entry in rows {
-            if days.last?.first?.date == entry.date { days[days.count - 1].append(entry) } else { days.append([entry]) }
+    /// "11/08", with the year when it isn't this one
+    private func shortDate(_ date: String) -> String {
+        let short = date.dropFirst(5).replacingOccurrences(of: "-", with: "/")
+        return date.prefix(4) == Day.today().prefix(4) ? short : date.replacingOccurrences(of: "-", with: "/")
+    }
+
+    /// " · 五姨、王五": who the personal receivable lines are with
+    private func withWhom(_ entry: Entry) -> String {
+        var names: [String] = []
+        for posting in entry.postings where isPersonal(posting.account) {
+            if let name = postingPerson(posting), !names.contains(name) { names.append(name) }
         }
-        return days
+        return names.isEmpty ? "" : " · " + names.joined(separator: "、")
     }
 
     private func present<Value>(_ value: Binding<Value?>) -> Binding<Bool> {
@@ -114,9 +286,9 @@ struct JournalPage: View {
         }
     }
 
-    private func copySource(_ entry: Entry) {
+    private func copySource(_ entries: [Entry]) {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(entry.src.trimmingCharacters(in: .newlines), forType: .string)
+        NSPasteboard.general.setString(entries.map { $0.src.trimmingCharacters(in: .newlines) }.joined(separator: "\n\n"), forType: .string)
     }
 
     /// shown in the Finder when nothing is set to open a `.bean` file
@@ -151,8 +323,14 @@ struct JournalPage: View {
     }
 }
 
-private extension Entry {
+extension Entry {
     var key: String { "\(file):\(line)" }
+
+    /// where it went: its category, or for what has none the accounts the money went through
+    var route: String {
+        let categories = postings.filter { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") }
+        return moneyRoute(self).filter { account in !categories.contains { $0.account == account } }.map(acctDisplay).joined(separator: " → ")
+    }
 
     func isCategory(_ posting: Posting) -> Bool {
         posting.account.hasPrefix("Expenses:") || posting.account.hasPrefix("Income:")
@@ -195,7 +373,7 @@ private extension Entry {
     }
 }
 
-/// the picked entry beside the list, as the phone's page for it: who, how much, the accounts and category, what can be done with it
+/// the picked entry beside the list, as the phone's page for it: who, how much, the accounts and category; what can be done with it stays at the bottom
 private struct EntryDetail: View {
     let entry: Entry
     let ledger: Ledger
@@ -203,6 +381,7 @@ private struct EntryDetail: View {
     let copy: () -> Void
     let open: () -> Void
     let delete: () -> Void
+    @State private var showsSource = false
 
     var body: some View {
         let shown = classify(entry, ledger)
@@ -246,17 +425,33 @@ private struct EntryDetail: View {
                 if !entry.payee.isEmpty && !entry.narration.isEmpty {
                     LabeledContent("摘要") { Text(entry.narration).lineLimit(3) }
                 }
-                Divider()
-                VStack(alignment: .leading, spacing: 8) {
-                    Button("编辑…", action: edit).disabled(entry.synthetic)
-                    Button("复制原文", action: copy)
-                    Button("打开所在文件", action: open)
-                    Button("删除…", role: .destructive, action: delete).disabled(entry.synthetic)
+                // the source has every amount in it
+                if !KitPrivacy.masked {
+                    DisclosureGroup("Beancount 原文", isExpanded: $showsSource) {
+                        Text(entry.src.trimmingCharacters(in: .newlines))
+                            .font(.system(size: 11, design: .monospaced))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
-                .buttonStyle(.link)
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .safeAreaInset(edge: .bottom) {
+            HStack {
+                Button("编辑…", action: edit).disabled(entry.synthetic)
+                Spacer()
+                Menu("更多") {
+                    Button("复制原文", action: copy)
+                    Button("打开所在文件", action: open)
+                    Divider()
+                    Button("删除…", role: .destructive, action: delete).disabled(entry.synthetic)
+                }
+                .fixedSize()
+            }
+            .padding(12)
+            .background(.bar)
         }
     }
 
@@ -271,38 +466,52 @@ private struct EntryDetail: View {
     }
 }
 
-/// as the phone's: the day, the year when it isn't this one, and what came in and went out that day
-private struct DayHeader: View {
-    let entries: [Entry]
+/// who, on its category's colour, and the note under it
+private struct PayeeCell: View {
+    let entry: Entry
     let ledger: Ledger
+    let title: String
 
     var body: some View {
-        let day = entries[0].date
-        let year = day.prefix(4) != Day.today().prefix(4) ? " " + day.prefix(4) : ""
-        HStack(spacing: 16) {
-            Text(Day.dayLabel(day) + year)
-            Spacer()
-            Text(totals).monospacedDigit().lineLimit(1)
-        }
-    }
-
-    private var totals: String {
-        var out = 0.0, inn = 0.0
-        for entry in entries {
-            let shown = classify(entry, ledger)
-            switch shown.kind {
-            case .expense, .refund: out -= shown.amount
-            case .income: inn += shown.amount
-            default: break
+        HStack(spacing: 8) {
+            CategoryBadge(entry: entry, ledger: ledger, size: 24)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).lineLimit(1)
+                if !entry.payee.isEmpty && !entry.narration.isEmpty {
+                    Text(entry.narration)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
         }
-        return [inn != 0 ? "收入 " + money(inn, ledger.base) : nil, out != 0 ? "支出 " + money(out, ledger.base) : nil]
-            .compactMap { $0 }.joined(separator: " · ")
+        .padding(.vertical, 2)
     }
 }
 
-/// as the phone's: who and the note, where it went underneath; the amount, and what the account holds after it underneath
-private struct JournalRow: View {
+/// 待确认, pad, and tags where they fit whole
+private struct StatusCell: View {
+    let entry: Entry
+
+    var body: some View {
+        let tags = entry.tags.filter { $0 != "transfer" && $0 != "fx" }
+        HStack(spacing: 4) {
+            if entry.flag == "!" { RowTag(text: "待确认", color: .orange) }
+            if entry.synthetic { RowTag(text: "pad", color: .secondary) }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 4) {
+                    if let first = tags.first { RowTag(text: "#" + first, color: .secondary) }
+                    if tags.count > 1 { RowTag(text: "+\(tags.count - 1)", color: .secondary) }
+                }
+                if !tags.isEmpty { RowTag(text: "#\(tags.count)", color: .secondary) }
+                Color.clear.frame(width: 0, height: 0)
+            }
+        }
+    }
+}
+
+/// the amount, and what the account holds after it underneath
+private struct AmountCell: View {
     let entry: Entry
     let ledger: Ledger
     /// the account being looked through: what moved in it, to read against the balance underneath
@@ -311,85 +520,29 @@ private struct JournalRow: View {
     @Environment(\.backgroundProminence) private var prominence
 
     var body: some View {
-        let tags = entry.tags.filter { $0 != "transfer" && $0 != "fx" }
-        HStack(alignment: .top, spacing: 10) {
-            CategoryBadge(entry: entry, ledger: ledger)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 8) {
-                    Text(entry.payee.isEmpty ? (entry.narration.isEmpty ? "（无收付款方）" : entry.narration) : entry.payee)
-                        .lineLimit(1)
-                        .layoutPriority(3)
-                    if !entry.payee.isEmpty && !entry.narration.isEmpty {
-                        Text(entry.narration)
-                            .lineLimit(1)
-                            .foregroundStyle(.secondary)
-                            .layoutPriority(1)
-                    }
-                    if entry.flag == "!" { RowTag(text: "待确认", color: .orange).layoutPriority(2) }
-                    if entry.synthetic { RowTag(text: "pad", color: .secondary).layoutPriority(2) }
-                    if !tags.isEmpty {
-                        // only where they fit whole, so a long tag doesn't cut the payee down
-                        ViewThatFits(in: .horizontal) {
-                            HStack(spacing: 8) {
-                                RowTag(text: "#" + tags[0], color: .secondary)
-                                if tags.count > 1 { RowTag(text: "+\(tags.count - 1)", color: .secondary) }
-                            }
-                            RowTag(text: "#\(tags.count)", color: .secondary)
-                            Color.clear.frame(width: 0, height: 0)
-                        }
-                        .layoutPriority(2)
-                    }
-                }
-                Text(route + withWhom)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+        VStack(alignment: .trailing, spacing: 1) {
+            ForEach(entry.shownAmounts(ledger, account: account), id: \.0) { amount in
+                // red or green doesn't read on the selection's colour
+                Text(amount.0).monospacedDigit().foregroundStyle(prominence == .increased ? .white : amount.1)
             }
-            Spacer(minLength: 16)
-            VStack(alignment: .trailing, spacing: 2) {
-                ForEach(amounts, id: \.0) { amount in
-                    // red or green doesn't read on the selection's colour
-                    Text(amount.0).monospacedDigit().foregroundStyle(prominence == .increased ? .white : amount.1)
+            if account == nil {
+                ForEach(entry.charged(ledger), id: \.0) { paid in
+                    Text(money(paid.1, paid.0)).font(.caption).monospacedDigit().foregroundStyle(.secondary)
                 }
-                ForEach(charged, id: \.0) { paid in
-                    Text(money(paid.1, paid.0))
+            }
+            if let balance {
+                ForEach(balance.order, id: \.self) { currency in
+                    Text(money(balance.amounts[currency] ?? 0, currency))
                         .font(.caption)
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
-                }
-                if let balance {
-                    ForEach(balance.order, id: \.self) { currency in
-                        Text(money(balance.amounts[currency] ?? 0, currency))
-                            .font(.caption)
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                            .help("余额")
-                    }
+                        .help("余额")
                 }
             }
-            .lineLimit(1)
         }
-        .padding(.vertical, 3)
+        .lineLimit(1)
+        .frame(maxWidth: .infinity, alignment: .trailing)
     }
-
-    private var route: String {
-        let categories = entry.postings.filter { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") }
-        if transferWithFee(entry) == nil, let category = shownCategory(entry) { return acctDisplay(category) }
-        return moneyRoute(entry).filter { account in !categories.contains { $0.account == account } }.map(acctDisplay).joined(separator: " → ")
-    }
-
-    /// " · 五姨、王五": who the personal receivable lines are with
-    private var withWhom: String {
-        var names: [String] = []
-        for posting in entry.postings where isPersonal(posting.account) {
-            if let name = postingPerson(posting), !names.contains(name) { names.append(name) }
-        }
-        return names.isEmpty ? "" : " · " + names.joined(separator: "、")
-    }
-
-    private var amounts: [(String, Color)] { entry.shownAmounts(ledger, account: account) }
-
-    private var charged: [(String, Double)] { account == nil ? entry.charged(ledger) : [] }
 }
 
 private struct RowTag: View {

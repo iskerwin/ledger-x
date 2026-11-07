@@ -61,6 +61,46 @@ struct WorthCard: View {
     }
 }
 
+/// how much an account held at each month's end; the pointer shows that month in the same place
+struct BalanceChart: View {
+    let points: [BalancePoint]
+    let currency: String
+    let current: Double
+    @State private var picked: String?
+
+    var body: some View {
+        let shown = points.first { $0.month == picked }
+        let lo = points.map(\.amount).min() ?? 0, hi = points.map(\.amount).max() ?? 0
+        let pad = max((hi - lo) * 0.1, 1)
+        VStack(alignment: .leading, spacing: 12) {
+            Headline(label: shown.map { $0.month + " 月末" } ?? "当前余额 · " + currency, value: money(shown?.amount ?? current, currency))
+            Chart(points) { point in
+                LineMark(x: .value("月份", point.month), y: .value("余额", point.amount))
+                    .foregroundStyle(Color.jade)
+                    .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round))
+                    .interpolationMethod(.monotone)
+                if point.month == picked {
+                    RuleMark(x: .value("月份", point.month))
+                        .foregroundStyle(Color.secondary.opacity(0.4))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    PointMark(x: .value("月份", point.month), y: .value("余额", point.amount))
+                        .foregroundStyle(Color.jade)
+                        .symbolSize(70)
+                }
+            }
+            .chartYScale(domain: (lo - pad)...(hi + pad))
+            .chartYAxis(.hidden)
+            .chartXAxis {
+                AxisMarks(values: labelled(points.map(\.month))) { value in
+                    AxisValueLabel { if let month = value.as(String.self) { Text(monthNumber(month)) } }
+                }
+            }
+            .pickingMonth($picked)
+            .frame(height: 180)
+        }
+    }
+}
+
 /// 月度收支, in the operating currency at each month's rates: a pair of bars a month. The figures are the latest month's, or the one under the pointer, in the same places.
 struct FlowCard: View {
     let months: [String]

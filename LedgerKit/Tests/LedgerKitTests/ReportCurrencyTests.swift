@@ -158,4 +158,24 @@ final class ReportCurrencyTests: XCTestCase {
         XCTAssertEqual(s.byCurrency(base: "CNY").map { $0.currency }, ["CNY", "HKD"])
         XCTAssertEqual((-s).amounts["CNY"], -2)
     }
+
+    func testMonthlyBalancesAddUpAccountAndThoseUnderIt() {
+        let L = loadLedger(root: "main.bean") { _ in """
+        2026-01-01 open Assets:Bank:A CNY
+        2026-01-01 open Assets:Bank:B CNY
+        2026-01-01 open Income:Pay CNY
+
+        2026-01-05 * "Pay"
+          Assets:Bank:A  100.00 CNY
+          Income:Pay  -100.00 CNY
+
+        2026-03-05 * "Pay"
+          Assets:Bank:B  50.00 CNY
+          Income:Pay  -50.00 CNY
+
+        """ }
+        XCTAssertEqual(monthlyBalances(L, account: "Assets:Bank", currency: "CNY", months: 3, today: "2026-03-20").map(\.amount), [100, 100, 150])
+        XCTAssertEqual(monthlyBalances(L, account: "Assets:Bank:A", currency: "CNY", months: 3, today: "2026-03-20").map(\.month), ["2026-01", "2026-02", "2026-03"])
+    }
+
 }

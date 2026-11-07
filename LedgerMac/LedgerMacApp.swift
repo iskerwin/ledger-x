@@ -7,13 +7,17 @@ struct LedgerMacApp: App {
     @AppStorage("ledgerFolder") private var folder = ""
     @State private var picking = false
     @State private var adding = false
-    @State private var page: Page? = .journal
+    @State private var page: Page?
+    @AppStorage("appearance") private var appearance = Appearance.system.rawValue
+    @AppStorage("hideAmounts") private var hideAmounts = false
     @State private var searching = false
     /// counts the times a folder was chosen, so choosing the same one again reads it again
     @State private var opened = 0
 
     init() {
         KitLocale.chinese = true
+        KitPrivacy.masked = UserDefaults.standard.bool(forKey: "hideAmounts")
+        _page = State(initialValue: Page(rawValue: UserDefaults.standard.string(forKey: "defaultPage") ?? "") ?? .journal)
     }
 
     var body: some Scene {
@@ -21,6 +25,8 @@ struct LedgerMacApp: App {
             ContentView(folder: folder, opened: opened, picking: $picking, adding: $adding, page: $page, searching: $searching)
                 // dates as the words around them, whatever the system's first language is
                 .environment(\.locale, Locale(identifier: "zh_CN"))
+                .preferredColorScheme(Appearance(rawValue: appearance)?.scheme)
+                .onChange(of: hideAmounts) { KitPrivacy.masked = hideAmounts }
                 .fileImporter(isPresented: $picking, allowedContentTypes: [.folder]) { result in
                     if case .success(let url) = result {
                         folder = url.path
@@ -28,7 +34,7 @@ struct LedgerMacApp: App {
                     }
                 }
         }
-        .defaultSize(width: 1000, height: 700)
+        .defaultSize(width: 1280, height: 820)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("记一笔…") { withoutSheet { adding = true } }
@@ -55,7 +61,15 @@ struct LedgerMacApp: App {
                         .disabled(folder.isEmpty)
                 }
                 Divider()
+                Toggle("隐藏金额", isOn: $hideAmounts)
+                    .keyboardShortcut("h", modifiers: [.command, .shift])
+                Divider()
             }
+        }
+        Settings {
+            SettingsView(folder: folder, picking: $picking)
+                .environment(\.locale, Locale(identifier: "zh_CN"))
+                .preferredColorScheme(Appearance(rawValue: appearance)?.scheme)
         }
     }
 
@@ -83,7 +97,7 @@ private struct ContentView: View {
     var body: some View {
         Group {
             if let ledger {
-                MainView(ledger: ledger, config: config, folder: URL(fileURLWithPath: folder), changes: changes, adding: $adding, page: $page, searching: $searching)
+                MainView(ledger: ledger, config: config, folder: URL(fileURLWithPath: folder), changes: changes, adding: $adding, page: $page, searching: $searching, picking: $picking)
             } else if folder.isEmpty || missing {
                 VStack(spacing: 12) {
                     if missing { Text("这个文件夹里没有账本").foregroundStyle(.secondary) }
@@ -95,7 +109,7 @@ private struct ContentView: View {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .frame(minWidth: 720, minHeight: 540)
+        .frame(minWidth: 960, minHeight: 640)
         .navigationTitle(folder.isEmpty ? "Ledger X" : URL(fileURLWithPath: folder).lastPathComponent)
         .task(id: "\(changes)|\(opened)|\(folder)") {
             guard !folder.isEmpty else { return }
