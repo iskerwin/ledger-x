@@ -109,6 +109,65 @@ final class FolderGitTests: XCTestCase {
         XCTAssertEqual(try remoteFile("main.bean"), "; changed\n")
     }
 
+    private func pushFromPhone(_ path: String, _ text: String) throws {
+        let phone = root.appendingPathComponent("phone")
+        if !FileManager.default.fileExists(atPath: phone.path) { _ = try clone(as: "phone") }
+        try runGit(["pull", "--quiet"], in: phone)
+        try text.write(to: phone.appendingPathComponent(path), atomically: true, encoding: .utf8)
+        try commitAndPush(phone)
+    }
+
+    private func read(_ path: String) throws -> String {
+        try String(contentsOf: folder.appendingPathComponent(path), encoding: .utf8)
+    }
+
+    func testPullBringsInTheRemotesCommits() throws {
+        try pushFromPhone("phone.bean", "; phone\n")
+        try pullFolderGit(folder)
+        XCTAssertEqual(try read("phone.bean"), "; phone\n")
+        XCTAssertEqual(try XCTUnwrap(folderGitStatus(folder)).behind, 0)
+    }
+
+    func testPullKeepsChangesToOtherFiles() throws {
+        try write("main.bean", "; changed\n")
+        try pushFromPhone("phone.bean", "; phone\n")
+        try pullFolderGit(folder)
+        XCTAssertEqual(try read("phone.bean"), "; phone\n")
+        XCTAssertEqual(try read("main.bean"), "; changed\n")
+        XCTAssertEqual(try XCTUnwrap(folderGitStatus(folder)).paths, ["main.bean"])
+    }
+
+    func testPullThatWouldOverwriteALocalChangeChangesNothing() throws {
+        try write("main.bean", "; changed\n")
+        let head = try runGit(["rev-parse", "HEAD"], in: folder)
+        try pushFromPhone("main.bean", "; phone\n")
+        XCTAssertThrowsError(try pullFolderGit(folder))
+        XCTAssertEqual(try read("main.bean"), "; changed\n")
+        XCTAssertEqual(try runGit(["rev-parse", "HEAD"], in: folder), head)
+    }
+
+    func testPullNeverMergesCommitsOnBothSides() throws {
+        try write("main.bean", "; changed\n")
+        try runGit(["add", "-A"], in: folder)
+        try runGit(["commit", "--quiet", "-m", "Sample"], in: folder)
+        let head = try runGit(["rev-parse", "HEAD"], in: folder)
+        try pushFromPhone("phone.bean", "; phone\n")
+        XCTAssertThrowsError(try pullFolderGit(folder))
+        XCTAssertEqual(try runGit(["rev-parse", "HEAD"], in: folder), head)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.appendingPathComponent("phone.bean").path))
+    }
+
+    func testPullWithNothingNewChangesNothing() throws {
+        let head = try runGit(["rev-parse", "HEAD"], in: folder)
+        try pullFolderGit(folder)
+        XCTAssertEqual(try runGit(["rev-parse", "HEAD"], in: folder), head)
+    }
+
+    func testAFailedFetchPullsNothing() throws {
+        try FileManager.default.moveItem(at: remote, to: root.appendingPathComponent("moved.git"))
+        XCTAssertThrowsError(try pullFolderGit(folder))
+    }
+
     func testNothingToPushWithoutARepositoryAtTheTopOrAnUpstream() throws {
         let plain = root.appendingPathComponent("plain")
         try FileManager.default.createDirectory(at: plain, withIntermediateDirectories: true)

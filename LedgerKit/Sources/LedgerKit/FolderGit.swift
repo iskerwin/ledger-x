@@ -41,9 +41,7 @@ func parseGitStatus(_ text: String) -> FolderGitStatus? {
 /// Commits `paths` and nothing else, then pushes. Never merges: when the remote has moved on nothing is committed. A push that
 /// fails leaves the commit here, and calling this again sends it.
 public func syncFolderGit(_ folder: URL, paths: [String]) throws {
-    try runGit(["fetch", "--quiet"], in: folder)
-    guard let status = folderGitStatus(folder) else { throw FolderSaveError(message: tr("这个文件夹不能推送", "This folder can't be pushed")) }
-    guard !status.conflicted else { throw FolderSaveError(message: tr("账本有未解决的冲突，没有提交", "The ledger has unresolved conflicts: nothing was committed")) }
+    let status = try fetchedStatus(folder)
     guard status.behind == 0 else { throw FolderSaveError(message: tr("远端有新提交，请先拉取，没有提交", "The remote has new commits: pull first. Nothing was committed")) }
     let changed = paths.filter { status.paths.contains($0) }
     if !changed.isEmpty {
@@ -57,6 +55,26 @@ public func syncFolderGit(_ folder: URL, paths: [String]) throws {
     } catch {
         throw FolderSaveError(message: tr("已提交到本机，但推送失败：\(error.localizedDescription)", "Committed here, but the push failed: \(error.localizedDescription)"))
     }
+}
+
+/// Brings in the remote's commits when that needs no merge. git itself refuses, leaving everything as it is, when they would
+/// overwrite a file changed here; changes to other files stay.
+public func pullFolderGit(_ folder: URL) throws {
+    let status = try fetchedStatus(folder)
+    guard status.behind > 0 else { return }
+    guard status.ahead == 0 else { throw FolderSaveError(message: tr("本机和远端都有新提交，没有拉取，请在终端合并", "Both this computer and the remote have new commits: nothing was pulled. Merge them in a terminal")) }
+    do {
+        try runGit(["merge", "--quiet", "--ff-only", "@{upstream}"], in: folder)
+    } catch {
+        throw FolderSaveError(message: tr("没有拉取：\(error.localizedDescription)", "Nothing was pulled: \(error.localizedDescription)"))
+    }
+}
+
+private func fetchedStatus(_ folder: URL) throws -> FolderGitStatus {
+    try runGit(["fetch", "--quiet"], in: folder)
+    guard let status = folderGitStatus(folder) else { throw FolderSaveError(message: tr("这个文件夹不能同步", "This folder can't be synced")) }
+    guard !status.conflicted else { throw FolderSaveError(message: tr("账本有未解决的冲突，没有改动", "The ledger has unresolved conflicts: nothing was changed")) }
+    return status
 }
 
 /// git as this user has set it up, wherever it is installed; an app started from the Finder has a short PATH, and no terminal to ask for a password on

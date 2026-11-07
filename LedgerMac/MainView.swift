@@ -32,6 +32,8 @@ struct MainView: View {
     @State private var git: FolderGitStatus?
     @State private var gitReads = 0
     @State private var syncing = false
+    @State private var pulling = false
+    @State private var pullError: String?
 
     var body: some View {
         NavigationSplitView {
@@ -50,7 +52,15 @@ struct MainView: View {
             .safeAreaInset(edge: .bottom) { ErrorBar(errors: ledger.errors.filter { !$0.soft }) }
             .toolbar {
                 if let git {
-                    ToolbarItem(placement: .primaryAction) {
+                    ToolbarItemGroup(placement: .primaryAction) {
+                        Button { pull() } label: {
+                            if pulling {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Label(chinese ? "拉取" : "Pull", systemImage: "arrow.down.circle")
+                            }
+                        }
+                        .disabled(pulling)
                         Button { syncing = true } label: { Label(chinese ? "提交并推送" : "Commit and Push", systemImage: "arrow.up.circle") }
                             .disabled(!git.canSync)
                     }
@@ -74,6 +84,18 @@ struct MainView: View {
         }
         // what happens in .git isn't watched: a commit made in a terminal is seen on coming back
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in gitReads += 1 }
+        .alert(pullError ?? "", isPresented: Binding(get: { pullError != nil }, set: { if !$0 { pullError = nil } })) {}
+    }
+
+    private func pull() {
+        pulling = true
+        let folder = folder
+        Task { @MainActor in
+            let result = await Task.detached { Result { try pullFolderGit(folder) } }.value
+            pulling = false
+            gitReads += 1
+            if case .failure(let error) = result { pullError = error.localizedDescription }
+        }
     }
 }
 
