@@ -55,7 +55,7 @@ targets:
       base:
         PRODUCT_NAME: Ledger
         PRODUCT_BUNDLE_IDENTIFIER: com.iskerwin.ledger
-        MARKETING_VERSION: "1.0.14"
+        MARKETING_VERSION: "1.0.15"
         CURRENT_PROJECT_VERSION: "1"
         LEDGER_DEMO_COMMIT: ""
         LEDGER_DEMO_MIRROR: ""
@@ -97,7 +97,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.iskerwin.ledger.mac
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
-        MARKETING_VERSION: "1.0.14"
+        MARKETING_VERSION: "1.0.15"
         CURRENT_PROJECT_VERSION: "1"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.finance
