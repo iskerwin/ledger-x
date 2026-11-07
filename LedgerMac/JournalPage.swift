@@ -31,9 +31,7 @@ struct JournalPage: View {
                 List(selection: $selected) {
                     ForEach(days(of: rows), id: \.first?.date) { day in
                         Section(day[0].date) {
-                            ForEach(day, id: \.key) { entry in
-                                JournalRow(entry: entry, ledger: ledger, balance: balances.map { $0[ObjectIdentifier(entry)] ?? Inventory() })
-                            }
+                            ForEach(day, id: \.key) { JournalRow(entry: $0, ledger: ledger, balance: balances?[ObjectIdentifier($0)]) }
                         }
                     }
                 }
@@ -176,12 +174,14 @@ private struct JournalRow: View {
             }
             .foregroundStyle(isTransfer ? .secondary : .primary)
             if let balance {
-                Text(amountsText(balance, ledger))
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 160, alignment: .trailing)
-                    .help("余额")
+                VStack(alignment: .trailing) {
+                    ForEach(balance.order, id: \.self) { currency in
+                        Text(money(balance.amounts[currency] ?? 0, currency)).monospacedDigit().lineLimit(1)
+                    }
+                }
+                .foregroundStyle(.secondary)
+                .frame(width: 140, alignment: .trailing)
+                .help("余额")
             }
         }
         .padding(.vertical, 2)

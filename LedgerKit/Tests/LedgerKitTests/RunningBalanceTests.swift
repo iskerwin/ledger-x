@@ -32,6 +32,10 @@ final class RunningBalanceTests: XCTestCase {
       Assets:Bank:Sub  20.00 CNY
       Assets:Bank  -20.00 CNY
 
+    2025-01-08 * "Sample" "Spent the dollars"
+      Expenses:Food  3.00 USD
+      Assets:Bank:Sub  -3.00 USD
+
     """ }
 
     private func amounts(_ note: String) -> [String: Double]? {
@@ -51,15 +55,21 @@ final class RunningBalanceTests: XCTestCase {
 
     func testAccountsBelowCountAndSimilarNamesDoNot() {
         XCTAssertNil(amounts("Similar name"))
-        XCTAssertEqual(amounts("Below"), ["CNY": 85, "USD": 3])
+        XCTAssertEqual(amounts("Below"), ["USD": 3])
+    }
+
+    func testOnlyTheCurrenciesAnEntryMovesAreGiven() {
+        XCTAssertEqual(amounts("Second of the day"), ["CNY": 85])
+        XCTAssertEqual(amounts("Spent the dollars"), ["USD": 0])
     }
 
     func testMovingWithinTheAccountChangesNothing() {
-        XCTAssertEqual(amounts("Within the account"), ["CNY": 85, "USD": 3])
+        XCTAssertEqual(amounts("Within the account"), ["CNY": 85])
     }
 
-    func testTheLastEntryAgreesWithTheAccountsPage() {
+    func testTheLastEntriesAgreeWithTheAccountsPage() {
         let held = periodBalances(ledger).filter { isExcluded($0.key, ["Assets:Bank"]) }.values.reduce(Inventory()) { $0 + $1 }
-        XCTAssertEqual(amounts("Within the account"), held.amounts)
+        XCTAssertEqual(amounts("Within the account")?["CNY"], held.amounts["CNY"])
+        XCTAssertEqual(amounts("Spent the dollars")?["USD"], held.amounts["USD"])
     }
 }

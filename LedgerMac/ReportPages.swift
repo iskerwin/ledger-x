@@ -114,9 +114,9 @@ private func opening(_ open: @escaping (String) -> Void) -> Binding<String?> {
 }
 
 /// one line whatever the currencies, so the page doesn't move when the period changes
-func amountsText(_ amounts: Inventory, _ ledger: Ledger) -> String {
+private func amountsText(_ amounts: Inventory, _ ledger: Ledger) -> String {
     let shown = amounts.byCurrency(base: ledger.base)
-    return (shown.isEmpty ? [CurrencyAmount(amounts.order.first ?? ledger.base, 0)] : shown).map { money($0.amount, $0.currency) }.joined(separator: " · ")
+    return (shown.isEmpty ? [CurrencyAmount(ledger.base, 0)] : shown).map { money($0.amount, $0.currency) }.joined(separator: " · ")
 }
 
 private struct Totals: View {
