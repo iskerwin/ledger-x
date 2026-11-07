@@ -41,6 +41,9 @@ struct JournalPage: View {
                 .contextMenu(forSelectionType: String.self) { keys in
                     if let entry = rows.first(where: { keys.contains($0.key) }) {
                         Button("编辑…") { edit(entry) }
+                        Button("复制原文") { copySource(entry) }
+                        Button("打开所在文件") { openFile(entry) }
+                        Divider()
                         Button("删除…", role: .destructive) { deleting = entry }
                     }
                 } primaryAction: { keys in
@@ -102,6 +105,17 @@ struct JournalPage: View {
         } else {
             notice = "这笔交易在 Mac 上还不能编辑，请在手机上修改"
         }
+    }
+
+    private func copySource(_ entry: Entry) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(entry.src.trimmingCharacters(in: .newlines), forType: .string)
+    }
+
+    /// shown in the Finder when nothing is set to open a `.bean` file
+    private func openFile(_ entry: Entry) {
+        let url = folder.appendingPathComponent(entry.file)
+        if !NSWorkspace.shared.open(url) { NSWorkspace.shared.activateFileViewerSelecting([url]) }
     }
 
     private func delete(_ entry: Entry) {
