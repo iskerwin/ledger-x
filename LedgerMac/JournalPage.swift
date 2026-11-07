@@ -23,6 +23,7 @@ struct JournalPage: View {
     var body: some View {
         let query = TxQuery(text)
         let rows = ledger.txns.reversed().filter { (scope?.matches($0) ?? true) && query.matches($0, ledger) }
+        let balances = heldAccount.map { runningBalances(ledger, account: $0) }
         Group {
             if rows.isEmpty && !query.isEmpty {
                 ContentUnavailableView.search(text: text)
@@ -30,7 +31,9 @@ struct JournalPage: View {
                 List(selection: $selected) {
                     ForEach(days(of: rows), id: \.first?.date) { day in
                         Section(day[0].date) {
-                            ForEach(day, id: \.key) { JournalRow(entry: $0, ledger: ledger) }
+                            ForEach(day, id: \.key) { entry in
+                                JournalRow(entry: entry, ledger: ledger, balance: balances.map { $0[ObjectIdentifier(entry)] ?? Inventory() })
+                            }
                         }
                     }
                 }
@@ -84,6 +87,11 @@ struct JournalPage: View {
             Text(save.issues.map(\.detail).joined(separator: "\n"))
         }
         .alert(notice ?? "", isPresented: present($notice)) {}
+    }
+
+    /// the account in view when what it holds adds up over time; a category only has totals for a period
+    private var heldAccount: String? {
+        scope?.account.flatMap { $0.hasPrefix("Assets") || $0.hasPrefix("Liabilities") ? $0 : nil }
     }
 
     /// entries come newest first, so each day's are together
@@ -151,6 +159,7 @@ private extension Entry {
 private struct JournalRow: View {
     let entry: Entry
     let ledger: Ledger
+    let balance: Inventory?
 
     var body: some View {
         HStack(spacing: 16) {
@@ -166,6 +175,14 @@ private struct JournalRow: View {
                 ForEach(amounts, id: \.self) { Text($0).monospacedDigit() }
             }
             .foregroundStyle(isTransfer ? .secondary : .primary)
+            if let balance {
+                Text(amountsText(balance, ledger))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 160, alignment: .trailing)
+                    .help("余额")
+            }
         }
         .padding(.vertical, 2)
     }

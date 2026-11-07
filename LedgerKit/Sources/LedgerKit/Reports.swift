@@ -217,6 +217,19 @@ public func entryCounts(_ entry: Entry, for account: String?, from: String?, to:
         && (account.map { account in entry.postings.contains { isExcluded($0.account, [account]) } } ?? true)
 }
 
+/// what `account` and those under it hold just after each entry that moves them, in the order the ledger counts them
+public func runningBalances(_ L: Ledger, account: String) -> [ObjectIdentifier: Inventory] {
+    var out: [ObjectIdentifier: Inventory] = [:]
+    var running = Inventory()
+    for t in L.txns {
+        let moved = t.postings.filter { isExcluded($0.account, [account]) }
+        if moved.isEmpty { continue }
+        for p in moved { if let u = p.units, let c = p.currency { running.add(u, c) } }
+        out[ObjectIdentifier(t)] = running
+    }
+    return out
+}
+
 /// `account` is one of `list` or under one of them
 public func isExcluded(_ account: String, _ list: [String]) -> Bool {
     list.contains { account == $0 || account.hasPrefix($0 + ":") }
