@@ -5,7 +5,7 @@ struct JournalPage: View {
     let ledger: Ledger
     let config: LedgerXConfig?
     let folder: URL
-    @Binding var scope: JournalScope?
+    let scope: JournalScope?
     @Binding var searching: Bool
     @State private var text = ""
     @State private var selected: String?
@@ -51,21 +51,6 @@ struct JournalPage: View {
                     if let entry = rows.first(where: { keys.contains($0.key) }) { edit(entry) }
                 }
                 .onDeleteCommand { deleting = rows.first { $0.key == selected } }
-            }
-        }
-        .safeAreaInset(edge: .top) {
-            if let scope {
-                HStack {
-                    Text(scope.title).lineLimit(1)
-                    Spacer(minLength: 16)
-                    Button { self.scope = nil } label: { Image(systemName: "xmark.circle.fill") }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-                        .accessibilityLabel("显示全部")
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 8)
-                .background(.bar)
             }
         }
         .searchable(text: $text, isPresented: $searching, placement: .toolbar)

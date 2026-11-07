@@ -24,7 +24,7 @@ enum Page: CaseIterable {
 }
 
 /// the journal kept to what a report counted for one account
-struct JournalScope {
+struct JournalScope: Hashable {
     let title: String
     var account: String?
     var from: String?
@@ -42,7 +42,8 @@ struct MainView: View {
     @Binding var adding: Bool
     @Binding var page: Page?
     @Binding var searching: Bool
-    @State private var scope: JournalScope?
+    /// showing the entries a row counts, where the search box has them to search
+    @State private var inScope = false
     @State private var period = ReportPeriod.thisMonth
     @State private var git: FolderGitStatus?
     @State private var gitReads = 0
@@ -60,15 +61,25 @@ struct MainView: View {
             }
             .navigationSplitViewColumnWidth(min: 140, ideal: 160)
         } detail: {
-            Group {
-                switch page ?? .journal {
-                case .journal: JournalPage(ledger: ledger, config: config, folder: folder, scope: $scope, searching: $searching)
-                case .accounts:
-                    AccountsPage(ledger: ledger, config: config, folder: folder) { open($0, title: accountTitle(ledger, $0), span: nil) }
-                case .reports:
-                    ReportsPage(ledger: ledger, period: $period) { open($0, title: accountTitle(ledger, $0) + " · " + period.title, span: period.span) }
-                case .months:
-                    MonthsPage(ledger: ledger) { open(nil, title: $0, span: (Day.ym($0) + "-01", Day.monthEnd($0))) }
+            NavigationStack {
+                Group {
+                    switch page ?? .journal {
+                    case .journal: JournalPage(ledger: ledger, config: config, folder: folder, scope: nil, searching: $searching)
+                    case .accounts:
+                        AccountsPage(ledger: ledger, config: config, folder: folder) { JournalScope(title: accountTitle(ledger, $0), account: $0) }
+                    case .reports:
+                        ReportsPage(ledger: ledger, period: $period) {
+                            JournalScope(title: accountTitle(ledger, $0) + " · " + period.title, account: $0, from: period.span?.0, to: period.span?.1)
+                        }
+                    case .months:
+                        MonthsPage(ledger: ledger) { JournalScope(title: $0, from: Day.ym($0) + "-01", to: Day.monthEnd($0)) }
+                    }
+                }
+                .navigationDestination(for: JournalScope.self) { scope in
+                    JournalPage(ledger: ledger, config: config, folder: folder, scope: scope, searching: $searching)
+                        .navigationTitle(scope.title)
+                        .onAppear { inScope = true }
+                        .onDisappear { inScope = false }
                 }
             }
             // a list of its own for each page: left to reuse its rows, one page's row keeps what the last page's row did when clicked
@@ -114,12 +125,7 @@ struct MainView: View {
         // what happens in .git isn't watched: a commit made in a terminal, or on another device, is seen on coming back
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in checkRemote() }
         .alert(pullError ?? "", isPresented: Binding(get: { pullError != nil }, set: { if !$0 { pullError = nil } })) {}
-        .onChange(of: page) { if page != .journal { scope = nil } }
-    }
-
-    private func open(_ account: String?, title: String, span: (String, String)?) {
-        scope = JournalScope(title: title, account: account, from: span?.0, to: span?.1)
-        page = .journal
+        .onChange(of: searching) { if searching && !inScope { page = .journal } }
     }
 
     private func checkRemote() {

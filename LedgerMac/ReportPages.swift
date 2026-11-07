@@ -5,7 +5,7 @@ struct AccountsPage: View {
     let ledger: Ledger
     let config: LedgerXConfig?
     let folder: URL
-    let open: (String) -> Void
+    let scope: (String) -> JournalScope
     @State private var checking: CheckedAccount?
 
     private struct CheckedAccount: Identifiable {
@@ -15,9 +15,9 @@ struct AccountsPage: View {
     var body: some View {
         let sheet = balanceSheet(ledger, at: nil, exclude: config?.balanceExclude ?? [])
         let worth = netWorthNow(ledger, exclude: config?.netWorthExclude ?? [])
-        List(selection: opening(open)) {
-            TreeSection(title: "资产", root: sheet.assets, ledger: ledger) { checking = CheckedAccount(id: $0) }
-            TreeSection(title: "负债", root: sheet.liabilities, ledger: ledger) { checking = CheckedAccount(id: $0) }
+        List {
+            TreeSection(title: "资产", root: sheet.assets, ledger: ledger, scope: scope) { checking = CheckedAccount(id: $0) }
+            TreeSection(title: "负债", root: sheet.liabilities, ledger: ledger, scope: scope) { checking = CheckedAccount(id: $0) }
         }
         .listStyle(.inset)
         .safeAreaInset(edge: .top) {
@@ -39,15 +39,15 @@ enum ReportPeriod: String, CaseIterable {
 struct ReportsPage: View {
     let ledger: Ledger
     @Binding var period: ReportPeriod
-    let open: (String) -> Void
+    let scope: (String) -> JournalScope
 
     var body: some View {
         let span = period.span
         let report = incomeStatement(ledger, from: span?.0, to: span?.1)
         let income = -report.income.shown, expenses = report.expenses.shown
-        List(selection: opening(open)) {
-            TreeSection(title: "收入", root: report.income, ledger: ledger, negated: true)
-            TreeSection(title: "支出", root: report.expenses, ledger: ledger)
+        List {
+            TreeSection(title: "收入", root: report.income, ledger: ledger, negated: true, scope: scope)
+            TreeSection(title: "支出", root: report.expenses, ledger: ledger, scope: scope)
         }
         .listStyle(.inset)
         .safeAreaInset(edge: .top) {
@@ -70,15 +70,17 @@ struct ReportsPage: View {
 
 struct MonthsPage: View {
     let ledger: Ledger
-    let open: (String) -> Void
+    let scope: (String) -> JournalScope
 
     var body: some View {
         let flows = monthlyFlows(ledger, months: ledger.txns.map { Day.ym($0.date) }, mode: .units)
-        List(selection: opening(open)) {
+        List {
             Section {
                 ForEach(flows.sorted { $0.key > $1.key }, id: \.key) { month, flow in
-                    MonthRow(month: month, income: amountsText(flow.income, ledger), expenses: amountsText(flow.expenses, ledger),
-                             net: amountsText(flow.income + (-flow.expenses), ledger))
+                    NavigationLink(value: scope(month)) {
+                        MonthRow(month: month, income: amountsText(flow.income, ledger), expenses: amountsText(flow.expenses, ledger),
+                                 net: amountsText(flow.income + (-flow.expenses), ledger))
+                    }
                 }
             } header: {
                 MonthRow(month: "", income: "收入", expenses: "支出", net: "结余")
@@ -104,13 +106,6 @@ private struct MonthRow: View {
         .monospacedDigit()
         .lineLimit(1)
     }
-}
-
-/// A click on a row opens its account and leaves nothing selected. Through the list's selection, so it reaches this page:
-/// a tap gesture on a row can go on answering for whatever the list showed in that place before.
-private func opening(_ open: @escaping (String) -> Void) -> Binding<String?> {
-    // after the list has finished with the click: changing page in the middle of it leaves the window no longer following the page
-    Binding(get: { nil }, set: { account in if let account { DispatchQueue.main.async { open(account) } } })
 }
 
 /// one line whatever the currencies, so the page doesn't move when the period changes
@@ -148,13 +143,16 @@ private struct TreeSection: View {
     let ledger: Ledger
     /// income is written as a negative amount; shown here as what came in
     var negated = false
+    let scope: (String) -> JournalScope
     /// only where the row's account can hold an assertion
     var check: ((String) -> Void)?
 
     var body: some View {
         Section {
             OutlineGroup(root.children, id: \.name, children: \.kids) { node in
-                TreeRow(name: name(node), amount: amountsText(negated ? -node.shown : node.shown, ledger))
+                NavigationLink(value: scope(node.name)) {
+                    TreeRow(name: name(node), amount: amountsText(negated ? -node.shown : node.shown, ledger))
+                }
                 .contextMenu {
                     if let check, ledger.accounts[node.name] != nil {
                         Button("核对余额…") { check(node.name) }

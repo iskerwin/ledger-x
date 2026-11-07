@@ -40,7 +40,6 @@ struct LedgerMacApp: App {
             CommandGroup(after: .textEditing) {
                 Button("搜索") {
                     withoutSheet {
-                        page = .journal
                         // the box may have lost focus without closing: closing it first brings it back every time
                         searching = false
                         DispatchQueue.main.async { searching = true }
