@@ -37,7 +37,7 @@ struct MainView: View {
         } detail: {
             Group {
                 switch page ?? .journal {
-                case .journal: JournalPage(ledger: ledger)
+                case .journal: JournalPage(ledger: ledger, config: config, folder: folder)
                 case .accounts: AccountsPage(ledger: ledger, config: config)
                 case .reports: ReportsPage(ledger: ledger)
                 }

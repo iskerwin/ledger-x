@@ -107,6 +107,124 @@ final class FolderSaveTests: XCTestCase {
         XCTAssertEqual(try read("main.bean"), elsewhere)
     }
 
+    private let sample = """
+    2026-10-16 * "Sample Shop" "Lunch"
+      Expenses:Food  35.00 CNY
+      Assets:Bank  -35.00 CNY
+
+    """
+
+    private func entry(_ narration: String = "Lunch", occurrence: Int = 0) throws -> (Entry, Ledger) {
+        let ledger = try XCTUnwrap(loadLedger(folder: folder))
+        return (ledger.txns.filter { $0.narration == narration }[occurrence], ledger)
+    }
+
+    private func editing(_ narration: String = "Lunch", occurrence: Int = 0) throws -> Draft {
+        let (found, ledger) = try entry(narration, occurrence: occurrence)
+        return try XCTUnwrap(folderEditDraft(found, ledger, Derived(ledger)))
+    }
+
+    func testEditingChangesTheEntryInPlaceAndLeavesTheRest() throws {
+        try write("main.bean", opens + "\n" + sample + "\n2026-10-17 * \"Other\"\n  Expenses:Food  1.00 CNY\n  Assets:Bank  -1.00 CNY\n")
+        var draft = try editing()
+        draft.amount = "50"
+        try commitFolderSave(try prepared(draft), folder: folder)
+        let text = try read("main.bean")
+        XCTAssertFalse(text.contains("35.00"))
+        XCTAssertLessThan(try XCTUnwrap(text.range(of: "50.00 CNY")).lowerBound, try XCTUnwrap(text.range(of: "\"Other\"")).lowerBound)
+        let after = try XCTUnwrap(loadLedger(folder: folder))
+        XCTAssertEqual(after.txns.filter { $0.narration == "Lunch" }.count, 1)
+        XCTAssertEqual(after.txns.count, 3)
+    }
+
+    func testSavingAnEntryUnchangedWritesNothing() throws {
+        try write("main.bean", opens + "\n" + sample)
+        let before = try read("main.bean")
+        let save = try prepared(try editing())
+        XCTAssertTrue(save.files.isEmpty)
+        try commitFolderSave(save, folder: folder)
+        XCTAssertEqual(try read("main.bean"), before)
+    }
+
+    func testChangingTheYearMovesTheEntryAndWritesTheNewPlaceFirst() throws {
+        try write("main.bean", "include \"journals/2026.bean\"\n" + opens)
+        try write("journals/2026.bean", sample)
+        var draft = try editing()
+        draft.date = "2027-01-05"
+        let save = try prepared(draft)
+        XCTAssertEqual(save.files.map(\.path), ["journals/2027.bean", "main.bean", "journals/2026.bean"])
+        try commitFolderSave(save, folder: folder)
+        XCTAssertFalse(try read("journals/2026.bean").contains("Lunch"))
+        XCTAssertTrue(try read("journals/2027.bean").contains("Lunch"))
+        XCTAssertEqual(try XCTUnwrap(loadLedger(folder: folder)).txns.filter { $0.narration == "Lunch" }.map(\.date), ["2027-01-05"])
+    }
+
+    func testOfTwoIdenticalEntriesOnlyTheChosenOneChanges() throws {
+        try write("main.bean", opens + "\n" + sample + "\n" + sample)
+        var draft = try editing(occurrence: 1)
+        draft.amount = "50"
+        try commitFolderSave(try prepared(draft), folder: folder)
+        let text = try read("main.bean")
+        XCTAssertLessThan(try XCTUnwrap(text.range(of: "35.00 CNY")).lowerBound, try XCTUnwrap(text.range(of: "50.00 CNY")).lowerBound)
+        XCTAssertEqual(try XCTUnwrap(loadLedger(folder: folder)).txns.filter { $0.narration == "Lunch" }.count, 2)
+    }
+
+    func testIdenticalEntriesThatMovedAreNotGuessedAt() throws {
+        try write("main.bean", opens + "\n" + sample + "\n" + sample)
+        var draft = try editing()
+        draft.amount = "50"
+        let moved = "; a new first line\n" + (try read("main.bean"))
+        try write("main.bean", moved)
+        guard case .failure = prepareFolderSave(draft, folder: folder) else { return XCTFail("should be refused") }
+        XCTAssertEqual(try read("main.bean"), moved)
+    }
+
+    func testAnEntryChangedElsewhereIsNotEdited() throws {
+        try write("main.bean", opens + "\n" + sample)
+        var draft = try editing()
+        draft.amount = "50"
+        let changed = (try read("main.bean")).replacingOccurrences(of: "35.00", with: "36.00")
+        try write("main.bean", changed)
+        guard case .failure = prepareFolderSave(draft, folder: folder) else { return XCTFail("should be refused") }
+        XCTAssertEqual(try read("main.bean"), changed)
+    }
+
+    func testEntriesTheSheetCantShowAreNotOffered() throws {
+        let linked = "2026-10-16 * \"Sample Shop\" \"Lunch\" ^refund-1\n  Expenses:Food  35.00 CNY\n  Assets:Bank  -35.00 CNY\n"
+        let commented = "2026-10-16 * \"Sample Shop\" \"Lunch\"\n  Expenses:Food  35.00 CNY ; a comment\n  Assets:Bank  -35.00 CNY\n"
+        let split = "2026-10-16 * \"Sample Shop\" \"Lunch\"\n  Expenses:Food  30.00 CNY\n  Expenses:Food  5.00 CNY\n  Assets:Bank  -20.00 CNY\n  Assets:Cash  -15.00 CNY\n"
+        for text in [linked, commented, split] {
+            try write("main.bean", opens + "\n" + text)
+            let (found, ledger) = try entry()
+            XCTAssertNil(folderEditDraft(found, ledger, Derived(ledger)), text)
+        }
+    }
+
+    func testDeletingRemovesOnlyThatEntry() throws {
+        try write("main.bean", opens + "\n" + sample + "\n" + sample)
+        let (found, _) = try entry(occurrence: 1)
+        try commitFolderSave(try prepareFolderDelete(found, folder: folder).get(), folder: folder)
+        let after = try XCTUnwrap(loadLedger(folder: folder))
+        XCTAssertEqual(after.txns.filter { $0.narration == "Lunch" }.count, 1)
+        XCTAssertLessThan(try XCTUnwrap(after.txns.first { $0.narration == "Lunch" }).line, found.line)
+    }
+
+    func testDeletingALinkedEntryIsRefused() throws {
+        let linked = opens + "\n2026-10-16 * \"Sample Shop\" \"Lunch\" ^refund-1\n  Expenses:Food  35.00 CNY\n  Assets:Bank  -35.00 CNY\n"
+        try write("main.bean", linked)
+        let (found, _) = try entry()
+        guard case .failure = prepareFolderDelete(found, folder: folder) else { return XCTFail("should be refused") }
+        XCTAssertEqual(try read("main.bean"), linked)
+    }
+
+    func testDeletingThatBreaksAnAssertionIsReportedBeforeWriting() throws {
+        let start = opens + "\n" + sample + "\n2026-12-31 balance Assets:Bank 965.00 CNY\n"
+        try write("main.bean", start)
+        let (found, _) = try entry()
+        XCTAssertTrue(try prepareFolderDelete(found, folder: folder).get().issues.contains { $0.kind == .balance })
+        XCTAssertEqual(try read("main.bean"), start)
+    }
+
     func testAFolderWithoutALedgerIsRefused() throws {
         try FileManager.default.removeItem(at: folder.appendingPathComponent("main.bean"))
         guard case .failure = prepareFolderSave(draft(.expense), folder: folder) else { return XCTFail("should be refused") }

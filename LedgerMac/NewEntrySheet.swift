@@ -11,14 +11,14 @@ struct NewEntrySheet: View {
     @State private var saving = false
     @State private var review: FolderSave?
 
-    init(ledger: Ledger, config: LedgerXConfig?, folder: URL) {
+    init(ledger: Ledger, config: LedgerXConfig?, folder: URL, editing: Draft? = nil) {
         self.ledger = ledger
         self.folder = folder
         let derived = Derived(ledger)
         self.derived = derived
-        var draft = Draft()
-        draft.currency = ledger.base
-        if let funding = config?.defaultFunding, derived.openAccounts.contains(funding) {
+        var draft = editing ?? Draft()
+        if editing == nil { draft.currency = ledger.base }
+        if editing == nil, let funding = config?.defaultFunding, derived.openAccounts.contains(funding) {
             draft.funding = funding
             draft.currency = derived.acctCcy[funding] ?? ledger.base
         }
@@ -34,6 +34,7 @@ struct NewEntrySheet: View {
                     EmptyView()
                 }
                 .pickerStyle(.segmented)
+                .disabled(draft.replacing != nil)
                 DatePicker(chinese ? "日期" : "Date", selection: date, displayedComponents: .date)
                 TextField(chinese ? "收付款方" : "Payee", text: $draft.payee)
                 TextField(chinese ? "备注" : "Note", text: $draft.narration)
@@ -108,7 +109,7 @@ struct NewEntrySheet: View {
     }
 
     private var needsAmountReceived: Bool {
-        draft.kind == .transfer && (conversionCurrency(draft, ledger, derived) ?? draft.currency) != draft.currency
+        draft.kind == .transfer && (!draft.toAmount.isEmpty || (conversionCurrency(draft, ledger, derived) ?? draft.currency) != draft.currency)
     }
 
     private func save() {
