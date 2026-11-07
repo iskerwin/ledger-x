@@ -11,6 +11,7 @@ struct EntryForm: View {
     @State private var addingPerson = false
     @State private var newPerson = ""
     @FocusState private var payeeFocused: Bool
+    @FocusState private var textFocused: Bool
 
     var body: some View {
         let text = draftText(draft, ledger, derived)
@@ -23,7 +24,18 @@ struct EntryForm: View {
                     TextEditor(text: $draft.raw)
                         .font(.system(size: 12, design: .monospaced))
                         .scrollContentBackground(.hidden)
+                        .focused($textFocused)
                         .frame(minHeight: 340)
+                        .overlay(alignment: .topLeading) {
+                            if draft.raw.isEmpty {
+                                Text("\(Day.today()) price USD 7.10 CNY")
+                                    .font(.system(size: 12, design: .monospaced))
+                                    .foregroundStyle(.tertiary)
+                                    .padding(.leading, 5)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                        .onAppear { textFocused = true }
                 }
             case .transfer:
                 amountSection
@@ -39,10 +51,16 @@ struct EntryForm: View {
                 eventSection
                 marksRow
             }
-            if draft.kind != .raw { preview(text) }
+            if draft.kind != .raw && !text.trimmed.isEmpty {
+                Section {
+                    Text(text)
+                        .font(.system(size: 12, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
         }
         .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
         .frame(maxHeight: .infinity)
         // leaving the payee: a known one fills in what isn't picked yet
         .onChange(of: payeeFocused) {
@@ -369,21 +387,6 @@ struct EntryForm: View {
             Button("添加分录行", systemImage: "plus.circle") { draft.rows.append(DraftRow()) }
         }
     }
-
-    // MARK: 预览
-
-    private func preview(_ text: String) -> some View {
-        let checked = text.trimmed.isEmpty ? nil : validateText(text, ledger, single: draftIsSingle(draft, ledger))
-        return Section {
-            Text(text)
-                .font(.system(size: 12, design: .monospaced))
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            if let checked, !checked.ok {
-                Text(checked.msg ?? "内容校验未通过").foregroundStyle(Color.loss)
-            }
-        }
-    }
 }
 
 /// one line of 分录: the account, the amount (a blank one balances the rest), its currency, 待确认; cost and price under it
@@ -402,6 +405,7 @@ private struct RowEditor: View {
                     if !row.ccyTouched, let currency = derived.acctCcy[account] { row.currency = currency }
                 }))
                 .labelsHidden()
+                .frame(maxWidth: .infinity, alignment: .leading)
                 Button("!") { row.flag = row.flag == "!" ? "" : "!" }
                     .foregroundStyle(row.flag == "!" ? Color.warn : Color.secondary)
                     .help("标记为待确认（!）")

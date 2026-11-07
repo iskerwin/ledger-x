@@ -146,7 +146,6 @@ private struct PanelFrame<Content: View>: View {
             Text(title).font(.headline).padding(.top, 16)
             Form { content }
                 .formStyle(.grouped)
-                .scrollContentBackground(.hidden)
             HStack {
                 Spacer()
                 if let cancel {
@@ -157,7 +156,6 @@ private struct PanelFrame<Content: View>: View {
             .padding([.horizontal, .bottom], 16)
         }
         .frame(width: 460, height: height)
-        .background(Color.page)
     }
 }
 
@@ -213,7 +211,7 @@ struct RateSheet: View {
     }
 
     var body: some View {
-        PanelFrame(title: hasFee ? "币种、汇率与手续费" : "币种与汇率", height: 560, done: save, cancel: { dismiss() }) {
+        PanelFrame(title: hasFee ? "币种、汇率与手续费" : "币种与汇率", height: 520, done: save, cancel: { dismiss() }) {
             Section {
                 Picker("账单币种", selection: $currency) {
                     ForEach(currencies, id: \.self) { Text($0).tag($0) }

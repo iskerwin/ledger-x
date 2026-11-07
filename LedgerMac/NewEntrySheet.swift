@@ -74,8 +74,9 @@ struct NewEntrySheet: View {
             }
             .padding([.horizontal, .bottom], 16)
         }
-        .frame(width: 560, height: 660)
-        .background(Color.page)
+        .frame(width: 560, height: 600)
+        // the card has its own cards on the page; a form brings its own colours, and on the page its rows all but vanish in dark mode
+        .background(full ? Color.clear : Color.page)
         .sheet(item: $panel) { panel in
             switch panel {
             case .rate: RateSheet(draft: $draft, ledger: ledger, derived: derived)
@@ -116,7 +117,7 @@ struct NewEntrySheet: View {
                 .frame(width: full ? 340 : 220)
             }
             HStack {
-                if full && !draft.split && draft.kind != .refund {
+                if full && draft.kind != .refund && (!draft.split || [.multi, .raw].contains(draft.kind)) {
                     Button("记一笔", systemImage: "chevron.left") { backToCard() }
                         .buttonStyle(.plain)
                         .foregroundStyle(Color.jade)
@@ -185,7 +186,7 @@ struct NewEntrySheet: View {
             let opened = Self.cardKinds.contains(initial.kind) ? initial.kind : nil
             guard setKind(shown ?? opened ?? .expense) else { return }
         }
-        full = false
+        full = Self.needsFullForm(draft)
     }
 
     private var reviewing: Binding<Bool> {
