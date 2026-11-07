@@ -94,31 +94,13 @@ struct ReportsInsights: View {
                     Text(money(total, L.base)).font(.system(size: 32, weight: .bold, design: .rounded)).monospacedDigit().rollingNumber(total).sensitive()
                 }
                 if total > 0.005 {
-                    GeometryReader { geo in
-                        HStack(spacing: AppSpacing.detail) {
-                            ForEach(top, id: \.key) { r in
-                                categoryColor(r.key, L).frame(width: max(2, geo.size.width * r.value / total - 2))
-                            }
-                            if rest > 0.005 { Color.gray.opacity(0.4).frame(width: max(2, geo.size.width * rest / total - 2)) }
-                        }
-                        .clipShape(Capsule())
-                    }
-                    .frame(height: 12)
                     ForEach(top, id: \.key) { r in
                         Button { store.showInJournal(.report(month: month, account: r.key)) } label: {
-                            HStack(spacing: AppSpacing.icon) {
-                                Circle().fill(categoryColor(r.key, L)).frame(width: 9, height: 9)
-                                // the bar above already shows the shares: the row gives its room to the name
-                                Text(catLabel(r.key)).lineLimit(1)
-                                Spacer(minLength: AppSpacing.icon)
-                                Text(money(r.value, L.base)).monospacedDigit().font(.subheadline).frame(minWidth: 86, alignment: .trailing).sensitive()
-                                Text(String(format: "%.1f%%", r.value / total * 100)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                                    .frame(width: 44, alignment: .trailing)
-                            }
-                            .contentShape(Rectangle())
+                            CategoryListRow(symbol: store.groupIcon(r.key).symbol, color: categoryColor(r.key, L), name: catLabel(r.key), value: r.value,
+                                            frac: r.value / max(top.first?.value ?? 0, 0.01), share: Int((r.value / total * 100).rounded()))
                         }
                         .buttonStyle(.plain)
-                        .font(.subheadline)
+                        .environment(\.displayCurrency, L.base)
                     }
                     if rest > 0.005 {
                         Text(LS("其余 %@ 个分类 %@", rows.count - top.count, money(rest, L.base))).font(.caption).foregroundStyle(.secondary).sensitive()

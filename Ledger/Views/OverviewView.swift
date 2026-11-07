@@ -264,7 +264,7 @@ struct OverviewView: View {
                 .listRowInsets(EdgeInsets(top: AppSpacing.detail, leading: AppSpacing.detail, bottom: AppSpacing.detail, trailing: AppSpacing.detail))
             }
             Section {
-                Card(padding: 20) {
+                Card(padding: AppSpacing.summary) {
                     VStack(alignment: .leading, spacing: AppSpacing.content) {
                         VStack(alignment: .leading, spacing: AppSpacing.detail) {
                             HStack(spacing: AppSpacing.control) {
@@ -279,7 +279,7 @@ struct OverviewView: View {
                                     if away { back }
                                 }
                             }
-                            Text(money(s.exp, cur)).heroAmount(44).monospacedDigit().accessibilityIdentifier("overview.spent")
+                            Text(money(s.exp, cur)).heroAmount(HeroAmount.summary).monospacedDigit().accessibilityIdentifier("overview.spent")
                                 .rollingNumber(s.exp).sensitive()
                             // how it compares, quieter than the figure: the change in its colour, the rest grey; one
                             // text, so a large size wraps it like a sentence
@@ -567,6 +567,7 @@ struct OverviewView: View {
                                      frac: (payeeSort == "count" ? Double(p.count) : p.value) / max(top, 0.01), expanded: selPay == p.name)
                     }
                     .buttonStyle(.plain)
+                    .listRowSeparator(.hidden)
                     if selPay == p.name {
                         ForEach(payeeTxns(L, f.key, p.name, F), id: \.id) { t in
                             NavigationLink(value: TxDest(t)) { TxRow(t: t, showDate: true) }.padding(.leading, AppSpacing.content)

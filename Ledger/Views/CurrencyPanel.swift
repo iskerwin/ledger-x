@@ -231,11 +231,12 @@ struct InventoryFigure: View {
 struct InventoryHeadline: View {
     let inv: Inventory
     let base: String
+    var size: CGFloat = 34
     var body: some View {
         let xs = inv.byCurrency(base: base)
         if xs.count <= 1 {
             let x = xs.first ?? CurrencyAmount(base, 0)
-            Text(unitText(x.amount, x.currency)).heroAmount().monospacedDigit()
+            Text(unitText(x.amount, x.currency)).heroAmount(size).monospacedDigit()
                 .rollingNumber(x.amount)
                 .foregroundStyle(x.amount < -0.005 ? Color.loss : Color.primary).sensitive()
         } else {
