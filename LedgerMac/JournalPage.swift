@@ -3,7 +3,18 @@ import LedgerKit
 
 struct JournalPage: View {
     let ledger: Ledger
+    let config: LedgerXConfig?
+    let folder: URL
     @State private var text = ""
+    @State private var editing: EditedEntry?
+    @State private var deleting: Entry?
+    @State private var review: FolderSave?
+    @State private var notice: String?
+
+    private struct EditedEntry: Identifiable {
+        let id = UUID()
+        let draft: Draft
+    }
 
     var body: some View {
         let query = TxQuery(text)
@@ -14,11 +25,64 @@ struct JournalPage: View {
             } else {
                 List(rows.indices, id: \.self) { index in
                     JournalRow(entry: rows[index], ledger: ledger)
+                        .contentShape(Rectangle())
+                        .onTapGesture(count: 2) { edit(rows[index]) }
+                        .contextMenu {
+                            Button(chinese ? "编辑…" : "Edit…") { edit(rows[index]) }
+                            Button(chinese ? "删除…" : "Delete…", role: .destructive) { deleting = rows[index] }
+                        }
                 }
                 .listStyle(.inset)
             }
         }
         .searchable(text: $text, placement: .toolbar)
+        .sheet(item: $editing) { NewEntrySheet(ledger: ledger, config: config, folder: folder, editing: $0.draft) }
+        .alert(chinese ? "删除这笔交易？" : "Delete this entry?", isPresented: present($deleting), presenting: deleting) { entry in
+            Button(chinese ? "删除" : "Delete", role: .destructive) { delete(entry) }
+            Button(chinese ? "取消" : "Cancel", role: .cancel) {}
+        } message: { entry in
+            Text([entry.date, entry.payee, entry.narration].filter { !$0.isEmpty }.joined(separator: " "))
+        }
+        .alert(review?.issues.first?.title ?? "", isPresented: present($review), presenting: review) { save in
+            if !save.issues.contains(where: \.blocking) {
+                Button(chinese ? "仍然删除" : "Delete Anyway", role: .destructive) { write(save) }
+            }
+            Button(chinese ? "取消" : "Cancel", role: .cancel) {}
+        } message: { save in
+            Text(save.issues.map(\.detail).joined(separator: "\n"))
+        }
+        .alert(notice ?? "", isPresented: present($notice)) {}
+    }
+
+    private func present<Value>(_ value: Binding<Value?>) -> Binding<Bool> {
+        Binding(get: { value.wrappedValue != nil }, set: { if !$0 { value.wrappedValue = nil } })
+    }
+
+    private func edit(_ entry: Entry) {
+        if let draft = folderEditDraft(entry, ledger, Derived(ledger)) {
+            editing = EditedEntry(draft: draft)
+        } else {
+            notice = chinese ? "这笔交易在 Mac 上还不能编辑，请在手机上修改" : "This entry can't be edited on the Mac yet: change it on your phone"
+        }
+    }
+
+    private func delete(_ entry: Entry) {
+        let folder = folder
+        Task { @MainActor in
+            switch await Task.detached(operation: { prepareFolderDelete(entry, folder: folder) }).value {
+            case .failure(let error): notice = error.message
+            case .success(let save):
+                if save.issues.isEmpty { write(save) } else { review = save }
+            }
+        }
+    }
+
+    private func write(_ save: FolderSave) {
+        do {
+            try commitFolderSave(save, folder: folder)
+        } catch {
+            notice = error.localizedDescription
+        }
     }
 }
 
