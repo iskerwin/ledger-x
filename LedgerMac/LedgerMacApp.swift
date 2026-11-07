@@ -8,6 +8,7 @@ let chinese = (Locale.preferredLanguages.first ?? "zh").hasPrefix("zh")
 struct LedgerMacApp: App {
     @AppStorage("ledgerFolder") private var folder = ""
     @State private var picking = false
+    @State private var adding = false
     /// counts the times a folder was chosen, so choosing the same one again reads it again
     @State private var opened = 0
 
@@ -17,7 +18,7 @@ struct LedgerMacApp: App {
 
     var body: some Scene {
         Window("Ledger X", id: "main") {
-            ContentView(folder: folder, opened: opened, picking: $picking)
+            ContentView(folder: folder, opened: opened, picking: $picking, adding: $adding)
                 .fileImporter(isPresented: $picking, allowedContentTypes: [.folder]) { result in
                     if case .success(let url) = result {
                         folder = url.path
@@ -27,6 +28,9 @@ struct LedgerMacApp: App {
         }
         .commands {
             CommandGroup(replacing: .newItem) {
+                Button(chinese ? "记一笔…" : "New Entry…") { adding = true }
+                    .keyboardShortcut("n")
+                    .disabled(folder.isEmpty)
                 Button(chinese ? "打开账本…" : "Open Ledger…") { picking = true }
                     .keyboardShortcut("o")
             }
@@ -38,6 +42,7 @@ private struct ContentView: View {
     let folder: String
     let opened: Int
     @Binding var picking: Bool
+    @Binding var adding: Bool
     @State private var ledger: Ledger?
     @State private var config: LedgerXConfig?
     @State private var missing = false
@@ -49,7 +54,7 @@ private struct ContentView: View {
     var body: some View {
         Group {
             if let ledger {
-                MainView(ledger: ledger, config: config)
+                MainView(ledger: ledger, config: config, folder: URL(fileURLWithPath: folder), adding: $adding)
             } else if folder.isEmpty || missing {
                 VStack(spacing: 12) {
                     if missing { Text(chinese ? "这个文件夹里没有账本" : "No ledger in this folder").foregroundStyle(.secondary) }

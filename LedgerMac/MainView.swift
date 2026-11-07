@@ -24,6 +24,8 @@ private enum Page: CaseIterable {
 struct MainView: View {
     let ledger: Ledger
     let config: LedgerXConfig?
+    let folder: URL
+    @Binding var adding: Bool
     @State private var page: Page? = .journal
 
     var body: some View {
@@ -41,6 +43,14 @@ struct MainView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) { ErrorBar(errors: ledger.errors.filter { !$0.soft }) }
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { adding = true } label: { Label(chinese ? "记一笔" : "New Entry", systemImage: "plus") }
+                }
+            }
+        }
+        .sheet(isPresented: $adding) {
+            NewEntrySheet(ledger: ledger, config: config, folder: folder)
         }
     }
 }
