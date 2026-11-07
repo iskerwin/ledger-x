@@ -110,7 +110,8 @@ private struct MonthRow: View {
 /// A click on a row opens its account and leaves nothing selected. Through the list's selection, so it reaches this page:
 /// a tap gesture on a row can go on answering for whatever the list showed in that place before.
 private func opening(_ open: @escaping (String) -> Void) -> Binding<String?> {
-    Binding(get: { nil }, set: { if let account = $0 { open(account) } })
+    // after the list has finished with the click: changing page in the middle of it leaves the window no longer following the page
+    Binding(get: { nil }, set: { account in if let account { DispatchQueue.main.async { open(account) } } })
 }
 
 /// one line whatever the currencies, so the page doesn't move when the period changes
