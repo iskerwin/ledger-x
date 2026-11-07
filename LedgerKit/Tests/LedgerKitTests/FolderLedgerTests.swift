@@ -43,6 +43,14 @@ final class FolderLedgerTests: XCTestCase {
         XCTAssertEqual(ledger.txns.map(\.narration), ["Root"])
     }
 
+    func testReadsTheAccountsLeftOutFromLedgerXConfig() throws {
+        XCTAssertNil(ledgerConfig(folder: folder))
+        try write(LedgerXConfig.path, "{\"networth_exclude\": [\"Assets:House\"], \"balance_exclude\": [\"Assets:Car\"]}")
+        let config = try XCTUnwrap(ledgerConfig(folder: folder))
+        XCTAssertEqual(config.netWorthExclude, ["Assets:House"])
+        XCTAssertEqual(config.balanceExclude, ["Assets:Car"])
+    }
+
     func testFolderWithoutTheMainFileHasNoLedger() throws {
         try write("notes.txt", "not a ledger")
         XCTAssertNil(loadLedger(folder: folder))
