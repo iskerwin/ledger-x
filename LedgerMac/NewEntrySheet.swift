@@ -29,7 +29,7 @@ struct NewEntrySheet: View {
     var body: some View {
         VStack(spacing: 0) {
             Picker(selection: $draft.kind) {
-                ForEach([DraftKind.expense, .income, .transfer], id: \.self) { Text($0.label).tag($0) }
+                ForEach(kinds, id: \.self) { Text($0.label).tag($0) }
             } label: {
                 EmptyView()
             }
@@ -91,6 +91,9 @@ struct NewEntrySheet: View {
         case .transfer:
             accountPicker("转出账户", prefixes: ["Assets:", "Liabilities:"], selection: $draft.funding)
             accountPicker("转入账户", prefixes: ["Assets:", "Liabilities:"], selection: $draft.to)
+        case .refund:
+            accountPicker("支出科目", prefixes: ["Expenses:"], selection: $draft.account)
+            accountPicker("退回账户", prefixes: ["Assets:", "Liabilities:"], selection: $draft.funding)
         case .income:
             accountPicker("收入科目", prefixes: ["Income:"], selection: $draft.account)
             accountPicker("收款账户", prefixes: ["Assets:", "Liabilities:"], selection: $draft.funding)
@@ -98,6 +101,11 @@ struct NewEntrySheet: View {
             accountPicker("支出科目", prefixes: ["Expenses:"], selection: $draft.account)
             accountPicker("付款账户", prefixes: ["Assets:", "Liabilities:"], selection: $draft.funding)
         }
+    }
+
+    /// a refund is only ever edited here: it is written from the purchase, on the phone
+    private var kinds: [DraftKind] {
+        draft.kind == .refund ? [.refund] : [.expense, .income, .transfer]
     }
 
     private func accountPicker(_ title: String, prefixes: [String], selection: Binding<String>) -> some View {

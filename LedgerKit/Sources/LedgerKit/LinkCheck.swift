@@ -319,6 +319,26 @@ public func headerWordAdd(_ src: String, _ word: String) -> String {
     return lines.joined(separator: "\n")
 }
 
+/// A refund and the purchase it refunds share a link (^refund-…): the ops that rename or remove it on the other of the pair,
+/// when this transaction (`oldText`) is edited into `newText` or deleted (`newText` nil).
+public func pairedLinkOps(_ L: Ledger, oldText: String, newText: String?) -> [Op] {
+    let oldLinks = Set(linksOnHeader(oldText)), newLinks = Set(newText.map(linksOnHeader) ?? [])
+    let removed = oldLinks.subtracting(newLinks).filter { $0.hasPrefix("refund") }
+    guard !removed.isEmpty else { return [] }
+    let added = Array(newLinks.subtracting(oldLinks).filter { $0.hasPrefix("refund") })
+    let me = oldText.trimmingCharacters(in: .whitespacesAndNewlines)
+    var ops: [Op] = []
+    for l in removed.sorted() {
+        // only a pair: with several refunds sharing the link, the others still need it
+        let others = L.txns.filter { $0.links.contains(l) && !$0.synthetic && $0.src.trimmingCharacters(in: .whitespacesAndNewlines) != me }
+        guard others.count == 1, let p = others.first else { continue }
+        var op = entryOp(p, text: headerLinkReplace(p.src, link: l, with: added.count == 1 ? added[0] : nil))
+        op.silent = true
+        ops.append(op)
+    }
+    return ops
+}
+
 /// the transaction's text with `^link` on its header line changed to `^new`, or taken off (`new` nil). Only a link
 /// word counts: the same text inside the payee or narration, or in a trailing comment, stays as written
 public func headerLinkReplace(_ src: String, link: String, with new: String?) -> String {

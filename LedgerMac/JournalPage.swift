@@ -73,7 +73,7 @@ struct JournalPage: View {
             Button("删除", role: .destructive) { delete(entry) }
             Button("取消", role: .cancel) {}
         } message: { entry in
-            Text([entry.date, entry.payee, entry.narration].filter { !$0.isEmpty }.joined(separator: " "))
+            Text(deleteMessage(entry))
         }
         .alert(review?.issues.first?.title ?? "", isPresented: present($review), presenting: review) { save in
             if !save.issues.contains(where: \.blocking) {
@@ -116,6 +116,12 @@ struct JournalPage: View {
     private func openFile(_ entry: Entry) {
         let url = folder.appendingPathComponent(entry.file)
         if !NSWorkspace.shared.open(url) { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+    }
+
+    private func deleteMessage(_ entry: Entry) -> String {
+        let summary = [entry.date, entry.payee, entry.narration].filter { !$0.isEmpty }.joined(separator: " ")
+        let linked = ledger.txns.filter { !$0.synthetic && $0.src != entry.src && !Set($0.links).isDisjoint(with: entry.links) }.count
+        return linked == 0 ? summary : summary + "\n它和另外 \(linked) 笔交易有关联"
     }
 
     private func delete(_ entry: Entry) {

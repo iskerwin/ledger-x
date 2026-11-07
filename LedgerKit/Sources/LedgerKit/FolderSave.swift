@@ -51,27 +51,24 @@ public func prepareFolderSave(_ draft: Draft, folder: URL) -> Result<FolderSave,
     return folderSave(ops, before: ledger, main: layout.main, folder: folder)
 }
 
-/// the form for changing `entry` on this computer, or nil when the sheet can't show all of it. An entry linked to others is
-/// left out too: the phone keeps the other side of a link in step, which this doesn't do.
+/// the form for changing `entry` on this computer, or nil when the sheet can't show all of it. Its links stay as they are,
+/// so the other side of a link needs nothing.
 public func folderEditDraft(_ entry: Entry, _ ledger: Ledger, _ derived: Derived) -> Draft? {
-    guard entry.links.isEmpty, var draft = editDraft(entry, ledger, derived), [.expense, .income, .transfer].contains(draft.kind),
+    guard var draft = editDraft(entry, ledger, derived), [.expense, .income, .transfer, .refund].contains(draft.kind),
           !draft.reimb, !draft.split, draft.shares.isEmpty, draft.extraFunds.isEmpty, draft.discount.isEmpty, !draft.byRate,
           draft.feeMode == nil, (draft.transferFee ?? "").isEmpty, draft.paid.isEmpty, draft.refundOf == nil, draft.refundFee == nil,
-          !draft.topup, draft.link.isEmpty, draft.keepLinks.isEmpty else { return nil }
+          !draft.topup else { return nil }
     let summary = [entry.payee, entry.narration].filter { !$0.isEmpty }.joined(separator: " ")
     draft.replacing = Replacing(path: entry.file, old: entry.src, date: entry.date, summary: summary,
                                 baseline: draftText(draft, ledger, derived).trimmingCharacters(in: .whitespacesAndNewlines), line: entry.line)
     return draft
 }
 
-/// Deleting `entry`, under the same checks as saving one. A linked entry is refused, as in `folderEditDraft`.
+/// Deleting `entry`, under the same checks as saving one. As on the phone, the other of a refund's pair loses the link they shared.
 public func prepareFolderDelete(_ entry: Entry, folder: URL) -> Result<FolderSave, FolderSaveError> {
     guard let ledger = loadLedger(folder: folder) else { return .failure(noLedgerInFolder) }
-    guard entry.links.isEmpty else {
-        return .failure(FolderSaveError(message: tr("这笔交易和其他交易有关联，请在手机上删除", "This entry is linked to others: delete it on your phone")))
-    }
     guard let current = locate(entry, startLine: nil, folder: folder) else { return .failure(entryChanged) }
-    return folderSave([entryOp(current, text: nil)], before: ledger, main: folderMain(folder), folder: folder)
+    return folderSave([entryOp(current, text: nil)] + pairedLinkOps(ledger, oldText: current.src, newText: nil), before: ledger, main: folderMain(folder), folder: folder)
 }
 
 /// That `account` ended `day` with `amount`. Beancount checks an assertion at the start of its day, so it is dated the next one.
