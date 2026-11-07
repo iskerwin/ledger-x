@@ -25,13 +25,13 @@ struct BudgetRow: View {
             GeometryReader { g in
                 let grown = filled || reduceMotion
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color(.tertiarySystemFill))
-                    Capsule().fill(color).frame(width: grown ? max(4, g.size.width * min(1, p.ratio)) : 4)
+                    Capsule().fill(Color(.tertiarySystemFill)).frame(height: 4)
+                    Capsule().fill(color).frame(width: grown ? max(4, g.size.width * min(1, p.ratio)) : 4, height: 4)
                     // over budget the bar is full: the part beyond the budget is hatched, in proportion, so how far
                     // over shows without telling red from green
                     if p.over {
                         let beyond = g.size.width * (p.ratio - 1) / p.ratio
-                        Hatching(color: color.onFill).frame(width: beyond).frame(maxWidth: .infinity, alignment: .trailing)
+                        Hatching(color: color.onFill).frame(width: beyond, height: 4).frame(maxWidth: .infinity, alignment: .trailing)
                             .clipShape(Capsule())
                             .opacity(grown ? 1 : 0)
                             .accessibilityHidden(true)
@@ -41,7 +41,8 @@ struct BudgetRow: View {
                     }
                 }
             }
-            .frame(height: 8)
+            // the time mark stands taller than the thin bar, so it can still be seen
+            .frame(height: 10)
             .animation(reduceMotion ? nil : AppMotion.standard, value: p.ratio)
             .onAppear { withAnimation(reduceMotion ? nil : AppMotion.standard.delay(0.1)) { filled = true } }
             // one line too: the share whole, what is said before it cut short
@@ -135,6 +136,22 @@ struct BudgetsView: View {
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
             }
+            if let total = budgetTotal(progress) {
+                Section {
+                    Card(padding: AppSpacing.summary) {
+                        VStack(alignment: .leading, spacing: AppSpacing.content) {
+                            SummaryHeadline(label: yearView ? LS("本年预算剩余") : LS("本月预算剩余"), value: money(total.remaining, total.currency),
+                                            color: total.remaining < 0 ? .loss : .primary)
+                            Divider()
+                            FigureRow(items: [
+                                .init(label: LS("已花"), value: money(total.spent, total.currency)),
+                                .init(label: LS("预算"), value: money(total.limit, total.currency)),
+                            ], alignment: .center)
+                        }
+                    }
+                    .cardRow()
+                }
+            }
             Section {
                 if progress.isEmpty { EmptyAdd(text: LS("还没有预算。为支出分类设置每月或每年的额度，记账时就能看到还剩多少。"), title: LS("添加预算")) { editing = BudgetDraft(currency: store.L?.base ?? "CNY") } }
                 ForEach(progress) { p in
@@ -154,8 +171,6 @@ struct BudgetsView: View {
                 }
             } header: {
                 Text(yearView ? LS("%@ 年", key) : Day.monthLabel(key))
-            } footer: {
-                Text(LS("竖线表示时间进度。预算按 Fava 的格式写在账本中：custom \"budget\" 科目 \"monthly\" 金额；日 / 周 / 季 / 年预算会折算到所选周期。"))
             }
             if !all.isEmpty {
                 Section(LS("预算记录")) {

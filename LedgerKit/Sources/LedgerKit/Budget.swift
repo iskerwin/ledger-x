@@ -86,6 +86,15 @@ private func daysIn(_ from: String, _ to: String) -> Double {
     return (b.timeIntervalSince(a) / 86400).rounded() + 1
 }
 
+/// what the spending budgets come to together. Nil when there are none, or they are in different currencies and so
+/// don't add up; an income budget is a target, not money to spend, and stays out.
+public func budgetTotal(_ progress: [BudgetProgress]) -> (currency: String, limit: Double, spent: Double, remaining: Double)? {
+    let spending = progress.filter { $0.budget.account.hasPrefix("Expenses") }
+    guard let currency = spending.first?.budget.currency, spending.allSatisfy({ $0.budget.currency == currency }) else { return nil }
+    let limit = roundTo(spending.reduce(0) { $0 + $1.limit }, 2), spent = roundTo(spending.reduce(0) { $0 + $1.spent }, 2)
+    return (currency, limit, spent, roundTo(limit - spent, 2))
+}
+
 /// budgets for a calendar month ("2026-10") or year ("2026")
 public func budgetProgress(_ L: Ledger, key: String, today: String = Day.today()) -> [BudgetProgress] {
     let span: BudgetSpan = key.count == 4 ? .year : .month

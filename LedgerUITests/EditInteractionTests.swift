@@ -2314,9 +2314,11 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 5))
         app.segmentedControls.buttons["本月"].tap()
         let month = row.frame.height
+        let top = row.frame.minY
         app.segmentedControls.buttons["本年"].tap()
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "3,000,000"), object: row)], timeout: 5), .completed)
         XCTAssertEqual(row.frame.height, month, accuracy: 0.5)
+        XCTAssertEqual(row.frame.minY, top, accuracy: 0.5, "The total card above keeps its height")
     }
 
     /// small steps up until `element` is wholly on screen (a full swipe can carry it past)
