@@ -285,6 +285,18 @@ func applyInventory(_ t: Entry, _ inv: inout [String: [Lot]]) {
 
 // MARK: - loading
 
+/// the ledger in a folder on this computer, starting from ledger-x.json's main file, else main.bean; nil without that file
+public func loadLedger(folder: URL) -> Ledger? {
+    let config = (try? String(contentsOf: folder.appendingPathComponent(LedgerXConfig.path), encoding: .utf8)).flatMap(LedgerXConfig.parse)
+    let written = config?.main?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    let root = written.isEmpty ? "main.bean" : written
+    guard FileManager.default.fileExists(atPath: folder.appendingPathComponent(root).path) else { return nil }
+    let list = { ((try? FileManager.default.subpathsOfDirectory(atPath: folder.path)) ?? []).filter { !$0.hasPrefix(".git/") } }
+    return loadLedger(root: root, listFiles: list) { path in
+        try String(contentsOf: folder.appendingPathComponent(path), encoding: .utf8)
+    }
+}
+
 /// readFile(path) returns the text of a repo file (paths relative to the repo root); `listFiles` gives every file in
 /// the repository, for includes with wildcards (`include "journals/*.bean"`)
 public func loadLedger(root: String = "main.bean", listFiles: (() -> [String])? = nil, readFile: @escaping (String) throws -> String) -> Ledger {

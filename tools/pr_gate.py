@@ -12,6 +12,18 @@ import dev_scope
 import ship
 
 PROOF = ship.ROOT / '.ship/pr-proof.json'
+MAC_APP = 'build-demo/Build/Products/Release/Ledger X.app'
+
+
+def build_mac():
+    """Compile the Mac app and leave it, signed for this machine only, in the run's artifacts to try by hand."""
+    ship.step('编译 Mac App（最多 20 分钟）')
+    ship.run(['xcodegen', 'generate', '--quiet'])
+    ship.run(['xcodebuild', 'build', '-project', 'Ledger.xcodeproj', '-scheme', 'LedgerMac', '-configuration', 'Release',
+              '-destination', 'generic/platform=macOS', '-derivedDataPath', 'build-demo', 'CODE_SIGNING_ALLOWED=NO'],
+             log='mac-build.log', timeout=20 * 60)
+    ship.run(['codesign', '-f', '-s', '-', MAC_APP])
+    ship.run(['ditto', '-c', '-k', '--keepParent', MAC_APP, 'LedgerMac.zip'])
 
 
 def main(argv):
@@ -27,6 +39,8 @@ def main(argv):
     # Dev's executor: the same schemes, phase limits, per-test allowance and streamed logs.
     os.environ['LEDGER_COMMAND'] = 'dev'
     proof = dev_scope.validate(plan)
+    if dev_scope.needs_mac_build(plan['paths']):
+        build_mac()
     if ship.git('rev-parse', 'HEAD') != sha or ship.git('status', '--porcelain'):
         raise ship.Failure('测试期间源码有变化，未留下 PR 测试记录')
     ship.write_json(PROOF, dict(proof, schema=1, source_sha=sha, tree=ship.git('rev-parse', f'{sha}^{{tree}}')))

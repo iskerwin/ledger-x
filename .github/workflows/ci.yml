@@ -78,6 +78,8 @@ jobs:
           path: |
             *-tests.log
             demo-build.log
+            mac-build.log
+            LedgerMac.zip
             interaction-tests*.xcresult/
   test:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
