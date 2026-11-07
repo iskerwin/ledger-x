@@ -123,7 +123,13 @@ struct MainView: View {
         // what happens in .git isn't watched: a commit made in a terminal, or on another device, is seen on coming back
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in checkRemote() }
         .alert(pullError ?? "", isPresented: Binding(get: { pullError != nil }, set: { if !$0 { pullError = nil } })) {}
-        .onChange(of: searching) { if searching && !inScope { page = .journal } }
+        .onChange(of: searching) {
+            guard searching, !inScope, page != .journal else { return }
+            page = .journal
+            // the box takes focus only when it opens with the page already there
+            searching = false
+            DispatchQueue.main.async { searching = true }
+        }
     }
 
     private func checkRemote() {
