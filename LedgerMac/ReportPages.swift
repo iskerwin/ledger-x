@@ -4,19 +4,26 @@ import LedgerKit
 struct AccountsPage: View {
     let ledger: Ledger
     let config: LedgerXConfig?
+    let folder: URL
     let open: (String) -> Void
+    @State private var checking: CheckedAccount?
+
+    private struct CheckedAccount: Identifiable {
+        let id: String
+    }
 
     var body: some View {
         let sheet = balanceSheet(ledger, at: nil, exclude: config?.balanceExclude ?? [])
         let worth = netWorthNow(ledger, exclude: config?.netWorthExclude ?? [])
         List {
-            TreeSection(title: chinese ? "资产" : "Assets", root: sheet.assets, ledger: ledger, open: open)
-            TreeSection(title: chinese ? "负债" : "Liabilities", root: sheet.liabilities, ledger: ledger, open: open)
+            TreeSection(title: chinese ? "资产" : "Assets", root: sheet.assets, ledger: ledger, open: open) { checking = CheckedAccount(id: $0) }
+            TreeSection(title: chinese ? "负债" : "Liabilities", root: sheet.liabilities, ledger: ledger, open: open) { checking = CheckedAccount(id: $0) }
         }
         .listStyle(.inset)
         .safeAreaInset(edge: .top) {
             Totals(items: [(chinese ? "净资产" : "Net Worth", money(worth.assets + worth.liabilities, ledger.base))])
         }
+        .sheet(item: $checking) { CheckBalanceSheet(ledger: ledger, account: $0.id, folder: folder) }
     }
 }
 
@@ -105,6 +112,8 @@ private struct TreeSection: View {
     /// income is written as a negative amount; shown here as what came in
     var negated = false
     let open: (String) -> Void
+    /// only where the row's account can hold an assertion
+    var check: ((String) -> Void)?
 
     var body: some View {
         Section {
@@ -119,6 +128,11 @@ private struct TreeSection: View {
                 }
                 .contentShape(Rectangle())
                 .onTapGesture { open(node.name) }
+                .contextMenu {
+                    if let check, ledger.accounts[node.name] != nil {
+                        Button(chinese ? "核对余额…" : "Check Balance…") { check(node.name) }
+                    }
+                }
             }
         } header: {
             HStack {

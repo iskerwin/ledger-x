@@ -225,6 +225,40 @@ final class FolderSaveTests: XCTestCase {
         XCTAssertEqual(try read("main.bean"), start)
     }
 
+    private func prepareBalance(_ amount: Double, day: String = "2026-10-16") -> Result<FolderSave, FolderSaveError> {
+        prepareFolderBalance(account: "Assets:Bank", day: day, amount: amount, currency: "CNY", folder: folder)
+    }
+
+    func testABalanceThatAgreesIsAssertedForTheNextMorning() throws {
+        try write("main.bean", opens + "\n" + sample)
+        try commitFolderSave(try prepareBalance(965).get(), folder: folder)
+        XCTAssertTrue(try read("main.bean").contains(balanceLine("2026-10-17", "Assets:Bank", 965, "CNY")))
+        let result = try XCTUnwrap(try XCTUnwrap(loadLedger(folder: folder)).balanceResults.first)
+        XCTAssertTrue(result.ok)
+        XCTAssertEqual(result.entry.date, "2026-10-17")
+    }
+
+    func testEntriesOnTheDayItselfCount() throws {
+        try write("main.bean", opens + "\n" + sample)
+        XCTAssertNoThrow(try prepareBalance(1000, day: "2026-10-15").get())
+        guard case .failure = prepareBalance(1000) else { return XCTFail("the day's own entry should count") }
+    }
+
+    func testABalanceThatDiffersIsRefusedWithTheDifference() throws {
+        try write("main.bean", opens + "\n" + sample)
+        let before = try read("main.bean")
+        guard case .failure(let error) = prepareBalance(960) else { return XCTFail("should be refused") }
+        XCTAssertTrue(error.message.contains("965"), error.message)
+        XCTAssertEqual(try read("main.bean"), before)
+    }
+
+    func testASecondAssertionForTheSameDayIsRefused() throws {
+        let start = opens + "\n" + sample + "\n" + balanceLine("2026-10-17", "Assets:Bank", 965, "CNY") + "\n"
+        try write("main.bean", start)
+        guard case .failure = prepareBalance(965) else { return XCTFail("should be refused") }
+        XCTAssertEqual(try read("main.bean"), start)
+    }
+
     func testAFolderWithoutALedgerIsRefused() throws {
         try FileManager.default.removeItem(at: folder.appendingPathComponent("main.bean"))
         guard case .failure = prepareFolderSave(draft(.expense), folder: folder) else { return XCTFail("should be refused") }

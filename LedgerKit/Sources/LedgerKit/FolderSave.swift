@@ -74,6 +74,27 @@ public func prepareFolderDelete(_ entry: Entry, folder: URL) -> Result<FolderSav
     return folderSave([entryOp(current, text: nil)], before: ledger, main: folderMain(folder), folder: folder)
 }
 
+/// That `account` ended `day` with `amount`. Beancount checks an assertion at the start of its day, so it is dated the next one.
+/// Refused, with the difference, when the ledger says otherwise: the entries are put right first, as on the phone.
+public func prepareFolderBalance(account: String, day: String, amount: Double, currency: String, folder: URL) -> Result<FolderSave, FolderSaveError> {
+    guard let ledger = loadLedger(folder: folder) else { return .failure(noLedgerInFolder) }
+    let date = Day.shift(day, 1)
+    guard existingBalance(ledger, account: account, date: date, currency: currency) == nil else {
+        return .failure(FolderSaveError(message: tr("这天已有余额断言，没有写入", "This day already has a balance assertion: nothing was written")))
+    }
+    let layout = folderLayout(ledger, folder: folder)
+    let exists = { (path: String) in FileManager.default.fileExists(atPath: folder.appendingPathComponent(path).path) }
+    switch makeOps(balanceLine(date, account, amount, currency), ledger, layout: layout, pending: [], fileExists: exists, single: false) {
+    case .failure(let error): return .failure(FolderSaveError(message: error.message))
+    case .success(let ops):
+        let prepared = folderSave(ops, before: ledger, main: layout.main, folder: folder)
+        if case .success(let save) = prepared, let issue = save.issues.first {
+            return .failure(FolderSaveError(message: issue.detail.isEmpty ? issue.title : issue.detail))
+        }
+        return prepared
+    }
+}
+
 private let noLedgerInFolder = FolderSaveError(message: tr("这个文件夹里没有账本", "No ledger in this folder"))
 private let entryChanged = FolderSaveError(message: tr("原来的交易已经变了，没有改动", "The entry has changed: nothing was changed"))
 

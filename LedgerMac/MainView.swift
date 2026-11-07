@@ -62,7 +62,7 @@ struct MainView: View {
                 switch page ?? .journal {
                 case .journal: JournalPage(ledger: ledger, config: config, folder: folder, scope: $scope, searching: $searching)
                 case .accounts:
-                    AccountsPage(ledger: ledger, config: config) { open($0, title: accountTitle(ledger, $0), span: nil) }
+                    AccountsPage(ledger: ledger, config: config, folder: folder) { open($0, title: accountTitle(ledger, $0), span: nil) }
                 case .reports:
                     ReportsPage(ledger: ledger, period: $period) { open($0, title: accountTitle(ledger, $0) + " · " + period.title, span: period.span) }
                 }
