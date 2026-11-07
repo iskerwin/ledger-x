@@ -47,6 +47,9 @@ struct MainView: View {
     @State private var syncing = false
     @State private var pulling = false
     @State private var pullError: String?
+    /// false before the first check and after one that failed: without an answer, Pull stays there to try
+    @State private var remoteReached = false
+    @State private var checkingRemote = false
 
     var body: some View {
         NavigationSplitView {
@@ -72,10 +75,11 @@ struct MainView: View {
                             if pulling {
                                 ProgressView().controlSize(.small)
                             } else {
-                                Label(chinese ? "拉取" : "Pull", systemImage: "arrow.down.circle")
+                                Label(chinese ? "拉取" : "Pull", systemImage: git.behind > 0 ? "arrow.down.circle.fill" : "arrow.down.circle")
+                                    .foregroundStyle(git.behind > 0 ? Color.accentColor : Color.primary)
                             }
                         }
-                        .disabled(pulling)
+                        .disabled(pulling || (remoteReached && git.behind == 0))
                         Button { syncing = true } label: { Label(chinese ? "提交并推送" : "Commit and Push", systemImage: "arrow.up.circle") }
                             .disabled(!git.canSync)
                     }
@@ -97,8 +101,9 @@ struct MainView: View {
             guard !Task.isCancelled else { return }
             git = status
         }
-        // what happens in .git isn't watched: a commit made in a terminal is seen on coming back
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in gitReads += 1 }
+        .task(id: folder.path) { checkRemote() }
+        // what happens in .git isn't watched: a commit made in a terminal, or on another device, is seen on coming back
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in checkRemote() }
         .alert(pullError ?? "", isPresented: Binding(get: { pullError != nil }, set: { if !$0 { pullError = nil } })) {}
         .onChange(of: page) { if page != .journal { scope = nil } }
     }
@@ -106,6 +111,17 @@ struct MainView: View {
     private func open(_ account: String, title: String, span: (String, String)?) {
         scope = JournalScope(title: title, account: account, from: span?.0, to: span?.1)
         page = .journal
+    }
+
+    private func checkRemote() {
+        guard !checkingRemote else { return }
+        checkingRemote = true
+        let folder = folder
+        Task { @MainActor in
+            remoteReached = await Task.detached { folderGitStatus(folder) != nil && fetchFolderGit(folder) }.value
+            checkingRemote = false
+            gitReads += 1
+        }
     }
 
     private func pull() {

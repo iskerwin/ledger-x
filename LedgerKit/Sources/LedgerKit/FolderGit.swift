@@ -70,6 +70,11 @@ public func pullFolderGit(_ folder: URL) throws {
     }
 }
 
+/// Asks the remote what it has, which `folderGitStatus` then counts; only git's own records change. False when it couldn't be reached.
+public func fetchFolderGit(_ folder: URL) -> Bool {
+    (try? runGit(["fetch", "--quiet"], in: folder)) != nil
+}
+
 private func fetchedStatus(_ folder: URL) throws -> FolderGitStatus {
     try runGit(["fetch", "--quiet"], in: folder)
     guard let status = folderGitStatus(folder) else { throw FolderSaveError(message: tr("这个文件夹不能同步", "This folder can't be synced")) }

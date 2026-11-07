@@ -168,6 +168,23 @@ final class FolderGitTests: XCTestCase {
         XCTAssertThrowsError(try pullFolderGit(folder))
     }
 
+    func testFetchingCountsTheRemotesCommitsAndChangesNoFile() throws {
+        try write("main.bean", "; changed\n")
+        try pushFromPhone("phone.bean", "; phone\n")
+        XCTAssertEqual(try XCTUnwrap(folderGitStatus(folder)).behind, 0)
+        let head = try runGit(["rev-parse", "HEAD"], in: folder)
+        XCTAssertTrue(fetchFolderGit(folder))
+        XCTAssertEqual(try XCTUnwrap(folderGitStatus(folder)).behind, 1)
+        XCTAssertEqual(try runGit(["rev-parse", "HEAD"], in: folder), head)
+        XCTAssertEqual(try read("main.bean"), "; changed\n")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.appendingPathComponent("phone.bean").path))
+    }
+
+    func testFetchingSaysWhenTheRemoteCantBeReached() throws {
+        try FileManager.default.moveItem(at: remote, to: root.appendingPathComponent("moved.git"))
+        XCTAssertFalse(fetchFolderGit(folder))
+    }
+
     func testNothingToPushWithoutARepositoryAtTheTopOrAnUpstream() throws {
         let plain = root.appendingPathComponent("plain")
         try FileManager.default.createDirectory(at: plain, withIntermediateDirectories: true)
