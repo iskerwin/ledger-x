@@ -56,7 +56,7 @@ public func prepareFolderSave(_ draft: Draft, folder: URL) -> Result<FolderSave,
 public func folderEditDraft(_ entry: Entry, _ ledger: Ledger, _ derived: Derived) -> Draft? {
     guard var draft = editDraft(entry, ledger, derived), [.expense, .income, .transfer, .refund].contains(draft.kind),
           !draft.reimb, !draft.split, draft.shares.isEmpty, draft.extraFunds.isEmpty, draft.discount.isEmpty, !draft.byRate,
-          draft.feeMode == nil, (draft.transferFee ?? "").isEmpty, draft.paid.isEmpty, draft.refundOf == nil, draft.refundFee == nil,
+          draft.kind == .transfer || (draft.feeMode == nil && (draft.transferFee ?? "").isEmpty), draft.paid.isEmpty, draft.refundOf == nil, draft.refundFee == nil,
           !draft.topup else { return nil }
     let summary = [entry.payee, entry.narration].filter { !$0.isEmpty }.joined(separator: " ")
     draft.replacing = Replacing(path: entry.file, old: entry.src, date: entry.date, summary: summary,

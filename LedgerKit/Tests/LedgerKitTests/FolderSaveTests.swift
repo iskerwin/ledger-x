@@ -242,6 +242,108 @@ final class FolderSaveTests: XCTestCase {
         XCTAssertTrue(try prepared(try editing()).files.isEmpty)
     }
 
+    private let feeOpens = """
+    2025-01-01 open Assets:Wallet USD,HKD
+    2025-01-01 open Assets:HK HKD
+    2025-01-01 open Expenses:Fee:Bank CNY,USD,HKD
+    2025-01-01 open Income:Dollars USD
+
+    2025-01-03 * "Employer" "Opening dollars"
+      Assets:Wallet  100.00 USD
+      Income:Dollars  -100.00 USD
+
+    """
+
+    func testATransferWithAFeeIsWrittenAsTheSharedFormatWould() throws {
+        try write("main.bean", opens + "\n" + feeOpens)
+        for (mode, charged) in [(TransferFeeMode.added, "-37.00"), (.included, "-35.00"), (.deducted, "-2.00")] {
+            var new = draft(.transfer)
+            new.narration = mode.rawValue
+            new.transferFee = "2"; new.feeCurrency = "CNY"; new.feeMode = mode
+            try commitFolderSave(try prepared(new), folder: folder)
+            let added = try XCTUnwrap(try XCTUnwrap(loadLedger(folder: folder)).txns.first { $0.narration == mode.rawValue })
+            XCTAssertEqual(added.postings.first { $0.account == transferFeeAccount }?.units, 2, mode.rawValue)
+            XCTAssertEqual(added.postings.compactMap(\.units).reduce(0, +), 0, accuracy: 0.001, mode.rawValue)
+            XCTAssertTrue(added.src.contains(charged), added.src)
+        }
+    }
+
+    func testAFeePaidFromAnotherAccountNamesIt() throws {
+        try write("main.bean", opens + "\n" + feeOpens)
+        var new = draft(.transfer)
+        new.transferFee = "2"; new.feeCurrency = "CNY"; new.feeMode = .separate; new.feeFunding = "Assets:Cash"
+        try commitFolderSave(try prepared(new), folder: folder)
+        let text = try read("main.bean")
+        XCTAssertTrue(text.contains("fee_account: \"Assets:Cash\""), text)
+    }
+
+    func testATransferWithAFeeIsOfferedAndUnchangedWritesNothing() throws {
+        let entry = """
+        2026-10-16 * "Transfer" "With fee" #transfer
+          fee_mode: "added"
+          Assets:Bank  -37.00 CNY
+          Assets:Cash  35.00 CNY
+          Expenses:Fee:Bank  2.00 CNY
+
+        """
+        try write("main.bean", opens + "\n" + feeOpens + "\n" + entry)
+        let before = try read("main.bean")
+        var draft = try editing("With fee")
+        XCTAssertEqual(draft.kind, .transfer)
+        XCTAssertEqual(draft.transferFee, "2")
+        XCTAssertEqual(draft.feeMode, .added)
+        XCTAssertTrue(try prepared(draft).files.isEmpty)
+        XCTAssertEqual(try read("main.bean"), before)
+        draft.transferFee = "3"
+        try commitFolderSave(try prepared(draft), folder: folder)
+        let edited = try XCTUnwrap(try XCTUnwrap(loadLedger(folder: folder)).txns.first { $0.narration == "With fee" })
+        XCTAssertEqual(edited.postings.first { $0.account == transferFeeAccount }?.units, 3)
+        XCTAssertEqual(edited.postings.first { $0.account == "Assets:Bank" }?.units, -38)
+    }
+
+    func testAnExchangeKeepsTheBanksQuoteWhileItsAmountsStay() throws {
+        let entry = """
+        2026-10-16 * "Bank" "Exchange" #fx
+          exchange_rate: "1 USD = 7.80000 HKD"
+          Assets:Wallet  -10.00 USD
+          Assets:HK  78.00 HKD @@ 10.00 USD
+
+        """
+        try write("main.bean", opens + "\n" + feeOpens + "\n" + entry)
+        var draft = try editing("Exchange")
+        XCTAssertEqual(draft.toAmount, "78")
+        XCTAssertTrue(try prepared(draft).files.isEmpty)
+        draft.narration = "Renamed"
+        try commitFolderSave(try prepared(draft), folder: folder)
+        XCTAssertTrue(try read("main.bean").contains("exchange_rate: \"1 USD = 7.80000 HKD\""))
+    }
+
+    func testAnExchangeWithinOneAccountIsWrittenFromTheCurrencyChosen() throws {
+        try write("main.bean", opens + "\n" + feeOpens)
+        var new = draft(.transfer)
+        new.narration = "Within"
+        new.funding = "Assets:Wallet"; new.to = "Assets:Wallet"
+        new.amount = "10"; new.currency = "USD"; new.targetCurrency = "HKD"; new.toAmount = "78"
+        try commitFolderSave(try prepared(new), folder: folder)
+        let added = try XCTUnwrap(try XCTUnwrap(loadLedger(folder: folder)).txns.first { $0.narration == "Within" })
+        XCTAssertEqual(added.postings.first { $0.currency == "HKD" }?.units, 78)
+        XCTAssertTrue(added.tags.contains("fx"))
+    }
+
+    func testAnExpenseWithAFeeIsStillNotOffered() throws {
+        let entry = """
+        2026-10-16 * "Sample Shop" "Lunch"
+          fee_mode: "added"
+          Expenses:Fee:Bank  1.00 CNY
+          Expenses:Food  35.00 CNY
+          Assets:Bank  -36.00 CNY
+
+        """
+        try write("main.bean", opens + "\n" + feeOpens + "\n" + entry)
+        let (found, ledger) = try self.entry()
+        XCTAssertNil(folderEditDraft(found, ledger, Derived(ledger)))
+    }
+
     func testEditingARefundKeepsWhatMakesItOne() throws {
         try write("main.bean", opens + "\n" + purchase + "\n" + refund)
         let (found, ledger) = try entry("Lunch back")
