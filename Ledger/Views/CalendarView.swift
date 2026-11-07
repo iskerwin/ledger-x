@@ -629,7 +629,7 @@ struct CalendarDaySheet: View {
                             Spacer()
                             Figure(label: LS("支出"), value: money(out, L.base), color: JournalCalendar.spend)
                             Spacer()
-                            Figure(label: LS("纯利"), value: money(inn - out, L.base), color: inn - out < 0 ? Color.loss : Color.primary, alignment: .trailing)
+                            Figure(label: LS("结余"), value: money(inn - out, L.base), color: inn - out < 0 ? Color.loss : Color.primary, alignment: .trailing)
                         }
                         .sensitive()
                         if !flows.isEmpty { FlowBars(flows: flows) }
@@ -683,7 +683,7 @@ struct FlowBars: View {
     let flows: [CurrencyFlow]
 
     var body: some View {
-        let inc = LS("收入"), exp = LS("支出"), net = LS("纯利")
+        let inc = LS("收入"), exp = LS("支出"), net = LS("结余")
         Chart {
             ForEach(flows, id: \.currency) { f in
                 BarMark(x: .value("金额", f.income), y: .value("币种", f.currency), height: .ratio(0.32))

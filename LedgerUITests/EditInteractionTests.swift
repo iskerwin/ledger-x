@@ -1517,6 +1517,7 @@ final class EditInteractionTests: XCTestCase {
         tapPoint(coffee, timeout: 5)
         XCTAssertTrue(app.navigationBars["10月17日 周六"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "12.00")).firstMatch.exists)
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "纯利")).firstMatch.exists, "The day sheet says 结余, as the month does")
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "calendar-day-sheet"
         shot.lifetime = .keepAlways
