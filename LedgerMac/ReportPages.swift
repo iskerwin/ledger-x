@@ -68,6 +68,45 @@ struct ReportsPage: View {
     }
 }
 
+struct MonthsPage: View {
+    let ledger: Ledger
+    let open: (String) -> Void
+
+    var body: some View {
+        let flows = monthlyFlows(ledger, months: ledger.txns.map { Day.ym($0.date) }, mode: .units)
+        List(selection: opening(open)) {
+            Section {
+                ForEach(flows.keys.sorted(by: >), id: \.self) { month in
+                    let flow = flows[month] ?? MonthFlow()
+                    MonthRow(month: month, income: amountsText(flow.income, ledger), expenses: amountsText(flow.expenses, ledger),
+                             net: amountsText(flow.income + (-flow.expenses), ledger))
+                }
+            } header: {
+                MonthRow(month: "", income: "收入", expenses: "支出", net: "结余")
+            }
+        }
+        .listStyle(.inset)
+    }
+}
+
+private struct MonthRow: View {
+    let month: String
+    let income: String
+    let expenses: String
+    let net: String
+
+    var body: some View {
+        HStack(spacing: 16) {
+            Text(month).frame(width: 72, alignment: .leading)
+            Text(income).frame(maxWidth: .infinity, alignment: .trailing)
+            Text(expenses).frame(maxWidth: .infinity, alignment: .trailing)
+            Text(net).frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .monospacedDigit()
+        .lineLimit(1)
+    }
+}
+
 /// A click on a row opens its account and leaves nothing selected. Through the list's selection, so it reaches this page:
 /// a tap gesture on a row can go on answering for whatever the list showed in that place before.
 private func opening(_ open: @escaping (String) -> Void) -> Binding<String?> {

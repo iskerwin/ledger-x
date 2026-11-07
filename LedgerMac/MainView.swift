@@ -2,13 +2,14 @@ import SwiftUI
 import LedgerKit
 
 enum Page: CaseIterable {
-    case journal, accounts, reports
+    case journal, accounts, reports, months
 
     var title: String {
         switch self {
         case .journal: return "明细"
         case .accounts: return "账户"
         case .reports: return "报表"
+        case .months: return "按月"
         }
     }
 
@@ -17,6 +18,7 @@ enum Page: CaseIterable {
         case .journal: return "list.bullet"
         case .accounts: return "building.columns"
         case .reports: return "chart.bar"
+        case .months: return "calendar"
         }
     }
 }
@@ -24,7 +26,7 @@ enum Page: CaseIterable {
 /// the journal kept to what a report counted for one account
 struct JournalScope {
     let title: String
-    let account: String
+    var account: String?
     var from: String?
     var to: String?
 
@@ -65,6 +67,8 @@ struct MainView: View {
                     AccountsPage(ledger: ledger, config: config, folder: folder) { open($0, title: accountTitle(ledger, $0), span: nil) }
                 case .reports:
                     ReportsPage(ledger: ledger, period: $period) { open($0, title: accountTitle(ledger, $0) + " · " + period.title, span: period.span) }
+                case .months:
+                    MonthsPage(ledger: ledger) { open(nil, title: $0, span: (Day.ym($0) + "-01", Day.monthEnd($0))) }
                 }
             }
             // a list of its own for each page: left to reuse its rows, one page's row keeps what the last page's row did when clicked
@@ -113,7 +117,7 @@ struct MainView: View {
         .onChange(of: page) { if page != .journal { scope = nil } }
     }
 
-    private func open(_ account: String, title: String, span: (String, String)?) {
+    private func open(_ account: String?, title: String, span: (String, String)?) {
         scope = JournalScope(title: title, account: account, from: span?.0, to: span?.1)
         page = .journal
     }

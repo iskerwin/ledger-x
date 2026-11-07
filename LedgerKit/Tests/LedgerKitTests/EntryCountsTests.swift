@@ -34,7 +34,7 @@ final class EntryCountsTests: XCTestCase {
 
     """ }
 
-    private func notes(_ account: String, from: String? = nil, to: String? = nil) -> [String] {
+    private func notes(_ account: String?, from: String? = nil, to: String? = nil) -> [String] {
         ledger.txns.filter { entryCounts($0, for: account, from: from, to: to) }.map(\.narration)
     }
 
@@ -46,6 +46,10 @@ final class EntryCountsTests: XCTestCase {
 
     func testBothEndsOfThePeriodCount() {
         XCTAssertEqual(notes("Expenses:Food", from: "2026-10-01", to: "2026-10-31"), ["First day", "Below", "Last day"])
+    }
+
+    func testWithNoAccountEveryEntryOfThoseDaysCounts() {
+        XCTAssertEqual(notes(nil, from: "2026-10-01", to: "2026-10-31"), ["First day", "Below", "Similar name", "Last day"])
     }
 
     func testTheEntriesAddUpToTheReportsNumber() throws {

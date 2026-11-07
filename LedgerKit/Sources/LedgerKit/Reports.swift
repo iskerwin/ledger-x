@@ -211,10 +211,10 @@ public struct BalanceSheet {
     public var netWorthShown: Inventory { assets.shown + liabilities.shown }
 }
 
-/// the entry is what a report counts for `account` over these days: it moves that account or one under it
-public func entryCounts(_ entry: Entry, for account: String, from: String?, to: String?) -> Bool {
+/// the entry is what a report counts for `account` over these days: it moves that account or one under it (with no account, any entry of those days)
+public func entryCounts(_ entry: Entry, for account: String?, from: String?, to: String?) -> Bool {
     (from.map { entry.date >= $0 } ?? true) && (to.map { entry.date <= $0 } ?? true)
-        && entry.postings.contains { isExcluded($0.account, [account]) }
+        && (account.map { account in entry.postings.contains { isExcluded($0.account, [account]) } } ?? true)
 }
 
 /// `account` is one of `list` or under one of them
