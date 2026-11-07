@@ -5,6 +5,7 @@ struct JournalPage: View {
     let ledger: Ledger
     let config: LedgerXConfig?
     let folder: URL
+    @Binding var scope: JournalScope?
     @State private var text = ""
     @State private var editing: EditedEntry?
     @State private var deleting: Entry?
@@ -18,7 +19,7 @@ struct JournalPage: View {
 
     var body: some View {
         let query = TxQuery(text)
-        let rows = ledger.txns.reversed().filter { query.matches($0, ledger) }
+        let rows = ledger.txns.reversed().filter { (scope?.matches($0) ?? true) && query.matches($0, ledger) }
         Group {
             if rows.isEmpty && !query.isEmpty {
                 ContentUnavailableView.search(text: text)
@@ -33,6 +34,21 @@ struct JournalPage: View {
                         }
                 }
                 .listStyle(.inset)
+            }
+        }
+        .safeAreaInset(edge: .top) {
+            if let scope {
+                HStack {
+                    Text(scope.title).lineLimit(1)
+                    Spacer(minLength: 16)
+                    Button { self.scope = nil } label: { Image(systemName: "xmark.circle.fill") }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel(chinese ? "显示全部" : "Show All")
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                .background(.bar)
             }
         }
         .searchable(text: $text, placement: .toolbar)

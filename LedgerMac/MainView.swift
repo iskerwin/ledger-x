@@ -21,12 +21,24 @@ private enum Page: CaseIterable {
     }
 }
 
+/// the journal kept to what a report counted for one account
+struct JournalScope {
+    let title: String
+    let account: String
+    var from: String?
+    var to: String?
+
+    func matches(_ entry: Entry) -> Bool { entryCounts(entry, for: account, from: from, to: to) }
+}
+
 struct MainView: View {
     let ledger: Ledger
     let config: LedgerXConfig?
     let folder: URL
     @Binding var adding: Bool
     @State private var page: Page? = .journal
+    @State private var scope: JournalScope?
+    @State private var period = ReportPeriod.thisMonth
 
     var body: some View {
         NavigationSplitView {
@@ -37,9 +49,11 @@ struct MainView: View {
         } detail: {
             Group {
                 switch page ?? .journal {
-                case .journal: JournalPage(ledger: ledger, config: config, folder: folder)
-                case .accounts: AccountsPage(ledger: ledger, config: config)
-                case .reports: ReportsPage(ledger: ledger)
+                case .journal: JournalPage(ledger: ledger, config: config, folder: folder, scope: $scope)
+                case .accounts:
+                    AccountsPage(ledger: ledger, config: config) { open($0, title: accountTitle(ledger, $0), span: nil) }
+                case .reports:
+                    ReportsPage(ledger: ledger, period: $period) { open($0, title: accountTitle(ledger, $0) + " · " + period.title, span: period.span) }
                 }
             }
             .safeAreaInset(edge: .bottom) { ErrorBar(errors: ledger.errors.filter { !$0.soft }) }
@@ -52,6 +66,12 @@ struct MainView: View {
         .sheet(isPresented: $adding) {
             NewEntrySheet(ledger: ledger, config: config, folder: folder)
         }
+        .onChange(of: page) { if page != .journal { scope = nil } }
+    }
+
+    private func open(_ account: String, title: String, span: (String, String)?) {
+        scope = JournalScope(title: title, account: account, from: span?.0, to: span?.1)
+        page = .journal
     }
 }
 

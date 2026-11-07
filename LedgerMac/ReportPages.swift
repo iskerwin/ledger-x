@@ -4,13 +4,14 @@ import LedgerKit
 struct AccountsPage: View {
     let ledger: Ledger
     let config: LedgerXConfig?
+    let open: (String) -> Void
 
     var body: some View {
         let sheet = balanceSheet(ledger, at: nil, exclude: config?.balanceExclude ?? [])
         let worth = netWorthNow(ledger, exclude: config?.netWorthExclude ?? [])
         List {
-            TreeSection(title: chinese ? "资产" : "Assets", root: sheet.assets, ledger: ledger)
-            TreeSection(title: chinese ? "负债" : "Liabilities", root: sheet.liabilities, ledger: ledger)
+            TreeSection(title: chinese ? "资产" : "Assets", root: sheet.assets, ledger: ledger, open: open)
+            TreeSection(title: chinese ? "负债" : "Liabilities", root: sheet.liabilities, ledger: ledger, open: open)
         }
         .listStyle(.inset)
         .safeAreaInset(edge: .top) {
@@ -19,32 +20,35 @@ struct AccountsPage: View {
     }
 }
 
-struct ReportsPage: View {
-    /// the search box's own words for these spans, so a period here means what it means there
-    private enum Period: String, CaseIterable {
-        case thisMonth = "本月", lastMonth = "上月", thisYear = "今年", lastYear = "去年"
+/// the search box's own words for these spans, so a period here means what it means there
+enum ReportPeriod: String, CaseIterable {
+    case thisMonth = "本月", lastMonth = "上月", thisYear = "今年", lastYear = "去年"
 
-        var title: String {
-            if chinese { return rawValue }
-            switch self {
-            case .thisMonth: return "This Month"
-            case .lastMonth: return "Last Month"
-            case .thisYear: return "This Year"
-            case .lastYear: return "Last Year"
-            }
+    var title: String {
+        if chinese { return rawValue }
+        switch self {
+        case .thisMonth: return "This Month"
+        case .lastMonth: return "Last Month"
+        case .thisYear: return "This Year"
+        case .lastYear: return "Last Year"
         }
     }
 
+    var span: (String, String)? { TxQuery(rawValue).dateSpan }
+}
+
+struct ReportsPage: View {
     let ledger: Ledger
-    @State private var period = Period.thisMonth
+    @Binding var period: ReportPeriod
+    let open: (String) -> Void
 
     var body: some View {
-        let span = TxQuery(period.rawValue).dateSpan
+        let span = period.span
         let report = incomeStatement(ledger, from: span?.0, to: span?.1)
         let income = -report.income.shown, expenses = report.expenses.shown
         List {
-            TreeSection(title: chinese ? "收入" : "Income", root: report.income, ledger: ledger, negated: true)
-            TreeSection(title: chinese ? "支出" : "Expenses", root: report.expenses, ledger: ledger)
+            TreeSection(title: chinese ? "收入" : "Income", root: report.income, ledger: ledger, negated: true, open: open)
+            TreeSection(title: chinese ? "支出" : "Expenses", root: report.expenses, ledger: ledger, open: open)
         }
         .listStyle(.inset)
         .safeAreaInset(edge: .top) {
@@ -55,7 +59,7 @@ struct ReportsPage: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Picker(selection: $period) {
-                    ForEach(Period.allCases, id: \.self) { Text($0.title) }
+                    ForEach(ReportPeriod.allCases, id: \.self) { Text($0.title) }
                 } label: {
                     EmptyView()
                 }
@@ -100,6 +104,7 @@ private struct TreeSection: View {
     let ledger: Ledger
     /// income is written as a negative amount; shown here as what came in
     var negated = false
+    let open: (String) -> Void
 
     var body: some View {
         Section {
@@ -112,6 +117,8 @@ private struct TreeSection: View {
                         .monospacedDigit()
                         .lineLimit(1)
                 }
+                .contentShape(Rectangle())
+                .onTapGesture { open(node.name) }
             }
         } header: {
             HStack {
