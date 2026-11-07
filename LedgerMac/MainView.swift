@@ -68,9 +68,7 @@ struct MainView: View {
                     case .accounts:
                         AccountsPage(ledger: ledger, config: config, folder: folder) { JournalScope(title: accountTitle(ledger, $0), account: $0) }
                     case .reports:
-                        ReportsPage(ledger: ledger, period: $period) {
-                            JournalScope(title: accountTitle(ledger, $0) + " · " + period.title, account: $0, from: period.span?.0, to: period.span?.1)
-                        }
+                        ReportsPage(ledger: ledger, period: $period)
                     case .months:
                         MonthsPage(ledger: ledger) { JournalScope(title: $0, from: Day.ym($0) + "-01", to: Day.monthEnd($0)) }
                     }

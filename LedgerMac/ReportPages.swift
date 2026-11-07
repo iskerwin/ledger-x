@@ -39,12 +39,13 @@ enum ReportPeriod: String, CaseIterable {
 struct ReportsPage: View {
     let ledger: Ledger
     @Binding var period: ReportPeriod
-    let scope: (String) -> JournalScope
 
     var body: some View {
         let span = period.span
         let report = incomeStatement(ledger, from: span?.0, to: span?.1)
         let income = -report.income.shown, expenses = report.expenses.shown
+        let shown = period.title
+        let scope: (String) -> JournalScope = { JournalScope(title: accountTitle(ledger, $0) + " · " + shown, account: $0, from: span?.0, to: span?.1) }
         List {
             TreeSection(title: "收入", root: report.income, ledger: ledger, negated: true, scope: scope)
             TreeSection(title: "支出", root: report.expenses, ledger: ledger, scope: scope)
