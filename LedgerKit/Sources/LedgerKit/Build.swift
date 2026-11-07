@@ -285,10 +285,14 @@ func applyInventory(_ t: Entry, _ inv: inout [String: [Lot]]) {
 
 // MARK: - loading
 
+/// the ledger-x.json of a folder on this computer
+public func ledgerConfig(folder: URL) -> LedgerXConfig? {
+    (try? String(contentsOf: folder.appendingPathComponent(LedgerXConfig.path), encoding: .utf8)).flatMap(LedgerXConfig.parse)
+}
+
 /// the ledger in a folder on this computer, starting from ledger-x.json's main file, else main.bean; nil without that file
 public func loadLedger(folder: URL) -> Ledger? {
-    let config = (try? String(contentsOf: folder.appendingPathComponent(LedgerXConfig.path), encoding: .utf8)).flatMap(LedgerXConfig.parse)
-    let written = config?.main?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    let written = ledgerConfig(folder: folder)?.main?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     let root = written.isEmpty ? "main.bean" : written
     guard FileManager.default.fileExists(atPath: folder.appendingPathComponent(root).path) else { return nil }
     let list = { ((try? FileManager.default.subpathsOfDirectory(atPath: folder.path)) ?? []).filter { !$0.hasPrefix(".git/") } }
