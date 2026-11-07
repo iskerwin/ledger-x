@@ -20,13 +20,13 @@
       "versions": [
         {
           "version": "1.0.15",
-          "buildVersion": "60.1",
-          "date": "2026-11-07T14:22:31Z",
-          "localizedDescription": "# Ledger X 1.0.15 预览\n\n版本 1.0.15 · 构建 60.1 · feat/overview-cover f53b311 · PR #115 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "buildVersion": "60.2",
+          "date": "2026-11-07T14:57:58Z",
+          "localizedDescription": "# Ledger X 1.0.15 预览\n\n版本 1.0.15 · 构建 60.2 · feat/overview-style-next f34c03a · PR #116 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
           "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-          "size": 10874142,
+          "size": 10864924,
           "minOSVersion": "17.0",
-          "sha256": "e02205c6c6ba57c1e84d69db298b9de3750a29fdb94f2bacc9dc1145d06d5d5d"
+          "sha256": "a0fa9fe2238ec4d6f285309aeae038d2a61f63e85f947bd0d65163be3edbda3e"
         },
         {
           "version": "1.0.15",
@@ -188,10 +188,10 @@
         }
       },
       "version": "1.0.15",
-      "versionDate": "2026-11-07T14:22:31Z",
-      "versionDescription": "# Ledger X 1.0.15 预览\n\n版本 1.0.15 · 构建 60.1 · feat/overview-cover f53b311 · PR #115 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+      "versionDate": "2026-11-07T14:57:58Z",
+      "versionDescription": "# Ledger X 1.0.15 预览\n\n版本 1.0.15 · 构建 60.2 · feat/overview-style-next f34c03a · PR #116 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
       "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-      "size": 10874142
+      "size": 10864924
     }
   ],
   "news": []
