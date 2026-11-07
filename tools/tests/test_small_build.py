@@ -74,6 +74,41 @@ class SmallBuildTests(unittest.TestCase):
         self.assertEqual((proof['tree'], proof['source_sha'], proof['auto_selection']), ('tree', 'a'*40, plan))
         self.assertIsNotNone(dev_scope.pr_proof(proof, dict(plan, source_sha='c'*40), 'tree', 'example/app'))
 
+    def gate_with(self, paths, run):
+        import dev_scope
+        plan = dict(dev_scope.classify(paths), base_sha='b'*40, source_sha='a'*40)
+        def git(*args):
+            return {('rev-parse', 'HEAD'): 'a'*40, ('status', '--porcelain'): ''}.get(args, 'tree')
+        proof = dict(validator='github-actions', scope='build', auto_selection=plan)
+        with tempfile.TemporaryDirectory() as temp, patch.object(pr_gate, 'PROOF', Path(temp)/'pr-proof.json'), \
+             patch.dict(os.environ, dict(GITHUB_REPOSITORY='example/app')), \
+             patch.object(dev_scope, 'select', return_value=plan), patch.object(dev_scope, 'validate', return_value=proof), \
+             patch.object(ship, 'git', side_effect=git), patch.object(ship, 'run', side_effect=run), \
+             patch.object(ship, 'step'), patch('builtins.print'):
+            try:
+                return pr_gate.main(['gate']), pr_gate.PROOF.exists()
+            except ship.Failure:
+                return 1, pr_gate.PROOF.exists()
+
+    def test_pr_gate_compiles_the_mac_app_when_its_sources_change(self):
+        for path in ('LedgerMac/LedgerMacApp.swift', 'LedgerKit/Sources/LedgerKit/Build.swift', 'project.yml'):
+            commands = []
+            self.assertEqual(self.gate_with([path], lambda cmd, **_: commands.append(cmd)), (0, True))
+            builds = [cmd for cmd in commands if cmd[0] == 'xcodebuild']
+            self.assertEqual(len(builds), 1, path)
+            self.assertEqual(builds[0][builds[0].index('-scheme') + 1], 'LedgerMac')
+
+    def test_pr_gate_skips_the_mac_build_for_changes_that_cannot_reach_it(self):
+        commands = []
+        self.assertEqual(self.gate_with(['Ledger/Views/CalendarView.swift', 'docs/a.md'], lambda cmd, **_: commands.append(cmd)), (0, True))
+        self.assertEqual(commands, [])
+
+    def test_a_failed_mac_build_fails_the_gate_and_leaves_no_proof(self):
+        def run(cmd, **_):
+            if cmd[0] == 'xcodebuild':
+                raise ship.Failure('Mac 编译失败')
+        self.assertEqual(self.gate_with(['LedgerMac/LedgerMacApp.swift'], run), (1, False))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -4,6 +4,7 @@ dist/
 Ledger.xcodeproj/
 Payload/
 *.ipa
+LedgerMac.zip
 *.log
 .build/
 # the built-in demo, copied from .demo-data by tools/ship.py

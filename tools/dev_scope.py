@@ -181,6 +181,8 @@ def classify(paths, diff='', sources=None):
             reasons.append(f'{path} → 核心样本、演示加载与关键界面流程')
         elif path in SAFE_FILES or path.startswith(('docs/', 'tools/', '.github/')):
             reasons.append(f'{path} → 静态检查与工具测试')
+        elif path.startswith('LedgerMac/'):
+            reasons.append(f'{path} → 编译 Mac App')
         elif path.startswith('LedgerKit/'):
             core_all = True
             reasons.append(f'{path} → 扩大到核心测试模块')
@@ -204,6 +206,12 @@ def classify(paths, diff='', sources=None):
     return dict(core_all=core_all, app_targets=sorted(targets), narrow_targets=[],
                 core_filter='.*' if core_all else '|'.join(sorted(core)), ui_tests=sorted(ui),
                 narrow_tests=sorted(narrow), paths=paths, reasons=reasons or ['源码与上次开发版相同，只做静态与工具检查'])
+
+
+def needs_mac_build(paths):
+    """The Mac app is built from these; the iOS app's sources and tests don't reach it."""
+    return any(path == 'project.yml' or path.startswith(('LedgerMac/', 'LedgerKit/Sources/')) or path == 'LedgerKit/Package.swift'
+               for path in paths)
 
 
 def validate_selectors(plan, root):
