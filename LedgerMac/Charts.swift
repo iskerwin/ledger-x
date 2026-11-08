@@ -77,7 +77,7 @@ struct FlowCard: View {
                         .opacity(picked == nil || picked == month ? 1 : 0.5)
                 }
             }
-            .chartForegroundStyleScale(["收入": Color.gain, "支出": Color.loss])
+            .chartForegroundStyleScale(["收入": Color.chartGain, "支出": Color.chartLoss])
             .chartLegend(.hidden)
             .chartYAxis(.hidden)
             .chartXAxis {

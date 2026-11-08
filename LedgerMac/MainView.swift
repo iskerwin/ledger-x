@@ -4,10 +4,9 @@ import LedgerKit
 enum Page: String, CaseIterable {
     case overview, journal, accounts
     case reports, payees, year
-    case income, balance, trial
     case budgets, forecast, subscriptions
     case reimbursements, salary, events
-    case alerts, query, sync
+    case query, sync
 
     var title: String {
         switch self {
@@ -17,16 +16,12 @@ enum Page: String, CaseIterable {
         case .reports: return "报表"
         case .payees: return "收付款方"
         case .year: return "年度回顾"
-        case .income: return "损益表"
-        case .balance: return "资产负债表"
-        case .trial: return "试算平衡"
         case .budgets: return "预算"
         case .forecast: return "现金流预测"
         case .subscriptions: return "订阅"
         case .reimbursements: return "报销"
         case .salary: return "工资"
         case .events: return "事件"
-        case .alerts: return "值得留意"
         case .query: return "BQL 查询"
         case .sync: return "同步与改动"
         }
@@ -40,16 +35,12 @@ enum Page: String, CaseIterable {
         case .reports: return "chart.bar"
         case .payees: return "person.2"
         case .year: return "calendar"
-        case .income: return "doc.text"
-        case .balance: return "scalemass"
-        case .trial: return "tablecells"
         case .budgets: return "chart.pie"
         case .forecast: return "chart.line.uptrend.xyaxis"
         case .subscriptions: return "repeat"
         case .reimbursements: return "list.bullet.rectangle"
         case .salary: return "banknote"
         case .events: return "star"
-        case .alerts: return "exclamationmark.triangle"
         case .query: return "terminal"
         case .sync: return "arrow.up.arrow.down"
         }
@@ -59,10 +50,9 @@ enum Page: String, CaseIterable {
     static let sections: [(String, [Page])] = [
         ("账本", [.overview, .journal, .accounts]),
         ("分析", [.reports, .payees, .year]),
-        ("财务报表", [.income, .balance, .trial]),
         ("计划", [.budgets, .forecast, .subscriptions]),
         ("往来", [.reimbursements, .salary, .events]),
-        ("工具", [.alerts, .query, .sync]),
+        ("工具", [.query, .sync]),
     ]
 }
 
@@ -126,23 +116,19 @@ struct MainView: View {
             Group {
                 switch page ?? .overview {
                 case .overview:
-                    drillable { OverviewPage(ledger: ledger, config: config, folder: folder, git: git, page: $page) }
+                    drillable { OverviewPage(ledger: ledger, config: config, folder: folder, git: git, alerts: alerts, page: $page) }
                 case .journal: JournalPage(ledger: ledger, config: config, folder: folder, scope: nil, searching: $searching)
                 case .accounts:
                     drillable { AccountsPage(ledger: ledger, config: config, folder: folder) { JournalScope(title: accountTitle(ledger, $0), account: $0) } }
-                case .reports: drillable { ReportsPage(ledger: ledger) }
+                case .reports: drillable { ReportsPage(ledger: ledger, config: config) }
                 case .payees: PayeesPage(ledger: ledger, config: config, folder: folder)
                 case .year: drillable { YearPage(ledger: ledger, config: config) }
-                case .income: drillable { IncomePage(ledger: ledger) }
-                case .balance: drillable { BalancePage(ledger: ledger, config: config) }
-                case .trial: drillable { TrialPage(ledger: ledger) }
                 case .budgets: drillable { BudgetsPage(ledger: ledger) }
                 case .forecast: drillable { ForecastPage(ledger: ledger, config: config) }
                 case .subscriptions: drillable { SubscriptionsPage(ledger: ledger, config: config, folder: folder) }
                 case .reimbursements: drillable { ReimbursementsPage(ledger: ledger, config: config, folder: folder) }
                 case .salary: SalaryPage(ledger: ledger, config: config, folder: folder)
                 case .events: EventsPage(ledger: ledger, config: config, folder: folder)
-                case .alerts: AlertsPage(ledger: ledger, config: config, folder: folder, alerts: alerts)
                 case .query: QueryPage(ledger: ledger, folder: folder)
                 case .sync:
                     SyncPage(folder: folder, status: git, remoteReached: remoteReached) { gitReads += 1 }
@@ -188,7 +174,7 @@ struct MainView: View {
 
     private func badge(_ item: Page) -> Int {
         switch item {
-        case .alerts: return alerts.count
+        case .overview: return alerts.count
         case .sync: return git.map { $0.paths.count + $0.ahead + $0.behind } ?? 0
         default: return 0
         }

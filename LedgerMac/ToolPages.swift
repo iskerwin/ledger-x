@@ -2,76 +2,23 @@ import SwiftUI
 import UniformTypeIdentifiers
 import LedgerKit
 
-/// what looks unusual in the last 30 days, as on the phone: the picked one's reason and its entries, which open in place
-/// to be put right; 核对无误 sets it aside on every device (ledger-x.json)
-struct AlertsPage: View {
-    let ledger: Ledger
-    let config: LedgerXConfig?
-    let folder: URL
-    let alerts: [Anomaly]
-    @State private var picked: String?
-    @State private var notice: String?
+/// 值得留意 checked and found fine, set aside on every device: ledger-x.json, as the phone keeps it
+func confirmAlert(_ alert: Anomaly, folder: URL) throws {
+    let save = try prepareFolderConfig(folder: folder) { config in
+        var ids = config.alertsConfirmed ?? []
+        if !ids.contains(alert.id) { ids.append(alert.id) }
+        config.alertsConfirmed = ids
+    }.get()
+    try commitFolderSave(save, folder: folder)
+}
 
-    var body: some View {
-        let chosen = alerts.first { $0.id == picked } ?? alerts.first
-        Group {
-            if alerts.isEmpty {
-                ContentUnavailableView("没有值得留意的", systemImage: "checkmark.circle")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.page)
-            } else {
-                SplitPage(listWidth: 320) {
-                    ForEach(alerts) { alert in
-                        PickRow(title: alert.title, caption: alert.detail, symbol: symbol(alert.kind), tint: .warn,
-                                picked: chosen?.id == alert.id) { picked = alert.id }
-                    }
-                } detail: {
-                    if let chosen {
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 16) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(chosen.title).font(.title2.weight(.semibold))
-                                    Text(chosen.detail).foregroundStyle(.secondary)
-                                }
-                                HStack {
-                                    Button("核对无误") { confirm(chosen) }
-                                        .buttonStyle(.borderedProminent)
-                                    Spacer()
-                                }
-                                EntryListCard(entries: chosen.entries, ledger: ledger, config: config, folder: folder,
-                                              columns: [.date, .payee, .category, .accounts, .amount]) {
-                                    CardTitle("交易")
-                                }
-                            }
-                            .padding(20)
-                        }
-                        .id(chosen.id)
-                    }
-                }
-            }
-        }
-        .alert(notice ?? "", isPresented: $notice.present()) {}
-    }
-
-    private func symbol(_ kind: Anomaly.Kind) -> String {
-        switch kind {
+extension Anomaly.Kind {
+    var symbol: String {
+        switch self {
         case .duplicate: return "doc.on.doc"
         case .large: return "dollarsign.circle"
         case .category: return "chart.line.uptrend.xyaxis"
         case .subscription: return "repeat"
-        }
-    }
-
-    private func confirm(_ alert: Anomaly) {
-        do {
-            let save = try prepareFolderConfig(folder: folder) { config in
-                var ids = config.alertsConfirmed ?? []
-                if !ids.contains(alert.id) { ids.append(alert.id) }
-                config.alertsConfirmed = ids
-            }.get()
-            try commitFolderSave(save, folder: folder)
-        } catch {
-            notice = error.localizedDescription
         }
     }
 }

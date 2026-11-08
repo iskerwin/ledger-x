@@ -37,6 +37,7 @@ struct JournalPage: View {
     @State private var choosingDay = false
     @State private var lines: [EntryLine] = []
     @State private var balances: [ObjectIdentifier: Inventory] = [:]
+    @State private var widths = EntryWidths()
     @State private var selected = Set<String>()
     /// where a shift-click runs from
     @State private var anchor: String?
@@ -117,16 +118,17 @@ struct JournalPage: View {
     /// rows of our own rather than a table: the amount keeps its width at the end, and the picked row opens in place
     private var list: some View {
         GeometryReader { geometry in
-            let columns = EntryColumn.fitting(EntryColumn.allCases, in: geometry.size.width)
+            let layout = widths.fit(EntryColumn.allCases, in: geometry.size.width)
+            let columns = layout.columns
             VStack(spacing: 0) {
-                EntryHeader(columns: columns, sortOrder: $sortOrder)
+                EntryHeader(columns: columns, widths: layout.widths, sortOrder: $sortOrder)
                 Divider()
                 ScrollViewReader { scroller in
                     ScrollView {
                         LazyVStack(spacing: 0) {
                             ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
                                 VStack(spacing: 0) {
-                                    EntryRow(line: line, ledger: ledger, columns: columns, picked: selected.contains(line.id),
+                                    EntryRow(line: line, ledger: ledger, columns: columns, widths: layout.widths, picked: selected.contains(line.id),
                                              account: heldAccount, balance: balances[ObjectIdentifier(line.entry)])
                                         .background(index.isMultiple(of: 2) ? Color.clear : Color.primary.opacity(0.035))
                                         .onTapGesture { click(line.id) }
@@ -211,6 +213,7 @@ struct JournalPage: View {
         }
         lines = built.sorted(using: sortOrder)
         balances = heldAccount.map { runningBalances(ledger, account: $0) } ?? [:]
+        widths = EntryWidths.measure(lines, ledger, account: heldAccount, balances: balances)
         let shown = Set(lines.map(\.id))
         if !selected.isSubset(of: shown) { selected.formIntersection(shown) }
     }

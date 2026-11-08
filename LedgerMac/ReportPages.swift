@@ -11,7 +11,9 @@ enum ReportPeriod: String, CaseIterable {
 }
 
 private enum ReportTab: String, CaseIterable {
-    case analysis = "收支分析", months = "按月对比"
+    case analysis = "收支分析", months = "按月对比", income = "损益表", balance = "资产负债表", trial = "试算平衡"
+
+    var usesPeriod: Bool { self == .analysis || self == .income }
 }
 
 /// a report's page: what it is set to along the top, the report on the page colour under it
@@ -59,10 +61,11 @@ struct PeriodMenu: View {
     }
 }
 
-/// where the money went in a period, and the months side by side; a period only where the report covers one, kept in place
+/// the reports, a tab each; a period where the report covers one, kept in place where it doesn't so the tabs don't move
 struct ReportsPage: View {
     let ledger: Ledger
-    @State private var tab = ReportTab.analysis
+    let config: LedgerXConfig?
+    @AppStorage("reportTab") private var tab = ReportTab.analysis
     @State private var period = ReportPeriod.thisMonth
 
     var body: some View {
@@ -77,8 +80,8 @@ struct ReportsPage: View {
             .fixedSize()
             Spacer()
             PeriodMenu(period: $period)
-                .opacity(tab == .analysis ? 1 : 0)
-                .disabled(tab != .analysis)
+                .opacity(tab.usesPeriod ? 1 : 0)
+                .disabled(!tab.usesPeriod)
         } content: {
             switch tab {
             case .analysis:
@@ -86,6 +89,9 @@ struct ReportsPage: View {
                 PeriodSummary(ledger: ledger, period: period, report: report)
                 Card(summary: true) { DonutCard(slices: DonutSlice.make(report.expenses, ledger), base: ledger.base, scope: spanScope(ledger, period)) }
             case .months: MonthsReport(ledger: ledger)
+            case .income: IncomeReport(ledger: ledger, period: period)
+            case .balance: BalanceReport(ledger: ledger, config: config)
+            case .trial: TrialReport(ledger: ledger)
             }
         }
     }
@@ -117,27 +123,22 @@ private struct PeriodSummary: View {
 }
 
 /// 损益表: income and expenses of a period, each account's line opening what's under it
-struct IncomePage: View {
+private struct IncomeReport: View {
     let ledger: Ledger
-    @State private var period = ReportPeriod.thisMonth
+    let period: ReportPeriod
 
     var body: some View {
         let report = incomeStatement(ledger, from: period.span?.0, to: period.span?.1)
-        ReportScaffold {
-            Spacer()
-            PeriodMenu(period: $period)
-        } content: {
-            PeriodSummary(ledger: ledger, period: period, report: report)
-            SideBySide {
-                TreeCard(title: "收入", root: report.income, ledger: ledger, negated: true, scope: spanScope(ledger, period))
-                TreeCard(title: "支出", root: report.expenses, ledger: ledger, scope: spanScope(ledger, period))
-            }
+        PeriodSummary(ledger: ledger, period: period, report: report)
+        SideBySide {
+            TreeCard(title: "收入", root: report.income, ledger: ledger, negated: true, scope: spanScope(ledger, period))
+            TreeCard(title: "支出", root: report.expenses, ledger: ledger, scope: spanScope(ledger, period))
         }
     }
 }
 
 /// 资产负债表 as it stands today, all of it; each currency balances, 资产 = 负债 + 权益, as on the phone
-struct BalancePage: View {
+private struct BalanceReport: View {
     let ledger: Ledger
     let config: LedgerXConfig?
 
@@ -145,26 +146,13 @@ struct BalancePage: View {
         let sheet = balanceSheet(ledger, at: nil, exclude: config?.balanceExclude ?? [])
         let scope: (String) -> JournalScope = { JournalScope(title: accountTitle(ledger, $0), account: $0) }
         let conversions = sheet.conversions.byCurrency(base: ledger.base).isEmpty ? [] : [("货币兑换", sheet.conversions)]
-        ReportScaffold {
-            SideBySide {
-                TreeCard(title: "资产", root: sheet.assets, ledger: ledger, scope: scope)
-                VStack(spacing: 16) {
-                    TreeCard(title: "负债", root: sheet.liabilities, ledger: ledger, negated: true, scope: scope)
-                    TreeCard(title: "权益", root: sheet.equity, ledger: ledger, negated: true, scope: scope,
-                             lines: [("未结转损益", sheet.earningsByCurrency)] + conversions)
-                }
+        SideBySide {
+            TreeCard(title: "资产", root: sheet.assets, ledger: ledger, scope: scope)
+            VStack(spacing: 16) {
+                TreeCard(title: "负债", root: sheet.liabilities, ledger: ledger, negated: true, scope: scope)
+                TreeCard(title: "权益", root: sheet.equity, ledger: ledger, negated: true, scope: scope,
+                         lines: [("未结转损益", sheet.earningsByCurrency)] + conversions)
             }
-        }
-    }
-}
-
-/// 试算平衡 as it stands today
-struct TrialPage: View {
-    let ledger: Ledger
-
-    var body: some View {
-        ReportScaffold {
-            TrialReport(ledger: ledger)
         }
     }
 }

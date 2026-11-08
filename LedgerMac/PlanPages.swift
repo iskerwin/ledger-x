@@ -13,6 +13,9 @@ struct BudgetsPage: View {
         let key = byYear ? String(month.prefix(4)) : month
         let progress = budgetProgress(ledger, key: key)
         let chosen = progress.first { $0.budget.account == picked } ?? progress.first
+        // each budget's spending in the six months up to this one; a year has no such column
+        let months = byYear ? [] : (0..<6).map { Day.addMonth(month, $0 - 5) }
+        let spentBy = Dictionary(uniqueKeysWithValues: months.map { month in (month, Dictionary(budgetProgress(ledger, key: month).map { ($0.budget.account, $0.spent) }, uniquingKeysWith: { a, _ in a })) })
         VStack(spacing: 0) {
             PeriodStepper(byYear: $byYear, month: $month)
                 .padding(.horizontal, 20)
@@ -36,13 +39,14 @@ struct BudgetsPage: View {
                             }
                             Card {
                                 VStack(spacing: 0) {
-                                    BudgetRow(cells: ["分类", "预算", "已花", "剩余"], ratio: nil, color: .secondary, picked: false)
+                                    BudgetRow(cells: ["分类", "预算", "已花", "剩余"], ratio: nil, color: .secondary, picked: false, recent: byYear ? nil : [])
                                         .padding(.bottom, 6)
                                     ForEach(progress) { item in
                                         Divider()
                                         BudgetRow(cells: [acctDisplay(item.budget.account), money(item.limit, item.budget.currency),
                                                           money(item.spent, item.budget.currency), money(item.remaining, item.budget.currency)],
-                                                  ratio: item.ratio, color: item.over ? .loss : item.ahead ? .warn : .jade, picked: chosen?.id == item.id)
+                                                  ratio: item.ratio, color: item.over ? .chartLoss : item.ahead ? .warn : .jade, picked: chosen?.id == item.id,
+                                                  recent: byYear ? nil : months.map { spentBy[$0]?[item.budget.account] ?? 0 })
                                             .onTapGesture { picked = item.budget.account }
                                     }
                                 }
@@ -68,11 +72,31 @@ private struct BudgetRow: View {
     let ratio: Double?
     let color: Color
     let picked: Bool
+    /// what went out in each of the last six months, oldest first; empty on the heading, nil for a year
+    let recent: [Double]?
 
     var body: some View {
         HStack(spacing: 12) {
             ForEach(Array(cells.enumerated()), id: \.offset) { index, cell in
                 Text(cell).frame(maxWidth: .infinity, alignment: index == 0 ? .leading : .trailing)
+            }
+            if let recent {
+                Group {
+                    if recent.isEmpty {
+                        Text("近 6 个月").frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        Chart(Array(recent.enumerated()), id: \.offset) { index, value in
+                            BarMark(x: .value("月", index), y: .value("支出", value))
+                                .foregroundStyle(picked ? Color.white.opacity(index == recent.count - 1 ? 1 : 0.6)
+                                                 : Color.jade.opacity(index == recent.count - 1 ? 1 : 0.45))
+                                .cornerRadius(2)
+                        }
+                        .chartXAxis(.hidden)
+                        .chartYAxis(.hidden)
+                        .frame(height: 22)
+                    }
+                }
+                .frame(width: 80)
             }
             Group {
                 if let ratio {

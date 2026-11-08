@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 import LedgerKit
 
 /// 报销 on one page, as on the phone: what's waiting, the batches still open, what's waiting to be claimed, and the years settled
@@ -73,15 +74,28 @@ struct SalaryPage: View {
     var body: some View {
         let slips = ledger.txns.filter { $0.links.contains { $0.hasPrefix("salary-") } && payslipFigures($0, ledger) != nil }
         let employers = employerNames(slips)
-        SplitPage {
-            ForEach(employers, id: \.self) { name in
-                let last = slips.last { $0.payee == name }
-                PickRow(title: name, caption: last.map { "上次 " + String($0.date.prefix(7)) } ?? "", picked: (picked ?? employers.first) == name) { picked = name }
+        let name = picked ?? employers.first
+        // one employer, as most have: no list to pick from
+        if employers.count > 1 {
+            SplitPage {
+                ForEach(employers, id: \.self) { employer in
+                    let last = slips.last { $0.payee == employer }
+                    PickRow(title: employer, caption: last.map { "上次 " + String($0.date.prefix(7)) } ?? "", picked: name == employer) { picked = employer }
+                }
+            } detail: {
+                detail(name, slips)
             }
-        } detail: {
-            if let name = picked ?? employers.first {
-                EmployerDetail(ledger: ledger, config: config, folder: folder, name: name, slips: slips.filter { $0.payee == name }).id(name)
-            }
+        } else {
+            detail(name, slips).background(Color.page)
+        }
+    }
+
+    @ViewBuilder private func detail(_ name: String?, _ slips: [Entry]) -> some View {
+        if let name {
+            EmployerDetail(ledger: ledger, config: config, folder: folder, name: name, slips: slips.filter { $0.payee == name }).id(name)
+        } else {
+            ContentUnavailableView("没有工资记录", systemImage: "banknote")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -124,9 +138,24 @@ private struct EmployerDetail: View {
                     }
                 }
                 Card(summary: true) {
-                    SummaryFigures(items: [("税前", money(sum(\.gross), ledger.base), .primary),
-                                           ("个税", money(sum(\.tax), ledger.base), .primary),
-                                           ("实发", money(sum(\.net), ledger.base), .gain)])
+                    VStack(alignment: .leading, spacing: 12) {
+                        // what came in each month, the months in order
+                        Chart(shown.reversed()) { slip in
+                            BarMark(x: .value("月份", String(slip.entry.date.prefix(7))), y: .value("实发", slip.figures.net))
+                                .foregroundStyle(open == slip.id ? Color.jade : Color.jade.opacity(0.55))
+                                .cornerRadius(3)
+                        }
+                        .chartYAxis(.hidden)
+                        .chartXAxis {
+                            AxisMarks { value in
+                                AxisValueLabel { if let month = value.as(String.self) { Text(String(Int(month.suffix(2)) ?? 0) + "月") } }
+                            }
+                        }
+                        .frame(height: 120)
+                        SummaryFigures(items: [("税前", money(sum(\.gross), ledger.base), .primary),
+                                               ("个税", money(sum(\.tax), ledger.base), .primary),
+                                               ("实发", money(sum(\.net), ledger.base), .gain)])
+                    }
                 }
                 Card {
                     VStack(alignment: .leading, spacing: 0) {

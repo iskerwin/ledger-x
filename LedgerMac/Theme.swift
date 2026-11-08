@@ -9,6 +9,9 @@ extension Color {
     static let gain = dynamic(0x248A3D, 0x30D158)
     static let loss = dynamic(0xD70015, 0xFF453A)
     static let warn = dynamic(0xC76A00, 0xFF9F0A)
+    /// money in and out as bars and lines: darker and less saturated than as text, so a chart full of them doesn't glare
+    static let chartGain = dynamic(0x4C9A68, 0x3E9E64)
+    static let chartLoss = dynamic(0xC0504A, 0xC9564F)
     /// the phone's grouped page and the cards on it: in dark mode the system's window and control colours are one colour, and the cards vanish
     static let page = dynamic(0xF2F2F7, 0x000000)
     static let card = dynamic(0xFFFFFF, 0x1C1C1E)

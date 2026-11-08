@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 import LedgerKit
 
 /// every payee, most used first; the picked one's year, its month on average, and its entries opening in place
@@ -52,7 +53,10 @@ private struct PayeeDetail: View {
                         .foregroundStyle(.secondary)
                 }
                 Card(summary: true) {
-                    SummaryFigures(items: [("今年", money(spent, ledger.base), .primary), ("月均", money(spent / months, ledger.base), .primary)])
+                    VStack(alignment: .leading, spacing: 12) {
+                        MonthlySpend(ledger: ledger, entries: entries)
+                        SummaryFigures(items: [("今年", money(spent, ledger.base), .primary), ("月均", money(spent / months, ledger.base), .primary)])
+                    }
                 }
                 EntryListCard(entries: Array(entries.reversed().prefix(200)), ledger: ledger, config: config, folder: folder,
                               columns: [.date, .payee, .category, .accounts, .amount]) {
@@ -61,6 +65,34 @@ private struct PayeeDetail: View {
             }
             .padding(20)
         }
+    }
+}
+
+/// what went to a payee in each of the last twelve months, in the operating currency
+private struct MonthlySpend: View {
+    let ledger: Ledger
+    let entries: [Entry]
+
+    var body: some View {
+        let months = (0..<12).map { Day.addMonth(Day.ym(Day.today()), $0 - 11) }
+        var spent: [String: Double] = [:]
+        for entry in entries where entry.date >= months[0] {
+            let shown = classify(entry, ledger)
+            if shown.kind == .expense || shown.kind == .refund { spent[Day.ym(entry.date), default: 0] -= shown.amount }
+        }
+        return Chart(months, id: \.self) { month in
+            BarMark(x: .value("月份", month), y: .value("支出", spent[month] ?? 0))
+                .foregroundStyle(Color.jade.opacity(0.75))
+                .cornerRadius(3)
+        }
+        .chartYAxis(.hidden)
+        .chartXAxis {
+            AxisMarks(values: months) { value in
+                AxisValueLabel { if let month = value.as(String.self) { Text(String(Int(month.suffix(2)) ?? 0)) } }
+            }
+        }
+        .frame(height: 100)
+        .accessibilityLabel("近 12 个月支出")
     }
 }
 

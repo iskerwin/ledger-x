@@ -16,27 +16,53 @@ enum EntryColumn: CaseIterable {
         }
     }
 
-    var width: CGFloat? {
-        switch self {
-        case .date: return 72
-        case .payee: return nil
-        case .category: return 130
-        case .accounts: return 170
-        case .status: return 90
-        case .amount: return 140
+    /// what the payee column keeps, with its badge, before others give way
+    static let payeeLeast: CGFloat = 160
+}
+
+/// how wide each column's content is, measured once for a list: the amount takes the width of its widest, never less;
+/// the date too; the category and accounts up to a limit; the payee what's left
+struct EntryWidths: Equatable {
+    private var natural: [EntryColumn: CGFloat] = [:]
+
+    static func measure(_ lines: [EntryLine], _ ledger: Ledger, account: String? = nil, balances: [ObjectIdentifier: Inventory] = [:]) -> EntryWidths {
+        let body = NSFont.systemFont(ofSize: NSFont.systemFontSize)
+        let digits = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        let small = NSFont.monospacedDigitSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
+        func width(_ text: String, _ font: NSFont) -> CGFloat { ceil((text as NSString).size(withAttributes: [.font: font]).width) }
+        var date: CGFloat = 0, category: CGFloat = 0, accounts: CGFloat = 0, amount: CGFloat = 0, status = false
+        for line in lines {
+            date = max(date, width(shortDay(line.date), digits))
+            category = max(category, width(line.category, body))
+            accounts = max(accounts, width(line.accounts, body))
+            for shown in line.entry.shownAmounts(ledger, account: account) { amount = max(amount, width(shown.0, digits)) }
+            if account == nil {
+                for paid in line.entry.charged(ledger) { amount = max(amount, width(money(paid.1, paid.0), small)) }
+            }
+            if let balance = balances[ObjectIdentifier(line.entry)] {
+                for currency in balance.order { amount = max(amount, width(money(balance.amounts[currency] ?? 0, currency), small)) }
+            }
+            status = status || line.entry.flag == "!" || line.entry.synthetic || line.entry.tags.contains { $0 != "transfer" && $0 != "fx" }
         }
+        let gap: CGFloat = 16
+        var widths = EntryWidths()
+        widths.natural[.date] = max(date, width("日期", body)) + gap
+        widths.natural[.category] = min(max(category, width("分类", body)) + gap, 160)
+        widths.natural[.accounts] = min(max(accounts, width("账户", body)) + gap, 220)
+        // nothing to show in it, no column
+        widths.natural[.status] = status ? 90 : 0
+        widths.natural[.amount] = max(amount, width("金额", body)) + gap + 4
+        return widths
     }
 
-    /// as the window narrows, these go first, in this order: who and how much stay
-    static let dropped: [EntryColumn] = [.status, .accounts, .category]
-    static let payeeLeast: CGFloat = 160
-
-    /// the columns of `wanted` that fit `width`
-    static func fitting(_ wanted: [EntryColumn], in width: CGFloat) -> [EntryColumn] {
-        var shown = wanted
-        func need() -> CGFloat { shown.compactMap(\.width).reduce(payeeLeast, +) }
-        for column in dropped where need() > width { shown.removeAll { $0 == column } }
-        return shown
+    /// the columns of `wanted` that fit `width`, and how wide each is: the accounts narrow first, then go, then the category, then the status
+    func fit(_ wanted: [EntryColumn], in width: CGFloat) -> (columns: [EntryColumn], widths: [EntryColumn: CGFloat]) {
+        var shown = wanted.filter { $0 != .status || (natural[.status] ?? 0) > 0 }
+        var widths = natural
+        func need() -> CGFloat { shown.filter { $0 != .payee }.reduce(EntryColumn.payeeLeast) { $0 + (widths[$1] ?? 0) } }
+        if need() > width, shown.contains(.accounts) { widths[.accounts] = max(100, (widths[.accounts] ?? 0) - (need() - width)) }
+        for column in [EntryColumn.accounts, .category, .status] where need() > width { shown.removeAll { $0 == column } }
+        return (shown, widths)
     }
 }
 
@@ -57,22 +83,32 @@ struct EntryLine: Identifiable {
         date = entry.date
         payee = entry.payee.isEmpty ? (entry.narration.isEmpty ? "（无收付款方）" : entry.narration) : entry.payee
         category = shownCategory(entry).map(acctDisplay) ?? "转账"
-        accounts = entry.route
+        accounts = entry.route + Self.withWhom(entry)
         let shown = classify(entry, ledger)
         amount = shown.amount
         kind = shown.kind
+    }
+
+    /// " · 五姨、王五": who the personal receivable lines are with
+    private static func withWhom(_ entry: Entry) -> String {
+        var names: [String] = []
+        for posting in entry.postings where isPersonal(posting.account) {
+            if let name = postingPerson(posting), !names.contains(name) { names.append(name) }
+        }
+        return names.isEmpty ? "" : " · " + names.joined(separator: "、")
     }
 }
 
 /// the names over the columns; a click on one sorts by it, again the other way
 struct EntryHeader: View {
     let columns: [EntryColumn]
+    let widths: [EntryColumn: CGFloat]
     @Binding var sortOrder: [KeyPathComparator<EntryLine>]
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(columns, id: \.self) { column in
-                EntryCell(column: column) {
+                EntryCell(column: column, width: widths[column]) {
                     if column.comparator(.forward) != nil {
                         Button { sort(column) } label: {
                             HStack(spacing: 3) {
@@ -122,15 +158,18 @@ extension EntryColumn {
 /// a column's place in a row: its width, or what's left for who
 private struct EntryCell<Content: View>: View {
     let column: EntryColumn
+    /// nil for the payee, which takes what's left
+    let width: CGFloat?
     @ViewBuilder var content: Content
 
     var body: some View {
+        let width = column == .payee ? nil : self.width
         content
             .lineLimit(1)
             .padding(.horizontal, 8)
-            .frame(minWidth: column.width == nil ? EntryColumn.payeeLeast : nil, maxWidth: column.width ?? .infinity,
+            .frame(minWidth: width == nil ? EntryColumn.payeeLeast : nil, maxWidth: width ?? .infinity,
                    alignment: column == .amount ? .trailing : .leading)
-            .frame(width: column.width)
+            .frame(width: width)
     }
 }
 
@@ -139,6 +178,7 @@ struct EntryRow: View {
     let line: EntryLine
     let ledger: Ledger
     let columns: [EntryColumn]
+    let widths: [EntryColumn: CGFloat]
     let picked: Bool
     /// the account being looked through: what moved in it, and what it holds after
     var account: String?
@@ -147,7 +187,7 @@ struct EntryRow: View {
     var body: some View {
         HStack(spacing: 0) {
             ForEach(columns, id: \.self) { column in
-                EntryCell(column: column) { cell(column) }
+                EntryCell(column: column, width: widths[column]) { cell(column) }
             }
         }
         .frame(minHeight: 38)
@@ -162,19 +202,10 @@ struct EntryRow: View {
         case .date: Text(shortDay(line.date)).monospacedDigit().foregroundStyle(quiet)
         case .payee: PayeeCell(entry: line.entry, ledger: ledger, title: line.payee, picked: picked)
         case .category: Text(line.category).foregroundStyle(quiet)
-        case .accounts: Text(line.accounts + withWhom(line.entry)).foregroundStyle(quiet)
+        case .accounts: Text(line.accounts).foregroundStyle(quiet)
         case .status: StatusCell(entry: line.entry)
         case .amount: AmountCell(entry: line.entry, ledger: ledger, account: account, balance: balance, picked: picked)
         }
-    }
-
-    /// " · 五姨、王五": who the personal receivable lines are with
-    private func withWhom(_ entry: Entry) -> String {
-        var names: [String] = []
-        for posting in entry.postings where isPersonal(posting.account) {
-            if let name = postingPerson(posting), !names.contains(name) { names.append(name) }
-        }
-        return names.isEmpty ? "" : " · " + names.joined(separator: "、")
     }
 }
 
@@ -192,15 +223,19 @@ struct EntryListCard<Header: View>: View {
     @State private var tasks = EntryTasks()
 
     var body: some View {
+        let lines = entries.map { EntryLine($0, ledger) }
+        let widths = EntryWidths.measure(lines, ledger, account: account)
+        // the card's width isn't known here: as many columns as fit
+        let full = widths.fit(columns, in: .infinity), least = widths.fit(columns, in: 0)
         Card {
             VStack(alignment: .leading, spacing: 0) {
                 header.padding(.bottom, 8)
-                ForEach(entries, id: \.key) { entry in
+                ForEach(lines) { line in
+                    let entry = line.entry
                     Divider()
-                    let line = EntryLine(entry, ledger)
                     ViewThatFits(in: .horizontal) {
-                        EntryRow(line: line, ledger: ledger, columns: columns, picked: open == entry.key, account: account)
-                        EntryRow(line: line, ledger: ledger, columns: columns.filter { !EntryColumn.dropped.contains($0) }, picked: open == entry.key, account: account)
+                        EntryRow(line: line, ledger: ledger, columns: full.columns, widths: full.widths, picked: open == entry.key, account: account)
+                        EntryRow(line: line, ledger: ledger, columns: least.columns, widths: least.widths, picked: open == entry.key, account: account)
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                     .onTapGesture { open = open == entry.key ? nil : entry.key }
