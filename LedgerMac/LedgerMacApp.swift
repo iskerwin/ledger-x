@@ -17,7 +17,7 @@ struct LedgerMacApp: App {
     init() {
         KitLocale.chinese = true
         KitPrivacy.masked = UserDefaults.standard.bool(forKey: "hideAmounts")
-        _page = State(initialValue: Page(rawValue: UserDefaults.standard.string(forKey: "defaultPage") ?? "") ?? .journal)
+        _page = State(initialValue: Page(rawValue: UserDefaults.standard.string(forKey: "defaultPage") ?? "") ?? .overview)
     }
 
     var body: some Scene {
@@ -55,12 +55,16 @@ struct LedgerMacApp: App {
                 .disabled(folder.isEmpty)
             }
             CommandGroup(before: .sidebar) {
-                ForEach(Array(Page.allCases.enumerated()), id: \.offset) { index, item in
-                    Button(item.title) { withoutSheet { page = item } }
-                        .keyboardShortcut(KeyEquivalent(Character(String(index + 1))))
-                        .disabled(folder.isEmpty)
+                // ⌘1 to ⌘9 for the first nine, in the sidebar's order
+                ForEach(Array(Page.sections.enumerated()), id: \.offset) { _, section in
+                    ForEach(section.1, id: \.self) { item in
+                        let index = Page.allCases.firstIndex(of: item) ?? 99
+                        Button(item.title) { withoutSheet { page = item } }
+                            .keyboardShortcut(index < 9 ? KeyboardShortcut(KeyEquivalent(Character(String(index + 1)))) : nil)
+                            .disabled(folder.isEmpty)
+                    }
+                    Divider()
                 }
-                Divider()
                 Toggle("隐藏金额", isOn: $hideAmounts)
                     .keyboardShortcut("h", modifiers: [.command, .shift])
                 Divider()

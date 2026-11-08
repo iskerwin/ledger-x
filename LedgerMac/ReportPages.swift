@@ -11,73 +11,102 @@ enum ReportPeriod: String, CaseIterable {
 }
 
 private enum ReportTab: String, CaseIterable {
-    case analysis = "收支分析", months = "按月对比", balance = "资产负债表", income = "损益表", trial = "试算平衡"
-
-    var usesPeriod: Bool { self == .analysis || self == .income }
+    case analysis = "收支分析", months = "按月对比"
 }
 
-/// the reports, one above the other in a tab each; a period where the report covers one, the date it is as at where it doesn't
-struct ReportsPage: View {
-    let ledger: Ledger
-    let config: LedgerXConfig?
-    @State private var tab = ReportTab.analysis
-    @State private var period = ReportPeriod.thisMonth
+/// a report's page: what it is set to along the top, the report on the page colour under it
+struct ReportScaffold<Bar: View, Content: View>: View {
+    @ViewBuilder var bar: Bar
+    @ViewBuilder var content: Content
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Picker(selection: $tab) {
-                    ForEach(ReportTab.allCases, id: \.self) { Text($0.rawValue) }
-                } label: {
-                    EmptyView()
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .fixedSize()
-                Spacer()
-                // kept in place when hidden, so the tabs don't move
-                Picker(selection: $period) {
-                    ForEach(ReportPeriod.allCases, id: \.self) { Text($0.title) }
-                } label: {
-                    EmptyView()
-                }
-                .labelsHidden()
-                .fixedSize()
-                .opacity(tab.usesPeriod ? 1 : 0)
-                .disabled(!tab.usesPeriod)
+            if Bar.self != EmptyView.self {
+                HStack(spacing: 12) { bar }
+                    .frame(minHeight: 22)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                Divider()
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 10)
-            Divider()
             ScrollView {
-                VStack(spacing: 16) {
-                    switch tab {
-                    case .analysis: analysis
-                    case .months: MonthsReport(ledger: ledger)
-                    case .balance: balanceReport
-                    case .income: incomeReport
-                    case .trial: TrialReport(ledger: ledger)
-                    }
-                }
-                .padding(20)
+                VStack(spacing: 16) { content }
+                    .padding(20)
             }
             .background(Color.page)
         }
     }
+}
 
-    private func spanScope(_ title: String) -> (String) -> JournalScope {
-        let span = period.span
-        return { JournalScope(title: accountTitle(ledger, $0) + " · " + title, account: $0, from: span?.0, to: span?.1) }
+extension ReportScaffold where Bar == EmptyView {
+    /// a report of what stands today: nothing to set
+    init(@ViewBuilder content: () -> Content) {
+        self.init(bar: { EmptyView() }, content: content)
     }
+}
 
-    private var statement: IncomeStatement {
-        incomeStatement(ledger, from: period.span?.0, to: period.span?.1)
+/// the period a report covers, as a menu
+struct PeriodMenu: View {
+    @Binding var period: ReportPeriod
+
+    var body: some View {
+        Picker(selection: $period) {
+            ForEach(ReportPeriod.allCases, id: \.self) { Text($0.title) }
+        } label: {
+            EmptyView()
+        }
+        .labelsHidden()
+        .fixedSize()
     }
+}
 
-    private func summary(_ report: IncomeStatement) -> some View {
+/// where the money went in a period, and the months side by side; a period only where the report covers one, kept in place
+struct ReportsPage: View {
+    let ledger: Ledger
+    @State private var tab = ReportTab.analysis
+    @State private var period = ReportPeriod.thisMonth
+
+    var body: some View {
+        ReportScaffold {
+            Picker(selection: $tab) {
+                ForEach(ReportTab.allCases, id: \.self) { Text($0.rawValue) }
+            } label: {
+                EmptyView()
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+            Spacer()
+            PeriodMenu(period: $period)
+                .opacity(tab == .analysis ? 1 : 0)
+                .disabled(tab != .analysis)
+        } content: {
+            switch tab {
+            case .analysis:
+                let report = incomeStatement(ledger, from: period.span?.0, to: period.span?.1)
+                PeriodSummary(ledger: ledger, period: period, report: report)
+                Card(summary: true) { DonutCard(slices: DonutSlice.make(report.expenses, ledger), base: ledger.base, scope: spanScope(ledger, period)) }
+            case .months: MonthsReport(ledger: ledger)
+            }
+        }
+    }
+}
+
+/// what an account counted in the period, a level down
+private func spanScope(_ ledger: Ledger, _ period: ReportPeriod) -> (String) -> JournalScope {
+    let span = period.span
+    return { JournalScope(title: accountTitle(ledger, $0) + " · " + period.title, account: $0, from: span?.0, to: span?.1) }
+}
+
+/// a period's spending, big, with what came in and what's left under it
+private struct PeriodSummary: View {
+    let ledger: Ledger
+    let period: ReportPeriod
+    let report: IncomeStatement
+
+    var body: some View {
         let income = -report.income.shown, expenses = report.expenses.shown
         let net = income + (-expenses)
-        return Card(summary: true) {
+        Card(summary: true) {
             VStack(alignment: .leading, spacing: 12) {
                 Headline(label: period.title + "支出", value: amountsText(expenses, ledger))
                 SummaryFigures(items: [("收入", amountsText(income, ledger), .gain),
@@ -85,34 +114,57 @@ struct ReportsPage: View {
             }
         }
     }
+}
 
-    @ViewBuilder private var analysis: some View {
-        let report = statement
-        summary(report)
-        Card(summary: true) { DonutCard(slices: DonutSlice.make(report.expenses, ledger), base: ledger.base, scope: spanScope(period.title)) }
-    }
+/// 损益表: income and expenses of a period, each account's line opening what's under it
+struct IncomePage: View {
+    let ledger: Ledger
+    @State private var period = ReportPeriod.thisMonth
 
-    @ViewBuilder private var incomeReport: some View {
-        let report = statement
-        summary(report)
-        SideBySide {
-            TreeCard(title: "收入", root: report.income, ledger: ledger, negated: true, scope: spanScope(period.title))
-            TreeCard(title: "支出", root: report.expenses, ledger: ledger, scope: spanScope(period.title))
+    var body: some View {
+        let report = incomeStatement(ledger, from: period.span?.0, to: period.span?.1)
+        ReportScaffold {
+            Spacer()
+            PeriodMenu(period: $period)
+        } content: {
+            PeriodSummary(ledger: ledger, period: period, report: report)
+            SideBySide {
+                TreeCard(title: "收入", root: report.income, ledger: ledger, negated: true, scope: spanScope(ledger, period))
+                TreeCard(title: "支出", root: report.expenses, ledger: ledger, scope: spanScope(ledger, period))
+            }
         }
     }
+}
 
-    /// as it stands today, all of it; each currency balances, 资产 = 负债 + 权益, as on the phone
-    @ViewBuilder private var balanceReport: some View {
+/// 资产负债表 as it stands today, all of it; each currency balances, 资产 = 负债 + 权益, as on the phone
+struct BalancePage: View {
+    let ledger: Ledger
+    let config: LedgerXConfig?
+
+    var body: some View {
         let sheet = balanceSheet(ledger, at: nil, exclude: config?.balanceExclude ?? [])
         let scope: (String) -> JournalScope = { JournalScope(title: accountTitle(ledger, $0), account: $0) }
         let conversions = sheet.conversions.byCurrency(base: ledger.base).isEmpty ? [] : [("货币兑换", sheet.conversions)]
-        SideBySide {
-            TreeCard(title: "资产", root: sheet.assets, ledger: ledger, scope: scope)
-            VStack(spacing: 16) {
-                TreeCard(title: "负债", root: sheet.liabilities, ledger: ledger, negated: true, scope: scope)
-                TreeCard(title: "权益", root: sheet.equity, ledger: ledger, negated: true, scope: scope,
-                         lines: [("未结转损益", sheet.earningsByCurrency)] + conversions)
+        ReportScaffold {
+            SideBySide {
+                TreeCard(title: "资产", root: sheet.assets, ledger: ledger, scope: scope)
+                VStack(spacing: 16) {
+                    TreeCard(title: "负债", root: sheet.liabilities, ledger: ledger, negated: true, scope: scope)
+                    TreeCard(title: "权益", root: sheet.equity, ledger: ledger, negated: true, scope: scope,
+                             lines: [("未结转损益", sheet.earningsByCurrency)] + conversions)
+                }
             }
+        }
+    }
+}
+
+/// 试算平衡 as it stands today
+struct TrialPage: View {
+    let ledger: Ledger
+
+    var body: some View {
+        ReportScaffold {
+            TrialReport(ledger: ledger)
         }
     }
 }

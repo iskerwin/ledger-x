@@ -75,11 +75,11 @@ struct AccountsPage: View {
                     }
                 }
             }
-            .frame(width: 300)
+            .frame(width: 340)
             Divider()
             Group {
                 if let selected, let line = lines.first(where: { $0.name == selected }) {
-                    AccountDetail(ledger: ledger, account: line.name, balance: line.balance, folder: folder, scope: scope)
+                    AccountDetail(ledger: ledger, config: config, account: line.name, balance: line.balance, folder: folder, scope: scope)
                         .id(selected)
                 } else {
                     Color.page
@@ -249,6 +249,7 @@ struct AccountsPage: View {
 
 private struct AccountDetail: View {
     let ledger: Ledger
+    let config: LedgerXConfig?
     let account: String
     let balance: Inventory
     let folder: URL
@@ -257,7 +258,7 @@ private struct AccountDetail: View {
 
     var body: some View {
         let amounts = balance.byCurrency(base: ledger.base)
-                ScrollView {
+        ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -276,19 +277,12 @@ private struct AccountDetail: View {
                 if let check = lastCheck {
                     Text("上次核对 " + check).font(.callout).foregroundStyle(.secondary)
                 }
-                Card {
-                    VStack(alignment: .leading, spacing: 0) {
-                        HStack {
-                            Text("账户交易").fontWeight(.medium)
-                            Spacer()
-                            NavigationLink("查看全部", value: scope(account))
-                                .buttonStyle(.link)
-                        }
-                        .padding(.bottom, 8)
-                        ForEach(recent, id: \.key) { entry in
-                            Divider()
-                            AccountEntryRow(entry: entry, ledger: ledger, account: account)
-                        }
+                EntryListCard(entries: recent, ledger: ledger, config: config, folder: folder, account: account) {
+                    HStack {
+                        Text("账户交易").fontWeight(.medium)
+                        Spacer()
+                        NavigationLink("查看全部", value: scope(account))
+                            .buttonStyle(.link)
                     }
                 }
             }
@@ -305,34 +299,5 @@ private struct AccountDetail: View {
     /// the latest assertion on this account that held
     private var lastCheck: String? {
         ledger.balanceResults.last { $0.ok && $0.entry.account == account }?.entry.date
-    }
-}
-
-private struct AccountEntryRow: View {
-    let entry: Entry
-    let ledger: Ledger
-    let account: String
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Text(entry.date.dropFirst(5).replacingOccurrences(of: "-", with: "/"))
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-            CategoryBadge(entry: entry, ledger: ledger, size: 24)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(entry.payee.isEmpty ? (entry.narration.isEmpty ? "（无收付款方）" : entry.narration) : entry.payee).lineLimit(1)
-                if !entry.payee.isEmpty && !entry.narration.isEmpty {
-                    Text(entry.narration).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                }
-            }
-            Spacer(minLength: 16)
-            VStack(alignment: .trailing, spacing: 1) {
-                ForEach(entry.shownAmounts(ledger, account: account), id: \.0) { amount in
-                    Text(amount.0).monospacedDigit().foregroundStyle(amount.1)
-                }
-            }
-            .lineLimit(1)
-        }
-        .padding(.vertical, 6)
     }
 }

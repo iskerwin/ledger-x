@@ -74,6 +74,18 @@ public func folderEditDraft(_ entry: Entry, _ ledger: Ledger, _ derived: Derived
     return draft
 }
 
+/// `entry`'s source as text to change, on the same writing path: saved unchanged it writes nothing, and changed it replaces
+/// that entry alone. Any entry can be changed this way, whether or not a form can hold it.
+public func folderSourceDraft(_ entry: Entry) -> Draft {
+    var draft = Draft()
+    draft.kind = .raw
+    draft.date = entry.date
+    draft.raw = entry.src.trimmingCharacters(in: .whitespacesAndNewlines)
+    let summary = [entry.payee, entry.narration].filter { !$0.isEmpty }.joined(separator: " ")
+    draft.replacing = Replacing(path: entry.file, old: entry.src, date: entry.date, summary: summary, baseline: alignText(draft.raw), line: entry.line)
+    return draft
+}
+
 /// Deleting `entry`, under the same checks as saving one. As on the phone, the other of a refund's pair loses the link they shared.
 public func prepareFolderDelete(_ entry: Entry, folder: URL) -> Result<FolderSave, FolderSaveError> {
     guard let ledger = loadLedger(folder: folder) else { return .failure(noLedgerInFolder) }
@@ -134,6 +146,24 @@ private func folderSave(_ ops: [Op], before ledger: Ledger, main: String, folder
     } catch {
         return .failure(FolderSaveError(message: error.localizedDescription))
     }
+}
+
+/// ledger-x.json changed as `change` says, written as the phone writes it; nothing when it comes out the same.
+/// A file that doesn't read as one isn't written over.
+public func prepareFolderConfig(folder: URL, _ change: (inout LedgerXConfig) -> Void) -> Result<FolderSave, FolderSaveError> {
+    let url = folder.appendingPathComponent(LedgerXConfig.path)
+    let before = try? coordinatedRead(url)
+    var config = LedgerXConfig()
+    if let before {
+        guard let read = LedgerXConfig.parse(before) else {
+            return .failure(FolderSaveError(message: tr("\(LedgerXConfig.path) 读不出来，没有写入", "\(LedgerXConfig.path) can't be read: nothing was written")))
+        }
+        config = read
+    }
+    let unchanged = config
+    change(&config)
+    guard config != unchanged else { return .success(FolderSave(issues: [], main: folderMain(folder), files: [])) }
+    return .success(FolderSave(issues: [], main: folderMain(folder), files: [(LedgerXConfig.path, before, config.json())]))
 }
 
 /// Writes it, unless a file has changed since it was worked out.

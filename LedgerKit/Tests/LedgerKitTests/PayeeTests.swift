@@ -24,6 +24,26 @@ final class PayeeTests: XCTestCase {
       payee: "高德打车"
     """
 
+    func testSummariesCountEachPayeeOnAHeaderMostUsedFirst() {
+        let L = loadLedger(root: "main.bean") { _ in """
+        2026-01-01 open Assets:Bank CNY
+        2026-01-01 open Expenses:Transit CNY
+        2026-01-01 open Income:Salary CNY
+        2026-01-01 open Assets:Receivable:Reimbursement CNY
+        \(self.text)
+        2026-09-05 * "公司" "九月工资"
+          Assets:Bank  100.00 CNY
+          Income:Salary  -100.00 CNY
+        """ }
+        let all = payeeSummaries(L)
+        XCTAssertEqual(all.map(\.name), ["高德打车", "Say \"hi\"", "公司", "高德地图打车"])
+        let first = all[0]
+        XCTAssertEqual(first.n, 2)
+        XCTAssertEqual(first.last, "2026-09-03")
+        XCTAssertEqual(first.spent, 8, accuracy: 0.001)
+        XCTAssertEqual(all[2].received, 100, accuracy: 0.001)
+    }
+
     func testRename() {
         XCTAssertEqual(countPayee(text, "高德打车"), 2)   // the header with a payee, and the subscription
         let r = renamePayee(text, from: "高德打车", to: "高德地图打车")

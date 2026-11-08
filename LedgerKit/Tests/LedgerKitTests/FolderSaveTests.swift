@@ -396,6 +396,51 @@ final class FolderSaveTests: XCTestCase {
         XCTAssertEqual(try read("main.bean").components(separatedBy: " balance Assets:Bank").count, 2)
     }
 
+    func testTheSourceSavedUnchangedWritesNothing() throws {
+        let commented = "2026-10-16 * \"Sample Shop\" \"Lunch\"\n  Expenses:Food  35.00 CNY ; a comment\n  Assets:Bank  -35.00 CNY\n"
+        try write("main.bean", opens + "\n" + commented)
+        let before = try read("main.bean")
+        let save = try prepared(folderSourceDraft(try entry().0))
+        XCTAssertTrue(save.files.isEmpty)
+        try commitFolderSave(save, folder: folder)
+        XCTAssertEqual(try read("main.bean"), before)
+    }
+
+    func testChangingTheSourceReplacesOnlyThatEntry() throws {
+        try write("main.bean", opens + "\n" + sample + "\n" + sample)
+        var draft = folderSourceDraft(try entry(occurrence: 1).0)
+        draft.raw = draft.raw.replacingOccurrences(of: "35.00", with: "50.00") + " ; checked"
+        try commitFolderSave(try prepared(draft), folder: folder)
+        let text = try read("main.bean")
+        XCTAssertLessThan(try XCTUnwrap(text.range(of: "35.00 CNY")).lowerBound, try XCTUnwrap(text.range(of: "50.00 CNY")).lowerBound)
+        XCTAssertTrue(text.contains("; checked"))
+        XCTAssertEqual(try XCTUnwrap(loadLedger(folder: folder)).txns.filter { $0.narration == "Lunch" }.map { $0.postings[0].units }, [35, 50])
+    }
+
+    func testASourceThatDoesNotBalanceWritesNothing() throws {
+        try write("main.bean", opens + "\n" + sample)
+        let before = try read("main.bean")
+        var draft = folderSourceDraft(try entry().0)
+        draft.raw = draft.raw.replacingOccurrences(of: "-35.00", with: "-30.00")
+        guard case .failure = prepareFolderSave(draft, folder: folder) else { return XCTFail("should be refused") }
+        XCTAssertEqual(try read("main.bean"), before)
+    }
+
+    func testAConfigChangeKeepsTheRestOfLedgerXJSON() throws {
+        try write("ledger-x.json", "{\"receivable\": \"Assets:Receivable:Company\"}")
+        try commitFolderSave(try prepareFolderConfig(folder: folder) { $0.alertsConfirmed = ["dup|a"] }.get(), folder: folder)
+        let config = try XCTUnwrap(ledgerConfig(folder: folder))
+        XCTAssertEqual(config.receivable, "Assets:Receivable:Company")
+        XCTAssertEqual(config.alertsConfirmed, ["dup|a"])
+        XCTAssertTrue(try prepareFolderConfig(folder: folder) { $0.alertsConfirmed = ["dup|a"] }.get().files.isEmpty)
+    }
+
+    func testAConfigThatDoesNotReadIsNotWrittenOver() throws {
+        try write("ledger-x.json", "{ not json")
+        guard case .failure = prepareFolderConfig(folder: folder, { $0.alertsConfirmed = ["x"] }) else { return XCTFail("should be refused") }
+        XCTAssertEqual(try read("ledger-x.json"), "{ not json")
+    }
+
     func testAKnownPayeeFillsOnlyWhatIsBlank() throws {
         try write("main.bean", opens + "\n" + sample)
         let derived = Derived(try XCTUnwrap(loadLedger(folder: folder)))

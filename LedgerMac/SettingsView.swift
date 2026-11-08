@@ -25,7 +25,7 @@ enum Appearance: String, CaseIterable {
 struct SettingsView: View {
     let folder: String
     @Binding var picking: Bool
-    @AppStorage("defaultPage") private var defaultPage = Page.journal.rawValue
+    @AppStorage("defaultPage") private var defaultPage = Page.overview.rawValue
     @AppStorage("appearance") private var appearance = Appearance.system.rawValue
     @AppStorage("hideAmounts") private var hideAmounts = false
 
