@@ -189,36 +189,37 @@ struct JournalPage: View {
     }
 
     private var table: some View {
+        // the least widths, with the gaps between, fit beside the detail in the smallest window: the amount stays in sight
         Table(lines, selection: $selected, sortOrder: $sortOrder, columnCustomization: $columns) {
             TableColumn("日期", value: \.date) { line in
                 Text(shortDate(line.date)).monospacedDigit().foregroundStyle(.secondary)
             }
-            .width(min: 56, ideal: 72, max: 110)
+            .width(min: 48, ideal: 72, max: 110)
             .customizationID("date")
             TableColumn("收付款方", value: \.payee) { line in
                 PayeeCell(entry: line.entry, ledger: ledger, title: line.payee)
             }
-            .width(min: 160, ideal: 280)
+            .width(min: 100, ideal: 280)
             .customizationID("payee")
             TableColumn("分类", value: \.category) { line in
                 Text(line.category).lineLimit(1).foregroundStyle(.secondary)
             }
-            .width(min: 70, ideal: 130)
+            .width(min: 56, ideal: 130)
             .customizationID("category")
             TableColumn("账户", value: \.accounts) { line in
                 Text(line.accounts + withWhom(line.entry)).lineLimit(1).foregroundStyle(.secondary)
             }
-            .width(min: 70, ideal: 170)
+            .width(min: 56, ideal: 170)
             .customizationID("accounts")
             TableColumn("状态") { line in
                 StatusCell(entry: line.entry)
             }
-            .width(min: 40, ideal: 90)
+            .width(min: 28, ideal: 90)
             .customizationID("status")
             TableColumn("金额", value: \.amount) { line in
                 AmountCell(entry: line.entry, ledger: ledger, account: heldAccount, balance: balances[ObjectIdentifier(line.entry)])
             }
-            .width(min: 90, ideal: 120)
+            .width(min: 84, ideal: 120)
             .alignment(.trailing)
             .customizationID("amount")
         }
