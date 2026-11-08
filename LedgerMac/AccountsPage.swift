@@ -58,21 +58,21 @@ struct AccountsPage: View {
                         }
                     }
                     .padding(12)
-                }
-                // ↑ ↓ go through the accounts in sight, as in a list
-                .focusable()
-                .focused($listFocused)
-                .focusEffectDisabled()
-                .onMoveCommand { direction in
-                    let shown = lines.filter { !folded.contains(rootGroup($0)) }.map(\.name)
-                    guard !shown.isEmpty else { return }
-                    let at = selected.flatMap { shown.firstIndex(of: $0) } ?? -1
-                    switch direction {
-                    case .up: selected = shown[max(0, at - 1)]
-                    case .down: selected = shown[min(shown.count - 1, at + 1)]
-                    default: return
+                    // ↑ ↓ go through the accounts in sight, as in a list: on the content, since the scroll view takes the arrows for scrolling
+                    .focusable()
+                    .focused($listFocused)
+                    .focusEffectDisabled()
+                    .onMoveCommand { direction in
+                        let shown = lines.filter { !folded.contains(rootGroup($0)) }.map(\.name)
+                        guard !shown.isEmpty else { return }
+                        let at = selected.flatMap { shown.firstIndex(of: $0) } ?? -1
+                        switch direction {
+                        case .up: selected = shown[max(0, at - 1)]
+                        case .down: selected = shown[min(shown.count - 1, at + 1)]
+                        default: return
+                        }
+                        if let selected { scroller.scrollTo(selected) }
                     }
-                    if let selected { scroller.scrollTo(selected) }
                 }
             }
             .frame(width: 300)
@@ -168,31 +168,34 @@ struct AccountsPage: View {
 
     private func row(_ line: AccountLine, _ look: (symbol: String, color: Color), _ due: String?) -> some View {
         let picked = selected == line.name
-        return HStack(spacing: 10) {
-            Image(systemName: look.symbol)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 32, height: 32)
-                .background(look.color, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(accountName(line.name)).lineLimit(1)
-                Text(subtitle(line, due: due)).font(.caption).foregroundStyle(picked ? Color.white.opacity(0.8) : Color.secondary).lineLimit(1)
-            }
-            Spacer(minLength: 8)
-            Text(amountsText(line.balance, ledger)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
-        }
-        .foregroundStyle(picked ? Color.white : Color.primary)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 7)
-        .background(picked ? Color.jade : Color.clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .contentShape(Rectangle())
-        .onTapGesture {
+        // a button, so a click, VoiceOver and the keyboard all pick it
+        return Button {
             selected = line.name
             listFocused = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: look.symbol)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 32, height: 32)
+                    .background(look.color, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(accountName(line.name)).lineLimit(1)
+                    Text(subtitle(line, due: due)).font(.caption).foregroundStyle(picked ? Color.white.opacity(0.8) : Color.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Text(amountsText(line.balance, ledger)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .foregroundStyle(picked ? Color.white : Color.primary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 7)
+            .background(picked ? Color.jade : Color.clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .contentShape(Rectangle())
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(picked ? [.isButton, .isSelected] : .isButton)
+        .buttonStyle(.plain)
+        .focusEffectDisabled()
+        .accessibilityAddTraits(picked ? .isSelected : [])
     }
 
     /// the phone's line under the name: what a card owes and when, else when it was last checked, else where it sits
