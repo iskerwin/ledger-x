@@ -2326,9 +2326,11 @@ final class EditInteractionTests: XCTestCase {
     /// An empty list of things to add (here budgets) has its own add button, opening the same form as + in the bar
     func testAnEmptyBudgetListOffersToAddOne() {
         let app = launchTab("reports")
+        XCTAssertTrue(app.descendants(matching: .any)["reports.monthbar"].firstMatch.waitForExistence(timeout: 20))
+        // the list makes its rows as they come into sight: 预算 is under 钱花在哪, which keeps five rows' room
         let budgets = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "预算")).firstMatch
-        XCTAssertTrue(budgets.waitForExistence(timeout: 20))
-        for _ in 0..<5 { if budgets.isHittable { break }; app.swipeUp() }
+        for _ in 0..<8 { if budgets.exists && budgets.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(budgets.isHittable)
         budgets.tap()
         let add = app.buttons["empty.add"]
         XCTAssertTrue(add.waitForExistence(timeout: 5))
