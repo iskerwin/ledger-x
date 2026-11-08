@@ -101,15 +101,17 @@ struct ReportsPage: View {
         }
     }
 
-    /// as it stands today, all of it
+    /// as it stands today, all of it; each currency balances, 资产 = 负债 + 权益, as on the phone
     @ViewBuilder private var balanceReport: some View {
         let sheet = balanceSheet(ledger, at: nil, exclude: config?.balanceExclude ?? [])
         let scope: (String) -> JournalScope = { JournalScope(title: accountTitle(ledger, $0), account: $0) }
+        let conversions = sheet.conversions.byCurrency(base: ledger.base).isEmpty ? [] : [("货币兑换", sheet.conversions)]
         SideBySide {
             TreeCard(title: "资产", root: sheet.assets, ledger: ledger, scope: scope)
             VStack(spacing: 16) {
-                TreeCard(title: "负债", root: sheet.liabilities, ledger: ledger, scope: scope)
-                TreeCard(title: "权益", root: sheet.equity, ledger: ledger, scope: scope)
+                TreeCard(title: "负债", root: sheet.liabilities, ledger: ledger, negated: true, scope: scope)
+                TreeCard(title: "权益", root: sheet.equity, ledger: ledger, negated: true, scope: scope,
+                         lines: [("未结转损益", sheet.earningsByCurrency)] + conversions)
             }
         }
     }
@@ -241,9 +243,11 @@ struct TreeCard: View {
     let title: String
     let root: AccountNode
     let ledger: Ledger
-    /// income is written as a negative amount; shown here as what came in
+    /// income, liabilities and equity are written as negative amounts; shown here as what came in or is owed
     var negated = false
     let scope: (String) -> JournalScope
+    /// what isn't an account but counts in the total, under the accounts: no entries to open
+    var lines: [(String, Inventory)] = []
     @State private var open: Set<String> = []
 
     var body: some View {
@@ -252,7 +256,7 @@ struct TreeCard: View {
                 HStack {
                     Text(title).fontWeight(.medium)
                     Spacer()
-                    Text(amountsText(negated ? -root.shown : root.shown, ledger))
+                    Text(amountsText(shown(lines.reduce(root.shown) { $0 + $1.1 }), ledger))
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
                 }
@@ -260,6 +264,16 @@ struct TreeCard: View {
                 ForEach(visible, id: \.name) { node in
                     Divider()
                     row(node)
+                }
+                ForEach(lines, id: \.0) { line in
+                    Divider()
+                    HStack(spacing: 16) {
+                        Text(line.0).foregroundStyle(.secondary).lineLimit(1)
+                        Spacer(minLength: 16)
+                        Text(amountsText(shown(line.1), ledger)).monospacedDigit().lineLimit(1)
+                    }
+                    .padding(.leading, 20)
+                    .padding(.vertical, 6)
                 }
             }
         }
@@ -289,12 +303,16 @@ struct TreeCard: View {
             .disabled(node.children.isEmpty)
             .accessibilityLabel(open.contains(node.name) ? "收起" : "展开")
             NavigationLink(value: scope(node.name)) {
-                TreeRow(name: name(node), amount: amountsText(negated ? -node.shown : node.shown, ledger))
+                TreeRow(name: name(node), amount: amountsText(shown(node.shown), ledger))
             }
             .buttonStyle(.plain)
         }
         .padding(.leading, CGFloat(node.depth - 1) * 16)
         .padding(.vertical, 6)
+    }
+
+    private func shown(_ amounts: Inventory) -> Inventory {
+        negated ? -amounts : amounts
     }
 
     /// the account's `name:` where it has one, else the last part of its name, with the Chinese group name on the top level unless it's the same

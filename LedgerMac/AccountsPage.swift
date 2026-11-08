@@ -43,8 +43,11 @@ struct AccountsPage: View {
                     section("负债", sheet.liabilities)
                 }
                 .listStyle(.inset)
+                .scrollContentBackground(.hidden)
             }
             .frame(width: 280)
+            // one ground with the detail beside it: the detail's cards need the page colour to show
+            .background(Color.page)
             Divider()
             Group {
                 if let selected, let node = find(selected, in: nodes) {

@@ -88,25 +88,30 @@ struct JournalPage: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            filters
-            Divider()
-            if lines.isEmpty && !text.isEmpty {
-                ContentUnavailableView.search(text: text)
-            } else {
-                table
-            }
-        }
-        .inspector(isPresented: $showsDetail) {
-            // always there, so picking a row moves nothing
-            Group {
-                if let entry = picked {
-                    EntryDetail(entry: entry, ledger: ledger, edit: { edit(entry) }, copy: { copySource([entry]) }, open: { openFile(entry) }, delete: { deleting = entry })
+        // a column of its own beside the table: an inspector lets the table run on under it, its last columns hidden there
+        HStack(spacing: 0) {
+            VStack(spacing: 0) {
+                filters
+                Divider()
+                if lines.isEmpty && !text.isEmpty {
+                    ContentUnavailableView.search(text: text)
                 } else {
-                    Color.clear
+                    table
                 }
             }
-            .inspectorColumnWidth(min: 260, ideal: 300, max: 380)
+            if showsDetail {
+                Divider()
+                // always there, so picking a row moves nothing
+                Group {
+                    if let entry = picked {
+                        EntryDetail(entry: entry, ledger: ledger, edit: { edit(entry) }, copy: { copySource([entry]) }, open: { openFile(entry) }, delete: { deleting = entry })
+                    } else {
+                        Color.clear
+                    }
+                }
+                .frame(width: 300)
+                .background(Color(nsColor: .controlBackgroundColor))
+            }
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -489,7 +494,7 @@ private struct PayeeCell: View {
     }
 }
 
-/// 待确认, pad, and tags where they fit whole
+/// 待确认, pad, and the first tag with how many more
 private struct StatusCell: View {
     let entry: Entry
 
@@ -498,14 +503,9 @@ private struct StatusCell: View {
         HStack(spacing: 4) {
             if entry.flag == "!" { RowTag(text: "待确认", color: .orange) }
             if entry.synthetic { RowTag(text: "pad", color: .secondary) }
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 4) {
-                    if let first = tags.first { RowTag(text: "#" + first, color: .secondary) }
-                    if tags.count > 1 { RowTag(text: "+\(tags.count - 1)", color: .secondary) }
-                }
-                if !tags.isEmpty { RowTag(text: "#\(tags.count)", color: .secondary) }
-                Color.clear.frame(width: 0, height: 0)
-            }
+            // a narrow column cuts the tag short: a count alone reads as a tag of its own
+            if let first = tags.first { RowTag(text: "#" + first, color: .secondary, shortens: true) }
+            if tags.count > 1 { RowTag(text: "+\(tags.count - 1)", color: .secondary) }
         }
     }
 }
@@ -548,6 +548,8 @@ private struct AmountCell: View {
 private struct RowTag: View {
     let text: String
     let color: Color
+    /// cut short where the column is narrow, rather than spill out of it
+    var shortens = false
 
     var body: some View {
         Text(text)
@@ -557,6 +559,6 @@ private struct RowTag: View {
             .padding(.horizontal, 5)
             .padding(.vertical, 1)
             .background(color.opacity(0.14), in: Capsule())
-            .fixedSize()
+            .fixedSize(horizontal: !shortens, vertical: true)
     }
 }

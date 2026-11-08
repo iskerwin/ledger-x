@@ -63,7 +63,7 @@ struct MainView: View {
                 }
                 if let git {
                     Section("同步") {
-                        row(.sync).badge(git.paths.count + git.ahead + git.behind)
+                        row(.sync, badge: git.paths.count + git.ahead + git.behind)
                     }
                 }
             }
@@ -121,8 +121,9 @@ struct MainView: View {
         }
     }
 
-    private func row(_ item: Page) -> some View {
-        Label(item.title, systemImage: item.symbol).tag(item)
+    /// the tag outermost: a badge put on after it hides the row from the list's selection
+    private func row(_ item: Page, badge: Int = 0) -> some View {
+        Label(item.title, systemImage: item.symbol).badge(badge).tag(item)
     }
 
     /// a row of the page opens the entries it counts, a level down; the journal is all entries already, and its search box needs no stack around it

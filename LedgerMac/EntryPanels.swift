@@ -57,7 +57,8 @@ struct AccountField: View {
     var body: some View {
         let ranked = derived.rankAccounts(prefixes)
         Picker(title, selection: $account) {
-            Text("").tag("")
+            // nothing picked yet reads as such, not as an empty box
+            Text("选择" + title).tag("")
             if !account.isEmpty && !ranked.contains(account) { Text(acctDisplay(account)).tag(account) }
             ForEach(ranked, id: \.self) { Text(acctDisplay($0)).tag($0) }
         }

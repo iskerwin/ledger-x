@@ -36,34 +36,37 @@ struct SyncPage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header(status)
-                Card {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("本机改动").fontWeight(.medium).padding(.bottom, 8)
-                        ForEach(status.paths, id: \.self) { path in
-                            Divider()
-                            HStack {
-                                Toggle(isOn: Binding(get: { !excluded.contains(path) }, set: { on in
-                                    if on { excluded.remove(path) } else { excluded.insert(path) }
-                                })) {
-                                    Text(path).lineLimit(1).truncationMode(.middle)
+                // nothing here to commit: no empty card
+                if !status.paths.isEmpty || status.ahead > 0 {
+                    Card {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("本机改动").fontWeight(.medium).padding(.bottom, 8)
+                            ForEach(status.paths, id: \.self) { path in
+                                Divider()
+                                HStack {
+                                    Toggle(isOn: Binding(get: { !excluded.contains(path) }, set: { on in
+                                        if on { excluded.remove(path) } else { excluded.insert(path) }
+                                    })) {
+                                        Text(path).lineLimit(1).truncationMode(.middle)
+                                    }
+                                    Spacer()
+                                    Button(shown == path ? "收起差异" : "查看差异") { shown = shown == path ? nil : path }
+                                        .buttonStyle(.link)
                                 }
-                                Spacer()
-                                Button(shown == path ? "收起差异" : "查看差异") { shown = shown == path ? nil : path }
-                                    .buttonStyle(.link)
-                            }
-                            .padding(.vertical, 6)
-                            if shown == path && !KitPrivacy.masked {
-                                ScrollView(.horizontal) {
-                                    Text(diff)
-                                        .font(.system(size: 11, design: .monospaced))
-                                        .textSelection(.enabled)
+                                .padding(.vertical, 6)
+                                if shown == path && !KitPrivacy.masked {
+                                    ScrollView(.horizontal) {
+                                        Text(diff)
+                                            .font(.system(size: 11, design: .monospaced))
+                                            .textSelection(.enabled)
+                                    }
+                                    .padding(.bottom, 6)
                                 }
-                                .padding(.bottom, 6)
                             }
-                        }
-                        if status.ahead > 0 {
-                            Divider()
-                            Text("另有 \(status.ahead) 个本机提交").foregroundStyle(.secondary).padding(.top, 6)
+                            if status.ahead > 0 {
+                                Divider()
+                                Text("另有 \(status.ahead) 个本机提交").foregroundStyle(.secondary).padding(.top, 6)
+                            }
                         }
                     }
                 }
