@@ -65,7 +65,6 @@ struct JournalPage: View {
     @State private var sortOrder = [KeyPathComparator(\JournalLine.date, order: .reverse)]
     @State private var columns = TableColumnCustomization<JournalLine>()
     @AppStorage("journalColumns") private var savedColumns = Data()
-    @AppStorage("journalDetail") private var showsDetail = true
     @FocusState private var listFocused: Bool
     @State private var editing: EditedEntry?
     @State private var deleting: Entry?
@@ -88,35 +87,27 @@ struct JournalPage: View {
     }
 
     var body: some View {
-        // a column of its own beside the table: an inspector lets the table run on under it, its last columns hidden there
-        HStack(spacing: 0) {
-            VStack(spacing: 0) {
-                filters
-                Divider()
-                if lines.isEmpty && !text.isEmpty {
-                    ContentUnavailableView.search(text: text)
-                } else {
-                    table
-                }
-            }
-            if showsDetail {
-                Divider()
-                // always there, so picking a row moves nothing
-                Group {
-                    if let entry = picked {
-                        EntryDetail(entry: entry, ledger: ledger, edit: { edit(entry) }, copy: { copySource([entry]) }, open: { openFile(entry) }, delete: { deleting = entry })
-                    } else {
-                        Color.clear
-                    }
-                }
-                .frame(width: 300)
-                .background(Color(nsColor: .controlBackgroundColor))
+        VStack(spacing: 0) {
+            filters
+            Divider()
+            if lines.isEmpty && !text.isEmpty {
+                ContentUnavailableView.search(text: text)
+            } else {
+                table
             }
         }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button { showsDetail.toggle() } label: { Label("详情", systemImage: "sidebar.right") }
-                    .help("详情")
+        // the picked entry on a card of its own over the table, which keeps its width; nothing picked, no card
+        .overlay(alignment: .topTrailing) {
+            if let entry = picked {
+                EntryDetail(entry: entry, ledger: ledger, edit: { edit(entry) }, copy: { copySource([entry]) }, open: { openFile(entry) },
+                            delete: { deleting = entry }, close: { selected = [] })
+                    .frame(width: 300)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .background(Color.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.1)))
+                    .shadow(color: .black.opacity(0.25), radius: 16, y: 6)
+                    .padding(12)
             }
         }
         .searchable(text: $text, isPresented: $searching, placement: .toolbar)
@@ -189,7 +180,7 @@ struct JournalPage: View {
     }
 
     private var table: some View {
-        // the least widths, with the gaps between, fit beside the detail in the smallest window: the amount stays in sight
+        // the least widths, with the gaps between, fit the smallest window: the amount stays in sight
         Table(lines, selection: $selected, sortOrder: $sortOrder, columnCustomization: $columns) {
             TableColumn("日期", value: \.date) { line in
                 Text(shortDate(line.date)).monospacedDigit().foregroundStyle(.secondary)
@@ -387,6 +378,7 @@ private struct EntryDetail: View {
     let copy: () -> Void
     let open: () -> Void
     let delete: () -> Void
+    let close: () -> Void
     @State private var showsSource = false
 
     var body: some View {
@@ -400,6 +392,13 @@ private struct EntryDetail: View {
                         Text(entry.payee.isEmpty ? (entry.narration.isEmpty ? "交易" : entry.narration) : entry.payee)
                             .font(.headline)
                             .lineLimit(2)
+                        Spacer(minLength: 0)
+                        // Esc too, as for anything that floats over the window
+                        Button("关闭", systemImage: "xmark.circle.fill", action: close)
+                            .labelStyle(.iconOnly)
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.secondary)
+                            .keyboardShortcut(.cancelAction)
                     }
                     ForEach(entry.shownAmounts(ledger), id: \.0) { amount in
                         Text(amount.0)
@@ -457,7 +456,6 @@ private struct EntryDetail: View {
                 .fixedSize()
             }
             .padding(12)
-            .background(.bar)
         }
     }
 

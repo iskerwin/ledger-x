@@ -10,57 +10,6 @@ private func labelled(_ months: [String]) -> [String] {
 
 private func monthNumber(_ month: String) -> String { String(Int(month.suffix(2)) ?? 0) + "月" }
 
-/// 净资产: what it comes to, how it has moved, month by month. The pointer on the chart shows that month in the same place.
-struct WorthCard: View {
-    let assets: Double
-    let liabilities: Double
-    let points: [NetWorthPoint]
-    let base: String
-    @State private var picked: String?
-
-    var body: some View {
-        let shown = points.first { $0.month == picked }
-        let change = (points.last?.netWorth ?? 0) - (points.first?.netWorth ?? 0)
-        VStack(alignment: .leading, spacing: 12) {
-            Headline(label: shown.map { $0.month + " 月末" } ?? "净资产", value: money(shown?.netWorth ?? assets + liabilities, base))
-            chart.frame(height: 180)
-            SummaryFigures(items: [("资产", money(assets, base), .primary),
-                                   ("负债", money(liabilities, base), .primary),
-                                   ("近 \(points.count) 个月", signedMoney(change, base), change < 0 ? .loss : .gain)])
-        }
-    }
-
-    private var chart: some View {
-        let lo = points.map(\.netWorth).min() ?? 0, hi = points.map(\.netWorth).max() ?? 0
-        let pad = max((hi - lo) * 0.1, 1)
-        return Chart(points) { point in
-            AreaMark(x: .value("月份", point.month), yStart: .value("下限", lo - pad), yEnd: .value("净资产", point.netWorth))
-                .foregroundStyle(LinearGradient(colors: [Color.jade.opacity(0.32), Color.jade.opacity(0.02)], startPoint: .top, endPoint: .bottom))
-                .interpolationMethod(.monotone)
-            LineMark(x: .value("月份", point.month), y: .value("净资产", point.netWorth))
-                .foregroundStyle(Color.jade)
-                .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round))
-                .interpolationMethod(.monotone)
-            if point.month == picked {
-                RuleMark(x: .value("月份", point.month))
-                    .foregroundStyle(Color.secondary.opacity(0.4))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                PointMark(x: .value("月份", point.month), y: .value("净资产", point.netWorth))
-                    .foregroundStyle(Color.jade)
-                    .symbolSize(70)
-            }
-        }
-        .chartYScale(domain: (lo - pad)...(hi + pad))
-        .chartYAxis(.hidden)
-        .chartXAxis {
-            AxisMarks(values: labelled(points.map(\.month))) { value in
-                AxisValueLabel { if let month = value.as(String.self) { Text(monthNumber(month)) } }
-            }
-        }
-        .pickingMonth($picked)
-    }
-}
-
 /// how much an account held at each month's end; the pointer shows that month in the same place
 struct BalanceChart: View {
     let points: [BalancePoint]
