@@ -11,12 +11,10 @@ enum ReportPeriod: String, CaseIterable {
 }
 
 private enum ReportTab: String, CaseIterable {
-    case analysis = "收支分析", months = "按月对比", income = "损益表", balance = "资产负债表", trial = "试算平衡"
-
-    var usesPeriod: Bool { self == .analysis || self == .income }
+    case flow = "收支", statements = "财务报表"
 }
 
-/// a report's page: what it is set to along the top, the report on the page colour under it
+/// a report's page: what it is set to along the top, the report on the page colour under it, in the middle of a wide window
 struct ReportScaffold<Bar: View, Content: View>: View {
     @ViewBuilder var bar: Bar
     @ViewBuilder var content: Content
@@ -33,6 +31,7 @@ struct ReportScaffold<Bar: View, Content: View>: View {
             ScrollView {
                 VStack(spacing: 16) { content }
                     .padding(20)
+                    .pageWidth()
             }
             .background(Color.page)
         }
@@ -46,29 +45,19 @@ extension ReportScaffold where Bar == EmptyView {
     }
 }
 
-/// the period a report covers, as a menu
-struct PeriodMenu: View {
-    @Binding var period: ReportPeriod
-
-    var body: some View {
-        Picker(selection: $period) {
-            ForEach(ReportPeriod.allCases, id: \.self) { Text($0.title) }
-        } label: {
-            EmptyView()
-        }
-        .labelsHidden()
-        .fixedSize()
-    }
-}
-
-/// the reports, a tab each; a period where the report covers one, kept in place where it doesn't so the tabs don't move
+/// two tabs over the same month or year: 收支 (where it went, month by month, what came in and from whom) and 财务报表 (损益表, 资产负债表 and 试算平衡 together)
 struct ReportsPage: View {
     let ledger: Ledger
     let config: LedgerXConfig?
-    @AppStorage("reportTab") private var tab = ReportTab.analysis
-    @State private var period = ReportPeriod.thisMonth
+    @AppStorage("reportTab") private var tab = ReportTab.flow
+    @State private var byYear = false
+    @State private var month = Day.ym(Day.today())
 
     var body: some View {
+        let span = PeriodStepper.span(byYear, month)
+        let title = PeriodStepper.title(byYear, month)
+        let scope: (String) -> JournalScope = { JournalScope(title: accountTitle(ledger, $0) + " · " + title, account: $0, from: span.0, to: span.1) }
+        let report = incomeStatement(ledger, from: span.0, to: span.1)
         ReportScaffold {
             Picker(selection: $tab) {
                 ForEach(ReportTab.allCases, id: \.self) { Text($0.rawValue) }
@@ -78,103 +67,110 @@ struct ReportsPage: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             .fixedSize()
-            Spacer()
-            PeriodMenu(period: $period)
-                .opacity(tab.usesPeriod ? 1 : 0)
-                .disabled(!tab.usesPeriod)
+            PeriodStepper(byYear: $byYear, month: $month)
         } content: {
             switch tab {
-            case .analysis:
-                let report = incomeStatement(ledger, from: period.span?.0, to: period.span?.1)
-                PeriodSummary(ledger: ledger, period: period, report: report)
-                Card(summary: true) { DonutCard(slices: DonutSlice.make(report.expenses, ledger), base: ledger.base, scope: spanScope(ledger, period)) }
-            case .months: MonthsReport(ledger: ledger)
-            case .income: IncomeReport(ledger: ledger, period: period)
-            case .balance: BalanceReport(ledger: ledger, config: config)
-            case .trial: TrialReport(ledger: ledger)
+            case .flow:
+                PeriodSummary(ledger: ledger, title: (PeriodStepper.isCurrent(byYear, month) ? (byYear ? "今年" : "本月") : title), report: report)
+                SideBySide {
+                    Card {
+                        VStack(alignment: .leading, spacing: 0) {
+                            CardTitle("支出构成")
+                            DonutCard(slices: DonutSlice.make(report.expenses, ledger), base: ledger.base, scope: scope)
+                        }
+                    }
+                    Card { MonthsChart(ledger: ledger, months: chartMonths) }
+                }
+                SideBySide {
+                    TreeCard(title: "收入", root: report.income, ledger: ledger, negated: true, scope: scope)
+                    PayeesCard(ledger: ledger, span: span)
+                }
+                MonthsTable(ledger: ledger)
+            case .statements:
+                Statements(ledger: ledger, config: config, span: span, title: title, report: report, scope: scope)
             }
         }
     }
+
+    /// the twelve months of the year, or the twelve up to the month
+    private var chartMonths: [String] {
+        byYear ? (1...12).map { String(month.prefix(4)) + String(format: "-%02d", $0) } : (0..<12).map { Day.addMonth(month, $0 - 11) }
+    }
 }
 
-/// what an account counted in the period, a level down
-private func spanScope(_ ledger: Ledger, _ period: ReportPeriod) -> (String) -> JournalScope {
-    let span = period.span
-    return { JournalScope(title: accountTitle(ledger, $0) + " · " + period.title, account: $0, from: span?.0, to: span?.1) }
-}
-
-/// a period's spending, big, with what came in and what's left under it
+/// a period's spending, big, with what came in, what's left and how much of it was kept under it
 private struct PeriodSummary: View {
     let ledger: Ledger
-    let period: ReportPeriod
+    let title: String
     let report: IncomeStatement
 
     var body: some View {
         let income = -report.income.shown, expenses = report.expenses.shown
         let net = income + (-expenses)
+        let came = income.amounts[ledger.base] ?? 0, kept = net.amounts[ledger.base] ?? 0
         Card(summary: true) {
             VStack(alignment: .leading, spacing: 12) {
-                Headline(label: period.title + "支出", value: amountsText(expenses, ledger))
+                Headline(label: title + "支出", value: amountsText(expenses, ledger))
                 SummaryFigures(items: [("收入", amountsText(income, ledger), .gain),
-                                       ("结余", amountsText(net, ledger), net.amounts.values.reduce(0, +) < 0 ? .loss : .primary)])
+                                       ("结余", amountsText(net, ledger), net.amounts.values.reduce(0, +) < 0 ? .loss : .primary),
+                                       ("储蓄率", came > 0.005 ? String(format: "%.1f%%", kept / came * 100) : "—", .primary)])
             }
         }
     }
 }
 
-/// 损益表: income and expenses of a period, each account's line opening what's under it
-private struct IncomeReport: View {
+/// income and spending of twelve months in the operating currency; a month's bar shows its figures
+private struct MonthsChart: View {
     let ledger: Ledger
-    let period: ReportPeriod
+    let months: [String]
 
     var body: some View {
-        let report = incomeStatement(ledger, from: period.span?.0, to: period.span?.1)
-        PeriodSummary(ledger: ledger, period: period, report: report)
-        SideBySide {
-            TreeCard(title: "收入", root: report.income, ledger: ledger, negated: true, scope: spanScope(ledger, period))
-            TreeCard(title: "支出", root: report.expenses, ledger: ledger, scope: spanScope(ledger, period))
-        }
-    }
-}
-
-/// 资产负债表 as it stands today, all of it; each currency balances, 资产 = 负债 + 权益, as on the phone
-private struct BalanceReport: View {
-    let ledger: Ledger
-    let config: LedgerXConfig?
-
-    var body: some View {
-        let sheet = balanceSheet(ledger, at: nil, exclude: config?.balanceExclude ?? [])
-        let scope: (String) -> JournalScope = { JournalScope(title: accountTitle(ledger, $0), account: $0) }
-        let conversions = sheet.conversions.byCurrency(base: ledger.base).isEmpty ? [] : [("货币兑换", sheet.conversions)]
-        SideBySide {
-            TreeCard(title: "资产", root: sheet.assets, ledger: ledger, scope: scope)
-            VStack(spacing: 16) {
-                TreeCard(title: "负债", root: sheet.liabilities, ledger: ledger, negated: true, scope: scope)
-                TreeCard(title: "权益", root: sheet.equity, ledger: ledger, negated: true, scope: scope,
-                         lines: [("未结转损益", sheet.earningsByCurrency)] + conversions)
-            }
-        }
-    }
-}
-
-private struct MonthsReport: View {
-    let ledger: Ledger
-
-    var body: some View {
-        let all = ledger.txns.map { Day.ym($0.date) }
-        let flows = monthlyFlows(ledger, months: all, mode: .units)
-        let months = flows.keys.sorted()
-        let recent = Array(months.suffix(12))
-        let valued = monthlyFlows(ledger, months: recent, mode: .convert(ledger.base))
-        Card(summary: true) {
-            FlowCard(months: recent, income: valued.mapValues { $0.income.amounts[ledger.base] ?? 0 },
+        let valued = monthlyFlows(ledger, months: months, mode: .convert(ledger.base))
+        VStack(alignment: .leading, spacing: 0) {
+            CardTitle("按月对比")
+            FlowCard(months: months, income: valued.mapValues { $0.income.amounts[ledger.base] ?? 0 },
                      expenses: valued.mapValues { $0.expenses.amounts[ledger.base] ?? 0 }, base: ledger.base)
         }
+    }
+}
+
+/// who the period's money went to, the five largest
+private struct PayeesCard: View {
+    let ledger: Ledger
+    let span: (String, String)
+
+    var body: some View {
+        var spent: [String: (n: Int, amount: Double)] = [:]
+        for entry in ledger.txns where !entry.synthetic && !entry.payee.isEmpty && entry.date >= span.0 && entry.date <= span.1 {
+            let shown = classify(entry, ledger)
+            guard shown.kind == .expense || shown.kind == .refund else { continue }
+            spent[entry.payee, default: (0, 0)].n += 1
+            spent[entry.payee, default: (0, 0)].amount -= shown.amount
+        }
+        let top = spent.sorted { $0.value.amount > $1.value.amount }.prefix(5)
+        return Card {
+            VStack(alignment: .leading, spacing: 0) {
+                CardTitle("收付款方")
+                ForEach(Array(top), id: \.key) { payee in
+                    Divider()
+                    FigureRow(label: payee.key, caption: "\(payee.value.n) 笔", value: money(payee.value.amount, ledger.base))
+                }
+            }
+        }
+    }
+}
+
+/// every month of the ledger, the latest first, each opening its entries
+private struct MonthsTable: View {
+    let ledger: Ledger
+
+    var body: some View {
+        let flows = monthlyFlows(ledger, months: ledger.txns.map { Day.ym($0.date) }, mode: .units)
         Card {
             VStack(spacing: 0) {
                 MonthRow(month: "", income: "收入", expenses: "支出", net: "结余", negative: false, heading: true)
                     .padding(.bottom, 6)
-                ForEach(months.reversed(), id: \.self) { month in
+                ForEach(flows.keys.sorted(by: >), id: \.self) { month in
                     let flow = flows[month]
                     let net = (flow?.income ?? Inventory()) + -(flow?.expenses ?? Inventory())
                     Divider()
@@ -190,49 +186,90 @@ private struct MonthsReport: View {
     }
 }
 
-/// debits and credits of each currency, in their own signs: equal once the conversions are counted
-private struct TrialReport: View {
+/// 损益表 of the period beside 资产负债表 at its end, and under them 试算平衡 at the same day, every account in three columns
+private struct Statements: View {
     let ledger: Ledger
+    let config: LedgerXConfig?
+    let span: (String, String)
+    let title: String
+    let report: IncomeStatement
+    let scope: (String) -> JournalScope
 
     var body: some View {
         let today = Day.today()
-        let balances = periodBalances(ledger, to: today)
-        let roots = ["Assets", "Liabilities", "Equity", "Income", "Expenses"].map { accountTree(balances, root: $0, ledger, at: today, shown: balances) }
-        let conversion = conversions(of: balances)
-        let totals = roots.map(\.shown) + [conversion]
-        let debit = sum(totals) { $0 > 0 ? $0 : 0 }, credit = sum(totals) { $0 < 0 ? -$0 : 0 }
-        let currencies = Set(debit.keys).union(credit.keys).sorted { a, b in a == ledger.base ? b != ledger.base : b == ledger.base ? false : a < b }
-            .filter { (debit[$0] ?? 0) > 0.005 || (credit[$0] ?? 0) > 0.005 }
-        Card(summary: true) {
-            Grid(alignment: .trailing, horizontalSpacing: 24, verticalSpacing: 8) {
-                GridRow {
-                    Text("币种").gridColumnAlignment(.leading)
-                    Text("借方合计")
-                    Text("贷方合计")
-                }
-                .foregroundStyle(.secondary)
-                ForEach(currencies, id: \.self) { currency in
+        let end = min(span.1, today)
+        let sheet = balanceSheet(ledger, at: end == today ? nil : end, exclude: config?.balanceExclude ?? [])
+        let standing: (String) -> JournalScope = { JournalScope(title: accountTitle(ledger, $0), account: $0, to: end) }
+        let conversions = sheet.conversions.byCurrency(base: ledger.base).isEmpty ? [] : [("货币兑换", sheet.conversions)]
+        let net = -report.income.shown + -report.expenses.shown
+        SideBySide {
+            Card {
+                VStack(alignment: .leading, spacing: 12) {
+                    CardTitle(title: "损益表") { Text(title).foregroundStyle(.secondary) }
+                    TreeCard(title: "收入", root: report.income, ledger: ledger, negated: true, scope: scope, bare: true)
+                    TreeCard(title: "支出", root: report.expenses, ledger: ledger, scope: scope, bare: true)
                     Divider()
-                    GridRow {
-                        Text(currency)
-                        Text(money(debit[currency] ?? 0, currency)).monospacedDigit()
-                        Text(money(credit[currency] ?? 0, currency)).monospacedDigit()
-                    }
+                    FigureRow(label: "净收益", value: amountsText(net, ledger), color: net.amounts.values.reduce(0, +) < 0 ? .loss : .primary)
+                }
+            }
+            Card {
+                VStack(alignment: .leading, spacing: 12) {
+                    CardTitle(title: "资产负债表") { Text("截至 " + shortDay(end)).foregroundStyle(.secondary) }
+                    TreeCard(title: "资产", root: sheet.assets, ledger: ledger, scope: standing, bare: true)
+                    TreeCard(title: "负债", root: sheet.liabilities, ledger: ledger, negated: true, scope: standing, bare: true)
+                    TreeCard(title: "权益", root: sheet.equity, ledger: ledger, negated: true, scope: standing,
+                             lines: [("未结转损益", sheet.earningsByCurrency)] + conversions, bare: true)
                 }
             }
         }
-        SideBySide {
-            VStack(spacing: 16) {
-                ForEach(roots.prefix(3), id: \.name) { card($0) }
-            }
-            VStack(spacing: 16) {
-                ForEach(roots.suffix(2), id: \.name) { card($0) }
+        TrialCard(ledger: ledger, end: end, scope: standing)
+    }
+}
+
+/// debits and credits of each currency, in their own signs: equal once the conversions are counted; each account's balance under them
+private struct TrialCard: View {
+    let ledger: Ledger
+    let end: String
+    let scope: (String) -> JournalScope
+
+    var body: some View {
+        let balances = periodBalances(ledger, to: end)
+        let roots = ["Assets", "Liabilities", "Equity", "Income", "Expenses"].map { accountTree(balances, root: $0, ledger, at: end, shown: balances) }
+        let totals = roots.map(\.shown) + [conversions(of: balances)]
+        let debit = sum(totals) { $0 > 0 ? $0 : 0 }, credit = sum(totals) { $0 < 0 ? -$0 : 0 }
+        let currencies = Set(debit.keys).union(credit.keys).sorted { a, b in a == ledger.base ? b != ledger.base : b == ledger.base ? false : a < b }
+            .filter { (debit[$0] ?? 0) > 0.005 || (credit[$0] ?? 0) > 0.005 }
+        let accounts = roots.flatMap(leaves)
+        Card {
+            VStack(alignment: .leading, spacing: 0) {
+                CardTitle("试算平衡")
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 28), count: 3), alignment: .leading, spacing: 0) {
+                    ForEach(accounts, id: \.name) { node in
+                        NavigationLink(value: scope(node.name)) {
+                            HStack(spacing: 12) {
+                                Text(accountTitle(ledger, node.name)).lineLimit(1)
+                                Spacer(minLength: 8)
+                                Text(amountsText(node.shown, ledger)).monospacedDigit().lineLimit(1)
+                            }
+                            .padding(.vertical, 6)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help(node.name)
+                    }
+                }
+                ForEach(currencies, id: \.self) { currency in
+                    Divider()
+                    FigureRow(label: "借方 · 贷方" + (currencies.count > 1 ? " · " + currency : ""),
+                              value: money(debit[currency] ?? 0, currency) + " · " + money(credit[currency] ?? 0, currency))
+                }
             }
         }
     }
 
-    private func card(_ root: AccountNode) -> some View {
-        TreeCard(title: acctZH(root.name) ?? root.name, root: root, ledger: ledger) { JournalScope(title: accountTitle(ledger, $0), account: $0) }
+    /// the accounts with nothing under them, in the tree's order
+    private func leaves(_ node: AccountNode) -> [AccountNode] {
+        node.children.flatMap { $0.children.isEmpty ? [$0] : leaves($0) }
     }
 
     private func sum(_ inventories: [Inventory], _ part: (Double) -> Double) -> [String: Double] {
@@ -288,10 +325,19 @@ struct TreeCard: View {
     let scope: (String) -> JournalScope
     /// what isn't an account but counts in the total, under the accounts: no entries to open
     var lines: [(String, Inventory)] = []
+    /// a part of a larger card, without its own
+    var bare = false
     @State private var open: Set<String> = []
 
     var body: some View {
-        Card {
+        if bare {
+            content
+        } else {
+            Card { content }
+        }
+    }
+
+    private var content: some View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Text(title).fontWeight(.medium)
@@ -316,7 +362,6 @@ struct TreeCard: View {
                     .padding(.vertical, 6)
                 }
             }
-        }
     }
 
     private var visible: [AccountNode] {

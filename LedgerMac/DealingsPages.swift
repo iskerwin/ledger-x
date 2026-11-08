@@ -16,16 +16,22 @@ struct ReimbursementsPage: View {
         let settled = batches.filter(\.settled)
         let receivable = config?.receivable ?? "Assets:Receivable:Reimbursement"
         let owed = (ledger.final[receivable] ?? [:]).reduce(0.0) { $0 + inBase(ledger, $1.value, $1.key) }
+        let waitingTotal = waiting.reduce(0.0) { $0 + inBase(ledger, $1.amount, $1.currency, on: $1.t.date) }
+        let thisYear = String(Day.today().prefix(4))
         ReportScaffold {
             Card(summary: true) {
-                SummaryFigures(items: [("待报销", money(waiting.reduce(0.0) { $0 + inBase(ledger, $1.amount, $1.currency, on: $1.t.date) }, ledger.base), .primary),
-                                       ("进行中", "\(open.count) 张", .primary),
-                                       ("报销应收余额", money(owed, ledger.base), .primary)])
+                VStack(alignment: .leading, spacing: 12) {
+                    Headline(label: "待报销", value: money(waitingTotal, ledger.base))
+                    SummaryFigures(items: [("进行中", "\(open.count) 张", .primary),
+                                           ("报销应收余额", money(owed, ledger.base), .primary),
+                                           ("\(thisYear) 年已结清", money(advanced(settled.filter { $0.last.hasPrefix(thisYear) }), ledger.base), .primary)])
+                }
             }
-            if !open.isEmpty {
+            // both kept when empty, so the page doesn't change with them
+            SideBySide {
                 Card {
                     VStack(alignment: .leading, spacing: 0) {
-                        CardTitle("进行中")
+                        CardTitle(title: "进行中") { Text("\(open.count) 张").foregroundStyle(.secondary) }
                         ForEach(open) { batch in
                             Divider()
                             NavigationLink(value: JournalScope(title: batchTitle(batch), account: nil, link: batch.link)) {
@@ -36,23 +42,25 @@ struct ReimbursementsPage: View {
                         }
                     }
                 }
-            }
-            EntryListCard(entries: Array(waiting.map(\.t).reversed()), ledger: ledger, config: config, folder: folder) {
-                CardTitle("待报销 · \(waiting.count) 笔")
-            }
-            if !settled.isEmpty {
                 Card {
                     VStack(alignment: .leading, spacing: 0) {
-                        CardTitle("已结清")
+                        CardTitle(title: "已结清") { Text(money(advanced(settled), ledger.base)).monospacedDigit().foregroundStyle(.secondary) }
                         ForEach(years(settled), id: \.0) { year in
                             Divider()
-                            FigureRow(label: "\(year.0) 年", caption: "\(year.1.count) 张单子",
-                                      value: money(year.1.reduce(0.0) { $0 + inBase(ledger, $1.advanced, $1.currency, on: $1.last) }, ledger.base))
+                            FigureRow(label: "\(year.0) 年", caption: "\(year.1.count) 张单子", value: money(advanced(year.1), ledger.base))
                         }
                     }
                 }
             }
+            EntryListCard(entries: Array(waiting.map(\.t).reversed()), ledger: ledger, config: config, folder: folder) {
+                CardTitle(title: "待报销") { Text("\(waiting.count) 笔").foregroundStyle(.secondary) }
+            }
         }
+    }
+
+    /// what the batches advanced, in the operating currency
+    private func advanced(_ batches: [ReimbBatch]) -> Double {
+        batches.reduce(0.0) { $0 + inBase(ledger, $1.advanced, $1.currency, on: $1.last) }
     }
 
     private func batchTitle(_ batch: ReimbBatch) -> String {
@@ -121,6 +129,8 @@ private struct EmployerDetail: View {
         let years = Array(Set(slips.map { String($0.date.prefix(4)) })).sorted(by: >)
         let shown = slips.filter { $0.date.hasPrefix(year) }.reversed().compactMap { entry in payslipFigures(entry, ledger).map { Slip(entry: entry, figures: $0) } }
         let sum = { (part: (PayslipFigures) -> Double) in shown.reduce(0.0) { $0 + part($1.figures) } }
+        // the month opened below, else the latest
+        let focused = shown.first { $0.id == open } ?? shown.first
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
@@ -139,22 +149,46 @@ private struct EmployerDetail: View {
                 }
                 Card(summary: true) {
                     VStack(alignment: .leading, spacing: 12) {
-                        // what came in each month, the months in order
-                        Chart(shown.reversed()) { slip in
-                            BarMark(x: .value("月份", String(slip.entry.date.prefix(7))), y: .value("实发", slip.figures.net))
-                                .foregroundStyle(open == slip.id ? Color.jade : Color.jade.opacity(0.55))
-                                .cornerRadius(3)
+                        Headline(label: "\(year) 年实发", value: money(sum(\.net), ledger.base))
+                        SummaryFigures(items: [("税前", money(sum(\.gross), ledger.base), .primary),
+                                               ("扣款", money(sum(\.deductions), ledger.base), .primary),
+                                               ("个税", money(sum(\.tax), ledger.base), .primary)])
+                    }
+                }
+                SideBySide(weights: [2, 1]) {
+                    Card {
+                        VStack(alignment: .leading, spacing: 0) {
+                            CardTitle("每月实发")
+                            // what came in each month, the months in order
+                            Chart(shown.reversed()) { slip in
+                                BarMark(x: .value("月份", String(slip.entry.date.prefix(7))), y: .value("实发", slip.figures.net))
+                                    .foregroundStyle(focused?.id == slip.id ? Color.jade : Color.jade.opacity(0.55))
+                                    .cornerRadius(3)
+                            }
+                            .chartYAxis(.hidden)
+                            .chartXAxis {
+                                AxisMarks { value in
+                                    AxisValueLabel { if let month = value.as(String.self) { Text(String(Int(month.suffix(2)) ?? 0) + "月") } }
+                                }
+                            }
+                            .frame(height: 150)
                         }
-                        .chartYAxis(.hidden)
-                        .chartXAxis {
-                            AxisMarks { value in
-                                AxisValueLabel { if let month = value.as(String.self) { Text(String(Int(month.suffix(2)) ?? 0) + "月") } }
+                    }
+                    Card {
+                        VStack(alignment: .leading, spacing: 0) {
+                            CardTitle(title: "工资条") { Text(focused.map { String($0.entry.date.prefix(7)) } ?? "").monospacedDigit().foregroundStyle(.secondary) }
+                            if let figures = focused?.figures {
+                                ForEach(figures.earnings.sorted { $0.value > $1.value }, id: \.key) { item in
+                                    FigureRow(label: acctDisplay(item.key), value: money(item.value, ledger.base))
+                                    Divider()
+                                }
+                                FigureRow(label: "扣款", value: money(figures.deductions, ledger.base))
+                                Divider()
+                                FigureRow(label: "个税", value: money(figures.tax, ledger.base))
+                                Divider()
+                                FigureRow(label: "实发", value: money(figures.net, ledger.base), color: .gain)
                             }
                         }
-                        .frame(height: 120)
-                        SummaryFigures(items: [("税前", money(sum(\.gross), ledger.base), .primary),
-                                               ("个税", money(sum(\.tax), ledger.base), .primary),
-                                               ("实发", money(sum(\.net), ledger.base), .gain)])
                     }
                 }
                 Card {
@@ -175,6 +209,7 @@ private struct EmployerDetail: View {
                 }
             }
             .padding(20)
+            .pageWidth()
         }
         .onAppear { if let latest = years.first, !years.contains(year) { year = latest } }
         .entryTasks($tasks, ledger: ledger, config: config, folder: folder)
@@ -263,7 +298,7 @@ private struct EventDetail: View {
                                                ("自己的支出", money(summary.spent, ledger.base), .primary)])
                     }
                 }
-                if !summary.byCategory.isEmpty {
+                SideBySide {
                     Card {
                         VStack(alignment: .leading, spacing: 0) {
                             CardTitle("分类")
@@ -273,6 +308,18 @@ private struct EventDetail: View {
                             }
                         }
                     }
+                    Card {
+                        VStack(alignment: .leading, spacing: 0) {
+                            CardTitle("按天")
+                            Chart(byDay, id: \.0) { day in
+                                BarMark(x: .value("日期", shortDay(day.0)), y: .value("支出", day.1))
+                                    .foregroundStyle(Color.jade.opacity(0.75))
+                                    .cornerRadius(3)
+                            }
+                            .chartYAxis(.hidden)
+                            .frame(height: 130)
+                        }
+                    }
                 }
                 EntryListCard(entries: Array(summary.txns.reversed()), ledger: ledger, config: config, folder: folder,
                               columns: [.date, .payee, .category, .accounts, .amount]) {
@@ -280,6 +327,17 @@ private struct EventDetail: View {
                 }
             }
             .padding(20)
+            .pageWidth(900)
         }
+    }
+
+    /// what went out on each day of it, the days in order
+    private var byDay: [(String, Double)] {
+        var spent: [String: Double] = [:]
+        for entry in summary.txns {
+            let shown = classify(entry, ledger)
+            if shown.kind == .expense || shown.kind == .refund { spent[entry.date, default: 0] -= shown.amount }
+        }
+        return spent.sorted { $0.key < $1.key }.map { ($0.key, $0.value) }
     }
 }

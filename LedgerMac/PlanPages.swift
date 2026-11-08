@@ -2,7 +2,7 @@ import SwiftUI
 import Charts
 import LedgerKit
 
-/// the budgets of a month or year in a table, and on the right the picked one's lines in the ledger and its entries
+/// the budgets of a month or year in a table, and beside it the picked one: its last six months, its lines in the ledger and the way to its entries
 struct BudgetsPage: View {
     let ledger: Ledger
     @State private var byYear = false
@@ -13,54 +13,39 @@ struct BudgetsPage: View {
         let key = byYear ? String(month.prefix(4)) : month
         let progress = budgetProgress(ledger, key: key)
         let chosen = progress.first { $0.budget.account == picked } ?? progress.first
-        // each budget's spending in the six months up to this one; a year has no such column
-        let months = byYear ? [] : (0..<6).map { Day.addMonth(month, $0 - 5) }
-        let spentBy = Dictionary(uniqueKeysWithValues: months.map { month in (month, Dictionary(budgetProgress(ledger, key: month).map { ($0.budget.account, $0.spent) }, uniquingKeysWith: { a, _ in a })) })
-        VStack(spacing: 0) {
+        ReportScaffold {
             PeriodStepper(byYear: $byYear, month: $month)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
-            Divider()
+        } content: {
             if progress.isEmpty {
                 ContentUnavailableView("没有预算", systemImage: "chart.pie")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.page)
             } else {
-                HStack(spacing: 0) {
-                    ScrollView {
-                        VStack(spacing: 16) {
-                            if let total = budgetTotal(progress) {
-                                Card(summary: true) {
-                                    VStack(alignment: .leading, spacing: 12) {
-                                        Headline(label: "剩余", value: money(total.remaining, total.currency), color: total.remaining < 0 ? .loss : .primary)
-                                        SummaryFigures(items: [("预算", money(total.limit, total.currency), .primary), ("已花", money(total.spent, total.currency), .primary)])
-                                    }
-                                }
-                            }
-                            Card {
-                                VStack(spacing: 0) {
-                                    BudgetRow(cells: ["分类", "预算", "已花", "剩余"], ratio: nil, color: .secondary, picked: false, recent: byYear ? nil : [])
-                                        .padding(.bottom, 6)
-                                    ForEach(progress) { item in
-                                        Divider()
-                                        BudgetRow(cells: [acctDisplay(item.budget.account), money(item.limit, item.budget.currency),
-                                                          money(item.spent, item.budget.currency), money(item.remaining, item.budget.currency)],
-                                                  ratio: item.ratio, color: item.over ? .chartLoss : item.ahead ? .warn : .jade, picked: chosen?.id == item.id,
-                                                  recent: byYear ? nil : months.map { spentBy[$0]?[item.budget.account] ?? 0 })
-                                            .onTapGesture { picked = item.budget.account }
-                                    }
-                                }
-                            }
+                if let total = budgetTotal(progress) {
+                    Card(summary: true) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Headline(label: "剩余", value: money(total.remaining, total.currency), color: total.remaining < 0 ? .loss : .primary)
+                            SummaryFigures(items: [("预算", money(total.limit, total.currency), .primary), ("已花", money(total.spent, total.currency), .primary),
+                                                   ("超支", "\(progress.filter(\.over).count) 项", progress.contains(where: \.over) ? .loss : .primary)])
                         }
-                        .padding(20)
-                    }
-                    if let chosen {
-                        Divider()
-                        BudgetSide(ledger: ledger, progress: chosen, span: PeriodStepper.span(byYear, month), title: PeriodStepper.title(byYear, month))
-                            .frame(width: 320)
                     }
                 }
-                .background(Color.page)
+                SideBySide(weights: [2, 1]) {
+                    Card {
+                        VStack(spacing: 0) {
+                            BudgetRow(cells: ["分类", "预算", "已花", "剩余"], ratio: nil, color: .secondary, picked: false)
+                                .padding(.bottom, 6)
+                            ForEach(progress) { item in
+                                Divider()
+                                BudgetRow(cells: [acctDisplay(item.budget.account), money(item.limit, item.budget.currency),
+                                                  money(item.spent, item.budget.currency), money(item.remaining, item.budget.currency)],
+                                          ratio: item.ratio, color: item.over ? .chartLoss : item.ahead ? .warn : .jade, picked: chosen?.id == item.id)
+                                    .onTapGesture { picked = item.budget.account }
+                            }
+                        }
+                    }
+                    if let chosen {
+                        BudgetSide(ledger: ledger, progress: chosen, byYear: byYear, month: month)
+                    }
+                }
             }
         }
     }
@@ -72,31 +57,11 @@ private struct BudgetRow: View {
     let ratio: Double?
     let color: Color
     let picked: Bool
-    /// what went out in each of the last six months, oldest first; empty on the heading, nil for a year
-    let recent: [Double]?
 
     var body: some View {
         HStack(spacing: 12) {
             ForEach(Array(cells.enumerated()), id: \.offset) { index, cell in
                 Text(cell).frame(maxWidth: .infinity, alignment: index == 0 ? .leading : .trailing)
-            }
-            if let recent {
-                Group {
-                    if recent.isEmpty {
-                        Text("近 6 个月").frame(maxWidth: .infinity, alignment: .leading)
-                    } else {
-                        Chart(Array(recent.enumerated()), id: \.offset) { index, value in
-                            BarMark(x: .value("月", index), y: .value("支出", value))
-                                .foregroundStyle(picked ? Color.white.opacity(index == recent.count - 1 ? 1 : 0.6)
-                                                 : Color.jade.opacity(index == recent.count - 1 ? 1 : 0.45))
-                                .cornerRadius(2)
-                        }
-                        .chartXAxis(.hidden)
-                        .chartYAxis(.hidden)
-                        .frame(height: 22)
-                    }
-                }
-                .frame(width: 80)
             }
             Group {
                 if let ratio {
@@ -117,40 +82,45 @@ private struct BudgetRow: View {
     }
 }
 
-/// the picked budget: its account, each line it has had in the ledger, and the way to what it counted
+/// the picked budget: what went out in its last six months, each line it has had in the ledger, its largest entry and the way to what it counted
 private struct BudgetSide: View {
     let ledger: Ledger
     let progress: BudgetProgress
-    let span: (String, String)
-    let title: String
+    let byYear: Bool
+    let month: String
 
     var body: some View {
         let account = progress.budget.account
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(acctDisplay(account)).font(.title3.weight(.semibold))
-                    Text(account).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
+        let span = PeriodStepper.span(byYear, month)
+        let months = (0..<6).map { Day.addMonth(byYear ? String(span.1.prefix(7)) : month, $0 - 5) }
+        let recent = months.map { month in budgetProgress(ledger, key: month).first { $0.budget.account == account }?.spent ?? 0 }
+        Card {
+            VStack(alignment: .leading, spacing: 0) {
+                CardTitle(title: acctDisplay(account)) { Text("近 6 个月").foregroundStyle(.secondary) }
+                Chart(Array(zip(months, recent)), id: \.0) { item in
+                    BarMark(x: .value("月", String(Int(item.0.suffix(2)) ?? 0) + "月"), y: .value("支出", item.1))
+                        .foregroundStyle(Color.jade.opacity(item.0 == months.last ? 1 : 0.45))
+                        .cornerRadius(3)
                 }
-                Card {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(Array(budgets(ledger).filter { $0.account == account }.reversed().enumerated()), id: \.element.id) { index, budget in
-                            if index > 0 { Divider() }
-                            FigureRow(label: budget.date, caption: budget.period.name, value: money(budget.amount, budget.currency))
-                        }
-                    }
-                }
+                .chartYAxis(.hidden)
+                .frame(height: 96)
+                .padding(.bottom, 8)
+                FigureRow(label: "近 6 个月月均", value: money(recent.reduce(0, +) / 6, progress.budget.currency))
                 if let biggest = progress.biggest {
-                    Card {
-                        FigureRow(label: "最大一笔", caption: biggest.what + " · " + shortDay(biggest.date), value: money(biggest.amount, progress.budget.currency))
-                    }
+                    Divider()
+                    FigureRow(label: "最大一笔", caption: biggest.what + " · " + shortDay(biggest.date), value: money(biggest.amount, progress.budget.currency))
                 }
-                NavigationLink(value: JournalScope(title: acctDisplay(account) + " · " + title, account: account, from: span.0, to: span.1)) {
+                ForEach(budgets(ledger).filter { $0.account == account }.reversed()) { budget in
+                    Divider()
+                    FigureRow(label: budget.date, caption: budget.period.name, value: money(budget.amount, budget.currency))
+                }
+                Divider()
+                NavigationLink(value: JournalScope(title: acctDisplay(account) + " · " + PeriodStepper.title(byYear, month), account: account, from: span.0, to: span.1)) {
                     Label("查看\(acctDisplay(account))明细", systemImage: "list.bullet")
                 }
                 .buttonStyle(.link)
+                .padding(.top, 8)
             }
-            .padding(16)
         }
     }
 }
@@ -178,16 +148,16 @@ struct ForecastPage: View {
                 ContentUnavailableView("没有可用的账户", systemImage: "chart.line.uptrend.xyaxis")
             } else {
                 summary(result)
-                events(result)
-                Card {
-                    VStack(alignment: .leading, spacing: 0) {
-                        CardTitle("计入的账户")
-                        ForEach(result.accounts, id: \.self) { account in
-                            Divider()
-                            FigureRow(label: accountTitle(ledger, account), value: "")
+                SideBySide {
+                    events(result)
+                    Card {
+                        VStack(alignment: .leading, spacing: 0) {
+                            CardTitle("计入的账户")
+                            ForEach(result.accounts, id: \.self) { account in
+                                Divider()
+                                FigureRow(label: accountTitle(ledger, account), value: "")
+                            }
                         }
-                        Divider()
-                        FigureRow(label: "日常支出", caption: "日均", value: money(result.dailySpend, result.currency))
                     }
                 }
             }
@@ -212,7 +182,8 @@ struct ForecastPage: View {
                 .chartYAxis(.hidden)
                 .frame(height: 180)
                 SummaryFigures(items: [("今天可用", money(result.start, result.currency), .primary),
-                                       ("最低 · " + Day.dayLabel(lowest.date), money(lowest.value, result.currency), lowest.value < 0 ? .loss : .primary)])
+                                       ("最低 · " + Day.dayLabel(lowest.date), money(lowest.value, result.currency), lowest.value < 0 ? .loss : .primary),
+                                       ("日常支出 · 日均", money(result.dailySpend, result.currency), .primary)])
             }
         }
     }
@@ -256,45 +227,51 @@ struct SubscriptionsPage: View {
         let ignored = Set(config?.subsIgnored ?? [])
         let candidates = subscriptionCandidates(ledger, subs: subs).filter { !ignored.contains($0.id) }
         let year = String(Day.today().prefix(4))
+        let dueTotal = due.reduce(0.0) { $0 + inBase(ledger, $1.sub.amount, $1.sub.currency) }
         ReportScaffold {
             Card(summary: true) {
-                SummaryFigures(items: [("月均", money(active.reduce(0.0) { $0 + inBase(ledger, $1.monthly, $1.currency) }, ledger.base), .primary),
-                                       ("\(year) 年已付", money(subs.reduce(0.0) { $0 + inBase(ledger, $1.paid(in: year), $1.currency) }, ledger.base), .primary),
-                                       ("订阅中", "\(active.count)", .primary)])
+                VStack(alignment: .leading, spacing: 12) {
+                    Headline(label: "每月约", value: money(active.reduce(0.0) { $0 + inBase(ledger, $1.monthly, $1.currency) }, ledger.base))
+                    SummaryFigures(items: [("\(year) 年已付", money(subs.reduce(0.0) { $0 + inBase(ledger, $1.paid(in: year), $1.currency) }, ledger.base), .primary),
+                                           ("订阅中", "\(active.count) 个", .primary),
+                                           ("待记账", money(dueTotal, ledger.base), due.isEmpty ? .primary : .warn)])
+                }
             }
-            if !due.isEmpty {
+            SideBySide(weights: [2, 1]) {
                 Card {
                     VStack(alignment: .leading, spacing: 0) {
-                        CardTitle("待记账")
-                        ForEach(due) { item in
+                        CardTitle("订阅")
+                        ForEach(subs.sorted { ($0.status == .active ? 0 : 1, $0.name) < ($1.status == .active ? 0 : 1, $1.name) }) { sub in
                             Divider()
-                            FigureRow(label: item.sub.name, caption: shortDay(item.date) + " 应扣费 · 未入账", value: money(item.sub.amount, item.sub.currency), color: .warn)
+                            NavigationLink(value: JournalScope(title: sub.name, account: nil, link: sub.link)) {
+                                FigureRow(label: sub.name, caption: caption(sub), value: money(sub.amount, sub.currency), color: sub.status == .active ? .primary : .secondary)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
-            }
-            Card {
-                VStack(alignment: .leading, spacing: 0) {
-                    CardTitle("订阅")
-                    ForEach(subs.sorted { ($0.status == .active ? 0 : 1, $0.name) < ($1.status == .active ? 0 : 1, $1.name) }) { sub in
-                        Divider()
-                        NavigationLink(value: JournalScope(title: sub.name, account: nil, link: sub.link)) {
-                            FigureRow(label: sub.name, caption: caption(sub), value: money(sub.amount, sub.currency), color: sub.status == .active ? .primary : .secondary)
+                // both kept when empty, so the column doesn't change with them
+                VStack(spacing: 16) {
+                    Card {
+                        VStack(alignment: .leading, spacing: 0) {
+                            CardTitle(title: "待记账") { Text(money(dueTotal, ledger.base)).monospacedDigit().foregroundStyle(.secondary) }
+                            ForEach(due) { item in
+                                Divider()
+                                FigureRow(label: item.sub.name, caption: shortDay(item.date) + " 应扣费", value: money(item.sub.amount, item.sub.currency), color: .warn)
+                            }
                         }
-                        .buttonStyle(.plain)
                     }
-                }
-            }
-            if !candidates.isEmpty {
-                Card {
-                    VStack(alignment: .leading, spacing: 0) {
-                        CardTitle("可能的订阅")
-                        ForEach(candidates) { candidate in
-                            Divider()
-                            HStack(spacing: 12) {
-                                FigureRow(label: candidate.payee, caption: "\(candidate.period.name) · \(candidate.count) 笔 · \(candidate.first) 起",
-                                          value: money(candidate.amount, candidate.currency))
-                                Button("忽略") { ignore(candidate) }
+                    .fixedSize(horizontal: false, vertical: true)
+                    Card {
+                        VStack(alignment: .leading, spacing: 0) {
+                            CardTitle(title: "可能的订阅") { Text("\(candidates.count) 个").foregroundStyle(.secondary) }
+                            ForEach(candidates) { candidate in
+                                Divider()
+                                HStack(spacing: 12) {
+                                    FigureRow(label: candidate.payee, caption: "\(candidate.period.name) · \(candidate.count) 笔 · \(candidate.first) 起",
+                                              value: money(candidate.amount, candidate.currency))
+                                    Button("忽略") { ignore(candidate) }
+                                }
                             }
                         }
                     }

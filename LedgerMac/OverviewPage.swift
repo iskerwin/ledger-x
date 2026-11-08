@@ -38,6 +38,7 @@ struct OverviewPage: View {
                     todo
                 }
                 .padding(20)
+                .pageWidth()
             }
             .background(Color.page)
         }

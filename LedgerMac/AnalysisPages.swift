@@ -56,8 +56,26 @@ private struct PayeeDetail: View {
                 }
                 Card(summary: true) {
                     VStack(alignment: .leading, spacing: 12) {
-                        MonthlySpend(ledger: ledger, entries: entries)
-                        SummaryFigures(items: [("今年", money(spent, ledger.base), .primary), ("月均", money(spent / months, ledger.base), .primary)])
+                        Headline(label: "今年", value: money(spent, ledger.base))
+                        SummaryFigures(items: [("月均", money(spent / months, ledger.base), .primary),
+                                               ("每笔约", money(thisYear.isEmpty ? 0 : spent / Double(thisYear.count), ledger.base), .primary)])
+                    }
+                }
+                SideBySide {
+                    Card {
+                        VStack(alignment: .leading, spacing: 0) {
+                            CardTitle("近 12 个月")
+                            MonthlySpend(ledger: ledger, entries: entries)
+                        }
+                    }
+                    Card {
+                        VStack(alignment: .leading, spacing: 0) {
+                            CardTitle("常用")
+                            ForEach(usual(entries), id: \.0) { item in
+                                Divider()
+                                FigureRow(label: item.0, value: "\(item.1) 笔")
+                            }
+                        }
                     }
                 }
                 EntryListCard(entries: Array(entries.reversed().prefix(200)), ledger: ledger, config: config, folder: folder,
@@ -66,7 +84,21 @@ private struct PayeeDetail: View {
                 }
             }
             .padding(20)
+            .pageWidth(900)
         }
+    }
+
+    /// the categories and the accounts paid from most often, two of each
+    private func usual(_ entries: [Entry]) -> [(String, Int)] {
+        var categories: [String: Int] = [:], accounts: [String: Int] = [:]
+        for entry in entries {
+            if let category = shownCategory(entry) { categories[acctDisplay(category), default: 0] += 1 }
+            for posting in entry.postings where posting.account.hasPrefix("Assets") || posting.account.hasPrefix("Liabilities") {
+                accounts[accountTitle(ledger, posting.account), default: 0] += 1
+            }
+        }
+        let top = { (counts: [String: Int]) in counts.sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }.prefix(2).map { ($0.key, $0.value) } }
+        return top(categories) + top(accounts)
     }
 }
 
@@ -123,15 +155,15 @@ struct YearPage: View {
                 ContentUnavailableView("\(year) 年没有交易", systemImage: "calendar")
             } else {
                 summary(review)
-                SideBySide {
+                SideBySide(weights: [2, 1]) {
                     months(review)
                     worth(review)
                 }
                 SideBySide {
                     categories(review)
                     biggest(review)
+                    others(review)
                 }
-                others(review)
             }
         }
     }

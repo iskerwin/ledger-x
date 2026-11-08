@@ -133,19 +133,26 @@ struct SummaryFigures: View {
     }
 }
 
-/// two cards side by side when each has room, as tall as each other, one above the other when not; the same views either way, so what's open in them stays open
+/// cards in a row, as tall as each other and as wide as their weights, when each has room; one above the other when not; the same views either way, so what's open in them stays open
 struct SideBySide: Layout {
+    /// each card's share of the row, the first card first; equal when not given
+    var weights: [CGFloat]
     private let spacing: CGFloat = 16
-    private let narrowest: CGFloat = 320
+    private let narrowest: CGFloat = 280
 
-    private func columnWidth(_ proposal: ProposedViewSize) -> CGFloat? {
-        guard let width = proposal.width, width >= narrowest * 2 + spacing else { return nil }
-        return (width - spacing) / 2
+    init(weights: [CGFloat] = []) { self.weights = weights }
+
+    private func columns(_ proposal: ProposedViewSize, _ count: Int) -> [CGFloat]? {
+        guard let width = proposal.width, count > 1 else { return nil }
+        let shares = weights.count == count ? weights : Array(repeating: 1, count: count)
+        let free = width - spacing * CGFloat(count - 1), total = shares.reduce(0, +)
+        let widths = shares.map { free * $0 / total }
+        return widths.allSatisfy { $0 >= narrowest } ? widths : nil
     }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        if let column = columnWidth(proposal) {
-            let heights = subviews.map { $0.sizeThatFits(ProposedViewSize(width: column, height: nil)).height }
+        if let columns = columns(proposal, subviews.count) {
+            let heights = zip(subviews, columns).map { $0.sizeThatFits(ProposedViewSize(width: $1, height: nil)).height }
             return CGSize(width: proposal.width ?? 0, height: heights.max() ?? 0)
         }
         let sizes = subviews.map { $0.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil)) }
@@ -154,17 +161,27 @@ struct SideBySide: Layout {
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let column = columnWidth(proposal)
-        let offered = ProposedViewSize(width: column ?? proposal.width, height: column == nil ? nil : bounds.height)
-        var x = bounds.minX, y = bounds.minY
-        for subview in subviews {
-            subview.place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: offered)
-            if let column {
-                x += column + spacing
-            } else {
-                y += subview.sizeThatFits(offered).height + spacing
+        if let columns = columns(proposal, subviews.count) {
+            var x = bounds.minX
+            for (subview, width) in zip(subviews, columns) {
+                subview.place(at: CGPoint(x: x, y: bounds.minY), anchor: .topLeading, proposal: ProposedViewSize(width: width, height: bounds.height))
+                x += width + spacing
             }
+            return
         }
+        let offered = ProposedViewSize(width: proposal.width, height: nil)
+        var y = bounds.minY
+        for subview in subviews {
+            subview.place(at: CGPoint(x: bounds.minX, y: y), anchor: .topLeading, proposal: offered)
+            y += subview.sizeThatFits(offered).height + spacing
+        }
+    }
+}
+
+extension View {
+    /// a page's content in the middle of a wide window, not stretched across it
+    func pageWidth(_ width: CGFloat = 1080) -> some View {
+        frame(maxWidth: width).frame(maxWidth: .infinity)
     }
 }
 
