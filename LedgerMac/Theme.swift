@@ -57,7 +57,7 @@ struct Card<Content: View>: View {
     var body: some View {
         content
             .padding(summary ? 20 : 16)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(Color.card, in: RoundedRectangle(cornerRadius: summary ? 22 : 12, style: .continuous))
     }
 }
@@ -133,7 +133,7 @@ struct SummaryFigures: View {
     }
 }
 
-/// two cards side by side when each has room, one above the other when not; the same views either way, so what's open in them stays open
+/// two cards side by side when each has room, as tall as each other, one above the other when not; the same views either way, so what's open in them stays open
 struct SideBySide: Layout {
     private let spacing: CGFloat = 16
     private let narrowest: CGFloat = 320
@@ -155,7 +155,7 @@ struct SideBySide: Layout {
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         let column = columnWidth(proposal)
-        let offered = ProposedViewSize(width: column ?? proposal.width, height: nil)
+        let offered = ProposedViewSize(width: column ?? proposal.width, height: column == nil ? nil : bounds.height)
         var x = bounds.minX, y = bounds.minY
         for subview in subviews {
             subview.place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: offered)

@@ -28,6 +28,7 @@ struct CheckBalanceSheet: View {
         let actual = number(amount)
         VStack(spacing: 0) {
             Card(summary: true) { Headline(label: accountTitle(ledger, account) + " · 账面余额", value: money(book, currency)) }
+                .fixedSize(horizontal: false, vertical: true)
                 .padding([.horizontal, .top], 20)
             Form {
                 if currencies.count > 1 {

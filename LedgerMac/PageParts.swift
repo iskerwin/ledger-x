@@ -10,7 +10,7 @@ struct SplitPage<List: View, Detail: View>: View {
     var body: some View {
         HStack(spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 2) { list }
+                LazyVStack(alignment: .leading, spacing: 2) { list }
                     .padding(10)
             }
             .frame(width: listWidth)

@@ -2,17 +2,17 @@ import SwiftUI
 import Charts
 import LedgerKit
 
-/// every payee, most used first; the picked one's year, its month on average, and its entries opening in place
+/// the most used payees, all of them when searching; the picked one's year, its month on average, and its entries opening in place
 struct PayeesPage: View {
     let ledger: Ledger
     let config: LedgerXConfig?
     let folder: URL
+    @State private var all: [PayeeSummary] = []
     @State private var text = ""
     @State private var picked: String?
 
     var body: some View {
-        let all = payeeSummaries(ledger)
-        let shown = text.trimmed.isEmpty ? all : all.filter { $0.name.localizedCaseInsensitiveContains(text.trimmed) }
+        let shown = text.trimmed.isEmpty ? Array(all.prefix(50)) : all.filter { $0.name.localizedCaseInsensitiveContains(text.trimmed) }
         SplitPage {
             TextField("搜索", text: $text)
                 .textFieldStyle(.roundedBorder)
@@ -27,6 +27,8 @@ struct PayeesPage: View {
                 PayeeDetail(ledger: ledger, config: config, folder: folder, name: name).id(name)
             }
         }
+        // every entry is classified: once a ledger, not on each key or pick
+        .task(id: ObjectIdentifier(ledger)) { all = payeeSummaries(ledger) }
     }
 }
 
