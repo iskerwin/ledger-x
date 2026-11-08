@@ -1703,6 +1703,42 @@ final class EditInteractionTests: XCTestCase {
         return app
     }
 
+    /// 钱花在哪 keeps its size from month to month: with nothing spent it shrank to its words, and a month with
+    /// fewer categories was shorter, so what was under it jumped
+    func testTheWhereCardKeepsItsSizeInAMonthWithoutSpending() {
+        let app = launchTab("reports")
+        let bar = app.descendants(matching: .any)["reports.monthbar"].firstMatch
+        XCTAssertTrue(bar.waitForExistence(timeout: 20))
+        let where_ = app.descendants(matching: .any)["reports.where"].firstMatch
+        if !where_.exists { app.buttons["钱花在哪"].tap() }
+        XCTAssertTrue(where_.waitForExistence(timeout: 5))
+        let back = bar.buttons["上个月"]
+        // the fixture spends in one month only; from now back, there is a month with it and one without
+        var empty: CGRect?, spent: CGRect?
+        for _ in 0..<24 where empty == nil || spent == nil {
+            if where_.staticTexts["这个月还没有支出"].exists { empty = empty ?? where_.frame } else { spent = spent ?? where_.frame }
+            back.tap()
+        }
+        guard let empty, let spent else { return XCTFail("no month with spending and none without") }
+        XCTAssertEqual(empty.width, spent.width, accuracy: 0.5)
+        XCTAssertEqual(empty.height, spent.height, accuracy: 0.5)
+    }
+
+    /// 持仓、均价、现价 of an open holding each sit in the middle of their third
+    func testHoldingStatsAreCentred() {
+        let extra = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/holdings-extra.bean").path
+        let app = launchTab("accounts", env: ["LEDGER_EXTRA": extra, "LEDGER_OPEN_HOLDINGS": "1"])
+        let fund = app.staticTexts["EXFUND"].firstMatch
+        XCTAssertTrue(fund.waitForExistence(timeout: 20))
+        fund.tap()
+        let titles = ["持仓", "均价", "现价"].map { app.staticTexts.matching(NSPredicate(format: "label == %@", $0)).allElementsBoundByIndex.last! }
+        XCTAssertTrue(titles[1].waitForExistence(timeout: 5))
+        let left = titles[0].frame.midX, middle = titles[1].frame.midX, right = titles[2].frame.midX
+        // evenly spaced, the middle one in the middle of the screen
+        XCTAssertEqual(middle - left, right - middle, accuracy: 2)
+        XCTAssertEqual(middle, app.windows.firstMatch.frame.midX, accuracy: 2)
+    }
+
     /// 月 and 年 on the overview's card: the year had no average line, so the card was a line shorter and
     /// everything under it jumped when switching
     func testOverviewCardKeepsItsHeightBetweenMonthAndYear() {
