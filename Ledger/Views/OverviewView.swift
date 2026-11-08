@@ -347,10 +347,10 @@ struct OverviewView: View {
                     // told apart by more than colour: income a solid line with dots, spending a dashed one with squares
                     ForEach(months, id: \.self) { m in
                         LineMark(x: .value("月", monthLabelShort(m)), y: .value("金额", F.inc[m] ?? 0), series: .value("类型", "inc"))
-                            .foregroundStyle(Color.gain).interpolationMethod(.monotone).symbol(.circle).symbolSize(m == shown ? 60 : 18)
+                            .foregroundStyle(Color.chartGain).interpolationMethod(.monotone).symbol(.circle).symbolSize(m == shown ? 60 : 18)
                             .accessibilityLabel(Day.monthLabel(m) + " " + LS("收入")).accessibilityValue(money(F.inc[m] ?? 0, F.cur))
                         LineMark(x: .value("月", monthLabelShort(m)), y: .value("金额", F.exp[m] ?? 0), series: .value("类型", "exp"))
-                            .foregroundStyle(Color.loss).interpolationMethod(.monotone).symbol(.square).symbolSize(m == shown ? 60 : 18)
+                            .foregroundStyle(Color.chartLoss).interpolationMethod(.monotone).symbol(.square).symbolSize(m == shown ? 60 : 18)
                             .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 3]))
                             .accessibilityLabel(Day.monthLabel(m) + " " + LS("支出")).accessibilityValue(money(F.exp[m] ?? 0, F.cur))
                     }

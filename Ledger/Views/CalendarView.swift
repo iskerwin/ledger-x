@@ -703,7 +703,7 @@ struct FlowBars: View {
             RuleMark(x: .value("零", 0)).foregroundStyle(Color.secondary.opacity(0.5))
         }
         // the calendar's colours: spending in the theme colour, income green, the net a plain line
-        .chartForegroundStyleScale([inc: JournalCalendar.earn, exp: JournalCalendar.spend, net: Color.primary.opacity(0.6)])
+        .chartForegroundStyleScale([inc: Color.chartGain, exp: Color.chartLoss, net: Color.primary.opacity(0.6)])
         .chartLegend(position: .bottom, alignment: .leading)
         .chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) { _ in AxisGridLine(); AxisValueLabel() } }
         .frame(height: CGFloat(flows.count) * 64 + 44)
