@@ -34,11 +34,11 @@ final class PayeeTests: XCTestCase {
           Expenses:Transit  12.00 CNY
           Assets:Bank  -12.00 CNY
 
-        2026-09-03 * "Taxi"
+        2026-09-03 * "Taxi" "home"
           Expenses:Transit  8.00 CNY
           Assets:Bank  -8.00 CNY
 
-        2026-09-04 * "Bus"
+        2026-09-04 * "Bus" "work"
           Expenses:Transit  2.00 CNY
           Assets:Bank  -2.00 CNY
 
