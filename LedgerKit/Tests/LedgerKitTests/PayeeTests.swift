@@ -29,18 +29,32 @@ final class PayeeTests: XCTestCase {
         2026-01-01 open Assets:Bank CNY
         2026-01-01 open Expenses:Transit CNY
         2026-01-01 open Income:Salary CNY
-        2026-01-01 open Assets:Receivable:Reimbursement CNY
-        \(self.text)
-        2026-09-05 * "公司" "九月工资"
+
+        2026-09-02 * "Taxi" "ride"
+          Expenses:Transit  12.00 CNY
+          Assets:Bank  -12.00 CNY
+
+        2026-09-03 * "Taxi"
+          Expenses:Transit  8.00 CNY
+          Assets:Bank  -8.00 CNY
+
+        2026-09-04 * "Bus"
+          Expenses:Transit  2.00 CNY
+          Assets:Bank  -2.00 CNY
+
+        2026-09-05 * "Employer" "pay"
           Assets:Bank  100.00 CNY
           Income:Salary  -100.00 CNY
+
+        2026-09-06 * "" "no payee"
+          Expenses:Transit  1.00 CNY
+          Assets:Bank  -1.00 CNY
         """ }
         let all = payeeSummaries(L)
-        XCTAssertEqual(all.map(\.name), ["高德打车", "Say \"hi\"", "公司", "高德地图打车"])
-        let first = all[0]
-        XCTAssertEqual(first.n, 2)
-        XCTAssertEqual(first.last, "2026-09-03")
-        XCTAssertEqual(first.spent, 8, accuracy: 0.001)
+        XCTAssertEqual(all.map(\.name), ["Taxi", "Bus", "Employer"])
+        XCTAssertEqual(all[0].n, 2)
+        XCTAssertEqual(all[0].last, "2026-09-03")
+        XCTAssertEqual(all[0].spent, 20, accuracy: 0.001)
         XCTAssertEqual(all[2].received, 100, accuracy: 0.001)
     }
 
