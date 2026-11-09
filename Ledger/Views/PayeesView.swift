@@ -103,6 +103,7 @@ struct PayeesView: View {
                 Text(LS("重命名会把账本里所有这个收付款方的交易改成新名字（只改交易第一行引号里的名称），订阅里的 payee、工资模板的公司名一并修改。改成一个已有的名字就是合并。可以撤回。"))
             }
         }
+        .ledgerCanvas()
     }
 }
 
@@ -151,6 +152,7 @@ struct PayeeDetailView: View {
                 }
             }
         }
+        .ledgerCanvas()
         .navigationTitle(name)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $renaming) { PayeeRenameSheet(target: $0) {} }
@@ -228,6 +230,7 @@ struct PayeeRenameSheet: View {
                 .listRowBackground(Color.clear).listRowInsets(EdgeInsets())
             }
         }
+        .ledgerCanvas()
         .onAppear {
             guard !ready else { return }
             ready = true

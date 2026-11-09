@@ -65,6 +65,7 @@ struct BackupView: View {
                 Text(LS("CSV 每行一条分录，含日期、收付款方、摘要、科目、金额、币种、标签和链接，可用 Excel 或 Numbers 打开。"))
             }
         }
+        .ledgerCanvas()
         .navigationTitle(LS("备份与导出"))
         .navigationBarTitleDisplayMode(.inline)
         .fileImporter(isPresented: $picking, allowedContentTypes: [.folder]) { result in

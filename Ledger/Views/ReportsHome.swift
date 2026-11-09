@@ -110,7 +110,7 @@ struct ReportsInsights: View {
                 }
             }
             .padding(AppSpacing.content)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+            .ledgerCard()
             .cardRow()
         }
     }
@@ -181,7 +181,7 @@ struct ReportsInsights: View {
                 }
             }
             .padding(AppSpacing.content)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+            .ledgerCard()
             .cardRow()
         }
     }
@@ -216,7 +216,7 @@ struct ReportsInsights: View {
                         .font(.caption).foregroundStyle(.secondary).sensitive()
                 }
                 .padding(AppSpacing.content)
-                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+                .ledgerCard()
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)

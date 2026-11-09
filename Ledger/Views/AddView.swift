@@ -122,6 +122,7 @@ struct AddForm: View {
             }
             recentSection(L, D)
         }
+        .ledgerCanvas()
         .onChange(of: location) { _, request in
             guard let request else { return }
             // Animated Form scrolling can resign a field after SwiftUI reports animation completion.
@@ -1019,6 +1020,7 @@ struct TemplateManager: View {
                     Button { store.unhideAllTemplates() } label: { Label(LS("恢复 %@ 项已隐藏", store.tplHidden.count), systemImage: "arrow.counterclockwise").labelStyle(ControlLabelStyle()) }
                 }
             }
+            .ledgerCanvas()
             .navigationTitle(LS("常用交易"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button { dismiss() } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) } } }

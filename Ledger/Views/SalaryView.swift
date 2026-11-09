@@ -61,6 +61,7 @@ struct SalaryView: View {
                 }
             }
         }
+        .ledgerCanvas()
         .navigationTitle(LS("工资"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $filling) { PayslipSheet(template: $0.template) }
@@ -187,6 +188,7 @@ struct PayslipSheet: View {
                 .listRowInsets(EdgeInsets())
             }
         }
+        .ledgerCanvas()
     }
 
     private func itemRow(_ i: PayslipItem) -> some View {
@@ -291,6 +293,7 @@ struct PayslipTemplateSheet: View {
                     }
                 }
             }
+            .ledgerCanvas()
             .keyboardDone()
             .navigationTitle(isNew ? LS("新的工资条") : original.employer)
             .navigationBarTitleDisplayMode(.inline)

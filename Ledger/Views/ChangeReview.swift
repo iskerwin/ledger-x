@@ -92,6 +92,7 @@ struct ChangeReviewView: View {
                     }
                 }
             }
+            .ledgerCanvas()
             .navigationTitle(LS("提交前检查"))
             .navigationBarTitleDisplayMode(.inline)
             .safeAreaInset(edge: .bottom) {

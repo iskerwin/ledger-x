@@ -149,6 +149,7 @@ struct LedgerEditView: View {
                 .disabled(!cfg.isComplete || testing)
             }
         }
+        .ledgerCanvas()
         .keyboardDone()
         .navigationTitle(isNew ? LS("添加账本") : cfg.title)
         .navigationBarTitleDisplayMode(.inline)

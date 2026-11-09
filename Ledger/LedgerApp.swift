@@ -10,6 +10,7 @@ struct LedgerApp: App {
     @AppStorage(AppAppearance.key) private var appearance = AppAppearance.system.rawValue
 
     init() {
+        LedgerChrome.install()
         AppLanguage.apply()
         KitPrivacy.masked = AppSettings.shared.privacy
         UNUserNotificationCenter.current().delegate = NotificationRouter.shared
@@ -33,7 +34,7 @@ struct LedgerApp: App {
                 // window away and leaves the sheets, and what was typed into them, as they were (they used to be
                 // torn down by taking the app's views away while locked). Until that window is up on launch,
                 // this blank covers the app.
-                if lock.locked { Color(.systemGroupedBackground).ignoresSafeArea() }
+                if lock.locked { Color.ledgerPage.ignoresSafeArea() }
             }
             .environment(store)
             .environment(store.drafts)
@@ -167,16 +168,29 @@ struct LoadingView: View {
     }
     var body: some View {
         VStack(spacing: AppSpacing.content) {
-            Image("Logo").resizable().frame(width: 72, height: 72).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            Image("Logo").resizable().frame(width: 72, height: 72).clipShape(RoundedRectangle(cornerRadius: AppRadius.panel, style: .continuous))
             if let e = Self.problem(store) {
-                Text(e).multilineTextAlignment(.center).foregroundStyle(.secondary).padding(.horizontal, AppSpacing.content)
-                Button { Task { await store.refresh() } } label: { Label(LS("重试"), systemImage: "arrow.clockwise").labelStyle(ControlLabelStyle()) }.buttonStyle(.borderedProminent)
-                NavigationLink { SettingsView() } label: { Label(LS("设置"), systemImage: "gearshape").labelStyle(ControlLabelStyle()) }
+                VStack(spacing: AppSpacing.control) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.title2)
+                        .foregroundStyle(Color.warn)
+                        .accessibilityHidden(true)
+                    Text(e).multilineTextAlignment(.center).foregroundStyle(.secondary)
+                    Button { Task { await store.refresh() } } label: { Label(LS("重试"), systemImage: "arrow.clockwise").labelStyle(ControlLabelStyle()) }
+                        .primaryButton()
+                    NavigationLink { SettingsView() } label: { Label(LS("设置"), systemImage: "gearshape").labelStyle(ControlLabelStyle()) }
+                        .secondaryButton()
+                }
+                .padding(AppSpacing.content)
+                .ledgerCard()
             } else {
                 ProgressView()
                 Text(LS("正在加载账本…")).foregroundStyle(.secondary)
             }
         }
+        .padding(AppSpacing.content)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.ledgerPage.ignoresSafeArea())
     }
 }
 
@@ -206,6 +220,7 @@ struct SplitRoot: View {
                     }
                 }
             }
+            .ledgerCanvas()
             .navigationTitle("Ledger X")
             .navigationSplitViewColumnWidth(min: 220, ideal: 260)
         } detail: {

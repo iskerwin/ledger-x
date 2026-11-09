@@ -67,6 +67,7 @@ struct PettyCashSheet: View {
                 }
             }
         }
+        .ledgerCanvas()
         .disabled(saving)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {

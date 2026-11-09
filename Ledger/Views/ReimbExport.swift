@@ -107,6 +107,7 @@ struct ReimbExportSheet: View {
             .onChange(of: withCSV) { _, _ in files = [] }
             .onChange(of: withXLSX) { _, _ in files = [] }
         }
+        .ledgerCanvas()
     }
 
     private func make(_ r: ReimbReport) async {

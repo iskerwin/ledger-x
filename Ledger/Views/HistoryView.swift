@@ -23,6 +23,7 @@ struct HistoryView: View {
                 Text(LS("记录本机通过 App 做的修改（最多 100 项）。撤回会生成一次新的提交，把这次改动的内容改回原样；之后又被改过的内容不会被覆盖。在电脑上做的修改不在这里。"))
             }
         }
+        .ledgerCanvas()
         .navigationTitle(LS("最近改动"))
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog(LS("撤回这次改动？"), isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } }),
@@ -86,6 +87,7 @@ struct HistoryDetailView: View {
                 }
             }
         }
+        .ledgerCanvas()
         .navigationTitle(LS("改动详情"))
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog(LS("撤回这次改动？"), isPresented: $confirm, titleVisibility: .visible) {

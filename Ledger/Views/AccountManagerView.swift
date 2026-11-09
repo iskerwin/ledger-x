@@ -88,6 +88,7 @@ struct AccountManagerView: View {
                 }
             }
         }
+        .ledgerCanvas()
         .listSectionSpacing(.compact)
     }
 
@@ -235,6 +236,7 @@ struct AccountEditView: View {
                 renameSection(L, n)
             }
         }
+        .ledgerCanvas()
         .confirmationDialog(LS("关闭账户 %@？", name ?? ""), isPresented: $confirmClose, titleVisibility: .visible) {
             Button(role: .destructive) { close(L) } label: { Text(LS("关闭账户")) }
         } message: {

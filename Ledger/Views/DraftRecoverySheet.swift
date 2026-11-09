@@ -79,6 +79,7 @@ struct DraftRecoverySheet: View {
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
+            .ledgerCanvas()
             .disabled(opening)
             .navigationTitle(LS("草稿"))
             .navigationBarTitleDisplayMode(.inline)

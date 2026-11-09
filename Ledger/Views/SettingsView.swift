@@ -79,13 +79,13 @@ struct SettingsView: View {
                     NavigationLink { BookkeepingPrefsPage() } label: { row("square.and.pencil", LS("记账偏好"), "") }
                     Button { managingCats = true } label: { row("square.grid.2x2", LS("分类与常用交易"), "", chevron: true) }
                     NavigationLink { NetWorthSettingsView() } label: { row("chart.bar", LS("统计范围"), exclusionSummary) }
-                    NavigationLink { Form { RemindersSection() }.navigationTitle(LS("提醒")) } label: {
+                    NavigationLink { Form { RemindersSection() }.ledgerCanvas().navigationTitle(LS("提醒")) } label: {
                         row("bell", LS("提醒"), Reminders.enabled ? LS("已开启") : LS("未开启"))
                     }
                 } header: { Text(LS("记账偏好")) }
                 // 外观
                 Section {
-                    NavigationLink { Form { appearanceSection }.navigationTitle(LS("外观")) } label: {
+                    NavigationLink { Form { appearanceSection }.ledgerCanvas().navigationTitle(LS("外观")) } label: {
                         row("paintpalette", LS("外观"), AppTheme.current.name + " · " + (AppAppearance(rawValue: appearance) ?? .system).name)
                     }
                     LanguagePicker(badge: true)
@@ -108,6 +108,7 @@ struct SettingsView: View {
                 }
             }
         }
+        .ledgerCanvas()
         .keyboardDone()
         .navigationDestination(isPresented: $demoLayout) { RepoLayoutView() }
         .navigationDestination(isPresented: $demoGuide) { GuideView() }
@@ -272,6 +273,7 @@ struct LedgersPage: View {
                 }
             }
         }
+        .ledgerCanvas()
         .navigationTitle(LS("账本管理"))
         .navigationDestination(item: $editing) { s in LedgerEditView(initial: s) }
     }
@@ -304,6 +306,7 @@ struct BookkeepingPrefsPage: View {
                 }
             }
         }
+        .ledgerCanvas()
         .navigationTitle(LS("记账偏好"))
     }
 }
@@ -354,6 +357,7 @@ struct AdvancedPage: View {
                 Text(LS("需要联网：先重新下载账本文件，全部成功后才替换这台手机上的副本；同步队列中的变更会保留。"))
             }
         }
+        .ledgerCanvas()
         .navigationTitle(LS("高级设置"))
         .confirmationDialog(LS("清除并重新下载本机缓存？需要联网，下载失败时本机副本保持不变；同步队列中的变更将保留。"), isPresented: $confirmReset, titleVisibility: .visible) {
             Button(role: .destructive) { Task { await reset() } } label: { Text(LS("清除并重新下载")) }
@@ -398,6 +402,7 @@ struct AboutPage: View {
                     .font(.subheadline).foregroundStyle(.secondary)
             }
         }
+        .ledgerCanvas()
         .navigationTitle(LS("关于 Ledger X"))
     }
 }

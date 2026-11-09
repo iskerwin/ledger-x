@@ -12,6 +12,7 @@ struct SyncSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             List(status.paths, id: \.self) { Text($0).lineLimit(1).truncationMode(.middle) }
+            .ledgerCanvas()
                 .frame(height: 200)
             if status.ahead > 0 {
                 Text("另有 \(status.ahead) 个本机提交")

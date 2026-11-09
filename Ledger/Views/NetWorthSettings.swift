@@ -77,6 +77,7 @@ struct NetWorthSettingsView: View {
                 }
             }
         }
+        .ledgerCanvas()
         .navigationTitle(LS("净资产与资产负债表"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

@@ -289,6 +289,7 @@ struct PageSkeleton: View {
                 }
             }
         }
+        .ledgerCanvas()
         .scrollDisabled(true)
         .opacity(dim ? 0.45 : 1)
         .onAppear {
@@ -437,7 +438,8 @@ struct PeriodBar: View {
         .buttonStyle(.borderless)
         .tint(Color.jadeInk)
         .padding(.horizontal, capsule ? AppSpacing.control : 0).padding(.vertical, capsule ? AppSpacing.icon : 0)
-        .background(capsule ? Color(.secondarySystemGroupedBackground) : .clear, in: Capsule())
+        .background(capsule ? Color.ledgerCard : .clear, in: Capsule())
+        .overlay { if capsule { Capsule().strokeBorder(Color.ledgerLine, lineWidth: 1) } }
         .onAppear { shown = key }
         .onChange(of: key) { _, k in shown = k }
     }

@@ -156,6 +156,7 @@ struct RepoLayoutView: View {
                      : LS("设置保存在仓库根目录的 %@ 中，换手机或多台设备共用同一套规则。修改后需保存才会生效；整理按已保存的规则进行。", LedgerXConfig.path))
             }
         }
+        .ledgerCanvas()
         .navigationTitle(LS("仓库结构"))
         .navigationBarTitleDisplayMode(.inline)
         .keyboardDone()
@@ -248,6 +249,7 @@ struct ReorganizeView: View {
                 }
             }
         }
+        .ledgerCanvas()
         .navigationTitle(LS("按规则整理"))
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {

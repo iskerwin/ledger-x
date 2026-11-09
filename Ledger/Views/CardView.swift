@@ -152,7 +152,7 @@ struct CardHeroSection: View {
                     .clipped()
             }
             .padding(AppSpacing.content)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+            .ledgerCard()
             .clipShape(RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
             .cardRow()
             .listRowSeparator(.hidden, edges: .bottom)
@@ -388,6 +388,7 @@ struct CardBillSheet: View {
                     }
                 }
             }
+            .ledgerCanvas()
             .keyboardDone()
             .navigationTitle(LS("本期账单"))
             .navigationBarTitleDisplayMode(.inline)
@@ -477,6 +478,7 @@ struct RepaySheet: View {
                     Section(LS("将写入")) { MonoText(text: repaymentText(card: cycle.account, from: from, amount: a, currency: cycle.currency, date: date)) }
                 }
             }
+            .ledgerCanvas()
             .disabled(saving)
             .protectUnsavedChanges(dirty: baseline.map { $0 != state } ?? false, busy: saving,
                 requested: $closeRequested, discard: { dismiss() }, close: { dismiss() })

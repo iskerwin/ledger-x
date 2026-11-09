@@ -121,6 +121,7 @@ struct AccountDocumentSheet: View {
                 }
                 if let error = error { Section { Text(error).foregroundStyle(Color.loss) } }
             }
+            .ledgerCanvas()
             .disabled(busy)
             .documentKeyboardDismiss()
             .navigationTitle(LS("添加票据 / 对账单"))
@@ -363,6 +364,7 @@ struct DocumentFolderSheet: View {
                     }
                 }
             }
+            .ledgerCanvas()
             .documentKeyboardDismiss()
             .navigationTitle(creating ? LS("新建文件夹") : LS("保存到"))
             .navigationBarTitleDisplayMode(.inline)
@@ -412,6 +414,7 @@ struct AccountDocumentsSheet: View {
                     .entryActions(doc)
                 }
             }
+            .ledgerCanvas()
             .navigationTitle(LS("票据与对账单"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

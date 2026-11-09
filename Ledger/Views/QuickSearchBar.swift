@@ -24,7 +24,8 @@ struct QuickSearchBar: View {
                         Label(s.name, systemImage: "line.3.horizontal.decrease.circle").labelStyle(ControlLabelStyle())
                             .font(.subheadline).lineLimit(1)
                             .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
-                            .background(on ? Color.jade : Color(.tertiarySystemFill), in: Capsule())
+                            .background(on ? Color.jade : Color.ledgerCard, in: Capsule())
+                            .overlay(Capsule().strokeBorder(on ? Color.clear : Color.ledgerLine, lineWidth: 1))
                             .foregroundStyle(on ? Color.onJade : Color.primary)
                     }
                     .buttonStyle(.plain)
@@ -90,6 +91,7 @@ struct QuickSearchSheet: View {
                     Text(LS("写法和搜索框一样：空格隔开表示同时满足，| 表示任一（#出差|#旅行）；本月、上月、今年、近30天按当天计算，保存后一直有效。"))
                 }
             }
+            .ledgerCanvas()
             .navigationTitle(edit.index == nil ? LS("保存为快速搜索") : LS("编辑快速搜索"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

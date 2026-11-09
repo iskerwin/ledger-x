@@ -86,6 +86,7 @@ struct ReimbursementsView: View {
                 }
             }
         }
+        .ledgerCanvas()
         .refreshable { await store.refresh() }
         .navigationTitle(LS("报销"))
         .navigationBarTitleDisplayMode(.inline)
@@ -236,6 +237,7 @@ struct UnclaimedView: View {
                 ReimbLinesSection(title: LS("%@ 笔", r.lines.count), lines: r.lines, link: nil)
             }
         }
+        .ledgerCanvas()
         .navigationTitle(LS("待报销"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -295,6 +297,7 @@ struct ReimbBatchView: View {
                 Text(LS("账本里已没有 ^%@", link)).foregroundStyle(.secondary)
             }
         }
+        .ledgerCanvas()
         .navigationTitle(isFloatLink(link) ? LS("备用金") : LS("报销单"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $reimb) { ReimbSheet(target: $0) }
@@ -342,6 +345,7 @@ struct AddAdvancesSheet: View {
                     Text(LS("所选交易将添加 #reimbursed ^%@。", link))
                 }
             }
+            .ledgerCanvas()
             .navigationTitle(LS("添加垫付"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

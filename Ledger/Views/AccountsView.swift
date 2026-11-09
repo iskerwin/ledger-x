@@ -342,7 +342,7 @@ struct AccountsView: View {
         }
         .padding(AppSpacing.control)
         .frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .ledgerCard(radius: 18)
         .overlay(alignment: .topTrailing) {
             if dot { Circle().fill(Color.warn).frame(width: 8, height: 8).padding(AppSpacing.icon) }
         }
@@ -400,6 +400,7 @@ struct AccountsView: View {
                 if side != "assets" { ForEach(lg, id: \.0) { g in groupSection(L, "Liabilities", g.0, g.1) } }
             }
         }
+        .ledgerCanvas()
         .listSectionSpacing(.compact)
         .refreshable { await store.refresh() }
     }
@@ -650,6 +651,7 @@ struct RegisterView: View {
                 }
             }
         }
+        .ledgerCanvas()
         .listSectionSpacing(.compact)
     }
 
@@ -841,7 +843,7 @@ struct RegisterView: View {
                 .clipped()
         }
         .padding(AppSpacing.content)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+        .ledgerCard()
         .clipShape(RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
         .cardRow()
         .listRowSeparator(.hidden, edges: .bottom)
@@ -1019,6 +1021,7 @@ struct CheckSheet: View {
                 }
             }
         }
+        .ledgerCanvas()
         .onAppear {
             guard baseline == nil else { return }
             if let d = preset.date { date = d }

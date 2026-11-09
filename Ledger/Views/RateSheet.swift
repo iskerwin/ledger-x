@@ -128,6 +128,7 @@ struct RateSheet: View {
                     FeeFields(draft: feeBinding, L: L, D: D) { choosingFeePayer = true }
                 }
             }
+            .ledgerCanvas()
             .navigationTitle(d.kind == .expense || d.kind == .transfer ? LS("币种、汇率与手续费") : LS("币种与汇率"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -59,6 +59,7 @@ struct MainView: View {
             List(Page.allCases, id: \.self, selection: $page) { item in
                 Label(item.title, systemImage: item.symbol)
             }
+            .ledgerCanvas()
             .navigationSplitViewColumnWidth(min: 140, ideal: 160)
         } detail: {
             Group {

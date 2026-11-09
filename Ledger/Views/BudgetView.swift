@@ -192,6 +192,7 @@ struct BudgetsView: View {
                 }
             }
         }
+        .ledgerCanvas()
         .listChanges(store.version)
         .listSectionSpacing(.compact)
     }
@@ -280,6 +281,7 @@ struct BudgetEditSheet: View {
                     Section(LS("将写入")) { MonoText(text: budgetLine(draft.date, draft.account, draft.period, a, draft.currency)) }
                 }
             }
+            .ledgerCanvas()
             .disabled(saving)
             .keyboardDone()
             .navigationTitle(draft.isEdit ? LS("编辑预算") : LS("添加预算"))

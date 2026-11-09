@@ -95,6 +95,7 @@ struct QueryEditorView: View {
                 }
             }
         }
+        .ledgerCanvas()
         .listSectionSpacing(.compact)
         .keyboardDone()
         .navigationTitle(q.title)
@@ -364,6 +365,7 @@ struct QueryReference: View {
                     ForEach(Self.functions, id: \.0) { f in row(f.0, f.1) }
                 }
             }
+            .ledgerCanvas()
             .navigationTitle(LS("BQL 语法参考"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button { dismiss() } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) } } }

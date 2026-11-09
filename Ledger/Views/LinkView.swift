@@ -318,6 +318,7 @@ struct LinkConfirmView: View {
                 Text(LS("只在每笔交易的第一行加上链接，金额和分录不变；所有修改在一次提交中完成，提交前会再做账本检查。"))
             }
         }
+        .ledgerCanvas()
         .navigationTitle(LS("确认关联"))
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {
@@ -367,6 +368,7 @@ struct LinkDetailView: View {
                     ForEach(all, id: \.id) { r in NavigationLink(value: TxDest(r)) { TxRow(t: r, showDate: true) } }
                 }
             }
+            .ledgerCanvas()
             .navigationTitle("^" + link)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

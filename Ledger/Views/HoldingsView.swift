@@ -111,6 +111,7 @@ struct HoldingsView: View {
                 Text(LS("市值只是持仓份额 × 最新价格（账本中最新的 price 指令），不含股息、利息和账户里的现金；这些收入列在「投资收入」，信用卡返现不算投资收益。成本取自买入时记录的 {成本}；卖出时按账户的批次匹配方法（如 FIFO）结转。"))
             }
         }
+        .ledgerCanvas()
         .listSectionSpacing(.compact)
     }
 
@@ -430,6 +431,7 @@ struct PriceUpdateSheet: View {
                 Text(LS("开启后，每天第一次打开 App 时自动获取并写入当天价格（需要联网）。"))
             }
         }
+        .ledgerCanvas()
     }
 
     private func fetch(_ L: Ledger, _ items: [PriceItem]) async {
@@ -511,6 +513,7 @@ struct KLineSheet: View {
                     }
                 }
             }
+            .ledgerCanvas()
             .navigationTitle(row?.c ?? LS("K 线"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button { dismiss() } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) } } }

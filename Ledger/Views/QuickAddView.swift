@@ -185,7 +185,7 @@ struct QuickAddView: View {
                 bottomPanel(d, L, D)
             }
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Color.ledgerPage)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button { store.closeAddRequested = true } label: { Image(systemName: "xmark") }
@@ -360,7 +360,7 @@ struct QuickAddView: View {
         }
         .padding(AppSpacing.content)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.panel))
+        .ledgerCard(radius: AppRadius.panel)
     }
 
     // MARK: 常用交易
@@ -386,7 +386,7 @@ struct QuickAddView: View {
                             .font(.footnote)
                             .padding(.horizontal, AppSpacing.icon).padding(.vertical, AppSpacing.icon)
                             .foregroundStyle(x.due ? Color.warn : Color.primary)
-                            .background(x.due ? Color.warn.soft : Color(.secondarySystemGroupedBackground), in: Capsule())
+                            .background(x.due ? Color.warn.soft : Color.ledgerCard, in: Capsule())
                         }
                         .buttonStyle(PressStyle())
                         .contextMenu {
@@ -587,7 +587,7 @@ struct QuickAddView: View {
                 if a.isEmpty {
                     RoundedRectangle(cornerRadius: AppRadius.panel).strokeBorder(Color.jade.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
                 } else {
-                    RoundedRectangle(cornerRadius: AppRadius.panel).fill(Color(.secondarySystemGroupedBackground))
+                    RoundedRectangle(cornerRadius: AppRadius.panel).fill(Color.ledgerCard)
                 }
             }
             .contentShape(Rectangle())
@@ -649,7 +649,7 @@ struct QuickAddView: View {
         .padding(.horizontal, AppSpacing.control)
         .padding(.top, AppSpacing.icon)
         .padding(.bottom, AppSpacing.detail)
-        .background(Color(.systemGroupedBackground))
+        .background(Color.ledgerPage)
         // the part that never moves keeps its size with the largest text; the scrolling part above follows it all the way
         .dynamicTypeSize(...DynamicTypeSize.xxLarge)
     }
@@ -716,7 +716,7 @@ struct QuickAddView: View {
             .frame(maxWidth: .infinity)
         }
         .font(.subheadline)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+        .ledgerCard(radius: 16)
     }
 
     /// 更多 of spending: 报销, 优惠, 标签, then AA, 组合付款, 本期补差 and 填写对方 where they apply. It names what is set
@@ -948,7 +948,7 @@ struct QuickAddView: View {
             }
         }
         .padding(AppSpacing.control)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+        .ledgerCard(radius: 16)
     }
 
     /// 瑞幸咖啡 · 冰美式: who and what for in one line; tap to type them
@@ -1042,7 +1042,7 @@ struct QuickAddView: View {
                 .accessibilityIdentifier("quick.text.done")
         }
         .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
-        .background(Color(.secondarySystemGroupedBackground))
+        .background(Color.ledgerCard)
     }
 
     private func updateText(_ key: WritableKeyPath<Draft, String>, _ value: String) {
@@ -1212,14 +1212,14 @@ struct CategoryGridView: View, Equatable {
                         .font(.system(size: 22, weight: .regular))
                         .frame(width: 54, height: 54)
                         .foregroundStyle(selected ? Color.onJade : Color.primary)
-                        .background(selected ? Color.jade : Color(.secondarySystemGroupedBackground), in: Circle())
+                        .background(selected ? Color.jade : Color.ledgerCard, in: Circle())
                     if !c.single {
                         Image(systemName: "ellipsis")
                             .font(.system(size: 7, weight: .bold))
                             .foregroundStyle(.white)
                             .frame(width: 15, height: 15)
                             .background(Color.secondary, in: Circle())
-                            .overlay(Circle().stroke(Color(.systemGroupedBackground), lineWidth: 1.5))
+                            .overlay(Circle().stroke(Color.ledgerPage, lineWidth: 1.5))
                             .offset(x: 2, y: 2)
                     }
                 }
@@ -1301,7 +1301,7 @@ struct AllCategoriesView: View {
             .padding(AppSpacing.content)
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(Color(.systemGroupedBackground))
+        .background(Color.ledgerPage)
         .appSearchable(text: $query, prompt: LS("搜索分类"))
         .navigationTitle(LS("全部分类"))
         .navigationBarTitleDisplayMode(.inline)
@@ -1336,7 +1336,7 @@ struct AllCategoriesView: View {
                     .font(.system(size: 22))
                     .frame(width: 54, height: 54)
                     .foregroundStyle(on ? Color.onJade : Color.primary)
-                    .background(on ? Color.jade : Color(.secondarySystemGroupedBackground), in: Circle())
+                    .background(on ? Color.jade : Color.ledgerCard, in: Circle())
                 Text(store.catTitle(g, L)).font(.footnote.weight(on ? .semibold : .regular))
                     .foregroundStyle(on ? Color.jadeInk : Color.secondary)
                     .lineLimit(2).multilineTextAlignment(.center).minimumScaleFactor(0.9)
@@ -1416,6 +1416,7 @@ struct SubCategorySheet: View {
                     }
                 }
             }
+            .ledgerCanvas()
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1539,6 +1540,7 @@ private struct MarkEditor: View {
                     Text(LS("金额或分类还要核对的，记为待确认；明细里用 ! 可以找出来。"))
                 }
             }
+            .ledgerCanvas()
             .appSearchable(text: $query, prompt: LS("搜索标签"))
             .navigationTitle(LS("标记"))
             .navigationBarTitleDisplayMode(.inline)
@@ -1599,7 +1601,7 @@ struct KeyCap: View {
     }
     private var fill: Color {
         if filled { return color }
-        return soft ? color.opacity(0.14) : Color(.secondarySystemGroupedBackground)
+        return soft ? color.opacity(0.14) : Color.ledgerCard
     }
 
     var body: some View {
@@ -1617,6 +1619,7 @@ struct KeyCap: View {
         .frame(height: 50)
         .foregroundStyle(ink)
         .background(fill, in: RoundedRectangle(cornerRadius: AppRadius.control))
+        .overlay(RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous).strokeBorder(filled ? Color.clear : Color.ledgerLine, lineWidth: 1))
         .overlay(RoundedRectangle(cornerRadius: AppRadius.control).fill(Color.primary.opacity(pressed ? 0.1 : 0)))
         .contentShape(RoundedRectangle(cornerRadius: AppRadius.control))
         .onTapGesture(perform: tap)

@@ -85,10 +85,16 @@ private struct ContentView: View {
             if let ledger {
                 MainView(ledger: ledger, config: config, folder: URL(fileURLWithPath: folder), changes: changes, adding: $adding, page: $page, searching: $searching)
             } else if folder.isEmpty || missing {
-                VStack(spacing: 12) {
+                VStack(spacing: 16) {
+                    Image(systemName: missing ? "folder.badge.questionmark" : "book.closed")
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundStyle(Color.jade)
+                        .frame(width: 64, height: 64)
+                        .background(Color.jade.opacity(0.14), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                     if missing { Text("这个文件夹里没有账本").foregroundStyle(.secondary) }
                     Button("打开账本") { picking = true }
                         .controlSize(.large)
+                        .buttonStyle(.borderedProminent)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -96,6 +102,8 @@ private struct ContentView: View {
             }
         }
         .frame(minWidth: 720, minHeight: 540)
+        .tint(Color.jade)
+        .background(Color.page)
         .navigationTitle(folder.isEmpty ? "Ledger X" : URL(fileURLWithPath: folder).lastPathComponent)
         .task(id: "\(changes)|\(opened)|\(folder)") {
             guard !folder.isEmpty else { return }

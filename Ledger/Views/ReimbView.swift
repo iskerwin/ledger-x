@@ -201,6 +201,7 @@ struct ReimbSheet: View {
                 .listRowInsets(EdgeInsets())
             }
         }
+        .ledgerCanvas()
         .onAppear {
             guard !ready else { return }
             ready = true
@@ -447,6 +448,7 @@ struct FloatSheet: View {
                 .listRowInsets(EdgeInsets())
             }
         }
+        .ledgerCanvas()
     }
 
     private func save(_ p: [Unclaimed]) async {

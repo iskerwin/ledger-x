@@ -19,6 +19,7 @@ struct PaySplitSheet: View {
             Form {
                 if let L = store.L, let D = store.D { content(store.draft, L, D) }
             }
+            .ledgerCanvas()
             .navigationTitle(LS("组合付款与优惠"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -90,6 +90,7 @@ struct TxPicker: View {
                 Section { ForEach(items) { row($0) } }
             }
         }
+        .ledgerCanvas()
         .listSectionSpacing(.compact)
         .appSearchable(text: $q, prompt: LS("收付款方、摘要、金额、日期"))
         .safeAreaInset(edge: .bottom) { summary }
@@ -228,6 +229,7 @@ struct SubPickSheet: View {
                     }
                 }
             }
+            .ledgerCanvas()
             .disabled(saving)
             .appSearchable(text: $q, prompt: LS("搜索订阅"))
             .navigationTitle(LS("加入订阅管理"))
@@ -332,6 +334,7 @@ struct SubscriptionCalendarView: View {
                 }
             }
         }
+        .ledgerCanvas()
         .listSectionSpacing(.compact)
         .onChange(of: month) { _, m in if let d = day, !d.hasPrefix(m) { day = nil } }
         .navigationTitle(LS("订阅日历"))

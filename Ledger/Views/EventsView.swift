@@ -39,6 +39,7 @@ struct EventsView: View {
                 }
             }
         }
+        .ledgerCanvas()
         .refreshable { await store.refresh() }
         .listChanges(store.version)
         .navigationTitle(LS("事件"))
@@ -152,6 +153,7 @@ struct EventDetailView: View {
                 Text(LS("没有找到事件 #%@", tag)).foregroundStyle(.secondary)
             }
         }
+        .ledgerCanvas()
         .navigationTitle(store.L.flatMap { L in ledgerEvents(L).first { $0.tag == tag }?.title } ?? tag)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $editing) { EventSheet(event: $0.event) }
@@ -239,6 +241,7 @@ struct EventSheet: View {
                 .listRowInsets(EdgeInsets())
             }
         }
+        .ledgerCanvas()
         .onAppear {
             guard !ready else { return }
             ready = true
@@ -324,6 +327,7 @@ struct EventCandidatesSheet: View {
                     }
                 }
             }
+            .ledgerCanvas()
             .navigationTitle(LS("加入事件"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -496,6 +500,7 @@ struct AnomalyDetailView: View {
                 Label(LS("这条提示已经不存在了：相关记录改过，或已超过 30 天。"), systemImage: "checkmark.seal").labelStyle(ControlLabelStyle()).foregroundStyle(Color.gain)
             }
         }
+        .ledgerCanvas()
         .navigationTitle(LS("核对"))
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -546,6 +551,7 @@ struct AlertsView: View {
                 }
             }
         }
+        .ledgerCanvas()
         .navigationTitle(LS("值得留意"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { store.markAlertsSeen() }

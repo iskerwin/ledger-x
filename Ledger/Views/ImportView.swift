@@ -131,6 +131,7 @@ struct ImportView: View {
                 help(LS("银行"), LS("网银或 App 中导出交易明细为 CSV / Excel(xlsx)。导入后可手动指定日期、金额、对方等列。"))
             }
         }
+        .ledgerCanvas()
     }
 
     private func help(_ title: String, _ text: String) -> some View {
@@ -338,6 +339,7 @@ struct ImportView: View {
             }
             ForEach(shown) { it in Section { row(it) } }
         }
+        .ledgerCanvas()
         .listSectionSpacing(.compact)
         .safeAreaInset(edge: .bottom) { bottomBar }
     }

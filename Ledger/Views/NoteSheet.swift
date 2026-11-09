@@ -63,6 +63,7 @@ struct NoteSheet: View {
                     }
                 }
             }
+            .ledgerCanvas()
             .disabled(busy)
             .entryDeletion($deletion)
             .keyboardDone()
@@ -139,6 +140,7 @@ struct LifeEventSheet: View {
                         .font(.caption.monospaced())
                 }
             }
+            .ledgerCanvas()
             .keyboardDone()
             .navigationTitle(LS("记一条变化"))
             .navigationBarTitleDisplayMode(.inline)

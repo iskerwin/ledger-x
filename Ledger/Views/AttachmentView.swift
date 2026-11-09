@@ -450,6 +450,7 @@ struct AttachmentPathSheet: View {
                     }
                 }
             }
+            .ledgerCanvas()
             .disabled(busy)
             .documentKeyboardDismiss()
             .navigationTitle(LS("确认附件"))
@@ -572,6 +573,7 @@ struct TransactionAttachmentsView: View {
             }
             recentlyDeleted()
         }
+        .ledgerCanvas()
     }
 
     /// files deleted with their record (attachments and statements alike), each with 恢复 while its copy is kept

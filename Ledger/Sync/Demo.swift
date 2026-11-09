@@ -198,7 +198,7 @@ struct DemoBanner: View {
                             .buttonStyle(.bordered).tint(.jade).controlSize(.small)
                     }
                     .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
-                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous))
+                    .ledgerCard(radius: AppRadius.control)
                 }
                 Text(LS("数据均为虚构，可以随意记账、修改，随时重置。觉得合适，就用它的账户和分类新建一个空账本。"))
                     .font(.footnote).foregroundStyle(.secondary)
@@ -265,7 +265,7 @@ struct DemoEntryCard: View {
                         .accessibilityLabel(LS("不再显示"))
                 }
                 .padding(AppSpacing.control)
-                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .ledgerCard(radius: 18)
                 .cardRow()
             }
         }

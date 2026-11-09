@@ -476,7 +476,8 @@ struct JournalView: View {
                                             .font(.subheadline.weight(on ? .semibold : .regular))
                                             .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
                                             .foregroundStyle(on ? Color.onJade : Color.primary)
-                                            .background(on ? Color.jade : Color(.tertiarySystemFill), in: Capsule())
+                                            .background(on ? Color.jade : Color.ledgerCard, in: Capsule())
+                                            .overlay(Capsule().strokeBorder(on ? Color.clear : Color.ledgerLine, lineWidth: 1))
                                             .animation(AppMotion.quick, value: on)
                                     }
                                     .buttonStyle(PressStyle())
@@ -534,6 +535,7 @@ struct JournalView: View {
                     EmptyView()
                 }
             }
+            .ledgerCanvas()
             .listStyle(.insetGrouped)
             .task(id: saved) {
                 guard let saved, !selecting else { return }
@@ -793,6 +795,7 @@ struct TxDetailView: View {
                     }
                 }
             }
+            .ledgerCanvas()
             .listSectionSpacing(.compact)
             .safeAreaInset(edge: .bottom) { if !t.synthetic { actionBar(t, L, D) } }
             .toolbar(.hidden, for: .tabBar)
@@ -887,7 +890,7 @@ struct TxDetailView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, AppSpacing.content)
             .padding(.horizontal, AppSpacing.content)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+            .ledgerCard()
             .cardRow()
         }
     }
@@ -1093,6 +1096,7 @@ struct EditTxView: View {
                 ProgressView()
             }
         }
+        .ledgerCanvas()
         .keyboardDone()
         .navigationTitle(LS("编辑交易"))
         .navigationBarTitleDisplayMode(.inline)
@@ -1175,6 +1179,7 @@ struct DayOrderSheet: View {
                     Text(LS("拖动右侧把手调整 %@ 这一天的先后，保存后 %@ 里这几笔的位置跟着调整，中间的余额断言等内容不动。改到另一天请在「编辑」里改日期。", date, file))
                 }
             }
+            .ledgerCanvas()
             .environment(\.editMode, .constant(.active))
             .navigationTitle(LS("调整当天顺序"))
             .navigationBarTitleDisplayMode(.inline)

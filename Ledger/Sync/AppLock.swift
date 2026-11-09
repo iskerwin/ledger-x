@@ -148,7 +148,7 @@ struct LockScreen: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        .background(Color.ledgerPage.ignoresSafeArea())
     }
 }
 

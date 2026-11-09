@@ -195,6 +195,7 @@ struct OverviewView: View {
             liabilitySection(L).id("liab")
             checkSection(L)
         }
+        .ledgerCanvas()
         .task {
             // screenshots: scroll to a section and open the largest slice
             guard let to = store.demoEnv["LEDGER_SCROLL"] else { return }
@@ -940,6 +941,7 @@ struct ErrorsView: View {
                 }
             }
         }
+        .ledgerCanvas()
         .navigationTitle(LS("账本检查"))
         .navigationBarTitleDisplayMode(.inline)
     }

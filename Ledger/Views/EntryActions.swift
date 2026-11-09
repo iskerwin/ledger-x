@@ -278,6 +278,7 @@ struct EntrySourceSheet: View {
                 }
                 if let error = error { Section { Text(error).foregroundStyle(Color.loss) } }
             }
+            .ledgerCanvas()
             .keyboardDone()
             .navigationTitle(target.editing ? LS("编辑源文本") : LS("查看原文"))
             .navigationBarTitleDisplayMode(.inline)

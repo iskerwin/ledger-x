@@ -339,6 +339,7 @@ struct CodeThemePicker: View {
                 Text(LS("用于交易原文、编辑源文本、源文件和查询。默认跟随系统配色；有浅、深两版的配色随显示模式切换；Dracula、Monokai、Nord 只有深色版。只存在这台手机。"))
             }
         }
+        .ledgerCanvas()
         .navigationTitle(LS("代码配色"))
         .navigationBarTitleDisplayMode(.inline)
     }

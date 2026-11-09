@@ -159,6 +159,7 @@ struct ForecastView: View {
                 }
             }
         }
+        .ledgerCanvas()
         .listSectionSpacing(.compact)
     }
 

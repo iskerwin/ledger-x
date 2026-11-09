@@ -8,9 +8,10 @@ extension Color {
     /// money in and money out, whatever the accent, dark enough to read as text
     static let gain = dynamic(0x248A3D, 0x30D158)
     static let loss = dynamic(0xD70015, 0xFF453A)
-    /// the phone's grouped page and the cards on it: in dark mode the system's window and control colours are one colour, and the cards vanish
-    static let page = dynamic(0xF2F2F7, 0x000000)
-    static let card = dynamic(0xFFFFFF, 0x1C1C1E)
+    /// the phone's paper page and the cards on it (`Color.ledgerPage` / `ledgerCard` / `ledgerLine`)
+    static let page = dynamic(0xF3EFE6, 0x000000)
+    static let card = dynamic(0xFFFCF8, 0x1C1C1E)
+    static let line = dynamic(0xE4DDD0, 0x3A3A3C)
 
     static func dynamic(_ light: UInt32, _ dark: UInt32) -> Color {
         func ns(_ v: UInt32) -> NSColor {
@@ -43,6 +44,15 @@ struct Card<Content: View>: View {
             .padding(summary ? 20 : 16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.card, in: RoundedRectangle(cornerRadius: summary ? 22 : 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: summary ? 22 : 12, style: .continuous).strokeBorder(Color.line, lineWidth: 1))
+    }
+}
+
+extension View {
+    /// the system list background is hidden, so the paper colour shows between rows
+    func ledgerCanvas() -> some View {
+        scrollContentBackground(.hidden)
+            .background(Color.page)
     }
 }
 

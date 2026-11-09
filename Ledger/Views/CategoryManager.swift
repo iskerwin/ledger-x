@@ -89,6 +89,7 @@ struct CategoryManager: View {
                     }
                 }
             }
+            .ledgerCanvas()
             // sorting is its own mode: with the handles always out, a tap on a row may not reach its button
             .environment(\.editMode, $editMode)
             .navigationTitle(LS("分类图标与排序"))
@@ -170,6 +171,7 @@ struct CategoryStyleSheet: View {
                     }
                 }
             }
+            .ledgerCanvas()
             .navigationTitle(LS("分类样式"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -322,6 +324,7 @@ struct GroupIconSheet: View {
                     Text(LS("用在管理账户、账户页和报表的图标上；记一笔的宫格仍是黑白，选中时用主题色。"))
                 }
             }
+            .ledgerCanvas()
             .navigationTitle(LS("更换图标"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

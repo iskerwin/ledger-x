@@ -98,6 +98,7 @@ struct ReportsView: View {
                     }
                 }
             }
+            .ledgerCanvas()
             .listSectionSpacing(.compact)
             .refreshable { await store.refresh() }
             .navigationTitle(LS("报表"))
@@ -491,6 +492,7 @@ struct IncomeStatementView: View {
                 Text(mode.explain(L) + LS("收入以正数列示。"))
             }
         }
+        .ledgerCanvas()
         .listSectionSpacing(.compact)
     }
 }
@@ -966,6 +968,7 @@ struct BalanceSheetView: View {
             proxy.scrollTo("trend", anchor: .top)
         }
         }
+        .ledgerCanvas()
     }
 }
 
@@ -1076,6 +1079,7 @@ struct TrialBalanceView: View {
                 }
             }
         }
+        .ledgerCanvas()
         .listSectionSpacing(.compact)
     }
 

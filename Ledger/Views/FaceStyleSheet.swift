@@ -116,6 +116,7 @@ struct FaceStyleSheet: View {
                     Text(LS("卡面设置和上传的图标只存在这台手机，按账本分开，不写进账本。"))
                 }
             }
+            .ledgerCanvas()
             .navigationTitle(LS("编辑卡面"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

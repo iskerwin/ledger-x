@@ -49,6 +49,7 @@ struct ReconcileView: View {
                 }
             }
         }
+        .ledgerCanvas()
         .navigationTitle(LS("核对余额"))
         .navigationBarTitleDisplayMode(.inline)
         .scrollDismissesKeyboard(.interactively)

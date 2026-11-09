@@ -138,6 +138,7 @@ struct CurrencySheet: View {
                 }
             }
         }
+        .ledgerCanvas()
     }
 
     private func modeRow(_ m: ReportMode, _ L: Ledger, _ now: ReportMode) -> some View {

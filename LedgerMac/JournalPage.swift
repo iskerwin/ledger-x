@@ -28,6 +28,12 @@ struct JournalPage: View {
             Group {
             if rows.isEmpty && !query.isEmpty {
                 ContentUnavailableView.search(text: text)
+            } else if rows.isEmpty {
+                ContentUnavailableView {
+                    Label("还没有交易", systemImage: "tray")
+                } description: {
+                    Text("从工具栏记一笔，保存后会出现在这里。")
+                }
             } else {
                 List(selection: $selected) {
                     ForEach(days(of: rows), id: \.first?.date) { day in
@@ -38,6 +44,7 @@ struct JournalPage: View {
                         }
                     }
                 }
+                .ledgerCanvas()
                 .listStyle(.inset)
                 .focused($listFocused)
                 .onAppear { if !searching { listFocused = true } }
@@ -68,6 +75,7 @@ struct JournalPage: View {
             }
             .frame(width: 280)
         }
+        .background(Color.page)
         .searchable(text: $text, isPresented: $searching, placement: .toolbar)
         .sheet(item: $editing) { NewEntrySheet(ledger: ledger, config: config, folder: folder, editing: $0.draft) }
         .alert("删除这笔交易？", isPresented: present($deleting), presenting: deleting) { entry in

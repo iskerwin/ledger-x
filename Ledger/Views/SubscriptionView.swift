@@ -379,6 +379,7 @@ struct SubscriptionsView: View {
             }
             statsSection(all, L, today)
         }
+        .ledgerCanvas()
         .listChanges(store.version)
         .listSectionSpacing(.compact)
     }
@@ -537,6 +538,7 @@ struct SubscriptionDetailView: View {
                 Text(LS("左滑变更记录可撤销。「调价或更改」会新增一条带生效日期的记录，保留历史；「修正记录」直接修改最近一条，用于改正填错的内容。"))
             }
         }
+        .ledgerCanvas()
         .safeAreaInset(edge: .bottom) { actionBar(s) }
         .toolbar(.hidden, for: .tabBar)
         .toolbar { ToolbarItem(placement: .topBarTrailing) { moreMenu(s, next: next) } }
@@ -586,7 +588,7 @@ struct SubscriptionDetailView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, AppSpacing.content)
             .padding(.horizontal, AppSpacing.content)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+            .ledgerCard()
             .cardRow()
         }
     }
@@ -829,6 +831,7 @@ struct SubStateSheet: View {
                 }
                 Section(LS("将写入")) { MonoText(text: text) }
             }
+            .ledgerCanvas()
             .disabled(saving)
             .protectUnsavedChanges(dirty: baseline.map { $0 != state } ?? false, busy: saving,
                 requested: $closeRequested, discard: { dismiss() }, close: { dismiss() })
@@ -1179,6 +1182,7 @@ struct SubEditSheet: View {
                 }
                 }
             }
+            .ledgerCanvas()
             .disabled(saving)
             .protectUnsavedChanges(dirty: baseline.map { $0 != state } ?? false, busy: saving,
                 requested: $closeRequested, discard: { dismiss() }, close: { dismiss() })

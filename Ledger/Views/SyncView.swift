@@ -51,6 +51,7 @@ struct SyncView: View {
                 }
             }
         }
+        .ledgerCanvas()
         .listChanges(store.pending.map(\.id))
         .listSectionSpacing(.compact)
         .safeAreaInset(edge: .bottom) {
@@ -108,7 +109,7 @@ struct SyncView: View {
                         .frame(width: 70, height: 70)
                     if s == .waiting || s == .offline || s == .held {
                         Image(systemName: "checkmark.circle.fill").font(.title3).foregroundStyle(Color.jadeInk)
-                            .background(Circle().fill(Color(.secondarySystemGroupedBackground)))
+                            .background(Circle().fill(Color.ledgerCard))
                     }
                 }
                 VStack(alignment: .leading, spacing: AppSpacing.icon) {
@@ -125,7 +126,7 @@ struct SyncView: View {
                 Spacer(minLength: 0)
             }
             .padding(AppSpacing.content)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+            .ledgerCard()
             .cardRow()
         }
     }

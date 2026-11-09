@@ -44,6 +44,7 @@ struct CounterpartyView: View {
                 peopleSection(ps)
             }
         }
+        .ledgerCanvas()
         .refreshable { await store.refresh() }
         .listChanges(store.version)
         .navigationTitle(LS("往来"))
@@ -262,6 +263,7 @@ struct PersonView: View {
                 Text(LS("没有找到 %@ 的往来", personTitle(name))).foregroundStyle(.secondary)
             }
         }
+        .ledgerCanvas()
         .navigationTitle(personTitle(name))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $loan) { LoanSheet(target: $0) }
@@ -401,6 +403,7 @@ struct LoanSheet: View {
                 .listRowInsets(EdgeInsets())
             }
         }
+        .ledgerCanvas()
         .onAppear {
             guard !ready else { return }
             ready = true
@@ -537,6 +540,7 @@ struct SettleSheet: View {
                 .listRowInsets(EdgeInsets())
             }
         }
+        .ledgerCanvas()
         .onAppear {
             guard !ready else { return }
             ready = true

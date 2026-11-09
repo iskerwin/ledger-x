@@ -102,6 +102,7 @@ struct BatchEditSheet: View {
                     .disabled(!ready || affected == 0 || working)
                 }
             }
+            .ledgerCanvas()
             .keyboardDone()
             .navigationTitle(LS("批量编辑"))
             .navigationBarTitleDisplayMode(.inline)

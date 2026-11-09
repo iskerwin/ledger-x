@@ -194,8 +194,9 @@ struct ToastView: View {
             }
             .padding(.horizontal, AppSpacing.content).padding(.vertical, AppSpacing.control)
             // a capsule on one line; longer, the same ends on a taller rectangle
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous).strokeBorder(Color.ledgerLine, lineWidth: 1))
+            .shadow(color: .black.opacity(0.12), radius: 16, y: 6)
             .padding(.bottom, top ? 0 : 64)
             .transition(.move(edge: top ? .top : .bottom).combined(with: .opacity))
             .id(t.id)
@@ -232,7 +233,8 @@ struct Chip: View {
                 .font(.subheadline)
                 .lineLimit(1)
                 .padding(.horizontal, AppSpacing.control).padding(.vertical, AppSpacing.icon)
-                .background(selected ? Color.jade : Color(.tertiarySystemFill), in: Capsule())
+                .background(selected ? Color.jade : Color.ledgerCard, in: Capsule())
+                .overlay(Capsule().strokeBorder(selected ? Color.clear : Color.ledgerLine, lineWidth: 1))
                 .foregroundStyle(selected ? Color.onJade : Color.primary)
                 .animation(AppMotion.quick, value: selected)
         }
@@ -257,6 +259,12 @@ struct EmptyAdd: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppSpacing.control) {
+            Image(systemName: "tray")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(Color.jadeInk)
+                .frame(width: 44, height: 44)
+                .background(Color.jade.soft, in: RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous))
+                .accessibilityHidden(true)
             Text(text).foregroundStyle(.secondary)
             Button(action: add) { Label(title, systemImage: "plus.circle").labelStyle(ControlLabelStyle()) }
                 .buttonStyle(.borderless).fontWeight(.semibold).tint(Color.jadeInk)
@@ -356,6 +364,7 @@ struct AccountPicker: View {
                         ForEach(results, id: \.self) { row($0, full: true) }
                     }
                 }
+                .ledgerCanvas()
                 .onAppear {
                     if order == nil {
                         order = store.D?.rankAccounts(prefixes) ?? []
@@ -766,7 +775,8 @@ extension View {
         if #available(iOS 26.0, *) {
             glassEffect(.regular.interactive(), in: Capsule())
         } else {
-            background(Color(.tertiarySystemFill), in: Capsule())
+            background(Color.ledgerCard, in: Capsule())
+                .overlay(Capsule().strokeBorder(Color.ledgerLine, lineWidth: 1))
         }
     }
 

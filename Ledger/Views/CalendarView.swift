@@ -669,6 +669,7 @@ struct CalendarDaySheet: View {
                     }
                 }
             }
+            .ledgerCanvas()
             .listStyle(.insetGrouped)
             .navigationTitle(Day.dayLabel(day))
             .navigationBarTitleDisplayMode(.inline)

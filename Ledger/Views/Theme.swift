@@ -155,6 +155,54 @@ extension Color {
         if abs(d) <= tolerance { return .secondary }
         return (d > 0) != upIsWorse ? .gain : .loss
     }
+
+    /// The page under every list. Light is warm paper; dark stays black so ink tuned for the system
+    /// grouped background still clears it. Money colours do not come from here.
+    static var ledgerPage: Color { Color(uiColor: .ledgerPage) }
+    /// A hand-drawn card, a step above the page.
+    static var ledgerCard: Color { Color(uiColor: .ledgerCard) }
+    /// The hairline on a hand-drawn card. Lists clip a shadow, so the edge is a line.
+    static var ledgerLine: Color { Color(uiColor: .ledgerLine) }
+}
+
+extension UIColor {
+    static let ledgerPage = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? .black
+            : UIColor(red: 0xF3 / 255, green: 0xEF / 255, blue: 0xE6 / 255, alpha: 1)
+    }
+    static let ledgerCard = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0x1C / 255, green: 0x1C / 255, blue: 0x1E / 255, alpha: 1)
+            : UIColor(red: 0xFF / 255, green: 0xFC / 255, blue: 0xF8 / 255, alpha: 1)
+    }
+    static let ledgerLine = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(white: 1, alpha: 0.12)
+            : UIColor(red: 0xE4 / 255, green: 0xDD / 255, blue: 0xD0 / 255, alpha: 1)
+    }
+}
+
+/// Navigation bar, tab bar and the list views behind SwiftUI share one paper colour.
+enum LedgerChrome {
+    static func install() {
+        let page = UIColor.ledgerPage
+        let nav = UINavigationBarAppearance()
+        nav.configureWithOpaqueBackground()
+        nav.backgroundColor = page
+        nav.shadowColor = UIColor.ledgerLine
+        UINavigationBar.appearance().standardAppearance = nav
+        UINavigationBar.appearance().scrollEdgeAppearance = nav
+        UINavigationBar.appearance().compactAppearance = nav
+        let tab = UITabBarAppearance()
+        tab.configureWithOpaqueBackground()
+        tab.backgroundColor = page
+        tab.shadowColor = UIColor.ledgerLine
+        UITabBar.appearance().standardAppearance = tab
+        UITabBar.appearance().scrollEdgeAppearance = tab
+        UITableView.appearance().backgroundColor = page
+        UICollectionView.appearance().backgroundColor = page
+    }
 }
 
 extension View {
@@ -310,11 +358,23 @@ struct Card<Content: View>: View {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+            .ledgerCard()
     }
 }
 
 extension View {
+    /// a hand-drawn card: the fill is the layout; the hairline is drawn inside it
+    func ledgerCard(radius: CGFloat = AppRadius.card) -> some View {
+        background(Color.ledgerCard, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Color.ledgerLine, lineWidth: 1))
+    }
+
+    /// the system list background is hidden, so the paper colour shows between sections
+    func ledgerCanvas() -> some View {
+        scrollContentBackground(.hidden)
+            .background(Color.ledgerPage)
+    }
+
     /// a List row that draws its own card
     func cardRow() -> some View {
         listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))

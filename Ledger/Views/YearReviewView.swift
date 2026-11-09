@@ -69,6 +69,7 @@ struct YearReviewView: View {
                 otherSection(r, L)
             }
         }
+        .ledgerCanvas()
         .listSectionSpacing(.compact)
         .onAppear {
             if !years.isEmpty && !years.contains(year) { year = years[0] }

@@ -57,6 +57,7 @@ struct CardInfoSheet: View {
             Form {
                 if covered { EmptyView() } else if editing { editForm } else if let saved { shownForm(saved) }
             }
+            .ledgerCanvas()
             .navigationTitle(LS("卡片信息"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
