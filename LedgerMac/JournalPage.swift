@@ -14,6 +14,14 @@ private enum KindFilter: String, CaseIterable {
     }
 }
 
+/// how the rows in sight look besides the list: the table draws them again when it changes
+private struct TableLook: Hashable {
+    let generation: Int
+    let columns: [EntryColumn]
+    let widths: [EntryColumn: CGFloat]
+    let hidden: Bool
+}
+
 /// what the table's rows depend on: anything else redrawing the page doesn't work them out again
 private struct LinesKey: Hashable {
     let ledger: ObjectIdentifier
@@ -26,6 +34,8 @@ private struct LinesKey: Hashable {
 
 /// what the table shows, worked out away from the main thread
 private struct Built {
+    /// counts the lists worked out, for the table to know a new one
+    var generation = 0
     var lines: [JournalRow] = []
     var balances: [ObjectIdentifier: Inventory] = [:]
     var widths = EntryWidths()
@@ -44,10 +54,8 @@ struct JournalPage: View {
     @State private var kind = KindFilter.all
     @State private var built = Built()
     @State private var selected = Set<String>()
-    /// where a shift-click runs from
-    @State private var anchor: String?
     @State private var sortOrder = [KeyPathComparator(\JournalRow.date, order: .reverse)]
-    @FocusState private var listFocused: Bool
+    @AppStorage("hideAmounts") private var hideAmounts = false
     @State private var tasks = EntryTasks()
 
     private var key: LinesKey {
@@ -96,90 +104,45 @@ struct JournalPage: View {
         .padding(.vertical, 8)
     }
 
-    /// rows of our own rather than a table: the amount keeps its width at the end, and the picked row opens in place
+    /// our own rows on an AppKit table: the amount keeps its width at the end, the picked row opens in place, and only
+    /// the rows in sight are drawn
     private var list: some View {
         GeometryReader { geometry in
             let layout = built.widths.fit(EntryColumn.allCases, in: geometry.size.width)
-            let columns = layout.columns, pickedID = pickedID
+            let columns = layout.columns
             VStack(spacing: 0) {
                 EntryHeader(columns: columns, widths: layout.widths, sortOrder: $sortOrder)
                 Divider()
-                ScrollViewReader { scroller in
-                    ScrollView {
-                        LazyVStack(spacing: 0) {
-                            ForEach(lines.indices, id: \.self) { index in
-                                let line = lines[index]
-                                VStack(spacing: 0) {
-                                    EntryRow(line: line, ledger: ledger, columns: columns, widths: layout.widths, picked: selected.contains(line.id),
-                                             balance: built.balances[ObjectIdentifier(line.entry)])
-                                        .background(index.isMultiple(of: 2) ? Color.clear : Color.primary.opacity(0.035))
-                                        .onTapGesture { click(line.id) }
-                                        .contextMenu { menu(line) }
-                                    if pickedID == line.id {
-                                        SourcePanel(entry: line.entry, ledger: ledger, config: config, folder: folder, tasks: $tasks)
-                                    }
-                                }
-                                .id(line.id)
-                            }
-                        }
-                        // ↑ ↓ go through the rows, as in a list: on the content, since the scroll view takes the arrows for scrolling
-                        .focusable()
-                        .focused($listFocused)
-                        .focusEffectDisabled()
-                        .onMoveCommand { direction in
-                            guard !lines.isEmpty else { return }
-                            let at = selected.count == 1 ? selected.first.flatMap { id in lines.firstIndex { $0.id == id } } ?? -1 : -1
-                            let next: Int
-                            switch direction {
-                            case .up: next = max(0, at - 1)
-                            case .down: next = min(lines.count - 1, at + 1)
-                            default: return
-                            }
-                            selected = [lines[next].id]
-                            anchor = lines[next].id
-                            scroller.scrollTo(lines[next].id)
-                        }
-                        .onKeyPress(.return) {
-                            guard let entry = picked, !entry.synthetic else { return .ignored }
-                            tasks.edit(entry, ledger, config)
-                            return .handled
-                        }
-                        .onDeleteCommand { tasks.deleting = picked.flatMap { $0.synthetic ? nil : $0 } }
-                        .onExitCommand { selected = [] }
-                    }
-                }
+                EntryTable(lines: lines,
+                           look: TableLook(generation: built.generation, columns: columns, widths: layout.widths, hidden: hideAmounts),
+                           selected: $selected,
+                           row: { line, index, picked in
+                               AnyView(EntryRow(line: line, ledger: ledger, columns: columns, widths: layout.widths, picked: picked,
+                                                balance: built.balances[ObjectIdentifier(line.entry)])
+                                   .background(index.isMultiple(of: 2) ? Color.clear : Color.primary.opacity(0.035)))
+                           },
+                           panel: { line in AnyView(SourcePanel(entry: line.entry, ledger: ledger, config: config, folder: folder, tasks: $tasks)) },
+                           menu: menu,
+                           open: {
+                               guard let entry = picked, !entry.synthetic else { return }
+                               tasks.edit(entry, ledger, config)
+                           },
+                           delete: { tasks.deleting = picked.flatMap { $0.synthetic ? nil : $0 } },
+                           focus: !searching)
             }
         }
-        .onAppear { if !searching { listFocused = true } }
     }
 
-    /// a click picks the row (again, puts it away); ⌘ adds or takes one, ⇧ runs from the last one picked
-    private func click(_ id: String) {
-        listFocused = true
-        let flags = NSEvent.modifierFlags
-        if flags.contains(.command) {
-            if selected.contains(id) { selected.remove(id) } else { selected.insert(id) }
-            anchor = id
-        } else if flags.contains(.shift), let anchor, let from = lines.firstIndex(where: { $0.id == anchor }),
-                  let to = lines.firstIndex(where: { $0.id == id }) {
-            selected = Set(lines[min(from, to)...max(from, to)].map(\.id))
-        } else {
-            selected = selected == [id] ? [] : [id]
-            anchor = id
+    private func menu(_ chosen: [JournalRow]) -> [TableMenuItem] {
+        let entries = chosen.map(\.entry)
+        guard entries.count == 1, let entry = entries.first else {
+            return [TableMenuItem(title: "复制 \(entries.count) 笔原文") { EntryTasks.copy(entries) }]
         }
-    }
-
-    @ViewBuilder private func menu(_ line: JournalRow) -> some View {
-        let chosen = selected.contains(line.id) ? lines.filter { selected.contains($0.id) }.map(\.entry) : [line.entry]
-        if chosen.count == 1, let entry = chosen.first {
-            Button("编辑…") { tasks.edit(entry, ledger, config) }.disabled(entry.synthetic)
-            Button("复制原文") { EntryTasks.copy(chosen) }
-            Button("打开所在文件") { EntryTasks.open(entry, in: folder) }
-            Divider()
-            Button("删除…", role: .destructive) { tasks.deleting = entry }.disabled(entry.synthetic)
-        } else {
-            Button("复制 \(chosen.count) 笔原文") { EntryTasks.copy(chosen) }
-        }
+        return [TableMenuItem(title: "编辑…", enabled: !entry.synthetic) { tasks.edit(entry, ledger, config) },
+                TableMenuItem(title: "复制原文") { EntryTasks.copy(entries) },
+                TableMenuItem(title: "打开所在文件") { EntryTasks.open(entry, in: folder) },
+                .divider,
+                TableMenuItem(title: "删除…", enabled: !entry.synthetic) { tasks.deleting = entry }]
     }
 
     /// the rows of the whole ledger are worked out once for it; picking from them, sorting and measuring them happen
@@ -200,7 +163,9 @@ struct JournalPage: View {
             return Built(lines: lines, balances: balances, widths: EntryWidths.measure(lines, balances: balances))
         }.value
         guard !Task.isCancelled else { return }
-        built = next
+        var fresh = next
+        fresh.generation = built.generation + 1
+        built = fresh
         let shown = Set(next.lines.map(\.id))
         if !selected.isSubset(of: shown) { selected.formIntersection(shown) }
     }
