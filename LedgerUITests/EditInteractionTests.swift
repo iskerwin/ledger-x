@@ -1388,9 +1388,11 @@ final class EditInteractionTests: XCTestCase {
         let bill = app.buttons["填写本期账单"].firstMatch
         XCTAssertTrue(bill.waitForExistence(timeout: 20))
         let lowerSection = app.staticTexts["额度与账单"].firstMatch
-        for _ in 0..<8 {
+        // short drags: with the largest text a full swipe can carry the header past the screen between two looks
+        for _ in 0..<20 {
             if lowerSection.exists && lowerSection.isHittable { break }
-            app.swipeUp()
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -150)))
         }
         XCTAssertTrue(lowerSection.isHittable)
         XCTAssertFalse(bill.isHittable, "start below the bill action, so reaching it requires scrolling back")
