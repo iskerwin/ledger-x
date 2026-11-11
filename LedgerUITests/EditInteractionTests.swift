@@ -944,7 +944,7 @@ final class EditInteractionTests: XCTestCase {
         ]
         app.launchArguments = ["-AppleLanguages", "(zh-Hans)"]
         app.launch()
-        let entry = app.buttons["附件与对账单"].firstMatch
+        let entry = app.buttons["accounts.documents"].firstMatch
         XCTAssertTrue(entry.waitForExistence(timeout: 20))
         reveal(entry, in: app)
         entry.tap()
