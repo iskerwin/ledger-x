@@ -346,6 +346,7 @@ struct SourcePanel: View {
     @State private var text: String?
     @State private var message = ""
     @State private var saving = false
+    @State private var deletingDocument: Entry?
     @FocusState private var typing: Bool
 
     private let mono = Font.system(size: 12, design: .monospaced)
@@ -380,6 +381,7 @@ struct SourcePanel: View {
                     }
                     .buttonStyle(.link)
                     .padding(.horizontal, 11)
+                    .contextMenu { Button("删除…") { deletingDocument = item.entry } }
                 }
                 if !message.isEmpty {
                     Text(message).font(.callout).foregroundStyle(Color.loss)
@@ -418,6 +420,7 @@ struct SourcePanel: View {
         .padding(.leading, 80)
         .padding(.trailing, 12)
         .background(Color.jade.opacity(0.08))
+        .documentDeletion($deletingDocument, folder: folder) { text, _ in message = text }
         // a file dropped here is attached to it
         .dropDestination(for: URL.self) { urls, _ in
             guard entry.editable else { return false }

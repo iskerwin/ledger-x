@@ -164,6 +164,41 @@ public func prepareFolderAttachment(_ entry: Entry, data: Data, ext: String, fol
                           folder: folder, also: linking)
 }
 
+/// what deleting a document did with its file
+public enum DocumentFileOutcome: Equatable {
+    /// left where it is, as asked
+    case kept
+    /// left where it is: this many other lines still point at it
+    case inUse(Int)
+    /// in the Trash, where it can still be put back
+    case trashed
+    /// it wasn't there
+    case missing
+}
+
+/// A document's line removed, as the phone's 删除 does: with `file`, its file goes to the Trash as well, unless another
+/// line still points at it. The line goes first: stopped between the two, the most left behind is a file nothing points at.
+public func deleteFolderDocument(_ entry: Entry, file: Bool, folder: URL) throws -> DocumentFileOutcome {
+    guard entry.type == .document, !entry.synthetic else { throw entryChanged }
+    let save = try prepareFolderDelete(entry, folder: folder).get()
+    let path = entry.path.flatMap { documentPath($0, from: entry.file) }
+    let others = file && path != nil ? loadLedger(folder: folder).map { ledger in
+        documentReferences(ledger, path: path!).filter { !($0.file == entry.file && $0.line == entry.line) }.count
+    } ?? 0 : 0
+    try commitFolderSave(save, folder: folder)
+    guard file, let path else { return .kept }
+    if others > 0 { return .inUse(others) }
+    let url = folder.appendingPathComponent(path)
+    guard FileManager.default.fileExists(atPath: url.path) else { return .missing }
+    do {
+        try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+    } catch {
+        throw FolderSaveError(message: tr("记录已移除，文件没能移到废纸篓：\(error.localizedDescription)",
+                                          "The record is gone, but the file couldn't go to the Trash: \(error.localizedDescription)"))
+    }
+    return .trashed
+}
+
 /// `documents/<box>/<box>_YYYYMMDD.<ext>`, numbered past what's in the folder and what the ledger already points at
 private func newDocumentPath(_ box: String, date: String, ext: String, _ ledger: Ledger, folder: URL) -> String? {
     let dir = folder.appendingPathComponent("documents/" + box)

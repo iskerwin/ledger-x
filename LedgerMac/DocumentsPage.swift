@@ -26,6 +26,9 @@ struct DocumentsPage: View {
     @State private var query = ""
     @State private var picked: DocumentItem.ID?
     @State private var message = ""
+    /// a failure, rather than what was done
+    @State private var failed = true
+    @State private var deleting: Entry?
 
     var body: some View {
         let all = documentItems(ledger)
@@ -53,7 +56,7 @@ struct DocumentsPage: View {
                 }
                 .padding(12)
                 if !message.isEmpty {
-                    Text(message).foregroundStyle(Color.loss).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.bottom, 8)
+                    Text(message).foregroundStyle(failed ? Color.loss : Color.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.bottom, 8)
                 }
                 Table(shown, selection: $picked) {
                     TableColumn("日期") { Text($0.entry.date).monospacedDigit() }.width(min: 80, ideal: 90, max: 110)
@@ -68,6 +71,14 @@ struct DocumentsPage: View {
                         }
                     }
                 }
+                .contextMenu(forSelectionType: DocumentItem.ID.self) { ids in
+                    if let item = shown.first(where: { ids.first == $0.id }), ids.count == 1 {
+                        Button("删除…") { deleting = item.entry }.disabled(item.entry.synthetic)
+                    }
+                }
+                .onDeleteCommand {
+                    if let item = shown.first(where: { $0.id == picked }), !item.entry.synthetic { deleting = item.entry }
+                }
                 .dropDestination(for: URL.self) { urls, _ in
                     guard let account else { return false }
                     keep(urls, with: account)
@@ -81,6 +92,10 @@ struct DocumentsPage: View {
             }
         }
         .background(Color.page)
+        .documentDeletion($deleting, folder: folder) { text, failure in
+            message = text
+            failed = failure
+        }
         .onChange(of: shown.map(\.id)) { if let picked, !shown.contains(where: { $0.id == picked }) { self.picked = nil } }
     }
 
@@ -123,8 +138,25 @@ struct DocumentsPage: View {
     private func keep(_ urls: [URL], with account: String) {
         let folder = folder
         Task {
-            let failed = await Task.detached { DocumentFiles.keep(urls, with: account, folder: folder) }.value
-            message = failed ?? ""
+            let failure = await Task.detached { DocumentFiles.keep(urls, with: account, folder: folder) }.value
+            message = failure ?? ""
+            failed = true
+        }
+    }
+}
+
+extension View {
+    /// 删除 for a document, as on the phone: 只移除引用 keeps its file, 移除并删除文件 puts it in the Trash as well, unless
+    /// another line still points at it. `done` hears what came of it, and whether that was a failure
+    func documentDeletion(_ deleting: Binding<Entry?>, folder: URL, done: @escaping (String, Bool) -> Void) -> some View {
+        confirmationDialog(deleting.wrappedValue.map { "删除 \($0.date) " + (($0.path ?? "") as NSString).lastPathComponent + "？" } ?? "",
+                           isPresented: Binding(get: { deleting.wrappedValue != nil }, set: { if !$0 { deleting.wrappedValue = nil } }),
+                           titleVisibility: .visible, presenting: deleting.wrappedValue) { entry in
+            Button("只移除引用", role: .destructive) { DocumentFiles.delete(entry, file: false, folder: folder, done: done) }
+            Button("移除并删除文件", role: .destructive) { DocumentFiles.delete(entry, file: true, folder: folder, done: done) }
+            Button("取消", role: .cancel) {}
+        } message: { _ in
+            Text("「只移除引用」把文件留在账本文件夹里；「移除并删除文件」把文件移到废纸篓，其他记录还在用的文件不会删除。")
         }
     }
 }
@@ -150,6 +182,19 @@ enum DocumentFiles {
             if let failure = commit(prepareFolderAttachment(entry, data: data, ext: url.pathExtension, folder: folder), folder: folder) { return failure }
         }
         return nil
+    }
+
+    /// on the writing path, away from the window; the folder's watcher reads the change back
+    static func delete(_ entry: Entry, file: Bool, folder: URL, done: @escaping (String, Bool) -> Void) {
+        Task {
+            let outcome = await Task.detached { Result { try deleteFolderDocument(entry, file: file, folder: folder) } }.value
+            switch outcome {
+            case .success(.inUse(let n)): done("文件还被其他 \(n) 条记录使用，已保留文件", false)
+            case .success(.missing): done("文件夹里没有这个文件，只移除了引用", false)
+            case .success: done("", false)
+            case .failure(let error): done(error.localizedDescription, true)
+            }
+        }
     }
 
     private static func commit(_ prepared: Result<FolderSave, FolderSaveError>, folder: URL) -> String? {

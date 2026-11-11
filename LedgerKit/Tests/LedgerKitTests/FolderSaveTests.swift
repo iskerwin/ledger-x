@@ -582,6 +582,35 @@ final class FolderSaveTests: XCTestCase {
         XCTAssertFalse(try read("main.bean").contains("document"))
     }
 
+    func testDeletingAStatementKeepsItsFileOrPutsItInTheTrash() throws {
+        let pdf = Data("%PDF".utf8)
+        for day in ["2026-10-30", "2026-10-31"] {
+            try commitFolderSave(try prepareFolderStatement(account: "Assets:Bank", date: day, data: pdf, ext: "pdf", folder: folder).get(), folder: folder)
+        }
+        func statement(_ name: String) throws -> Entry {
+            try XCTUnwrap(documentItems(try XCTUnwrap(loadLedger(folder: folder))).first { $0.name == name }?.entry)
+        }
+        XCTAssertEqual(try deleteFolderDocument(try statement("bank_20261030.pdf"), file: false, folder: folder), .kept)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent("documents/bank/bank_20261030.pdf").path))
+        XCTAssertEqual(try deleteFolderDocument(try statement("bank_20261031.pdf"), file: true, folder: folder), .trashed)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.appendingPathComponent("documents/bank/bank_20261031.pdf").path))
+        XCTAssertTrue(documentItems(try XCTUnwrap(loadLedger(folder: folder))).isEmpty)
+    }
+
+    func testAFileAnotherLineStillPointsAtStays() throws {
+        try write("documents/bank/shared.pdf", "%PDF")
+        try write("main.bean", opens + """
+
+        2026-10-30 document Assets:Bank "documents/bank/shared.pdf"
+        2026-10-31 document Assets:Cash "documents/bank/shared.pdf"
+
+        """)
+        let first = try XCTUnwrap(documentItems(try XCTUnwrap(loadLedger(folder: folder))).last?.entry)
+        XCTAssertEqual(try deleteFolderDocument(first, file: true, folder: folder), .inUse(1))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent("documents/bank/shared.pdf").path))
+        XCTAssertEqual(documentItems(try XCTUnwrap(loadLedger(folder: folder))).map(\.account), ["Assets:Cash"])
+    }
+
     func testABalanceThatDiffersIsRefusedWithTheDifference() throws {
         try write("main.bean", opens + "\n" + sample)
         let before = try read("main.bean")
