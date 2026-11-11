@@ -315,7 +315,7 @@ struct AttachmentsSection: View {
                     if let p = documentRepoPath(d) { viewing = DocItem(path: p) }
                 } label: {
                     HStack(spacing: AppSpacing.icon) {
-                        Image(systemName: icon(d.path ?? "")).foregroundStyle(Color.jadeInk)
+                        Image(systemName: documentIcon(d.path ?? "")).foregroundStyle(Color.jadeInk)
                         Text(((d.path ?? "") as NSString).lastPathComponent).lineLimit(1)
                         Spacer()
                         Text(d.date).font(.caption).foregroundStyle(.secondary)
@@ -374,11 +374,12 @@ struct AttachmentsSection: View {
         }
         .onAppear { if owningLedgerID == nil { owningLedgerID = store.cfg.id } }
     }
+}
 
-    private func icon(_ p: String) -> String {
-        let e = (p as NSString).pathExtension.lowercased()
-        return ["jpg", "jpeg", "png", "heic", "gif", "webp"].contains(e) ? "photo" : e == "pdf" ? "doc.richtext" : "doc"
-    }
+/// a photo, a PDF, or another file
+func documentIcon(_ path: String) -> String {
+    let e = (path as NSString).pathExtension.lowercased()
+    return ["jpg", "jpeg", "png", "heic", "gif", "webp"].contains(e) ? "photo" : e == "pdf" ? "doc.richtext" : "doc"
 }
 
 struct PendingAttachment: Identifiable {
@@ -519,11 +520,27 @@ struct AttachmentPathSheet: View {
 
 struct DocItem: Identifiable { let path: String; var id: String { path } }
 
-struct TransactionAttachmentsDest: Hashable {}
+struct DocumentsDest: Hashable {}
 
-/// 交易附件: every transaction's attachments in one list, whichever account paid; account pages keep their statements
-struct TransactionAttachmentsView: View {
+/// which documents 附件与对账单 shows
+enum DocumentKind: String, CaseIterable {
+    case all = "全部", attachments = "交易附件", statements = "对账单"
+
+    func holds(_ item: DocumentItem) -> Bool {
+        switch self {
+        case .all: return true
+        case .attachments: return item.isAttachment
+        case .statements: return !item.isAttachment
+        }
+    }
+}
+
+/// 附件与对账单, as Fava's documents page: every transaction's attachments and every account's statements, under their
+/// account, the latest first; then what was deleted with its file and can still come back
+struct DocumentsView: View {
     @Environment(Store.self) var store
+    @State private var kind = DocumentKind.all
+    @State private var query = ""
     @State private var viewing: DocItem?
     /// 最近删除 being restored
     @State private var recovering: UUID?
@@ -532,46 +549,64 @@ struct TransactionAttachmentsView: View {
         Group {
             if let L = store.L { list(L) } else { PageLoading() }
         }
-        .navigationTitle(LS("交易附件"))
+        .navigationTitle(LS("附件与对账单"))
         .navigationBarTitleDisplayMode(.inline)
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: Text(LS("文件名、收付款方、账户")))
         .sheet(item: $viewing) { DocumentViewer(path: $0.path) }
     }
 
     private func list(_ L: Ledger) -> some View {
-        let docs = transactionAttachments(L)
-        // each attachment's transaction, by link
-        var byLink: [String: Entry] = [:]
-        for t in L.txns where !t.synthetic { for l in t.links where byLink[l] == nil { byLink[l] = t } }
+        let all = documentItems(L)
+        let shown = all.filter { kind.holds($0) && documentMatches($0, query, L) }
         return List {
             Section {
-                if docs.isEmpty { Text(LS("还没有交易附件")).foregroundStyle(.secondary) }
-                ForEach(docs, id: \.id) { d in
-                    let txn = d.links.lazy.compactMap { byLink[$0] }.first
-                    Button {
-                        if let path = documentRepoPath(d) { viewing = DocItem(path: path) }
-                    } label: {
-                        HStack(spacing: AppSpacing.icon) {
-                            Image(systemName: "paperclip").foregroundStyle(Color.jadeInk)
-                            VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                                Text(((d.path ?? "") as NSString).lastPathComponent).lineLimit(1)
-                                Text([d.date, txn.map { [$0.payee, $0.narration].filter { !$0.isEmpty }.joined(separator: " · ") } ?? ""]
-                                    .filter { !$0.isEmpty }.joined(separator: "  "))
-                                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(documentRepoPath(d) == nil)
-                    .entryActions(d)
+                Picker(selection: $kind) {
+                    ForEach(DocumentKind.allCases, id: \.self) { Text(LS($0.rawValue)) }
+                } label: { EmptyView() }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .accessibilityIdentifier("documents.kind")
+            }
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets())
+            if shown.isEmpty {
+                Section {
+                    if all.isEmpty { Text(LS("还没有附件或对账单")).foregroundStyle(.secondary) }
+                    else { ContentUnavailableView.search(text: query) }
                 }
-            } footer: {
-                Text(LS("在交易详情里添加的附件，默认存放在 documents/%@ 文件夹；账户的对账单仍在各账户页。", transactionAttachmentFolder))
+            }
+            ForEach(documentGroups(shown), id: \.account) { group in
+                Section {
+                    ForEach(group.items) { row($0) }
+                } header: {
+                    Text(accountTitle(L, group.account) + " · \(group.items.count)")
+                }
             }
             recentlyDeleted()
         }
+    }
+
+    private func row(_ item: DocumentItem) -> some View {
+        Button {
+            if let path = item.path { viewing = DocItem(path: path) }
+        } label: {
+            HStack(spacing: AppSpacing.icon) {
+                Image(systemName: documentIcon(item.name)).foregroundStyle(Color.jadeInk)
+                VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                    Text(item.name).lineLimit(1)
+                    Text([item.entry.date, item.transaction.map { [$0.payee, $0.narration].filter { !$0.isEmpty }.joined(separator: " · ") } ?? LS("对账单")]
+                        .filter { !$0.isEmpty }.joined(separator: "  "))
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(item.path == nil)
+        .entryActions(item.entry)
+        .accessibilityIdentifier("documents.row")
     }
 
     /// files deleted with their record (attachments and statements alike), each with 恢复 while its copy is kept
