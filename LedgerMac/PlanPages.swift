@@ -11,7 +11,7 @@ struct BudgetsPage: View {
 
     var body: some View {
         let key = byYear ? String(month.prefix(4)) : month
-        let progress = budgetProgress(ledger, key: key)
+        let progress = ledger.budgetProgressKept(key)
         let chosen = progress.first { $0.budget.account == picked } ?? progress.first
         ReportScaffold {
             PeriodStepper(byYear: $byYear, month: $month)
@@ -93,7 +93,7 @@ private struct BudgetSide: View {
         let account = progress.budget.account
         let span = PeriodStepper.span(byYear, month)
         let months = (0..<6).map { Day.addMonth(byYear ? String(span.1.prefix(7)) : month, $0 - 5) }
-        let recent = months.map { month in budgetProgress(ledger, key: month).first { $0.budget.account == account }?.spent ?? 0 }
+        let recent = months.map { month in ledger.budgetProgressKept(month).first { $0.budget.account == account }?.spent ?? 0 }
         Card {
             VStack(alignment: .leading, spacing: 0) {
                 CardTitle(title: acctDisplay(account)) { Text("近 6 个月").foregroundStyle(.secondary) }
@@ -110,7 +110,7 @@ private struct BudgetSide: View {
                     Divider()
                     FigureRow(label: "最大一笔", caption: biggest.what + " · " + shortDay(biggest.date), value: money(biggest.amount, progress.budget.currency))
                 }
-                ForEach(budgets(ledger).filter { $0.account == account }.reversed()) { budget in
+                ForEach(ledger.budgetsKept().filter { $0.account == account }.reversed()) { budget in
                     Divider()
                     FigureRow(label: budget.date, caption: budget.period.name, value: money(budget.amount, budget.currency))
                 }
@@ -132,7 +132,7 @@ struct ForecastPage: View {
     @AppStorage("forecastDays") private var days = 30
 
     var body: some View {
-        let result = forecast(ledger, days: days, payslips: config?.payslips ?? [], largeExpense: config?.largeExpense ?? 2000)
+        let result = ledger.forecastKept(days: days, payslips: config?.payslips ?? [], largeExpense: config?.largeExpense ?? 2000)
         ReportScaffold {
             Picker(selection: $days) {
                 ForEach([30, 60, 90], id: \.self) { Text("\($0) 天").tag($0) }
@@ -221,11 +221,11 @@ struct SubscriptionsPage: View {
     @State private var notice: String?
 
     var body: some View {
-        let subs = subscriptions(ledger)
+        let subs = ledger.subscriptionsKept()
         let active = subs.filter { $0.status == .active }
-        let due = subscriptionsDue(ledger, subs: subs)
+        let due = ledger.subscriptionsDueKept()
         let ignored = Set(config?.subsIgnored ?? [])
-        let candidates = subscriptionCandidates(ledger, subs: subs).filter { !ignored.contains($0.id) }
+        let candidates = ledger.subscriptionCandidatesKept().filter { !ignored.contains($0.id) }
         let year = String(Day.today().prefix(4))
         let dueTotal = due.reduce(0.0) { $0 + inBase(ledger, $1.sub.amount, $1.sub.currency) }
         ReportScaffold {

@@ -11,7 +11,7 @@ struct ReimbursementsPage: View {
     var body: some View {
         let derived = folderDerived(ledger, config: config)
         let waiting = derived.unclaimed
-        let batches = reimbBatches(ledger)
+        let batches = ledger.reimbBatchesKept()
         let open = batches.filter { !$0.settled }
         let settled = batches.filter(\.settled)
         let receivable = config?.receivable ?? "Assets:Receivable:Reimbursement"
@@ -80,7 +80,7 @@ struct SalaryPage: View {
     @State private var picked: String?
 
     var body: some View {
-        let slips = ledger.txns.filter { $0.links.contains { $0.hasPrefix("salary-") } && payslipFigures($0, ledger) != nil }
+        let slips = ledger.payslipsKept()
         let employers = employerNames(slips)
         let name = picked ?? employers.first
         // one employer, as most have: no list to pick from
@@ -253,7 +253,7 @@ struct EventsPage: View {
 
     var body: some View {
         let today = Day.today()
-        let events = ledgerEvents(ledger)
+        let events = ledger.eventsKept()
         let going = events.filter { $0.start <= today && ($0.end.map { $0 >= today } ?? true) }
         let ended = events.filter { event in !going.contains { $0.tag == event.tag } }
         let receivable = config?.receivable ?? "Assets:Receivable:Reimbursement"
@@ -262,7 +262,7 @@ struct EventsPage: View {
                 if !section.1.isEmpty {
                     Text(section.0).font(.caption.weight(.semibold)).foregroundStyle(.secondary).padding(.horizontal, 10).padding(.top, 8)
                     ForEach(section.1) { event in
-                        let summary = eventSummary(ledger, event.tag, reimbursement: receivable)
+                        let summary = ledger.eventSummaryKept(event.tag, reimbursement: receivable)
                         PickRow(title: event.title, caption: "#\(event.tag) · \(shortDay(event.start)) 起 · \(summary.txns.count) 笔",
                                 trailing: money(summary.total, ledger.base), picked: (picked ?? events.first?.tag) == event.tag) { picked = event.tag }
                     }
@@ -270,7 +270,7 @@ struct EventsPage: View {
             }
         } detail: {
             if let event = events.first(where: { $0.tag == (picked ?? events.first?.tag) }) {
-                EventDetail(ledger: ledger, config: config, folder: folder, event: event, summary: eventSummary(ledger, event.tag, reimbursement: receivable))
+                EventDetail(ledger: ledger, config: config, folder: folder, event: event, summary: ledger.eventSummaryKept(event.tag, reimbursement: receivable))
                     .id(event.tag)
             }
         }

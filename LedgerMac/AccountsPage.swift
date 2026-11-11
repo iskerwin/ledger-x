@@ -45,7 +45,7 @@ struct AccountsPage: View {
     var body: some View {
         let lines = accountLines
         // when each card's bill is due, where one is still owed
-        let due = Dictionary(cardCycles(ledger).filter { $0.statementAmount - $0.paid > 0.005 }.map { ($0.account, $0.due) }) { a, _ in a }
+        let due = Dictionary(ledger.cardCyclesKept().filter { $0.statementAmount - $0.paid > 0.005 }.map { ($0.account, $0.due) }) { a, _ in a }
         HStack(spacing: 0) {
             ScrollViewReader { scroller in
                 ScrollView {
@@ -97,7 +97,7 @@ struct AccountsPage: View {
 
     /// 净资产 as on the phone's card: what it comes to, what's held and owed, and how much of it is owed
     private var worthCard: some View {
-        let worth = netWorthNow(ledger, exclude: config?.netWorthExclude ?? [])
+        let worth = ledger.netWorthKept(exclude: config?.netWorthExclude ?? [])
         let owed = -worth.liabilities
         return Card {
             VStack(alignment: .leading, spacing: 10) {

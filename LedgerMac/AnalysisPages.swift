@@ -39,7 +39,7 @@ private struct PayeeDetail: View {
     let name: String
 
     var body: some View {
-        let entries = ledger.txns.filter { !$0.synthetic && $0.payee == name }
+        let entries = ledger.payeeEntriesKept(name)
         let year = String(Day.today().prefix(4))
         let thisYear = entries.filter { $0.date.hasPrefix(year) }
         let spent = thisYear.reduce(0.0) { total, entry in
@@ -137,7 +137,7 @@ struct YearPage: View {
     @State private var year = String(Day.today().prefix(4))
 
     var body: some View {
-        let years = reviewYears(ledger)
+        let years = ledger.reviewYearsKept()
         let review = yearReviewCached(ledger, year: year, mode: .convert(ledger.base), currency: ledger.base, only: nil,
                                       exclude: config?.netWorthExclude ?? [], reimbursement: config?.receivable ?? "Assets:Receivable:Reimbursement")
         ReportScaffold {

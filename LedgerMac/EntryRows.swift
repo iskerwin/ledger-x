@@ -25,33 +25,33 @@ enum EntryColumn: CaseIterable {
 struct EntryWidths: Equatable {
     private var natural: [EntryColumn: CGFloat] = [:]
 
-    static func measure(_ lines: [EntryLine], _ ledger: Ledger, account: String? = nil, balances: [ObjectIdentifier: Inventory] = [:]) -> EntryWidths {
+    /// thread-safe, so a long list is measured away from the main thread
+    static func measure(_ rows: [JournalRow], balances: [ObjectIdentifier: Inventory] = [:]) -> EntryWidths {
         let body = NSFont.systemFont(ofSize: NSFont.systemFontSize)
         let digits = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         let small = NSFont.monospacedDigitSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
         func width(_ text: String, _ font: NSFont) -> CGFloat { ceil((text as NSString).size(withAttributes: [.font: font]).width) }
-        var date: CGFloat = 0, category: CGFloat = 0, accounts: CGFloat = 0, amount: CGFloat = 0, status = false
-        for line in lines {
-            date = max(date, width(shortDay(line.date), digits))
-            category = max(category, width(line.category, body))
-            accounts = max(accounts, width(line.accounts, body))
-            for shown in line.entry.shownAmounts(ledger, account: account) { amount = max(amount, width(shown.0, digits)) }
-            if account == nil {
-                for paid in line.entry.charged(ledger) { amount = max(amount, width(money(paid.1, paid.0), small)) }
+        /// each text once; figures, set in even digits, only among the longest, as one with fewer characters can't be wider
+        func widest(_ texts: [String], _ font: NSFont, figures: Bool = false) -> CGFloat {
+            var seen = Set<String>()
+            let longest = figures ? (texts.map(\.count).max() ?? 0) - 1 : 0
+            return texts.reduce(0) { most, text in
+                guard text.count >= longest, seen.insert(text).inserted else { return most }
+                return max(most, width(text, font))
             }
-            if let balance = balances[ObjectIdentifier(line.entry)] {
-                for currency in balance.order { amount = max(amount, width(money(balance.amounts[currency] ?? 0, currency), small)) }
-            }
-            status = status || line.entry.flag == "!" || line.entry.synthetic || line.entry.tags.contains { $0 != "transfer" && $0 != "fx" }
+        }
+        let amounts = rows.flatMap { $0.amounts.map(\.text) }
+        let captions = rows.flatMap { row in
+            row.charged.map(\.text) + (balances[ObjectIdentifier(row.entry)].map { balance in balance.order.map { money(balance.amounts[$0] ?? 0, $0) } } ?? [])
         }
         let gap: CGFloat = 16
         var widths = EntryWidths()
-        widths.natural[.date] = max(date, width("日期", body)) + gap
-        widths.natural[.category] = min(max(category, width("分类", body)) + gap, 160)
-        widths.natural[.accounts] = min(max(accounts, width("账户", body)) + gap, 220)
+        widths.natural[.date] = max(widest(rows.map { shortDay($0.date) }, digits, figures: true), width("日期", body)) + gap
+        widths.natural[.category] = min(max(widest(rows.map(\.category), body), width("分类", body)) + gap, 160)
+        widths.natural[.accounts] = min(max(widest(rows.map(\.accounts), body), width("账户", body)) + gap, 220)
         // nothing to show in it, no column
-        widths.natural[.status] = status ? 90 : 0
-        widths.natural[.amount] = max(amount, width("金额", body)) + gap + 4
+        widths.natural[.status] = rows.contains(where: \.marked) ? 90 : 0
+        widths.natural[.amount] = max(widest(amounts, digits, figures: true), widest(captions, small, figures: true), width("金额", body)) + gap + 4
         return widths
     }
 
@@ -66,36 +66,13 @@ struct EntryWidths: Equatable {
     }
 }
 
-/// one row, with what it sorts by worked out once
-struct EntryLine: Identifiable {
-    let entry: Entry
-    let id: String
-    let date: String
-    let payee: String
-    let category: String
-    let accounts: String
-    let amount: Double
-    let kind: TxKind
-
-    init(_ entry: Entry, _ ledger: Ledger) {
-        self.entry = entry
-        id = entry.key
-        date = entry.date
-        payee = entry.payee.isEmpty ? (entry.narration.isEmpty ? "（无收付款方）" : entry.narration) : entry.payee
-        category = shownCategory(entry).map(acctDisplay) ?? "转账"
-        accounts = entry.route + Self.withWhom(entry)
-        let shown = classify(entry, ledger)
-        amount = shown.amount
-        kind = shown.kind
-    }
-
-    /// " · 五姨、王五": who the personal receivable lines are with
-    private static func withWhom(_ entry: Entry) -> String {
-        var names: [String] = []
-        for posting in entry.postings where isPersonal(posting.account) {
-            if let name = postingPerson(posting), !names.contains(name) { names.append(name) }
+extension AmountTone {
+    var color: Color {
+        switch self {
+        case .loss: return .loss
+        case .gain: return .gain
+        case .neutral: return .secondary
         }
-        return names.isEmpty ? "" : " · " + names.joined(separator: "、")
     }
 }
 
@@ -103,7 +80,7 @@ struct EntryLine: Identifiable {
 struct EntryHeader: View {
     let columns: [EntryColumn]
     let widths: [EntryColumn: CGFloat]
-    @Binding var sortOrder: [KeyPathComparator<EntryLine>]
+    @Binding var sortOrder: [KeyPathComparator<JournalRow>]
 
     var body: some View {
         HStack(spacing: 0) {
@@ -143,14 +120,14 @@ struct EntryHeader: View {
 }
 
 extension EntryColumn {
-    func comparator(_ order: SortOrder) -> KeyPathComparator<EntryLine>? {
+    func comparator(_ order: SortOrder) -> KeyPathComparator<JournalRow>? {
         switch self {
-        case .date: return KeyPathComparator(\EntryLine.date, order: order)
-        case .payee: return KeyPathComparator(\EntryLine.payee, order: order)
-        case .category: return KeyPathComparator(\EntryLine.category, order: order)
-        case .accounts: return KeyPathComparator(\EntryLine.accounts, order: order)
+        case .date: return KeyPathComparator(\JournalRow.date, order: order)
+        case .payee: return KeyPathComparator(\JournalRow.payee, order: order)
+        case .category: return KeyPathComparator(\JournalRow.category, order: order)
+        case .accounts: return KeyPathComparator(\JournalRow.accounts, order: order)
         case .status: return nil
-        case .amount: return KeyPathComparator(\EntryLine.amount, order: order)
+        case .amount: return KeyPathComparator(\JournalRow.amount, order: order)
         }
     }
 }
@@ -175,13 +152,12 @@ private struct EntryCell<Content: View>: View {
 
 /// an entry on one line; picked, it opens under itself with its source
 struct EntryRow: View {
-    let line: EntryLine
+    let line: JournalRow
     let ledger: Ledger
     let columns: [EntryColumn]
     let widths: [EntryColumn: CGFloat]
     let picked: Bool
-    /// the account being looked through: what moved in it, and what it holds after
-    var account: String?
+    /// what the account being looked through holds after it
     var balance: Inventory?
 
     var body: some View {
@@ -200,11 +176,11 @@ struct EntryRow: View {
         let quiet = picked ? Color.white.opacity(0.8) : Color.secondary
         switch column {
         case .date: Text(shortDay(line.date)).monospacedDigit().foregroundStyle(quiet)
-        case .payee: PayeeCell(entry: line.entry, ledger: ledger, title: line.payee, picked: picked)
+        case .payee: PayeeCell(line: line, ledger: ledger, picked: picked)
         case .category: Text(line.category).foregroundStyle(quiet)
         case .accounts: Text(line.accounts).foregroundStyle(quiet)
         case .status: StatusCell(entry: line.entry)
-        case .amount: AmountCell(entry: line.entry, ledger: ledger, account: account, balance: balance, picked: picked)
+        case .amount: AmountCell(line: line, balance: balance, picked: picked)
         }
     }
 }
@@ -223,8 +199,8 @@ struct EntryListCard<Header: View>: View {
     @State private var tasks = EntryTasks()
 
     var body: some View {
-        let lines = entries.map { EntryLine($0, ledger) }
-        let widths = EntryWidths.measure(lines, ledger, account: account)
+        let lines = entries.map { JournalRow($0, ledger, account: account) }
+        let widths = EntryWidths.measure(lines)
         // the card's width isn't known here: as many columns as fit
         let full = widths.fit(columns, in: .infinity), least = widths.fit(columns, in: 0)
         Card {
@@ -234,8 +210,8 @@ struct EntryListCard<Header: View>: View {
                     let entry = line.entry
                     Divider()
                     ViewThatFits(in: .horizontal) {
-                        EntryRow(line: line, ledger: ledger, columns: full.columns, widths: full.widths, picked: open == entry.key, account: account)
-                        EntryRow(line: line, ledger: ledger, columns: least.columns, widths: least.widths, picked: open == entry.key, account: account)
+                        EntryRow(line: line, ledger: ledger, columns: full.columns, widths: full.widths, picked: open == entry.key)
+                        EntryRow(line: line, ledger: ledger, columns: least.columns, widths: least.widths, picked: open == entry.key)
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                     .onTapGesture { open = open == entry.key ? nil : entry.key }
@@ -466,18 +442,17 @@ struct SourcePanel: View {
 
 /// who, on its category's colour, and the note under it
 private struct PayeeCell: View {
-    let entry: Entry
+    let line: JournalRow
     let ledger: Ledger
-    let title: String
     let picked: Bool
 
     var body: some View {
         HStack(spacing: 8) {
-            CategoryBadge(entry: entry, ledger: ledger, size: 24)
+            CategoryBadge(entry: line.entry, ledger: ledger, size: 24)
             VStack(alignment: .leading, spacing: 1) {
-                Text(title).lineLimit(1)
-                if !entry.payee.isEmpty && !entry.narration.isEmpty {
-                    Text(entry.narration)
+                Text(line.payee).lineLimit(1)
+                if !line.note.isEmpty {
+                    Text(line.note)
                         .font(.caption)
                         .foregroundStyle(picked ? Color.white.opacity(0.8) : Color.secondary)
                         .lineLimit(1)
@@ -506,22 +481,21 @@ private struct StatusCell: View {
 
 /// the amount, and what the account holds after it underneath
 private struct AmountCell: View {
-    let entry: Entry
-    let ledger: Ledger
-    let account: String?
+    let line: JournalRow
     let balance: Inventory?
     let picked: Bool
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 1) {
-            ForEach(entry.shownAmounts(ledger, account: account), id: \.0) { amount in
+            // a transfer that paid a fee can show the same currency twice
+            ForEach(line.amounts.indices, id: \.self) { index in
+                let amount = line.amounts[index]
                 // red or green doesn't read on the selection's colour
-                Text(amount.0).monospacedDigit().foregroundStyle(picked ? .white : amount.1)
+                Text(amount.text).monospacedDigit().foregroundStyle(picked ? .white : amount.tone.color)
             }
-            if account == nil {
-                ForEach(entry.charged(ledger), id: \.0) { paid in
-                    Text(money(paid.1, paid.0)).font(.caption).monospacedDigit().foregroundStyle(picked ? Color.white.opacity(0.8) : .secondary)
-                }
+            ForEach(line.charged.indices, id: \.self) { index in
+                let paid = line.charged[index]
+                Text(paid.text).font(.caption).monospacedDigit().foregroundStyle(picked ? Color.white.opacity(0.8) : .secondary)
             }
             if let balance {
                 ForEach(balance.order, id: \.self) { currency in

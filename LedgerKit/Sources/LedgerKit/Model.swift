@@ -260,7 +260,9 @@ public final class Ledger: @unchecked Sendable {
 
     public init() {}
 
-    func memoized<T>(_ key: String, _ make: () -> T) -> T {
+    /// worked out the first time it's asked for, then kept: the key names everything the figure depends on besides
+    /// the ledger (a period, today, a setting)
+    public func memoized<T>(_ key: String, _ make: () -> T) -> T {
         memoLock.lock()
         if let v = memo[key] as? T { memoLock.unlock(); return v }
         memoLock.unlock()

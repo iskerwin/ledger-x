@@ -21,7 +21,14 @@ private struct LinesKey: Hashable {
     let period: ReportPeriod?
     let kind: KindFilter
     let day: String?
-    let sort: [KeyPathComparator<EntryLine>]
+    let sort: [KeyPathComparator<JournalRow>]
+}
+
+/// what the table shows, worked out away from the main thread
+private struct Built {
+    var lines: [JournalRow] = []
+    var balances: [ObjectIdentifier: Inventory] = [:]
+    var widths = EntryWidths()
 }
 
 struct JournalPage: View {
@@ -35,13 +42,11 @@ struct JournalPage: View {
     @State private var kind = KindFilter.all
     @State private var day: String?
     @State private var choosingDay = false
-    @State private var lines: [EntryLine] = []
-    @State private var balances: [ObjectIdentifier: Inventory] = [:]
-    @State private var widths = EntryWidths()
+    @State private var built = Built()
     @State private var selected = Set<String>()
     /// where a shift-click runs from
     @State private var anchor: String?
-    @State private var sortOrder = [KeyPathComparator(\EntryLine.date, order: .reverse)]
+    @State private var sortOrder = [KeyPathComparator(\JournalRow.date, order: .reverse)]
     @FocusState private var listFocused: Bool
     @State private var tasks = EntryTasks()
 
@@ -49,10 +54,13 @@ struct JournalPage: View {
         LinesKey(ledger: ObjectIdentifier(ledger), text: text, period: period, kind: kind, day: day, sort: sortOrder)
     }
 
+    private var lines: [JournalRow] { built.lines }
+
     /// the one picked, open under its row; several picked have nothing single to show
+    private var pickedID: String? { selected.count == 1 ? selected.first : nil }
+
     private var picked: Entry? {
-        guard selected.count == 1, let id = selected.first else { return nil }
-        return lines.first { $0.id == id }?.entry
+        pickedID.flatMap { id in lines.first { $0.id == id }?.entry }
     }
 
     var body: some View {
@@ -66,8 +74,8 @@ struct JournalPage: View {
             }
         }
         .searchable(text: $text, isPresented: $searching, placement: .toolbar)
-        .onAppear { rebuild() }
-        .onChange(of: key) { rebuild() }
+        // a change made while the last one is still being worked out takes its place
+        .task(id: key) { await rebuild() }
         .entryTasks($tasks, ledger: ledger, config: config, folder: folder)
     }
 
@@ -118,22 +126,23 @@ struct JournalPage: View {
     /// rows of our own rather than a table: the amount keeps its width at the end, and the picked row opens in place
     private var list: some View {
         GeometryReader { geometry in
-            let layout = widths.fit(EntryColumn.allCases, in: geometry.size.width)
-            let columns = layout.columns
+            let layout = built.widths.fit(EntryColumn.allCases, in: geometry.size.width)
+            let columns = layout.columns, pickedID = pickedID
             VStack(spacing: 0) {
                 EntryHeader(columns: columns, widths: layout.widths, sortOrder: $sortOrder)
                 Divider()
                 ScrollViewReader { scroller in
                     ScrollView {
                         LazyVStack(spacing: 0) {
-                            ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
+                            ForEach(lines.indices, id: \.self) { index in
+                                let line = lines[index]
                                 VStack(spacing: 0) {
                                     EntryRow(line: line, ledger: ledger, columns: columns, widths: layout.widths, picked: selected.contains(line.id),
-                                             account: heldAccount, balance: balances[ObjectIdentifier(line.entry)])
+                                             balance: built.balances[ObjectIdentifier(line.entry)])
                                         .background(index.isMultiple(of: 2) ? Color.clear : Color.primary.opacity(0.035))
                                         .onTapGesture { click(line.id) }
                                         .contextMenu { menu(line) }
-                                    if picked.map({ $0.key == line.id }) == true {
+                                    if pickedID == line.id {
                                         SourcePanel(entry: line.entry, ledger: ledger, config: config, folder: folder, tasks: $tasks)
                                     }
                                 }
@@ -187,7 +196,7 @@ struct JournalPage: View {
         }
     }
 
-    @ViewBuilder private func menu(_ line: EntryLine) -> some View {
+    @ViewBuilder private func menu(_ line: JournalRow) -> some View {
         let chosen = selected.contains(line.id) ? lines.filter { selected.contains($0.id) }.map(\.entry) : [line.entry]
         if chosen.count == 1, let entry = chosen.first {
             Button("编辑…") { tasks.edit(entry, ledger, config) }.disabled(entry.synthetic)
@@ -200,21 +209,26 @@ struct JournalPage: View {
         }
     }
 
-    private func rebuild() {
+    /// the rows of the whole ledger are worked out once for it; picking from them, sorting and measuring them happen
+    /// off the main thread, so typing in the search box doesn't wait for them
+    private func rebuild() async {
+        let ledger = ledger, scope = scope, kind = kind, sortOrder = sortOrder, held = heldAccount
         let query = TxQuery(text)
         let span: (String, String)? = day.map { ($0, $0) } ?? period?.span
-        var built: [EntryLine] = []
-        for entry in ledger.txns.reversed() {
-            if let scope, !scope.matches(entry) { continue }
-            if let span, entry.date < span.0 || entry.date > span.1 { continue }
-            guard query.matches(entry, ledger) else { continue }
-            let line = EntryLine(entry, ledger)
-            if kind.matches(line.kind) { built.append(line) }
-        }
-        lines = built.sorted(using: sortOrder)
-        balances = heldAccount.map { runningBalances(ledger, account: $0) } ?? [:]
-        widths = EntryWidths.measure(lines, ledger, account: heldAccount, balances: balances)
-        let shown = Set(lines.map(\.id))
+        let next = await Task.detached { () -> Built in
+            let lines = journalRows(ledger, account: held).filter { line in
+                let entry = line.entry
+                if let scope, !scope.matches(entry) { return false }
+                if let span, entry.date < span.0 || entry.date > span.1 { return false }
+                return kind.matches(line.kind) && query.matches(entry, ledger)
+            }
+            .sorted(using: sortOrder)
+            let balances = held.map { account in ledger.memoized("runningBalances|" + account) { runningBalances(ledger, account: account) } } ?? [:]
+            return Built(lines: lines, balances: balances, widths: EntryWidths.measure(lines, balances: balances))
+        }.value
+        guard !Task.isCancelled else { return }
+        built = next
+        let shown = Set(next.lines.map(\.id))
         if !selected.isSubset(of: shown) { selected.formIntersection(shown) }
     }
 
@@ -226,50 +240,4 @@ struct JournalPage: View {
 
 extension Entry {
     var key: String { "\(file):\(line)" }
-
-    /// where it went: its category, or for what has none the accounts the money went through
-    var route: String {
-        let categories = postings.filter { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") }
-        return moneyRoute(self).filter { account in !categories.contains { $0.account == account } }.map(acctDisplay).joined(separator: " → ")
-    }
-
-    func isCategory(_ posting: Posting) -> Bool {
-        posting.account.hasPrefix("Expenses:") || posting.account.hasPrefix("Income:")
-    }
-
-    /// as in the phone's journal: what moved in the account being looked through, else a transfer's amount, else what was
-    /// spent or earned in each currency as booked. A transfer that paid a fee shows both what it moved and the fee
-    func shownAmounts(_ ledger: Ledger, account: String? = nil) -> [(String, Color)] {
-        if let account {
-            return sums(postings.filter { $0.account == account || $0.account.hasPrefix(account + ":") }, negate: false).map(signed)
-        }
-        let shown = classify(self, ledger)
-        if shown.kind == .transfer { return [(money(shown.amount, shown.currency ?? "CNY"), .secondary)] }
-        let spent = sums(postings.filter(isCategory), negate: true).map(signed)
-        if let moved = transferWithFee(self) { return [(money(moved.amount, moved.currency), .secondary)] + spent }
-        return spent
-    }
-
-    /// what the account was charged in another currency, for checking against the bank
-    func charged(_ ledger: Ledger) -> [(String, Double)] {
-        guard classify(self, ledger).kind != .transfer else { return [] }
-        let own = sums(postings.filter(isCategory), negate: true)
-        return sums(postings.filter { !isCategory($0) && !$0.account.hasPrefix("Equity:") }, negate: false)
-            .filter { paid in !own.contains { $0.0 == paid.0 } }
-    }
-
-    private func signed(_ amount: (String, Double)) -> (String, Color) {
-        (signedMoney(amount.1, amount.0), amount.1 < 0 ? .loss : .gain)
-    }
-
-    /// per currency, in the order they first appear (amounts too small to show left out)
-    private func sums(_ postings: [Posting], negate: Bool) -> [(String, Double)] {
-        var order: [String] = [], totals: [String: Double] = [:]
-        for posting in postings {
-            guard let units = posting.units, let currency = posting.currency else { continue }
-            if totals[currency] == nil { order.append(currency) }
-            totals[currency, default: 0] += negate ? -units : units
-        }
-        return order.compactMap { abs(totals[$0]!) > 0.004 ? ($0, totals[$0]!) : nil }
-    }
 }

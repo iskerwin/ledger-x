@@ -22,7 +22,7 @@ struct OverviewPage: View {
 
     var body: some View {
         let span = PeriodStepper.span(byYear, month)
-        let report = incomeStatement(ledger, from: span.0, to: span.1)
+        let report = ledger.incomeStatementKept(from: span.0, to: span.1)
         VStack(spacing: 0) {
             PeriodStepper(byYear: $byYear, month: $month)
                 .padding(.horizontal, 20)
@@ -67,11 +67,11 @@ struct OverviewPage: View {
 
     private var summary: some View {
         let month = shown, current = PeriodStepper.isCurrent(byYear, month), span = PeriodStepper.span(byYear, month)
-        let report = incomeStatement(ledger, from: span.0, to: span.1)
+        let report = ledger.incomeStatementKept(from: span.0, to: span.1)
         let spent = report.expenses.total, came = -report.income.total
         let earlier = before(month)
-        let previous = incomeStatement(ledger, from: earlier.0, to: earlier.1).expenses.total
-        let worth = netWorthNow(ledger, exclude: config?.netWorthExclude ?? [])
+        let previous = ledger.incomeStatementKept(from: earlier.0, to: earlier.1).expenses.total
+        let worth = ledger.netWorthKept(exclude: config?.netWorthExclude ?? [])
         return Card(summary: true) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .bottom, spacing: 24) {
@@ -132,18 +132,19 @@ struct OverviewPage: View {
                     Button("全部明细") { page = .journal }.buttonStyle(.link)
                 }
                 .padding(.bottom, 8)
-                ForEach(Array(ledger.txns.reversed().lazy.filter { !$0.synthetic }.prefix(6)), id: \.key) { entry in
+                ForEach(Array(ledger.txns.reversed().lazy.filter { !$0.synthetic }.prefix(6)).map { JournalRow($0, ledger) }) { line in
+                    let entry = line.entry
                     Divider()
                     HStack(spacing: 10) {
                         CategoryBadge(entry: entry, ledger: ledger, size: 24)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(entry.payee.isEmpty ? (entry.narration.isEmpty ? "（无收付款方）" : entry.narration) : entry.payee).lineLimit(1)
+                            Text(line.payee).lineLimit(1)
                             Text(entry.date.dropFirst(5).replacingOccurrences(of: "-", with: "/") + " · " + entry.route)
                                 .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         }
                         Spacer(minLength: 12)
                         VStack(alignment: .trailing, spacing: 1) {
-                            ForEach(entry.shownAmounts(ledger), id: \.0) { Text($0.0).monospacedDigit().foregroundStyle($0.1) }
+                            ForEach(line.amounts.indices, id: \.self) { Text(line.amounts[$0].text).monospacedDigit().foregroundStyle(line.amounts[$0].tone.color) }
                         }
                         .lineLimit(1)
                     }
@@ -155,8 +156,8 @@ struct OverviewPage: View {
 
     /// what looks unusual, bills to pay, balances to check and changes not pushed; nothing wanting doing, no card
     @ViewBuilder private var todo: some View {
-        let bills = cardCycles(ledger).filter { $0.statementAmount - $0.paid > 0.005 }.sorted { $0.due < $1.due }
-        let checks = reconcileDue(ledger)
+        let bills = ledger.cardCyclesKept().filter { $0.statementAmount - $0.paid > 0.005 }.sorted { $0.due < $1.due }
+        let checks = ledger.reconcileDueKept()
         let unpushed = git.map { $0.paths.count + $0.ahead } ?? 0
         if !alerts.isEmpty || !bills.isEmpty || !checks.isEmpty || unpushed > 0 {
             Card {
@@ -355,14 +356,14 @@ private struct PeriodBars: View {
             let last = Int(now.prefix(4)) ?? 2026
             keys = (0..<6).map { String(last - 5 + $0) }
             let months = (0..<72).map { Day.addMonth(String(last - 5) + "-01", $0) }
-            let flows = monthlyFlows(ledger, months: months, mode: .convert(ledger.base))
+            let flows = ledger.monthlyFlowsKept(months, mode: .convert(ledger.base))
             values = Dictionary(grouping: months) { String($0.prefix(4)) }.mapValues { $0.reduce(0) { $0 + (flows[$1]?.expenses.amounts[ledger.base] ?? 0) } }
             picked = String(chosen.prefix(4))
         } else {
             // the year up to now, or the twelve months up to one chosen before that
             let last = chosen < Day.addMonth(now, -11) ? Day.addMonth(chosen, 11) : now
             keys = (0..<12).map { Day.addMonth(last, $0 - 11) }
-            let flows = monthlyFlows(ledger, months: keys, mode: .convert(ledger.base))
+            let flows = ledger.monthlyFlowsKept(keys, mode: .convert(ledger.base))
             values = Dictionary(uniqueKeysWithValues: keys.map { ($0, flows[$0]?.expenses.amounts[ledger.base] ?? 0) })
             picked = chosen
         }

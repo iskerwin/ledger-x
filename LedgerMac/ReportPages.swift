@@ -57,7 +57,7 @@ struct ReportsPage: View {
         let span = PeriodStepper.span(byYear, month)
         let title = PeriodStepper.title(byYear, month)
         let scope: (String) -> JournalScope = { JournalScope(title: accountTitle(ledger, $0) + " · " + title, account: $0, from: span.0, to: span.1) }
-        let report = incomeStatement(ledger, from: span.0, to: span.1)
+        let report = ledger.incomeStatementKept(from: span.0, to: span.1)
         ReportScaffold {
             Picker(selection: $tab) {
                 ForEach(ReportTab.allCases, id: \.self) { Text($0.rawValue) }
@@ -125,7 +125,7 @@ private struct MonthsChart: View {
     let months: [String]
 
     var body: some View {
-        let valued = monthlyFlows(ledger, months: months, mode: .convert(ledger.base))
+        let valued = ledger.monthlyFlowsKept(months, mode: .convert(ledger.base))
         VStack(alignment: .leading, spacing: 0) {
             CardTitle("按月对比")
             FlowCard(months: months, income: valued.mapValues { $0.income.amounts[ledger.base] ?? 0 },
@@ -165,7 +165,7 @@ private struct MonthsTable: View {
     let ledger: Ledger
 
     var body: some View {
-        let flows = monthlyFlows(ledger, months: ledger.txns.map { Day.ym($0.date) }, mode: .units)
+        let flows = ledger.allMonthlyFlowsKept()
         Card {
             VStack(spacing: 0) {
                 MonthRow(month: "", income: "收入", expenses: "支出", net: "结余", negative: false, heading: true)
@@ -198,7 +198,7 @@ private struct Statements: View {
     var body: some View {
         let today = Day.today()
         let end = min(span.1, today)
-        let sheet = balanceSheet(ledger, at: end == today ? nil : end, exclude: config?.balanceExclude ?? [])
+        let sheet = ledger.balanceSheetKept(at: end == today ? nil : end, exclude: config?.balanceExclude ?? [])
         let standing: (String) -> JournalScope = { JournalScope(title: accountTitle(ledger, $0), account: $0, to: end) }
         let conversions = sheet.conversions.byCurrency(base: ledger.base).isEmpty ? [] : [("货币兑换", sheet.conversions)]
         let net = -report.income.shown + -report.expenses.shown
@@ -233,7 +233,7 @@ private struct TrialCard: View {
     let scope: (String) -> JournalScope
 
     var body: some View {
-        let balances = periodBalances(ledger, to: end)
+        let balances = ledger.periodBalancesKept(to: end)
         let roots = ["Assets", "Liabilities", "Equity", "Income", "Expenses"].map { accountTree(balances, root: $0, ledger, at: end, shown: balances) }
         let totals = roots.map(\.shown) + [conversions(of: balances)]
         let debit = sum(totals) { $0 > 0 ? $0 : 0 }, credit = sum(totals) { $0 < 0 ? -$0 : 0 }
