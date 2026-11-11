@@ -108,6 +108,12 @@ public struct QueryResult {
     /// columns holding numbers or amounts (right-aligned in tables)
     public var numeric: [Bool]
 
+    public init(columns: [String], rows: [[QValue]], numeric: [Bool]) {
+        self.columns = columns
+        self.rows = rows
+        self.numeric = numeric
+    }
+
     /// the rows ordered by one column, as clicking its title does: text and dates as written, numbers and amounts by
     /// size, empty cells last either way; rows that tie keep their order
     public func rows(sortedBy column: Int, ascending: Bool) -> [[QValue]] {
