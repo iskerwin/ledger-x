@@ -171,7 +171,7 @@ struct MainView: View {
                 if !Task.isCancelled { query = filter }
             }
             .environment(\.filterTag) { tag in
-                filter = adding(tag: tag, to: filter)
+                filter = addingTag(tag, to: filter)
                 query = filter
                 if !(page ?? .overview).followsFilter { page = .journal }
             }
