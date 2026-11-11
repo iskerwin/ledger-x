@@ -15,6 +15,8 @@ struct BalanceChart: View {
     let points: [BalancePoint]
     let currency: String
     let current: Double
+    /// what the figure over the line is, when it isn't the account's balance now
+    var title: String?
     @State private var picked: String?
 
     var body: some View {
@@ -22,7 +24,7 @@ struct BalanceChart: View {
         let lo = points.map(\.amount).min() ?? 0, hi = points.map(\.amount).max() ?? 0
         let pad = max((hi - lo) * 0.1, 1)
         VStack(alignment: .leading, spacing: 12) {
-            Headline(label: shown.map { $0.month + " 月末" } ?? "当前余额 · " + currency, value: money(shown?.amount ?? current, currency))
+            Headline(label: shown.map { $0.month + " 月末" } ?? title ?? "当前余额 · " + currency, value: money(shown?.amount ?? current, currency))
             Chart(points) { point in
                 LineMark(x: .value("月份", point.month), y: .value("余额", point.amount))
                     .foregroundStyle(Color.jade)

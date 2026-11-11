@@ -239,6 +239,11 @@ public struct BalancePoint: Identifiable, Equatable {
     public var id: String { month }
     public let month: String
     public let amount: Double
+
+    public init(month: String, amount: Double) {
+        self.month = month
+        self.amount = amount
+    }
 }
 
 /// what `account` and those under it held in `currency` at the end of each of the last `months` months

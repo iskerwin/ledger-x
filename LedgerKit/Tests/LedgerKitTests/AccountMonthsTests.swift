@@ -35,4 +35,37 @@ final class AccountMonthsTests: XCTestCase {
         XCTAssertEqual(months[0].end.amounts, ["CNY": 65, "USD": 10])
         XCTAssertTrue(accountMonths(L, account: "Assets:Cash").isEmpty)
     }
+
+    func testMonthColumnsShowWhatMovedOrWhatWasHeldEachMonth() {
+        let L = loadLedger(root: "main.bean") { _ in """
+        option "operating_currency" "CNY"
+        2026-01-01 open Assets:Bank CNY
+        2026-01-01 open Expenses:Food:Lunch CNY
+        2026-01-01 open Expenses:Food:Dinner CNY
+        2026-01-01 open Expenses:Rent CNY
+
+        2026-01-05 * "午饭"
+          Expenses:Food:Lunch  20.00 CNY
+          Assets:Bank  -20.00 CNY
+
+        2026-02-05 * "晚饭"
+          Expenses:Food:Dinner  50.00 CNY
+          Assets:Bank  -50.00 CNY
+
+        2026-02-06 * "房租"
+          Expenses:Rent  1000.00 CNY
+          Assets:Bank  -1000.00 CNY
+        """ }
+        let moved = monthColumns(L, months: ["2026-01", "2026-02"], roots: ["Expenses"], held: false)
+        XCTAssertEqual(moved.value("Expenses:Food", "2026-01"), 20)
+        XCTAssertEqual(moved.value("Expenses:Food", "2026-02"), 50)
+        XCTAssertEqual(moved.value("Expenses:Rent", "2026-01"), 0)
+        XCTAssertEqual(moved.value("Expenses", "2026-02"), 1050)
+        // the shape has every account of every month: Dinner only moved in February, Lunch only in January
+        let food = moved.roots[0].children.first { $0.name == "Expenses:Food" }
+        XCTAssertEqual(food?.children.map(\.name).sorted(), ["Expenses:Food:Dinner", "Expenses:Food:Lunch"])
+        let held = monthColumns(L, months: ["2026-01", "2026-02"], roots: ["Assets"], held: true)
+        XCTAssertEqual(held.value("Assets:Bank", "2026-01"), -20)
+        XCTAssertEqual(held.value("Assets:Bank", "2026-02"), -1070)
+    }
 }

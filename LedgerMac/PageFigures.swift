@@ -94,6 +94,14 @@ extension Ledger {
         kept("monthlyBalances|\(account)|\(currency)|\(Day.today())") { monthlyBalances(self, account: account, currency: currency) }
     }
 
+    func monthColumnsKept(_ months: [String], roots: [String], held: Bool) -> MonthColumns {
+        monthColumns(self, months: months, roots: roots, held: held)
+    }
+
+    func netWorthSeriesKept(exclude: [String]) -> [NetWorthPoint] {
+        kept("netWorthSeries|\(Day.today())|\(exclude.joined(separator: ","))") { netWorthSeries(self, exclude: exclude) }
+    }
+
     /// the entries with this payee, oldest first
     func payeeEntriesKept(_ name: String) -> [Entry] {
         kept("payeeEntries|\(name)") { txns.filter { !$0.synthetic && $0.payee == name } }
