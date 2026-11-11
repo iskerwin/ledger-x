@@ -161,8 +161,50 @@ public let transactionAttachmentFolder = "receipts"
 /// newest first. Everything else is an account's own statement. Read from the link, not the folder,
 /// so attachments saved before `receipts/` existed are sorted the same way.
 public func transactionAttachments(_ L: Ledger) -> [Entry] {
-    let linked = Set(L.txns.lazy.filter { !$0.synthetic }.flatMap { $0.links })
-    return L.documents.filter { !linked.isDisjoint(with: $0.links) }.sorted { $0.date > $1.date }
+    documentItems(L).filter(\.isAttachment).map(\.entry)
+}
+
+/// a document as 附件与对账单 lists it, as Fava's documents page: under its account, with the transaction it's
+/// attached to
+public struct DocumentItem: Identifiable {
+    public let entry: Entry
+    /// where it is in the ledger's folder; nil when it points outside it
+    public let path: String?
+    public let account: String
+    /// what it's attached to, by a link both share; nil for an account's own statement
+    public let transaction: Entry?
+    public var id: String { "\(entry.file):\(entry.line)" }
+    public var isAttachment: Bool { transaction != nil }
+    /// its file's name
+    public var name: String { ((path ?? entry.path ?? "") as NSString).lastPathComponent }
+}
+
+/// every document, the latest first, worked out once for the ledger
+public func documentItems(_ L: Ledger) -> [DocumentItem] {
+    L.memoized("documentItems") {
+        var byLink: [String: Entry] = [:]
+        for t in L.txns where !t.synthetic { for link in t.links where byLink[link] == nil { byLink[link] = t } }
+        return L.documents.sorted { ($0.date, $0.seq) > ($1.date, $1.seq) }.map { d in
+            DocumentItem(entry: d, path: d.path.flatMap { documentPath($0, from: d.file) }, account: d.account ?? "",
+                         transaction: d.links.lazy.compactMap { byLink[$0] }.first)
+        }
+    }
+}
+
+/// the documents under each account: assets, then liabilities, then the rest, each by name; the latest first in each
+public func documentGroups(_ items: [DocumentItem]) -> [(account: String, items: [DocumentItem])] {
+    let rank = ["Assets": 0, "Liabilities": 1]
+    func key(_ account: String) -> (Int, String) { (rank[String(account.prefix { $0 != ":" })] ?? 2, account) }
+    return Dictionary(grouping: items, by: \.account).map { ($0.key, $0.value) }.sorted { key($0.0) < key($1.0) }
+}
+
+/// what was typed, matched against the file's name, the account (as written and as named), and the transaction's payee
+/// and narration; case ignored
+public func documentMatches(_ item: DocumentItem, _ query: String, _ L: Ledger) -> Bool {
+    let q = query.trimmingCharacters(in: .whitespaces)
+    guard !q.isEmpty else { return true }
+    let words = [item.name, item.account, accountTitle(L, item.account), item.transaction?.payee ?? "", item.transaction?.narration ?? ""]
+    return words.contains { $0.localizedCaseInsensitiveContains(q) }
 }
 
 /// Every document that points at `path` (a repository path), whichever file it is written in.
