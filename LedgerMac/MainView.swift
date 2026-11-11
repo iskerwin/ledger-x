@@ -159,7 +159,7 @@ struct MainView: View {
             // a list of its own for each page: left to reuse its rows, one page's row keeps what the last page's row did when clicked
             .id(page ?? .overview)
             .environment(\.filterTag) { tag in
-                filter = adding(tag: tag, to: filter)
+                filter = addingTag(tag, to: filter)
                 if !(page ?? .overview).followsFilter { page = .journal }
             }
             .safeAreaInset(edge: .bottom) {
