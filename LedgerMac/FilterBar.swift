@@ -126,7 +126,7 @@ extension View {
 }
 
 /// `filter` with `#tag` added, unless it's there already
-func adding(tag: String, to filter: String) -> String {
+func addingTag(_ tag: String, to filter: String) -> String {
     let token = "#" + tag
     let words = filter.split(separator: " ").map(String.init)
     return words.contains(token) ? filter : (words + [token]).joined(separator: " ")
