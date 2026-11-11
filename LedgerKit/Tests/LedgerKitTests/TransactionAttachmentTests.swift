@@ -61,4 +61,13 @@ final class TransactionAttachmentTests: XCTestCase {
         XCTAssertEqual(items.filter { documentMatches($0, "creditcard", L) }.count, 2)
         XCTAssertEqual(items.filter { documentMatches($0, " ", L) }.count, 3)
     }
+
+    func testAStatementIsDatedByTheDayInItsName() {
+        XCTAssertEqual(documentDay(inName: "cmb_20261031.pdf"), "2026-10-31")
+        XCTAssertEqual(documentDay(inName: "2026-10-31 statement.pdf"), "2026-10-31")
+        XCTAssertEqual(documentDay(inName: "Statement_2026_09_30.PDF"), "2026-09-30")
+        XCTAssertNil(documentDay(inName: "statement.pdf"))
+        XCTAssertNil(documentDay(inName: "card_20261331.pdf"), "no 13th month")
+        XCTAssertNil(documentDay(inName: "order_1202610311.pdf"), "a day inside a longer number isn't one")
+    }
 }

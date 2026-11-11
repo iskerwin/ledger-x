@@ -541,6 +541,47 @@ final class FolderSaveTests: XCTestCase {
         XCTAssertTrue(after.errors.isEmpty, "\(after.errors.map(\.msg))")
     }
 
+    func testAStatementGoesToTheInstitutionsFolderWithALineForIt() throws {
+        let pdf = Data("%PDF-1.4 sample".utf8)
+        try commitFolderSave(try prepareFolderStatement(account: "Assets:Bank", date: "2026-10-31", data: pdf, ext: "PDF", folder: folder).get(), folder: folder)
+        XCTAssertEqual(try Data(contentsOf: folder.appendingPathComponent("documents/bank/bank_20261031.pdf")), pdf)
+        let second = try prepareFolderStatement(account: "Assets:Bank", date: "2026-10-31", data: pdf, ext: "pdf", folder: folder).get()
+        try commitFolderSave(second, folder: folder)
+        let ledger = try XCTUnwrap(loadLedger(folder: folder))
+        XCTAssertEqual(documentItems(ledger).map(\.path), ["documents/bank/bank_20261031_1.pdf", "documents/bank/bank_20261031.pdf"])
+        XCTAssertEqual(documentItems(ledger).map(\.isAttachment), [false, false])
+        XCTAssertTrue(ledger.errors.isEmpty, "\(ledger.errors.map(\.msg))")
+    }
+
+    func testAnAttachmentLinksTheEntryAndIsFiledUnderTheAccountThatPaid() throws {
+        try write("main.bean", opens + "\n" + sample)
+        let (found, _) = try entry("Lunch")
+        let jpg = Data([0xFF, 0xD8, 0xFF])
+        try commitFolderSave(try prepareFolderAttachment(found, data: jpg, ext: "jpg", folder: folder).get(), folder: folder)
+        XCTAssertEqual(try Data(contentsOf: folder.appendingPathComponent("documents/receipts/receipts_20261016.jpg")), jpg)
+        let ledger = try XCTUnwrap(loadLedger(folder: folder))
+        let item = try XCTUnwrap(documentItems(ledger).first)
+        XCTAssertEqual(item.account, "Assets:Bank")
+        XCTAssertEqual(item.transaction?.narration, "Lunch")
+        let link = try XCTUnwrap(item.transaction?.links.first { $0.hasPrefix("doc-20261016-") })
+        XCTAssertEqual(item.entry.links, [link])
+        // a second one shares the entry's link and leaves the entry as it is
+        let (again, _) = try entry("Lunch")
+        let before = try read("main.bean").components(separatedBy: "\n").filter { $0.contains("Lunch") }
+        try commitFolderSave(try prepareFolderAttachment(again, data: jpg, ext: "jpg", folder: folder).get(), folder: folder)
+        let after = try XCTUnwrap(loadLedger(folder: folder))
+        XCTAssertEqual(documentItems(after).filter { $0.entry.links == [link] }.count, 2)
+        XCTAssertEqual(try read("main.bean").components(separatedBy: "\n").filter { $0.contains("Lunch") }, before)
+    }
+
+    func testAFileAlreadyThereIsNotWrittenOver() throws {
+        let save = try prepareFolderStatement(account: "Assets:Bank", date: "2026-10-31", data: Data("new".utf8), ext: "pdf", folder: folder).get()
+        try write("documents/bank/bank_20261031.pdf", "old")
+        XCTAssertThrowsError(try commitFolderSave(save, folder: folder))
+        XCTAssertEqual(try read("documents/bank/bank_20261031.pdf"), "old")
+        XCTAssertFalse(try read("main.bean").contains("document"))
+    }
+
     func testABalanceThatDiffersIsRefusedWithTheDifference() throws {
         try write("main.bean", opens + "\n" + sample)
         let before = try read("main.bean")

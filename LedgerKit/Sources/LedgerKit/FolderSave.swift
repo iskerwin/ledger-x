@@ -6,6 +6,9 @@ public struct FolderSave {
     let main: String
     /// in the order they are written
     let files: [(path: String, before: String?, after: String)]
+    /// new files that aren't text (a statement, a receipt), written first: stopped after them, the most left behind is a
+    /// file nothing points at yet
+    var blobs: [(path: String, data: Data)] = []
 }
 
 public struct FolderSaveError: Error, LocalizedError, Equatable {
@@ -126,6 +129,67 @@ private func folderDirective(_ text: String, _ ledger: Ledger, folder: URL) -> R
     }
 }
 
+/// A statement, or any file, kept with `account`, as the phone's 添加票据 / 对账单: the file goes to the institution's
+/// folder under documents/, named for its day, and a `document` line points at it
+public func prepareFolderStatement(account: String, date: String, data: Data, ext: String, folder: URL) -> Result<FolderSave, FolderSaveError> {
+    guard let ledger = loadLedger(folder: folder) else { return .failure(noLedgerInFolder) }
+    guard let path = newDocumentPath(documentFolder(for: account), date: date, ext: ext, ledger, folder: folder) else { return .failure(unusableName) }
+    return folderDocument(documentText(date: date, account: account, path: path), path: path, data: data, ledger, folder: folder)
+}
+
+/// A receipt or other file attached to `entry`, as the phone's 添加附件: the file goes to documents/receipts/, filed under
+/// the account that paid, and the entry and the `document` line share a ^doc- link (the entry's own, when it has one)
+public func prepareFolderAttachment(_ entry: Entry, data: Data, ext: String, folder: URL) -> Result<FolderSave, FolderSaveError> {
+    guard let ledger = loadLedger(folder: folder) else { return .failure(noLedgerInFolder) }
+    guard let current = locate(entry, startLine: entry.line - 1, folder: folder),
+          let text = try? coordinatedRead(folder.appendingPathComponent(current.file)) else { return .failure(entryChanged) }
+    let account = documentPayingAccount(current.postings)
+    guard !account.isEmpty else { return .failure(FolderSaveError(message: tr("这笔交易没有付款账户，不能添加附件", "This entry has no paying account to file the attachment under"))) }
+    guard let path = newDocumentPath(transactionAttachmentFolder, date: current.date, ext: ext, ledger, folder: folder) else { return .failure(unusableName) }
+    let link = current.links.first { $0.hasPrefix("doc-") }
+        ?? "doc-" + documentDateStamp(current.date) + "-" + UUID().uuidString.prefix(8).lowercased()
+    var linking: [Op] = []
+    if !current.links.contains(link) {
+        let lines = text.components(separatedBy: "\n")
+        guard current.startLine >= 0, current.startLine < lines.count else { return .failure(entryChanged) }
+        var op = Op(kind: .link, path: current.file)
+        op.headerLine = current.startLine + 1
+        op.header = lines[current.startLine]
+        op.add = " ^" + link
+        op.link = link
+        op.silent = true
+        linking = [op]
+    }
+    return folderDocument(documentText(date: current.date, account: account, path: path) + " ^" + link, path: path, data: data, ledger,
+                          folder: folder, also: linking)
+}
+
+/// `documents/<box>/<box>_YYYYMMDD.<ext>`, numbered past what's in the folder and what the ledger already points at
+private func newDocumentPath(_ box: String, date: String, ext: String, _ ledger: Ledger, folder: URL) -> String? {
+    let dir = folder.appendingPathComponent("documents/" + box)
+    let onDisk = ((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []).map { "documents/\(box)/\($0)" }
+    let taken = Set(onDisk + ledger.documents.compactMap { d in d.path.flatMap { documentPath($0, from: d.file) } })
+    let name = preferredDocumentFileName(folder: box, date: date, ext: ext, existingPaths: taken)
+    return name.isEmpty ? nil : documentStoragePath(folder: box, fileName: name)
+}
+
+/// the `document` line put where its kind goes, its path written from that file, with the file itself to write first
+private func folderDocument(_ line: String, path: String, data: Data, _ ledger: Ledger, folder: URL, also: [Op] = []) -> Result<FolderSave, FolderSaveError> {
+    let layout = folderLayout(ledger, folder: folder)
+    let exists = { (path: String) in FileManager.default.fileExists(atPath: folder.appendingPathComponent(path).path) }
+    guard !exists(path) else { return .failure(nameTaken) }
+    switch makeOps(line, ledger, layout: layout, pending: [], fileExists: exists, single: false) {
+    case .failure(let error): return .failure(FolderSaveError(message: error.message))
+    case .success(var ops):
+        for i in ops.indices where ops[i].kind == .insert {
+            ops[i].text = ops[i].text?.replacingOccurrences(of: quoted(path), with: quoted(relativeDocumentPath(path, from: ops[i].path)))
+        }
+        return folderSave(ops + also, before: ledger, main: layout.main, folder: folder, blobs: [(path, data)])
+    }
+}
+
+private let unusableName = FolderSaveError(message: tr("这个日期或文件类型不能用作文件名", "That day or file type can't name a file"))
+private let nameTaken = FolderSaveError(message: tr("这个文件已经在账本里，请再试一次", "That file is already in the ledger: try again"))
 private let noLedgerInFolder = FolderSaveError(message: tr("这个文件夹里没有账本", "No ledger in this folder"))
 private let entryChanged = FolderSaveError(message: tr("原来的交易已经变了，没有改动", "The entry has changed: nothing was changed"))
 
@@ -135,7 +199,7 @@ private func locate(_ entry: Entry, startLine: Int?, folder: URL) -> Entry? {
     return EntryLocator(entry, startLine: startLine).resolve(in: parseFile(text, file: entry.file).entries)
 }
 
-private func folderSave(_ ops: [Op], before ledger: Ledger, main: String, folder: URL) -> Result<FolderSave, FolderSaveError> {
+private func folderSave(_ ops: [Op], before ledger: Ledger, main: String, folder: URL, blobs: [(path: String, data: Data)] = []) -> Result<FolderSave, FolderSaveError> {
     let exists = { (path: String) in FileManager.default.fileExists(atPath: folder.appendingPathComponent(path).path) }
     // new files, then the main file that includes them, and what an entry leaves last: stopped on the way,
     // the most left behind is an unused file or an entry in two places, and nothing lost
@@ -154,7 +218,7 @@ private func folderSave(_ ops: [Op], before ledger: Ledger, main: String, folder
         let after = loadLedger(root: main, listFiles: { folderFiles(folder) + Array(written.keys) }) { path in
             try written[path] ?? String(contentsOf: folder.appendingPathComponent(path), encoding: .utf8)
         }
-        return .success(FolderSave(issues: reviewChange(before: ledger, after: after), main: main, files: files))
+        return .success(FolderSave(issues: reviewChange(before: ledger, after: after), main: main, files: files, blobs: blobs))
     } catch {
         return .failure(FolderSaveError(message: error.localizedDescription))
     }
@@ -180,12 +244,20 @@ public func prepareFolderConfig(folder: URL, _ change: (inout LedgerXConfig) -> 
 
 /// Writes it, unless a file has changed since it was worked out.
 public func commitFolderSave(_ save: FolderSave, folder: URL) throws {
+    for blob in save.blobs where FileManager.default.fileExists(atPath: folder.appendingPathComponent(blob.path).path) {
+        throw FolderSaveError(message: tr("\(blob.path) 已经有了，没有写入", "\(blob.path) is already there: nothing was written"))
+    }
     for file in save.files {
         let url = folder.appendingPathComponent(file.path)
         let now = FileManager.default.fileExists(atPath: url.path) ? try coordinatedRead(url) : nil
         guard now == file.before else {
             throw FolderSaveError(message: tr("\(file.path) 刚被改动过，请再保存一次", "\(file.path) has just changed: save again"))
         }
+    }
+    for blob in save.blobs {
+        let url = folder.appendingPathComponent(blob.path)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try blob.data.write(to: url, options: .withoutOverwriting)
     }
     for file in save.files {
         try coordinatedWrite(folder.appendingPathComponent(file.path), file.after)

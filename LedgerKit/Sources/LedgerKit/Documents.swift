@@ -117,6 +117,19 @@ public func preferredDocumentFileName(folder: String, date: String, ext: String,
     return name
 }
 
+/// The day a file's name has in it (`2026-10-31`, `2026_10_31`, `20261031`), as a statement saved under it is dated;
+/// nil when it has none that is a real day.
+public func documentDay(inName name: String) -> String? {
+    let pattern = #"(?<!\d)((?:19|20)\d{2})[-_.]?(\d{2})[-_.]?(\d{2})(?!\d)"#
+    guard let re = try? NSRegularExpression(pattern: pattern) else { return nil }
+    let ns = name as NSString
+    for m in re.matches(in: name, range: NSRange(location: 0, length: ns.length)) {
+        let day = "\(ns.substring(with: m.range(at: 1)))-\(ns.substring(with: m.range(at: 2)))-\(ns.substring(with: m.range(at: 3)))"
+        if let date = Day.date(day), Day.string(date) == day { return day }
+    }
+    return nil
+}
+
 /// `documents/<folder>/<file>` when both segments are usable.
 public func documentStoragePath(folder: String, fileName: String) -> String? {
     let folder = folder.trimmingCharacters(in: .whitespacesAndNewlines)

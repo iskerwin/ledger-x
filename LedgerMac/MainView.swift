@@ -7,6 +7,7 @@ enum Page: String, CaseIterable {
     case budgets, forecast, subscriptions
     case reimbursements, salary, events
     case query, errors, sync
+    case documents
 
     var title: String {
         switch self {
@@ -24,6 +25,7 @@ enum Page: String, CaseIterable {
         case .events: return "事件"
         case .query: return "BQL 查询"
         case .errors: return "错误"
+        case .documents: return "附件与对账单"
         case .sync: return "同步与改动"
         }
     }
@@ -44,6 +46,7 @@ enum Page: String, CaseIterable {
         case .events: return "star"
         case .query: return "terminal"
         case .errors: return "exclamationmark.triangle"
+        case .documents: return "paperclip"
         case .sync: return "arrow.up.arrow.down"
         }
     }
@@ -53,7 +56,7 @@ enum Page: String, CaseIterable {
 
     /// the sidebar's groups, in order; the menu follows them
     static let sections: [(String, [Page])] = [
-        ("账本", [.overview, .journal, .accounts]),
+        ("账本", [.overview, .journal, .accounts, .documents]),
         ("分析", [.reports, .payees, .year]),
         ("计划", [.budgets, .forecast, .subscriptions]),
         ("往来", [.reimbursements, .salary, .events]),
@@ -140,6 +143,7 @@ struct MainView: View {
                 case .events: EventsPage(ledger: ledger, config: config, folder: folder)
                 case .query: QueryPage(ledger: ledger, folder: folder)
                 case .errors: ErrorsPage(ledger: ledger, folder: folder)
+                case .documents: drillable { DocumentsPage(ledger: ledger, folder: folder) }
                 case .sync:
                     SyncPage(folder: folder, status: git, remoteReached: remoteReached) { gitReads += 1 }
                 }

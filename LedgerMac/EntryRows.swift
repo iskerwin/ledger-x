@@ -373,6 +373,14 @@ struct SourcePanel: View {
                         .padding(.vertical, 7)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                // its attachments, each opening its file
+                ForEach(documentItems(ledger).filter { $0.transaction === entry }) { item in
+                    Button(item.name, systemImage: "paperclip") {
+                        if let path = item.path { NSWorkspace.shared.open(folder.appendingPathComponent(path)) }
+                    }
+                    .buttonStyle(.link)
+                    .padding(.horizontal, 11)
+                }
                 if !message.isEmpty {
                     Text(message).font(.callout).foregroundStyle(Color.loss)
                 }
@@ -394,6 +402,7 @@ struct SourcePanel: View {
                         .disabled(!entry.editable || KitPrivacy.masked)
                     Menu("更多") {
                         Button("编辑…") { tasks.edit(entry, ledger, config) }.disabled(!entry.editable)
+                        Button("添加附件…") { chooseAttachments() }.disabled(!entry.editable)
                         Button("复制原文") { EntryTasks.copy([entry]) }
                         Button("打开所在文件") { EntryTasks.open(entry, in: folder) }
                         Divider()
@@ -409,6 +418,12 @@ struct SourcePanel: View {
         .padding(.leading, 80)
         .padding(.trailing, 12)
         .background(Color.jade.opacity(0.08))
+        // a file dropped here is attached to it
+        .dropDestination(for: URL.self) { urls, _ in
+            guard entry.editable else { return false }
+            attach(urls)
+            return true
+        }
         .onChange(of: entry.src) {
             // saved, or changed elsewhere: what's shown is the file's again
             if text == nil { message = "" }
@@ -416,6 +431,23 @@ struct SourcePanel: View {
     }
 
     private var source: String { entry.src.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    private func chooseAttachments() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        guard panel.runModal() == .OK else { return }
+        attach(panel.urls)
+    }
+
+    /// as the phone's 添加附件, on the writing path; the folder's watcher reads it back
+    private func attach(_ urls: [URL]) {
+        let entry = entry, folder = folder
+        Task {
+            let failed = await Task.detached { DocumentFiles.attach(urls, to: entry, folder: folder) }.value
+            message = failed ?? ""
+        }
+    }
 
     private var lines: CGFloat { CGFloat(max((text ?? source).components(separatedBy: "\n").count, 3)) }
 
