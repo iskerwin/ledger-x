@@ -647,4 +647,25 @@ final class FolderSaveTests: XCTestCase {
         try FileManager.default.removeItem(at: folder.appendingPathComponent("main.bean"))
         guard case .failure = prepareFolderSave(draft(.expense), folder: folder) else { return XCTFail("should be refused") }
     }
+
+    /// pages ask for it on every draw: worked out once for a ledger and its receivable account
+    func testFormsDerivedIsWorkedOutOnceALedger() {
+        let L = loadLedger(root: "main.bean") { _ in """
+        2026-01-01 open Assets:Bank CNY
+        2026-01-01 open Expenses:Food CNY
+
+        2026-09-02 * "Cafe" "coffee"
+          Expenses:Food  12.00 CNY
+          Assets:Bank
+        """ }
+        let first = folderDerived(L, config: nil)
+        XCTAssertTrue(folderDerived(L, config: nil) === first)
+        XCTAssertEqual(first.receivable, "Assets:Receivable:Reimbursement")
+        var other = LedgerXConfig()
+        other.receivable = "Assets:Receivable:Work"
+        let work = folderDerived(L, config: other)
+        XCTAssertFalse(work === first)
+        XCTAssertEqual(work.receivable, "Assets:Receivable:Work")
+    }
+
 }

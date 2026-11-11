@@ -63,8 +63,10 @@ public func prepareFolderSave(_ draft: Draft, folder: URL) -> Result<FolderSave,
 
 /// what the forms need, with the account advances wait in as ledger-x.json says, as on the phone
 public func folderDerived(_ ledger: Ledger, config: LedgerXConfig?) -> Derived {
-    guard let receivable = config?.receivable?.trimmingCharacters(in: .whitespaces), !receivable.isEmpty else { return Derived(ledger) }
-    return Derived(ledger, receivable: receivable)
+    let set = config?.receivable?.trimmingCharacters(in: .whitespaces) ?? ""
+    let receivable = set.isEmpty ? "Assets:Receivable:Reimbursement" : set
+    // a page asks on every draw: worked out once a ledger, a day and a receivable account
+    return ledger.memoized("folderDerived|\(receivable)|\(Day.today())") { Derived(ledger, receivable: receivable) }
 }
 
 /// the form for changing `entry` on this computer, or nil when no form can hold all of it (then only its source can change).
