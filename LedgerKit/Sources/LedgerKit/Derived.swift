@@ -244,6 +244,10 @@ public struct NarrationStat {
     public var text: String
     public var w = 0.0
     public var last: Entry
+    /// lowercased once, for matching while a note is typed
+    let folded: String
+
+    init(text: String, last: Entry) { self.text = text; self.last = last; folded = text.lowercased() }
 }
 
 public struct OpenLink {
