@@ -114,7 +114,7 @@ private extension View {
     }
 }
 
-/// one piece of the ring: a category, or the rest together
+/// one piece of the spending: a category, or the rest together
 struct DonutSlice: Identifiable {
     let id: String
     let label: String
@@ -135,83 +135,5 @@ struct DonutSlice: Identifiable {
         let rest = positive.dropFirst(head.count).reduce(0) { $0 + $1.total }
         if rest > 0.005 { slices.append(DonutSlice(id: "__other", label: "其他", value: rest, color: .gray, opens: false)) }
         return slices
-    }
-}
-
-/// a ring and its legend: every piece named with its share and amount. The pointer on a line of the legend brings out its piece.
-struct DonutCard: View {
-    let slices: [DonutSlice]
-    let base: String
-    let scope: (String) -> JournalScope
-    @State private var selected: String?
-
-    private var total: Double { slices.reduce(0) { $0 + $1.value } }
-
-    var body: some View {
-        HStack(spacing: 24) {
-            ZStack {
-                if slices.isEmpty {
-                    Circle().stroke(Color.secondary.opacity(0.2), lineWidth: 22).padding(14)
-                } else {
-                    Chart(slices) { slice in
-                        SectorMark(angle: .value("金额", slice.value), innerRadius: .ratio(0.64),
-                                   outerRadius: .ratio(selected == slice.id ? 1 : 0.9), angularInset: 1.2)
-                            .cornerRadius(3)
-                            .foregroundStyle(slice.color.opacity(selected == nil || selected == slice.id ? 1 : 0.3))
-                    }
-                    .chartLegend(.hidden)
-                }
-                center
-            }
-            .frame(width: 170, height: 170)
-            VStack(spacing: 2) {
-                ForEach(slices) { slice in
-                    if slice.opens {
-                        NavigationLink(value: scope(slice.id)) { legendRow(slice) }
-                            .buttonStyle(.plain)
-                    } else {
-                        legendRow(slice)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .top)
-        }
-        .frame(height: 170)
-    }
-
-    private var center: some View {
-        let slice = slices.first { $0.id == selected }
-        return VStack(spacing: 2) {
-            Text(slice?.label ?? "总支出")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            Text(money(slice?.value ?? total, base, 0))
-                .font(.headline)
-                .fontDesign(.rounded)
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-        }
-        .frame(width: 92)
-    }
-
-    private func legendRow(_ slice: DonutSlice) -> some View {
-        HStack(spacing: 8) {
-            Circle().fill(slice.color).frame(width: 8, height: 8)
-            Text(slice.label).lineLimit(1)
-            Spacer(minLength: 8)
-            Text(String(format: "%.0f%%", slice.value / max(total, 0.01) * 100))
-                .foregroundStyle(.secondary)
-                .monospacedDigit()
-            Text(money(slice.value, base))
-                .monospacedDigit()
-                .frame(minWidth: 96, alignment: .trailing)
-        }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 1)
-        .contentShape(Rectangle())
-        .background(selected == slice.id ? Color.primary.opacity(0.06) : Color.clear, in: RoundedRectangle(cornerRadius: 4))
-        .onHover { selected = $0 ? slice.id : (selected == slice.id ? nil : selected) }
     }
 }

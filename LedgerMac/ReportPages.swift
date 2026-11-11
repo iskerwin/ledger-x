@@ -81,15 +81,7 @@ struct ReportsPage: View {
             case .income:
                 let report = ledger.incomeStatementKept(from: span.0, to: span.1)
                 PeriodSummary(ledger: ledger, title: period.isCurrent ? period.current : title, report: report)
-                SideBySide {
-                    Card {
-                        VStack(alignment: .leading, spacing: 0) {
-                            CardTitle("支出构成")
-                            DonutCard(slices: DonutSlice.make(report.expenses, ledger), base: ledger.base, scope: scope)
-                        }
-                    }
-                    Card { MonthsChart(ledger: ledger, months: chartMonths) }
-                }
+                Card { MonthsChart(ledger: ledger, months: chartMonths) }
                 if byMonth {
                     MonthGridCard(columns: ledger.monthColumnsKept(gridMonths, roots: ["Income", "Expenses"], held: false), ledger: ledger,
                                   negated: ["Income"]) { account, month in
