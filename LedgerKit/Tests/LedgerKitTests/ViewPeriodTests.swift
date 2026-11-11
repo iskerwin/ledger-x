@@ -16,6 +16,30 @@ final class ViewPeriodTests: XCTestCase {
         XCTAssertEqual(ViewPeriod(unit: .year, month: "2024-08", day: "2024-03-05").span?.1, "2024-03-05")
     }
 
+    /// the last 30 days end today; a span of days is the days picked, whichever was picked first, over a day and the unit
+    func testTheLastThirtyDaysAndASpanOfDays() {
+        let today = Day.today()
+        let recent = ViewPeriod(unit: .recent, month: "2023-06")
+        XCTAssertEqual(recent.span?.0, Day.shift(today, -29))
+        XCTAssertEqual(recent.span?.1, today)
+        XCTAssertEqual(recent.title, "近 30 天")
+        XCTAssertEqual(recent.anchor, Day.ym(today))
+        XCTAssertTrue(recent.isCurrent)
+        XCTAssertFalse(recent.steps)
+        XCTAssertEqual(recent.stepped(-1), recent)
+        let picked = ViewPeriod(unit: .year, day: "2024-01-01", days: .init(from: "2024-11-11", to: "2024-10-03"))
+        XCTAssertEqual(picked.span?.0, "2024-10-03")
+        XCTAssertEqual(picked.span?.1, "2024-11-11")
+        XCTAssertEqual(picked.title, "2024-10-03 至 2024-11-11")
+        XCTAssertEqual(picked.anchor, "2024-11")
+        XCTAssertFalse(picked.byYear)
+        XCTAssertFalse(picked.isCurrent)
+        XCTAssertEqual(picked.stepped(1), picked)
+        // another unit puts the span away
+        XCTAssertNil(picked.showing(.month).days)
+        XCTAssertEqual(picked.showing(.month).month, "2024-11")
+    }
+
     func testSteppingMovesByTheUnitAndNeverPastNow() {
         XCTAssertEqual(ViewPeriod(unit: .month, month: "2024-01").stepped(-1).month, "2023-12")
         XCTAssertEqual(ViewPeriod(unit: .quarter, month: "2024-02").stepped(1).month, "2024-05")

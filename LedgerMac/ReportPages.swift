@@ -126,7 +126,7 @@ struct ReportsPage: View {
 
     /// the twelve months of the year, or the twelve up to the period's last (this month at the latest)
     private var chartMonths: [String] {
-        if period.unit == .year && period.day == nil { return (1...12).map { String(period.month.prefix(4)) + String(format: "-%02d", $0) } }
+        if period.unit == .year && period.byYear { return (1...12).map { String(period.month.prefix(4)) + String(format: "-%02d", $0) } }
         let last = min(period.span.map { Day.ym($0.1) } ?? Day.ym(Day.today()), Day.ym(Day.today()))
         return (0..<12).map { Day.addMonth(last, $0 - 11) }
     }

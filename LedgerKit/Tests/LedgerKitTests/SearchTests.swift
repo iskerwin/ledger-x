@@ -38,6 +38,12 @@ final class SearchTests: XCTestCase {
         let report = incomeStatement(trip, from: nil, to: nil)
         XCTAssertEqual(report.expenses.total, 35, accuracy: 0.001)
         XCTAssertEqual(incomeStatement(L.filtered(by: "饭店"), from: nil, to: nil).expenses.total, 170, accuracy: 0.001)
+        // an account keeps what touches it or one under it, with the search or alone
+        XCTAssertEqual(L.filtered(by: "", account: "Expenses:Food").txns.map(\.date), ["2026-06-30", "2026-08-02"])
+        XCTAssertEqual(L.filtered(by: "", account: "Expenses").txns.count, 4)
+        XCTAssertEqual(L.filtered(by: "", account: "Expenses:Foo").txns.count, 0, "a name's start is not an account above it")
+        XCTAssertEqual(L.filtered(by: "滴滴", account: "Expenses:Food").txns.count, 0)
+        XCTAssertEqual(L.filtered(by: "#work", account: "Assets:Receivable").txns.map(\.payee), ["饭店"])
     }
 
     private func hits(_ q: String) -> [String] { L.txns.filter { TxQuery(q).matches($0) }.map { $0.date } }

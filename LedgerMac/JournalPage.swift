@@ -63,6 +63,8 @@ struct JournalPage: View {
     @Binding var searching: Bool
     /// the window's search, as Fava's filter: the reports read the same
     @Binding var text: String
+    /// what's typed, once typing pauses: what the list keeps to
+    let query: String
     @State private var kind = KindFilter.all
     @State private var built = Built()
     @State private var selected = Set<String>()
@@ -74,7 +76,7 @@ struct JournalPage: View {
     @State private var tasks = EntryTasks()
 
     private var key: LinesKey {
-        LinesKey(ledger: ObjectIdentifier(ledger), text: text, period: period, account: account, kind: kind, shown: shownRaw, sort: sortOrder)
+        LinesKey(ledger: ObjectIdentifier(ledger), text: query, period: period, account: account, kind: kind, shown: shownRaw, sort: sortOrder)
     }
 
     private var lines: [JournalRow] { built.lines }
@@ -83,8 +85,8 @@ struct JournalPage: View {
         VStack(spacing: 0) {
             filters
             Divider()
-            if lines.isEmpty && !text.isEmpty {
-                ContentUnavailableView.search(text: text)
+            if lines.isEmpty && !query.isEmpty {
+                ContentUnavailableView.search(text: query)
             } else {
                 list
             }
@@ -140,7 +142,7 @@ struct JournalPage: View {
     /// off the main thread, so typing in the search box doesn't wait for them
     private func rebuild() async {
         let ledger = ledger, scope = shownScope, kind = kind, sortOrder = sortOrder, held = heldAccount, shown = shown
-        let query = TxQuery(text)
+        let query = TxQuery(self.query)
         let span: (String, String)? = self.scope == nil ? period.span : nil
         let next = await Task.detached { () -> Built in
             let transactions = journalRows(ledger, account: held).filter { line in

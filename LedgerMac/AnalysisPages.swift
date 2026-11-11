@@ -9,8 +9,9 @@ struct PayeesPage: View {
     let folder: URL
     /// the window's time: the payees and what went to them in it
     let period: ViewPeriod
-    /// the window's search: only the transactions it finds count
+    /// the window's search and account: only the transactions they find count
     let filter: String
+    let account: String?
     @State private var all: [PayeeSummary] = []
     @State private var text = ""
     @State private var picked: String?
@@ -28,12 +29,12 @@ struct PayeesPage: View {
             }
         } detail: {
             if let name = picked ?? all.first?.name {
-                PayeeDetail(ledger: ledger, config: config, folder: folder, name: name, period: period, filter: filter).id(name)
+                PayeeDetail(ledger: ledger, config: config, folder: folder, name: name, period: period, filter: filter, account: account).id(name)
             }
         }
         // every entry is classified: once a ledger and period, not on each key or pick
-        .task(id: PayeesKey(ledger: ObjectIdentifier(ledger), period: period, filter: filter)) {
-            all = payeeSummaries(ledger.filtered(by: filter), span: period.span)
+        .task(id: PayeesKey(ledger: ObjectIdentifier(ledger), period: period, filter: filter, account: account)) {
+            all = payeeSummaries(ledger.filtered(by: filter, account: account), span: period.span)
         }
     }
 }
@@ -42,6 +43,7 @@ private struct PayeesKey: Hashable {
     let ledger: ObjectIdentifier
     let period: ViewPeriod
     let filter: String
+    let account: String?
 }
 
 /// the twelve months up to the period's end, never past this one
@@ -66,10 +68,11 @@ private struct PayeeDetail: View {
     let name: String
     let period: ViewPeriod
     let filter: String
+    let account: String?
 
     var body: some View {
-        // the figures read what the search finds; the entries open for editing in the whole ledger
-        let entries = ledger.filtered(by: filter).payeeEntriesKept(name)
+        // the figures read what the filter finds; the entries open for editing in the whole ledger
+        let entries = ledger.filtered(by: filter, account: account).payeeEntriesKept(name)
         let span = period.span
         let inPeriod = span.map { span in entries.filter { $0.date >= span.0 && $0.date <= span.1 } } ?? entries
         let spent = payeeSpent(inPeriod, ledger)
