@@ -91,6 +91,8 @@ struct GuideView: View {
                "Save & next keeps the card open for the next entry; Save stores it and closes the card."),
             tr("收付款方和摘要都可以不填。收付款方不填时省略，摘要不填写成 \"\"；引号由 App 自动加。",
                "Payee and note are optional: an empty payee is left out and an empty note is written \"\"; the app adds the quotes."),
+            tr("填收付款方或摘要时，下面列出用过的名字和摘要，输入几个字就能模糊匹配（摘要先列这个收付款方用过的）。选了以后按上一次的记录补上分类和付款账户；这一笔里自己选过的分类和账户不会被改。",
+               "While typing the payee or the note, names and notes used before are listed below, matched from a few letters (the payee's own notes first). Picking one fills in the category and paying account from the last time; a category or account you picked for this entry stays."),
             tr("右上角「⋯」→ 完整表单：分录、直接写 Beancount 文本、AA、外币实付都在这里。",
                "⋯ → Full form for split entries, plain Beancount text, sharing with others and paying in another currency."),
             tr("完整表单右上角「清空」把这一页填的内容一次清掉（日期保留），编辑已有交易时是「还原」，回到原记录；提示条上可以撤销。分录或文本没填完也可以直接切换类型或点「快捷记账」返回，没填完的内容会保留，切回去接着填。",

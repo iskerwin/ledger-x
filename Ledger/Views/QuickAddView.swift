@@ -213,8 +213,9 @@ struct QuickAddView: View {
         }
         .onChange(of: field) { old, new in
             if new == nil && old != nil { store.persistActiveDraft(); DispatchQueue.main.async { if field == nil { writing = false } } }
-            // leaving the payee: a known one fills in what isn't picked yet
+            // leaving the payee or the note: a known one fills in what isn't picked yet
             if old == .payee && new != .payee { applyPayee(store.draft.payee.trimmed, onlyBlanks: true) }
+            if old == .narration && new != .narration { applyNarration(store.draft.narration.trimmed, onlyBlanks: true) }
         }
         .sheet(item: $picking) { p in accountPicker(p) }
         .navigationDestination(isPresented: $allCategories) { allCategoriesPage(L, D) }
@@ -996,7 +997,7 @@ struct QuickAddView: View {
     /// Text fields only; their candidates live in the dedicated keyboard-safe bar.
     @ViewBuilder
     private func textFields(_ d: Draft, _ D: Derived) -> some View {
-        let narrs = Array((D.payee(d.payee.trimmed)?.narrations ?? []).prefix(6))
+        let narrs = narrationSuggestions(D, typed: "", payee: d.payee, limit: 1)
         labeled(LS("收付款方")) {
             TextField(LS("如 便利店、淘宝，可不填"), text: Binding(get: { store.draft.payee }, set: { updateText(\.payee, $0) }))
                 .focused($field, equals: .payee)
@@ -1029,10 +1030,10 @@ struct QuickAddView: View {
                     }
                 }
             } else {
-                let narrs = Array((D.payee(d.payee.trimmed)?.narrations ?? []).prefix(6))
+                let narrs = narrationSuggestions(D, typed: d.narration, payee: d.payee, limit: 8)
                 ChipRow {
                     ForEach(narrs, id: \.self) { n in
-                        Chip(label: n, selected: d.narration == n) { updateText(\.narration, n) }
+                        Chip(label: n, selected: d.narration == n) { applyNarration(n, onlyBlanks: false) }
                             .accessibilityIdentifier("quick.narration.suggestion")
                     }
                 }
@@ -1065,6 +1066,12 @@ struct QuickAddView: View {
     private func applyPayee(_ name: String, onlyBlanks: Bool) {
         guard !name.isEmpty, store.D?.payee(name) != nil else { return }
         store.applyPayee(name, onlyBlanks: onlyBlanks)
+    }
+
+    /// a note picked (or typed and left) fills in as a payee does
+    private func applyNarration(_ text: String, onlyBlanks: Bool) {
+        guard !text.isEmpty, text != store.draft.narration || onlyBlanks else { return }
+        store.applyNarration(text, onlyBlanks: onlyBlanks)
     }
 
     // MARK: keypad
