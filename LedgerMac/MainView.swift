@@ -52,7 +52,7 @@ enum Page: String, CaseIterable {
     }
 
     /// looks at the window's time
-    var followsPeriod: Bool { [.overview, .journal, .reports, .year, .budgets].contains(self) }
+    var followsPeriod: Bool { [.overview, .journal, .reports, .payees, .year, .budgets].contains(self) }
 
     /// the sidebar's groups, in order; the menu follows them
     static let sections: [(String, [Page])] = [
@@ -135,7 +135,7 @@ struct MainView: View {
                 case .accounts:
                     drillable { AccountsPage(ledger: ledger, config: config, folder: folder, period: period) }
                 case .reports: drillable { ReportsPage(ledger: ledger, config: config, period: period) }
-                case .payees: PayeesPage(ledger: ledger, config: config, folder: folder)
+                case .payees: PayeesPage(ledger: ledger, config: config, folder: folder, period: period)
                 case .year: drillable { YearPage(ledger: ledger, config: config, period: period) }
                 case .budgets: drillable { BudgetsPage(ledger: ledger, period: period) }
                 case .forecast: drillable { ForecastPage(ledger: ledger, config: config) }

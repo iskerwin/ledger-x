@@ -56,6 +56,11 @@ final class PayeeTests: XCTestCase {
         XCTAssertEqual(all[0].last, "2026-09-03")
         XCTAssertEqual(all[0].spent, 20, accuracy: 0.001)
         XCTAssertEqual(all[2].received, 100, accuracy: 0.001)
+        // a span keeps to what fell in it
+        let some = payeeSummaries(L, span: ("2026-09-03", "2026-09-04"))
+        XCTAssertEqual(some.map(\.name), ["Bus", "Taxi"])
+        XCTAssertEqual(some[1].n, 1)
+        XCTAssertEqual(some[1].spent, 8, accuracy: 0.001)
     }
 
     func testRename() {

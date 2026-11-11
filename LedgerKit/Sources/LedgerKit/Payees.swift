@@ -12,10 +12,10 @@ public struct PayeeSummary: Identifiable {
     public var id: String { name }
 }
 
-/// every payee on a transaction header, most used first
-public func payeeSummaries(_ L: Ledger) -> [PayeeSummary] {
+/// every payee on a transaction header, most used first; with `span`, only what fell between its first and last day
+public func payeeSummaries(_ L: Ledger, span: (String, String)? = nil) -> [PayeeSummary] {
     var by: [String: PayeeSummary] = [:]
-    for t in L.txns where !t.synthetic && !t.payee.isEmpty {
+    for t in L.txns where !t.synthetic && !t.payee.isEmpty && (span.map { t.date >= $0.0 && t.date <= $0.1 } ?? true) {
         var s = by[t.payee] ?? PayeeSummary(name: t.payee)
         s.n += 1
         if t.date > s.last { s.last = t.date }

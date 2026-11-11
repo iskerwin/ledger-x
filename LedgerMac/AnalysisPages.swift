@@ -7,6 +7,8 @@ struct PayeesPage: View {
     let ledger: Ledger
     let config: LedgerXConfig?
     let folder: URL
+    /// the window's time: the payees and what went to them in it
+    let period: ViewPeriod
     @State private var all: [PayeeSummary] = []
     @State private var text = ""
     @State private var picked: String?
@@ -24,11 +26,31 @@ struct PayeesPage: View {
             }
         } detail: {
             if let name = picked ?? all.first?.name {
-                PayeeDetail(ledger: ledger, config: config, folder: folder, name: name).id(name)
+                PayeeDetail(ledger: ledger, config: config, folder: folder, name: name, period: period).id(name)
             }
         }
-        // every entry is classified: once a ledger, not on each key or pick
-        .task(id: ObjectIdentifier(ledger)) { all = payeeSummaries(ledger) }
+        // every entry is classified: once a ledger and period, not on each key or pick
+        .task(id: PayeesKey(ledger: ObjectIdentifier(ledger), period: period)) { all = payeeSummaries(ledger, span: period.span) }
+    }
+}
+
+private struct PayeesKey: Hashable {
+    let ledger: ObjectIdentifier
+    let period: ViewPeriod
+}
+
+/// the twelve months up to the period's end, never past this one
+private func monthsTo(_ period: ViewPeriod) -> [String] {
+    let now = Day.ym(Day.today())
+    let last = min(period.span.map { Day.ym($0.1) } ?? now, now)
+    return (0..<12).map { Day.addMonth(last, $0 - 11) }
+}
+
+/// what went out to a payee in the operating currency, refunds taken off
+private func payeeSpent(_ entries: [Entry], _ ledger: Ledger) -> Double {
+    entries.reduce(0.0) { total, entry in
+        let shown = classify(entry, ledger)
+        return total + (shown.kind == .expense || shown.kind == .refund ? -shown.amount : 0)
     }
 }
 
@@ -37,16 +59,18 @@ private struct PayeeDetail: View {
     let config: LedgerXConfig?
     let folder: URL
     let name: String
+    let period: ViewPeriod
 
     var body: some View {
         let entries = ledger.payeeEntriesKept(name)
-        let year = String(Day.today().prefix(4))
-        let thisYear = entries.filter { $0.date.hasPrefix(year) }
-        let spent = thisYear.reduce(0.0) { total, entry in
-            let shown = classify(entry, ledger)
-            return total + (shown.kind == .expense || shown.kind == .refund ? -shown.amount : 0)
-        }
-        let months = Double(Int(Day.today().dropFirst(5).prefix(2)) ?? 1)
+        let span = period.span
+        let inPeriod = span.map { span in entries.filter { $0.date >= span.0 && $0.date <= span.1 } } ?? entries
+        let spent = payeeSpent(inPeriod, ledger)
+        // the months of the period up to now, at least one
+        let today = Day.today()
+        let first = Day.ym(span?.0 ?? entries.first?.date ?? today), last = Day.ym(min(span?.1 ?? today, today))
+        let count = { (m: String) in (Int(m.prefix(4)) ?? 0) * 12 + (Int(m.suffix(2)) ?? 0) }
+        let months = Double(max(1, count(last) - count(first) + 1))
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -56,16 +80,16 @@ private struct PayeeDetail: View {
                 }
                 Card(summary: true) {
                     VStack(alignment: .leading, spacing: 12) {
-                        Headline(label: "今年", value: money(spent, ledger.base))
+                        Headline(label: period.isCurrent && period.day == nil ? period.current : period.title, value: money(spent, ledger.base))
                         SummaryFigures(items: [("月均", money(spent / months, ledger.base), .primary),
-                                               ("每笔约", money(thisYear.isEmpty ? 0 : spent / Double(thisYear.count), ledger.base), .primary)])
+                                               ("每笔约", money(inPeriod.isEmpty ? 0 : spent / Double(inPeriod.count), ledger.base), .primary)])
                     }
                 }
                 SideBySide {
                     Card {
                         VStack(alignment: .leading, spacing: 0) {
-                            CardTitle("近 12 个月")
-                            MonthlySpend(ledger: ledger, entries: entries)
+                            CardTitle("每月")
+                            MonthlySpend(ledger: ledger, entries: entries, months: monthsTo(period))
                         }
                     }
                     Card {
@@ -78,7 +102,7 @@ private struct PayeeDetail: View {
                         }
                     }
                 }
-                EntryListCard(entries: Array(entries.reversed().prefix(200)), ledger: ledger, config: config, folder: folder,
+                EntryListCard(entries: Array(inPeriod.reversed().prefix(200)), ledger: ledger, config: config, folder: folder,
                               columns: [.date, .payee, .category, .accounts, .amount]) {
                     CardTitle("交易")
                 }
@@ -102,15 +126,15 @@ private struct PayeeDetail: View {
     }
 }
 
-/// what went to a payee in each of the last twelve months, in the operating currency
+/// what went to a payee in each of `months`, in the operating currency
 private struct MonthlySpend: View {
     let ledger: Ledger
     let entries: [Entry]
+    let months: [String]
 
     var body: some View {
-        let months = (0..<12).map { Day.addMonth(Day.ym(Day.today()), $0 - 11) }
         var spent: [String: Double] = [:]
-        for entry in entries where entry.date >= months[0] {
+        for entry in entries where entry.date >= months[0] && Day.ym(entry.date) <= months[months.count - 1] {
             let shown = classify(entry, ledger)
             if shown.kind == .expense || shown.kind == .refund { spent[Day.ym(entry.date), default: 0] -= shown.amount }
         }
@@ -126,7 +150,7 @@ private struct MonthlySpend: View {
             }
         }
         .frame(height: 100)
-        .accessibilityLabel("近 12 个月支出")
+        .accessibilityLabel("每月支出")
     }
 }
 
