@@ -160,6 +160,8 @@ final class EditInteractionTests: XCTestCase {
         let cancel = app.buttons["account.cancel"]
         XCTAssertTrue(cancel.waitForExistence(timeout: 5)); XCTAssertTrue(cancel.isHittable)
         cancel.tap()
+        // the picker is still sliding away for a moment; the field under it can't take a tap until it's gone
+        XCTAssertTrue(app.textFields["account.search"].waitForNonExistence(timeout: 5))
         XCTAssertEqual(to.value as? String, "")
         to.tap()
         tapPoint(app.textFields["account.search"], timeout: 5)
