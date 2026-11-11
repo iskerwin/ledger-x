@@ -44,14 +44,15 @@ struct EntryWidths: Equatable {
         let captions = rows.flatMap { row in
             row.charged.map(\.text) + (balances[ObjectIdentifier(row.entry)].map { balance in balance.order.map { money(balance.amounts[$0] ?? 0, $0) } } ?? [])
         }
-        let gap: CGFloat = 16
+        // the cell's padding, and a little over what's measured: drawn, a text can come out a point wider and be cut short
+        let gap: CGFloat = 16 + 4
         var widths = EntryWidths()
         widths.natural[.date] = max(widest(rows.map { shortDay($0.date) }, digits, figures: true), width("日期", body)) + gap
         widths.natural[.category] = min(max(widest(rows.map(\.category), body), width("分类", body)) + gap, 160)
         widths.natural[.accounts] = min(max(widest(rows.map(\.accounts), body), width("账户", body)) + gap, 220)
         // nothing to show in it, no column
         widths.natural[.status] = rows.contains(where: \.marked) ? 90 : 0
-        widths.natural[.amount] = max(widest(amounts, digits, figures: true), widest(captions, small, figures: true), width("金额", body)) + gap + 4
+        widths.natural[.amount] = max(widest(amounts, digits, figures: true), widest(captions, small, figures: true), width("金额", body)) + gap
         return widths
     }
 
@@ -188,7 +189,7 @@ struct EntryRow: View {
         case .payee: PayeeCell(line: line, ledger: ledger, picked: picked)
         case .category: Text(line.category).foregroundStyle(quiet)
         case .accounts: Text(line.accounts).foregroundStyle(quiet)
-        case .status: StatusCell(entry: line.entry)
+        case .status: StatusCell(entry: line.entry, picked: picked)
         case .amount: AmountCell(line: line, balance: balance, picked: picked)
         }
     }
@@ -559,23 +560,26 @@ private struct PayeeCell: View {
 /// 待确认, pad, and the first tag with how many more; a click on the tag puts it into the window's search
 private struct StatusCell: View {
     let entry: Entry
+    /// on the selection's colour, orange and grey don't read: white
+    let picked: Bool
     @Environment(\.filterTag) private var filterTag
 
     var body: some View {
         let tags = entry.tags.filter { $0 != "transfer" && $0 != "fx" }
+        let quiet = picked ? Color.white : Color.secondary
         HStack(spacing: 4) {
-            if entry.flag == "!" { RowTag(text: "待确认", color: .orange) }
-            if entry.synthetic { RowTag(text: "pad", color: .secondary) }
+            if entry.flag == "!" { RowTag(text: "待确认", color: picked ? .white : .orange) }
+            if entry.synthetic { RowTag(text: "pad", color: quiet) }
             // a narrow column cuts the tag short: a count alone reads as a tag of its own
             if let first = tags.first {
                 if let filterTag {
-                    Button { filterTag(first) } label: { RowTag(text: "#" + first, color: .secondary, shortens: true) }
+                    Button { filterTag(first) } label: { RowTag(text: "#" + first, color: quiet, shortens: true) }
                         .buttonStyle(.plain)
                 } else {
-                    RowTag(text: "#" + first, color: .secondary, shortens: true)
+                    RowTag(text: "#" + first, color: quiet, shortens: true)
                 }
             }
-            if tags.count > 1 { RowTag(text: "+\(tags.count - 1)", color: .secondary) }
+            if tags.count > 1 { RowTag(text: "+\(tags.count - 1)", color: quiet) }
         }
     }
 }

@@ -64,7 +64,14 @@ private struct BudgetRow: View {
             }
             Group {
                 if let ratio {
-                    ProgressView(value: min(ratio, 1)).tint(color)
+                    // drawn, not the system's bar: on the selection's green a green bar can't be told from it
+                    GeometryReader { geometry in
+                        Capsule().fill(picked ? Color.white.opacity(0.3) : Color.primary.opacity(0.08))
+                            .overlay(alignment: .leading) {
+                                Capsule().fill(picked ? Color.white : color).frame(width: geometry.size.width * min(max(ratio, 0), 1))
+                            }
+                    }
+                    .frame(height: 4)
                 } else {
                     Text("进度").frame(maxWidth: .infinity, alignment: .leading)
                 }
