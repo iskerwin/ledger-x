@@ -100,6 +100,8 @@ struct MainView: View {
     @State private var period = ViewPeriod()
     /// the account the journal keeps to
     @State private var account: String?
+    /// the 账户 page's categories keep to the period; what's held and owed is as of now
+    @AppStorage("accountsMode") private var accountsMode = AccountsMode.worth
 
     var body: some View {
         NavigationSplitView {
@@ -131,7 +133,7 @@ struct MainView: View {
                     drillable { OverviewPage(ledger: ledger, config: config, folder: folder, git: git, alerts: alerts, period: $period, page: $page) }
                 case .journal: JournalPage(ledger: ledger, config: config, folder: folder, scope: nil, period: period, account: account, searching: $searching)
                 case .accounts:
-                    drillable { AccountsPage(ledger: ledger, config: config, folder: folder) }
+                    drillable { AccountsPage(ledger: ledger, config: config, folder: folder, period: period) }
                 case .reports: drillable { ReportsPage(ledger: ledger, config: config, period: period) }
                 case .payees: PayeesPage(ledger: ledger, config: config, folder: folder)
                 case .year: drillable { YearPage(ledger: ledger, config: config, period: period) }
@@ -155,7 +157,7 @@ struct MainView: View {
             }
             .toolbar {
                 // a row's entries, a level down, keep to what the row counted
-                if (page ?? .overview).followsPeriod && !inScope {
+                if ((page ?? .overview).followsPeriod || page == .accounts && accountsMode != .worth) && !inScope {
                     ToolbarItemGroup(placement: .navigation) {
                         PeriodBar(period: $period)
                         if page == .journal { AccountFilter(ledger: ledger, account: $account) }

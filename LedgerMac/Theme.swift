@@ -71,7 +71,7 @@ struct CategoryBadge: View {
     var body: some View {
         let account = shownCategory(entry)
         let symbol = account.map { categorySymbol(catOf($0)) } ?? "arrow.left.arrow.right"
-        let color = account.map { categoryColor($0) } ?? .gray
+        let color = account.map { categoryColor(ledger, $0) } ?? .gray
         Image(systemName: symbol)
             .font(.system(size: size * 0.5, weight: .semibold))
             .foregroundStyle(.white)
@@ -79,11 +79,12 @@ struct CategoryBadge: View {
             .background(color, in: RoundedRectangle(cornerRadius: size * 0.27, style: .continuous))
             .accessibilityHidden(true)
     }
+}
 
-    private func categoryColor(_ account: String) -> Color {
-        let group = catOf(account), count = CategoryPalette.colors.count
-        return CategoryPalette.color(categoryColorSlots(ledger, count: count)[group] ?? stableColorSlot(group, count: count))
-    }
+/// a category's colour, its group's on the phone and here
+func categoryColor(_ ledger: Ledger, _ account: String) -> Color {
+    let group = catOf(account), count = CategoryPalette.colors.count
+    return CategoryPalette.color(categoryColorSlots(ledger, count: count)[group] ?? stableColorSlot(group, count: count))
 }
 
 /// the big figure of a summary card; a long one gets smaller, not cut off

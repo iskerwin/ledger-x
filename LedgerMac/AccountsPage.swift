@@ -31,11 +31,29 @@ private struct AccountLine: Identifiable {
     }
 }
 
-/// the accounts on the left as on the phone (净资产, then each group's accounts with their icon), the picked one on the right
+/// what the 账户 page lists: what's held and owed, or the categories money came from or went to in the period
+enum AccountsMode: String, CaseIterable {
+    case worth = "资产负债", income = "收入", expenses = "支出"
+
+    var root: String? { self == .income ? "Income" : self == .expenses ? "Expenses" : nil }
+}
+
+/// a category with what came or went in the period, the way it reads (income as a positive figure)
+private struct CategoryLine {
+    let name: String
+    let amount: Double
+    /// under a category of its own, a level down
+    let sub: Bool
+}
+
+/// the accounts on the left as on the phone (净资产, then each group's accounts with their icon), or the categories with
+/// what they took in the period as Fava's income statement; the picked one on the right
 struct AccountsPage: View {
     let ledger: Ledger
     let config: LedgerXConfig?
     let folder: URL
+    let period: ViewPeriod
+    @AppStorage("accountsMode") private var mode = AccountsMode.worth
     @State private var selected: String?
     /// groups folded away, on this Mac
     @AppStorage("accountsFolded") private var foldedRaw = ""
@@ -45,40 +63,58 @@ struct AccountsPage: View {
         let lines = accountLines
         // when each card's bill is due, where one is still owed
         let due = Dictionary(ledger.cardCyclesKept().filter { $0.statementAmount - $0.paid > 0.005 }.map { ($0.account, $0.due) }) { a, _ in a }
+        let categories = categoryLines
+        let names = mode == .worth ? lines.filter { !folded.contains(rootGroup($0)) }.map(\.name) : categories.lines.map(\.name)
         HStack(spacing: 0) {
-            ScrollViewReader { scroller in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        worthCard
-                        ForEach(["Assets", "Liabilities"], id: \.self) { root in
-                            ForEach(groups(lines.filter { $0.name.hasPrefix(root + ":") }), id: \.0) { group in
-                                groupSection(root + ":" + group.0, group.0, group.1, due)
+            VStack(spacing: 0) {
+                Picker(selection: $mode) {
+                    ForEach(AccountsMode.allCases, id: \.self) { Text($0.rawValue) }
+                } label: { EmptyView() }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .padding([.horizontal, .top], 12)
+                ScrollViewReader { scroller in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 12) {
+                            if mode == .worth {
+                                worthCard
+                                ForEach(["Assets", "Liabilities"], id: \.self) { root in
+                                    ForEach(groups(lines.filter { $0.name.hasPrefix(root + ":") }), id: \.0) { group in
+                                        groupSection(root + ":" + group.0, group.0, group.1, due)
+                                    }
+                                }
+                            } else {
+                                Card(summary: true) { Headline(label: mode.rawValue, value: money(categories.total, ledger.base)) }
+                                if !categories.lines.isEmpty { categoryCard(categories.lines) }
                             }
                         }
-                    }
-                    .padding(12)
-                    // ↑ ↓ go through the accounts in sight, as in a list: on the content, since the scroll view takes the arrows for scrolling
-                    .focusable()
-                    .focused($listFocused)
-                    .focusEffectDisabled()
-                    .onMoveCommand { direction in
-                        let shown = lines.filter { !folded.contains(rootGroup($0)) }.map(\.name)
-                        guard !shown.isEmpty else { return }
-                        let at = selected.flatMap { shown.firstIndex(of: $0) } ?? -1
-                        switch direction {
-                        case .up: selected = shown[max(0, at - 1)]
-                        case .down: selected = shown[min(shown.count - 1, at + 1)]
-                        default: return
+                        .padding(12)
+                        // ↑ ↓ go through the accounts in sight, as in a list: on the content, since the scroll view takes the arrows for scrolling
+                        .focusable()
+                        .focused($listFocused)
+                        .focusEffectDisabled()
+                        .onMoveCommand { direction in
+                            let shown = names
+                            guard !shown.isEmpty else { return }
+                            let at = selected.flatMap { shown.firstIndex(of: $0) } ?? -1
+                            switch direction {
+                            case .up: selected = shown[max(0, at - 1)]
+                            case .down: selected = shown[min(shown.count - 1, at + 1)]
+                            default: return
+                            }
+                            if let selected { scroller.scrollTo(selected) }
                         }
-                        if let selected { scroller.scrollTo(selected) }
                     }
                 }
             }
             .frame(width: 340)
             Divider()
             Group {
-                if let selected, let line = lines.first(where: { $0.name == selected }) {
-                    AccountDetail(ledger: ledger, config: config, account: line.name, balance: line.balance, folder: folder)
+                if mode == .worth, let selected, let line = lines.first(where: { $0.name == selected }) {
+                    AccountDetail(ledger: ledger, config: config, account: line.name, balance: line.balance, folder: folder, mode: mode, period: period)
+                        .id(selected)
+                } else if mode != .worth, let selected, categories.lines.contains(where: { $0.name == selected }) {
+                    AccountDetail(ledger: ledger, config: config, account: selected, balance: Inventory(), folder: folder, mode: mode, period: period)
                         .id(selected)
                 } else {
                     Color.page
@@ -89,9 +125,78 @@ struct AccountsPage: View {
         // one ground on both sides: the cards need the page colour to show
         .background(Color.page)
         .onAppear {
-            if selected == nil { selected = lines.first?.name }
+            if selected == nil { selected = names.first }
             listFocused = true
         }
+        // a category that took nothing in the new period leaves the list, and the switch starts on the first line
+        .onChange(of: names) { if !(selected.map(names.contains) ?? false) { selected = names.first } }
+    }
+
+    /// the period's span; all time runs from the first entry to today
+    private var span: (String, String) {
+        let today = Day.today()
+        return period.span ?? (min(ledger.txns.first?.date ?? today, today), today)
+    }
+
+    /// each category a level under the root that took something in the period, the most first, each with those under it
+    private var categoryLines: (total: Double, lines: [CategoryLine]) {
+        guard let root = mode.root else { return (0, []) }
+        let report = ledger.incomeStatementKept(from: span.0, to: span.1)
+        let node = root == "Income" ? report.income : report.expenses
+        let sign = root == "Income" ? -1.0 : 1.0
+        func taken(_ nodes: [AccountNode]) -> [AccountNode] {
+            nodes.filter { abs($0.total) > 0.005 }.sorted { sign * $0.total > sign * $1.total }
+        }
+        let lines = taken(node.children).flatMap { group in
+            [CategoryLine(name: group.name, amount: sign * group.total, sub: false)]
+                + taken(group.children).map { CategoryLine(name: $0.name, amount: sign * $0.total, sub: true) }
+        }
+        return (sign * node.total, lines)
+    }
+
+    /// the categories on one card: each with its icon and colour, those under it indented below
+    private func categoryCard(_ lines: [CategoryLine]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(lines.enumerated()), id: \.element.name) { index, line in
+                if index > 0 { Divider().padding(.leading, line.sub ? 52 : 8) }
+                categoryRow(line).id(line.name)
+            }
+        }
+        .padding(4)
+        .background(Color.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func categoryRow(_ line: CategoryLine) -> some View {
+        let picked = selected == line.name
+        return Button {
+            selected = line.name
+            listFocused = true
+        } label: {
+            HStack(spacing: 10) {
+                if line.sub {
+                    Color.clear.frame(width: 32, height: 1)
+                } else {
+                    Image(systemName: categorySymbol(line.name))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 32, height: 32)
+                        .background(categoryColor(ledger, line.name), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .accessibilityHidden(true)
+                }
+                Text(accountTitle(ledger, line.name)).lineLimit(1)
+                Spacer(minLength: 8)
+                Text(money(line.amount, ledger.base)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .font(line.sub ? .callout : .body)
+            .foregroundStyle(picked ? Color.white : line.sub ? Color.secondary : Color.primary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, line.sub ? 5 : 7)
+            .background(picked ? Color.jade : Color.clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .focusEffectDisabled()
+        .accessibilityAddTraits(picked ? .isSelected : [])
     }
 
     /// 净资产 as on the phone's card: what it comes to, what's held and owed, and how much of it is owed
@@ -255,6 +360,8 @@ private struct AccountKey: Hashable {
     let ledger: ObjectIdentifier
     let account: String
     let sort: [KeyPathComparator<JournalRow>]
+    /// a category's entries keep to the period
+    let span: [String]?
 }
 
 /// the picked account as Fava's account page: its balance over the year, then every entry with what it held after
@@ -265,6 +372,8 @@ private struct AccountDetail: View {
     let account: String
     let balance: Inventory
     let folder: URL
+    let mode: AccountsMode
+    let period: ViewPeriod
     @AppStorage("accountTab") private var tab = AccountTab.entries
     @State private var checking = false
     @State private var lines: [JournalRow] = []
@@ -285,13 +394,17 @@ private struct AccountDetail: View {
                         Text(account).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
                     }
                     Spacer()
-                    Button("核对余额…", systemImage: "checkmark.circle") { checking = true }
+                    if mode == .worth { Button("核对余额…", systemImage: "checkmark.circle") { checking = true } }
                 }
-                // each currency for itself, side by side: they aren't added up here
-                HStack(alignment: .top, spacing: 12) {
-                    ForEach(amounts.isEmpty ? [CurrencyAmount(ledger.base, 0)] : amounts, id: \.currency) { amount in
-                        Card(summary: true) {
-                            BalanceChart(points: ledger.monthlyBalancesKept(account, currency: amount.currency), currency: amount.currency, current: amount.amount)
+                if let root = mode.root {
+                    Card(summary: true) { MonthAmountChart(points: monthAmounts(root), currency: ledger.base, label: mode.rawValue) }
+                } else {
+                    // each currency for itself, side by side: they aren't added up here
+                    HStack(alignment: .top, spacing: 12) {
+                        ForEach(amounts.isEmpty ? [CurrencyAmount(ledger.base, 0)] : amounts, id: \.currency) { amount in
+                            Card(summary: true) {
+                                BalanceChart(points: ledger.monthlyBalancesKept(account, currency: amount.currency), currency: amount.currency, current: amount.amount)
+                            }
                         }
                     }
                 }
@@ -305,7 +418,7 @@ private struct AccountDetail: View {
                     .labelsHidden()
                     .fixedSize()
                     Spacer()
-                    if let check = lastCheck {
+                    if mode == .worth, let check = lastCheck {
                         Text("上次核对 " + check).font(.callout).foregroundStyle(.secondary)
                     }
                 }
@@ -321,7 +434,9 @@ private struct AccountDetail: View {
             }
         }
         .background(Color.page)
-        .task(id: AccountKey(ledger: ObjectIdentifier(ledger), account: account, sort: sortOrder)) { await rebuild() }
+        .task(id: AccountKey(ledger: ObjectIdentifier(ledger), account: account, sort: sortOrder, span: mode == .worth ? nil : period.span.map { [$0.0, $0.1] })) {
+            await rebuild()
+        }
         .entryTasks($tasks, ledger: ledger, config: config, folder: folder)
         .sheet(isPresented: $checking) { CheckBalanceSheet(ledger: ledger, account: account, folder: folder) }
     }
@@ -330,12 +445,14 @@ private struct AccountDetail: View {
     private var months: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                MonthLine(month: "月份", change: "变动", end: "月末余额", heading: true)
+                MonthLine(month: "月份", change: mode == .worth ? "变动" : "金额", end: mode == .worth ? "月末余额" : nil, heading: true)
                 ForEach(accountMonths(ledger, account: account)) { month in
                     Divider()
                     NavigationLink(value: JournalScope(title: accountTitle(ledger, account) + " · " + month.month, account: account,
                                                        from: month.month + "-01", to: Day.monthEnd(month.month))) {
-                        MonthLine(month: month.month, change: amountsText(month.change, ledger), end: amountsText(month.end, ledger), heading: false)
+                        // income reads as a positive figure, as on the list
+                        MonthLine(month: month.month, change: amountsText(mode == .income ? -month.change : month.change, ledger),
+                                  end: mode == .worth ? amountsText(month.end, ledger) : nil, heading: false)
                     }
                     .buttonStyle(.plain)
                 }
@@ -348,9 +465,13 @@ private struct AccountDetail: View {
     /// every entry on the account, with what it held after each, worked out away from the main thread
     private func rebuild() async {
         let ledger = ledger, account = account, sortOrder = sortOrder
+        // a category's entries in the period, without a running balance: what it took adds up over no span of its own
+        let span = mode == .worth ? nil : period.span, worth = mode == .worth
         let next = await Task.detached { () -> ([JournalRow], [ObjectIdentifier: Inventory], EntryWidths) in
-            let lines = journalRows(ledger, account: account).sorted(using: sortOrder)
-            let balances = ledger.runningBalancesKept(account)
+            let lines = journalRows(ledger, account: account)
+                .filter { line in span.map { line.entry.date >= $0.0 && line.entry.date <= $0.1 } ?? true }
+                .sorted(using: sortOrder)
+            let balances = worth ? ledger.runningBalancesKept(account) : [:]
             return (lines, balances, EntryWidths.measure(lines, balances: balances))
         }.value
         guard !Task.isCancelled else { return }
@@ -362,6 +483,16 @@ private struct AccountDetail: View {
         if !selected.isSubset(of: shown) { selected.formIntersection(shown) }
     }
 
+    /// what the category took each month in the operating currency, the twelve up to the period's end
+    private func monthAmounts(_ root: String) -> [BalancePoint] {
+        let now = Day.ym(Day.today())
+        let last = min(period.span.map { Day.ym($0.1) } ?? now, now)
+        let months = (0..<12).map { Day.addMonth(last, $0 - 11) }
+        let columns = ledger.monthColumnsKept(months, roots: [root], held: false)
+        let sign = root == "Income" ? -1.0 : 1.0
+        return months.map { BalancePoint(month: $0, amount: sign * columns.value(account, $0)) }
+    }
+
     /// the latest assertion on this account that held
     private var lastCheck: String? {
         ledger.balanceResults.last { $0.ok && $0.entry.account == account }?.entry.date
@@ -371,7 +502,8 @@ private struct AccountDetail: View {
 private struct MonthLine: View {
     let month: String
     let change: String
-    let end: String
+    /// what it held at the month's end; a category holds nothing
+    let end: String?
     let heading: Bool
     @State private var hovering = false
 
@@ -379,7 +511,7 @@ private struct MonthLine: View {
         HStack(spacing: 16) {
             Text(month).monospacedDigit().frame(width: 80, alignment: .leading)
             Text(change).monospacedDigit().frame(maxWidth: .infinity, alignment: .trailing)
-            Text(end).monospacedDigit().frame(maxWidth: .infinity, alignment: .trailing)
+            if let end { Text(end).monospacedDigit().frame(maxWidth: .infinity, alignment: .trailing) }
         }
         .lineLimit(1)
         .foregroundStyle(heading ? Color.secondary : Color.primary)

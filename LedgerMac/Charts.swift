@@ -52,6 +52,36 @@ struct BalanceChart: View {
     }
 }
 
+/// what a category took each month, a bar a month; the figure is the latest month's, or the one under the pointer
+struct MonthAmountChart: View {
+    let points: [BalancePoint]
+    let currency: String
+    /// 收入 or 支出, after the month
+    let label: String
+    @State private var picked: String?
+
+    var body: some View {
+        let shown = points.first { $0.month == picked } ?? points.last
+        VStack(alignment: .leading, spacing: 12) {
+            Headline(label: (shown.map { monthNumber($0.month) } ?? "") + label, value: money(shown?.amount ?? 0, currency))
+            Chart(points) { point in
+                BarMark(x: .value("月份", point.month), y: .value("金额", point.amount))
+                    .foregroundStyle(Color.jade)
+                    .cornerRadius(3)
+                    .opacity(picked == nil || picked == point.month ? 1 : 0.5)
+            }
+            .chartYAxis(.hidden)
+            .chartXAxis {
+                AxisMarks(values: labelled(points.map(\.month))) { value in
+                    AxisValueLabel { if let month = value.as(String.self) { Text(monthNumber(month)) } }
+                }
+            }
+            .pickingMonth($picked)
+            .frame(height: 180)
+        }
+    }
+}
+
 /// 月度收支, in the operating currency at each month's rates: a pair of bars a month. The figures are the latest month's, or the one under the pointer, in the same places.
 struct FlowCard: View {
     let months: [String]
