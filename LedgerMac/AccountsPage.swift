@@ -36,7 +36,6 @@ struct AccountsPage: View {
     let ledger: Ledger
     let config: LedgerXConfig?
     let folder: URL
-    let scope: (String) -> JournalScope
     @State private var selected: String?
     /// groups folded away, on this Mac
     @AppStorage("accountsFolded") private var foldedRaw = ""
@@ -79,7 +78,7 @@ struct AccountsPage: View {
             Divider()
             Group {
                 if let selected, let line = lines.first(where: { $0.name == selected }) {
-                    AccountDetail(ledger: ledger, config: config, account: line.name, balance: line.balance, folder: folder, scope: scope)
+                    AccountDetail(ledger: ledger, config: config, account: line.name, balance: line.balance, folder: folder)
                         .id(selected)
                 } else {
                     Color.page
@@ -247,19 +246,39 @@ struct AccountsPage: View {
     }
 }
 
+private enum AccountTab: String, CaseIterable {
+    case entries = "交易", months = "按月"
+}
+
+/// what an account's entries are listed by
+private struct AccountKey: Hashable {
+    let ledger: ObjectIdentifier
+    let account: String
+    let sort: [KeyPathComparator<JournalRow>]
+}
+
+/// the picked account as Fava's account page: its balance over the year, then every entry with what it held after
+/// each, or month by month what moved and what it held at the end
 private struct AccountDetail: View {
     let ledger: Ledger
     let config: LedgerXConfig?
     let account: String
     let balance: Inventory
     let folder: URL
-    let scope: (String) -> JournalScope
+    @AppStorage("accountTab") private var tab = AccountTab.entries
     @State private var checking = false
+    @State private var lines: [JournalRow] = []
+    @State private var balances: [ObjectIdentifier: Inventory] = [:]
+    @State private var widths = EntryWidths()
+    @State private var generation = 0
+    @State private var selected = Set<String>()
+    @State private var sortOrder = [KeyPathComparator(\JournalRow.date, order: .reverse)]
+    @State private var tasks = EntryTasks()
 
     var body: some View {
         let amounts = balance.byCurrency(base: ledger.base)
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(accountTitle(ledger, account)).font(.title2.weight(.semibold))
@@ -268,36 +287,106 @@ private struct AccountDetail: View {
                     Spacer()
                     Button("核对余额…", systemImage: "checkmark.circle") { checking = true }
                 }
-                // each currency for itself: they aren't added up here
-                ForEach(amounts.isEmpty ? [CurrencyAmount(ledger.base, 0)] : amounts, id: \.currency) { amount in
-                    Card(summary: true) {
-                        BalanceChart(points: monthlyBalances(ledger, account: account, currency: amount.currency), currency: amount.currency, current: amount.amount)
+                // each currency for itself, side by side: they aren't added up here
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(amounts.isEmpty ? [CurrencyAmount(ledger.base, 0)] : amounts, id: \.currency) { amount in
+                        Card(summary: true) {
+                            BalanceChart(points: ledger.monthlyBalancesKept(account, currency: amount.currency), currency: amount.currency, current: amount.amount)
+                        }
                     }
                 }
-                if let check = lastCheck {
-                    Text("上次核对 " + check).font(.callout).foregroundStyle(.secondary)
-                }
-                EntryListCard(entries: recent, ledger: ledger, config: config, folder: folder, account: account) {
-                    HStack {
-                        Text("账户交易").fontWeight(.medium)
-                        Spacer()
-                        NavigationLink("查看全部", value: scope(account))
-                            .buttonStyle(.link)
+                HStack {
+                    Picker(selection: $tab) {
+                        ForEach(AccountTab.allCases, id: \.self) { Text($0.rawValue) }
+                    } label: {
+                        EmptyView()
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    Spacer()
+                    if let check = lastCheck {
+                        Text("上次核对 " + check).font(.callout).foregroundStyle(.secondary)
                     }
                 }
             }
             .padding(20)
+            Divider()
+            switch tab {
+            case .entries:
+                EntryList(lines: lines, generation: generation, balances: balances, widths: widths, ledger: ledger, config: config, folder: folder,
+                          sortOrder: $sortOrder, selected: $selected, tasks: $tasks, focus: false)
+            case .months:
+                months
+            }
         }
         .background(Color.page)
+        .task(id: AccountKey(ledger: ObjectIdentifier(ledger), account: account, sort: sortOrder)) { await rebuild() }
+        .entryTasks($tasks, ledger: ledger, config: config, folder: folder)
         .sheet(isPresented: $checking) { CheckBalanceSheet(ledger: ledger, account: account, folder: folder) }
     }
 
-    private var recent: [Entry] {
-        Array(ledger.txns.reversed().lazy.filter { entry in entry.postings.contains { isExcluded($0.account, [account]) } }.prefix(8))
+    /// each month it moved in, the latest first: what moved and what it held at the end; a click opens that month's entries
+    private var months: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                MonthLine(month: "月份", change: "变动", end: "月末余额", heading: true)
+                ForEach(accountMonths(ledger, account: account)) { month in
+                    Divider()
+                    NavigationLink(value: JournalScope(title: accountTitle(ledger, account) + " · " + month.month, account: account,
+                                                       from: month.month + "-01", to: Day.monthEnd(month.month))) {
+                        MonthLine(month: month.month, change: amountsText(month.change, ledger), end: amountsText(month.end, ledger), heading: false)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
+        }
+    }
+
+    /// every entry on the account, with what it held after each, worked out away from the main thread
+    private func rebuild() async {
+        let ledger = ledger, account = account, sortOrder = sortOrder
+        let next = await Task.detached { () -> ([JournalRow], [ObjectIdentifier: Inventory], EntryWidths) in
+            let lines = journalRows(ledger, account: account).sorted(using: sortOrder)
+            let balances = ledger.runningBalancesKept(account)
+            return (lines, balances, EntryWidths.measure(lines, balances: balances))
+        }.value
+        guard !Task.isCancelled else { return }
+        lines = next.0
+        balances = next.1
+        widths = next.2
+        generation += 1
+        let shown = Set(lines.map(\.id))
+        if !selected.isSubset(of: shown) { selected.formIntersection(shown) }
     }
 
     /// the latest assertion on this account that held
     private var lastCheck: String? {
         ledger.balanceResults.last { $0.ok && $0.entry.account == account }?.entry.date
+    }
+}
+
+private struct MonthLine: View {
+    let month: String
+    let change: String
+    let end: String
+    let heading: Bool
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(spacing: 16) {
+            Text(month).monospacedDigit().frame(width: 80, alignment: .leading)
+            Text(change).monospacedDigit().frame(maxWidth: .infinity, alignment: .trailing)
+            Text(end).monospacedDigit().frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .lineLimit(1)
+        .foregroundStyle(heading ? Color.secondary : Color.primary)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 6)
+        .contentShape(Rectangle())
+        .background(hovering && !heading ? Color.primary.opacity(0.06) : Color.clear, in: RoundedRectangle(cornerRadius: 4))
+        .onHover { hovering = $0 }
     }
 }

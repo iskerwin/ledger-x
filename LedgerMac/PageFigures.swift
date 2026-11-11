@@ -84,6 +84,16 @@ extension Ledger {
         kept("periodBalances|\(end)") { periodBalances(self, to: end) }
     }
 
+    /// what `account` and those under it hold after each entry that moves them
+    func runningBalancesKept(_ account: String) -> [ObjectIdentifier: Inventory] {
+        kept("runningBalances|" + account) { runningBalances(self, account: account) }
+    }
+
+    /// what `account` held at the end of each of the last twelve months, in one currency
+    func monthlyBalancesKept(_ account: String, currency: String) -> [BalancePoint] {
+        kept("monthlyBalances|\(account)|\(currency)|\(Day.today())") { monthlyBalances(self, account: account, currency: currency) }
+    }
+
     /// the entries with this payee, oldest first
     func payeeEntriesKept(_ name: String) -> [Entry] {
         kept("payeeEntries|\(name)") { txns.filter { !$0.synthetic && $0.payee == name } }

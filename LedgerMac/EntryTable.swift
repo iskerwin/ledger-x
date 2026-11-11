@@ -274,3 +274,77 @@ private final class MenuAction: NSObject {
 
     @objc func fire() { run() }
 }
+
+/// how the rows in sight look besides the list: the table draws them again when it changes
+private struct TableLook: Hashable {
+    let generation: Int
+    let columns: [EntryColumn]
+    let widths: [EntryColumn: CGFloat]
+    let hidden: Bool
+    let postings: Bool
+}
+
+/// entries under the names of their columns on the table: the amount keeps its width at the end, the one picked opens
+/// in place, ↩ edits it, ⌫ deletes it, and a right-click has the rest
+struct EntryList: View {
+    let lines: [JournalRow]
+    /// counts the lists worked out, for the table to know a new one
+    let generation: Int
+    /// what the account being looked through holds after each
+    let balances: [ObjectIdentifier: Inventory]
+    let widths: EntryWidths
+    let ledger: Ledger
+    let config: LedgerXConfig?
+    let folder: URL
+    @Binding var sortOrder: [KeyPathComparator<JournalRow>]
+    @Binding var selected: Set<String>
+    @Binding var tasks: EntryTasks
+    var postings = false
+    let focus: Bool
+    @AppStorage("hideAmounts") private var hideAmounts = false
+
+    /// the one picked, open under its row; several picked have nothing single to show
+    private var picked: Entry? {
+        guard selected.count == 1, let id = selected.first else { return nil }
+        return lines.first { $0.id == id }?.entry
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            let layout = widths.fit(EntryColumn.allCases, in: geometry.size.width)
+            let columns = layout.columns
+            VStack(spacing: 0) {
+                EntryHeader(columns: columns, widths: layout.widths, sortOrder: $sortOrder)
+                Divider()
+                EntryTable(lines: lines,
+                           look: TableLook(generation: generation, columns: columns, widths: layout.widths, hidden: hideAmounts, postings: postings),
+                           selected: $selected,
+                           row: { line, index, picked in
+                               AnyView(EntryRow(line: line, ledger: ledger, columns: columns, widths: layout.widths, picked: picked,
+                                                balance: balances[ObjectIdentifier(line.entry)], postings: postings)
+                                   .background(index.isMultiple(of: 2) ? Color.clear : Color.primary.opacity(0.035)))
+                           },
+                           panel: { line in AnyView(SourcePanel(entry: line.entry, ledger: ledger, config: config, folder: folder, tasks: $tasks)) },
+                           menu: menu,
+                           open: {
+                               guard let entry = picked, entry.editable else { return }
+                               tasks.edit(entry, ledger, config)
+                           },
+                           delete: { tasks.deleting = picked.flatMap { $0.editable ? $0 : nil } },
+                           focus: focus)
+            }
+        }
+    }
+
+    private func menu(_ chosen: [JournalRow]) -> [TableMenuItem] {
+        let entries = chosen.map(\.entry)
+        guard entries.count == 1, let entry = entries.first else {
+            return [TableMenuItem(title: "复制 \(entries.count) 笔原文") { EntryTasks.copy(entries) }]
+        }
+        return [TableMenuItem(title: "编辑…", enabled: entry.editable) { tasks.edit(entry, ledger, config) },
+                TableMenuItem(title: "复制原文") { EntryTasks.copy(entries) },
+                TableMenuItem(title: "打开所在文件") { EntryTasks.open(entry, in: folder) },
+                .divider,
+                TableMenuItem(title: "删除…", enabled: entry.editable) { tasks.deleting = entry }]
+    }
+}

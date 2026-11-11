@@ -126,7 +126,7 @@ struct MainView: View {
                     drillable { OverviewPage(ledger: ledger, config: config, folder: folder, git: git, alerts: alerts, period: $period, page: $page) }
                 case .journal: JournalPage(ledger: ledger, config: config, folder: folder, scope: nil, period: period, account: account, searching: $searching)
                 case .accounts:
-                    drillable { AccountsPage(ledger: ledger, config: config, folder: folder) { JournalScope(title: accountTitle(ledger, $0), account: $0) } }
+                    drillable { AccountsPage(ledger: ledger, config: config, folder: folder) }
                 case .reports: drillable { ReportsPage(ledger: ledger, config: config, period: period) }
                 case .payees: PayeesPage(ledger: ledger, config: config, folder: folder)
                 case .year: drillable { YearPage(ledger: ledger, config: config, period: period) }

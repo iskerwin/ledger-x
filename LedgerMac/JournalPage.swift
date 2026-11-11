@@ -32,15 +32,6 @@ private enum Shown: String, CaseIterable {
     static let usual = "txn,pad"
 }
 
-/// how the rows in sight look besides the list: the table draws them again when it changes
-private struct TableLook: Hashable {
-    let generation: Int
-    let columns: [EntryColumn]
-    let widths: [EntryColumn: CGFloat]
-    let hidden: Bool
-    let postings: Bool
-}
-
 /// what the table's rows depend on: anything else redrawing the page doesn't work them out again
 private struct LinesKey: Hashable {
     let ledger: ObjectIdentifier
@@ -75,7 +66,6 @@ struct JournalPage: View {
     @State private var built = Built()
     @State private var selected = Set<String>()
     @State private var sortOrder = [KeyPathComparator(\JournalRow.date, order: .reverse)]
-    @AppStorage("hideAmounts") private var hideAmounts = false
     /// the kinds of entry listed, by name, comma-separated
     @AppStorage("journalShown") private var shownRaw = Shown.usual
     /// each entry's account lines under it
@@ -87,13 +77,6 @@ struct JournalPage: View {
     }
 
     private var lines: [JournalRow] { built.lines }
-
-    /// the one picked, open under its row; several picked have nothing single to show
-    private var pickedID: String? { selected.count == 1 ? selected.first : nil }
-
-    private var picked: Entry? {
-        pickedID.flatMap { id in lines.first { $0.id == id }?.entry }
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -136,33 +119,10 @@ struct JournalPage: View {
         .padding(.vertical, 8)
     }
 
-    /// our own rows on an AppKit table: the amount keeps its width at the end, the picked row opens in place, and only
-    /// the rows in sight are drawn
     private var list: some View {
-        GeometryReader { geometry in
-            let layout = built.widths.fit(EntryColumn.allCases, in: geometry.size.width)
-            let columns = layout.columns
-            VStack(spacing: 0) {
-                EntryHeader(columns: columns, widths: layout.widths, sortOrder: $sortOrder)
-                Divider()
-                EntryTable(lines: lines,
-                           look: TableLook(generation: built.generation, columns: columns, widths: layout.widths, hidden: hideAmounts, postings: postings),
-                           selected: $selected,
-                           row: { line, index, picked in
-                               AnyView(EntryRow(line: line, ledger: ledger, columns: columns, widths: layout.widths, picked: picked,
-                                                balance: built.balances[ObjectIdentifier(line.entry)], postings: postings)
-                                   .background(index.isMultiple(of: 2) ? Color.clear : Color.primary.opacity(0.035)))
-                           },
-                           panel: { line in AnyView(SourcePanel(entry: line.entry, ledger: ledger, config: config, folder: folder, tasks: $tasks)) },
-                           menu: menu,
-                           open: {
-                               guard let entry = picked, entry.editable else { return }
-                               tasks.edit(entry, ledger, config)
-                           },
-                           delete: { tasks.deleting = picked.flatMap { $0.editable ? $0 : nil } },
-                           focus: !searching)
-            }
-        }
+        EntryList(lines: lines, generation: built.generation, balances: built.balances, widths: built.widths,
+                  ledger: ledger, config: config, folder: folder, sortOrder: $sortOrder, selected: $selected, tasks: $tasks,
+                  postings: postings, focus: !searching)
     }
 
     private var shown: Set<Shown> { Set(shownRaw.split(separator: ",").compactMap { Shown(rawValue: String($0)) }) }
@@ -173,18 +133,6 @@ struct JournalPage: View {
             if on { next.insert(item) } else { next.remove(item) }
             shownRaw = Shown.allCases.filter(next.contains).map(\.rawValue).joined(separator: ",")
         })
-    }
-
-    private func menu(_ chosen: [JournalRow]) -> [TableMenuItem] {
-        let entries = chosen.map(\.entry)
-        guard entries.count == 1, let entry = entries.first else {
-            return [TableMenuItem(title: "复制 \(entries.count) 笔原文") { EntryTasks.copy(entries) }]
-        }
-        return [TableMenuItem(title: "编辑…", enabled: entry.editable) { tasks.edit(entry, ledger, config) },
-                TableMenuItem(title: "复制原文") { EntryTasks.copy(entries) },
-                TableMenuItem(title: "打开所在文件") { EntryTasks.open(entry, in: folder) },
-                .divider,
-                TableMenuItem(title: "删除…", enabled: entry.editable) { tasks.deleting = entry }]
     }
 
     /// the rows of the whole ledger are worked out once for it; picking from them, sorting and measuring them happen
@@ -211,7 +159,7 @@ struct JournalPage: View {
                         && (scope?.from.map { date >= $0 } ?? true) && (scope?.to.map { date <= $0 } ?? true)
                 }
             let lines = (transactions + directives).sorted(using: sortOrder)
-            let balances = held.map { account in ledger.memoized("runningBalances|" + account) { runningBalances(ledger, account: account) } } ?? [:]
+            let balances = held.map { ledger.runningBalancesKept($0) } ?? [:]
             return Built(lines: lines, balances: balances, widths: EntryWidths.measure(lines, balances: balances))
         }.value
         guard !Task.isCancelled else { return }
