@@ -291,13 +291,57 @@ public func applyingSuggestedAccounts(_ draft: Draft, category: String?, funding
     return d
 }
 
-/// a known payee fills in the category and paying account of its last entry; with `onlyBlanks`, only what isn't filled in
+/// a known payee fills in the category and paying account of its last entry; with `onlyBlanks`, only what isn't filled in.
+/// What was picked by hand stays (`applyingSuggestedAccounts`)
 public func applyingPayee(_ draft: Draft, name: String, _ D: Derived, onlyBlanks: Bool = false) -> Draft {
     var d = draft
     d.payee = name
     d.edited = nil
     guard let p = D.payee(name) else { return d }
-    let t = p.last
+    return applyingEntry(d, p.last, onlyBlanks: onlyBlanks)
+}
+
+/// a known note fills in as a payee does, from the last entry with it: with a known payee written, its own last entry
+/// with this note (none, and what the payee filled in stays); else the last entry with the note, whoever it was with
+public func applyingNarration(_ draft: Draft, text: String, _ D: Derived, onlyBlanks: Bool = false) -> Draft {
+    var d = draft
+    d.narration = text
+    d.edited = nil
+    if let p = D.payee(d.payee.trimmingCharacters(in: .whitespaces)) {
+        return p.lastWith[text].map { applyingEntry(d, $0, onlyBlanks: onlyBlanks) } ?? d
+    }
+    return D.narration(text).map { applyingEntry(d, $0.last, onlyBlanks: onlyBlanks) } ?? d
+}
+
+/// notes to offer while one is typed, matched loosely (`fuzzy`): what holds the typed text whole before what has it
+/// spread through, the payee's own notes before the rest, then the most used and lately
+public func narrationSuggestions(_ D: Derived, typed: String, payee: String, limit: Int) -> [String] {
+    let q = typed.trimmingCharacters(in: .whitespaces)
+    var seen = Set<String>()
+    let all = (D.payee(payee.trimmingCharacters(in: .whitespaces))?.narrations ?? []) + D.narrationStats.map(\.text)
+    let found = all.compactMap { text -> (text: String, score: Int)? in
+        guard seen.insert(text).inserted else { return nil }
+        let score = q.isEmpty ? 1 : fuzzy(q, text)
+        return score > 0 ? (text, score) : nil
+    }
+    return found.enumerated()
+        .sorted { $0.element.score != $1.element.score ? $0.element.score > $1.element.score : $0.offset < $1.offset }
+        .prefix(limit).map(\.element.text)
+}
+
+/// 2 when `s` holds `q`, 1 when `q`'s characters come in `s` in order, else 0; case ignored
+public func fuzzy(_ q: String, _ s: String) -> Int {
+    let q = q.lowercased(), s = s.lowercased()
+    if s.contains(q) { return 2 }
+    var it = q.makeIterator()
+    var c = it.next()
+    for ch in s where ch == c { c = it.next() }
+    return c == nil ? 1 : 0
+}
+
+/// what a past entry fills in: its category (with the category's currency) and paying account
+private func applyingEntry(_ draft: Draft, _ t: Entry, onlyBlanks: Bool) -> Draft {
+    var d = draft
     if d.kind == .multi {
         if !d.rows.contains(where: { !$0.account.isEmpty || !$0.amount.trimmingCharacters(in: .whitespaces).isEmpty }) { d.rows = rowsFromTxn(t, withAmounts: false) }
         return d

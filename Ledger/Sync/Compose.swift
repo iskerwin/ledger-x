@@ -349,13 +349,16 @@ extension Store {
         } else { draft = current }
     }
 
-    /// whether a category suits the kind of entry (income needs Income:, an expense Expenses:)
-    static func fits(_ k: DraftKind, _ account: String) -> Bool { draftKindFits(k, account) }
-
     /// a known payee fills in the category and paying account of its last entry
     func applyPayee(_ name: String, onlyBlanks: Bool = false) {
         guard let D = D else { return }
         draft = applyingPayee(draft, name: name, D, onlyBlanks: onlyBlanks)
+    }
+
+    /// a known note fills in as a payee does
+    func applyNarration(_ text: String, onlyBlanks: Bool = false) {
+        guard let D = D else { return }
+        draft = applyingNarration(draft, text: text, D, onlyBlanks: onlyBlanks)
     }
 
     /// Check and save the form (not 文本, which asks about replacing balance assertions first). True once it is
