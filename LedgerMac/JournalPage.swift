@@ -218,8 +218,8 @@ struct JournalPage: View {
         var fresh = next
         fresh.generation = built.generation + 1
         built = fresh
-        let shown = Set(next.lines.map(\.id))
-        if !selected.isSubset(of: shown) { selected.formIntersection(shown) }
+        let listed = Set(next.lines.map(\.id))
+        if !selected.isSubset(of: listed) { selected.formIntersection(listed) }
     }
 
     /// a row's entries, else the account picked for the whole journal
