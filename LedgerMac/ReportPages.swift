@@ -2,14 +2,6 @@ import SwiftUI
 import LedgerKit
 
 /// the search box's own words for these spans, so a period here means what it means there
-enum ReportPeriod: String, CaseIterable {
-    case thisMonth = "本月", lastMonth = "上月", thisYear = "今年", lastYear = "去年"
-
-    var title: String { rawValue }
-
-    var span: (String, String)? { TxQuery(rawValue).dateSpan }
-}
-
 private enum ReportTab: String, CaseIterable {
     case flow = "收支", statements = "财务报表"
 }
@@ -45,17 +37,18 @@ extension ReportScaffold where Bar == EmptyView {
     }
 }
 
-/// two tabs over the same month or year: 收支 (where it went, month by month, what came in and from whom) and 财务报表 (损益表, 资产负债表 and 试算平衡 together)
+/// two tabs over the window's time: 收支 (where it went, month by month, what came in and from whom) and 财务报表 (损益表, 资产负债表 and 试算平衡 together)
 struct ReportsPage: View {
     let ledger: Ledger
     let config: LedgerXConfig?
+    /// the window's time; all of it runs from the first entry to today
+    let period: ViewPeriod
     @AppStorage("reportTab") private var tab = ReportTab.flow
-    @State private var byYear = false
-    @State private var month = Day.ym(Day.today())
 
     var body: some View {
-        let span = PeriodStepper.span(byYear, month)
-        let title = PeriodStepper.title(byYear, month)
+        let today = Day.today()
+        let span = period.span ?? (min(ledger.txns.first?.date ?? today, today), today)
+        let title = period.title
         let scope: (String) -> JournalScope = { JournalScope(title: accountTitle(ledger, $0) + " · " + title, account: $0, from: span.0, to: span.1) }
         let report = ledger.incomeStatementKept(from: span.0, to: span.1)
         ReportScaffold {
@@ -67,11 +60,11 @@ struct ReportsPage: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             .fixedSize()
-            PeriodStepper(byYear: $byYear, month: $month)
+            Spacer()
         } content: {
             switch tab {
             case .flow:
-                PeriodSummary(ledger: ledger, title: (PeriodStepper.isCurrent(byYear, month) ? (byYear ? "今年" : "本月") : title), report: report)
+                PeriodSummary(ledger: ledger, title: period.isCurrent ? period.current : title, report: report)
                 SideBySide {
                     Card {
                         VStack(alignment: .leading, spacing: 0) {
@@ -92,9 +85,11 @@ struct ReportsPage: View {
         }
     }
 
-    /// the twelve months of the year, or the twelve up to the month
+    /// the twelve months of the year, or the twelve up to the period's last (this month at the latest)
     private var chartMonths: [String] {
-        byYear ? (1...12).map { String(month.prefix(4)) + String(format: "-%02d", $0) } : (0..<12).map { Day.addMonth(month, $0 - 11) }
+        if period.unit == .year && period.day == nil { return (1...12).map { String(period.month.prefix(4)) + String(format: "-%02d", $0) } }
+        let last = min(period.span.map { Day.ym($0.1) } ?? Day.ym(Day.today()), Day.ym(Day.today()))
+        return (0..<12).map { Day.addMonth(last, $0 - 11) }
     }
 }
 

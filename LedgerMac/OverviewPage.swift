@@ -10,10 +10,9 @@ struct OverviewPage: View {
     let git: FolderGitStatus?
     /// 值得留意 not checked yet
     let alerts: [Anomaly]
+    /// the window's time: a year for a year or all time, else the month it's in
+    @Binding var period: ViewPeriod
     @Binding var page: Page?
-    @State private var byYear = false
-    /// the month shown, or the year's last month
-    @State private var month = Day.ym(Day.today())
     /// the bar under the pointer: a month, or a year; the summary shows it until the pointer leaves
     @State private var hovered: String?
     /// the 值得留意 open under its row
@@ -21,32 +20,31 @@ struct OverviewPage: View {
     @State private var notice: String?
 
     var body: some View {
-        let span = PeriodStepper.span(byYear, month)
+        let span = MonthOrYear.span(byYear, month)
         let report = ledger.incomeStatementKept(from: span.0, to: span.1)
-        VStack(spacing: 0) {
-            PeriodStepper(byYear: $byYear, month: $month)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
-            Divider()
-            ScrollView {
-                VStack(spacing: 16) {
-                    summary
-                    SideBySide {
-                        categories(report.expenses, span)
-                        recent
-                    }
-                    todo
+        ScrollView {
+            VStack(spacing: 16) {
+                summary
+                SideBySide {
+                    categories(report.expenses, span)
+                    recent
                 }
-                .padding(20)
-                .pageWidth()
+                todo
             }
-            .background(Color.page)
+            .padding(20)
+            .pageWidth()
         }
+        .background(Color.page)
         .onChange(of: byYear) { hovered = nil }
         .alert(notice ?? "", isPresented: $notice.present()) {}
     }
 
-    private var title: String { PeriodStepper.title(byYear, month) }
+    private var byYear: Bool { period.byYear }
+
+    /// the month shown, or in the year shown
+    private var month: String { period.anchor }
+
+    private var title: String { MonthOrYear.title(byYear, month) }
 
     /// the period the summary is about: the one under the pointer, else the one chosen
     private var shown: String {
@@ -56,17 +54,17 @@ struct OverviewPage: View {
 
     /// the same stretch of the period before: the current period only as far as today has got
     private func before(_ month: String) -> (String, String) {
-        let today = Day.today(), span = PeriodStepper.span(byYear, month)
+        let today = Day.today(), span = MonthOrYear.span(byYear, month)
         let back = byYear ? 12 : 1
         let start = Day.addMonth(String(span.0.prefix(7)), -back) + "-01"
-        guard PeriodStepper.isCurrent(byYear, month) else { return (start, Day.monthEnd(Day.addMonth(String(span.1.prefix(7)), -back))) }
+        guard MonthOrYear.isCurrent(byYear, month) else { return (start, Day.monthEnd(Day.addMonth(String(span.1.prefix(7)), -back))) }
         let monthBack = Day.addMonth(Day.ym(today), -back)
         let end = min(monthBack + "-" + today.suffix(2), Day.monthEnd(monthBack))
         return (start, end)
     }
 
     private var summary: some View {
-        let month = shown, current = PeriodStepper.isCurrent(byYear, month), span = PeriodStepper.span(byYear, month)
+        let month = shown, current = MonthOrYear.isCurrent(byYear, month), span = MonthOrYear.span(byYear, month)
         let report = ledger.incomeStatementKept(from: span.0, to: span.1)
         let spent = report.expenses.total, came = -report.income.total
         let earlier = before(month)
@@ -76,7 +74,7 @@ struct OverviewPage: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .bottom, spacing: 24) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Headline(label: (current ? (byYear ? "今年" : "本月") : PeriodStepper.title(byYear, month)) + "支出", value: money(spent, ledger.base))
+                        Headline(label: (current ? (byYear ? "今年" : "本月") : MonthOrYear.title(byYear, month)) + "支出", value: money(spent, ledger.base))
                         // kept in place without a figure to compare with, so the card doesn't move under the pointer
                         let change = previous > 0.005 ? (spent - previous) / previous : 0
                         HStack(spacing: 6) {
@@ -90,7 +88,8 @@ struct OverviewPage: View {
                     }
                     Spacer(minLength: 0)
                     PeriodBars(ledger: ledger, byYear: byYear, chosen: self.month, hovered: $hovered) { picked in
-                        self.month = byYear ? min(picked + "-" + String(self.month.suffix(2)), Day.ym(Day.today())) : picked
+                        period = byYear ? ViewPeriod(unit: .year, month: min(picked + "-" + String(self.month.suffix(2)), Day.ym(Day.today())))
+                            : ViewPeriod(unit: period.unit == .quarter ? .quarter : .month, month: picked)
                         hovered = nil
                     }
                     .frame(maxWidth: 360)
@@ -224,40 +223,8 @@ struct OverviewPage: View {
     }
 }
 
-/// a month or a year, and the arrows to the one before and after; never past the current one
-struct PeriodStepper: View {
-    @Binding var byYear: Bool
-    /// the month shown, or in the year shown
-    @Binding var month: String
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Picker(selection: $byYear) {
-                Text("月").tag(false)
-                Text("年").tag(true)
-            } label: {
-                EmptyView()
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .fixedSize()
-            Spacer()
-            Button("上一期", systemImage: "chevron.left") { step(-1) }
-                .labelStyle(.iconOnly)
-            Text(Self.title(byYear, month)).monospacedDigit().frame(minWidth: 96)
-            Button("下一期", systemImage: "chevron.right") { step(1) }
-                .labelStyle(.iconOnly)
-                .disabled(Self.isCurrent(byYear, month))
-        }
-        .buttonStyle(.borderless)
-    }
-
-    private func step(_ by: Int) {
-        let next = Day.addMonth(month, byYear ? by * 12 : by)
-        let now = Day.ym(Day.today())
-        month = next > now ? now : next
-    }
-
+/// a month or a year of the pages that show one or the other (概览, 预算)
+enum MonthOrYear {
     static func isCurrent(_ byYear: Bool, _ month: String) -> Bool {
         let today = Day.today()
         return byYear ? month.prefix(4) == today.prefix(4) : month == Day.ym(today)

@@ -76,10 +76,6 @@ extension Ledger {
         kept("payslips") { txns.filter { $0.links.contains { $0.hasPrefix("salary-") } && payslipFigures($0, self) != nil } }
     }
 
-    func reviewYearsKept() -> [String] {
-        kept("reviewYears") { reviewYears(self) }
-    }
-
     func balanceSheetKept(at date: String?, exclude: [String]) -> BalanceSheet {
         kept("balanceSheet|\(date ?? Day.today())|\(exclude.joined(separator: ","))") { balanceSheet(self, at: date, exclude: exclude) }
     }

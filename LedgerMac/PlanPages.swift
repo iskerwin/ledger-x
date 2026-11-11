@@ -5,17 +5,16 @@ import LedgerKit
 /// the budgets of a month or year in a table, and beside it the picked one: its last six months, its lines in the ledger and the way to its entries
 struct BudgetsPage: View {
     let ledger: Ledger
-    @State private var byYear = false
-    @State private var month = Day.ym(Day.today())
+    /// the window's time: a year's budgets for a year or all time, else the month's
+    let period: ViewPeriod
     @State private var picked: String?
 
     var body: some View {
+        let byYear = period.byYear, month = period.anchor
         let key = byYear ? String(month.prefix(4)) : month
         let progress = ledger.budgetProgressKept(key)
         let chosen = progress.first { $0.budget.account == picked } ?? progress.first
         ReportScaffold {
-            PeriodStepper(byYear: $byYear, month: $month)
-        } content: {
             if progress.isEmpty {
                 ContentUnavailableView("没有预算", systemImage: "chart.pie")
             } else {
@@ -91,7 +90,7 @@ private struct BudgetSide: View {
 
     var body: some View {
         let account = progress.budget.account
-        let span = PeriodStepper.span(byYear, month)
+        let span = MonthOrYear.span(byYear, month)
         let months = (0..<6).map { Day.addMonth(byYear ? String(span.1.prefix(7)) : month, $0 - 5) }
         let recent = months.map { month in ledger.budgetProgressKept(month).first { $0.budget.account == account }?.spent ?? 0 }
         Card {
@@ -115,7 +114,7 @@ private struct BudgetSide: View {
                     FigureRow(label: budget.date, caption: budget.period.name, value: money(budget.amount, budget.currency))
                 }
                 Divider()
-                NavigationLink(value: JournalScope(title: acctDisplay(account) + " · " + PeriodStepper.title(byYear, month), account: account, from: span.0, to: span.1)) {
+                NavigationLink(value: JournalScope(title: acctDisplay(account) + " · " + MonthOrYear.title(byYear, month), account: account, from: span.0, to: span.1)) {
                     Label("查看\(acctDisplay(account))明细", systemImage: "list.bullet")
                 }
                 .buttonStyle(.link)

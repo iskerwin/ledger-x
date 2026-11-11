@@ -46,6 +46,9 @@ enum Page: String, CaseIterable {
         }
     }
 
+    /// looks at the window's time
+    var followsPeriod: Bool { [.overview, .journal, .reports, .year, .budgets].contains(self) }
+
     /// the sidebar's groups, in order; the menu follows them
     static let sections: [(String, [Page])] = [
         ("账本", [.overview, .journal, .accounts]),
@@ -88,6 +91,10 @@ struct MainView: View {
     @State private var remoteReached = false
     @State private var checkingRemote = false
     @State private var alerts: [Anomaly] = []
+    /// the time the pages look at, kept as they change, as Fava's filter
+    @State private var period = ViewPeriod()
+    /// the account the journal keeps to
+    @State private var account: String?
 
     var body: some View {
         NavigationSplitView {
@@ -116,14 +123,14 @@ struct MainView: View {
             Group {
                 switch page ?? .overview {
                 case .overview:
-                    drillable { OverviewPage(ledger: ledger, config: config, folder: folder, git: git, alerts: alerts, page: $page) }
-                case .journal: JournalPage(ledger: ledger, config: config, folder: folder, scope: nil, searching: $searching)
+                    drillable { OverviewPage(ledger: ledger, config: config, folder: folder, git: git, alerts: alerts, period: $period, page: $page) }
+                case .journal: JournalPage(ledger: ledger, config: config, folder: folder, scope: nil, period: period, account: account, searching: $searching)
                 case .accounts:
                     drillable { AccountsPage(ledger: ledger, config: config, folder: folder) { JournalScope(title: accountTitle(ledger, $0), account: $0) } }
-                case .reports: drillable { ReportsPage(ledger: ledger, config: config) }
+                case .reports: drillable { ReportsPage(ledger: ledger, config: config, period: period) }
                 case .payees: PayeesPage(ledger: ledger, config: config, folder: folder)
-                case .year: drillable { YearPage(ledger: ledger, config: config) }
-                case .budgets: drillable { BudgetsPage(ledger: ledger) }
+                case .year: drillable { YearPage(ledger: ledger, config: config, period: period) }
+                case .budgets: drillable { BudgetsPage(ledger: ledger, period: period) }
                 case .forecast: drillable { ForecastPage(ledger: ledger, config: config) }
                 case .subscriptions: drillable { SubscriptionsPage(ledger: ledger, config: config, folder: folder) }
                 case .reimbursements: drillable { ReimbursementsPage(ledger: ledger, config: config, folder: folder) }
@@ -138,6 +145,13 @@ struct MainView: View {
             .id(page ?? .overview)
             .safeAreaInset(edge: .bottom) { ErrorBar(errors: ledger.errors.filter { !$0.soft }) }
             .toolbar {
+                // a row's entries, a level down, keep to what the row counted
+                if (page ?? .overview).followsPeriod && !inScope {
+                    ToolbarItemGroup(placement: .navigation) {
+                        PeriodBar(period: $period)
+                        if page == .journal { AccountFilter(ledger: ledger, account: $account) }
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button { adding = true } label: { Label("记一笔", systemImage: "plus") }
                         .help("记一笔")
@@ -189,7 +203,7 @@ struct MainView: View {
     private func drillable(@ViewBuilder _ page: () -> some View) -> some View {
         NavigationStack {
             page().navigationDestination(for: JournalScope.self) { scope in
-                JournalPage(ledger: ledger, config: config, folder: folder, scope: scope, searching: $searching)
+                JournalPage(ledger: ledger, config: config, folder: folder, scope: scope, period: period, account: account, searching: $searching)
                     .navigationTitle(scope.title)
                     .onAppear { inScope = true }
                     .onDisappear { inScope = false }

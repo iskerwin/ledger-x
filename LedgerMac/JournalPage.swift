@@ -18,9 +18,9 @@ private enum KindFilter: String, CaseIterable {
 private struct LinesKey: Hashable {
     let ledger: ObjectIdentifier
     let text: String
-    let period: ReportPeriod?
+    let period: ViewPeriod
+    let account: String?
     let kind: KindFilter
-    let day: String?
     let sort: [KeyPathComparator<JournalRow>]
 }
 
@@ -35,13 +35,13 @@ struct JournalPage: View {
     let ledger: Ledger
     let config: LedgerXConfig?
     let folder: URL
+    /// what a row counted, a level down; the window's time and account apply only to the whole journal
     let scope: JournalScope?
+    let period: ViewPeriod
+    let account: String?
     @Binding var searching: Bool
     @State private var text = ""
-    @State private var period: ReportPeriod?
     @State private var kind = KindFilter.all
-    @State private var day: String?
-    @State private var choosingDay = false
     @State private var built = Built()
     @State private var selected = Set<String>()
     /// where a shift-click runs from
@@ -51,7 +51,7 @@ struct JournalPage: View {
     @State private var tasks = EntryTasks()
 
     private var key: LinesKey {
-        LinesKey(ledger: ObjectIdentifier(ledger), text: text, period: period, kind: kind, day: day, sort: sortOrder)
+        LinesKey(ledger: ObjectIdentifier(ledger), text: text, period: period, account: account, kind: kind, sort: sortOrder)
     }
 
     private var lines: [JournalRow] { built.lines }
@@ -79,20 +79,9 @@ struct JournalPage: View {
         .entryTasks($tasks, ledger: ledger, config: config, folder: folder)
     }
 
-    /// when, what kind, how many; a report's own span stays what it is
+    /// what kind, how many; when and which account are the window's, in the toolbar
     private var filters: some View {
         HStack(spacing: 12) {
-            if scope?.from == nil {
-                Picker(selection: $period) {
-                    Text("全部时间").tag(ReportPeriod?.none)
-                    ForEach(ReportPeriod.allCases, id: \.self) { Text($0.title).tag(ReportPeriod?.some($0)) }
-                } label: {
-                    EmptyView()
-                }
-                .labelsHidden()
-                .fixedSize()
-                .disabled(day != nil)
-            }
             Picker(selection: $kind) {
                 ForEach(KindFilter.allCases, id: \.self) { Text($0.rawValue) }
             } label: {
@@ -100,22 +89,6 @@ struct JournalPage: View {
             }
             .labelsHidden()
             .fixedSize()
-            Button { choosingDay = true } label: {
-                Label(day.map { Day.dayLabel($0) } ?? "月历", systemImage: "calendar")
-            }
-            .popover(isPresented: $choosingDay) {
-                DayPicker(title: "日期", day: Binding(get: { day ?? Day.today() }, set: {
-                    day = $0
-                    choosingDay = false
-                }))
-                .padding(12)
-            }
-            if day != nil {
-                Button("回到当前期间", systemImage: "xmark.circle.fill") { day = nil }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-            }
             Spacer()
             Text("\(lines.count) 笔").monospacedDigit().foregroundStyle(.secondary)
         }
@@ -212,9 +185,9 @@ struct JournalPage: View {
     /// the rows of the whole ledger are worked out once for it; picking from them, sorting and measuring them happen
     /// off the main thread, so typing in the search box doesn't wait for them
     private func rebuild() async {
-        let ledger = ledger, scope = scope, kind = kind, sortOrder = sortOrder, held = heldAccount
+        let ledger = ledger, scope = shownScope, kind = kind, sortOrder = sortOrder, held = heldAccount
         let query = TxQuery(text)
-        let span: (String, String)? = day.map { ($0, $0) } ?? period?.span
+        let span: (String, String)? = self.scope == nil ? period.span : nil
         let next = await Task.detached { () -> Built in
             let lines = journalRows(ledger, account: held).filter { line in
                 let entry = line.entry
@@ -232,9 +205,14 @@ struct JournalPage: View {
         if !selected.isSubset(of: shown) { selected.formIntersection(shown) }
     }
 
+    /// a row's entries, else the account picked for the whole journal
+    private var shownScope: JournalScope? {
+        scope ?? account.map { JournalScope(title: "", account: $0) }
+    }
+
     /// the account in view when what it holds adds up over time; a category only has totals for a period
     private var heldAccount: String? {
-        scope?.account.flatMap { $0.hasPrefix("Assets") || $0.hasPrefix("Liabilities") ? $0 : nil }
+        shownScope?.account.flatMap { $0.hasPrefix("Assets") || $0.hasPrefix("Liabilities") ? $0 : nil }
     }
 }
 

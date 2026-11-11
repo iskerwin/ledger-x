@@ -134,23 +134,14 @@ private struct MonthlySpend: View {
 struct YearPage: View {
     let ledger: Ledger
     let config: LedgerXConfig?
-    @State private var year = String(Day.today().prefix(4))
+    /// the window's time: the year it's in
+    let period: ViewPeriod
 
     var body: some View {
-        let years = ledger.reviewYearsKept()
+        let year = String(period.anchor.prefix(4))
         let review = yearReviewCached(ledger, year: year, mode: .convert(ledger.base), currency: ledger.base, only: nil,
                                       exclude: config?.netWorthExclude ?? [], reimbursement: config?.receivable ?? "Assets:Receivable:Reimbursement")
         ReportScaffold {
-            Picker(selection: $year) {
-                ForEach(years.prefix(6), id: \.self) { Text($0).tag($0) }
-            } label: {
-                EmptyView()
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .fixedSize()
-            Spacer()
-        } content: {
             if review.isEmpty {
                 ContentUnavailableView("\(year) 年没有交易", systemImage: "calendar")
             } else {
