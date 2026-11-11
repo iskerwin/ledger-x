@@ -231,6 +231,12 @@ public struct PayeeStat {
     /// the last entry with this payee and each note
     public var lastWith: [String: Entry] = [:]
     public var narrations: [String] { narr.sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }.map { $0.key } }
+
+    /// counted in place in its map: a copy taken out and put back would copy its notes on every entry
+    mutating func add(_ t: Entry, weight: Double) {
+        n += 1; w += weight; last = t
+        if !t.narration.isEmpty { narr[t.narration, default: 0] += 1; lastWith[t.narration] = t }
+    }
 }
 
 /// a note as written on entries, whoever they were with
@@ -322,16 +328,10 @@ public final class Derived: @unchecked Sendable {
                     monthInc[m, default: 0] -= toCNY(L, u, c, t.date) ?? 0
                 }
             }
-            if !t.payee.isEmpty {
-                var s = pmap[t.payee] ?? PayeeStat(name: t.payee, last: t)
-                s.n += 1; s.w += w; s.last = t
-                if !t.narration.isEmpty { s.narr[t.narration, default: 0] += 1; s.lastWith[t.narration] = t }
-                pmap[t.payee] = s
-            }
+            if !t.payee.isEmpty { pmap[t.payee, default: PayeeStat(name: t.payee, last: t)].add(t, weight: w) }
             if !t.narration.isEmpty {
-                var s = nmap[t.narration] ?? NarrationStat(text: t.narration, last: t)
-                s.w += w; s.last = t
-                nmap[t.narration] = s
+                nmap[t.narration, default: NarrationStat(text: t.narration, last: t)].w += w
+                nmap[t.narration]!.last = t
             }
             if isTransferTag(t), let r = t.narration.range(of: " -> ") ?? t.narration.range(of: "->") {
                 let a = t.narration[..<r.lowerBound].trimmingCharacters(in: .whitespaces)

@@ -317,16 +317,20 @@ public func applyingNarration(_ draft: Draft, text: String, _ D: Derived, onlyBl
 /// spread through, the payee's own notes before the rest, then the most used and lately
 public func narrationSuggestions(_ D: Derived, typed: String, payee: String, limit: Int) -> [String] {
     let q = typed.trimmingCharacters(in: .whitespaces)
-    var seen = Set<String>()
-    let all = (D.payee(payee.trimmingCharacters(in: .whitespaces))?.narrations ?? []) + D.narrationStats.map(\.text)
-    let found = all.compactMap { text -> (text: String, score: Int)? in
-        guard seen.insert(text).inserted else { return nil }
-        let score = q.isEmpty ? 1 : fuzzy(q, text)
-        return score > 0 ? (text, score) : nil
+    let own = D.payee(payee.trimmingCharacters(in: .whitespaces))?.narrations ?? []
+    var seen = Set<String>(), whole: [String] = [], spread: [String] = []
+    /// true once enough hold the typed text whole: a ledger can hold tens of thousands of notes
+    func enough(_ text: String) -> Bool {
+        guard seen.insert(text).inserted else { return false }
+        switch q.isEmpty ? 2 : fuzzy(q, text) {
+        case 2: whole.append(text)
+        case 1: if spread.count < limit { spread.append(text) }
+        default: break
+        }
+        return whole.count >= limit
     }
-    return found.enumerated()
-        .sorted { $0.element.score != $1.element.score ? $0.element.score > $1.element.score : $0.offset < $1.offset }
-        .prefix(limit).map(\.element.text)
+    if !own.contains(where: enough) { _ = D.narrationStats.contains { enough($0.text) } }
+    return Array((whole + spread).prefix(limit))
 }
 
 /// 2 when `s` holds `q`, 1 when `q`'s characters come in `s` in order, else 0; case ignored
