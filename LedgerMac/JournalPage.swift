@@ -61,7 +61,8 @@ struct JournalPage: View {
     let period: ViewPeriod
     let account: String?
     @Binding var searching: Bool
-    @State private var text = ""
+    /// the window's search, as Fava's filter: the reports read the same
+    @Binding var text: String
     @State private var kind = KindFilter.all
     @State private var built = Built()
     @State private var selected = Set<String>()
@@ -88,7 +89,7 @@ struct JournalPage: View {
                 list
             }
         }
-        .searchable(text: $text, isPresented: $searching, placement: .toolbar)
+        .filtering($text, $searching)
         // a change made while the last one is still being worked out takes its place
         .task(id: key) { await rebuild() }
         .entryTasks($tasks, ledger: ledger, config: config, folder: folder)

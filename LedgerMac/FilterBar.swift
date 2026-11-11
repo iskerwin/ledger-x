@@ -82,3 +82,29 @@ struct AccountFilter: View {
         }
     }
 }
+
+private struct FilterTagKey: EnvironmentKey {
+    static let defaultValue: ((String) -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    /// puts a tag into the window's search, as clicking one does on Fava; nil where there is no search to put it in
+    var filterTag: ((String) -> Void)? {
+        get { self[FilterTagKey.self] }
+        set { self[FilterTagKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// the window's search on a page that adds up only what it finds
+    func filtering(_ text: Binding<String>, _ searching: Binding<Bool>) -> some View {
+        searchable(text: text, isPresented: searching, placement: .toolbar, prompt: Text("标签、收付款方或文字"))
+    }
+}
+
+/// `filter` with `#tag` added, unless it's there already
+func adding(tag: String, to filter: String) -> String {
+    let token = "#" + tag
+    let words = filter.split(separator: " ").map(String.init)
+    return words.contains(token) ? filter : (words + [token]).joined(separator: " ")
+}

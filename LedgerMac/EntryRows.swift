@@ -556,9 +556,10 @@ private struct PayeeCell: View {
     }
 }
 
-/// 待确认, pad, and the first tag with how many more
+/// 待确认, pad, and the first tag with how many more; a click on the tag puts it into the window's search
 private struct StatusCell: View {
     let entry: Entry
+    @Environment(\.filterTag) private var filterTag
 
     var body: some View {
         let tags = entry.tags.filter { $0 != "transfer" && $0 != "fx" }
@@ -566,7 +567,14 @@ private struct StatusCell: View {
             if entry.flag == "!" { RowTag(text: "待确认", color: .orange) }
             if entry.synthetic { RowTag(text: "pad", color: .secondary) }
             // a narrow column cuts the tag short: a count alone reads as a tag of its own
-            if let first = tags.first { RowTag(text: "#" + first, color: .secondary, shortens: true) }
+            if let first = tags.first {
+                if let filterTag {
+                    Button { filterTag(first) } label: { RowTag(text: "#" + first, color: .secondary, shortens: true) }
+                        .buttonStyle(.plain)
+                } else {
+                    RowTag(text: "#" + first, color: .secondary, shortens: true)
+                }
+            }
             if tags.count > 1 { RowTag(text: "+\(tags.count - 1)", color: .secondary) }
         }
     }

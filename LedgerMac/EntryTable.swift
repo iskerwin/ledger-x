@@ -302,6 +302,8 @@ struct EntryList: View {
     var postings = false
     let focus: Bool
     @AppStorage("hideAmounts") private var hideAmounts = false
+    /// the rows live in AppKit's table, out of this view's environment: handed on to them
+    @Environment(\.filterTag) private var filterTag
 
     /// the one picked, open under its row; several picked have nothing single to show
     private var picked: Entry? {
@@ -322,7 +324,8 @@ struct EntryList: View {
                            row: { line, index, picked in
                                AnyView(EntryRow(line: line, ledger: ledger, columns: columns, widths: layout.widths, picked: picked,
                                                 balance: balances[ObjectIdentifier(line.entry)], postings: postings)
-                                   .background(index.isMultiple(of: 2) ? Color.clear : Color.primary.opacity(0.035)))
+                                   .background(index.isMultiple(of: 2) ? Color.clear : Color.primary.opacity(0.035))
+                                   .environment(\.filterTag, filterTag))
                            },
                            panel: { line in AnyView(SourcePanel(entry: line.entry, ledger: ledger, config: config, folder: folder, tasks: $tasks)) },
                            menu: menu,

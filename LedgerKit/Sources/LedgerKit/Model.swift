@@ -270,6 +270,42 @@ public final class Ledger: @unchecked Sendable {
         memoLock.lock(); memo[key] = v; memoLock.unlock()
         return v
     }
+
+    /// the last one `filtered(by:)` made, for the same text again: one kept, as the text changes with each key
+    private var lastFiltered: (text: String, ledger: Ledger)?
+
+    /// the ledger as a filter shows it, as Fava's: only the transactions the search `text` finds (`TxQuery`),
+    /// everything else as it is. The ledger itself when the text asks for nothing
+    public func filtered(by text: String) -> Ledger {
+        let query = TxQuery(text)
+        if query.isEmpty { return self }
+        memoLock.lock()
+        if let last = lastFiltered, last.text == text { memoLock.unlock(); return last.ledger }
+        memoLock.unlock()
+        let dropped = Set(txns.filter { !query.matches($0, self) }.map(ObjectIdentifier.init))
+        let out = Ledger()
+        out.entries = entries.filter { !dropped.contains(ObjectIdentifier($0)) }
+        out.files = files
+        out.options = options
+        out.plugins = plugins
+        out.errors = errors
+        out.accounts = accounts
+        out.txns = txns.filter { !dropped.contains(ObjectIdentifier($0)) }
+        out.balances = balances
+        out.prices = prices
+        out.commodities = commodities
+        out.pads = pads
+        out.events = events
+        out.notes = notes
+        out.documents = documents
+        out.base = base
+        out.balanceResults = balanceResults
+        out.final = final
+        out.inventory = inventory
+        out.rates = rates
+        memoLock.lock(); lastFiltered = (text, out); memoLock.unlock()
+        return out
+    }
 }
 
 // MARK: - JS number helpers

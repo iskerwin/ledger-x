@@ -52,6 +52,9 @@ enum Page: String, CaseIterable {
     }
 
     /// looks at the window's time
+    /// the window's search, 标签、收付款方或文字, applies here too
+    var followsFilter: Bool { [.journal, .reports, .payees, .year].contains(self) }
+
     var followsPeriod: Bool { [.overview, .journal, .reports, .payees, .year, .budgets].contains(self) }
 
     /// the sidebar's groups, in order; the menu follows them
@@ -100,6 +103,8 @@ struct MainView: View {
     @State private var period = ViewPeriod()
     /// the account the journal keeps to
     @State private var account: String?
+    /// the window's search, as Fava's filter: the journal lists what it finds, the reports add up only that
+    @State private var filter = ""
     /// the 账户 page's categories keep to the period; what's held and owed is as of now
     @AppStorage("accountsMode") private var accountsMode = AccountsMode.worth
 
@@ -131,12 +136,13 @@ struct MainView: View {
                 switch page ?? .overview {
                 case .overview:
                     drillable { OverviewPage(ledger: ledger, config: config, folder: folder, git: git, alerts: alerts, period: $period, page: $page) }
-                case .journal: JournalPage(ledger: ledger, config: config, folder: folder, scope: nil, period: period, account: account, searching: $searching)
+                case .journal:
+                    JournalPage(ledger: ledger, config: config, folder: folder, scope: nil, period: period, account: account, searching: $searching, text: $filter)
                 case .accounts:
                     drillable { AccountsPage(ledger: ledger, config: config, folder: folder, period: period) }
-                case .reports: drillable { ReportsPage(ledger: ledger, config: config, period: period) }
-                case .payees: PayeesPage(ledger: ledger, config: config, folder: folder, period: period)
-                case .year: drillable { YearPage(ledger: ledger, config: config, period: period) }
+                case .reports: drillable { ReportsPage(ledger: ledger.filtered(by: filter), config: config, period: period).filtering($filter, $searching) }
+                case .payees: PayeesPage(ledger: ledger, config: config, folder: folder, period: period, filter: filter).filtering($filter, $searching)
+                case .year: drillable { YearPage(ledger: ledger.filtered(by: filter), config: config, period: period).filtering($filter, $searching) }
                 case .budgets: drillable { BudgetsPage(ledger: ledger, period: period) }
                 case .forecast: drillable { ForecastPage(ledger: ledger, config: config) }
                 case .subscriptions: drillable { SubscriptionsPage(ledger: ledger, config: config, folder: folder) }
@@ -152,6 +158,10 @@ struct MainView: View {
             }
             // a list of its own for each page: left to reuse its rows, one page's row keeps what the last page's row did when clicked
             .id(page ?? .overview)
+            .environment(\.filterTag) { tag in
+                filter = adding(tag: tag, to: filter)
+                if !(page ?? .overview).followsFilter { page = .journal }
+            }
             .safeAreaInset(edge: .bottom) {
                 if page != .errors { ErrorBar(errors: ledger.errors.filter { !$0.soft }) { page = .errors } }
             }
@@ -189,7 +199,7 @@ struct MainView: View {
         // what happens in .git isn't watched: a commit made in a terminal, or on another device, is seen on coming back
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in checkRemote() }
         .onChange(of: searching) {
-            guard searching, !inScope, page != .journal else { return }
+            guard searching, !inScope, !(page ?? .overview).followsFilter else { return }
             page = .journal
             // the box takes focus only when it opens with the page already there
             searching = false
@@ -215,7 +225,7 @@ struct MainView: View {
     private func drillable(@ViewBuilder _ page: () -> some View) -> some View {
         NavigationStack {
             page().navigationDestination(for: JournalScope.self) { scope in
-                JournalPage(ledger: ledger, config: config, folder: folder, scope: scope, period: period, account: account, searching: $searching)
+                JournalPage(ledger: ledger, config: config, folder: folder, scope: scope, period: period, account: account, searching: $searching, text: $filter)
                     .navigationTitle(scope.title)
                     .onAppear { inScope = true }
                     .onDisappear { inScope = false }

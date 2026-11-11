@@ -9,6 +9,8 @@ struct PayeesPage: View {
     let folder: URL
     /// the window's time: the payees and what went to them in it
     let period: ViewPeriod
+    /// the window's search: only the transactions it finds count
+    let filter: String
     @State private var all: [PayeeSummary] = []
     @State private var text = ""
     @State private var picked: String?
@@ -26,17 +28,20 @@ struct PayeesPage: View {
             }
         } detail: {
             if let name = picked ?? all.first?.name {
-                PayeeDetail(ledger: ledger, config: config, folder: folder, name: name, period: period).id(name)
+                PayeeDetail(ledger: ledger, config: config, folder: folder, name: name, period: period, filter: filter).id(name)
             }
         }
         // every entry is classified: once a ledger and period, not on each key or pick
-        .task(id: PayeesKey(ledger: ObjectIdentifier(ledger), period: period)) { all = payeeSummaries(ledger, span: period.span) }
+        .task(id: PayeesKey(ledger: ObjectIdentifier(ledger), period: period, filter: filter)) {
+            all = payeeSummaries(ledger.filtered(by: filter), span: period.span)
+        }
     }
 }
 
 private struct PayeesKey: Hashable {
     let ledger: ObjectIdentifier
     let period: ViewPeriod
+    let filter: String
 }
 
 /// the twelve months up to the period's end, never past this one
@@ -60,9 +65,11 @@ private struct PayeeDetail: View {
     let folder: URL
     let name: String
     let period: ViewPeriod
+    let filter: String
 
     var body: some View {
-        let entries = ledger.payeeEntriesKept(name)
+        // the figures read what the search finds; the entries open for editing in the whole ledger
+        let entries = ledger.filtered(by: filter).payeeEntriesKept(name)
         let span = period.span
         let inPeriod = span.map { span in entries.filter { $0.date >= span.0 && $0.date <= span.1 } } ?? entries
         let spent = payeeSpent(inPeriod, ledger)

@@ -28,6 +28,18 @@ final class SearchTests: XCTestCase {
 
     """ }
 
+    /// the window's filter on the Mac: reports read a ledger with only what the search finds
+    func testAFilteredLedgerKeepsOnlyTheTransactionsTheSearchFinds() {
+        XCTAssertTrue(L.filtered(by: "  ") === L)
+        let trip = L.filtered(by: "#trip")
+        XCTAssertEqual(trip.txns.map(\.payee), ["滴滴"])
+        XCTAssertTrue(L.filtered(by: "#trip") === trip, "the same text again is the same ledger")
+        XCTAssertEqual(trip.accounts.count, L.accounts.count)
+        let report = incomeStatement(trip, from: nil, to: nil)
+        XCTAssertEqual(report.expenses.total, 35, accuracy: 0.001)
+        XCTAssertEqual(incomeStatement(L.filtered(by: "饭店"), from: nil, to: nil).expenses.total, 170, accuracy: 0.001)
+    }
+
     private func hits(_ q: String) -> [String] { L.txns.filter { TxQuery(q).matches($0) }.map { $0.date } }
 
     func testAnnualBudgetLinkFiltersWholeYearAndDescendantAccounts() {
