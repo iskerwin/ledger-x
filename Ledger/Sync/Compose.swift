@@ -353,34 +353,16 @@ extension Store {
         } else { draft = current }
     }
 
-    /// whether a category suits the kind of entry (income needs Income:, an expense Expenses:)
-    static func fits(_ k: DraftKind, _ account: String) -> Bool { draftKindFits(k, account) }
-
     /// a known payee fills in the category and paying account of its last entry
     func applyPayee(_ name: String, onlyBlanks: Bool = false) {
         guard let D = D else { return }
-        var d = draft
-        d.payee = name
-        d.edited = nil
-        if let p = D.payee(name) {
-            let t = p.last
-            if d.kind == .multi {
-                if !d.rows.contains(where: { !$0.account.isEmpty || !$0.amount.trimmed.isEmpty }) { d.rows = rowsFromTxn(t, withAmounts: false) }
-            } else {
-                let cat = t.postings.first { $0.account.hasPrefix(d.kind == .income ? "Income:" : "Expenses:") }
-                    ?? (d.kind == .expense ? t.postings.first { advanceCategory($0) != nil } : nil)
-                let fund = t.postings.first { $0.account.hasPrefix("Assets:") || $0.account.hasPrefix("Liabilities:") }
-                if let cat = cat {
-                    let category = cat.account.hasPrefix("Expenses:") || cat.account.hasPrefix("Income:") ? cat.account : advanceCategory(cat)
-                    d = applyingSuggestedAccounts(d, category: onlyBlanks && !d.account.isEmpty ? nil : category, funding: nil)
-                    if d.selection?.category != true, !onlyBlanks, let c = cat.currency, cat.account == d.account { d.currency = c }
-                } else if !Store.fits(d.kind, d.account) { d.account = "" }
-                if let fund = fund, !fund.account.hasPrefix("Assets:Receivable") {
-                    d = applyingSuggestedAccounts(d, category: nil, funding: onlyBlanks && !d.funding.isEmpty ? nil : fund.account)
-                }
-            }
-        }
-        draft = d
+        draft = applyingPayee(draft, name: name, D, onlyBlanks: onlyBlanks)
+    }
+
+    /// a known note fills in as a payee does
+    func applyNarration(_ text: String, onlyBlanks: Bool = false) {
+        guard let D = D else { return }
+        draft = applyingNarration(draft, text: text, D, onlyBlanks: onlyBlanks)
     }
 
     /// Check and save the form (not 文本, which asks about replacing balance assertions first). True once it is

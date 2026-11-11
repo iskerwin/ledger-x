@@ -401,7 +401,8 @@ struct AddForm: View {
     }
 
     private func payeeSection(_ d: Draft, _ D: Derived, _ ctx: FormContext) -> some View {
-        let narrs = Array((ctx.payeeStat?.narrations ?? []).prefix(6))
+        // while the note is typed, every note it might be; else the payee's own
+        let narrs = focus == .narration ? narrationSuggestions(D, typed: d.narration, payee: d.payee, limit: 6) : Array((ctx.payeeStat?.narrations ?? []).prefix(6))
         return Section {
             VStack(alignment: .leading, spacing: AppSpacing.icon) {
                 TextField(LS("收付款方（如 便利店、淘宝）"), text: field(\.payee))
@@ -416,12 +417,12 @@ struct AddForm: View {
             VStack(alignment: .leading, spacing: AppSpacing.icon) {
                 TextField(narrs.first ?? LS("摘要"), text: field(\.narration))
                     .focused($focus, equals: .narration)
+                    .onSubmit { store.applyNarration(store.draft.narration.trimmed, onlyBlanks: true) }
                 if !narrs.isEmpty {
                     ChipRow {
                         ForEach(narrs, id: \.self) { n in
                             Chip(label: n, selected: d.narration == n) {
-                                store.draft.narration = n
-                                store.draft.edited = nil
+                                if d.narration != n { store.applyNarration(n) }
                             }
                         }
                     }

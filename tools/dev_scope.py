@@ -98,7 +98,7 @@ COMPONENT_UI = {
     'Ledger/Views/Common.swift': {
         **dict.fromkeys(('ToastView', 'SavedCheck'), _ui('testSaveToastStaysUpAfterTheCardCloses')),
         'DateField': _ui('testFormDateHasTheSameThreeDays'),
-        **dict.fromkeys(('AccountPicker', 'AccountField', 'ChosenAccountIcon', 'accountMark', 'fuzzy'), PICKER_UI),
+        **dict.fromkeys(('AccountPicker', 'AccountField', 'ChosenAccountIcon', 'accountMark'), PICKER_UI),
         **dict.fromkeys(('Sensitive', 'sensitive', 'Amount', 'PrivacyButton', 'masked'),
                         _ui('testHiddenAmountsStayHiddenInAccessibilityAtLargeTextSize')),
         'EmptyAdd': _ui('testAnEmptyBudgetListOffersToAddOne'),
