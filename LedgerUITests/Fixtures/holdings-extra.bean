@@ -1,0 +1,7 @@
+; a fund bought at cost with a later price, for 持仓明细
+2026-01-01 open Assets:Broker:Fund EXFUND
+2026-01-01 commodity EXFUND
+2026-02-03 * "Example broker" "Buy fund"
+  Assets:Broker:Fund 1000 EXFUND {1.20 CNY}
+  Assets:Bank:CGB -1200.00 CNY
+2026-10-30 price EXFUND 1.35 CNY
