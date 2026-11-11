@@ -36,7 +36,7 @@ struct AccountsView: View {
             .navigationDestination(for: EditDest.self) { EditTxView(dest: $0) }
             .navigationDestination(for: AccountManagerDest.self) { _ in AccountManagerView() }
             .navigationDestination(for: CounterpartyDest.self) { _ in CounterpartyView().privacyToolbar() }
-            .navigationDestination(for: TransactionAttachmentsDest.self) { _ in TransactionAttachmentsView().privacyToolbar() }
+            .navigationDestination(for: DocumentsDest.self) { _ in DocumentsView().privacyToolbar() }
             .navigationDestination(for: NetWorthSettingsDest.self) { _ in NetWorthSettingsView() }
             .navigationDestination(for: YearReviewDest.self) { YearReviewView(year: $0.year).privacyToolbar(currency: true) }
             .navigationDestination(for: ReconcileDest.self) { _ in ReconcileView().privacyToolbar() }
@@ -365,11 +365,11 @@ struct AccountsView: View {
             tilesSection(L)
             Section {
                 NavigationLink(value: CounterpartyDest()) { Label(LS("往来"), systemImage: "person.2").labelStyle(ControlLabelStyle()) }
-                NavigationLink(value: TransactionAttachmentsDest()) {
+                NavigationLink(value: DocumentsDest()) {
                     LabeledContent {
-                        let n = transactionAttachments(L).count
+                        let n = documentItems(L).count
                         if n > 0 { Text(LS("%@ 个", n)) }
-                    } label: { Label(LS("交易附件"), systemImage: "paperclip").labelStyle(ControlLabelStyle()) }
+                    } label: { Label(LS("附件与对账单"), systemImage: "paperclip").labelStyle(ControlLabelStyle()) }
                 }
                 let prices = PriceUpdateSheet.items(L)
                 if !prices.isEmpty {
@@ -899,7 +899,7 @@ struct RegisterView: View {
         var bal: [String: Double] = [:]
         var order: [String] = []
         let pre = account + ":"
-        // a transaction's attachments are listed under 交易附件, not with this account's statements
+        // a transaction's attachments are listed with it and under 附件与对账单, not with this account's statements
         let attached = Set(transactionAttachments(L).map { ObjectIdentifier($0) })
         for e in L.entries {
             switch e.type {

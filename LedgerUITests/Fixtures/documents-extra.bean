@@ -1,0 +1,10 @@
+2026-01-01 open Liabilities:CreditCard:Docs CNY
+  name: "示例文档卡"
+
+2026-10-02 * "Docs shop" "Docs spend" ^doc-20261002-a1b2
+  Expenses:Food  45.00 CNY
+  Liabilities:CreditCard:Docs
+
+2026-10-02 document Liabilities:CreditCard:Docs "documents/receipts/receipts_20261002.jpg" ^doc-20261002-a1b2
+2026-10-05 document Liabilities:CreditCard:Docs "documents/docs/docs_20261005.pdf"
+2026-11-05 document Liabilities:CreditCard:Docs "documents/docs/docs_20261105.pdf"

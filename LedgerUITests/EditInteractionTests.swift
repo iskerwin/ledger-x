@@ -931,6 +931,36 @@ final class EditInteractionTests: XCTestCase {
         return app
     }
 
+    /// 附件与对账单: switching between all, attachments and statements leaves the switch where it was and lists only that kind
+    func testDocumentKindsSwitchInPlace() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures")
+        app.launchEnvironment = [
+            "LEDGER_DEMO": fixtures.path,
+            "LEDGER_EXTRA": fixtures.appendingPathComponent("documents-extra.bean").path,
+            "LEDGER_TAB": "accounts",
+            "LEDGER_LANG": "zh",
+        ]
+        app.launchArguments = ["-AppleLanguages", "(zh-Hans)"]
+        app.launch()
+        let entry = app.buttons["附件与对账单"].firstMatch
+        XCTAssertTrue(entry.waitForExistence(timeout: 20))
+        reveal(entry, in: app)
+        entry.tap()
+        let kinds = app.segmentedControls["documents.kind"]
+        XCTAssertTrue(kinds.waitForExistence(timeout: 5))
+        let rows = app.buttons.matching(identifier: "documents.row")
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 5))
+        waitUntilStill(kinds)
+        let before = kinds.frame
+        for (kind, count) in [("对账单", 2), ("交易附件", 1), ("全部", 3)] {
+            tapKind(app, kind)
+            wait(for: [expectation(for: NSPredicate(format: "count == \(count)"), evaluatedWith: rows)], timeout: 5)
+            XCTAssertEqual(kinds.frame, before, kind)
+        }
+    }
+
     /// Move toward the control in short drags. A full-page flick can pass a button between snapshots;
     /// if its cell has left the accessibility tree, return toward this card at the top of the list.
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
