@@ -6,7 +6,7 @@ enum Page: String, CaseIterable {
     case reports, payees, year
     case budgets, forecast, subscriptions
     case reimbursements, salary, events
-    case query, sync
+    case query, errors, sync
 
     var title: String {
         switch self {
@@ -23,6 +23,7 @@ enum Page: String, CaseIterable {
         case .salary: return "工资"
         case .events: return "事件"
         case .query: return "BQL 查询"
+        case .errors: return "错误"
         case .sync: return "同步与改动"
         }
     }
@@ -42,6 +43,7 @@ enum Page: String, CaseIterable {
         case .salary: return "banknote"
         case .events: return "star"
         case .query: return "terminal"
+        case .errors: return "exclamationmark.triangle"
         case .sync: return "arrow.up.arrow.down"
         }
     }
@@ -55,7 +57,7 @@ enum Page: String, CaseIterable {
         ("分析", [.reports, .payees, .year]),
         ("计划", [.budgets, .forecast, .subscriptions]),
         ("往来", [.reimbursements, .salary, .events]),
-        ("工具", [.query, .sync]),
+        ("工具", [.query, .errors, .sync]),
     ]
 }
 
@@ -101,8 +103,8 @@ struct MainView: View {
             List(selection: $page) {
                 ForEach(Page.sections, id: \.0) { section in
                     Section(section.0) {
-                        // without a Git folder there is nothing to sync
-                        ForEach(section.1.filter { $0 != .sync || git != nil }, id: \.self) { item in
+                        // without a Git folder there is nothing to sync, and with a ledger that reads cleanly no errors to list
+                        ForEach(section.1.filter { ($0 != .sync || git != nil) && ($0 != .errors || !ledger.errors.isEmpty || page == .errors) }, id: \.self) { item in
                             row(item, badge: badge(item))
                         }
                     }
@@ -137,13 +139,16 @@ struct MainView: View {
                 case .salary: SalaryPage(ledger: ledger, config: config, folder: folder)
                 case .events: EventsPage(ledger: ledger, config: config, folder: folder)
                 case .query: QueryPage(ledger: ledger, folder: folder)
+                case .errors: ErrorsPage(ledger: ledger, folder: folder)
                 case .sync:
                     SyncPage(folder: folder, status: git, remoteReached: remoteReached) { gitReads += 1 }
                 }
             }
             // a list of its own for each page: left to reuse its rows, one page's row keeps what the last page's row did when clicked
             .id(page ?? .overview)
-            .safeAreaInset(edge: .bottom) { ErrorBar(errors: ledger.errors.filter { !$0.soft }) }
+            .safeAreaInset(edge: .bottom) {
+                if page != .errors { ErrorBar(errors: ledger.errors.filter { !$0.soft }) { page = .errors } }
+            }
             .toolbar {
                 // a row's entries, a level down, keep to what the row counted
                 if (page ?? .overview).followsPeriod && !inScope {
@@ -189,6 +194,7 @@ struct MainView: View {
     private func badge(_ item: Page) -> Int {
         switch item {
         case .overview: return alerts.count
+        case .errors: return ledger.errors.count
         case .sync: return git.map { $0.paths.count + $0.ahead + $0.behind } ?? 0
         default: return 0
         }
@@ -223,20 +229,25 @@ struct MainView: View {
     }
 }
 
-/// a ledger that didn't read cleanly can be missing entries, so this stays in sight
+/// a ledger that didn't read cleanly can be missing entries, so this stays in sight; a click lists them all
 private struct ErrorBar: View {
     let errors: [LedgerError]
+    let open: () -> Void
 
     var body: some View {
         if let first = errors.first {
-            Text(errors.count > 1 ? "\(first.msg) (+\(errors.count - 1))" : first.msg)
-                .font(.callout)
-                .foregroundStyle(.red)
-                .lineLimit(1)
-                .help(first.msg)
-                .padding(8)
-                .frame(maxWidth: .infinity)
-                .background(.bar)
+            Button(action: open) {
+                Text(errors.count > 1 ? "\(first.msg) (+\(errors.count - 1))" : first.msg)
+                    .font(.callout)
+                    .foregroundStyle(.red)
+                    .lineLimit(1)
+                    .padding(8)
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(first.msg)
+            .background(.bar)
         }
     }
 }

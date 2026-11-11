@@ -530,6 +530,15 @@ final class FolderSaveTests: XCTestCase {
         guard case .failure = prepareBalance(1000) else { return XCTFail("the day's own entry should count") }
     }
 
+    func testACurrencyCheckCommodityAsksForIsDeclared() throws {
+        try write("main.bean", "plugin \"beancount.plugins.check_commodity\"\n\n" + opens)
+        let error = try XCTUnwrap(try XCTUnwrap(loadLedger(folder: folder)).errors.first { $0.fix == .declareCommodity("CNY") })
+        try commitFolderSave(try prepareFolderCommodity("CNY", firstUsed: error.entry?.date, folder: folder).get(), folder: folder)
+        let after = try XCTUnwrap(loadLedger(folder: folder))
+        XCTAssertEqual(after.entries.filter { $0.type == .commodity }.map { "\($0.date) \($0.currency ?? "")" }, ["2025-01-01 CNY"])
+        XCTAssertTrue(after.errors.isEmpty, "\(after.errors.map(\.msg))")
+    }
+
     func testABalanceThatDiffersIsRefusedWithTheDifference() throws {
         try write("main.bean", opens + "\n" + sample)
         let before = try read("main.bean")

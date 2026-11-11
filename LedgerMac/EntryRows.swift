@@ -268,8 +268,10 @@ struct EntryTasks {
     }
 
     /// shown in the Finder when nothing is set to open a `.bean` file
-    static func open(_ entry: Entry, in folder: URL) {
-        let url = folder.appendingPathComponent(entry.file)
+    static func open(_ entry: Entry, in folder: URL) { open(file: entry.file, in: folder) }
+
+    static func open(file: String, in folder: URL) {
+        let url = folder.appendingPathComponent(file)
         if !NSWorkspace.shared.open(url) { NSWorkspace.shared.activateFileViewerSelecting([url]) }
     }
 }

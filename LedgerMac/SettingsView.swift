@@ -33,7 +33,7 @@ struct SettingsView: View {
         TabView {
             Form {
                 Picker("默认打开", selection: $defaultPage) {
-                    ForEach(Page.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
+                    ForEach(Page.allCases.filter { $0 != .errors }, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
                 }
             }
             .tabItem { Label("通用", systemImage: "gearshape") }
