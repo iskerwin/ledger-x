@@ -72,9 +72,12 @@ struct EntryForm: View {
         .formStyle(.grouped)
         .frame(maxHeight: .infinity)
         .onAppear { if draft.kind != .multi && draft.kind != .raw { field = .amount } }
-        // leaving the payee: a known one fills in what isn't picked yet
+        // leaving the payee or the note: a known one fills in what isn't picked yet
         .onChange(of: field) { old, new in
             if old == .payee && new != .payee { draft = applyingPayee(draft, name: draft.payee.trimmed, derived, onlyBlanks: true) }
+            if old == .narration && new != .narration, !draft.narration.trimmed.isEmpty {
+                draft = applyingNarration(draft, text: draft.narration.trimmed, derived, onlyBlanks: true)
+            }
         }
         // new AA parts follow the amount until typed by hand
         .onChange(of: draft.amount) {
@@ -128,6 +131,7 @@ struct EntryForm: View {
                     FieldColumn(title: "转出账户") {
                         AccountField(title: "转出账户", prefixes: ["Assets:", "Liabilities:"], derived: derived, account: Binding(get: { draft.funding }, set: { account in
                             draft.funding = account
+                            draft.selection = picked(funding: true)
                             draft.currency = derived.acctCcy[account] ?? draft.currency
                         }))
                         .labelsHidden()
@@ -147,10 +151,16 @@ struct EntryForm: View {
             } else {
                 HStack(alignment: .top, spacing: 16) {
                     FieldColumn(title: fundingTitle) {
-                        AccountField(title: fundingTitle, prefixes: ["Assets:", "Liabilities:"], derived: derived, account: $draft.funding).labelsHidden()
+                        AccountField(title: fundingTitle, prefixes: ["Assets:", "Liabilities:"], derived: derived, account: Binding(get: { draft.funding }, set: { account in
+                            draft.funding = account
+                            draft.selection = picked(funding: true)
+                        })).labelsHidden()
                     }
                     FieldColumn(title: "分类") {
-                        AccountField(title: "分类", prefixes: [categoryRoot], derived: derived, account: $draft.account).labelsHidden()
+                        AccountField(title: "分类", prefixes: [categoryRoot], derived: derived, account: Binding(get: { draft.account }, set: { account in
+                            draft.account = account
+                            draft.selection = picked(category: true)
+                        })).labelsHidden()
                     }
                 }
                 if isPersonal(draft.account) || isPersonal(draft.funding) {
@@ -184,7 +194,7 @@ struct EntryForm: View {
                     .focused($field, equals: .payee)
             }
             FieldColumn(title: "摘要") {
-                TextField("摘要", text: $draft.narration, prompt: Text(narrations.first ?? ""))
+                TextField("摘要", text: $draft.narration, prompt: Text(narrationSuggestions(derived, typed: "", payee: draft.payee, limit: 1).first ?? ""))
                     .labelsHidden()
                     .textFieldStyle(.roundedBorder)
                     .focused($field, equals: .narration)
@@ -194,8 +204,12 @@ struct EntryForm: View {
         }
     }
 
-    private var narrations: [String] {
-        Array((derived.payee(draft.payee.trimmed)?.narrations ?? []).prefix(6))
+    /// picked by hand in this entry: a payee or a note picked after leaves it as it is
+    private func picked(category: Bool = false, funding: Bool = false) -> DraftSelection {
+        var selection = draft.selection ?? DraftSelection()
+        if category { selection.category = true }
+        if funding { selection.funding = true }
+        return selection
     }
 
     /// who it might be while typing the payee, what it was for while typing the note
@@ -213,8 +227,10 @@ struct EntryForm: View {
                     }
                 }
             } else if field == .narration {
-                ForEach(narrations, id: \.self) { note in
-                    EntryChip(title: note, selected: draft.narration == note) { draft.narration = note }
+                ForEach(narrationSuggestions(derived, typed: draft.narration, payee: draft.payee, limit: 6), id: \.self) { note in
+                    EntryChip(title: note, selected: draft.narration == note) {
+                        if draft.narration != note { draft = applyingNarration(draft, text: note, derived) }
+                    }
                 }
             }
         }
