@@ -173,7 +173,8 @@ public struct DocumentItem: Identifiable {
     public let account: String
     /// what it's attached to, by a link both share; nil for an account's own statement
     public let transaction: Entry?
-    public var id: String { "\(entry.file):\(entry.line)" }
+    /// where it's written, and its file: those the ledger finds in a documents folder share one place
+    public var id: String { "\(entry.file):\(entry.line):\(entry.path ?? "")" }
     public var isAttachment: Bool { transaction != nil }
     /// its file's name
     public var name: String { ((path ?? entry.path ?? "") as NSString).lastPathComponent }
