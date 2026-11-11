@@ -39,6 +39,10 @@ final class JournalRowTests: XCTestCase {
       Assets:Receivable:Personal  100.00 CNY
         person: "王五"
       Liabilities:Card  -200.00 CNY
+
+    2026-03-07 balance Liabilities:Card  217.00 CNY
+    2026-03-08 balance Assets:Bank  0.00 CNY
+    2026-03-08 note Assets:Bank "换卡"
     """ }
 
     /// by the title on its line: the payee, else the narration
@@ -97,6 +101,31 @@ final class JournalRowTests: XCTestCase {
         XCTAssertEqual(journalRows(L, account: "Liabilities:Card").map(\.payee), ["聚餐", "港铁", "还款", "星巴克"])
         // the parent account takes in its sub-accounts
         XCTAssertEqual(try row("聚餐", account: "Assets:Receivable").amounts, [ShownAmount(amount: 100, currency: "CNY", tone: .gain)])
+    }
+
+    func testDirectivesShowWhatTheySayLatestFirst() throws {
+        let rows = journalDirectives(L)
+        XCTAssertEqual(rows.map(\.directive), [.note, .balance, .balance])
+        let note = rows[0]
+        XCTAssertEqual(note.note, "换卡")
+        XCTAssertEqual(note.category, "备注")
+        XCTAssertTrue(note.amounts.isEmpty)
+        // didn't hold: what it says, in red, and what the account held under it
+        let wrong = rows[1]
+        XCTAssertTrue(wrong.failed)
+        XCTAssertEqual(wrong.amounts, [ShownAmount(amount: 0, currency: "CNY", tone: .loss)])
+        XCTAssertEqual(wrong.charged, [ShownAmount(amount: 17398, currency: "CNY", tone: .neutral)])
+        let held = rows[2]
+        XCTAssertFalse(held.failed)
+        XCTAssertEqual(held.amounts, [ShownAmount(amount: 217, currency: "CNY", tone: .neutral)])
+        XCTAssertTrue(held.charged.isEmpty)
+        // on an account, only its own
+        XCTAssertEqual(journalDirectives(L, account: "Liabilities").map(\.date), ["2026-03-07"])
+    }
+
+    func testOnlyTransactionsWrittenInAFileCanBeChangedFromTheJournal() throws {
+        XCTAssertTrue(try row("星巴克").entry.editable)
+        XCTAssertFalse(journalDirectives(L)[0].entry.editable)
     }
 
     func testHiddenAmountsApplyWhenDrawnNotWhenWorkedOut() throws {

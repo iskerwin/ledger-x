@@ -36,9 +36,15 @@ public struct JournalRow: Identifiable {
     public let charged: [ShownAmount]
     /// 待确认, pad, or a tag of its own
     public let marked: Bool
+    /// a balance assertion, a note or a document; nil for a transaction
+    public let directive: EntryType?
+    /// a balance assertion that didn't hold: what the account held is under the amount
+    public let failed: Bool
 
     public init(_ t: Entry, _ L: Ledger, account: String? = nil) {
         entry = t
+        directive = nil
+        failed = false
         id = "\(t.file):\(t.line)"
         date = t.date
         payee = t.payee.isEmpty ? (t.narration.isEmpty ? "（无收付款方）" : t.narration) : t.payee
@@ -65,6 +71,38 @@ public struct JournalRow: Identifiable {
         marked = t.flag == "!" || t.synthetic || t.tags.contains { $0 != "transfer" && $0 != "fx" }
     }
 
+    /// a balance assertion (what it says the account holds, and what it held when it didn't), a note or a document
+    init(directive d: Entry, _ L: Ledger, result: BalanceResult?) {
+        entry = d
+        id = "\(d.file):\(d.line)"
+        date = d.date
+        directive = d.type
+        let account = d.account ?? ""
+        payee = accountTitle(L, account)
+        accounts = acctDisplay(account)
+        amount = d.number
+        kind = .transfer
+        marked = false
+        failed = result.map { !$0.ok } ?? false
+        switch d.type {
+        case .balance:
+            category = "余额断言"
+            note = ""
+            amounts = [ShownAmount(amount: d.number, currency: d.currency ?? L.base, tone: failed ? .loss : .neutral)]
+            charged = failed ? result.map { [ShownAmount(amount: $0.got, currency: d.currency ?? L.base, tone: .neutral)] } ?? [] : []
+        case .document:
+            category = "文档"
+            note = (d.path ?? "").components(separatedBy: "/").last ?? ""
+            amounts = []
+            charged = []
+        default:
+            category = "备注"
+            note = d.comment ?? ""
+            amounts = []
+            charged = []
+        }
+    }
+
     /// " · 五姨、王五": who the personal receivable lines are with
     private static func withWhom(_ t: Entry) -> String {
         var names: [String] = []
@@ -86,7 +124,25 @@ public func journalRows(_ L: Ledger, account: String? = nil) -> [JournalRow] {
     }
 }
 
+/// the balance assertions, notes and documents on a line each, the latest written first; with an account, those on it
+/// and the accounts under it
+public func journalDirectives(_ L: Ledger, account: String? = nil) -> [JournalRow] {
+    L.memoized("journalDirectives|\(account ?? "")") {
+        var results: [ObjectIdentifier: BalanceResult] = [:]
+        for result in L.balanceResults { results[ObjectIdentifier(result.entry)] = result }
+        let all = (L.balances + L.notes + L.documents).filter { d in
+            account.map { a in d.account == a || (d.account ?? "").hasPrefix(a + ":") } ?? true
+        }
+        return all.sorted { ($0.date, $0.seq) > ($1.date, $1.seq) }
+            .map { JournalRow(directive: $0, L, result: results[ObjectIdentifier($0)]) }
+    }
+}
+
 extension Entry {
+    /// a transaction written in a file, and only it, can be changed from a list of entries: what the ledger works out (a
+    /// pad's entry) has no text of its own, and the other directives are changed in their file
+    public var editable: Bool { type == .txn && !synthetic }
+
     /// where it went: its category, or for what has none the accounts the money went through
     public var route: String {
         let categories = postings.filter(isCategory)

@@ -159,14 +159,23 @@ struct EntryRow: View {
     let picked: Bool
     /// what the account being looked through holds after it
     var balance: Inventory?
+    /// each account line under it, as Fava's postings
+    var postings = false
 
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(columns, id: \.self) { column in
-                EntryCell(column: column, width: widths[column]) { cell(column) }
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                ForEach(columns, id: \.self) { column in
+                    EntryCell(column: column, width: widths[column]) { cell(column) }
+                }
+            }
+            .frame(minHeight: 38)
+            if postings && !line.entry.postings.isEmpty {
+                PostingLines(entry: line.entry, amountWidth: widths[.amount] ?? 80, picked: picked)
+                    // under the payee, past its badge
+                    .padding(.leading, (widths[.date] ?? 60) + 40)
             }
         }
-        .frame(minHeight: 38)
         .foregroundStyle(picked ? Color.white : Color.primary)
         .background(picked ? Color.jade : Color.clear)
         .contentShape(Rectangle())
@@ -380,13 +389,13 @@ struct SourcePanel: View {
                     .keyboardShortcut(.cancelAction)
                 } else {
                     Button("修改原文") { text = source }
-                        .disabled(entry.synthetic || KitPrivacy.masked)
+                        .disabled(!entry.editable || KitPrivacy.masked)
                     Menu("更多") {
-                        Button("编辑…") { tasks.edit(entry, ledger, config) }.disabled(entry.synthetic)
+                        Button("编辑…") { tasks.edit(entry, ledger, config) }.disabled(!entry.editable)
                         Button("复制原文") { EntryTasks.copy([entry]) }
                         Button("打开所在文件") { EntryTasks.open(entry, in: folder) }
                         Divider()
-                        Button("删除…", role: .destructive) { tasks.deleting = entry }.disabled(entry.synthetic)
+                        Button("删除…", role: .destructive) { tasks.deleting = entry }.disabled(!entry.editable)
                     }
                     .fixedSize()
                 }
@@ -440,6 +449,49 @@ struct SourcePanel: View {
     }
 }
 
+/// an entry's account lines, each account with what moved in it, the amounts in the amount column
+private struct PostingLines: View {
+    let entry: Entry
+    let amountWidth: CGFloat
+    let picked: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(entry.postings.indices, id: \.self) { index in
+                let posting = entry.postings[index]
+                HStack(spacing: 8) {
+                    Text(acctDisplay(posting.account)).lineLimit(1)
+                    Spacer(minLength: 12)
+                    Text(posting.units.map { money($0, posting.currency ?? "") } ?? "")
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .frame(width: amountWidth - 16, alignment: .trailing)
+                }
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(picked ? Color.white.opacity(0.8) : Color.secondary)
+        .padding(.trailing, 8)
+        .padding(.bottom, 6)
+    }
+}
+
+/// a balance assertion, a note or a document, on a badge like a category's
+private struct DirectiveBadge: View {
+    let type: EntryType
+    let failed: Bool
+
+    var body: some View {
+        let symbol = type == .balance ? (failed ? "exclamationmark.triangle" : "checkmark.seal") : type == .document ? "doc" : "note.text"
+        Image(systemName: symbol)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 24, height: 24)
+            .background(failed ? Color.loss : Color.gray, in: RoundedRectangle(cornerRadius: 24 * 0.27, style: .continuous))
+            .accessibilityHidden(true)
+    }
+}
+
 /// who, on its category's colour, and the note under it
 private struct PayeeCell: View {
     let line: JournalRow
@@ -448,7 +500,11 @@ private struct PayeeCell: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            CategoryBadge(entry: line.entry, ledger: ledger, size: 24)
+            if let directive = line.directive {
+                DirectiveBadge(type: directive, failed: line.failed)
+            } else {
+                CategoryBadge(entry: line.entry, ledger: ledger, size: 24)
+            }
             VStack(alignment: .leading, spacing: 1) {
                 Text(line.payee).lineLimit(1)
                 if !line.note.isEmpty {
