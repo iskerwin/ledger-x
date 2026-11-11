@@ -33,7 +33,7 @@ struct DocumentsPage: View {
     var body: some View {
         let all = documentItems(ledger)
         let counts = Dictionary(grouping: all, by: \.account).mapValues(\.count)
-        let shown = all.filter { (account.map { a in $0.account == a } ?? true) && kind.holds($0) && documentMatches($0, query, ledger) }
+        let shown = all.filter { item in (account.map { item.account == $0 } ?? true) && kind.holds(item) && documentMatches(item, query, ledger) }
         HStack(spacing: 0) {
             accounts(all.count, counts)
                 .frame(width: 260)
