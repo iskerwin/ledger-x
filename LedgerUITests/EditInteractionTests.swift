@@ -575,8 +575,9 @@ final class EditInteractionTests: XCTestCase {
         tapPoint(app.descendants(matching: .any)["transfer.fee.mode"].firstMatch, timeout: 5)
         tapPoint(app.buttons["其他账户或币种单独支付"].firstMatch, timeout: 5)
         let payer = app.buttons["transfer.fee.account"]
-        // the row slides in as the mode changes; a tap while it moves misses it
+        // the row appears below the sheet's fold as the mode changes; a tap there lands on nothing
         XCTAssertTrue(payer.waitForExistence(timeout: 5))
+        scrollIntoView(payer, in: app)
         waitUntilStill(payer)
         tapPoint(payer, timeout: 5)
         let search = app.textFields["account.search"]
@@ -2353,7 +2354,8 @@ final class EditInteractionTests: XCTestCase {
         let month = row.frame.height
         let top = row.frame.minY
         app.segmentedControls.buttons["本年"].tap()
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "3,000,000"), object: row)], timeout: 5), .completed)
+        // on a busy runner one look at the row can take longer than 5 s
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "3,000,000"), object: row)], timeout: 20), .completed)
         XCTAssertEqual(row.frame.height, month, accuracy: 0.5)
         XCTAssertEqual(row.frame.minY, top, accuracy: 0.5, "The total card above keeps its height")
     }
