@@ -2,7 +2,7 @@ import SwiftUI
 import LedgerKit
 
 /// an account's group look, the phone's (`AccountKind` in Ledger/Views/AccountsView.swift): this target shares none of its code
-private enum AccountGroup {
+enum AccountGroup {
     static let order = ["Bank", "EWallet", "Cash", "Brokerage", "Crypto", "Receivable", "CreditCard", "Loan"]
 
     static func look(_ group: String) -> (symbol: String, color: Color) {

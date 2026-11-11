@@ -7,7 +7,7 @@ enum EntryPanel: String, Identifiable {
     var id: String { rawValue }
 }
 
-/// 记一笔: which kind of entry, and how it is written (表单, 分录, 文本)
+/// 记一笔: the phone's quick card first; 完整表单 (表单, 分录, 文本) one step in
 struct NewEntrySheet: View {
     let ledger: Ledger
     let folder: URL
@@ -31,6 +31,10 @@ struct NewEntrySheet: View {
     @State private var review: FolderSave?
     @State private var another = false
     @State private var leaving = false
+    /// 完整表单 open over the card
+    @State private var full: Bool
+    /// the card's category grid in the order it had as this opened: saving one doesn't move the cells
+    @State private var gridOrder: [String: [String]]
 
     private static let formKinds: [DraftKind] = [.expense, .income, .transfer]
 
@@ -49,7 +53,12 @@ struct NewEntrySheet: View {
         _draft = State(initialValue: opened)
         _baseline = State(initialValue: editing ?? blank)
         _formKind = State(initialValue: Self.formKinds.contains(opened.kind) ? opened.kind : .expense)
+        _full = State(initialValue: !Self.fitsCard(opened))
+        _gridOrder = State(initialValue: Dictionary(uniqueKeysWithValues: ["Expenses:", "Income:"].map { ($0, categoryGroups(derived, root: $0).map(\.id)) }))
     }
+
+    /// what the card can show: spending, income or a transfer, not shared out (AA)
+    private static func fitsCard(_ draft: Draft) -> Bool { formKinds.contains(draft.kind) && !draft.split }
 
     private static func blank(_ kind: DraftKind, ledger: Ledger, derived: Derived, config: LedgerXConfig?) -> Draft {
         var draft = newDraft(kind, derived, defaultFunding: config?.defaultFunding)
@@ -59,32 +68,17 @@ struct NewEntrySheet: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            EntryForm(draft: $draft, ledger: ledger, derived: derived, subscriptionLinks: subscriptionLinks) { panel = $0 }
-                .id(entry)
-            Text(message)
-                .font(.callout)
-                .foregroundStyle(Color.loss)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, minHeight: 28)
-                .padding(.horizontal, 20)
-            HStack {
-                Spacer()
-                Button("取消", role: .cancel) { close() }
-                    .keyboardShortcut(.cancelAction)
-                if !editing {
-                    Button("保存再记") { save(another: true) }
-                        .keyboardShortcut(.return, modifiers: [.command, .shift])
-                        .disabled(saving)
-                }
-                Button("保存") { save(another: false) }
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(saving)
+        Group {
+            if !full && Self.fitsCard(draft) {
+                QuickCard(draft: $draft, ledger: ledger, derived: derived, subscriptionLinks: subscriptionLinks, gridOrder: gridOrder,
+                          editing: editing, saving: saving, message: message, blank: { Self.blank($0, ledger: ledger, derived: derived, config: config) }, setKind: setKind,
+                          openFull: { message = ""; full = true }, close: close, save: save(another:)) { panel = $0 }
+                    .id(entry)
+                    .frame(width: 400, height: 740)
+            } else {
+                form
             }
-            .padding([.horizontal, .bottom], 16)
         }
-        .frame(width: 620, height: 640)
         .sheet(item: $panel) { panel in
             switch panel {
             case .rate: RateSheet(draft: $draft, ledger: ledger, derived: derived)
@@ -121,10 +115,48 @@ struct NewEntrySheet: View {
         }
     }
 
-    /// the kinds on the left, how it is written on the right; a refund stays one
+    private var form: some View {
+        VStack(spacing: 0) {
+            header
+            EntryForm(draft: $draft, ledger: ledger, derived: derived, subscriptionLinks: subscriptionLinks) { panel = $0 }
+                .id(entry)
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(Color.loss)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, minHeight: 28)
+                .padding(.horizontal, 20)
+            HStack {
+                Spacer()
+                Button("取消", role: .cancel) { close() }
+                    .keyboardShortcut(.cancelAction)
+                if !editing {
+                    Button("保存再记") { save(another: true) }
+                        .keyboardShortcut(.return, modifiers: [.command, .shift])
+                        .disabled(saving)
+                }
+                Button("保存") { save(another: false) }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(saving)
+            }
+            .padding([.horizontal, .bottom], 16)
+        }
+        .frame(width: 620, height: 640)
+    }
+
+    /// back to the card, the kinds on the left, how it is written on the right; a refund stays one
     private var header: some View {
         VStack(spacing: 12) {
-            Text(editing ? "编辑交易" : "记一笔").font(.headline)
+            ZStack {
+                Text(editing ? "编辑交易" : "记一笔").font(.headline)
+                if draft.kind != .refund && !draft.split {
+                    Button("返回", systemImage: "chevron.left", action: back)
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
+                        .help("返回")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
             if draft.kind == .refund {
                 Text(draft.kind.label).foregroundStyle(.secondary)
             } else {
@@ -156,21 +188,30 @@ struct NewEntrySheet: View {
 
     private var mode: Mode { draft.kind == .multi ? .multi : draft.kind == .raw ? .raw : .form }
 
-    private func setMode(_ mode: Mode) {
+    /// the card again: 分录 and 文本 go back as the kind they read as, or stay and say why
+    private func back() {
+        if mode != .form && !setMode(.form) { return }
+        message = ""
+        full = false
+    }
+
+    @discardableResult
+    private func setMode(_ mode: Mode) -> Bool {
         switch mode {
-        case .multi: setKind(.multi)
-        case .raw: setKind(.raw)
+        case .multi: return setKind(.multi)
+        case .raw: return setKind(.raw)
         case .form:
             // a whole entry goes back as the kind it reads as; one the form can't hold stays, and says why
             let checked = validateText(draftText(draft, ledger, derived), ledger, single: true)
             let shown = checked.ok ? checked.txn.flatMap { editDraft($0, ledger, derived)?.kind }.flatMap { Self.formKinds.contains($0) ? $0 : nil } : nil
-            setKind(shown ?? formKind)
+            return setKind(shown ?? formKind)
         }
     }
 
     /// content moves between the kinds only when none of it is lost; otherwise this stays as it is and says why
-    private func setKind(_ kind: DraftKind) {
-        guard kind != draft.kind else { return }
+    @discardableResult
+    private func setKind(_ kind: DraftKind) -> Bool {
+        guard kind != draft.kind else { return true }
         message = ""
         let next: Draft
         if [.multi, .raw].contains(kind) || [.multi, .raw].contains(draft.kind) {
@@ -178,7 +219,7 @@ struct NewEntrySheet: View {
             case .success(let converted): next = converted
             case .failure(let error):
                 message = error.message
-                return
+                return false
             }
             snapshots[draft.kind] = draft
         } else {
@@ -188,6 +229,7 @@ struct NewEntrySheet: View {
         }
         if Self.formKinds.contains(kind) { formKind = kind }
         draft = next
+        return true
     }
 
     private func close() {
