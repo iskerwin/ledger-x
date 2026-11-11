@@ -72,6 +72,12 @@ public func advanceCategory(_ p: Posting) -> String? {
     return s.hasPrefix("Expenses:") ? s : nil
 }
 
+/// the category an entry is shown under: its own line's, or what an advance was for
+public func shownCategory(_ t: Entry) -> String? {
+    t.postings.first { $0.account.hasPrefix("Expenses:") || $0.account.hasPrefix("Income:") }?.account
+        ?? t.postings.lazy.compactMap(advanceCategory).first
+}
+
 /// someone's part of an expense you paid (AA): it goes to the personal receivable, `person:` naming them
 public struct Share: Codable, Equatable, Identifiable {
     public var id = UUID()
