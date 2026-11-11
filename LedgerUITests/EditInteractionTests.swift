@@ -575,6 +575,9 @@ final class EditInteractionTests: XCTestCase {
         tapPoint(app.descendants(matching: .any)["transfer.fee.mode"].firstMatch, timeout: 5)
         tapPoint(app.buttons["其他账户或币种单独支付"].firstMatch, timeout: 5)
         let payer = app.buttons["transfer.fee.account"]
+        // the row slides in as the mode changes; a tap while it moves misses it
+        XCTAssertTrue(payer.waitForExistence(timeout: 5))
+        waitUntilStill(payer)
         tapPoint(payer, timeout: 5)
         let search = app.textFields["account.search"]
         tapPoint(search, timeout: 5)
