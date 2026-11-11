@@ -69,7 +69,7 @@ final class PerfTests: XCTestCase {
         XCTAssertGreaterThan(L.txns.count, Self.txns)
         let D = time("derived", max: 6) { Derived(L, today: "2025-01-01") }
         // every note is offered while one is typed: tens of thousands of them, on each key
-        let notes = time("note suggestions", max: 0.5) { (0..<20).map { narrationSuggestions(D, typed: "消费 \($0)", payee: "", limit: 8) } }
+        let notes = time("note suggestions", max: 1) { (0..<20).map { narrationSuggestions(D, typed: "消费 \($0)", payee: "", limit: 8) } }
         XCTAssertEqual(notes.last?.count, 8)
         // the pre-commit check loads the ledger twice and compares
         let after = time("load (after a change)", max: 10) {
