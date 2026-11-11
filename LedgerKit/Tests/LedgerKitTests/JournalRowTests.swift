@@ -41,12 +41,13 @@ final class JournalRowTests: XCTestCase {
       Liabilities:Card  -200.00 CNY
     """ }
 
+    /// by the title on its line: the payee, else the narration
     private func row(_ payee: String, account: String? = nil) throws -> JournalRow {
-        try XCTUnwrap(journalRows(L, account: account).first { $0.entry.payee == payee })
+        try XCTUnwrap(journalRows(L, account: account).first { $0.payee == payee })
     }
 
     func testNewestWrittenComesFirst() {
-        XCTAssertEqual(journalRows(L).map(\.entry.payee), ["聚餐", "港铁", "转账", "还款", "工资", "星巴克"])
+        XCTAssertEqual(journalRows(L).map(\.payee), ["聚餐", "港铁", "转账", "还款", "工资", "星巴克"])
     }
 
     func testSpendingShowsWhatWentOutAndTheNoteUnderThePayee() throws {
@@ -57,7 +58,7 @@ final class JournalRowTests: XCTestCase {
         XCTAssertEqual(coffee.kind, .expense)
         XCTAssertTrue(coffee.charged.isEmpty)
         XCTAssertFalse(coffee.marked)
-        // no narration: nothing under the payee
+        // one text on the header is the narration: it stands in for the payee, with nothing under it
         XCTAssertEqual(try row("工资").note, "")
         XCTAssertEqual(try row("工资").amounts, [ShownAmount(amount: 18000, currency: "CNY", tone: .gain)])
     }
@@ -93,7 +94,7 @@ final class JournalRowTests: XCTestCase {
         XCTAssertEqual(try row("还款", account: "Liabilities:Card").amounts, [ShownAmount(amount: 500, currency: "CNY", tone: .gain)])
         XCTAssertTrue(try row("港铁", account: "Liabilities:Card").charged.isEmpty)
         // only what moved money in it
-        XCTAssertEqual(journalRows(L, account: "Liabilities:Card").map(\.entry.payee), ["聚餐", "港铁", "还款", "星巴克"])
+        XCTAssertEqual(journalRows(L, account: "Liabilities:Card").map(\.payee), ["聚餐", "港铁", "还款", "星巴克"])
         // the parent account takes in its sub-accounts
         XCTAssertEqual(try row("聚餐", account: "Assets:Receivable").amounts, [ShownAmount(amount: 100, currency: "CNY", tone: .gain)])
     }
