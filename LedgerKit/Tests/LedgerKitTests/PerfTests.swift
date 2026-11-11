@@ -67,7 +67,10 @@ final class PerfTests: XCTestCase {
         let text = Self.bigLedger()
         let L = time("load", max: 10) { loadLedger(root: "main.bean") { _ in text } }
         XCTAssertGreaterThan(L.txns.count, Self.txns)
-        _ = time("derived", max: 6) { Derived(L, today: "2025-01-01") }
+        let D = time("derived", max: 6) { Derived(L, today: "2025-01-01") }
+        // every note is offered while one is typed: tens of thousands of them, on each key
+        let notes = time("note suggestions", max: 0.5) { (0..<20).map { narrationSuggestions(D, typed: "消费 \($0)", payee: "", limit: 8) } }
+        XCTAssertEqual(notes.last?.count, 8)
         // the pre-commit check loads the ledger twice and compares
         let after = time("load (after a change)", max: 10) {
             loadLedger(root: "main.bean") { _ in text + "2024-12-30 * \"X\"\n  Expenses:Travel  1.00 CNY\n  Assets:Cash\n" }
