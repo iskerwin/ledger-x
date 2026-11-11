@@ -371,6 +371,8 @@ struct AccountsView: View {
                         if n > 0 { Text(LS("%@ 个", n)) }
                     } label: { Label(LS("附件与对账单"), systemImage: "paperclip").labelStyle(ControlLabelStyle()) }
                 }
+                // the count joins the row's label: tests find it by this
+                .accessibilityIdentifier("accounts.documents")
                 let prices = PriceUpdateSheet.items(L)
                 if !prices.isEmpty {
                     // a row with its words: the icon on 投资持仓 alone was easy to miss, and there is none without holdings
