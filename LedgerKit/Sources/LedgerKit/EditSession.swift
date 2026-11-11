@@ -316,26 +316,28 @@ public func applyingNarration(_ draft: Draft, text: String, _ D: Derived, onlyBl
 /// notes to offer while one is typed, matched loosely (`fuzzy`): what holds the typed text whole before what has it
 /// spread through, the payee's own notes before the rest, then the most used and lately
 public func narrationSuggestions(_ D: Derived, typed: String, payee: String, limit: Int) -> [String] {
-    let q = typed.trimmingCharacters(in: .whitespaces)
+    let q = typed.trimmingCharacters(in: .whitespaces).lowercased()
     let own = D.payee(payee.trimmingCharacters(in: .whitespaces))?.narrations ?? []
     var seen = Set<String>(), whole: [String] = [], spread: [String] = []
     /// true once enough hold the typed text whole: a ledger can hold tens of thousands of notes
-    func enough(_ text: String) -> Bool {
+    func enough(_ text: String, _ folded: String) -> Bool {
         guard seen.insert(text).inserted else { return false }
-        switch q.isEmpty ? 2 : fuzzy(q, text) {
+        switch q.isEmpty ? 2 : foldedMatch(q, folded) {
         case 2: whole.append(text)
         case 1: if spread.count < limit { spread.append(text) }
         default: break
         }
         return whole.count >= limit
     }
-    if !own.contains(where: enough) { _ = D.narrationStats.contains { enough($0.text) } }
+    if !own.contains(where: { enough($0, $0.lowercased()) }) { _ = D.narrationStats.contains { enough($0.text, $0.folded) } }
     return Array((whole + spread).prefix(limit))
 }
 
 /// 2 when `s` holds `q`, 1 when `q`'s characters come in `s` in order, else 0; case ignored
-public func fuzzy(_ q: String, _ s: String) -> Int {
-    let q = q.lowercased(), s = s.lowercased()
+public func fuzzy(_ q: String, _ s: String) -> Int { foldedMatch(q.lowercased(), s.lowercased()) }
+
+/// `fuzzy` on text already lowercased
+func foldedMatch(_ q: String, _ s: String) -> Int {
     if s.contains(q) { return 2 }
     var it = q.makeIterator()
     var c = it.next()
