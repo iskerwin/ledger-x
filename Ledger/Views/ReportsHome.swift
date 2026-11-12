@@ -103,7 +103,16 @@ struct ReportsInsights: View {
                         .buttonStyle(.plain)
                     }
                     ForEach(top.count..<5, id: \.self) { _ in
-                        CategoryListRow(symbol: "circle", color: .clear, name: " ", value: 0, frac: 0, share: nil).hidden()
+                        // same button as a real row, only unseen: hidden() drops out of the row's width, so a month
+                        // with nothing spent shrank to its words while a month of categories stayed the full row
+                        Button {} label: {
+                            CategoryListRow(symbol: "circle", color: .clear, name: " ", value: 0, frac: 0, share: nil)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(true)
+                        .opacity(0)
+                        .accessibilityHidden(true)
+                        .allowsHitTesting(false)
                     }
                     Text(rest > 0.005 ? LS("其余 %@ 个分类 %@", rows.count - top.count, money(rest, L.base)) : " ")
                         .font(.caption).foregroundStyle(.secondary).sensitive()
@@ -117,8 +126,10 @@ struct ReportsInsights: View {
                 }
             }
             .padding(AppSpacing.content)
-            // the card's width is the row's, not its words': with nothing spent it shrank to them
-            .frame(maxWidth: .infinity, alignment: .leading)
+            // the card's width is the row's, not its words'. minWidth 0 so a short month still takes the width the
+            // list offers, the same width the category buttons take
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("reports.where")
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
