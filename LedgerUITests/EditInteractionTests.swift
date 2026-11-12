@@ -946,9 +946,11 @@ final class EditInteractionTests: XCTestCase {
         ]
         app.launchArguments = ["-AppleLanguages", "(zh-Hans)"]
         app.launch()
-        let entry = app.buttons["附件与对账单"].firstMatch
-        XCTAssertTrue(entry.waitForExistence(timeout: 20))
-        reveal(entry, in: app)
+        XCTAssertTrue(app.navigationBars["账户"].waitForExistence(timeout: 20))
+        // the list's rows come and go as it fills and scrolls: look again after each swipe, not at a row seen before
+        let entry = app.buttons["accounts.documents"].firstMatch
+        for _ in 0..<6 where !(entry.exists && entry.isHittable) { app.swipeUp() }
+        XCTAssertTrue(entry.isHittable)
         entry.tap()
         let kinds = app.segmentedControls["documents.kind"]
         XCTAssertTrue(kinds.waitForExistence(timeout: 5))
