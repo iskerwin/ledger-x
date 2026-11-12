@@ -537,8 +537,18 @@ struct OverviewView: View {
             Text(title)
             if let sub = sub { Text("· " + sub).textCase(nil) }
             Spacer()
-            if !expandLearned { Text(hint).textCase(nil) }
+            if !expandLearned {
+                // a Text in a list header is a label the test cannot match (Other against StaticText). a button
+                // there can be found. it takes no taps. leaving it a button is what keeps it matchable
+                Button {} label: {
+                    Text(hint).textCase(nil).font(.footnote).foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("hint." + hint)
+                .allowsHitTesting(false)
+            }
         }
+        .accessibilityElement(children: .contain)
     }
 
     @ViewBuilder
