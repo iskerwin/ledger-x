@@ -2180,11 +2180,19 @@ final class EditInteractionTests: XCTestCase {
         chart.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertTrue(chartHint.waitForNonExistence(timeout: 5))
         // the payees' list: a row opened shows its transactions. short drags, because a full swipe can carry
-        // this section's header off the screen before the hint is seen
-        let payeeHint = text(app, "点按查看交易")
+        // this section's header off the screen before the hint is seen. the hint is a header label, which this
+        // runner types as Other rather than StaticText; reading the frame before a match exists throws
+        func anyText(_ s: String) -> XCUIElement {
+            let exact = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", s)).firstMatch
+            if exact.exists { return exact }
+            return app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", s)).firstMatch
+        }
+        let payeeHint = anyText("点按查看交易")
         for _ in 0..<16 {
-            let frame = payeeHint.frame
-            if payeeHint.exists, frame.minY > 80, frame.maxY < app.frame.maxY - 80 { break }
+            if payeeHint.exists {
+                let frame = payeeHint.frame
+                if frame.minY > 80, frame.maxY < app.frame.maxY - 80 { break }
+            }
             let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
             start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -150)))
         }
