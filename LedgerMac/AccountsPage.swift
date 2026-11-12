@@ -90,7 +90,7 @@ struct AccountsPage: View {
                         }
                         .padding(12)
                         // ↑ ↓ go through the accounts in sight, as in a list: on the content, since the scroll view takes the arrows for scrolling
-                        .focusable()
+                        .focusable(interactions: .edit)
                         .focused($listFocused)
                         .focusEffectDisabled()
                         .onMoveCommand { direction in

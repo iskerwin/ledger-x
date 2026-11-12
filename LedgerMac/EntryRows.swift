@@ -280,7 +280,8 @@ struct EntryTasks {
 extension View {
     /// the form, the question before deleting, and what a save would break, for a page that lists entries
     func entryTasks(_ tasks: Binding<EntryTasks>, ledger: Ledger, config: LedgerXConfig?, folder: URL) -> some View {
-        sheet(item: tasks.editing) { NewEntrySheet(ledger: ledger, config: config, folder: folder, editing: $0.draft) }
+        opensEntry(when: Binding(get: { tasks.wrappedValue.editing != nil }, set: { if !$0 { tasks.wrappedValue.editing = nil } }),
+                   editing: tasks.wrappedValue.editing?.draft, ledger: ledger, config: config, folder: folder)
             .alert("删除这笔交易？", isPresented: tasks.deleting.present(), presenting: tasks.wrappedValue.deleting) { entry in
                 Button("删除", role: .destructive) { deleteEntry(entry, tasks, folder: folder) }
                 Button("取消", role: .cancel) {}

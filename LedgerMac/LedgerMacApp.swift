@@ -13,6 +13,7 @@ struct LedgerMacApp: App {
     @State private var searching = false
     /// counts the times a folder was chosen, so choosing the same one again reads it again
     @State private var opened = 0
+    @State private var open = OpenLedger()
 
     init() {
         KitLocale.chinese = true
@@ -27,6 +28,7 @@ struct LedgerMacApp: App {
                 .environment(\.locale, Locale(identifier: "zh_CN"))
                 .preferredColorScheme(Appearance(rawValue: appearance)?.scheme)
                 .onChange(of: hideAmounts) { KitPrivacy.masked = hideAmounts }
+                .environment(open)
                 .fileImporter(isPresented: $picking, allowedContentTypes: [.folder]) { result in
                     if case .success(let url) = result {
                         folder = url.path
@@ -70,6 +72,16 @@ struct LedgerMacApp: App {
                 Divider()
             }
         }
+        Window("记一笔", id: EntryWindow.id) {
+            EntryWindow()
+                .environment(open)
+                .environment(\.locale, Locale(identifier: "zh_CN"))
+                .preferredColorScheme(Appearance(rawValue: appearance)?.scheme)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
+        .commandsRemoved()
         Settings {
             SettingsView(folder: folder, picking: $picking)
                 .environment(\.locale, Locale(identifier: "zh_CN"))
@@ -90,8 +102,7 @@ private struct ContentView: View {
     @Binding var adding: Bool
     @Binding var page: Page?
     @Binding var searching: Bool
-    @State private var ledger: Ledger?
-    @State private var config: LedgerXConfig?
+    @Environment(OpenLedger.self) private var open
     @State private var missing = false
     @State private var watcher: FolderWatcher?
     /// which folder and opening is on screen: while it stays the same, a reload keeps the old list up until the new one is ready
@@ -100,8 +111,8 @@ private struct ContentView: View {
 
     var body: some View {
         Group {
-            if let ledger {
-                MainView(ledger: ledger, config: config, folder: URL(fileURLWithPath: folder), changes: changes, adding: $adding, page: $page, searching: $searching, picking: $picking)
+            if let ledger = open.ledger {
+                MainView(ledger: ledger, config: open.config, folder: URL(fileURLWithPath: folder), changes: changes, adding: $adding, page: $page, searching: $searching, picking: $picking)
             } else if folder.isEmpty || missing {
                 VStack(spacing: 12) {
                     if missing { Text("这个文件夹里没有账本").foregroundStyle(.secondary) }
@@ -114,20 +125,22 @@ private struct ContentView: View {
             }
         }
         .frame(minWidth: 960, minHeight: 640)
+        .background(WindowReader { $0.fitScreen() })
         .navigationTitle(folder.isEmpty ? "Ledger X" : URL(fileURLWithPath: folder).lastPathComponent)
         .task(id: "\(changes)|\(opened)|\(folder)") {
             guard !folder.isEmpty else { return }
             let url = URL(fileURLWithPath: folder)
             if source != "\(opened)|\(folder)" {
                 source = "\(opened)|\(folder)"
-                ledger = nil
+                open.folder = url
+                open.ledger = nil
                 missing = false
                 watcher = FolderWatcher(url) { changes += 1 }
             }
             let loaded = await Task.detached { (loadLedger(folder: url), ledgerConfig(folder: url)) }.value
             guard !Task.isCancelled else { return }
-            ledger = loaded.0
-            config = loaded.1
+            open.ledger = loaded.0
+            open.config = loaded.1
             missing = loaded.0 == nil
         }
     }

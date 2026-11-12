@@ -114,7 +114,8 @@ struct QuickCard: View {
             }
         }
         .background(Color.page)
-        .focusable()
+        // typing takes the focus whether or not the Mac moves it between controls with Tab (键盘导航)
+        .focusable(interactions: .edit)
         .focused($typing)
         .focusEffectDisabled()
         .onKeyPress(characters: CharacterSet(charactersIn: "0123456789.+-*/×÷="), phases: .down) { press in

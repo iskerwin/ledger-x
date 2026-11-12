@@ -192,9 +192,7 @@ struct MainView: View {
                 }
             }
         }
-        .sheet(isPresented: $adding) {
-            NewEntrySheet(ledger: ledger, config: config, folder: folder)
-        }
+        .opensEntry(when: $adding, ledger: ledger, config: config, folder: folder)
         .task(id: "\(changes)|\(gitReads)|\(folder.path)") {
             let folder = folder
             let status = await Task.detached { folderGitStatus(folder) }.value

@@ -7,7 +7,7 @@ enum EntryPanel: String, Identifiable {
     var id: String { rawValue }
 }
 
-/// 记一笔: the phone's quick card first; 完整表单 (表单, 分录, 文本) one step in
+/// 记一笔: the phone's quick card first; 完整表单 (表单, 分录, 文本) one step in; in its own window (`EntryWindow`)
 struct NewEntrySheet: View {
     let ledger: Ledger
     let folder: URL
@@ -15,7 +15,8 @@ struct NewEntrySheet: View {
     private let derived: Derived
     private let subscriptionLinks: Set<String>
     private let editing: Bool
-    @Environment(\.dismiss) private var dismiss
+    /// closes the window: saved, given up or kept as a draft
+    private let done: () -> Void
     @State private var draft: Draft
     /// what counts as nothing changed: closing from it needs no asking
     @State private var baseline: Draft
@@ -40,11 +41,12 @@ struct NewEntrySheet: View {
 
     private enum Mode: Hashable { case form, multi, raw }
 
-    init(ledger: Ledger, config: LedgerXConfig?, folder: URL, editing: Draft? = nil) {
+    init(ledger: Ledger, config: LedgerXConfig?, folder: URL, editing: Draft? = nil, done: @escaping () -> Void) {
         self.ledger = ledger
         self.folder = folder
         self.config = config
         self.editing = editing != nil
+        self.done = done
         let derived = folderDerived(ledger, config: config)
         self.derived = derived
         subscriptionLinks = Set(subscriptions(ledger).map(\.link))
@@ -74,7 +76,7 @@ struct NewEntrySheet: View {
                           editing: editing, saving: saving, message: message, blank: { Self.blank($0, ledger: ledger, derived: derived, config: config) }, setKind: setKind,
                           openFull: { message = ""; full = true }, close: close, save: save(another:)) { panel = $0 }
                     .id(entry)
-                    .frame(width: 400, height: 740)
+                    .frame(width: 400, height: EntryWindow.fitted(740))
             } else {
                 form
             }
@@ -105,12 +107,12 @@ struct NewEntrySheet: View {
             if !editing {
                 Button("保留草稿") {
                     KeptDraft.write(draft, folder)
-                    dismiss()
+                    done()
                 }
             }
             Button("放弃", role: .destructive) {
                 if !editing { KeptDraft.clear(folder) }
-                dismiss()
+                done()
             }
         }
     }
@@ -141,7 +143,7 @@ struct NewEntrySheet: View {
             }
             .padding([.horizontal, .bottom], 16)
         }
-        .frame(width: 620, height: 640)
+        .frame(width: 620, height: EntryWindow.fitted(640))
     }
 
     /// back to the card, the kinds on the left, how it is written on the right; a refund stays one
@@ -235,7 +237,7 @@ struct NewEntrySheet: View {
     private func close() {
         if draft == baseline {
             if !editing { KeptDraft.clear(folder) }
-            dismiss()
+            done()
         } else {
             leaving = true
         }
@@ -265,7 +267,7 @@ struct NewEntrySheet: View {
         do {
             try commitFolderSave(prepared, folder: folder)
             if !editing { KeptDraft.clear(folder) }
-            if another { startNext() } else { dismiss() }
+            if another { startNext() } else { done() }
         } catch {
             message = error.localizedDescription
         }
