@@ -28,6 +28,8 @@ CALENDAR_TESTS = (
     'testGlassCalendarAccessibilityTextRemainsReadable',
     'testCalendarUsesFullRowWidthWithoutHint',
     'testCalendarFiguresSitInEqualColumns',
+    'testGlassCalendarMonthChangesKeepLayout',
+    'testGlassCalendarMonthChangesKeepLayoutAtLargeText',
 )
 # no layout depends on the device any more, so nothing runs on the narrow screen (Kerwin, 2026-10-29)
 NARROW_CALENDAR_TESTS = ()

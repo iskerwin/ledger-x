@@ -1417,6 +1417,22 @@ final class EditInteractionTests: XCTestCase {
         }
     }
 
+    /// until a popover's control has settled: asking for hittability before it has a frame ({inf, inf}) fails the test
+    /// outright instead of answering no, so wait for a real frame first; and it is already hittable while the popover
+    /// still slides up, so also wait until two reads in a row find it in the same place. On a slow runner the contents
+    /// can lose their frame again right after that, so frame, place and hittability are one wait
+    private func waitSettled(_ element: XCUIElement) {
+        var previous = CGRect.null
+        let ready = expectation(for: NSPredicate { _, _ in
+            let frame = element.frame
+            defer { previous = frame }
+            guard !frame.isInfinite && !frame.isNull && frame.width > 0 && frame.height > 0 && frame == previous
+            else { return false }
+            return element.isHittable
+        }, evaluatedWith: nil)
+        wait(for: [ready], timeout: 15)
+    }
+
     private func openGlassCalendar(_ app: XCUIApplication) -> XCUIElement {
         let toggle = app.buttons.matching(NSPredicate(format: "label IN %@", ["月历", "收起月历"])).firstMatch
         XCTAssertTrue(toggle.waitForExistence(timeout: 20))
@@ -1433,22 +1449,15 @@ final class EditInteractionTests: XCTestCase {
         for (name, value) in [("calendar.yearWheel", year), ("calendar.monthWheel", month)] {
             let wheel = app.pickers[name].pickerWheels.firstMatch
             XCTAssertTrue(wheel.waitForExistence(timeout: 5))
-            // asking for hittability before the wheel has a frame ({inf, inf}) fails the test outright instead of
-            // answering no, so wait for a real frame first; and it is already hittable while the sheet still slides
-            // up, so also wait until two reads in a row find it in the same place. On a slow runner the sheet's
-            // contents can lose their frame again right after that, so frame, place and hittability are one wait
-            var previous = CGRect.null
-            let ready = expectation(for: NSPredicate { _, _ in
-                let frame = wheel.frame
-                defer { previous = frame }
-                guard !frame.isInfinite && !frame.isNull && frame.width > 0 && frame.height > 0 && frame == previous
-                else { return false }
-                return wheel.isHittable
-            }, evaluatedWith: nil)
-            wait(for: [ready], timeout: 15)
+            waitSettled(wheel)
             wheel.adjust(toPickerWheelValue: value)
         }
-        tapPoint(app.buttons["完成"], timeout: 5)
+        // turning a wheel lays the popover out again (at large text, its button too): a tap while the button has no
+        // frame fails with "point.x != INFINITY"
+        let done = app.buttons["完成"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        waitSettled(done)
+        done.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         // the title opens nothing while the popover is still on its way out, so the next month waits for it to go
         XCTAssertTrue(app.pickers["calendar.yearWheel"].waitForNonExistence(timeout: 5))
     }
@@ -1461,7 +1470,16 @@ final class EditInteractionTests: XCTestCase {
         checkGlassCalendar(textSize: "UICTContentSizeCategoryXXXL")
     }
 
-    private func checkGlassCalendar(textSize: String?) {
+    func testGlassCalendarMonthChangesKeepLayout() {
+        checkCalendarMonthLayout(textSize: nil)
+    }
+
+    func testGlassCalendarMonthChangesKeepLayoutAtLargeText() {
+        checkCalendarMonthLayout(textSize: "UICTContentSizeCategoryXXXL")
+    }
+
+    /// Month changes and day sheets have separate launches so each regression stays within the per-test limit.
+    private func checkCalendarMonthLayout(textSize: String?) {
         let app = launchTab("journal", textSize: textSize, env: ["LEDGER_CALENDAR": "1"])
         let card = openGlassCalendar(app)
         let height = card.frame.height
@@ -1473,6 +1491,11 @@ final class EditInteractionTests: XCTestCase {
             XCTAssertEqual(app.otherElements["calendar.figures"].frame.minY, figuresY, accuracy: 0.5)
             assertNoDaySummary(app)
         }
+    }
+
+    private func checkGlassCalendar(textSize: String?) {
+        let app = launchTab("journal", textSize: textSize, env: ["LEDGER_CALENDAR": "1"])
+        let card = openGlassCalendar(app)
         chooseCalendarMonth(app, year: "2026", month: "10")
         assertNoDaySummary(app)
         let header = app.descendants(matching: .any)["calendar.weekdays"]
