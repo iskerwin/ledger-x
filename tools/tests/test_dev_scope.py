@@ -28,6 +28,8 @@ class DevScopeTests(unittest.TestCase):
         self.assertFalse(plan['core_all'])
         self.assertEqual(plan['core_filter'], 'CalendarMarkTests|SearchTests|SubTests')
         self.assertIn('LedgerUITests/EditInteractionTests/testGlassCalendarFixedRowsAndDaySelection', plan['ui_tests'])
+        self.assertIn('LedgerUITests/EditInteractionTests/testGlassCalendarMonthChangesKeepLayout', plan['ui_tests'])
+        self.assertIn('LedgerUITests/EditInteractionTests/testGlassCalendarMonthChangesKeepLayoutAtLargeText', plan['ui_tests'])
         self.assertIn('LedgerUITests/EditInteractionTests/testGlassSubscriptionCalendarRangeAndSelectionAtLargeText', plan['ui_tests'])
         self.assertEqual(set(plan['ui_tests']), set(dev_scope.MAPPINGS['Ledger/Views/CalendarView.swift']['ui']) | set(dev_scope.CRITICAL_UI))
         self.assertEqual(plan['narrow_tests'], [])
@@ -225,7 +227,7 @@ class DevScopeTests(unittest.TestCase):
         self.assertIn('LedgerUITests/EditInteractionTests/testJournalSearchAppliesOnSubmitAndClearRestores', plan['ui_tests'])
         self.assertNotIn('LedgerUITests/EditInteractionTests', plan['ui_tests'])
         self.assertNotIn('LedgerUITests/ColorInteractionTests', plan['ui_tests'])
-        self.assertEqual(len([value for value in plan['ui_tests'] if value.startswith('LedgerUITests/')]), 14)
+        self.assertEqual(len([value for value in plan['ui_tests'] if value.startswith('LedgerUITests/')]), 16)
 
 
     SHARED = (

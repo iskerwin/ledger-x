@@ -1470,7 +1470,16 @@ final class EditInteractionTests: XCTestCase {
         checkGlassCalendar(textSize: "UICTContentSizeCategoryXXXL")
     }
 
-    private func checkGlassCalendar(textSize: String?) {
+    func testGlassCalendarMonthChangesKeepLayout() {
+        checkCalendarMonthLayout(textSize: nil)
+    }
+
+    func testGlassCalendarMonthChangesKeepLayoutAtLargeText() {
+        checkCalendarMonthLayout(textSize: "UICTContentSizeCategoryXXXL")
+    }
+
+    /// Month changes and day sheets have separate launches so each regression stays within the per-test limit.
+    private func checkCalendarMonthLayout(textSize: String?) {
         let app = launchTab("journal", textSize: textSize, env: ["LEDGER_CALENDAR": "1"])
         let card = openGlassCalendar(app)
         let height = card.frame.height
@@ -1482,6 +1491,11 @@ final class EditInteractionTests: XCTestCase {
             XCTAssertEqual(app.otherElements["calendar.figures"].frame.minY, figuresY, accuracy: 0.5)
             assertNoDaySummary(app)
         }
+    }
+
+    private func checkGlassCalendar(textSize: String?) {
+        let app = launchTab("journal", textSize: textSize, env: ["LEDGER_CALENDAR": "1"])
+        let card = openGlassCalendar(app)
         chooseCalendarMonth(app, year: "2026", month: "10")
         assertNoDaySummary(app)
         let header = app.descendants(matching: .any)["calendar.weekdays"]
