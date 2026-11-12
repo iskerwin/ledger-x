@@ -566,7 +566,7 @@ struct IncomeExpenseChart: View {
                         .accessibilityLabel(Day.monthLabel(m) + " " + LS("支出")).accessibilityValue(money(exp[m] ?? 0, currency))
                 }
             }
-            .chartForegroundStyleScale([LS("收入"): Color.gain, LS("支出"): Color.loss])
+            .chartForegroundStyleScale([LS("收入"): Color.chartGain, LS("支出"): Color.chartLoss])
             .chartLegend(compact ? .hidden : .visible)
             .chartLegend(position: .top, alignment: .leading)
             .chartYAxis { AxisMarks(position: .trailing) }
