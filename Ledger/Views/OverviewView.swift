@@ -347,10 +347,10 @@ struct OverviewView: View {
                     // told apart by more than colour: income a solid line with dots, spending a dashed one with squares
                     ForEach(months, id: \.self) { m in
                         LineMark(x: .value("月", monthLabelShort(m)), y: .value("金额", F.inc[m] ?? 0), series: .value("类型", "inc"))
-                            .foregroundStyle(Color.gain).interpolationMethod(.monotone).symbol(.circle).symbolSize(m == shown ? 60 : 18)
+                            .foregroundStyle(Color.chartGain).interpolationMethod(.monotone).symbol(.circle).symbolSize(m == shown ? 60 : 18)
                             .accessibilityLabel(Day.monthLabel(m) + " " + LS("收入")).accessibilityValue(money(F.inc[m] ?? 0, F.cur))
                         LineMark(x: .value("月", monthLabelShort(m)), y: .value("金额", F.exp[m] ?? 0), series: .value("类型", "exp"))
-                            .foregroundStyle(Color.loss).interpolationMethod(.monotone).symbol(.square).symbolSize(m == shown ? 60 : 18)
+                            .foregroundStyle(Color.chartLoss).interpolationMethod(.monotone).symbol(.square).symbolSize(m == shown ? 60 : 18)
                             .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 3]))
                             .accessibilityLabel(Day.monthLabel(m) + " " + LS("支出")).accessibilityValue(money(F.exp[m] ?? 0, F.cur))
                     }
@@ -554,6 +554,13 @@ struct OverviewView: View {
             let top = stats.map { payeeSort == "count" ? Double($0.count) : $0.value }.max() ?? 1
             let shown = Array(stats.prefix(allPayees ? 30 : 8))
             Section {
+                // in the list, not the section header: a header's text cannot be matched, and the chart's hint
+                // (a text in the list) can. the title stays, so the hint leaving does not change this row's height
+                donutHeader(LS("收付款方支出排行"), f.label, LS("点按查看交易"))
+                    .font(.footnote).foregroundStyle(.secondary)
+                    .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 2, trailing: 20))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                 Picker(LS("排序"), selection: $payeeSort) {
                     Text(LS("按金额")).tag("amount")
                     Text(LS("按次数")).tag("count")
@@ -577,8 +584,6 @@ struct OverviewView: View {
                 if stats.count > 8 {
                     Button { withAnimation(AppMotion.standard) { allPayees.toggle() } } label: { Label { Text(allPayees ? LS("收起") : LS("显示前 %@ 名", min(30, stats.count))) } icon: { TurningChevron(open: allPayees) }.labelStyle(ControlLabelStyle()) }.font(.footnote)
                 }
-            } header: {
-                donutHeader(LS("收付款方支出排行"), f.label, LS("点按查看交易"))
             }
         }
     }

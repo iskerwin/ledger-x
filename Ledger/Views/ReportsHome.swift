@@ -93,23 +93,45 @@ struct ReportsInsights: View {
                     Text(month == Day.ym(Day.today()) ? LS("本月支出") : LS("%@支出", Day.monthLabel(month))).font(.caption).foregroundStyle(.secondary)
                     Text(money(total, L.base)).font(.system(size: 32, weight: .bold, design: .rounded)).monospacedDigit().rollingNumber(total).sensitive()
                 }
-                if total > 0.005 {
+                // always five rows and the line under them, whatever the month has: switching months moves nothing below
+                VStack(alignment: .leading, spacing: AppSpacing.control) {
                     ForEach(top, id: \.key) { r in
                         Button { store.showInJournal(.report(month: month, account: r.key)) } label: {
                             CategoryListRow(symbol: store.groupIcon(r.key).symbol, color: categoryColor(r.key, L), name: catLabel(r.key), value: r.value,
                                             frac: r.value / max(top.first?.value ?? 0, 0.01), share: Int((r.value / total * 100).rounded()))
                         }
                         .buttonStyle(.plain)
-                        .environment(\.displayCurrency, L.base)
                     }
-                    if rest > 0.005 {
-                        Text(LS("其余 %@ 个分类 %@", rows.count - top.count, money(rest, L.base))).font(.caption).foregroundStyle(.secondary).sensitive()
+                    ForEach(top.count..<5, id: \.self) { _ in
+                        // same button as a real row, only unseen: hidden() drops out of the row's width, so a month
+                        // with nothing spent shrank to its words while a month of categories stayed the full row
+                        Button {} label: {
+                            CategoryListRow(symbol: "circle", color: .clear, name: " ", value: 0, frac: 0, share: nil)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(true)
+                        .opacity(0)
+                        .accessibilityHidden(true)
+                        .allowsHitTesting(false)
                     }
-                } else {
-                    Text(LS("这个月还没有支出")).font(.subheadline).foregroundStyle(.secondary)
+                    Text(rest > 0.005 ? LS("其余 %@ 个分类 %@", rows.count - top.count, money(rest, L.base)) : " ")
+                        .font(.caption).foregroundStyle(.secondary).sensitive()
+                        .accessibilityHidden(rest <= 0.005)
+                }
+                .environment(\.displayCurrency, L.base)
+                .overlay(alignment: .topLeading) {
+                    if total <= 0.005 {
+                        Text(LS("这个月还没有支出")).font(.subheadline).foregroundStyle(.secondary)
+                    }
                 }
             }
             .padding(AppSpacing.content)
+            // the card's width is the row's, not its words'. minWidth 0 so a short month still takes the width the
+            // list offers, the same width the category buttons take
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("reports.where")
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
             .cardRow()
         }

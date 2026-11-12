@@ -66,7 +66,7 @@ struct Sparkline: View {
             }
             if warn, let low = points.min(by: { $0.value < $1.value }), low.value < 0 {
                 PointMark(x: .value("d", low.date), y: .value("v", low.value))
-                    .foregroundStyle(Color.loss).symbol(.triangle).symbolSize(25)
+                    .foregroundStyle(Color.chartLoss).symbol(.triangle).symbolSize(25)
             }
         }
         .chartXAxis(.hidden)
@@ -183,13 +183,13 @@ struct ForecastView: View {
                 RuleMark(x: .value(LS("日期"), Day.date(d) ?? Date(), unit: .day)).foregroundStyle(Color.secondary.opacity(0.4))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
                 PointMark(x: .value(LS("日期"), Day.date(d) ?? Date(), unit: .day), y: .value(LS("余额"), p.value))
-                    .foregroundStyle(p.value < 0 ? Color.loss : Color.jadeInk).symbolSize(60)
+                    .foregroundStyle(p.value < 0 ? Color.chartLoss : Color.jadeInk).symbolSize(60)
             }
             if low.value < 0 {
-                RuleMark(y: .value("0", 0)).foregroundStyle(Color.loss.opacity(0.6)).lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                RuleMark(y: .value("0", 0)).foregroundStyle(Color.chartLoss.opacity(0.6)).lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
             }
             PointMark(x: .value(LS("日期"), Day.date(low.date) ?? Date(), unit: .day), y: .value(LS("余额"), low.value))
-                .foregroundStyle(low.value < 0 ? Color.loss : Color.jadeInk)
+                .foregroundStyle(low.value < 0 ? Color.chartLoss : Color.jadeInk)
                 .symbol(low.value < 0 ? BasicChartSymbolShape.triangle : .circle)
                 .symbolSize(40)
                 .accessibilityLabel(LS("最低 · %@", low.date)).accessibilityValue(money(low.value, f.currency, 0))

@@ -219,9 +219,9 @@ struct HoldingsView: View {
             HStack(spacing: 0) {
                 stat(LS("持仓"), LS("%@ 份", masked(fmtNum(r.units, 4))))
                 Divider().frame(height: 32)
-                stat(LS("均价"), masked(fmtNum(r.avg, 2)), lead: true)
+                stat(LS("均价"), masked(fmtNum(r.avg, 2)))
                 Divider().frame(height: 32)
-                stat(LS("现价"), r.px.map { fmtNum($0.number, 2) } ?? "—", lead: true)
+                stat(LS("现价"), r.px.map { fmtNum($0.number, 2) } ?? "—")
             }
             .sensitive()
             VStack(alignment: .leading, spacing: AppSpacing.icon) {
@@ -245,13 +245,14 @@ struct HoldingsView: View {
         }
     }
 
-    private func stat(_ title: String, _ value: String, lead: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: AppSpacing.detail) {
+    /// each in the middle of its third, between the dividers
+    private func stat(_ title: String, _ value: String) -> some View {
+        VStack(spacing: AppSpacing.detail) {
             Text(title).font(.caption).foregroundStyle(.secondary)
             Text(value).font(.callout.monospacedDigit()).lineLimit(1).minimumScaleFactor(0.7)
         }
-        .padding(.leading, lead ? 12 : 0)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, AppSpacing.icon)
+        .frame(maxWidth: .infinity)
     }
 
     private func lotRow(_ l: Lot, _ r: Holding) -> some View {
