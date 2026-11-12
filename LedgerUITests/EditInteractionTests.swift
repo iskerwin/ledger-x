@@ -2179,17 +2179,17 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(chartHint.exists)
         chart.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertTrue(chartHint.waitForNonExistence(timeout: 5))
-        // the payees' list: a row opened shows its transactions. short drags, because a full swipe can carry
-        // this section's header off the screen before the hint is seen. the header's own text cannot be matched,
-        // so the first row carries the hint's identifier until the hint goes; read its frame only once it is there
-        let payeeHint = app.descendants(matching: .any)["hint.点按查看交易"]
-        for _ in 0..<16 {
+        // the payees' list: a row opened shows its transactions. the header's own text cannot be matched, so the
+        // sort control carries the hint's identifier until the hint goes. longer drags: the section sits far
+        // down the page. read the frame only once the control is there
+        let payeeHint = app.segmentedControls["hint.点按查看交易"]
+        for _ in 0..<24 {
             if payeeHint.exists {
                 let frame = payeeHint.frame
                 if frame.minY > 80, frame.maxY < app.frame.maxY - 80 { break }
             }
-            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
-            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -150)))
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -300)))
         }
         XCTAssertTrue(payeeHint.exists)
         let payee = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Coffee")).firstMatch

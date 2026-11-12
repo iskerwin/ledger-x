@@ -559,6 +559,9 @@ struct OverviewView: View {
                     Text(LS("按次数")).tag("count")
                 }
                 .pickerStyle(.segmented)
+                // the hint words sit in the section header, which the test cannot match. this control is in the
+                // list body, so it can carry the hint's identifier, and drops it once the hint goes
+                .accessibilityIdentifier(expandLearned ? "payee.sort" : "hint.点按查看交易")
                 ForEach(Array(shown.enumerated()), id: \.element.name) { i, p in
                     Button {
                         withAnimation(AppMotion.quick) { selPay = selPay == p.name ? nil : p.name }
@@ -568,9 +571,6 @@ struct OverviewView: View {
                     }
                     .buttonStyle(.plain)
                     .listRowSeparator(.hidden)
-                    // the hint words sit in the section header, which the test cannot match. the first row keeps
-                    // an identifier for them, and drops it once the hint goes
-                    .accessibilityIdentifier((!expandLearned && i == 0) ? "hint.点按查看交易" : "")
                     if selPay == p.name {
                         ForEach(payeeTxns(L, f.key, p.name, F), id: \.id) { t in
                             NavigationLink(value: TxDest(t)) { TxRow(t: t, showDate: true) }.padding(.leading, AppSpacing.content)
