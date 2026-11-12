@@ -554,14 +554,18 @@ struct OverviewView: View {
             let top = stats.map { payeeSort == "count" ? Double($0.count) : $0.value }.max() ?? 1
             let shown = Array(stats.prefix(allPayees ? 30 : 8))
             Section {
+                // in the list, not the section header: a header's text cannot be matched, and the chart's hint
+                // (a text in the list) can. the title stays, so the hint leaving does not change this row's height
+                donutHeader(LS("收付款方支出排行"), f.label, LS("点按查看交易"))
+                    .font(.footnote).foregroundStyle(.secondary)
+                    .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 2, trailing: 20))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                 Picker(LS("排序"), selection: $payeeSort) {
                     Text(LS("按金额")).tag("amount")
                     Text(LS("按次数")).tag("count")
                 }
                 .pickerStyle(.segmented)
-                // the hint words sit in the section header, which the test cannot match. this control is in the
-                // list body, so it can carry the hint's identifier, and drops it once the hint goes
-                .accessibilityIdentifier(expandLearned ? "payee.sort" : "hint.点按查看交易")
                 ForEach(Array(shown.enumerated()), id: \.element.name) { i, p in
                     Button {
                         withAnimation(AppMotion.quick) { selPay = selPay == p.name ? nil : p.name }
@@ -580,8 +584,6 @@ struct OverviewView: View {
                 if stats.count > 8 {
                     Button { withAnimation(AppMotion.standard) { allPayees.toggle() } } label: { Label { Text(allPayees ? LS("收起") : LS("显示前 %@ 名", min(30, stats.count))) } icon: { TurningChevron(open: allPayees) }.labelStyle(ControlLabelStyle()) }.font(.footnote)
                 }
-            } header: {
-                donutHeader(LS("收付款方支出排行"), f.label, LS("点按查看交易"))
             }
         }
     }

@@ -2179,10 +2179,10 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(chartHint.exists)
         chart.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertTrue(chartHint.waitForNonExistence(timeout: 5))
-        // the payees' list: a row opened shows its transactions. the header's own text cannot be matched, so the
-        // sort control carries the hint's identifier until the hint goes. longer drags: the section sits far
-        // down the page. read the frame only once the control is there
-        let payeeHint = app.segmentedControls["hint.点按查看交易"]
+        // the payees' list: a row opened shows its transactions. the hint is a text in the list, like the chart's,
+        // because a section header's text cannot be matched. the section sits far down the page. read the frame
+        // only once the text is there
+        let payeeHint = text(app, "点按查看交易")
         for _ in 0..<24 {
             if payeeHint.exists {
                 let frame = payeeHint.frame
