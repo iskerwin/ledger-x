@@ -144,7 +144,7 @@ struct LiabilityRow: View {
                     GeometryReader { g in
                         ZStack(alignment: .leading) {
                             Capsule().fill(Color(.tertiarySystemFill))
-                            Capsule().fill(frac >= 0.9 ? Color.loss : frac >= 0.7 ? Color.warn : Color.jade)
+                            Capsule().fill(frac >= 0.9 ? Color.chartLoss : frac >= 0.7 ? Color.warn : Color.jade)
                                 .frame(width: max(3, g.size.width * min(1, frac)))
                         }
                     }

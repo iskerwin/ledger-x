@@ -19,24 +19,43 @@ def _norm(path):
     return path.replace('\\', '/').lstrip('./')
 
 
+def _preface(lines, signature, floor):
+    """The documentation, attributes and blank line directly above a function belong to it."""
+    start = signature
+    while start > floor:
+        previous = lines[start - 2].strip()
+        if previous == '' or previous.startswith('//') or previous.startswith('@'):
+            start -= 1
+        else:
+            break
+    return start
+
+
 def _funcs(text):
     """The file's own functions. A function written inside another one's body (a test's local helper) is part
-    of that function, not a helper of its own that every caller of the same name would follow."""
+    of that function, not a helper of its own that every caller of the same name would follow.
+
+    The comment above a function belongs to that function. A new test written under a helper would otherwise
+    be read as a change to the helper, and every test that calls the helper would run."""
     lines = text.splitlines()
-    starts = []
+    signatures = []
     depth = 0
     opened = None
     for index, line in enumerate(lines, 1):
         match = FUNC.match(line)
         if match and (opened is None or depth <= opened):
-            starts.append((match.group(1), index))
+            signatures.append((match.group(1), index))
             opened = depth
         code = STRING.sub('""', line).split('//')[0]
         depth += code.count('{') - code.count('}')
+    starts = []
+    for place, (name, signature) in enumerate(signatures):
+        floor = signatures[place - 1][1] + 1 if place else 1
+        starts.append((name, _preface(lines, signature, floor), signature))
     funcs = []
-    for place, (name, start) in enumerate(starts):
+    for place, (name, start, signature) in enumerate(starts):
         end = starts[place + 1][1] if place + 1 < len(starts) else len(lines) + 1
-        funcs.append(dict(name=name, start=start, end=end, body='\n'.join(lines[start - 1:end - 1])))
+        funcs.append(dict(name=name, start=start, end=end, body='\n'.join(lines[signature - 1:end - 1])))
     return funcs
 
 

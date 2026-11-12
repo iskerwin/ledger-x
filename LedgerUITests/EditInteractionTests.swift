@@ -1457,6 +1457,22 @@ final class EditInteractionTests: XCTestCase {
         }
     }
 
+    /// until a popover's control has settled: asking for hittability before it has a frame ({inf, inf}) fails the test
+    /// outright instead of answering no, so wait for a real frame first; and it is already hittable while the popover
+    /// still slides up, so also wait until two reads in a row find it in the same place. On a slow runner the contents
+    /// can lose their frame again right after that, so frame, place and hittability are one wait
+    private func waitSettled(_ element: XCUIElement) {
+        var previous = CGRect.null
+        let ready = expectation(for: NSPredicate { _, _ in
+            let frame = element.frame
+            defer { previous = frame }
+            guard !frame.isInfinite && !frame.isNull && frame.width > 0 && frame.height > 0 && frame == previous
+            else { return false }
+            return element.isHittable
+        }, evaluatedWith: nil)
+        wait(for: [ready], timeout: 15)
+    }
+
     private func openGlassCalendar(_ app: XCUIApplication) -> XCUIElement {
         let toggle = app.buttons.matching(NSPredicate(format: "label IN %@", ["月历", "收起月历"])).firstMatch
         XCTAssertTrue(toggle.waitForExistence(timeout: 20))
@@ -1473,22 +1489,15 @@ final class EditInteractionTests: XCTestCase {
         for (name, value) in [("calendar.yearWheel", year), ("calendar.monthWheel", month)] {
             let wheel = app.pickers[name].pickerWheels.firstMatch
             XCTAssertTrue(wheel.waitForExistence(timeout: 5))
-            // asking for hittability before the wheel has a frame ({inf, inf}) fails the test outright instead of
-            // answering no, so wait for a real frame first; and it is already hittable while the sheet still slides
-            // up, so also wait until two reads in a row find it in the same place. On a slow runner the sheet's
-            // contents can lose their frame again right after that, so frame, place and hittability are one wait
-            var previous = CGRect.null
-            let ready = expectation(for: NSPredicate { _, _ in
-                let frame = wheel.frame
-                defer { previous = frame }
-                guard !frame.isInfinite && !frame.isNull && frame.width > 0 && frame.height > 0 && frame == previous
-                else { return false }
-                return wheel.isHittable
-            }, evaluatedWith: nil)
-            wait(for: [ready], timeout: 15)
+            waitSettled(wheel)
             wheel.adjust(toPickerWheelValue: value)
         }
-        tapPoint(app.buttons["完成"], timeout: 5)
+        // turning a wheel lays the popover out again (at large text, its button too): a tap while the button has no
+        // frame fails with "point.x != INFINITY"
+        let done = app.buttons["完成"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        waitSettled(done)
+        done.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         // the title opens nothing while the popover is still on its way out, so the next month waits for it to go
         XCTAssertTrue(app.pickers["calendar.yearWheel"].waitForNonExistence(timeout: 5))
     }
@@ -1501,7 +1510,16 @@ final class EditInteractionTests: XCTestCase {
         checkGlassCalendar(textSize: "UICTContentSizeCategoryXXXL")
     }
 
-    private func checkGlassCalendar(textSize: String?) {
+    func testGlassCalendarMonthChangesKeepLayout() {
+        checkCalendarMonthLayout(textSize: nil)
+    }
+
+    func testGlassCalendarMonthChangesKeepLayoutAtLargeText() {
+        checkCalendarMonthLayout(textSize: "UICTContentSizeCategoryXXXL")
+    }
+
+    /// Month changes and day sheets have separate launches so each regression stays within the per-test limit.
+    private func checkCalendarMonthLayout(textSize: String?) {
         let app = launchTab("journal", textSize: textSize, env: ["LEDGER_CALENDAR": "1"])
         let card = openGlassCalendar(app)
         let height = card.frame.height
@@ -1513,6 +1531,11 @@ final class EditInteractionTests: XCTestCase {
             XCTAssertEqual(app.otherElements["calendar.figures"].frame.minY, figuresY, accuracy: 0.5)
             assertNoDaySummary(app)
         }
+    }
+
+    private func checkGlassCalendar(textSize: String?) {
+        let app = launchTab("journal", textSize: textSize, env: ["LEDGER_CALENDAR": "1"])
+        let card = openGlassCalendar(app)
         chooseCalendarMonth(app, year: "2026", month: "10")
         assertNoDaySummary(app)
         let header = app.descendants(matching: .any)["calendar.weekdays"]
@@ -1741,6 +1764,42 @@ final class EditInteractionTests: XCTestCase {
             + (textSize.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
         app.launch()
         return app
+    }
+
+    /// 钱花在哪 keeps its size from month to month: with nothing spent it shrank to its words, and a month with
+    /// fewer categories was shorter, so what was under it jumped
+    func testTheWhereCardKeepsItsSizeInAMonthWithoutSpending() {
+        let app = launchTab("reports")
+        let bar = app.descendants(matching: .any)["reports.monthbar"].firstMatch
+        XCTAssertTrue(bar.waitForExistence(timeout: 20))
+        let where_ = app.descendants(matching: .any)["reports.where"].firstMatch
+        if !where_.exists { app.buttons["钱花在哪"].tap() }
+        XCTAssertTrue(where_.waitForExistence(timeout: 5))
+        let back = bar.buttons["上个月"]
+        // the fixture spends in one month only; from now back, there is a month with it and one without
+        var empty: CGRect?, spent: CGRect?
+        for _ in 0..<24 where empty == nil || spent == nil {
+            if where_.staticTexts["这个月还没有支出"].exists { empty = empty ?? where_.frame } else { spent = spent ?? where_.frame }
+            back.tap()
+        }
+        guard let empty, let spent else { return XCTFail("no month with spending and none without") }
+        XCTAssertEqual(empty.width, spent.width, accuracy: 0.5)
+        XCTAssertEqual(empty.height, spent.height, accuracy: 0.5)
+    }
+
+    /// 持仓、均价、现价 of an open holding each sit in the middle of their third
+    func testHoldingStatsAreCentred() {
+        let extra = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/holdings-extra.bean").path
+        let app = launchTab("accounts", env: ["LEDGER_EXTRA": extra, "LEDGER_OPEN_HOLDINGS": "1"])
+        let fund = app.staticTexts["EXFUND"].firstMatch
+        XCTAssertTrue(fund.waitForExistence(timeout: 20))
+        fund.tap()
+        let titles = ["持仓", "均价", "现价"].map { app.staticTexts.matching(NSPredicate(format: "label == %@", $0)).allElementsBoundByIndex.last! }
+        XCTAssertTrue(titles[1].waitForExistence(timeout: 5))
+        let left = titles[0].frame.midX, middle = titles[1].frame.midX, right = titles[2].frame.midX
+        // evenly spaced, the middle one in the middle of the screen
+        XCTAssertEqual(middle - left, right - middle, accuracy: 2)
+        XCTAssertEqual(middle, app.windows.firstMatch.frame.midX, accuracy: 2)
     }
 
     /// 月 and 年 on the overview's card: the year had no average line, so the card was a line shorter and
@@ -2183,12 +2242,36 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(chartHint.exists)
         chart.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertTrue(chartHint.waitForNonExistence(timeout: 5))
-        // the payees' list: a row opened shows its transactions
+        // that tap also picks a month on the chart, and the payee list follows the picked month. only October
+        // has Coffee, so a neighbouring month has no list to find. stepping the month clears the pick.
+        func step(_ button: String) {
+            let name = period.label
+            bar.buttons[button].tap()
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", name), object: period)], timeout: 5), .completed)
+        }
+        step("下个月")
+        step("上个月")
+        XCTAssertEqual(period.label, "2026年10月")
+        // the hint is a text in the list, like the chart's, because a section header's text cannot be matched.
+        // swipe the chart: a swipe on the window can start on the chart and not move the list
+        let payeeHint = text(app, "点按查看交易")
+        let heading = text(app, "收付款方支出排行")
+        for _ in 0..<18 where !(heading.exists && heading.isHittable) { chart.swipeUp() }
+        XCTAssertTrue(heading.waitForExistence(timeout: 3), "did not reach the payee list")
+        for _ in 0..<4 {
+            if payeeHint.exists {
+                let frame = payeeHint.frame
+                if frame.minY > 80, frame.maxY < app.frame.maxY - 80 { break }
+            }
+            chart.swipeDown()
+        }
+        XCTAssertTrue(payeeHint.exists, "the payee list is on screen and its hint text is not")
         let payee = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Coffee")).firstMatch
-        for _ in 0..<6 where !(payee.exists && payee.isHittable) { app.swipeUp() }
-        XCTAssertTrue(text(app, "点按查看交易").exists)
+        for _ in 0..<6 where !(payee.exists && payee.isHittable && payeeHint.exists) { chart.swipeUp() }
+        XCTAssertTrue(payee.isHittable)
+        XCTAssertTrue(payeeHint.exists)
         payee.tap()
-        XCTAssertTrue(text(app, "点按查看交易").waitForNonExistence(timeout: 5))
+        XCTAssertTrue(payeeHint.waitForNonExistence(timeout: 5))
         app.terminate()
 
         // learned stays learned
@@ -2330,9 +2413,11 @@ final class EditInteractionTests: XCTestCase {
     /// An empty list of things to add (here budgets) has its own add button, opening the same form as + in the bar
     func testAnEmptyBudgetListOffersToAddOne() {
         let app = launchTab("reports")
+        XCTAssertTrue(app.descendants(matching: .any)["reports.monthbar"].firstMatch.waitForExistence(timeout: 20))
+        // the list makes its rows as they come into sight: 预算 is under 钱花在哪, which keeps five rows' room
         let budgets = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "预算")).firstMatch
-        XCTAssertTrue(budgets.waitForExistence(timeout: 20))
-        for _ in 0..<5 { if budgets.isHittable { break }; app.swipeUp() }
+        for _ in 0..<8 { if budgets.exists && budgets.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(budgets.isHittable)
         budgets.tap()
         let add = app.buttons["empty.add"]
         XCTAssertTrue(add.waitForExistence(timeout: 5))
