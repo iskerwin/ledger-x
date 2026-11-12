@@ -2179,24 +2179,32 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(chartHint.exists)
         chart.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertTrue(chartHint.waitForNonExistence(timeout: 5))
-        // the payees' list: a row opened shows its transactions. the hint is a text in the list, like the chart's,
-        // because a section header's text cannot be matched. a short drag never brought this far section onto
-        // the screen; a full swipe does, as it does for the other lists. stop on the sort control, then the
-        // hint just above it. read the frame only once the text is there
+        // that tap also picks a month on the chart, and the payee list follows the picked month. only October
+        // has Coffee, so a neighbouring month has no list to find. stepping the month clears the pick.
+        func step(_ button: String) {
+            let name = period.label
+            bar.buttons[button].tap()
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", name), object: period)], timeout: 5), .completed)
+        }
+        step("下个月")
+        step("上个月")
+        XCTAssertEqual(period.label, "2026年10月")
+        // the hint is a text in the list, like the chart's, because a section header's text cannot be matched.
+        // swipe the chart: a swipe on the window can start on the chart and not move the list
         let payeeHint = text(app, "点按查看交易")
-        let sort = app.buttons["按金额"]
-        for _ in 0..<10 where !(sort.exists && sort.isHittable) { app.swipeUp() }
-        XCTAssertTrue(sort.waitForExistence(timeout: 3), "did not reach the payee list")
+        let heading = text(app, "收付款方支出排行")
+        for _ in 0..<18 where !(heading.exists && heading.isHittable) { chart.swipeUp() }
+        XCTAssertTrue(heading.waitForExistence(timeout: 3), "did not reach the payee list")
         for _ in 0..<4 {
             if payeeHint.exists {
                 let frame = payeeHint.frame
                 if frame.minY > 80, frame.maxY < app.frame.maxY - 80 { break }
             }
-            app.swipeDown()
+            chart.swipeDown()
         }
         XCTAssertTrue(payeeHint.exists, "the payee list is on screen and its hint text is not")
         let payee = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Coffee")).firstMatch
-        for _ in 0..<6 where !(payee.exists && payee.isHittable && payeeHint.exists) { app.swipeUp() }
+        for _ in 0..<6 where !(payee.exists && payee.isHittable && payeeHint.exists) { chart.swipeUp() }
         XCTAssertTrue(payee.isHittable)
         XCTAssertTrue(payeeHint.exists)
         payee.tap()
