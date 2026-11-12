@@ -98,4 +98,16 @@ final class NarrationFillTests: XCTestCase {
         XCTAssertEqual(narrationSuggestions(derived, typed: "set", payee: "Metro", limit: 10).first, "Lunch set", "held whole before spread through")
         XCTAssertEqual(narrationSuggestions(derived, typed: "", payee: "", limit: 2).count, 2)
     }
+
+    /// whole beats spread; case is ignored; Chinese and mixed text alike
+    func testFuzzyFindsWholeThenSpreadMatches() {
+        XCTAssertEqual(fuzzy("", "午饭"), 2)
+        XCTAssertEqual(fuzzy("午饭", "公司午饭 AA"), 2)
+        XCTAssertEqual(fuzzy("Coffee", "morning COFFEE"), 2)
+        XCTAssertEqual(fuzzy("公饭", "公司午饭"), 1)
+        XCTAssertEqual(fuzzy("mc", "Morning coffee"), 1)
+        XCTAssertEqual(fuzzy("饭午", "公司午饭"), 0)
+        XCTAssertEqual(fuzzy("午饭晚饭", "午饭"), 0)
+    }
+
 }

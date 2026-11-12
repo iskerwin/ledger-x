@@ -336,12 +336,30 @@ public func narrationSuggestions(_ D: Derived, typed: String, payee: String, lim
 /// 2 when `s` holds `q`, 1 when `q`'s characters come in `s` in order, else 0; case ignored
 public func fuzzy(_ q: String, _ s: String) -> Int { foldedMatch(q.lowercased(), s.lowercased()) }
 
-/// `fuzzy` on text already lowercased
+/// `fuzzy` on text already lowercased. Typing goes through tens of thousands of notes on each key: whole matches are
+/// looked for in the UTF-8 bytes (a character's bytes never start inside another's), the spread ones by scalar
 func foldedMatch(_ q: String, _ s: String) -> Int {
-    if s.contains(q) { return 2 }
-    var it = q.makeIterator()
+    var q = q, s = s
+    let whole = q.withUTF8 { qb in
+        s.withUTF8 { sb in
+            guard let first = qb.first else { return true }
+            guard qb.count <= sb.count else { return false }
+            var i = 0
+            while i <= sb.count - qb.count {
+                if sb[i] == first {
+                    var j = 1
+                    while j < qb.count && sb[i + j] == qb[j] { j += 1 }
+                    if j == qb.count { return true }
+                }
+                i += 1
+            }
+            return false
+        }
+    }
+    if whole { return 2 }
+    var it = q.unicodeScalars.makeIterator()
     var c = it.next()
-    for ch in s where ch == c { c = it.next() }
+    for ch in s.unicodeScalars where ch == c { c = it.next() }
     return c == nil ? 1 : 0
 }
 
