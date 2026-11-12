@@ -2180,23 +2180,23 @@ final class EditInteractionTests: XCTestCase {
         chart.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertTrue(chartHint.waitForNonExistence(timeout: 5))
         // the payees' list: a row opened shows its transactions. the hint is a text in the list, like the chart's,
-        // because a section header's text cannot be matched. the section sits far down the page. read the frame
-        // only once the text is there
+        // because a section header's text cannot be matched. a short drag never brought this far section onto
+        // the screen; a full swipe does, as it does for the other lists. stop on the sort control, then the
+        // hint just above it. read the frame only once the text is there
         let payeeHint = text(app, "点按查看交易")
-        for _ in 0..<24 {
+        let sort = app.buttons["按金额"]
+        for _ in 0..<10 where !(sort.exists && sort.isHittable) { app.swipeUp() }
+        XCTAssertTrue(sort.waitForExistence(timeout: 3), "did not reach the payee list")
+        for _ in 0..<4 {
             if payeeHint.exists {
                 let frame = payeeHint.frame
                 if frame.minY > 80, frame.maxY < app.frame.maxY - 80 { break }
             }
-            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
-            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -300)))
+            app.swipeDown()
         }
-        XCTAssertTrue(payeeHint.exists)
+        XCTAssertTrue(payeeHint.exists, "the payee list is on screen and its hint text is not")
         let payee = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Coffee")).firstMatch
-        for _ in 0..<8 where !(payee.exists && payee.isHittable && payeeHint.exists) {
-            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
-            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -150)))
-        }
+        for _ in 0..<6 where !(payee.exists && payee.isHittable && payeeHint.exists) { app.swipeUp() }
         XCTAssertTrue(payee.isHittable)
         XCTAssertTrue(payeeHint.exists)
         payee.tap()
