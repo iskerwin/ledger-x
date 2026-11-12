@@ -537,18 +537,8 @@ struct OverviewView: View {
             Text(title)
             if let sub = sub { Text("· " + sub).textCase(nil) }
             Spacer()
-            if !expandLearned {
-                // a Text in a list header is a label the test cannot match (Other against StaticText). a button
-                // there can be found. it takes no taps. leaving it a button is what keeps it matchable
-                Button {} label: {
-                    Text(hint).textCase(nil).font(.footnote).foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("hint." + hint)
-                .allowsHitTesting(false)
-            }
+            if !expandLearned { Text(hint).textCase(nil) }
         }
-        .accessibilityElement(children: .contain)
     }
 
     @ViewBuilder
@@ -578,6 +568,9 @@ struct OverviewView: View {
                     }
                     .buttonStyle(.plain)
                     .listRowSeparator(.hidden)
+                    // the hint words sit in the section header, which the test cannot match. the first row keeps
+                    // an identifier for them, and drops it once the hint goes
+                    .accessibilityIdentifier((!expandLearned && i == 0) ? "hint.点按查看交易" : "")
                     if selPay == p.name {
                         ForEach(payeeTxns(L, f.key, p.name, F), id: \.id) { t in
                             NavigationLink(value: TxDest(t)) { TxRow(t: t, showDate: true) }.padding(.leading, AppSpacing.content)
