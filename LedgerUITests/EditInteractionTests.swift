@@ -2179,12 +2179,25 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(chartHint.exists)
         chart.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertTrue(chartHint.waitForNonExistence(timeout: 5))
-        // the payees' list: a row opened shows its transactions
+        // the payees' list: a row opened shows its transactions. short drags, because a full swipe can carry
+        // this section's header off the screen before the hint is seen
+        let payeeHint = text(app, "点按查看交易")
+        for _ in 0..<16 {
+            let frame = payeeHint.frame
+            if payeeHint.exists, frame.minY > 80, frame.maxY < app.frame.maxY - 80 { break }
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -150)))
+        }
+        XCTAssertTrue(payeeHint.exists)
         let payee = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Coffee")).firstMatch
-        for _ in 0..<6 where !(payee.exists && payee.isHittable) { app.swipeUp() }
-        XCTAssertTrue(text(app, "点按查看交易").exists)
+        for _ in 0..<8 where !(payee.exists && payee.isHittable && payeeHint.exists) {
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -150)))
+        }
+        XCTAssertTrue(payee.isHittable)
+        XCTAssertTrue(payeeHint.exists)
         payee.tap()
-        XCTAssertTrue(text(app, "点按查看交易").waitForNonExistence(timeout: 5))
+        XCTAssertTrue(payeeHint.waitForNonExistence(timeout: 5))
         app.terminate()
 
         // learned stays learned
