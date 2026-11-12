@@ -139,6 +139,16 @@ extension Color {
     static let gain = Color(uiColor: .systemGreen).readableInk
     static let loss = Color(uiColor: .systemRed).readableInk
     static let warn = Color(uiColor: .systemOrange).readableInk
+    /// money in and out as bars, lines and points: darker and less saturated than as text, so a chart full of them doesn't glare
+    static let chartGain = chartColor(light: 0x4C9A68, dark: 0x3E9E64)
+    static let chartLoss = chartColor(light: 0xC0504A, dark: 0xC9564F)
+
+    private static func chartColor(light: UInt32, dark: UInt32) -> Color {
+        func ui(_ v: UInt32) -> UIColor {
+            UIColor(red: CGFloat(v >> 16 & 0xFF) / 255, green: CGFloat(v >> 8 & 0xFF) / 255, blue: CGFloat(v & 0xFF) / 255, alpha: 1)
+        }
+        return Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? ui(dark) : ui(light) })
+    }
 
     /// a change: better green, worse red, unchanged grey. Up is better unless `upIsWorse` (spending: more is worse)
     static func change(_ d: Double, upIsWorse: Bool = false, tolerance: Double = 0.005) -> Color {

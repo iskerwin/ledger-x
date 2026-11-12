@@ -10,7 +10,7 @@ struct BudgetRow: View {
     /// the bar fills from empty when the row comes in; 减少动态效果 shows it full at once
     @State private var filled = false
     var body: some View {
-        let color: Color = p.over ? .loss : p.ahead ? .warn : .jade
+        let color: Color = p.over ? .chartLoss : p.ahead ? .warn : .jade
         VStack(alignment: .leading, spacing: AppSpacing.icon) {
             // the figures whole on one line, the names giving way ("…", the account name first), so a long name or
             // a year's larger figures never wrap the row taller; where even that leaves no room (the largest text
