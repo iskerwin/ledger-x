@@ -108,6 +108,36 @@ struct WindowReader: NSViewRepresentable {
     }
 }
 
+/// the keys typed in this view's window while no text field has them: `typed` gets the characters and says whether it took them
+struct TypedKeys: NSViewRepresentable {
+    let enabled: Bool
+    let typed: (String) -> Bool
+
+    func makeNSView(context: Context) -> Catcher { Catcher() }
+    func updateNSView(_ view: Catcher, context: Context) {
+        view.typed = enabled ? typed : nil
+    }
+
+    final class Catcher: NSView {
+        var typed: ((String) -> Bool)?
+        private var monitor: Any?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            monitor = nil
+            guard window != nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard let self, let typed = self.typed, let window = self.window, event.window === window,
+                      !(window.firstResponder is NSText),
+                      event.modifierFlags.isDisjoint(with: [.command, .control, .option]),
+                      let characters = event.charactersIgnoringModifiers, typed(characters) else { return event }
+                return nil
+            }
+        }
+    }
+}
+
 extension NSWindow {
     /// a window saved or opened bigger than the screen's free space shrinks into it, clear of the menu bar and the Dock
     func fitScreen() {

@@ -39,7 +39,6 @@ struct QuickCard: View {
     enum Pick: String, Identifiable { case funding, from, to; var id: String { rawValue } }
 
     @FocusState private var field: Field?
-    @FocusState private var typing: Bool
     /// typing the payee and description: the fields replace the keypad
     @State private var writing = false
     @State private var attemptedSave = false
@@ -114,23 +113,21 @@ struct QuickCard: View {
             }
         }
         .background(Color.page)
-        // typing takes the focus whether or not the Mac moves it between controls with Tab (键盘导航)
-        .focusable(interactions: .edit)
-        .focused($typing)
-        .focusEffectDisabled()
-        .onKeyPress(characters: CharacterSet(charactersIn: "0123456789.+-*/×÷="), phases: .down) { press in
-            switch press.characters {
+        // the keyboard types on the keypad wherever the click last was; the payee and description fields keep their own keys
+        .background(TypedKeys(enabled: !writing) { typed in
+            switch typed {
             case "*": key("×")
             case "/": key("÷")
             case "=": equals()
-            default: key(press.characters)
+            case "\u{7F}": key("⌫")
+            default:
+                guard typed.count == 1, "0123456789.+-×÷".contains(typed) else { return false }
+                key(typed)
             }
-            return .handled
-        }
-        .onKeyPress(.delete) { key("⌫"); return .handled }
-        .onAppear { typing = true }
+            return true
+        })
         .onChange(of: field) { old, new in
-            if new == nil && old != nil { DispatchQueue.main.async { if field == nil { writing = false; typing = true } } }
+            if new == nil && old != nil { DispatchQueue.main.async { if field == nil { writing = false } } }
             // leaving the payee or the note: a known one fills in what isn't picked yet
             if old == .payee && new != .payee { applyPayee(draft.payee.trimmed, onlyBlanks: true) }
             if old == .narration && new != .narration { applyNarration(draft.narration.trimmed, onlyBlanks: true) }
@@ -833,7 +830,7 @@ struct QuickCard: View {
                     }
                 }
             }
-            Button { field = nil; writing = false; typing = true } label: { Label("完成", systemImage: "checkmark") }
+            Button { field = nil; writing = false } label: { Label("完成", systemImage: "checkmark") }
                 .buttonStyle(.plain)
                 .font(.system(size: Size.body, weight: .semibold))
                 .foregroundStyle(Color.jade)
