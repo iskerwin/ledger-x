@@ -802,6 +802,11 @@ final class EditInteractionTests: XCTestCase {
         partyCandidate.tap()
         XCTAssertEqual(party.value as? String, "Coffee")
         note.tap(); note.typeText(" updated")
+        // Event synthesis returning does not guarantee the final text change has reached accessibility yet.
+        // Wait for the complete value, rather than reading a transient prefix immediately after typing.
+        let inputApplied = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "Interaction test updated"), object: note)
+        XCTAssertEqual(XCTWaiter().wait(for: [inputApplied], timeout: 5), .completed)
         XCTAssertEqual(note.value as? String, "Interaction test updated")
         app.buttons["quick.text.done"].tap()
         XCTAssertTrue(keyboard.waitForNonExistence(timeout: 5))
