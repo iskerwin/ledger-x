@@ -62,12 +62,13 @@ final class BudgetFormTests: XCTestCase {
     }
 
     func testSameDayReplacementKeepsMetadataAndOnlyOneRecord() throws {
-        try write(source + budgetLine("2026-02-01", "Expenses:Food", .monthly, 100, "CNY") + "\n  owner: \"Example\"\n  ; keep this comment\n")
+        try write(source + budgetLine("2026-02-01", "Expenses:Food", .monthly, 100, "CNY") + " ; keep header comment\n  owner: \"Example\"\n  ; keep this comment\n")
         let original = try XCTUnwrap(budgets(try ledger()).first?.entry)
         try save(form("200"), replacing: original, previous: original)
         XCTAssertEqual(budgets(try ledger()).map(\.amount), [200])
         XCTAssertTrue(try read().contains("owner: \"Example\""))
         XCTAssertTrue(try read().contains("; keep this comment"))
+        XCTAssertTrue(try read().contains("; keep header comment"))
     }
 
     func testSameDayRecordRequiresTheExactSnapshot() throws {
@@ -85,6 +86,14 @@ final class BudgetFormTests: XCTestCase {
         try save(form("150", date: "2026-02-01"))
         guard case .failure = prepareFolderBudget(form("0", date: "2026-03-01"), previous: old, folder: folder) else { return XCTFail("stale active budget") }
         XCTAssertEqual(budgets(try ledger()).map(\.amount), [100, 150])
+    }
+
+    func testDuplicateDayIsNotGuessedEvenWithOneSnapshot() throws {
+        try write(source + budgetLine("2026-02-01", "Expenses:Food", .monthly, 100, "CNY") + "\n" + budgetLine("2026-02-01", "Expenses:Food", .monthly, 200, "CNY") + "\n")
+        let original = try XCTUnwrap(budgets(try ledger()).first?.entry)
+        guard case .failure(let error) = prepareFolderBudget(form("300"), replacing: original, folder: folder) else { return XCTFail("ambiguous day") }
+        XCTAssertFalse(error.message.isEmpty)
+        XCTAssertEqual(budgets(try ledger()).map(\.amount).sorted(), [100, 200])
     }
 
     func testDateMoveCannotDisplaceAnotherRecord() throws {

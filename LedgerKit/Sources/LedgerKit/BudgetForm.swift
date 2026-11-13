@@ -35,8 +35,12 @@ public struct BudgetForm: Equatable {
             return .failure(FolderSaveError(message: tr("请输入有效的币种代码", "Enter a valid currency code")))
         }
         var lines = [budgetLine(date, account, period, value, code)]
+        let oldLines = (original ?? "").components(separatedBy: "\n")
+        let header = scalars(oldLines.first ?? "")
+        let comment = str(header.dropFirst(stripComment(header).count))
+        if !comment.isEmpty { lines[0] += " " + comment }
         // Metadata and comments on an edited directive are not fields in this form, so keep them verbatim.
-        lines += (original ?? "").components(separatedBy: "\n").dropFirst()
+        lines += oldLines.dropFirst()
         return .success(lines.joined(separator: "\n"))
     }
 }
@@ -55,7 +59,10 @@ public func prepareFolderBudget(_ form: BudgetForm, replacing original: Entry? =
               all.contains(where: { $0.entry === current && $0.account == form.account }) else { return .failure(changed) }
     }
     let onDay = all.filter { $0.account == form.account && $0.date == form.date }
-    guard onDay.count <= 1, onDay.isEmpty || original != nil else {
+    guard onDay.count <= 1 else {
+        return .failure(FolderSaveError(message: tr("该科目同一天有多条预算，请先在历史记录中处理", "This account has several budgets on the same day: resolve them in History first")))
+    }
+    guard onDay.isEmpty || original != nil else {
         return .failure(FolderSaveError(message: tr("该科目这一天已有预算，请重新打开编辑", "This account already has a budget on that day: reopen the editor")))
     }
     if let previous, original == nil, all.contains(where: { $0.account == form.account && $0.date > previous.date && $0.date <= form.date }) {
