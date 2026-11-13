@@ -65,7 +65,11 @@ final class ColorInteractionTests: XCTestCase {
         tapMark(populated, in: chart)
         let populatedLine = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in line.label.contains("2026年10月") }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [populatedLine], timeout: 5), .completed, line.label)
-        let height = chart.frame.height, bottom = line.frame.maxY - chart.frame.minY
+        // The line's fixed slot keeps the content below it in place. Its scaled glyph bounds legitimately
+        // change with the amount's length, so measure the unchanged label following that slot instead.
+        let following = app.otherElements["overview.hero"].staticTexts["收入"].firstMatch
+        XCTAssertTrue(following.waitForExistence(timeout: 5))
+        let height = chart.frame.height, bottom = following.frame.minY - chart.frame.minY
         checkChartHue(app, chart: chart, theme: theme)
         capture(app, name: "\(theme)-\(appearance)-点选前")
         let before = line.label
@@ -77,7 +81,7 @@ final class ColorInteractionTests: XCTestCase {
         let changed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in line.label != before }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed, "Before: \(before); after: \(line.label); month: \(mark.label)")
         XCTAssertEqual(chart.frame.height, height, accuracy: 0.5)
-        XCTAssertEqual(line.frame.maxY - chart.frame.minY, bottom, accuracy: 0.5)
+        XCTAssertEqual(following.frame.minY - chart.frame.minY, bottom, accuracy: 0.5)
         capture(app, name: "\(theme)-\(appearance)-\(large ? "最大字号" : "常用字号")-支出主题色")
         let flow = mode.buttons["收支"]
         XCTAssertTrue(flow.exists)
@@ -87,7 +91,7 @@ final class ColorInteractionTests: XCTestCase {
         }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [switched], timeout: 5), .completed, line.label)
         XCTAssertEqual(chart.frame.height, height, accuracy: 0.5)
-        XCTAssertEqual(line.frame.maxY - chart.frame.minY, bottom, accuracy: 0.5)
+        XCTAssertEqual(following.frame.minY - chart.frame.minY, bottom, accuracy: 0.5)
         capture(app, name: "\(theme)-\(appearance)-收支对比")
     }
 
