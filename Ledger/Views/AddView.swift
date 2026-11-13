@@ -292,7 +292,11 @@ struct AddForm: View {
             transferSection(d, D, ctx)
         } else {
             payeeSection(d, D, ctx)
-            accountSection(d, ctx).id(DraftIssueField.category)
+            if d.reimb {
+                Section {
+                    LabeledContent(LS("报销应收科目"), value: accountTitle(L, D.receivable))
+                }
+            } else { accountSection(d, ctx).id(DraftIssueField.category) }
             if d.kind == .expense && store.ownedSubLinks.contains(d.link.trimmed) { topupSection(d) }
             if d.kind == .expense { reimbSection(d, D) }
             if d.kind == .expense && !d.reimb { aaSection(d, L) }
@@ -534,8 +538,8 @@ struct AddForm: View {
             }
         } footer: {
             if d.reimb {
-                Text(onFloat ? LS("用备用金支付：记入报销应收并关联 ^%@，直接冲抵备用金，不进待报销。自己垫付的请选「自己垫付」。上面选的支出科目记为报销单的支出类型。", d.link.trimmed)
-                     : LS("自己垫付：进入待报销，公司回款时在「往来」登记；以后改用备用金冲抵，也可在往来里点按备用金勾选。上面选的支出科目记为报销单的支出类型。"))
+                Text(onFloat ? LS("用备用金支付：记入报销应收并关联 ^%@，直接冲抵备用金，不进待报销。自己垫付的请选「自己垫付」。", d.link.trimmed)
+                     : LS("自己垫付：进入待报销，公司回款时在「往来」登记；以后改用备用金冲抵，也可在往来里点按备用金勾选。"))
             }
         }
     }

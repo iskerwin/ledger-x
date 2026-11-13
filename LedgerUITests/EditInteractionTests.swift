@@ -401,6 +401,39 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 1), .timedOut)
     }
 
+    func testReimbursementDoesNotRequireCategory() {
+        checkReimbursementWithoutCategory(textSize: nil)
+    }
+
+    func testReimbursementDoesNotRequireCategoryAtLargeText() {
+        checkReimbursementWithoutCategory(textSize: "UICTContentSizeCategoryXXXL")
+    }
+
+    private func checkReimbursementWithoutCategory(textSize: String?) {
+        let app = launchTab("add", textSize: textSize)
+        XCTAssertTrue(app.buttons["关闭"].waitForExistence(timeout: 20))
+        let more = app.buttons["quick.more"]
+        let before = more.frame.minY
+        more.tap()
+        app.buttons["报销"].firstMatch.tap()
+        app.buttons["自己垫付"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["quick.reimbursement"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["category.Expenses:Food"].exists)
+        XCTAssertEqual(more.frame.minY, before, accuracy: 0.5)
+        more.tap()
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "报销")).firstMatch.tap()
+        app.buttons["不报销"].tap()
+        XCTAssertTrue(app.buttons["category.Expenses:Food"].waitForExistence(timeout: 5))
+        XCTAssertEqual(more.frame.minY, before, accuracy: 0.5)
+        more.tap()
+        app.buttons["报销"].firstMatch.tap()
+        app.buttons["自己垫付"].tap()
+        app.buttons["2"].tap()
+        app.buttons["5"].tap()
+        app.buttons["保存并关闭"].tap()
+        XCTAssertTrue(app.buttons["关闭"].waitForNonExistence(timeout: 10))
+    }
+
     func testTagPickerCancelDoesNotChangeDraft() {
         let app = launch(filled: false)
         // spending's 标签 is in 更多
