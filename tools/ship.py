@@ -1241,9 +1241,13 @@ TITLES = {'test': '本机全部测试（test）', 'dev': '发布开发版（dev�
 TESTS = ('swift-tests.log', 'interaction-tests.log')
 
 
+def is_test_log(name):
+    return name in TESTS or bool(re.fullmatch(r'batch-\d+(?:-narrow)?-interaction-tests\.log', name))
+
+
 def log_progress(name, text):
     """What a stage's log says so far: for tests (passed, failed, the one running), for builds (steps, the last)."""
-    if name in TESTS:
+    if is_test_log(name):
         done = re.findall(r"Test Case '-\[(\S+ \S+)\]' (passed|failed)", text)
         finished = {case for case, _ in done}
         started = [case for case in re.findall(r"Test Case '-\[(\S+ \S+)\]' started", text) if case not in finished]
@@ -1301,7 +1305,7 @@ def render(state, history, logs, now, alive=True):
         if log and log in logs and not detail:
             info = log_progress(log, logs[log])
             expected = history.get(log)
-            if log in TESTS:
+            if is_test_log(log):
                 count = f'{info["passed"]} / {expected}' if expected else f'{info["passed"]}'
                 detail = f'{count} 通过 · {len(info["failed"])} 失败'
                 if info['current'] and running:
@@ -1358,11 +1362,11 @@ def watch(once=False):
 def run_totals(started):
     """Test and build-step counts of the logs this run wrote, kept for the next run's "41 / 64"."""
     totals = {}
-    for name in (*TESTS, 'demo-build.log', 'build.log'):
+    for name in (*TESTS, *sorted(path.name for path in ROOT.glob('batch-*-interaction-tests.log')), 'demo-build.log', 'build.log'):
         path = ROOT / name
         if path.exists() and path.stat().st_mtime >= started:
             info = log_progress(name, path.read_text(errors='replace'))
-            totals[name] = info['passed'] if name in TESTS else info['steps']
+            totals[name] = info['passed'] if is_test_log(name) else info['steps']
     return totals
 
 

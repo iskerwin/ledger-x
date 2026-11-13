@@ -152,6 +152,17 @@ class DevExecutionTests(unittest.TestCase):
         self.assertEqual(proof['selected_interaction']['passed'], 26)
         self.assertNotIn('batches', proof['selected_interaction'])
 
+    def test_batch_logs_show_test_progress_and_keep_counts_for_watch(self):
+        log = "Test Case '-[Example testSave]' passed (0.1 seconds).\nTest Case '-[Example testOpen]' started.\n"
+        with tempfile.TemporaryDirectory() as temp, patch.object(ship, 'ROOT', Path(temp)):
+            for name in ('batch-1-interaction-tests.log', 'batch-2-narrow-interaction-tests.log'):
+                (Path(temp) / name).write_text(log)
+                info = ship.log_progress(name, log)
+                self.assertEqual(info['passed'], 1)
+                self.assertEqual(info['current'], 'Example testOpen')
+            self.assertEqual(ship.run_totals(0), {'batch-1-interaction-tests.log': 1,
+                                                 'batch-2-narrow-interaction-tests.log': 1})
+
 
 if __name__ == '__main__':
     unittest.main()
