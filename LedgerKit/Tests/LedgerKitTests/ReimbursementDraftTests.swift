@@ -21,7 +21,7 @@ final class ReimbursementDraftTests: XCTestCase {
         return d
     }
 
-    func testAdvanceNeedsNoExpenseAccount() {
+    func testAdvanceNeedsNoExpenseAccount() throws {
         let L = ledger(base), D = Derived(L)
         let d = draft()
         XCTAssertNil(draftIssue(d, L, D))
@@ -34,13 +34,15 @@ final class ReimbursementDraftTests: XCTestCase {
         let t = after.txns.last!
         XCTAssertEqual(t.postings.first { $0.account == D.receivable }?.units, 25)
         XCTAssertEqual(t.postings.first { $0.account == d.funding }?.units, -25)
-        let back = draftFromTxn(t, after, Derived(after), defaultFunding: nil)
+        let back = try XCTUnwrap(editDraft(t, after, Derived(after)))
+        XCTAssertEqual(back.kind, .expense)
+        XCTAssertEqual(back.date, t.date)
         XCTAssertTrue(back.reimb)
         XCTAssertEqual(back.account, "")
         XCTAssertTrue(sameTxn(t, ledger(base + draftText(back, after, Derived(after))).txns.last!))
     }
 
-    func testPettyCashWithoutCategoryKeepsItsLink() {
+    func testPettyCashWithoutCategoryKeepsItsLink() throws {
         let prefix = base + """
         2026-10-01 * "Demo company" "Petty cash" ^float-demo-20261001
           Assets:Bank:Demo  100.00 CNY
@@ -52,14 +54,17 @@ final class ReimbursementDraftTests: XCTestCase {
         XCTAssertNil(draftIssue(d, L, D))
         let after = ledger(prefix + draftText(d, L, D) + "\n")
         let t = after.txns.last!, derived = Derived(after)
-        let back = draftFromTxn(t, after, derived, defaultFunding: nil)
+        let back = try XCTUnwrap(editDraft(t, after, derived))
+        XCTAssertEqual(back.kind, .expense)
+        XCTAssertEqual(back.date, t.date)
+        XCTAssertTrue(back.reimb)
         XCTAssertEqual(back.link, d.link)
         XCTAssertEqual(back.voucher, d.voucher)
         XCTAssertEqual(back.account, "")
         XCTAssertTrue(sameTxn(t, ledger(prefix + draftText(back, after, derived)).txns.last!))
     }
 
-    func testExistingCategorySurvivesEditing() {
+    func testExistingCategorySurvivesEditing() throws {
         let L = ledger(base + """
         2026-01-01 open Expenses:Travel CNY
         2026-10-17 * "Demo supplier" "Taxi" #reimbursed
@@ -69,7 +74,10 @@ final class ReimbursementDraftTests: XCTestCase {
 
         """)
         let D = Derived(L), t = L.txns.last!
-        let back = draftFromTxn(t, L, D, defaultFunding: nil)
+        let back = try XCTUnwrap(editDraft(t, L, D))
+        XCTAssertEqual(back.kind, .expense)
+        XCTAssertEqual(back.date, t.date)
+        XCTAssertTrue(back.reimb)
         XCTAssertEqual(back.account, "Expenses:Travel")
         XCTAssertTrue(sameTxn(t, ledger(base + draftText(back, L, D)).txns.last!))
     }
