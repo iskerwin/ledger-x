@@ -4,7 +4,7 @@ import XCTest
 final class AccountFormTests: XCTestCase {
     private var folder: URL!
     private let source = """
-    2025-01-01 open Assets:Bank CNY,USD
+    2025-01-01 open Assets:Bank CNY,USD ; keep header comment
       name: "Sample bank"
       institution: "Example"
       ; keep this comment
@@ -69,6 +69,7 @@ final class AccountFormTests: XCTestCase {
         let text = try read()
         XCTAssertTrue(text.contains("institution: \"Example\""))
         XCTAssertTrue(text.contains("; keep this comment"))
+        XCTAssertTrue(text.contains("; keep header comment"))
         XCTAssertTrue(text.contains("name: \"Renamed display\""))
         XCTAssertEqual(try ledger().txns.count, 1)
         XCTAssertEqual(try ledger().entries.filter { $0.type == .open && $0.account == "Assets:Bank" }.count, 1)

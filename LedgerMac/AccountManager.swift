@@ -8,17 +8,12 @@ private struct AccountTarget: Identifiable {
 
 /// Includes empty, implicit and closed accounts, which the balance page deliberately leaves out.
 struct AccountManager: View {
+    let ledger: Ledger
     let folder: URL
-    @State private var ledger: Ledger
     @State private var query = ""
     @State private var showClosed = true
     @State private var target: AccountTarget?
     @Environment(\.dismiss) private var dismiss
-
-    init(ledger: Ledger, folder: URL) {
-        self.folder = folder
-        _ledger = State(initialValue: ledger)
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -59,7 +54,7 @@ struct AccountManager: View {
         }
         .frame(width: 720, height: 600)
         .sheet(item: $target) { target in
-            AccountEditor(ledger: ledger, account: target.name, folder: folder) { reload() }
+            AccountEditor(ledger: ledger, account: target.name, folder: folder)
         }
     }
 
@@ -72,12 +67,6 @@ struct AccountManager: View {
         }.sorted { $0.name < $1.name }
     }
 
-    private func reload() {
-        let folder = folder
-        Task { @MainActor in
-            if let current = await Task.detached(operation: { loadLedger(folder: folder) }).value { ledger = current }
-        }
-    }
 }
 
 private struct AccountEditor: View {
@@ -87,14 +76,14 @@ private struct AccountEditor: View {
         case reopen(Entry)
     }
     let folder: URL
-    let original: Entry?
-    let closed: Entry?
+    @State private var original: Entry?
+    @State private var closed: Entry?
     let created: Bool
-    let saved: () -> Void
-    private let baseline: AccountForm
+    @State private var baseline: AccountForm
     private let balances: String
     @State private var form: AccountForm
     @State private var closeDate = Day.today()
+    @State private var initialCloseDate = Day.today()
     @State private var message = ""
     @State private var saving = false
     @State private var leaving = false
@@ -103,12 +92,11 @@ private struct AccountEditor: View {
     @State private var review: FolderSave?
     @Environment(\.dismiss) private var dismiss
 
-    init(ledger: Ledger, account: String?, folder: URL, saved: @escaping () -> Void) {
+    init(ledger: Ledger, account: String?, folder: URL) {
         self.folder = folder
-        self.saved = saved
         created = account == nil
-        original = ledger.entries.last { $0.type == .open && $0.account == account }
-        closed = ledger.entries.last { $0.type == .close && $0.account == account }
+        _original = State(initialValue: ledger.entries.last { $0.type == .open && $0.account == account })
+        _closed = State(initialValue: ledger.entries.last { $0.type == .close && $0.account == account })
         var fields: AccountForm
         if let account, let found = ledger.accounts[account] {
             let first = ledger.txns.first { $0.postings.contains { $0.account == account } }?.date ?? Day.today()
@@ -117,7 +105,7 @@ private struct AccountEditor: View {
             fields = AccountForm(account: "Assets:", date: Day.today())
             fields.currencies = ledger.base
         }
-        baseline = fields
+        _baseline = State(initialValue: fields)
         _form = State(initialValue: fields)
         balances = (ledger.final[account ?? ""] ?? [:]).filter { abs($0.value) > 0.005 }.sorted { $0.key < $1.key }
             .map { money($0.value, $0.key) }.joined(separator: "、")
@@ -193,7 +181,7 @@ private struct AccountEditor: View {
             .padding(.horizontal, 16)
         }
         .frame(width: 600, height: 640)
-        .interactiveDismissDisabled(form != baseline || saving)
+        .interactiveDismissDisabled(dirty || saving)
         .confirmationDialog("修改还没有保存", isPresented: $leaving, titleVisibility: .visible) {
             Button("继续编辑", role: .cancel) {}
             Button("放弃修改", role: .destructive) { dismiss() }
@@ -222,8 +210,10 @@ private struct AccountEditor: View {
     }
 
     private func close() {
-        if form == baseline { dismiss() } else { leaving = true }
+        if dirty { leaving = true } else { dismiss() }
     }
+
+    private var dirty: Bool { form != baseline || closeDate != initialCloseDate }
 
     private func prepare(_ change: Change) {
         guard !saving else { return }
@@ -250,7 +240,6 @@ private struct AccountEditor: View {
     private func write(_ save: FolderSave) {
         do {
             try commitFolderSave(save, folder: folder)
-            saved()
             dismiss()
         } catch { message = error.localizedDescription }
     }

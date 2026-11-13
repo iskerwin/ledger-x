@@ -52,9 +52,14 @@ public struct AccountForm: Equatable {
         guard Set(codes).count == codes.count, codes.allSatisfy({ currencyLength(scalars($0), 0) == scalars($0).count }) else {
             return .failure(FolderSaveError(message: tr("限定币种不能重复且必须是有效币种代码", "Allowed currencies must be valid currency codes without duplicates")))
         }
-        return .success(openDirectiveText(date: date, account: account, currencies: codes, booking: booking, name: name,
+        let text = openDirectiveText(date: date, account: account, currencies: codes, booking: booking, name: name,
                                          creditLimit: amount, allowNegative: allowNegative, statementDay: statementDay, dueDay: dueDay,
-                                         keep: original, creditLimitCurrency: parts.count == 2 ? parts[1] : nil))
+                                         keep: original, creditLimitCurrency: parts.count == 2 ? parts[1] : nil)
+        var lines = text.components(separatedBy: "\n")
+        let header = scalars((original ?? "").components(separatedBy: "\n").first ?? "")
+        let comment = str(header.dropFirst(stripComment(header).count))
+        if !comment.isEmpty { lines[0] += " " + comment }
+        return .success(lines.joined(separator: "\n"))
     }
 }
 
