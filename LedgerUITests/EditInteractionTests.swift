@@ -1921,6 +1921,8 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(funding.isHittable); funding.tap()
         let search = app.textFields["account.search"]
         XCTAssertTrue(search.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["最近使用"].exists)
+        XCTAssertFalse(app.staticTexts["最常用"].exists)
         XCTAssertTrue(app.buttons["account.chosen"].exists)
         // the first group: the row scrolls sideways, so its chip may show only in part
         let chip = app.buttons["account.group.Assets:Bank"], row = app.buttons["account.Assets:Bank:CGB"]

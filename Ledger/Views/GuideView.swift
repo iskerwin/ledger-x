@@ -87,6 +87,8 @@ struct GuideView: View {
                "Fees, rates and the amount received are under the currency button beside the amount (Currency, Rate & Fee), for expenses and transfers alike; once a fee is set, a line under the amount shows it and opens it again."),
             tr("金额下面一行是付款账户、日期和「更多」：报销、优惠、标签、AA、组合付款和本期补差都在「更多」里，设了哪项它就变成主题色并写出来。收入和转账这一格是「标签」，收入的「填写对方」在右上角「⋯」。要存到另一个账本，在「⋯」→ 切换账本。",
                "Under the amount is one row: the paying account, the day and More. Reimburse, discount, tags, sharing, several accounts and this period's top-up are under More, which turns the theme colour and names what is set. For income and transfers that cell is Tags; income's Other party is under ⋯. To save to another ledger, use ⋯ → Switch Ledger."),
+            tr("选择账户时，顶部只显示最近使用的最多五个其他账户；下面按组列出全部账户，也可搜索。当前账户固定在搜索框下，不在最近使用里重复。付款、转账和其他共用账户选择器的入口一致。",
+               "Account pickers show up to five other recently used accounts at the top, followed by all account groups and search. The current account stays below the search field and is omitted from Recents. Payments, transfers and other shared account pickers follow the same layout."),
             tr("「保存再记」保存后留在卡片上接着记，「保存」保存并关闭。",
                "Save & next keeps the card open for the next entry; Save stores it and closes the card."),
             tr("收付款方和摘要都可以不填。收付款方不填时省略，摘要不填写成 \"\"；引号由 App 自动加。",

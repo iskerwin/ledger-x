@@ -336,12 +336,9 @@ struct AccountPicker: View {
                     if q.trimmingCharacters(in: .whitespaces).isEmpty {
                         let gs = groups
                         // the one chosen is in the bar above the list: these are the others to switch to
-                        let recent = recentOrder.filter { $0 != selected }
+                        let recent = Array(recentOrder.filter { $0 != selected }.prefix(5))
                         if !recent.isEmpty {
                             Section(LS("最近使用")) { ForEach(recent, id: \.self) { row($0, full: true) } }
-                        }
-                        if ranked.count > 8 {
-                            Section(LS("最常用")) { ForEach(Array(ranked.filter { $0 != selected }.prefix(5)), id: \.self) { row($0, full: true) } }
                         }
                         ForEach(gs) { g in
                             Section {
@@ -361,7 +358,7 @@ struct AccountPicker: View {
                         order = store.D?.rankAccounts(prefixes) ?? []
                         recentOrder = recentAccounts()
                     }
-                    // opens at the top, on the recent and most used: whoever opens it again wants another account
+                    // Opens at the recent accounts; the full groups and search remain available below.
                 }
                 // a group picked while searching: the search is cleared first, and the jump made once the
                 // groups are back in the list
@@ -511,7 +508,8 @@ struct AccountPicker: View {
         for transaction in (store.L?.txns ?? []).reversed() {
             for posting in transaction.postings where allowed.contains(posting.account) && seen.insert(posting.account).inserted {
                 result.append(posting.account)
-                if result.count == 5 { return result }
+                // Keep one extra so excluding the current selection still leaves up to five alternatives.
+                if result.count == 6 { return result }
             }
         }
         return result
