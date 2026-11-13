@@ -1489,6 +1489,9 @@ final class EditInteractionTests: XCTestCase {
         for (name, value) in [("calendar.yearWheel", year), ("calendar.monthWheel", month)] {
             let wheel = app.pickers[name].pickerWheels.firstMatch
             XCTAssertTrue(wheel.waitForExistence(timeout: 5))
+            // A wheel already at this value needs no event. Turning it anyway rebuilds the other wheel
+            // and can leave that wheel without an accessibility frame while the picker animates.
+            if wheel.value as? String == value { continue }
             waitSettled(wheel)
             wheel.adjust(toPickerWheelValue: value)
         }
@@ -2536,7 +2539,11 @@ final class EditInteractionTests: XCTestCase {
         tapPoint(name, timeout: 5)
         name.typeText("Demo\n")
         let currency = app.textFields["CNY"]
-        let focused = NSPredicate(format: "hasKeyboardFocus == true")
-        XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: focused, object: currency)], timeout: 3), .completed)
+        // Send to the current responder, without tapping the currency field. The private hasKeyboardFocus
+        // KVC predicate can say false even when the recording shows the cursor there; actual input proves it.
+        let before = currency.value as? String ?? ""
+        app.typeText("USD")
+        XCTAssertEqual(currency.value as? String, before + "USD")
+        XCTAssertEqual(name.value as? String, "Demo")
     }
 }

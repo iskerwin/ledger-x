@@ -57,20 +57,31 @@ final class ColorInteractionTests: XCTestCase {
         mode.buttons["支出"].tap()
         let line = app.staticTexts["overview.trendLine"]
         XCTAssertTrue(line.waitForExistence(timeout: 5))
-        let height = chart.frame.height, bottom = line.frame.maxY - chart.frame.minY
+        // The frozen fixture spends in October 2026. Other months are deliberately faded to 30%; when the
+        // current month has no spending, sampling before selecting this bar measures only faded pixels.
+        // Select the populated month before checking the unchanged colour/count assertions.
+        let populated = chart.otherElements["2026年10月 支出"]
+        XCTAssertTrue(populated.exists)
+        tapMark(populated, in: chart)
+        let populatedLine = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in line.label.contains("2026年10月") }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [populatedLine], timeout: 5), .completed, line.label)
+        // The line's fixed slot keeps the content below it in place. Its scaled glyph bounds legitimately
+        // change with the amount's length, so measure the unchanged label following that slot instead.
+        let following = app.otherElements["overview.hero"].staticTexts["收入"].firstMatch
+        XCTAssertTrue(following.waitForExistence(timeout: 5))
+        let height = chart.frame.height, bottom = following.frame.minY - chart.frame.minY
         checkChartHue(app, chart: chart, theme: theme)
         capture(app, name: "\(theme)-\(appearance)-点选前")
         let before = line.label
         // Use an actual month's x position: an arbitrary percentage can land in the gap between categorical bars.
-        let mark = chart.otherElements.matching(NSPredicate(format: "label ENDSWITH %@", "月 支出")).firstMatch
+        let mark = chart.otherElements.matching(NSPredicate(format: "label ENDSWITH %@ AND label != %@", "月 支出", populated.label)).firstMatch
         XCTAssertTrue(mark.exists)
         XCTAssertGreaterThan(mark.frame.width, 0)
-        chart.coordinate(withNormalizedOffset: .zero)
-            .withOffset(CGVector(dx: mark.frame.midX - chart.frame.minX, dy: chart.frame.height * 0.4)).tap()
+        tapMark(mark, in: chart)
         let changed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in line.label != before }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed, "Before: \(before); after: \(line.label); month: \(mark.label)")
         XCTAssertEqual(chart.frame.height, height, accuracy: 0.5)
-        XCTAssertEqual(line.frame.maxY - chart.frame.minY, bottom, accuracy: 0.5)
+        XCTAssertEqual(following.frame.minY - chart.frame.minY, bottom, accuracy: 0.5)
         capture(app, name: "\(theme)-\(appearance)-\(large ? "最大字号" : "常用字号")-支出主题色")
         let flow = mode.buttons["收支"]
         XCTAssertTrue(flow.exists)
@@ -80,7 +91,7 @@ final class ColorInteractionTests: XCTestCase {
         }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [switched], timeout: 5), .completed, line.label)
         XCTAssertEqual(chart.frame.height, height, accuracy: 0.5)
-        XCTAssertEqual(line.frame.maxY - chart.frame.minY, bottom, accuracy: 0.5)
+        XCTAssertEqual(following.frame.minY - chart.frame.minY, bottom, accuracy: 0.5)
         capture(app, name: "\(theme)-\(appearance)-收支对比")
     }
 
@@ -89,6 +100,12 @@ final class ColorInteractionTests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    private func tapMark(_ mark: XCUIElement, in chart: XCUIElement) {
+        XCTAssertGreaterThan(mark.frame.width, 0)
+        chart.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: mark.frame.midX - chart.frame.minX, dy: chart.frame.height * 0.4)).tap()
     }
 
     private func scroll(_ app: XCUIApplication, up: Bool) {
