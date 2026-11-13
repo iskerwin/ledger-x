@@ -103,7 +103,11 @@ struct QuickCard: View {
                 // the grid and the details scroll in their own area: the amount, the choices and the keypad below never move
                 ScrollView {
                     VStack(spacing: Space.control) {
-                        if d.kind == .transfer { transferPanel(d) } else { grid(d); subCategories(d) }
+                        if d.kind == .transfer { transferPanel(d) }
+                        else if d.reimb {
+                            LabeledContent("报销应收科目", value: accountTitle(ledger, derived.receivable))
+                                .padding(.vertical, Space.control)
+                        } else { grid(d); subCategories(d) }
                     }
                     .padding(.horizontal, Space.content)
                     .padding(.vertical, Space.icon)
