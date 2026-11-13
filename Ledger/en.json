@@ -1,4 +1,9 @@
 {
+ "关闭账户？": "Close this account?",
+ "重新开启账户？": "Reopen this account?",
+ "修改还没有保存": "Changes have not been saved",
+ "将写入一条 close 指令，此后该账户不能再有交易。历史记录保留。": "A close directive will be added. The account cannot have later transactions; its history is kept.",
+ "50000 或 50000 CNY": "50000 or 50000 CNY",
  "系统": "System",
  "圆体": "Rounded",
  "金额数字": "Amount digits",
