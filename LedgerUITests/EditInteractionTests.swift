@@ -404,12 +404,17 @@ final class EditInteractionTests: XCTestCase {
     func testTagPickerCancelDoesNotChangeDraft() {
         let app = launch(filled: false)
         // spending's 标签 is in 更多
-        app.buttons["quick.more"].tap(); tapPoint(app.buttons["标签…"].firstMatch, timeout: 5)
+        app.buttons["quick.more"].tap()
+        let tagMenuItem = app.buttons["标签…"].firstMatch
+        XCTAssertTrue(tagMenuItem.waitForExistence(timeout: 5))
+        tagMenuItem.tap()
         let input = app.textFields["新标签，如 trip-shanghai"]
         XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("phase-two")
         app.buttons["添加"].tap()
         app.navigationBars.buttons["取消"].tap()
-        app.buttons["quick.more"].tap(); tapPoint(app.buttons["标签…"].firstMatch, timeout: 5)
+        app.buttons["quick.more"].tap()
+        XCTAssertTrue(tagMenuItem.waitForExistence(timeout: 5))
+        tagMenuItem.tap()
         XCTAssertFalse(app.staticTexts["#phase-two"].exists)
         app.navigationBars.buttons["取消"].tap()
         app.buttons["关闭"].tap()
@@ -1461,14 +1466,14 @@ final class EditInteractionTests: XCTestCase {
     /// outright instead of answering no, so wait for a real frame first; and it is already hittable while the popover
     /// still slides up, so also wait until two reads in a row find it in the same place. On a slow runner the contents
     /// can lose their frame again right after that, so frame, place and hittability are one wait
-    private func waitSettled(_ element: XCUIElement) {
+    private func waitSettled(_ element: XCUIElement, requireHittable: Bool = true) {
         var previous = CGRect.null
         let ready = expectation(for: NSPredicate { _, _ in
             let frame = element.frame
             defer { previous = frame }
             guard !frame.isInfinite && !frame.isNull && frame.width > 0 && frame.height > 0 && frame == previous
             else { return false }
-            return element.isHittable
+            return !requireHittable || element.isHittable
         }, evaluatedWith: nil)
         wait(for: [ready], timeout: 15)
     }
@@ -1487,13 +1492,17 @@ final class EditInteractionTests: XCTestCase {
         // the wheels can only be turned once the popover has finished appearing: turning one while it still
         // animates in fails with "Failed to get possible values for picker"
         for (name, value) in [("calendar.yearWheel", year), ("calendar.monthWheel", month)] {
-            let wheel = app.pickers[name].pickerWheels.firstMatch
+            let picker = app.pickers[name]
+            let wheel = picker.pickerWheels.firstMatch
             XCTAssertTrue(wheel.waitForExistence(timeout: 5))
             // A wheel already at this value needs no event. Turning it anyway rebuilds the other wheel
             // and can leave that wheel without an accessibility frame while the picker animates.
             if wheel.value as? String == value { continue }
-            waitSettled(wheel)
+            // The wheel's accessible bounds include its moving rows. Wait for the enclosing picker instead;
+            // adjust() resolves the wheel's current interaction point after that layout has settled.
+            waitSettled(picker, requireHittable: false)
             wheel.adjust(toPickerWheelValue: value)
+            XCTAssertEqual(wheel.value as? String, value)
         }
         // turning a wheel lays the popover out again (at large text, its button too): a tap while the button has no
         // frame fails with "point.x != INFINITY"
