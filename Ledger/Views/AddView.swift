@@ -292,11 +292,7 @@ struct AddForm: View {
             transferSection(d, D, ctx)
         } else {
             payeeSection(d, D, ctx)
-            if d.reimb {
-                Section {
-                    LabeledContent(LS("报销应收科目"), value: accountTitle(L, D.receivable))
-                }
-            } else { accountSection(d, ctx).id(DraftIssueField.category) }
+            accountSection(d, ctx).id(DraftIssueField.category)
             if d.kind == .expense && store.ownedSubLinks.contains(d.link.trimmed) { topupSection(d) }
             if d.kind == .expense { reimbSection(d, D) }
             if d.kind == .expense && !d.reimb { aaSection(d, L) }
@@ -439,7 +435,14 @@ struct AddForm: View {
         let catLabel = d.kind == .income ? LS("收入科目") : LS("支出科目")
         let fundLabel = d.kind == .income ? LS("收款账户") : d.kind == .refund ? LS("退回账户") : LS("付款账户")
         return Section {
-            AccountField(label: catLabel, prefixes: ctx.catPrefix, chips: ctx.cats, value: field(\.account))
+            ZStack(alignment: .topLeading) {
+                AccountField(label: catLabel, prefixes: ctx.catPrefix, chips: ctx.cats, value: field(\.account))
+                    .concealed(d.reimb)
+                if let L = store.L, let D = store.D {
+                    LabeledContent(LS("报销应收科目"), value: accountTitle(L, D.receivable))
+                        .concealed(!d.reimb)
+                }
+            }
             issueLabel(.category)
             AccountField(label: fundLabel, prefixes: ["Assets:", "Liabilities:"], chips: ctx.funds, value: field(\.funding)).id(DraftIssueField.funding)
             issueLabel(.funding)
