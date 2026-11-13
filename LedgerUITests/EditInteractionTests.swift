@@ -415,7 +415,12 @@ final class EditInteractionTests: XCTestCase {
         let toggle = app.switches["可报销（计入应收款并标记 #reimbursed）"]
         for _ in 0..<6 where !toggle.isHittable { app.swipeUp() }
         XCTAssertTrue(toggle.isHittable)
-        toggle.tap()
+        // SwiftUI exposes the wrapped label and switch as one wide element. Its centre is the label;
+        // the trailing edge is the actual switch, even when the label wraps onto two lines.
+        XCTAssertEqual(toggle.value as? String, "0")
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == '1'"), object: toggle)
+        XCTAssertEqual(XCTWaiter().wait(for: [enabled], timeout: 5), .completed)
         let funding = app.descendants(matching: .any)["field.付款账户"].firstMatch
         for _ in 0..<6 where !funding.isHittable { app.swipeDown() }
         XCTAssertTrue(funding.isHittable)
@@ -423,7 +428,10 @@ final class EditInteractionTests: XCTestCase {
         funding.tap()
         pickAccount(app, "Assets:Bank:ExampleFX")
         app.buttons["account.done"].tap()
-        XCTAssertTrue(app.staticTexts["换算"].waitForExistence(timeout: 5))
+        let paid = app.textFields["账户实际扣款"]
+        for _ in 0..<6 where !paid.isHittable { app.swipeUp() }
+        XCTAssertTrue(paid.isHittable)
+        XCTAssertTrue(app.buttons["填实付金额"].exists)
     }
 
     private func checkReimbursementWithoutCategory(textSize: String?) {
