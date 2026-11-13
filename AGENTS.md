@@ -75,7 +75,7 @@ python3 tools/ship.py version patch|minor|major|X.Y.Z      # 在分支上本地�
 - 一个版本的完整流程，按顺序：
   1. 开始新版本：在新分支上执行 `python3 tools/ship.py version patch|minor|major|X.Y.Z`，在 CHANGELOG 顶部加「## X.Y.Z（开发中）」并本地提交，经 PR 合并。
   2. 开发：每个功能或修复一个分支和 PR，CHANGELOG 写在「（开发中）」这一节的「新增 / 修复 / 改进」下。用户能感知的改动实现后优先发预览，手机验收通过再开 PR（或将草稿转为可审查）、运行相关测试；gate 通过且分支同步最新 main 后合并。纯测试、工具或文档改动按范围检查。
-  3. 发开发版：合并后清理已合并的分支，在最新 main 上执行 `python3 tools/ship.py dev`。网页 Ledger Dev 没有输入参数，选择 main 即可运行。复用 PR 测试记录或自动跑相关测试，编译和安装包校验通过才发布；Kerwin 装到手机按 06 验收，有问题回到第 2 步。
+  3. 发开发版：合并后清理已合并的分支，在最新 main 上执行 `python3 tools/ship.py dev`。网页 Ledger Dev 没有输入参数，选择 main 即可运行。复用 PR 测试记录或自动跑相关测试，编译和安装包校验通过才发布；Kerwin 安装并按 06 核对版本、构建号和对应源码，已验收且未变化的功能不重复验收；有问题回到第 2 步。转正前仍须明确确认当前开发版构建号。
   4. 转正式版：Kerwin 验收通过后执行（或授权执行）`python3 tools/ship.py release --accepted-build N`。云端在已验收安装包的同一源码上做全量验证，通过后原安装包转正式版，版本号和构建号不变。
   5. 收尾：把 CHANGELOG 这一节标题从「（开发中）」改为「（YYYY-MM-DD 发布）」（北京时间的发布日期），单独一个 PR 合并。下一次改动前回到第 1 步。
 - 禁止删除 Release 和标签，禁止删除 main、ipa 分支，禁止强推或重写 main 历史。
