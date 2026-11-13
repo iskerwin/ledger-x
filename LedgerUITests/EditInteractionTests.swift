@@ -409,6 +409,23 @@ final class EditInteractionTests: XCTestCase {
         checkReimbursementWithoutCategory(textSize: "UICTContentSizeCategoryXXXL")
     }
 
+    func testReimbursementFullFormKeepsFundingAndConversionControls() {
+        let app = launch(filled: false)
+        openFull(app)
+        let toggle = app.switches["可报销（计入应收款并标记 #reimbursed）"]
+        for _ in 0..<6 where !toggle.isHittable { app.swipeUp() }
+        XCTAssertTrue(toggle.isHittable)
+        toggle.tap()
+        let funding = app.descendants(matching: .any)["field.付款账户"].firstMatch
+        for _ in 0..<6 where !funding.isHittable { app.swipeDown() }
+        XCTAssertTrue(funding.isHittable)
+        XCTAssertFalse(app.descendants(matching: .any)["field.支出科目"].firstMatch.exists)
+        funding.tap()
+        pickAccount(app, "Assets:Bank:ExampleFX")
+        app.buttons["account.done"].tap()
+        XCTAssertTrue(app.staticTexts["换算"].waitForExistence(timeout: 5))
+    }
+
     private func checkReimbursementWithoutCategory(textSize: String?) {
         let app = launchTab("add", textSize: textSize)
         XCTAssertTrue(app.buttons["关闭"].waitForExistence(timeout: 20))
