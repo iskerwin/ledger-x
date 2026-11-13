@@ -752,6 +752,11 @@ final class EditInteractionTests: XCTestCase {
         partyCandidate.tap()
         XCTAssertEqual(party.value as? String, "Coffee")
         note.tap(); note.typeText(" updated")
+        // Event synthesis returning does not guarantee the final text change has reached accessibility yet.
+        // Wait for the complete value, rather than reading a transient prefix immediately after typing.
+        let inputApplied = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "Interaction test updated"), object: note)
+        XCTAssertEqual(XCTWaiter().wait(for: [inputApplied], timeout: 5), .completed)
         XCTAssertEqual(note.value as? String, "Interaction test updated")
         app.buttons["quick.text.done"].tap()
         XCTAssertTrue(keyboard.waitForNonExistence(timeout: 5))
@@ -1512,7 +1517,9 @@ final class EditInteractionTests: XCTestCase {
         let done = app.buttons["完成"]
         XCTAssertTrue(done.waitForExistence(timeout: 5))
         waitSettled(done)
-        done.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        // Use the button's actionable hit point. A saved centre coordinate can miss the toolbar
+        // when the large-text month picker finishes laying out after a wheel adjustment.
+        done.tap()
         // the title opens nothing while the popover is still on its way out, so the next month waits for it to go
         XCTAssertTrue(app.pickers["calendar.yearWheel"].waitForNonExistence(timeout: 5))
     }
