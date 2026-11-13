@@ -1575,7 +1575,9 @@ final class EditInteractionTests: XCTestCase {
         let done = app.buttons["完成"]
         XCTAssertTrue(done.waitForExistence(timeout: 5))
         waitSettled(done)
-        done.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        // Use the button's actionable hit point. A saved centre coordinate can miss the toolbar
+        // when the large-text month picker finishes laying out after a wheel adjustment.
+        done.tap()
         // the title opens nothing while the popover is still on its way out, so the next month waits for it to go
         XCTAssertTrue(app.pickers["calendar.yearWheel"].waitForNonExistence(timeout: 5))
     }
