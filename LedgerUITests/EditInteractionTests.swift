@@ -401,6 +401,64 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 1), .timedOut)
     }
 
+    func testReimbursementDoesNotRequireCategory() {
+        checkReimbursementWithoutCategory(textSize: nil)
+    }
+
+    func testReimbursementDoesNotRequireCategoryAtLargeText() {
+        checkReimbursementWithoutCategory(textSize: "UICTContentSizeCategoryXXXL")
+    }
+
+    func testReimbursementFullFormKeepsFundingAndConversionControls() {
+        let app = launch(filled: false)
+        openFull(app)
+        let toggle = app.switches["可报销（计入应收款并标记 #reimbursed）"]
+        for _ in 0..<6 where !toggle.isHittable { app.swipeUp() }
+        XCTAssertTrue(toggle.isHittable)
+        // SwiftUI exposes the wrapped label and switch as one wide element. Its centre is the label;
+        // the trailing edge is the actual switch, even when the label wraps onto two lines.
+        XCTAssertEqual(toggle.value as? String, "0")
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == '1'"), object: toggle)
+        XCTAssertEqual(XCTWaiter().wait(for: [enabled], timeout: 5), .completed)
+        let funding = app.descendants(matching: .any)["field.付款账户"].firstMatch
+        for _ in 0..<6 where !funding.isHittable { app.swipeDown() }
+        XCTAssertTrue(funding.isHittable)
+        XCTAssertFalse(app.descendants(matching: .any)["field.支出科目"].firstMatch.exists)
+        funding.tap()
+        pickAccount(app, "Assets:Bank:ExampleFX")
+        app.buttons["account.done"].tap()
+        let paid = app.textFields["账户实际扣款"]
+        for _ in 0..<6 where !paid.isHittable { app.swipeUp() }
+        XCTAssertTrue(paid.isHittable)
+        XCTAssertTrue(app.buttons["填实付金额"].exists)
+    }
+
+    private func checkReimbursementWithoutCategory(textSize: String?) {
+        let app = launchTab("add", textSize: textSize)
+        XCTAssertTrue(app.buttons["关闭"].waitForExistence(timeout: 20))
+        let more = app.buttons["quick.more"]
+        let before = more.frame.minY
+        more.tap()
+        app.buttons["报销"].firstMatch.tap()
+        app.buttons["自己垫付"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["quick.reimbursement"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["category.Expenses:Food"].exists)
+        XCTAssertEqual(more.frame.minY, before, accuracy: 0.5)
+        more.tap()
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "报销")).firstMatch.tap()
+        app.buttons["不报销"].tap()
+        XCTAssertTrue(app.buttons["category.Expenses:Food"].waitForExistence(timeout: 5))
+        XCTAssertEqual(more.frame.minY, before, accuracy: 0.5)
+        more.tap()
+        app.buttons["报销"].firstMatch.tap()
+        app.buttons["自己垫付"].tap()
+        app.buttons["2"].tap()
+        app.buttons["5"].tap()
+        app.buttons["保存并关闭"].tap()
+        XCTAssertTrue(app.buttons["关闭"].waitForNonExistence(timeout: 10))
+    }
+
     func testTagPickerCancelDoesNotChangeDraft() {
         let app = launch(filled: false)
         // spending's 标签 is in 更多
@@ -610,6 +668,9 @@ final class EditInteractionTests: XCTestCase {
         let result = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "筛选结果")).firstMatch
         let search = app.searchFields.firstMatch
         tapPoint(search, timeout: 5)
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["对方:王五"].exists, "Search examples belong in the guide")
+        XCTAssertFalse(app.staticTexts["#出差|#旅行"].exists)
         search.typeText("Coffee")
         XCTAssertFalse(result.exists, "searching while still typing")
         XCTAssertTrue(app.staticTexts["Example supplier"].firstMatch.exists)
@@ -749,6 +810,11 @@ final class EditInteractionTests: XCTestCase {
         partyCandidate.tap()
         XCTAssertEqual(party.value as? String, "Coffee")
         note.tap(); note.typeText(" updated")
+        // Event synthesis returning does not guarantee the final text change has reached accessibility yet.
+        // Wait for the complete value, rather than reading a transient prefix immediately after typing.
+        let inputApplied = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "Interaction test updated"), object: note)
+        XCTAssertEqual(XCTWaiter().wait(for: [inputApplied], timeout: 5), .completed)
         XCTAssertEqual(note.value as? String, "Interaction test updated")
         app.buttons["quick.text.done"].tap()
         XCTAssertTrue(keyboard.waitForNonExistence(timeout: 5))
@@ -1509,7 +1575,9 @@ final class EditInteractionTests: XCTestCase {
         let done = app.buttons["完成"]
         XCTAssertTrue(done.waitForExistence(timeout: 5))
         waitSettled(done)
-        done.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        // Use the button's actionable hit point. A saved centre coordinate can miss the toolbar
+        // when the large-text month picker finishes laying out after a wheel adjustment.
+        done.tap()
         // the title opens nothing while the popover is still on its way out, so the next month waits for it to go
         XCTAssertTrue(app.pickers["calendar.yearWheel"].waitForNonExistence(timeout: 5))
     }
@@ -1921,6 +1989,8 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(funding.isHittable); funding.tap()
         let search = app.textFields["account.search"]
         XCTAssertTrue(search.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["最近使用"].exists)
+        XCTAssertFalse(app.staticTexts["最常用"].exists)
         XCTAssertTrue(app.buttons["account.chosen"].exists)
         // the first group: the row scrolls sideways, so its chip may show only in part
         let chip = app.buttons["account.group.Assets:Bank"], row = app.buttons["account.Assets:Bank:CGB"]

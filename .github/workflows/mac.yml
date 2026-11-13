@@ -41,11 +41,13 @@ jobs:
           if ! command -v xcodegen >/dev/null 2>&1; then brew install xcodegen; fi
       - name: Build and publish
         run: python3 tools/mac_release.py
-      - name: Keep the build log
+      - name: Keep the Mac package and build log
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: 'ledger-mac-${{ github.run_id }}'
           retention-days: 7
           if-no-files-found: ignore
-          path: mac-build.log
+          path: |
+            mac-build.log
+            LedgerMac.zip

@@ -236,7 +236,7 @@ private func locate(_ entry: Entry, startLine: Int?, folder: URL) -> Entry? {
     return EntryLocator(entry, startLine: startLine).resolve(in: parseFile(text, file: entry.file).entries)
 }
 
-private func folderSave(_ ops: [Op], before ledger: Ledger, main: String, folder: URL, blobs: [(path: String, data: Data)] = []) -> Result<FolderSave, FolderSaveError> {
+func folderSave(_ ops: [Op], before ledger: Ledger, main: String, folder: URL, blobs: [(path: String, data: Data)] = []) -> Result<FolderSave, FolderSaveError> {
     let exists = { (path: String) in FileManager.default.fileExists(atPath: folder.appendingPathComponent(path).path) }
     // new files, then the main file that includes them, and what an entry leaves last: stopped on the way,
     // the most left behind is an unused file or an entry in two places, and nothing lost

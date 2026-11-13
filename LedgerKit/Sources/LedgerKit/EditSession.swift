@@ -286,7 +286,7 @@ public func browseEmpty(count: Int, filtered: Bool) -> BrowseEmpty {
 /// Apply recommendations without replacing choices explicitly made in either editor.
 public func applyingSuggestedAccounts(_ draft: Draft, category: String?, funding: String?) -> Draft {
     var d = draft
-    if d.selection?.category != true, d.replacing == nil || d.account.isEmpty, let category = category { d.account = category }
+    if !d.reimb, d.selection?.category != true, d.replacing == nil || d.account.isEmpty, let category = category { d.account = category }
     if d.selection?.funding != true, d.replacing == nil || d.funding.isEmpty, let funding = funding { d.funding = funding }
     return d
 }

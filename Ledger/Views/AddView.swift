@@ -435,7 +435,14 @@ struct AddForm: View {
         let catLabel = d.kind == .income ? LS("收入科目") : LS("支出科目")
         let fundLabel = d.kind == .income ? LS("收款账户") : d.kind == .refund ? LS("退回账户") : LS("付款账户")
         return Section {
-            AccountField(label: catLabel, prefixes: ctx.catPrefix, chips: ctx.cats, value: field(\.account))
+            ZStack(alignment: .topLeading) {
+                AccountField(label: catLabel, prefixes: ctx.catPrefix, chips: ctx.cats, value: field(\.account))
+                    .concealed(d.reimb)
+                if let L = store.L, let D = store.D {
+                    LabeledContent(LS("报销应收科目"), value: accountTitle(L, D.receivable))
+                        .concealed(!d.reimb)
+                }
+            }
             issueLabel(.category)
             AccountField(label: fundLabel, prefixes: ["Assets:", "Liabilities:"], chips: ctx.funds, value: field(\.funding)).id(DraftIssueField.funding)
             issueLabel(.funding)
@@ -534,8 +541,8 @@ struct AddForm: View {
             }
         } footer: {
             if d.reimb {
-                Text(onFloat ? LS("用备用金支付：记入报销应收并关联 ^%@，直接冲抵备用金，不进待报销。自己垫付的请选「自己垫付」。上面选的支出科目记为报销单的支出类型。", d.link.trimmed)
-                     : LS("自己垫付：进入待报销，公司回款时在「往来」登记；以后改用备用金冲抵，也可在往来里点按备用金勾选。上面选的支出科目记为报销单的支出类型。"))
+                Text(onFloat ? LS("用备用金支付：记入报销应收并关联 ^%@，直接冲抵备用金，不进待报销。自己垫付的请选「自己垫付」。", d.link.trimmed)
+                     : LS("自己垫付：进入待报销，公司回款时在「往来」登记；以后改用备用金冲抵，也可在往来里点按备用金勾选。"))
             }
         }
     }

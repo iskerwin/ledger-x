@@ -58,6 +58,7 @@ struct AccountsPage: View {
     /// groups folded away, on this Mac
     @AppStorage("accountsFolded") private var foldedRaw = ""
     @FocusState private var listFocused: Bool
+    @State private var managing = false
 
     var body: some View {
         let lines = accountLines
@@ -124,6 +125,12 @@ struct AccountsPage: View {
         }
         // one ground on both sides: the cards need the page colour to show
         .background(Color.page)
+        .toolbar {
+            ToolbarItem {
+                Button("管理账户", systemImage: "slider.horizontal.3") { managing = true }
+            }
+        }
+        .sheet(isPresented: $managing) { AccountManager(ledger: ledger, folder: folder) }
         .onAppear {
             if selected == nil { selected = names.first }
             listFocused = true
