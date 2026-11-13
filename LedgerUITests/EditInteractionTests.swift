@@ -610,6 +610,9 @@ final class EditInteractionTests: XCTestCase {
         let result = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "筛选结果")).firstMatch
         let search = app.searchFields.firstMatch
         tapPoint(search, timeout: 5)
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["对方:王五"].exists, "Search examples belong in the guide")
+        XCTAssertFalse(app.staticTexts["#出差|#旅行"].exists)
         search.typeText("Coffee")
         XCTAssertFalse(result.exists, "searching while still typing")
         XCTAssertTrue(app.staticTexts["Example supplier"].firstMatch.exists)
