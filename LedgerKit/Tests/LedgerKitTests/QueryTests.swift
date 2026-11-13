@@ -7,6 +7,19 @@ final class QueryTests: XCTestCase {
 
     func q(_ s: String) throws -> QueryResult { try runQuery(s, L) }
 
+    func testAColumnSortsByWhatItHoldsWithEmptyCellsLast() {
+        let result = QueryResult(columns: ["payee", "amount"], rows: [
+            [.string("b"), .amount(10, "CNY")],
+            [.null, .amount(-5, "CNY")],
+            [.string("a"), .amount(2, "CNY")],
+            [.string("c"), .null],
+        ], numeric: [false, true])
+        XCTAssertEqual(result.rows(sortedBy: 0, ascending: true).map { $0[0].text }, ["a", "b", "c", ""])
+        XCTAssertEqual(result.rows(sortedBy: 0, ascending: false).map { $0[0].text }, ["c", "b", "a", ""])
+        XCTAssertEqual(result.rows(sortedBy: 1, ascending: true).map { $0[1].sortNumber }, [-5, 2, 10, nil])
+        XCTAssertEqual(result.rows(sortedBy: 1, ascending: false).map { $0[1].sortNumber }, [10, 2, -5, nil])
+    }
+
     func testBalancesMatchLedger() throws {
         let r = try q("SELECT account, SUM(position) AS balance WHERE account ~ \"^Assets:\" GROUP BY account ORDER BY account")
         XCTAssertEqual(r.columns, ["account", "balance"])

@@ -40,12 +40,13 @@ func parseGitStatus(_ text: String) -> FolderGitStatus? {
 
 /// Commits `paths` and nothing else, then pushes. Never merges: when the remote has moved on nothing is committed. A push that
 /// fails leaves the commit here, and calling this again sends it.
-public func syncFolderGit(_ folder: URL, paths: [String]) throws {
+public func syncFolderGit(_ folder: URL, paths: [String], message typed: String? = nil) throws {
     let status = try fetchedStatus(folder)
     guard status.behind == 0 else { throw FolderSaveError(message: tr("远端有新提交，请先拉取，没有提交", "The remote has new commits: pull first. Nothing was committed")) }
     let changed = paths.filter { status.paths.contains($0) }
     if !changed.isEmpty {
-        let message = changed.count == 1 ? tr("更新 \(changed[0])", "Update \(changed[0])") : tr("更新 \(changed.count) 个文件", "Update \(changed.count) files")
+        let given = typed?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let message = !given.isEmpty ? given : changed.count == 1 ? tr("更新 \(changed[0])", "Update \(changed[0])") : tr("更新 \(changed.count) 个文件", "Update \(changed.count) files")
         try runGit(["add", "-A", "--"] + changed, in: folder)
         try runGit(["commit", "--quiet", "-m", message, "--"] + changed, in: folder)
     }
@@ -54,6 +55,34 @@ public func syncFolderGit(_ folder: URL, paths: [String]) throws {
         try runGit(["push", "--quiet"], in: folder)
     } catch {
         throw FolderSaveError(message: tr("已提交到本机，但推送失败：\(error.localizedDescription)", "Committed here, but the push failed: \(error.localizedDescription)"))
+    }
+}
+
+/// the branch the folder is on
+public func folderGitBranch(_ folder: URL) -> String? {
+    (try? runGit(["rev-parse", "--abbrev-ref", "HEAD"], in: folder))?.trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
+/// what committing `path` would change; a file git doesn't know yet comes whole
+public func folderGitDiff(_ folder: URL, path: String) -> String {
+    if let diff = try? runGit(["diff", "HEAD", "--", path], in: folder), !diff.isEmpty { return diff }
+    let text = (try? String(contentsOf: folder.appendingPathComponent(path), encoding: .utf8)) ?? ""
+    return text.split(separator: "\n", omittingEmptySubsequences: false).map { "+" + $0 }.joined(separator: "\n")
+}
+
+public struct FolderGitCommit: Equatable, Identifiable, Sendable {
+    public let id: String
+    public let date: String
+    public let subject: String
+}
+
+/// the latest commits of the branch, newest first
+public func folderGitLog(_ folder: URL, limit: Int = 5) -> [FolderGitCommit] {
+    let format = "--format=%h%x00%ad%x00%s"
+    guard let text = try? runGit(["log", "-n", String(limit), "--date=format:%Y-%m-%d %H:%M", format], in: folder) else { return [] }
+    return text.split(separator: "\n").compactMap { line in
+        let parts = line.split(separator: "\0", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
+        return parts.count == 3 ? FolderGitCommit(id: parts[0], date: parts[1], subject: parts[2]) : nil
     }
 }
 

@@ -10,54 +10,75 @@ private func labelled(_ months: [String]) -> [String] {
 
 private func monthNumber(_ month: String) -> String { String(Int(month.suffix(2)) ?? 0) + "月" }
 
-/// 净资产: what it comes to, how it has moved, month by month. The pointer on the chart shows that month in the same place.
-struct WorthCard: View {
-    let assets: Double
-    let liabilities: Double
-    let points: [NetWorthPoint]
-    let base: String
+/// how much an account held at each month's end; the pointer shows that month in the same place
+struct BalanceChart: View {
+    let points: [BalancePoint]
+    let currency: String
+    let current: Double
+    /// what the figure over the line is, when it isn't the account's balance now
+    var title: String?
     @State private var picked: String?
 
     var body: some View {
         let shown = points.first { $0.month == picked }
-        let change = (points.last?.netWorth ?? 0) - (points.first?.netWorth ?? 0)
+        let lo = points.map(\.amount).min() ?? 0, hi = points.map(\.amount).max() ?? 0
+        let pad = max((hi - lo) * 0.1, 1)
         VStack(alignment: .leading, spacing: 12) {
-            Headline(label: shown.map { $0.month + " 月末" } ?? "净资产", value: money(shown?.netWorth ?? assets + liabilities, base))
-            chart.frame(height: 180)
-            SummaryFigures(items: [("资产", money(assets, base), .primary),
-                                   ("负债", money(liabilities, base), .primary),
-                                   ("近 \(points.count) 个月", signedMoney(change, base), change < 0 ? .loss : .gain)])
+            Headline(label: shown.map { $0.month + " 月末" } ?? title ?? "当前余额 · " + currency, value: money(shown?.amount ?? current, currency))
+            Chart(points) { point in
+                LineMark(x: .value("月份", point.month), y: .value("余额", point.amount))
+                    .foregroundStyle(Color.jade)
+                    .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round))
+                    .interpolationMethod(.monotone)
+                if point.month == picked {
+                    RuleMark(x: .value("月份", point.month))
+                        .foregroundStyle(Color.secondary.opacity(0.4))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    PointMark(x: .value("月份", point.month), y: .value("余额", point.amount))
+                        .foregroundStyle(Color.jade)
+                        .symbolSize(70)
+                }
+            }
+            .chartYScale(domain: (lo - pad)...(hi + pad))
+            .chartYAxis(.hidden)
+            .chartXAxis {
+                AxisMarks(values: labelled(points.map(\.month))) { value in
+                    AxisValueLabel { if let month = value.as(String.self) { Text(monthNumber(month)) } }
+                }
+            }
+            .pickingMonth($picked)
+            .frame(height: 180)
         }
     }
+}
 
-    private var chart: some View {
-        let lo = points.map(\.netWorth).min() ?? 0, hi = points.map(\.netWorth).max() ?? 0
-        let pad = max((hi - lo) * 0.1, 1)
-        return Chart(points) { point in
-            AreaMark(x: .value("月份", point.month), yStart: .value("下限", lo - pad), yEnd: .value("净资产", point.netWorth))
-                .foregroundStyle(LinearGradient(colors: [Color.jade.opacity(0.32), Color.jade.opacity(0.02)], startPoint: .top, endPoint: .bottom))
-                .interpolationMethod(.monotone)
-            LineMark(x: .value("月份", point.month), y: .value("净资产", point.netWorth))
-                .foregroundStyle(Color.jade)
-                .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round))
-                .interpolationMethod(.monotone)
-            if point.month == picked {
-                RuleMark(x: .value("月份", point.month))
-                    .foregroundStyle(Color.secondary.opacity(0.4))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                PointMark(x: .value("月份", point.month), y: .value("净资产", point.netWorth))
+/// what a category took each month, a bar a month; the figure is the latest month's, or the one under the pointer
+struct MonthAmountChart: View {
+    let points: [BalancePoint]
+    let currency: String
+    /// 收入 or 支出, after the month
+    let label: String
+    @State private var picked: String?
+
+    var body: some View {
+        let shown = points.first { $0.month == picked } ?? points.last
+        VStack(alignment: .leading, spacing: 12) {
+            Headline(label: (shown.map { monthNumber($0.month) } ?? "") + label, value: money(shown?.amount ?? 0, currency))
+            Chart(points) { point in
+                BarMark(x: .value("月份", point.month), y: .value("金额", point.amount))
                     .foregroundStyle(Color.jade)
-                    .symbolSize(70)
+                    .cornerRadius(3)
+                    .opacity(picked == nil || picked == point.month ? 1 : 0.5)
             }
-        }
-        .chartYScale(domain: (lo - pad)...(hi + pad))
-        .chartYAxis(.hidden)
-        .chartXAxis {
-            AxisMarks(values: labelled(points.map(\.month))) { value in
-                AxisValueLabel { if let month = value.as(String.self) { Text(monthNumber(month)) } }
+            .chartYAxis(.hidden)
+            .chartXAxis {
+                AxisMarks(values: labelled(points.map(\.month))) { value in
+                    AxisValueLabel { if let month = value.as(String.self) { Text(monthNumber(month)) } }
+                }
             }
+            .pickingMonth($picked)
+            .frame(height: 180)
         }
-        .pickingMonth($picked)
     }
 }
 
@@ -88,7 +109,7 @@ struct FlowCard: View {
                         .opacity(picked == nil || picked == month ? 1 : 0.5)
                 }
             }
-            .chartForegroundStyleScale(["收入": Color.gain, "支出": Color.loss])
+            .chartForegroundStyleScale(["收入": Color.chartGain, "支出": Color.chartLoss])
             .chartLegend(.hidden)
             .chartYAxis(.hidden)
             .chartXAxis {
@@ -123,7 +144,7 @@ private extension View {
     }
 }
 
-/// one piece of the ring: a category, or the rest together
+/// one piece of the spending: a category, or the rest together
 struct DonutSlice: Identifiable {
     let id: String
     let label: String
@@ -144,83 +165,5 @@ struct DonutSlice: Identifiable {
         let rest = positive.dropFirst(head.count).reduce(0) { $0 + $1.total }
         if rest > 0.005 { slices.append(DonutSlice(id: "__other", label: "其他", value: rest, color: .gray, opens: false)) }
         return slices
-    }
-}
-
-/// a ring and its legend: every piece named with its share and amount. The pointer on a line of the legend brings out its piece.
-struct DonutCard: View {
-    let slices: [DonutSlice]
-    let base: String
-    let scope: (String) -> JournalScope
-    @State private var selected: String?
-
-    private var total: Double { slices.reduce(0) { $0 + $1.value } }
-
-    var body: some View {
-        HStack(spacing: 24) {
-            ZStack {
-                if slices.isEmpty {
-                    Circle().stroke(Color.secondary.opacity(0.2), lineWidth: 22).padding(14)
-                } else {
-                    Chart(slices) { slice in
-                        SectorMark(angle: .value("金额", slice.value), innerRadius: .ratio(0.64),
-                                   outerRadius: .ratio(selected == slice.id ? 1 : 0.9), angularInset: 1.2)
-                            .cornerRadius(3)
-                            .foregroundStyle(slice.color.opacity(selected == nil || selected == slice.id ? 1 : 0.3))
-                    }
-                    .chartLegend(.hidden)
-                }
-                center
-            }
-            .frame(width: 170, height: 170)
-            VStack(spacing: 2) {
-                ForEach(slices) { slice in
-                    if slice.opens {
-                        NavigationLink(value: scope(slice.id)) { legendRow(slice) }
-                            .buttonStyle(.plain)
-                    } else {
-                        legendRow(slice)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .top)
-        }
-        .frame(height: 170)
-    }
-
-    private var center: some View {
-        let slice = slices.first { $0.id == selected }
-        return VStack(spacing: 2) {
-            Text(slice?.label ?? "总支出")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            Text(money(slice?.value ?? total, base, 0))
-                .font(.headline)
-                .fontDesign(.rounded)
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-        }
-        .frame(width: 92)
-    }
-
-    private func legendRow(_ slice: DonutSlice) -> some View {
-        HStack(spacing: 8) {
-            Circle().fill(slice.color).frame(width: 8, height: 8)
-            Text(slice.label).lineLimit(1)
-            Spacer(minLength: 8)
-            Text(String(format: "%.0f%%", slice.value / max(total, 0.01) * 100))
-                .foregroundStyle(.secondary)
-                .monospacedDigit()
-            Text(money(slice.value, base))
-                .monospacedDigit()
-                .frame(minWidth: 96, alignment: .trailing)
-        }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 1)
-        .contentShape(Rectangle())
-        .background(selected == slice.id ? Color.primary.opacity(0.06) : Color.clear, in: RoundedRectangle(cornerRadius: 4))
-        .onHover { selected = $0 ? slice.id : (selected == slice.id ? nil : selected) }
     }
 }

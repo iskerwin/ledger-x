@@ -160,6 +160,8 @@ final class EditInteractionTests: XCTestCase {
         let cancel = app.buttons["account.cancel"]
         XCTAssertTrue(cancel.waitForExistence(timeout: 5)); XCTAssertTrue(cancel.isHittable)
         cancel.tap()
+        // the picker is still sliding away for a moment; the field under it can't take a tap until it's gone
+        XCTAssertTrue(app.textFields["account.search"].waitForNonExistence(timeout: 5))
         XCTAssertEqual(to.value as? String, "")
         to.tap()
         tapPoint(app.textFields["account.search"], timeout: 5)
@@ -573,6 +575,10 @@ final class EditInteractionTests: XCTestCase {
         tapPoint(app.descendants(matching: .any)["transfer.fee.mode"].firstMatch, timeout: 5)
         tapPoint(app.buttons["其他账户或币种单独支付"].firstMatch, timeout: 5)
         let payer = app.buttons["transfer.fee.account"]
+        // the row appears below the sheet's fold as the mode changes; a tap there lands on nothing
+        XCTAssertTrue(payer.waitForExistence(timeout: 5))
+        scrollIntoView(payer, in: app)
+        waitUntilStill(payer)
         tapPoint(payer, timeout: 5)
         let search = app.textFields["account.search"]
         tapPoint(search, timeout: 5)
@@ -929,6 +935,38 @@ final class EditInteractionTests: XCTestCase {
         app.launchArguments = args
         app.launch()
         return app
+    }
+
+    /// 附件与对账单: switching between all, attachments and statements leaves the switch where it was and lists only that kind
+    func testDocumentKindsSwitchInPlace() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures")
+        app.launchEnvironment = [
+            "LEDGER_DEMO": fixtures.path,
+            "LEDGER_EXTRA": fixtures.appendingPathComponent("documents-extra.bean").path,
+            "LEDGER_TAB": "accounts",
+            "LEDGER_LANG": "zh",
+        ]
+        app.launchArguments = ["-AppleLanguages", "(zh-Hans)"]
+        app.launch()
+        XCTAssertTrue(app.navigationBars["账户"].waitForExistence(timeout: 20))
+        // the list's rows come and go as it fills and scrolls: look again after each swipe, not at a row seen before
+        let entry = app.buttons["accounts.documents"].firstMatch
+        for _ in 0..<6 where !(entry.exists && entry.isHittable) { app.swipeUp() }
+        XCTAssertTrue(entry.isHittable)
+        entry.tap()
+        let kinds = app.segmentedControls["documents.kind"]
+        XCTAssertTrue(kinds.waitForExistence(timeout: 5))
+        let rows = app.buttons.matching(identifier: "documents.row")
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 5))
+        waitUntilStill(kinds)
+        let before = kinds.frame
+        for (kind, count) in [("对账单", 2), ("交易附件", 1), ("全部", 3)] {
+            tapKind(app, kind)
+            wait(for: [expectation(for: NSPredicate(format: "count == \(count)"), evaluatedWith: rows)], timeout: 5)
+            XCTAssertEqual(kinds.frame, before, kind)
+        }
     }
 
     /// Move toward the control in short drags. A full-page flick can pass a button between snapshots;
@@ -1350,9 +1388,11 @@ final class EditInteractionTests: XCTestCase {
         let bill = app.buttons["填写本期账单"].firstMatch
         XCTAssertTrue(bill.waitForExistence(timeout: 20))
         let lowerSection = app.staticTexts["额度与账单"].firstMatch
-        for _ in 0..<8 {
+        // short drags: with the largest text a full swipe can carry the header past the screen between two looks
+        for _ in 0..<20 {
             if lowerSection.exists && lowerSection.isHittable { break }
-            app.swipeUp()
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -150)))
         }
         XCTAssertTrue(lowerSection.isHittable)
         XCTAssertFalse(bill.isHittable, "start below the bill action, so reaching it requires scrolling back")
@@ -1724,6 +1764,42 @@ final class EditInteractionTests: XCTestCase {
             + (textSize.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
         app.launch()
         return app
+    }
+
+    /// 钱花在哪 keeps its size from month to month: with nothing spent it shrank to its words, and a month with
+    /// fewer categories was shorter, so what was under it jumped
+    func testTheWhereCardKeepsItsSizeInAMonthWithoutSpending() {
+        let app = launchTab("reports")
+        let bar = app.descendants(matching: .any)["reports.monthbar"].firstMatch
+        XCTAssertTrue(bar.waitForExistence(timeout: 20))
+        let where_ = app.descendants(matching: .any)["reports.where"].firstMatch
+        if !where_.exists { app.buttons["钱花在哪"].tap() }
+        XCTAssertTrue(where_.waitForExistence(timeout: 5))
+        let back = bar.buttons["上个月"]
+        // the fixture spends in one month only; from now back, there is a month with it and one without
+        var empty: CGRect?, spent: CGRect?
+        for _ in 0..<24 where empty == nil || spent == nil {
+            if where_.staticTexts["这个月还没有支出"].exists { empty = empty ?? where_.frame } else { spent = spent ?? where_.frame }
+            back.tap()
+        }
+        guard let empty, let spent else { return XCTFail("no month with spending and none without") }
+        XCTAssertEqual(empty.width, spent.width, accuracy: 0.5)
+        XCTAssertEqual(empty.height, spent.height, accuracy: 0.5)
+    }
+
+    /// 持仓、均价、现价 of an open holding each sit in the middle of their third
+    func testHoldingStatsAreCentred() {
+        let extra = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/holdings-extra.bean").path
+        let app = launchTab("accounts", env: ["LEDGER_EXTRA": extra, "LEDGER_OPEN_HOLDINGS": "1"])
+        let fund = app.staticTexts["EXFUND"].firstMatch
+        XCTAssertTrue(fund.waitForExistence(timeout: 20))
+        fund.tap()
+        let titles = ["持仓", "均价", "现价"].map { app.staticTexts.matching(NSPredicate(format: "label == %@", $0)).allElementsBoundByIndex.last! }
+        XCTAssertTrue(titles[1].waitForExistence(timeout: 5))
+        let left = titles[0].frame.midX, middle = titles[1].frame.midX, right = titles[2].frame.midX
+        // evenly spaced, the middle one in the middle of the screen
+        XCTAssertEqual(middle - left, right - middle, accuracy: 2)
+        XCTAssertEqual(middle, app.windows.firstMatch.frame.midX, accuracy: 2)
     }
 
     /// 月 and 年 on the overview's card: the year had no average line, so the card was a line shorter and
@@ -2166,12 +2242,36 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(chartHint.exists)
         chart.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertTrue(chartHint.waitForNonExistence(timeout: 5))
-        // the payees' list: a row opened shows its transactions
+        // that tap also picks a month on the chart, and the payee list follows the picked month. only October
+        // has Coffee, so a neighbouring month has no list to find. stepping the month clears the pick.
+        func step(_ button: String) {
+            let name = period.label
+            bar.buttons[button].tap()
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", name), object: period)], timeout: 5), .completed)
+        }
+        step("下个月")
+        step("上个月")
+        XCTAssertEqual(period.label, "2026年10月")
+        // the hint is a text in the list, like the chart's, because a section header's text cannot be matched.
+        // swipe the chart: a swipe on the window can start on the chart and not move the list
+        let payeeHint = text(app, "点按查看交易")
+        let heading = text(app, "收付款方支出排行")
+        for _ in 0..<18 where !(heading.exists && heading.isHittable) { chart.swipeUp() }
+        XCTAssertTrue(heading.waitForExistence(timeout: 3), "did not reach the payee list")
+        for _ in 0..<4 {
+            if payeeHint.exists {
+                let frame = payeeHint.frame
+                if frame.minY > 80, frame.maxY < app.frame.maxY - 80 { break }
+            }
+            chart.swipeDown()
+        }
+        XCTAssertTrue(payeeHint.exists, "the payee list is on screen and its hint text is not")
         let payee = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Coffee")).firstMatch
-        for _ in 0..<6 where !(payee.exists && payee.isHittable) { app.swipeUp() }
-        XCTAssertTrue(text(app, "点按查看交易").exists)
+        for _ in 0..<6 where !(payee.exists && payee.isHittable && payeeHint.exists) { chart.swipeUp() }
+        XCTAssertTrue(payee.isHittable)
+        XCTAssertTrue(payeeHint.exists)
         payee.tap()
-        XCTAssertTrue(text(app, "点按查看交易").waitForNonExistence(timeout: 5))
+        XCTAssertTrue(payeeHint.waitForNonExistence(timeout: 5))
         app.terminate()
 
         // learned stays learned
@@ -2313,9 +2413,11 @@ final class EditInteractionTests: XCTestCase {
     /// An empty list of things to add (here budgets) has its own add button, opening the same form as + in the bar
     func testAnEmptyBudgetListOffersToAddOne() {
         let app = launchTab("reports")
+        XCTAssertTrue(app.descendants(matching: .any)["reports.monthbar"].firstMatch.waitForExistence(timeout: 20))
+        // the list makes its rows as they come into sight: 预算 is under 钱花在哪, which keeps five rows' room
         let budgets = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "预算")).firstMatch
-        XCTAssertTrue(budgets.waitForExistence(timeout: 20))
-        for _ in 0..<5 { if budgets.isHittable { break }; app.swipeUp() }
+        for _ in 0..<8 { if budgets.exists && budgets.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(budgets.isHittable)
         budgets.tap()
         let add = app.buttons["empty.add"]
         XCTAssertTrue(add.waitForExistence(timeout: 5))
@@ -2339,7 +2441,8 @@ final class EditInteractionTests: XCTestCase {
         let month = row.frame.height
         let top = row.frame.minY
         app.segmentedControls.buttons["本年"].tap()
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "3,000,000"), object: row)], timeout: 5), .completed)
+        // on a busy runner one look at the row can take longer than 5 s
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "3,000,000"), object: row)], timeout: 20), .completed)
         XCTAssertEqual(row.frame.height, month, accuracy: 0.5)
         XCTAssertEqual(row.frame.minY, top, accuracy: 0.5, "The total card above keeps its height")
     }

@@ -7,13 +7,18 @@ struct LedgerMacApp: App {
     @AppStorage("ledgerFolder") private var folder = ""
     @State private var picking = false
     @State private var adding = false
-    @State private var page: Page? = .journal
+    @State private var page: Page?
+    @AppStorage("appearance") private var appearance = Appearance.system.rawValue
+    @AppStorage("hideAmounts") private var hideAmounts = false
     @State private var searching = false
     /// counts the times a folder was chosen, so choosing the same one again reads it again
     @State private var opened = 0
+    @State private var open = OpenLedger()
 
     init() {
         KitLocale.chinese = true
+        KitPrivacy.masked = UserDefaults.standard.bool(forKey: "hideAmounts")
+        _page = State(initialValue: Page(rawValue: UserDefaults.standard.string(forKey: "defaultPage") ?? "") ?? .overview)
     }
 
     var body: some Scene {
@@ -21,6 +26,9 @@ struct LedgerMacApp: App {
             ContentView(folder: folder, opened: opened, picking: $picking, adding: $adding, page: $page, searching: $searching)
                 // dates as the words around them, whatever the system's first language is
                 .environment(\.locale, Locale(identifier: "zh_CN"))
+                .preferredColorScheme(Appearance(rawValue: appearance)?.scheme)
+                .onChange(of: hideAmounts) { KitPrivacy.masked = hideAmounts }
+                .environment(open)
                 .fileImporter(isPresented: $picking, allowedContentTypes: [.folder]) { result in
                     if case .success(let url) = result {
                         folder = url.path
@@ -28,7 +36,7 @@ struct LedgerMacApp: App {
                     }
                 }
         }
-        .defaultSize(width: 1000, height: 700)
+        .defaultSize(width: 1280, height: 820)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("记一笔…") { withoutSheet { adding = true } }
@@ -49,13 +57,35 @@ struct LedgerMacApp: App {
                 .disabled(folder.isEmpty)
             }
             CommandGroup(before: .sidebar) {
-                ForEach(Array(Page.allCases.enumerated()), id: \.offset) { index, item in
-                    Button(item.title) { withoutSheet { page = item } }
-                        .keyboardShortcut(KeyEquivalent(Character(String(index + 1))))
-                        .disabled(folder.isEmpty)
+                // ⌘1 to ⌘9 for the first nine, in the sidebar's order
+                ForEach(Array(Page.sections.enumerated()), id: \.offset) { _, section in
+                    ForEach(section.1, id: \.self) { item in
+                        let index = Page.allCases.firstIndex(of: item) ?? 99
+                        Button(item.title) { withoutSheet { page = item } }
+                            .keyboardShortcut(index < 9 ? KeyboardShortcut(KeyEquivalent(Character(String(index + 1)))) : nil)
+                            .disabled(folder.isEmpty)
+                    }
+                    Divider()
                 }
+                Toggle("隐藏金额", isOn: $hideAmounts)
+                    .keyboardShortcut("h", modifiers: [.command, .shift])
                 Divider()
             }
+        }
+        Window("记一笔", id: EntryWindow.id) {
+            EntryWindow()
+                .environment(open)
+                .environment(\.locale, Locale(identifier: "zh_CN"))
+                .preferredColorScheme(Appearance(rawValue: appearance)?.scheme)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
+        .commandsRemoved()
+        Settings {
+            SettingsView(folder: folder, picking: $picking)
+                .environment(\.locale, Locale(identifier: "zh_CN"))
+                .preferredColorScheme(Appearance(rawValue: appearance)?.scheme)
         }
     }
 
@@ -72,8 +102,7 @@ private struct ContentView: View {
     @Binding var adding: Bool
     @Binding var page: Page?
     @Binding var searching: Bool
-    @State private var ledger: Ledger?
-    @State private var config: LedgerXConfig?
+    @Environment(OpenLedger.self) private var open
     @State private var missing = false
     @State private var watcher: FolderWatcher?
     /// which folder and opening is on screen: while it stays the same, a reload keeps the old list up until the new one is ready
@@ -82,8 +111,8 @@ private struct ContentView: View {
 
     var body: some View {
         Group {
-            if let ledger {
-                MainView(ledger: ledger, config: config, folder: URL(fileURLWithPath: folder), changes: changes, adding: $adding, page: $page, searching: $searching)
+            if let ledger = open.ledger {
+                MainView(ledger: ledger, config: open.config, folder: URL(fileURLWithPath: folder), changes: changes, adding: $adding, page: $page, searching: $searching, picking: $picking)
             } else if folder.isEmpty || missing {
                 VStack(spacing: 12) {
                     if missing { Text("这个文件夹里没有账本").foregroundStyle(.secondary) }
@@ -95,21 +124,23 @@ private struct ContentView: View {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .frame(minWidth: 720, minHeight: 540)
+        .frame(minWidth: 960, minHeight: 640)
+        .background(WindowReader { $0.fitScreen() })
         .navigationTitle(folder.isEmpty ? "Ledger X" : URL(fileURLWithPath: folder).lastPathComponent)
         .task(id: "\(changes)|\(opened)|\(folder)") {
             guard !folder.isEmpty else { return }
             let url = URL(fileURLWithPath: folder)
             if source != "\(opened)|\(folder)" {
                 source = "\(opened)|\(folder)"
-                ledger = nil
+                open.folder = url
+                open.ledger = nil
                 missing = false
                 watcher = FolderWatcher(url) { changes += 1 }
             }
             let loaded = await Task.detached { (loadLedger(folder: url), ledgerConfig(folder: url)) }.value
             guard !Task.isCancelled else { return }
-            ledger = loaded.0
-            config = loaded.1
+            open.ledger = loaded.0
+            open.config = loaded.1
             missing = loaded.0 == nil
         }
     }

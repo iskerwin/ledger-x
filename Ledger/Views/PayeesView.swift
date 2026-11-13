@@ -4,36 +4,6 @@ import LedgerKit
 struct PayeesDest: Hashable {}
 struct PayeeDest: Hashable { let name: String }
 
-/// one payee across the ledger
-struct PayeeSummary: Identifiable {
-    let name: String
-    var n = 0
-    var last = ""
-    /// your spending with them (base currency)
-    var spent = 0.0
-    /// income from them (base currency)
-    var received = 0.0
-    var id: String { name }
-}
-
-/// every payee on a transaction header, most used first
-func payeeSummaries(_ L: Ledger) -> [PayeeSummary] {
-    var by: [String: PayeeSummary] = [:]
-    for t in L.txns where !t.synthetic && !t.payee.isEmpty {
-        var s = by[t.payee] ?? PayeeSummary(name: t.payee)
-        s.n += 1
-        if t.date > s.last { s.last = t.date }
-        let c = classify(t, L)
-        switch c.kind {
-        case .expense, .refund: s.spent -= c.amount
-        case .income: s.received += c.amount
-        default: break
-        }
-        by[t.payee] = s
-    }
-    return by.values.sorted { $0.n != $1.n ? $0.n > $1.n : $0.name < $1.name }
-}
-
 /// 收付款方: search, check how often each one is used, rename or merge them
 struct PayeesView: View {
     @Environment(Store.self) var store

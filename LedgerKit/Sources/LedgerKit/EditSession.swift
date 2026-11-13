@@ -291,3 +291,95 @@ public func applyingSuggestedAccounts(_ draft: Draft, category: String?, funding
     return d
 }
 
+/// a known payee fills in the category and paying account of its last entry; with `onlyBlanks`, only what isn't filled in.
+/// What was picked by hand stays (`applyingSuggestedAccounts`)
+public func applyingPayee(_ draft: Draft, name: String, _ D: Derived, onlyBlanks: Bool = false) -> Draft {
+    var d = draft
+    d.payee = name
+    d.edited = nil
+    guard let p = D.payee(name) else { return d }
+    return applyingEntry(d, p.last, onlyBlanks: onlyBlanks)
+}
+
+/// a known note fills in as a payee does, from the last entry with it: with a known payee written, its own last entry
+/// with this note (none, and what the payee filled in stays); else the last entry with the note, whoever it was with
+public func applyingNarration(_ draft: Draft, text: String, _ D: Derived, onlyBlanks: Bool = false) -> Draft {
+    var d = draft
+    d.narration = text
+    d.edited = nil
+    if let p = D.payee(d.payee.trimmingCharacters(in: .whitespaces)) {
+        return p.lastWith[text].map { applyingEntry(d, $0, onlyBlanks: onlyBlanks) } ?? d
+    }
+    return D.narration(text).map { applyingEntry(d, $0.last, onlyBlanks: onlyBlanks) } ?? d
+}
+
+/// notes to offer while one is typed, matched loosely (`fuzzy`): what holds the typed text whole before what has it
+/// spread through, the payee's own notes before the rest, then the most used and lately
+public func narrationSuggestions(_ D: Derived, typed: String, payee: String, limit: Int) -> [String] {
+    let q = typed.trimmingCharacters(in: .whitespaces).lowercased()
+    let own = D.payee(payee.trimmingCharacters(in: .whitespaces))?.narrations ?? []
+    var seen = Set<String>(), whole: [String] = [], spread: [String] = []
+    /// true once enough hold the typed text whole: a ledger can hold tens of thousands of notes
+    func enough(_ text: String, _ folded: String) -> Bool {
+        guard seen.insert(text).inserted else { return false }
+        switch q.isEmpty ? 2 : foldedMatch(q, folded) {
+        case 2: whole.append(text)
+        case 1: if spread.count < limit { spread.append(text) }
+        default: break
+        }
+        return whole.count >= limit
+    }
+    if !own.contains(where: { enough($0, $0.lowercased()) }) { _ = D.narrationStats.contains { enough($0.text, $0.folded) } }
+    return Array((whole + spread).prefix(limit))
+}
+
+/// 2 when `s` holds `q`, 1 when `q`'s characters come in `s` in order, else 0; case ignored
+public func fuzzy(_ q: String, _ s: String) -> Int { foldedMatch(q.lowercased(), s.lowercased()) }
+
+/// `fuzzy` on text already lowercased. Typing goes through tens of thousands of notes on each key: whole matches are
+/// looked for in the UTF-8 bytes (a character's bytes never start inside another's), the spread ones by scalar
+func foldedMatch(_ q: String, _ s: String) -> Int {
+    var q = q, s = s
+    let whole = q.withUTF8 { qb in
+        s.withUTF8 { sb in
+            guard let first = qb.first else { return true }
+            guard qb.count <= sb.count else { return false }
+            var i = 0
+            while i <= sb.count - qb.count {
+                if sb[i] == first {
+                    var j = 1
+                    while j < qb.count && sb[i + j] == qb[j] { j += 1 }
+                    if j == qb.count { return true }
+                }
+                i += 1
+            }
+            return false
+        }
+    }
+    if whole { return 2 }
+    var it = q.unicodeScalars.makeIterator()
+    var c = it.next()
+    for ch in s.unicodeScalars where ch == c { c = it.next() }
+    return c == nil ? 1 : 0
+}
+
+/// what a past entry fills in: its category (with the category's currency) and paying account
+private func applyingEntry(_ draft: Draft, _ t: Entry, onlyBlanks: Bool) -> Draft {
+    var d = draft
+    if d.kind == .multi {
+        if !d.rows.contains(where: { !$0.account.isEmpty || !$0.amount.trimmingCharacters(in: .whitespaces).isEmpty }) { d.rows = rowsFromTxn(t, withAmounts: false) }
+        return d
+    }
+    let cat = t.postings.first { $0.account.hasPrefix(d.kind == .income ? "Income:" : "Expenses:") }
+        ?? (d.kind == .expense ? t.postings.first { advanceCategory($0) != nil } : nil)
+    let fund = t.postings.first { $0.account.hasPrefix("Assets:") || $0.account.hasPrefix("Liabilities:") }
+    if let cat = cat {
+        let category = cat.account.hasPrefix("Expenses:") || cat.account.hasPrefix("Income:") ? cat.account : advanceCategory(cat)
+        d = applyingSuggestedAccounts(d, category: onlyBlanks && !d.account.isEmpty ? nil : category, funding: nil)
+        if d.selection?.category != true, !onlyBlanks, let c = cat.currency, cat.account == d.account { d.currency = c }
+    } else if !draftKindFits(d.kind, d.account) { d.account = "" }
+    if let fund = fund, !fund.account.hasPrefix("Assets:Receivable") {
+        d = applyingSuggestedAccounts(d, category: nil, funding: onlyBlanks && !d.funding.isEmpty ? nil : fund.account)
+    }
+    return d
+}

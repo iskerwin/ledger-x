@@ -1,101 +1,99 @@
 import SwiftUI
 import LedgerKit
 
+/// the panels both the card and the full form open over themselves
+enum EntryPanel: String, Identifiable {
+    case rate, pay, marks
+    var id: String { rawValue }
+}
+
+/// 记一笔: the phone's quick card first; 完整表单 (表单, 分录, 文本) one step in; in its own window (`EntryWindow`)
 struct NewEntrySheet: View {
     let ledger: Ledger
     let folder: URL
+    private let config: LedgerXConfig?
     private let derived: Derived
-    @Environment(\.dismiss) private var dismiss
+    private let subscriptionLinks: Set<String>
+    private let editing: Bool
+    /// closes the window: saved, given up or kept as a draft
+    private let done: () -> Void
     @State private var draft: Draft
+    /// what counts as nothing changed: closing from it needs no asking
+    @State private var baseline: Draft
+    /// each kind as it was left, to come back to
+    @State private var snapshots: [DraftKind: Draft] = [:]
+    /// the kind 表单 goes back to from 分录 or 文本
+    @State private var formKind: DraftKind
+    /// a new form for each new entry, so the cursor starts in the amount again
+    @State private var entry = 0
+    @State private var panel: EntryPanel?
     @State private var message = ""
     @State private var saving = false
     @State private var review: FolderSave?
-    @State private var editingFee = false
-    @FocusState private var payeeFocused: Bool
+    @State private var another = false
+    @State private var leaving = false
+    /// 完整表单 open over the card
+    @State private var full: Bool
+    /// the card's category grid in the order it had as this opened: saving one doesn't move the cells
+    @State private var gridOrder: [String: [String]]
 
-    init(ledger: Ledger, config: LedgerXConfig?, folder: URL, editing: Draft? = nil) {
+    private static let formKinds: [DraftKind] = [.expense, .income, .transfer]
+
+    private enum Mode: Hashable { case form, multi, raw }
+
+    init(ledger: Ledger, config: LedgerXConfig?, folder: URL, editing: Draft? = nil, done: @escaping () -> Void) {
         self.ledger = ledger
         self.folder = folder
-        let derived = Derived(ledger)
+        self.config = config
+        self.editing = editing != nil
+        self.done = done
+        let derived = folderDerived(ledger, config: config)
         self.derived = derived
-        var draft = editing ?? Draft()
-        if editing == nil { draft.currency = ledger.base }
-        if editing == nil, let funding = config?.defaultFunding, derived.openAccounts.contains(funding) {
-            draft.funding = funding
-            draft.currency = derived.acctCcy[funding] ?? ledger.base
-        }
-        _draft = State(initialValue: draft)
+        subscriptionLinks = Set(subscriptions(ledger).map(\.link))
+        let blank = Self.blank(.expense, ledger: ledger, derived: derived, config: config)
+        let opened = editing ?? KeptDraft.read(folder) ?? blank
+        _draft = State(initialValue: opened)
+        _baseline = State(initialValue: editing ?? blank)
+        _formKind = State(initialValue: Self.formKinds.contains(opened.kind) ? opened.kind : .expense)
+        _full = State(initialValue: !Self.fitsCard(opened))
+        _gridOrder = State(initialValue: Dictionary(uniqueKeysWithValues: ["Expenses:", "Income:"].map { ($0, categoryGroups(derived, root: $0).map(\.id)) }))
+    }
+
+    /// what the card can show: spending, income or a transfer, not shared out (AA)
+    private static func fitsCard(_ draft: Draft) -> Bool { formKinds.contains(draft.kind) && !draft.split }
+
+    private static func blank(_ kind: DraftKind, ledger: Ledger, derived: Derived, config: LedgerXConfig?) -> Draft {
+        var draft = newDraft(kind, derived, defaultFunding: config?.defaultFunding)
+        draft.currency = derived.acctCcy[draft.funding] ?? ledger.base
+        draft.events = activeEvents(ledger, on: draft.date).map(\.tag)
+        return draft
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Picker(selection: $draft.kind) {
-                ForEach(kinds, id: \.self) { Text($0.label).tag($0) }
-            } label: {
-                EmptyView()
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .disabled(draft.replacing != nil)
-            .padding([.horizontal, .top], 20)
-            Form {
-                DateRow(title: "日期", day: $draft.date)
-                TextField("收付款方", text: $draft.payee)
-                    .focused($payeeFocused)
-                TextField("备注", text: $draft.narration)
-                amountRow("金额", text: $draft.amount, account: draft.kind == .transfer ? draft.funding : "", currency: $draft.currency)
-                accounts
-                // always in their places, so the form doesn't move when they're needed
-                amountRow("入账金额", text: $draft.toAmount, account: draft.to, currency: targetCurrency)
-                    .opacity(needsAmountReceived ? 1 : 0)
-                    .disabled(!needsAmountReceived)
-                LabeledContent("手续费") {
-                    Button(feeSummary) { editingFee = true }
-                        .popover(isPresented: $editingFee) { feeForm }
-                }
-                .opacity(draft.kind == .transfer ? 1 : 0)
-                .disabled(draft.kind != .transfer)
-            }
-            .formStyle(.grouped)
-            // every row in sight whichever kind this is: left to itself a form in a sheet takes less than it needs, and scrolls
-            .frame(height: 350)
-            Text(message)
-                .font(.callout)
-                .foregroundStyle(.red)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, minHeight: 32)
-            HStack {
-                Spacer()
-                Button("取消", role: .cancel) { dismiss() }
-                    .keyboardShortcut(.cancelAction)
-                Button("保存") { save() }
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(saving)
-            }
-            .padding([.horizontal, .bottom], 16)
-        }
-        .frame(width: 460)
-        .onAppear { payeeFocused = true }
-        .onChange(of: draft.kind) {
-            draft.account = ""
-            message = ""
-            // nothing kept that this kind's form no longer shows
-            if draft.kind != .transfer {
-                draft.transferFee = nil
-                draft.feeCurrency = nil
-                draft.feeMode = nil
-                draft.feeFunding = nil
-                draft.targetCurrency = nil
-                draft.toAmount = ""
+        Group {
+            if !full && Self.fitsCard(draft) {
+                QuickCard(draft: $draft, ledger: ledger, derived: derived, subscriptionLinks: subscriptionLinks, gridOrder: gridOrder,
+                          editing: editing, saving: saving, message: message, blank: { Self.blank($0, ledger: ledger, derived: derived, config: config) }, setKind: setKind,
+                          openFull: { message = ""; full = true }, close: close, save: save(another:)) { panel = $0 }
+                    .id(entry)
+                    .frame(width: 400, height: EntryWindow.fitted(740))
+            } else {
+                form
             }
         }
-        .onChange(of: draft.funding) {
-            let held = ledger.accounts[draft.funding]?.currencies ?? []
-            draft.currency = derived.acctCcy[draft.funding] ?? (held.isEmpty || held.contains(ledger.base) ? ledger.base : held[0])
+        .sheet(item: $panel) { panel in
+            switch panel {
+            case .rate: RateSheet(draft: $draft, ledger: ledger, derived: derived)
+            case .pay: PaySheet(draft: $draft, ledger: ledger, derived: derived)
+            case .marks: MarkSheet(draft: $draft, ledger: ledger)
+            }
         }
-        .onChange(of: draft.to) { draft.targetCurrency = nil }
-        .onChange(of: draft.currency) { keepFeeCurrency() }
-        .onChange(of: targetCurrency.wrappedValue) { keepFeeCurrency() }
+        // new entries follow the events of their day until picked by hand
+        .onChange(of: draft.date) {
+            if !draft.eventsTouched && draft.kind != .transfer && draft.kind != .raw {
+                draft.events = activeEvents(ledger, on: draft.date).map(\.tag)
+            }
+        }
         .alert(review?.issues.first?.title ?? "", isPresented: reviewing) {
             if review?.issues.contains(where: \.blocking) == false {
                 Button("仍然保存") { if let review { write(review) } }
@@ -104,111 +102,144 @@ struct NewEntrySheet: View {
         } message: {
             Text(review?.issues.map(\.detail).joined(separator: "\n") ?? "")
         }
-    }
-
-    @ViewBuilder private var accounts: some View {
-        switch draft.kind {
-        case .transfer:
-            accountPicker("转出账户", prefixes: ["Assets:", "Liabilities:"], selection: $draft.funding)
-            accountPicker("转入账户", prefixes: ["Assets:", "Liabilities:"], selection: $draft.to)
-        case .refund:
-            accountPicker("支出科目", prefixes: ["Expenses:"], selection: $draft.account)
-            accountPicker("退回账户", prefixes: ["Assets:", "Liabilities:"], selection: $draft.funding)
-        case .income:
-            accountPicker("收入科目", prefixes: ["Income:"], selection: $draft.account)
-            accountPicker("收款账户", prefixes: ["Assets:", "Liabilities:"], selection: $draft.funding)
-        default:
-            accountPicker("支出科目", prefixes: ["Expenses:"], selection: $draft.account)
-            accountPicker("付款账户", prefixes: ["Assets:", "Liabilities:"], selection: $draft.funding)
-        }
-    }
-
-    /// the amount with its currency, to choose only where the account holds more than one
-    private func amountRow(_ title: String, text: Binding<String>, account: String, currency: Binding<String>) -> some View {
-        let held = ledger.accounts[account]?.currencies ?? []
-        return LabeledContent(title) {
-            HStack {
-                TextField(title, text: text)
-                    .labelsHidden()
-                    .textFieldStyle(.plain)
-                    .multilineTextAlignment(.trailing)
-                if held.count > 1 {
-                    Picker(title, selection: currency) {
-                        ForEach(held, id: \.self) { Text($0).tag($0) }
-                    }
-                    .labelsHidden()
-                    .fixedSize()
+        .confirmationDialog("这笔还没有保存", isPresented: $leaving) {
+            Button("继续编辑", role: .cancel) {}
+            if !editing {
+                Button("保留草稿") {
+                    KeptDraft.write(draft, folder)
+                    done()
                 }
             }
-            // as tall with its menu as without, so the rows below stay put when an account brings one
-            .frame(minHeight: 24)
-        }
-    }
-
-    private var targetCurrency: Binding<String> {
-        Binding(get: { conversionCurrency(draft, ledger, derived) ?? draft.currency }, set: { draft.targetCurrency = $0 })
-    }
-
-    private var feeMode: TransferFeeMode { draft.feeMode ?? .added }
-
-    private var feeSummary: String {
-        guard let fee = evalAmount(draft.transferFee ?? ""), fee > 0 else { return "无" }
-        return money(fee, draft.feeCurrency ?? draft.currency)
-    }
-
-    private var feeForm: some View {
-        Form {
-            TextField("金额", text: Binding(get: { draft.transferFee ?? "" }, set: {
-                draft.transferFee = $0.isEmpty ? nil : $0
-                if draft.feeCurrency == nil { draft.feeCurrency = draft.currency }
-            }))
-            Picker("币种", selection: Binding(get: { draft.feeCurrency ?? draft.currency }, set: { draft.feeCurrency = $0 })) {
-                ForEach(feeCurrencies, id: \.self) { Text($0).tag($0) }
+            Button("放弃", role: .destructive) {
+                if !editing { KeptDraft.clear(folder) }
+                done()
             }
-            // what it's taken out of decides
-            .disabled(feeMode == .included || feeMode == .deducted)
-            Picker("扣费方式", selection: Binding(get: { feeMode }, set: { setFeeMode($0) })) {
-                ForEach(TransferFeeMode.allCases, id: \.self) { Text($0.label).tag($0) }
+        }
+    }
+
+    private var form: some View {
+        VStack(spacing: 0) {
+            header
+            EntryForm(draft: $draft, ledger: ledger, derived: derived, subscriptionLinks: subscriptionLinks) { panel = $0 }
+                .id(entry)
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(Color.loss)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, minHeight: 28)
+                .padding(.horizontal, 20)
+            HStack {
+                Spacer()
+                Button("取消", role: .cancel) { close() }
+                    .keyboardShortcut(.cancelAction)
+                if !editing {
+                    Button("保存再记") { save(another: true) }
+                        .keyboardShortcut(.return, modifiers: [.command, .shift])
+                        .disabled(saving)
+                }
+                Button("保存") { save(another: false) }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(saving)
             }
-            accountPicker("扣费账户", prefixes: ["Assets:", "Liabilities:"], selection: Binding(get: { draft.feeFunding ?? "" }, set: { draft.feeFunding = $0 }))
-                .opacity(feeMode == .separate ? 1 : 0)
-                .disabled(feeMode != .separate)
+            .padding([.horizontal, .bottom], 16)
         }
-        .formStyle(.grouped)
-        .frame(width: 360, height: 230)
+        .frame(width: 620, height: EntryWindow.fitted(640))
     }
 
-    private var feeCurrencies: [String] {
-        let payer = feeMode == .separate ? draft.feeFunding ?? "" : feeMode == .deducted ? draft.to : draft.funding
-        let held = ledger.accounts[payer]?.currencies ?? []
-        return Array(Set(derived.currencies + held + [draft.currency, targetCurrency.wrappedValue, draft.feeCurrency ?? ""]).subtracting([""])).sorted()
+    /// back to the card, the kinds on the left, how it is written on the right; a refund stays one
+    private var header: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                Text(editing ? "编辑交易" : "记一笔").font(.headline)
+                if draft.kind != .refund && !draft.split {
+                    Button("返回", systemImage: "chevron.left", action: back)
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
+                        .help("返回")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            if draft.kind == .refund {
+                Text(draft.kind.label).foregroundStyle(.secondary)
+            } else {
+                HStack {
+                    Picker(selection: Binding(get: { draft.kind }, set: { setKind($0) })) {
+                        ForEach(Self.formKinds) { Text($0.label).tag($0) }
+                    } label: {
+                        EmptyView()
+                    }
+                    .frame(width: 220)
+                    Spacer()
+                    Picker(selection: Binding(get: { mode }, set: { setMode($0) })) {
+                        Text("表单").tag(Mode.form)
+                        Text(DraftKind.multi.label).tag(Mode.multi)
+                        Text(DraftKind.raw.label).tag(Mode.raw)
+                    } label: {
+                        EmptyView()
+                    }
+                    .frame(width: 200)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 14)
+        .padding(.bottom, 6)
     }
 
-    private func setFeeMode(_ mode: TransferFeeMode) {
-        draft.feeMode = mode
-        draft.feeFunding = mode == .separate ? draft.feeFunding ?? draft.funding : nil
-        keepFeeCurrency()
+    private var mode: Mode { draft.kind == .multi ? .multi : draft.kind == .raw ? .raw : .form }
+
+    /// the card again: 分录 and 文本 go back as the kind they read as, or stay and say why
+    private func back() {
+        if mode != .form && !setMode(.form) { return }
+        message = ""
+        full = false
     }
 
-    /// a fee taken out of an amount is in that amount's currency
-    private func keepFeeCurrency() {
-        guard draft.transferFee != nil else { return }
-        switch feeMode {
-        case .included: draft.feeCurrency = draft.currency
-        case .deducted: draft.feeCurrency = targetCurrency.wrappedValue
-        case .added, .separate: break
+    @discardableResult
+    private func setMode(_ mode: Mode) -> Bool {
+        switch mode {
+        case .multi: return setKind(.multi)
+        case .raw: return setKind(.raw)
+        case .form:
+            // a whole entry goes back as the kind it reads as; one the form can't hold stays, and says why
+            let checked = validateText(draftText(draft, ledger, derived), ledger, single: true)
+            let shown = checked.ok ? checked.txn.flatMap { editDraft($0, ledger, derived)?.kind }.flatMap { Self.formKinds.contains($0) ? $0 : nil } : nil
+            return setKind(shown ?? formKind)
         }
     }
 
-    /// a refund is only ever edited here: it is written from the purchase, on the phone
-    private var kinds: [DraftKind] {
-        draft.kind == .refund ? [.refund] : [.expense, .income, .transfer]
+    /// content moves between the kinds only when none of it is lost; otherwise this stays as it is and says why
+    @discardableResult
+    private func setKind(_ kind: DraftKind) -> Bool {
+        guard kind != draft.kind else { return true }
+        message = ""
+        let next: Draft
+        if [.multi, .raw].contains(kind) || [.multi, .raw].contains(draft.kind) {
+            switch convertingEditor(draft, to: kind, ledger: ledger, derived: derived, previous: snapshots[kind]) {
+            case .success(let converted): next = converted
+            case .failure(let error):
+                message = error.message
+                return false
+            }
+            snapshots[draft.kind] = draft
+        } else {
+            let switched = switchingKind(draft, to: kind, remembering: snapshots, fundingCurrency: derived.acctCcy[draft.funding], defaultCurrency: nil)
+            snapshots = switched.snapshots
+            next = switched.draft
+        }
+        if Self.formKinds.contains(kind) { formKind = kind }
+        draft = next
+        return true
     }
 
-    private func accountPicker(_ title: String, prefixes: [String], selection: Binding<String>) -> some View {
-        Picker(title, selection: selection) {
-            Text("").tag("")
-            ForEach(derived.rankAccounts(prefixes), id: \.self) { Text(acctDisplay($0)).tag($0) }
+    private func close() {
+        if draft == baseline {
+            if !editing { KeptDraft.clear(folder) }
+            done()
+        } else {
+            leaving = true
         }
     }
 
@@ -216,14 +247,10 @@ struct NewEntrySheet: View {
         Binding(get: { review != nil }, set: { if !$0 { review = nil } })
     }
 
-    private var needsAmountReceived: Bool {
-        draft.kind == .transfer && (!draft.toAmount.isEmpty || targetCurrency.wrappedValue != draft.currency
-            || (ledger.accounts[draft.to]?.currencies.count ?? 0) > 1)
-    }
-
-    private func save() {
+    private func save(another: Bool) {
         saving = true
         message = ""
+        self.another = another
         let draft = draft, folder = folder
         Task { @MainActor in
             let result = await Task.detached { prepareFolderSave(draft, folder: folder) }.value
@@ -239,9 +266,43 @@ struct NewEntrySheet: View {
     private func write(_ prepared: FolderSave) {
         do {
             try commitFolderSave(prepared, folder: folder)
-            dismiss()
+            if !editing { KeptDraft.clear(folder) }
+            if another { startNext() } else { done() }
         } catch {
             message = error.localizedDescription
         }
+    }
+
+    /// the next entry of the same kind, on the same day from the same account
+    private func startNext() {
+        let kind = Self.formKinds.contains(draft.kind) ? draft.kind : formKind
+        var next = Self.blank(kind, ledger: ledger, derived: derived, config: config)
+        next.date = draft.date
+        if !draft.funding.isEmpty {
+            next.funding = draft.funding
+            next.currency = derived.acctCcy[draft.funding] ?? next.currency
+        }
+        draft = next
+        baseline = next
+        snapshots = [:]
+        message = ""
+        entry += 1
+    }
+}
+
+/// a new entry left unfinished, for this ledger alone
+private enum KeptDraft {
+    private static func key(_ folder: URL) -> String { "draft:" + folder.path }
+
+    static func read(_ folder: URL) -> Draft? {
+        UserDefaults.standard.data(forKey: key(folder)).flatMap { try? JSONDecoder().decode(Draft.self, from: $0) }
+    }
+
+    static func write(_ draft: Draft, _ folder: URL) {
+        UserDefaults.standard.set(try? JSONEncoder().encode(draft), forKey: key(folder))
+    }
+
+    static func clear(_ folder: URL) {
+        UserDefaults.standard.removeObject(forKey: key(folder))
     }
 }

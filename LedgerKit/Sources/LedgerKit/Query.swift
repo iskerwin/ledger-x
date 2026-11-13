@@ -107,6 +107,29 @@ public struct QueryResult {
     public var rows: [[QValue]]
     /// columns holding numbers or amounts (right-aligned in tables)
     public var numeric: [Bool]
+
+    public init(columns: [String], rows: [[QValue]], numeric: [Bool]) {
+        self.columns = columns
+        self.rows = rows
+        self.numeric = numeric
+    }
+
+    /// the rows ordered by one column, as clicking its title does: text and dates as written, numbers and amounts by
+    /// size, empty cells last either way; rows that tie keep their order
+    public func rows(sortedBy column: Int, ascending: Bool) -> [[QValue]] {
+        func cell(_ row: [QValue]) -> QValue { column < row.count ? row[column] : .null }
+        func order(_ x: QValue, _ y: QValue) -> Int {
+            if let a = x.stringValue, let b = y.stringValue { return a < b ? -1 : a > b ? 1 : 0 }
+            if let a = x.sortNumber, let b = y.sortNumber { return a < b ? -1 : a > b ? 1 : 0 }
+            return x.text < y.text ? -1 : x.text > y.text ? 1 : 0
+        }
+        return rows.enumerated().sorted { a, b in
+            let x = cell(a.element), y = cell(b.element)
+            if (x == .null) != (y == .null) { return y == .null }
+            let c = order(x, y)
+            return c == 0 ? a.offset < b.offset : ascending == (c < 0)
+        }.map(\.element)
+    }
 }
 
 // MARK: - tokens

@@ -57,6 +57,23 @@ final class FolderGitTests: XCTestCase {
         XCTAssertFalse(try XCTUnwrap(folderGitStatus(folder)).canSync)
     }
 
+    func testTheTypedMessageIsUsedAndTheLogShowsIt() throws {
+        try write("main.bean", "; changed\n")
+        try syncFolderGit(folder, paths: ["main.bean"], message: "  November  ")
+        XCTAssertEqual(folderGitLog(folder, limit: 1).first?.subject, "November")
+    }
+
+    func testTheDiffShowsAChangeAndANewFileWhole() throws {
+        try write("journals/new.bean", "; first\n")
+        XCTAssertTrue(folderGitDiff(folder, path: "journals/new.bean").hasPrefix("+; first"))
+        try write("main.bean", "; changed\n")
+        XCTAssertTrue(folderGitDiff(folder, path: "main.bean").contains("+; changed"))
+    }
+
+    func testTheBranchIsNamed() throws {
+        XCTAssertEqual(folderGitBranch(folder), "main")
+    }
+
     func testARemovedFileIsCommittedToo() throws {
         try write("old.bean", "; old\n")
         try commitAndPush(folder)

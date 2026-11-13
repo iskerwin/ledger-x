@@ -67,7 +67,10 @@ final class PerfTests: XCTestCase {
         let text = Self.bigLedger()
         let L = time("load", max: 10) { loadLedger(root: "main.bean") { _ in text } }
         XCTAssertGreaterThan(L.txns.count, Self.txns)
-        _ = time("derived", max: 6) { Derived(L, today: "2025-01-01") }
+        let D = time("derived", max: 6) { Derived(L, today: "2025-01-01") }
+        // every note is offered while one is typed: tens of thousands of them, on each key
+        let notes = time("note suggestions", max: 1) { (0..<20).map { narrationSuggestions(D, typed: "消费 \($0)", payee: "", limit: 8) } }
+        XCTAssertEqual(notes.last?.count, 8)
         // the pre-commit check loads the ledger twice and compares
         let after = time("load (after a change)", max: 10) {
             loadLedger(root: "main.bean") { _ in text + "2024-12-30 * \"X\"\n  Expenses:Travel  1.00 CNY\n  Assets:Cash\n" }
@@ -77,6 +80,11 @@ final class PerfTests: XCTestCase {
         _ = time("balance sheet", max: 2) { balanceSheet(L, at: nil) }
         _ = time("net worth series", max: 3) { netWorthSeries(L, today: "2025-01-01") }
         _ = time("reconcile", max: 2) { reconcileDue(L, today: "2025-01-01") }
+        // the Mac journal works its lines out once, then picks from them as each letter is typed
+        let rows = time("journal rows", max: 4) { journalRows(L) }
+        XCTAssertEqual(rows.count, L.txns.count)
+        let query = TxQuery("星巴克")
+        _ = time("journal search", max: 2) { rows.filter { query.matches($0.entry, L) } }
         let bill = L.txns.filter { $0.postings.contains { $0.account.hasPrefix("Assets:") && ($0.units ?? 0) < 0 } }.suffix(1000).enumerated().map { index, txn -> (row: ImportRow, funding: String?) in
             let posting = txn.postings.first { $0.account.hasPrefix("Assets:") && ($0.units ?? 0) < 0 }!
             var row = ImportRow(id: index, date: txn.date)

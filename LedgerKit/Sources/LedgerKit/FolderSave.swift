@@ -6,6 +6,9 @@ public struct FolderSave {
     let main: String
     /// in the order they are written
     let files: [(path: String, before: String?, after: String)]
+    /// new files that aren't text (a statement, a receipt), written first: stopped after them, the most left behind is a
+    /// file nothing points at yet
+    var blobs: [(path: String, data: Data)] = []
 }
 
 public struct FolderSaveError: Error, LocalizedError, Equatable {
@@ -18,9 +21,10 @@ public struct FolderSaveError: Error, LocalizedError, Equatable {
 /// A draft with `replacing` changes that entry, which must still be there and be told apart from any copy of it.
 public func prepareFolderSave(_ draft: Draft, folder: URL) -> Result<FolderSave, FolderSaveError> {
     guard let ledger = loadLedger(folder: folder) else { return .failure(noLedgerInFolder) }
-    let derived = Derived(ledger)
+    let derived = folderDerived(ledger, config: ledgerConfig(folder: folder))
     if let issue = draftIssue(draft, ledger, derived) { return .failure(FolderSaveError(message: issue.message)) }
-    let text = draftText(draft, ledger, derived).trimmingCharacters(in: .whitespacesAndNewlines)
+    let typed = draftText(draft, ledger, derived).trimmingCharacters(in: .whitespacesAndNewlines)
+    let text = draft.kind == .raw ? alignText(typed) : typed
     let layout = folderLayout(ledger, folder: folder)
     let exists = { (path: String) in FileManager.default.fileExists(atPath: folder.appendingPathComponent(path).path) }
     var replaced: [Op] = []
@@ -48,19 +52,42 @@ public func prepareFolderSave(_ draft: Draft, folder: URL) -> Result<FolderSave,
     } else {
         ops = replaced + ops
     }
-    return folderSave(ops, before: ledger, main: layout.main, folder: folder)
+    let replacedBalances = draft.kind == .raw ? duplicateBalances(validateText(text, ledger, single: false).entries, ledger) : []
+    return folderSave(ops, before: ledger, main: layout.main, folder: folder).map { save in
+        guard !replacedBalances.isEmpty else { return save }
+        let detail = replacedBalances.map { "\($0.date) \($0.account ?? "")" }.joined(separator: "\n")
+        let issue = ChangeIssue(kind: .balance, title: tr("同一天已有余额断言", "That day already has a balance assertion"), detail: detail)
+        return FolderSave(issues: [issue] + save.issues, main: save.main, files: save.files)
+    }
 }
 
-/// the form for changing `entry` on this computer, or nil when the sheet can't show all of it. Its links stay as they are,
-/// so the other side of a link needs nothing.
+/// what the forms need, with the account advances wait in as ledger-x.json says, as on the phone
+public func folderDerived(_ ledger: Ledger, config: LedgerXConfig?) -> Derived {
+    let set = config?.receivable?.trimmingCharacters(in: .whitespaces) ?? ""
+    let receivable = set.isEmpty ? "Assets:Receivable:Reimbursement" : set
+    // a page asks on every draw: worked out once a ledger, a day and a receivable account
+    return ledger.memoized("folderDerived|\(receivable)|\(Day.today())") { Derived(ledger, receivable: receivable) }
+}
+
+/// the form for changing `entry` on this computer, or nil when no form can hold all of it (then only its source can change).
+/// Its links stay as they are, so the other side of a link needs nothing.
 public func folderEditDraft(_ entry: Entry, _ ledger: Ledger, _ derived: Derived) -> Draft? {
-    guard var draft = editDraft(entry, ledger, derived), [.expense, .income, .transfer, .refund].contains(draft.kind),
-          !draft.reimb, !draft.split, draft.shares.isEmpty, draft.extraFunds.isEmpty, draft.discount.isEmpty, !draft.byRate,
-          draft.kind == .transfer || (draft.feeMode == nil && (draft.transferFee ?? "").isEmpty), draft.paid.isEmpty, draft.refundOf == nil, draft.refundFee == nil,
-          !draft.topup else { return nil }
+    guard var draft = editDraft(entry, ledger, derived) else { return nil }
     let summary = [entry.payee, entry.narration].filter { !$0.isEmpty }.joined(separator: " ")
     draft.replacing = Replacing(path: entry.file, old: entry.src, date: entry.date, summary: summary,
                                 baseline: draftText(draft, ledger, derived).trimmingCharacters(in: .whitespacesAndNewlines), line: entry.line)
+    return draft
+}
+
+/// `entry`'s source as text to change, on the same writing path: saved unchanged it writes nothing, and changed it replaces
+/// that entry alone. Any entry can be changed this way, whether or not a form can hold it.
+public func folderSourceDraft(_ entry: Entry) -> Draft {
+    var draft = Draft()
+    draft.kind = .raw
+    draft.date = entry.date
+    draft.raw = entry.src.trimmingCharacters(in: .whitespacesAndNewlines)
+    let summary = [entry.payee, entry.narration].filter { !$0.isEmpty }.joined(separator: " ")
+    draft.replacing = Replacing(path: entry.file, old: entry.src, date: entry.date, summary: summary, baseline: alignText(draft.raw), line: entry.line)
     return draft
 }
 
@@ -79,19 +106,127 @@ public func prepareFolderBalance(account: String, day: String, amount: Double, c
     guard existingBalance(ledger, account: account, date: date, currency: currency) == nil else {
         return .failure(FolderSaveError(message: tr("这天已有余额断言，没有写入", "This day already has a balance assertion: nothing was written")))
     }
+    let prepared = folderDirective(balanceLine(date, account, amount, currency), ledger, folder: folder)
+    if case .success(let save) = prepared, let issue = save.issues.first {
+        return .failure(FolderSaveError(message: issue.detail.isEmpty ? issue.title : issue.detail))
+    }
+    return prepared
+}
+
+/// `commodity <currency>`, what check_commodity asks for, dated like the declarations already there (else the day the
+/// currency was first used), as the phone's 补上声明 writes it
+public func prepareFolderCommodity(_ currency: String, firstUsed: String?, folder: URL) -> Result<FolderSave, FolderSaveError> {
+    guard let ledger = loadLedger(folder: folder) else { return .failure(noLedgerInFolder) }
+    let date = ledger.entries.filter { $0.type == .commodity }.map(\.date).min() ?? firstUsed ?? Day.today()
+    return folderDirective("\(date) commodity \(currency)", ledger, folder: folder)
+}
+
+/// a line of its own (an assertion, a declaration), put where its kind goes
+private func folderDirective(_ text: String, _ ledger: Ledger, folder: URL) -> Result<FolderSave, FolderSaveError> {
     let layout = folderLayout(ledger, folder: folder)
     let exists = { (path: String) in FileManager.default.fileExists(atPath: folder.appendingPathComponent(path).path) }
-    switch makeOps(balanceLine(date, account, amount, currency), ledger, layout: layout, pending: [], fileExists: exists, single: false) {
+    switch makeOps(text, ledger, layout: layout, pending: [], fileExists: exists, single: false) {
     case .failure(let error): return .failure(FolderSaveError(message: error.message))
-    case .success(let ops):
-        let prepared = folderSave(ops, before: ledger, main: layout.main, folder: folder)
-        if case .success(let save) = prepared, let issue = save.issues.first {
-            return .failure(FolderSaveError(message: issue.detail.isEmpty ? issue.title : issue.detail))
-        }
-        return prepared
+    case .success(let ops): return folderSave(ops, before: ledger, main: layout.main, folder: folder)
     }
 }
 
+/// A statement, or any file, kept with `account`, as the phone's 添加票据 / 对账单: the file goes to the institution's
+/// folder under documents/, named for its day, and a `document` line points at it
+public func prepareFolderStatement(account: String, date: String, data: Data, ext: String, folder: URL) -> Result<FolderSave, FolderSaveError> {
+    guard let ledger = loadLedger(folder: folder) else { return .failure(noLedgerInFolder) }
+    guard let path = newDocumentPath(documentFolder(for: account), date: date, ext: ext, ledger, folder: folder) else { return .failure(unusableName) }
+    return folderDocument(documentText(date: date, account: account, path: path), path: path, data: data, ledger, folder: folder)
+}
+
+/// A receipt or other file attached to `entry`, as the phone's 添加附件: the file goes to documents/receipts/, filed under
+/// the account that paid, and the entry and the `document` line share a ^doc- link (the entry's own, when it has one)
+public func prepareFolderAttachment(_ entry: Entry, data: Data, ext: String, folder: URL) -> Result<FolderSave, FolderSaveError> {
+    guard let ledger = loadLedger(folder: folder) else { return .failure(noLedgerInFolder) }
+    guard let current = locate(entry, startLine: entry.line - 1, folder: folder),
+          let text = try? coordinatedRead(folder.appendingPathComponent(current.file)) else { return .failure(entryChanged) }
+    let account = documentPayingAccount(current.postings)
+    guard !account.isEmpty else { return .failure(FolderSaveError(message: tr("这笔交易没有付款账户，不能添加附件", "This entry has no paying account to file the attachment under"))) }
+    guard let path = newDocumentPath(transactionAttachmentFolder, date: current.date, ext: ext, ledger, folder: folder) else { return .failure(unusableName) }
+    let link = current.links.first { $0.hasPrefix("doc-") }
+        ?? "doc-" + documentDateStamp(current.date) + "-" + UUID().uuidString.prefix(8).lowercased()
+    var linking: [Op] = []
+    if !current.links.contains(link) {
+        let lines = text.components(separatedBy: "\n")
+        guard current.startLine >= 0, current.startLine < lines.count else { return .failure(entryChanged) }
+        var op = Op(kind: .link, path: current.file)
+        op.headerLine = current.startLine + 1
+        op.header = lines[current.startLine]
+        op.add = " ^" + link
+        op.link = link
+        op.silent = true
+        linking = [op]
+    }
+    return folderDocument(documentText(date: current.date, account: account, path: path) + " ^" + link, path: path, data: data, ledger,
+                          folder: folder, also: linking)
+}
+
+/// what deleting a document did with its file
+public enum DocumentFileOutcome: Equatable {
+    /// left where it is, as asked
+    case kept
+    /// left where it is: this many other lines still point at it
+    case inUse(Int)
+    /// in the Trash, where it can still be put back
+    case trashed
+    /// it wasn't there
+    case missing
+}
+
+/// A document's line removed, as the phone's 删除 does: with `file`, its file goes to the Trash as well, unless another
+/// line still points at it. The line goes first: stopped between the two, the most left behind is a file nothing points at.
+public func deleteFolderDocument(_ entry: Entry, file: Bool, folder: URL) throws -> DocumentFileOutcome {
+    guard entry.type == .document, !entry.synthetic else { throw entryChanged }
+    let save = try prepareFolderDelete(entry, folder: folder).get()
+    let path = entry.path.flatMap { documentPath($0, from: entry.file) }
+    let others = file && path != nil ? loadLedger(folder: folder).map { ledger in
+        documentReferences(ledger, path: path!).filter { !($0.file == entry.file && $0.line == entry.line) }.count
+    } ?? 0 : 0
+    try commitFolderSave(save, folder: folder)
+    guard file, let path else { return .kept }
+    if others > 0 { return .inUse(others) }
+    let url = folder.appendingPathComponent(path)
+    guard FileManager.default.fileExists(atPath: url.path) else { return .missing }
+    do {
+        try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+    } catch {
+        throw FolderSaveError(message: tr("记录已移除，文件没能移到废纸篓：\(error.localizedDescription)",
+                                          "The record is gone, but the file couldn't go to the Trash: \(error.localizedDescription)"))
+    }
+    return .trashed
+}
+
+/// `documents/<box>/<box>_YYYYMMDD.<ext>`, numbered past what's in the folder and what the ledger already points at
+private func newDocumentPath(_ box: String, date: String, ext: String, _ ledger: Ledger, folder: URL) -> String? {
+    let dir = folder.appendingPathComponent("documents/" + box)
+    let onDisk = ((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []).map { "documents/\(box)/\($0)" }
+    let taken = Set(onDisk + ledger.documents.compactMap { d in d.path.flatMap { documentPath($0, from: d.file) } })
+    let name = preferredDocumentFileName(folder: box, date: date, ext: ext, existingPaths: taken)
+    return name.isEmpty ? nil : documentStoragePath(folder: box, fileName: name)
+}
+
+/// the `document` line put where its kind goes, its path written from that file, with the file itself to write first
+private func folderDocument(_ line: String, path: String, data: Data, _ ledger: Ledger, folder: URL, also: [Op] = []) -> Result<FolderSave, FolderSaveError> {
+    let layout = folderLayout(ledger, folder: folder)
+    let exists = { (path: String) in FileManager.default.fileExists(atPath: folder.appendingPathComponent(path).path) }
+    guard !exists(path) else { return .failure(nameTaken) }
+    switch makeOps(line, ledger, layout: layout, pending: [], fileExists: exists, single: false) {
+    case .failure(let error): return .failure(FolderSaveError(message: error.message))
+    case .success(var ops):
+        for i in ops.indices where ops[i].kind == .insert {
+            ops[i].text = ops[i].text?.replacingOccurrences(of: quoted(path), with: quoted(relativeDocumentPath(path, from: ops[i].path)))
+        }
+        return folderSave(ops + also, before: ledger, main: layout.main, folder: folder, blobs: [(path, data)])
+    }
+}
+
+private let unusableName = FolderSaveError(message: tr("这个日期或文件类型不能用作文件名", "That day or file type can't name a file"))
+private let nameTaken = FolderSaveError(message: tr("这个文件已经在账本里，请再试一次", "That file is already in the ledger: try again"))
 private let noLedgerInFolder = FolderSaveError(message: tr("这个文件夹里没有账本", "No ledger in this folder"))
 private let entryChanged = FolderSaveError(message: tr("原来的交易已经变了，没有改动", "The entry has changed: nothing was changed"))
 
@@ -101,7 +236,7 @@ private func locate(_ entry: Entry, startLine: Int?, folder: URL) -> Entry? {
     return EntryLocator(entry, startLine: startLine).resolve(in: parseFile(text, file: entry.file).entries)
 }
 
-private func folderSave(_ ops: [Op], before ledger: Ledger, main: String, folder: URL) -> Result<FolderSave, FolderSaveError> {
+private func folderSave(_ ops: [Op], before ledger: Ledger, main: String, folder: URL, blobs: [(path: String, data: Data)] = []) -> Result<FolderSave, FolderSaveError> {
     let exists = { (path: String) in FileManager.default.fileExists(atPath: folder.appendingPathComponent(path).path) }
     // new files, then the main file that includes them, and what an entry leaves last: stopped on the way,
     // the most left behind is an unused file or an entry in two places, and nothing lost
@@ -120,20 +255,46 @@ private func folderSave(_ ops: [Op], before ledger: Ledger, main: String, folder
         let after = loadLedger(root: main, listFiles: { folderFiles(folder) + Array(written.keys) }) { path in
             try written[path] ?? String(contentsOf: folder.appendingPathComponent(path), encoding: .utf8)
         }
-        return .success(FolderSave(issues: reviewChange(before: ledger, after: after), main: main, files: files))
+        return .success(FolderSave(issues: reviewChange(before: ledger, after: after), main: main, files: files, blobs: blobs))
     } catch {
         return .failure(FolderSaveError(message: error.localizedDescription))
     }
 }
 
+/// ledger-x.json changed as `change` says, written as the phone writes it; nothing when it comes out the same.
+/// A file that doesn't read as one isn't written over.
+public func prepareFolderConfig(folder: URL, _ change: (inout LedgerXConfig) -> Void) -> Result<FolderSave, FolderSaveError> {
+    let url = folder.appendingPathComponent(LedgerXConfig.path)
+    let before = try? coordinatedRead(url)
+    var config = LedgerXConfig()
+    if let before {
+        guard let read = LedgerXConfig.parse(before) else {
+            return .failure(FolderSaveError(message: tr("\(LedgerXConfig.path) 读不出来，没有写入", "\(LedgerXConfig.path) can't be read: nothing was written")))
+        }
+        config = read
+    }
+    let unchanged = config
+    change(&config)
+    guard config != unchanged else { return .success(FolderSave(issues: [], main: folderMain(folder), files: [])) }
+    return .success(FolderSave(issues: [], main: folderMain(folder), files: [(LedgerXConfig.path, before, config.json())]))
+}
+
 /// Writes it, unless a file has changed since it was worked out.
 public func commitFolderSave(_ save: FolderSave, folder: URL) throws {
+    for blob in save.blobs where FileManager.default.fileExists(atPath: folder.appendingPathComponent(blob.path).path) {
+        throw FolderSaveError(message: tr("\(blob.path) 已经有了，没有写入", "\(blob.path) is already there: nothing was written"))
+    }
     for file in save.files {
         let url = folder.appendingPathComponent(file.path)
         let now = FileManager.default.fileExists(atPath: url.path) ? try coordinatedRead(url) : nil
         guard now == file.before else {
             throw FolderSaveError(message: tr("\(file.path) 刚被改动过，请再保存一次", "\(file.path) has just changed: save again"))
         }
+    }
+    for blob in save.blobs {
+        let url = folder.appendingPathComponent(blob.path)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try blob.data.write(to: url, options: .withoutOverwriting)
     }
     for file in save.files {
         try coordinatedWrite(folder.appendingPathComponent(file.path), file.after)

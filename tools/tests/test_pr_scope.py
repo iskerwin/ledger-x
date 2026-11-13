@@ -118,6 +118,27 @@ class PRScopeTests(unittest.TestCase):
             'LedgerUITests/SampleTests/testOther',
         ))
 
+    def test_a_new_tests_comment_belongs_to_the_new_test(self):
+        # the comment sits above the new test and used to fall inside the helper above it, so every caller of
+        # that helper ran and the UI stage passed its time limit
+        path = 'LedgerUITests/SampleTests.swift'
+        source = '\n'.join([
+            'import XCTest',
+            'final class SampleTests: XCTestCase {',
+            '    func testOther() { launch() }',
+            '    private func launch() {}',
+            '',
+            '    /// the new case',
+            '    func testAdded() { launch() }',
+            '}',
+            '',
+        ])
+        def at(snippet):
+            return source.splitlines().index(snippet) + 1
+        plan = pr_scope.classify([path], diff=_diff(path, [
+            at('    /// the new case'), at('    func testAdded() { launch() }')]), sources={path: source})
+        self.assertEqual(plan['xcode_tests'], ('LedgerUITests/SampleTests/testAdded',))
+
     def test_pull_request_gate_times_out_instead_of_hanging(self):
         pull = (ROOT / '.github/workflows/ci.yml').read_text()
         gate = (ROOT / 'tools/pr_gate.py').read_text()

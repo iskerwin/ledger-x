@@ -228,7 +228,26 @@ public struct PayeeStat {
     public var w = 0.0
     public var last: Entry
     public var narr: [String: Int] = [:]
+    /// the last entry with this payee and each note
+    public var lastWith: [String: Entry] = [:]
     public var narrations: [String] { narr.sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }.map { $0.key } }
+
+    /// counted in place in its map: a copy taken out and put back would copy its notes on every entry
+    mutating func add(_ t: Entry, weight: Double) {
+        n += 1; w += weight; last = t
+        if !t.narration.isEmpty { narr[t.narration, default: 0] += 1; lastWith[t.narration] = t }
+    }
+}
+
+/// a note as written on entries, whoever they were with
+public struct NarrationStat {
+    public var text: String
+    public var w = 0.0
+    public var last: Entry
+    /// lowercased once, for matching while a note is typed
+    let folded: String
+
+    init(text: String, last: Entry) { self.text = text; self.last = last; folded = text.lowercased() }
 }
 
 public struct OpenLink {
@@ -265,6 +284,9 @@ public final class Derived: @unchecked Sendable {
     public var short: [String: String] = [:]
     public var payees: [PayeeStat] = []
     public var payeeIndex: [String: Int] = [:]
+    /// most used and lately first
+    public var narrationStats: [NarrationStat] = []
+    public var narrationIndex: [String: Int] = [:]
     public var monthExp: [String: Double] = [:]
     public var monthInc: [String: Double] = [:]
     public var monthCat: [String: [String: Double]] = [:]
@@ -279,6 +301,7 @@ public final class Derived: @unchecked Sendable {
     public var byLink: [String: [Entry]] = [:]
 
     public func payee(_ name: String) -> PayeeStat? { payeeIndex[name].map { payees[$0] } }
+    public func narration(_ text: String) -> NarrationStat? { narrationIndex[text].map { narrationStats[$0] } }
 
     /// the account advances wait in until they are paid back
     public let receivable: String
@@ -292,6 +315,7 @@ public final class Derived: @unchecked Sendable {
         var shortC: [String: [String: Int]] = [:]
         var shortOrder: [String: [String]] = [:]
         var pmap: [String: PayeeStat] = [:]
+        var nmap: [String: NarrationStat] = [:]
         for t in L.txns {
             let w: Double = t.date >= d60 ? 20 : t.date >= recent ? 4 : 1
             for p in t.postings {
@@ -308,11 +332,10 @@ public final class Derived: @unchecked Sendable {
                     monthInc[m, default: 0] -= toCNY(L, u, c, t.date) ?? 0
                 }
             }
-            if !t.payee.isEmpty {
-                var s = pmap[t.payee] ?? PayeeStat(name: t.payee, last: t)
-                s.n += 1; s.w += w; s.last = t
-                if !t.narration.isEmpty { s.narr[t.narration, default: 0] += 1 }
-                pmap[t.payee] = s
+            if !t.payee.isEmpty { pmap[t.payee, default: PayeeStat(name: t.payee, last: t)].add(t, weight: w) }
+            if !t.narration.isEmpty {
+                nmap[t.narration, default: NarrationStat(text: t.narration, last: t)].w += w
+                nmap[t.narration]!.last = t
             }
             if isTransferTag(t), let r = t.narration.range(of: " -> ") ?? t.narration.range(of: "->") {
                 let a = t.narration[..<r.lowerBound].trimmingCharacters(in: .whitespaces)
@@ -340,6 +363,8 @@ public final class Derived: @unchecked Sendable {
         }
         payees = pmap.values.sorted { $0.w != $1.w ? $0.w > $1.w : $0.name < $1.name }
         for (i, p) in payees.enumerated() { payeeIndex[p.name] = i }
+        narrationStats = nmap.values.sorted { $0.w != $1.w ? $0.w > $1.w : $0.text < $1.text }
+        for (i, n) in narrationStats.enumerated() { narrationIndex[n.text] = i }
         openAccounts = L.accounts.values.filter { $0.close == nil || $0.close! > now }.map { $0.name }.sorted()
         var cs = ["CNY"]
         for c in L.rates.keys.sorted() where !cs.contains(c) { cs.append(c) }

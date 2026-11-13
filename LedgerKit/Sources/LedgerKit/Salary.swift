@@ -175,22 +175,47 @@ public struct SalaryYear: Equatable {
     public var net: Double { gross - deductions - tax }
 }
 
+/// what one payslip's entry comes to, in the operating currency
+public struct PayslipFigures: Equatable {
+    /// income accounts (positive amounts)
+    public let earnings: [String: Double]
+    /// deductions other than tax
+    public let deductions: Double
+    public let tax: Double
+    public var gross: Double { earnings.values.reduce(0, +) }
+    public var net: Double { gross - deductions - tax }
+}
+
+/// nil when the entry pays no salary
+public func payslipFigures(_ t: Entry, _ L: Ledger) -> PayslipFigures? {
+    var earnings: [String: Double] = [:], deductions = 0.0, tax = 0.0, any = false
+    for p in t.postings {
+        let v = toCNY(L, p.units ?? 0, p.currency ?? L.base, t.date) ?? 0
+        if p.account.hasPrefix("Income:Salary") {
+            any = true
+            if p.account == "Income:Salary:Deduction" { deductions += v } else { earnings[p.account, default: 0] -= v }
+        } else if p.account == "Expenses:Government:IncomeTax" {
+            tax += v
+        }
+    }
+    return any ? PayslipFigures(earnings: earnings, deductions: deductions, tax: tax) : nil
+}
+
 public func salaryYears(_ L: Ledger) -> [SalaryYear] {
     var earn: [String: [String: Double]] = [:], ded: [String: Double] = [:], tax: [String: Double] = [:], months: [String: Set<String>] = [:]
     for t in L.txns {
         let y = String(t.date.prefix(4))
-        var any = false
-        for p in t.postings {
-            let v = toCNY(L, p.units ?? 0, p.currency ?? L.base, t.date) ?? 0
-            if p.account.hasPrefix("Income:Salary") {
-                any = true
-                if p.account == "Income:Salary:Deduction" { ded[y, default: 0] += v }
-                else { earn[y, default: [:]][p.account, default: 0] -= v }
-            } else if p.account == "Expenses:Government:IncomeTax" {
-                tax[y, default: 0] += v
+        if let f = payslipFigures(t, L) {
+            for (account, v) in f.earnings { earn[y, default: [:]][account, default: 0] += v }
+            ded[y, default: 0] += f.deductions
+            tax[y, default: 0] += f.tax
+            months[y, default: []].insert(String(t.date.prefix(7)))
+        } else {
+            // tax paid on its own (a yearly settlement) still counts for the year
+            for p in t.postings where p.account == "Expenses:Government:IncomeTax" {
+                tax[y, default: 0] += toCNY(L, p.units ?? 0, p.currency ?? L.base, t.date) ?? 0
             }
         }
-        if any { months[y, default: []].insert(String(t.date.prefix(7))) }
     }
     return Set(earn.keys).union(tax.keys).sorted(by: >).map { y in
         SalaryYear(year: y, earnings: (earn[y] ?? [:]).mapValues { roundTo($0, 2) }.filter { abs($0.value) > 0.005 },

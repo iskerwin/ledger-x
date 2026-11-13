@@ -557,15 +557,6 @@ struct AccountPicker: View {
     }
 }
 
-func fuzzy(_ q: String, _ s: String) -> Int {
-    let q = q.lowercased(), s = s.lowercased()
-    if s.contains(q) { return 2 }
-    var it = q.makeIterator()
-    var c = it.next()
-    for ch in s where ch == c { c = it.next() }
-    return c == nil ? 1 : 0
-}
-
 /// a row that shows the chosen account and the most-used ones as chips
 struct AccountField: View {
     @Environment(Store.self) var store

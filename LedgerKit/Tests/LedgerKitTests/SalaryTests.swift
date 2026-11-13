@@ -52,6 +52,11 @@ final class SalaryTests: XCTestCase {
         XCTAssertEqual(y.gross, 12000)
         XCTAssertEqual(y.deductions, 100)
         XCTAssertEqual(y.months, 1)   // both paid in September
+        // each payslip by itself adds up to the year
+        let slips = after.txns.compactMap { payslipFigures($0, after) }
+        XCTAssertEqual(slips.reduce(0) { $0 + $1.gross }, y.gross, accuracy: 0.001)
+        XCTAssertEqual(slips.reduce(0) { $0 + $1.deductions }, y.deductions, accuracy: 0.001)
+        XCTAssertEqual(slips.reduce(0) { $0 + $1.net }, y.net, accuracy: 0.001)
 
         // items sharing an account are listed, and come back next month
         var t2 = t

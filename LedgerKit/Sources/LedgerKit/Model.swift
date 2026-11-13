@@ -260,13 +260,57 @@ public final class Ledger: @unchecked Sendable {
 
     public init() {}
 
-    func memoized<T>(_ key: String, _ make: () -> T) -> T {
+    /// worked out the first time it's asked for, then kept: the key names everything the figure depends on besides
+    /// the ledger (a period, today, a setting)
+    public func memoized<T>(_ key: String, _ make: () -> T) -> T {
         memoLock.lock()
         if let v = memo[key] as? T { memoLock.unlock(); return v }
         memoLock.unlock()
         let v = make()
         memoLock.lock(); memo[key] = v; memoLock.unlock()
         return v
+    }
+
+    /// the last one `filtered(by:account:)` made, for the same filter again: one kept, as the text changes with each key
+    private var lastFiltered: (key: String, ledger: Ledger)?
+
+    /// the ledger as a filter shows it, as Fava's: only the transactions the search `text` finds (`TxQuery`) that
+    /// touch `account` or one under it, everything else as it is. The ledger itself when the filter asks for nothing
+    public func filtered(by text: String, account: String? = nil) -> Ledger {
+        let query = TxQuery(text)
+        if query.isEmpty && account == nil { return self }
+        let key = (account ?? "") + "\n" + text
+        memoLock.lock()
+        if let last = lastFiltered, last.key == key { memoLock.unlock(); return last.ledger }
+        memoLock.unlock()
+        let under = (account ?? "") + ":"
+        func touches(_ t: Entry) -> Bool {
+            guard let account else { return true }
+            return t.postings.contains { $0.account == account || $0.account.hasPrefix(under) }
+        }
+        let dropped = Set(txns.filter { !touches($0) || !query.matches($0, self) }.map(ObjectIdentifier.init))
+        let out = Ledger()
+        out.entries = entries.filter { !dropped.contains(ObjectIdentifier($0)) }
+        out.files = files
+        out.options = options
+        out.plugins = plugins
+        out.errors = errors
+        out.accounts = accounts
+        out.txns = txns.filter { !dropped.contains(ObjectIdentifier($0)) }
+        out.balances = balances
+        out.prices = prices
+        out.commodities = commodities
+        out.pads = pads
+        out.events = events
+        out.notes = notes
+        out.documents = documents
+        out.base = base
+        out.balanceResults = balanceResults
+        out.final = final
+        out.inventory = inventory
+        out.rates = rates
+        memoLock.lock(); lastFiltered = (key, out); memoLock.unlock()
+        return out
     }
 }
 

@@ -235,6 +235,32 @@ public func runningBalances(_ L: Ledger, account: String) -> [ObjectIdentifier: 
     return out
 }
 
+public struct BalancePoint: Identifiable, Equatable {
+    public var id: String { month }
+    public let month: String
+    public let amount: Double
+
+    public init(month: String, amount: Double) {
+        self.month = month
+        self.amount = amount
+    }
+}
+
+/// what `account` and those under it held in `currency` at the end of each of the last `months` months
+public func monthlyBalances(_ L: Ledger, account: String, currency: String, months: Int = 12, today: String = Day.today()) -> [BalancePoint] {
+    var shown = [Day.ym(today)]
+    while shown.count < months { shown.insert(Day.addMonth(shown[0], -1), at: 0) }
+    var running = 0.0, index = 0
+    return shown.map { month in
+        let last = Day.monthEnd(month)
+        while index < L.txns.count && L.txns[index].date <= last {
+            for p in L.txns[index].postings where p.currency == currency && isExcluded(p.account, [account]) { running += p.units ?? 0 }
+            index += 1
+        }
+        return BalancePoint(month: month, amount: roundTo(running, 2))
+    }
+}
+
 /// `account` is one of `list` or under one of them
 public func isExcluded(_ account: String, _ list: [String]) -> Bool {
     list.contains { account == $0 || account.hasPrefix($0 + ":") }
