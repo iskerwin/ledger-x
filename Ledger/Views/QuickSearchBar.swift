@@ -11,7 +11,7 @@ struct QuickSearchBar: View {
     var body: some View {
         let list = store.quickSearches
         let now = q.trimmed
-        // nothing saved and nothing typed: no row (the hint is among the search examples)
+        // Nothing saved and nothing typed: no row. Usage is documented in the guide.
         if !(list.isEmpty && now.isEmpty) { row(list, now) }
     }
 
