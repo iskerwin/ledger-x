@@ -20,6 +20,16 @@
       "versions": [
         {
           "version": "1.0.15",
+          "buildVersion": "64.1",
+          "date": "2026-11-13T13:57:53Z",
+          "localizedDescription": "# Ledger X 1.0.15 预览\n\n版本 1.0.15 · 构建 64.1 · preview/mac-parity cb229ba · PR #152 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.15-64.1",
+          "size": 10994586,
+          "minOSVersion": "17.0",
+          "sha256": "f86ff30d14f88b8b7756eddbaea73b48ef801aaee3fc5971732ef0d0e4239a04"
+        },
+        {
+          "version": "1.0.15",
           "buildVersion": "64",
           "date": "2026-11-13T07:23:37Z",
           "localizedDescription": "# Ledger X 1.0.15 开发版\n\n版本 1.0.15 · 构建 64 · main d0e0196 。\n\n## 新增\n\n- Mac 版补齐侧栏各页面，记一笔使用快捷记账卡片；明细改用可排序的原生表格，支持共用时间、账户和搜索筛选、按月财务报表、附件与对账单、BQL 查询和错误页，并提供独立的同步与改动页及设置窗口。",
@@ -27,16 +37,6 @@
           "size": 10973333,
           "minOSVersion": "17.0",
           "sha256": "e2da5020620349614f67d7c8147a778c59f43d07fd0a9424179821dbf5664023"
-        },
-        {
-          "version": "1.0.15",
-          "buildVersion": "61.7",
-          "date": "2026-11-12T14:27:00Z",
-          "localizedDescription": "# Ledger X 1.0.15 预览\n\n版本 1.0.15 · 构建 61.7 · preview/batch-66 886e37e 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.15-61.7",
-          "size": 10918723,
-          "minOSVersion": "17.0",
-          "sha256": "ae55429edc0ea127dc89a345df2412aedf9e081f7691f5dbc5d869e42d76f26c"
         },
         {
           "version": "1.0.14",
@@ -188,10 +188,10 @@
         }
       },
       "version": "1.0.15",
-      "versionDate": "2026-11-13T07:23:37Z",
-      "versionDescription": "# Ledger X 1.0.15 开发版\n\n版本 1.0.15 · 构建 64 · main d0e0196 。\n\n## 新增\n\n- Mac 版补齐侧栏各页面，记一笔使用快捷记账卡片；明细改用可排序的原生表格，支持共用时间、账户和搜索筛选、按月财务报表、附件与对账单、BQL 查询和错误页，并提供独立的同步与改动页及设置窗口。",
-      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.15-64",
-      "size": 10973333
+      "versionDate": "2026-11-13T13:57:53Z",
+      "versionDescription": "# Ledger X 1.0.15 预览\n\n版本 1.0.15 · 构建 64.1 · preview/mac-parity cb229ba · PR #152 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.15-64.1",
+      "size": 10994586
     }
   ],
   "news": []
