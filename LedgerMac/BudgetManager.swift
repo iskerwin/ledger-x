@@ -126,7 +126,7 @@ struct BudgetManager: View {
 private struct BudgetEditor: View {
     let folder: URL
     let previous: Entry?
-    private let baseline: BudgetForm
+    @State private var baseline: BudgetForm
     @State private var records: [Budget]
     private let accounts: [String]
     @State private var form: BudgetForm
@@ -142,7 +142,7 @@ private struct BudgetEditor: View {
         previous = budget?.entry
         _records = State(initialValue: budgets(ledger))
         let fields = budget.map { BudgetForm($0) } ?? BudgetForm(currency: ledger.base)
-        baseline = fields
+        _baseline = State(initialValue: fields)
         _form = State(initialValue: fields)
         var choices = Set<String>()
         for name in ledger.accounts.keys where name.hasPrefix("Expenses:") || name.hasPrefix("Income:") {
