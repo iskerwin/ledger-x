@@ -113,6 +113,8 @@ struct GuideView: View {
         Topic(symbol: "doc.text", title: tr("报销与备用金", "Reimbursements and petty cash"), points: [
             tr("垫付的钱在记一笔里点「更多」→「报销」：有剩余的备用金会默认选上，用备用金付的直接冲抵；自己垫付的进入待报销。",
                "For money advanced, tap More → Reimburse: petty cash with money left is picked by default and offsets the expense; advanced by yourself, it waits to be claimed."),
+            tr("开启报销后，分类区显示报销应收账户，不必选择支出分类；填金额、付款账户、收付款方和摘要即可。垫付记入应收，不算个人支出；公司回款冲销应收。旧记录已有的支出类型会保留，需要分类时可在报销单里补。Mac 记一笔也一样。",
+               "With Reimburse on, the category area shows the receivable account. Enter the amount, paying account, payee and note without choosing an expense category. Advances are receivables, not personal spending; repayment clears them. Existing expense types are preserved and can be added on the claim when needed. The Mac Add card works the same way."),
             tr("报表 → 报销：待报销、备用金、每张报销单和历史都在这里。左滑一笔可改支出类型、凭证类型或移出这张单子。",
                "Reports → Reimbursements has what's waiting, petty cash, every claim and the history. Swipe a line to change its type, receipt or take it off the claim."),
             tr("在一张报销单或备用金里点「导出报销单」，可生成 PDF（含附件）、按公司模板的 xlsx 和 CSV。",
