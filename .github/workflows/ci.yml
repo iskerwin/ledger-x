@@ -3,6 +3,7 @@ run-name: '${{ github.event_name == ''pull_request'' && format(''CI · PR #{0}''
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
   # main every week (Sunday 22:00 Beijing): the full suite, verify only, so what PR selection misses is found within a
   # week instead of at the release run. Publishes nothing.
   schedule:
@@ -29,7 +30,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   gate:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft != true
     runs-on: macos-26
     timeout-minutes: 90
     steps:

@@ -149,7 +149,7 @@ struct MainView: View {
                     PayeesPage(ledger: ledger, config: config, folder: folder, period: period, filter: query, account: account).filtering($filter, $searching)
                 case .year:
                     drillable { YearPage(ledger: ledger.filtered(by: query, account: account), config: config, period: period).filtering($filter, $searching) }
-                case .budgets: drillable { BudgetsPage(ledger: ledger, period: period) }
+                case .budgets: drillable { BudgetsPage(ledger: ledger, folder: folder, period: period) }
                 case .forecast: drillable { ForecastPage(ledger: ledger, config: config) }
                 case .subscriptions: drillable { SubscriptionsPage(ledger: ledger, config: config, folder: folder) }
                 case .reimbursements: drillable { ReimbursementsPage(ledger: ledger, config: config, folder: folder) }
