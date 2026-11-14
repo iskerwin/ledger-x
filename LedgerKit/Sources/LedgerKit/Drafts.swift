@@ -463,7 +463,7 @@ func draftTx0(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
         }
         return tx
     }
-    guard !d.account.isEmpty, !d.funding.isEmpty else { return nil }
+    guard (d.kind == .expense && d.reimb || !d.account.isEmpty), !d.funding.isEmpty else { return nil }
     for e in d.events where !tx.tags.contains(e) { tx.tags.append(e) }
     let sgn: Double = d.kind == .expense ? 1 : -1 // income & refund reduce the category
     let fc = conversionCurrency(d, L, D) ?? d.currency
@@ -597,7 +597,7 @@ public func draftIssue(_ d: Draft, _ L: Ledger, _ D: Derived) -> DraftIssue? {
         }
         return nil
     }
-    if d.account.isEmpty {
+    if d.account.isEmpty && !(d.kind == .expense && d.reimb) {
         return DraftIssue(.category, d.kind == .income ? tr("请选择收入科目", "Choose an income category") : tr("请选择支出科目", "Choose an expense category"))
     }
     if d.funding.isEmpty {
@@ -1207,7 +1207,7 @@ public func draftFromTxn(_ t: Entry, kind: DraftKind? = nil, _ L: Ledger, _ D: D
     } else if let cat = cat {
         if cat.account.hasPrefix("Assets:Receivable") {
             d.reimb = true
-            d.account = advanceCategory(cat) ?? D.rankAccounts(["Expenses:"]).first ?? ""
+            d.account = advanceCategory(cat) ?? ""
             d.voucher = cat.meta[voucherMeta].map { $0.stringValue ?? $0.display } ?? ""
             // paid from petty cash like the original while it lasts, else from the petty cash in hand (as when
             // 可报销 is switched on); a paid reimbursement's link is never reused

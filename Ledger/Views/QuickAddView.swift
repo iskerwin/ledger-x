@@ -174,7 +174,12 @@ struct QuickAddView: View {
                 // the keypad below never move
                 ScrollView {
                     VStack(spacing: AppSpacing.control) {
-                        if d.kind == .transfer { transferPanel(d, L, D) } else { grid(d, L, D); subCategories(d, L, D) }
+                        if d.kind == .transfer { transferPanel(d, L, D) }
+                        else if d.reimb {
+                            LabeledContent(LS("报销应收科目"), value: accountTitle(L, D.receivable))
+                                .padding(.vertical, AppSpacing.control)
+                                .accessibilityIdentifier("quick.reimbursement")
+                        } else { grid(d, L, D); subCategories(d, L, D) }
                     }
                     .padding(.horizontal, AppSpacing.content)
                     .padding(.vertical, AppSpacing.icon)

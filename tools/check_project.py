@@ -149,7 +149,7 @@ except ValueError as error:
 
 # every Chinese text shown through LS has its English; every English entry is still shown somewhere
 english = json.loads((ROOT/'Ledger/en.json').read_text())
-sources = ''.join(p.read_text() for d in ('Ledger', 'LedgerKit/Sources') for p in (ROOT/d).rglob('*.swift'))
+sources = ''.join(p.read_text() for d in ('Ledger', 'LedgerMac', 'LedgerKit/Sources') for p in (ROOT/d).rglob('*.swift'))
 shown = {m.replace('\\"', '"').replace('\\n', '\n') for m in re.findall(r'LS\(\s*"((?:[^"\\]|\\.)*)"', sources)}
 for key in sorted(shown):
     require(key in english or not re.search(r'[\u3000-\u303f\u4e00-\u9fff\uff00-\uffef]', key), f'Ledger/en.json: no English for {key!r}')

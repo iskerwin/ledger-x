@@ -5,9 +5,11 @@ import LedgerKit
 /// the budgets of a month or year in a table, and beside it the picked one: its last six months, its lines in the ledger and the way to its entries
 struct BudgetsPage: View {
     let ledger: Ledger
+    let folder: URL
     /// the window's time: a year's budgets for a year or all time, else the month's
     let period: ViewPeriod
     @State private var picked: String?
+    @State private var managing = false
 
     var body: some View {
         let byYear = period.byYear, month = period.anchor
@@ -47,6 +49,8 @@ struct BudgetsPage: View {
                 }
             }
         }
+        .toolbar { ToolbarItem { Button("管理预算", systemImage: "slider.horizontal.3") { managing = true } } }
+        .sheet(isPresented: $managing) { BudgetManager(ledger: ledger, folder: folder) }
     }
 }
 

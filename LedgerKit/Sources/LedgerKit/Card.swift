@@ -225,7 +225,7 @@ public func usualRepaymentAccount(_ card: String, _ L: Ledger) -> String? {
 /// the `open` directive the account editor writes. `keep` is the directive being edited: its other metadata
 /// stays, the name and the settings made in the editor are written afresh
 public func openDirectiveText(date: String, account: String, currencies: [String], booking: String, name: String,
-                              creditLimit: Double?, allowNegative: Bool, statementDay: Int, dueDay: Int, keep: String?) -> String {
+                              creditLimit: Double?, allowNegative: Bool, statementDay: Int, dueDay: Int, keep: String?, creditLimitCurrency: String? = nil) -> String {
     var head = "\(date) open \(account)"
     if !currencies.isEmpty { head += String(repeating: " ", count: max(1, 56 - head.count)) + currencies.joined(separator: ",") }
     if !booking.isEmpty { head += " " + quoted(booking) }
@@ -235,7 +235,10 @@ public func openDirectiveText(date: String, account: String, currencies: [String
     if account.hasPrefix("Liabilities:") || account.hasPrefix("Assets:"), statementDay > 0 { lines.append("  \(statementDayKey): \(statementDay)") }
     if account.hasPrefix("Liabilities:"), dueDay > 0 { lines.append("  \(dueDayKey): \(dueDay)") }
     if account.hasPrefix("Assets:"), allowNegative { lines.append("  \(allowNegativeKey): TRUE") }
-    if account.hasPrefix("Liabilities:"), let v = creditLimit, v > 0 { lines.append("  \(creditLimitKey): \(jsNumberString(v))") }
+    if account.hasPrefix("Liabilities:"), let v = creditLimit, v > 0 {
+        let value = jsNumberString(v)
+        lines.append("  \(creditLimitKey): " + (creditLimitCurrency.map { quoted(value + " " + $0) } ?? value))
+    }
     for l in (keep ?? "").components(separatedBy: "\n").dropFirst() {
         let t = l.trimmingCharacters(in: .whitespaces)
         if t.hasPrefix("name:") || t.hasPrefix(creditLimitKey + ":") || t.hasPrefix(allowNegativeKey + ":")
