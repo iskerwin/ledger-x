@@ -1,106 +1,35 @@
-name: Ledger CI
-run-name: '${{ github.event_name == ''pull_request'' && format(''CI · PR #{0}'', github.event.pull_request.number) || github.event_name == ''schedule'' && ''CI · 每周全量 · main'' || format(''CI · 手动测试 · {0}'', github.ref_name) }}'
+name: Inspect Calendar CI Evidence
+run-name: Inspect failed calendar evidence 43552692691
 on:
-  pull_request:
-    branches: [main]
-  # main every week (Sunday 22:00 Beijing): the full suite, verify only, so what PR selection misses is found within a
-  # week instead of at the release run. Publishes nothing.
-  schedule:
-    - cron: '0 14 * * 0'
   workflow_dispatch:
-    inputs:
-      core_filter:
-        description: '核心测试（可选）：例 CalendarMarkTests；与下面的用例都留空时跑全量'
-        default: ''
-      ui_tests:
-        description: 'App/界面测试（可选）：Target/Class[/method]，多个用空格分隔；例 LedgerTests/AppearanceTests'
-        default: ''
-      device:
-        description: '机型（可选）：留空自动选择；窄屏填 iPhone SE (3rd generation)'
-        default: ''
-      source_sha:
-        description: '无需填写：留空自动测试所选分支当前提交；命令行自动填写以锁定源码'
-        default: ''
 permissions:
   contents: read
-# 同一个 PR 只保留最新一次检查。这里不发布，取消旧检查没有副作用。
-concurrency:
-  group: 'ledger-ci-${{ github.event.pull_request.number || github.run_id }}'
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  actions: read
 jobs:
-  gate:
-    if: github.event_name == 'pull_request'
+  inspect:
     runs-on: macos-26
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-      - name: Check shared action loads without side effects
-        uses: ./.github/actions/ledger-run
-        with:
-          cache_epoch: ${{ vars.LEDGER_CACHE_EPOCH || '1' }}
-          check_only: 'true'
-      - name: Pin Xcode 26.6
-        run: bash tools/select_xcode.sh
-      - name: Install build and report tools
-        run: |
-          export HOMEBREW_NO_AUTO_UPDATE=1
-          if ! command -v xcodegen >/dev/null 2>&1; then brew install xcodegen; fi
-          python3 -m pip install 'beancount==3.2.0'
-      - name: Checks for this pull request
-        env:
-          # Read-only: the plan's baseline is the current dev package, as in Dev.
-          GH_TOKEN: ${{ github.token }}
-        run: python3 tools/pr_gate.py
-      # Dev reuses this when main becomes this same tree with the same plan.
-      - name: Keep PR proof
-        if: success()
-        uses: actions/upload-artifact@v7
-        with:
-          name: 'ledger-pr-proof-${{ github.run_id }}'
-          include-hidden-files: true
-          retention-days: 30
-          if-no-files-found: error
-          path: .ship/pr-proof.json
-      - name: Keep logs and results
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: 'ledger-pr-${{ github.run_id }}'
-          include-hidden-files: true
-          retention-days: 7
-          if-no-files-found: ignore
-          path: |
-            *-tests.log
-            demo-build.log
-            mac-build.log
-            LedgerMac.zip
-            interaction-tests*.xcresult/
-  test:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
-    runs-on: macos-26
-    timeout-minutes: 180
-    permissions:
-      contents: read
-      actions: write
+    timeout-minutes: 15
     env:
       GH_TOKEN: ${{ github.token }}
-      LEDGER_COMMAND: test
-      LEDGER_SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
-      LEDGER_CORE_FILTER: ${{ inputs.core_filter }}
-      LEDGER_UI_TESTS: ${{ inputs.ui_tests }}
-      LEDGER_SIMULATOR_DEVICE: ${{ inputs.device }}
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
-      - uses: actions/checkout@v7
+      - name: Read existing failed result without running tests
+        shell: bash
+        run: |
+          evidence="$RUNNER_TEMP/calendar-ci-evidence"
+          mkdir -p "$evidence/raw" "$evidence/extracted"
+          gh run download 43552692691 --repo iskerwin/ledger-x --name ledger-pr-43552692691 --dir "$evidence/raw"
+          bundle="$evidence/raw/interaction-tests-batch-1.xcresult"
+          xcrun xcresulttool get test-results summary --path "$bundle" --compact > "$evidence/extracted/summary.json"
+          xcrun xcresulttool get test-results tests --path "$bundle" --compact > "$evidence/extracted/tests.json"
+          xcrun xcresulttool export attachments --path "$bundle" --output-path "$evidence/extracted/attachments"
+          xcrun xcresulttool get test-results activities --help
+          cat "$evidence/extracted/summary.json"
+          cat "$evidence/extracted/tests.json"
+      - uses: actions/upload-artifact@v7
+        if: always()
         with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: ./.github/actions/ledger-run
-        with:
-          cache_epoch: ${{ vars.LEDGER_CACHE_EPOCH || '1' }}
+          name: calendar-ci-readable-evidence
+          retention-days: 7
+          if-no-files-found: error
+          path: ${{ runner.temp }}/calendar-ci-evidence/extracted/
