@@ -1493,7 +1493,12 @@ final class EditInteractionTests: XCTestCase {
     }
 
     private func chooseCalendarMonth(_ app: XCUIApplication, year: String, month: String) {
-        tapPoint(app.buttons["calendar.monthTitle"], timeout: 5)
+        let title = app.buttons["calendar.monthTitle"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        // On the first launch the header can still move after it exists. Resolve the button's
+        // actionable hit point after layout settles, as for Done below, rather than its centre.
+        waitSettled(title)
+        title.tap()
         // the wheels can only be turned once the popover has finished appearing: turning one while it still
         // animates in fails with "Failed to get possible values for picker"
         for (name, value) in [("calendar.yearWheel", year), ("calendar.monthWheel", month)] {
