@@ -288,7 +288,6 @@ struct JournalView: View {
                 BatchEditSheet(entries: selectedEntries, mode: m) { selecting = false; selected = [] }
             }
             .appSearchable(text: $typing, prompt: LS("收付款方、摘要、科目、对方、#标签、金额、2026-09"))
-            .searchSuggestions { if typing.isEmpty { searchHelp } }
             .onSubmit(of: .search) { q = typing }
             .onChange(of: typing) { _, text in if text.trimmed.isEmpty && !q.isEmpty { q = "" } }
             .onChange(of: q) { _, applied in if typing != applied { typing = applied } }
@@ -539,32 +538,6 @@ struct JournalView: View {
                 guard let saved, !selecting else { return }
                 withAnimation(reduceMotion ? nil : AppMotion.standard) { proxy.scrollTo(saved, anchor: .center) }
             }
-        }
-    }
-
-    /// how to search, while the box is empty: tap an example to start from it
-    @ViewBuilder private var searchHelp: some View {
-        let month = Day.ym(Day.today()), prev = Day.addMonth(Day.ym(Day.today()), -1)
-        let examples: [(String, String)] = [
-            ("\(prev) \(month)", LS("两个月份之间（也可写 %@）", prev + "~" + month)),
-            ("\(month) 科目:餐饮", LS("这个月、某个科目：几个条件用空格隔开，要同时满足")),
-            ("账户:招商 >100", LS("某个账户里大于 100 的（账户名或显示名称都行）")),
-            ("payee:滴滴 -加班", LS("收付款方是滴滴，排除摘要里有「加班」的")),
-            ("\(Day.today().prefix(4))-Q3", LS("一个季度；也可只写年份 %@", String(Day.today().prefix(4)))),
-            ("对方:王五", LS("和某人的往来")),
-            ("#trip", LS("带某个标签；^ 开头找链接，! 找待确认")),
-            ("#出差|#旅行", LS("用 | 表示任一：带其中一个标签就算；科目:餐饮|交通 也行")),
-            ("本月 科目:餐饮", LS("本月、上月、今年、近30天按今天计算；本周和上周跟手机的一周起始日，适合存成快速搜索")),
-        ]
-        if store.quickSearches.isEmpty {
-            Label(LS("搜索后点「保存」，即可加为快速搜索"), systemImage: "bookmark").labelStyle(ControlLabelStyle()).font(.footnote).foregroundStyle(.secondary)
-        }
-        ForEach(examples, id: \.0) { e in
-            VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                Text(e.0).font(.body.monospaced())
-                Text(e.1).font(.caption).foregroundStyle(.secondary)
-            }
-            .searchCompletion(e.0 + " ")
         }
     }
 
