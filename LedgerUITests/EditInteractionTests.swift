@@ -404,12 +404,17 @@ final class EditInteractionTests: XCTestCase {
     func testTagPickerCancelDoesNotChangeDraft() {
         let app = launch(filled: false)
         // spending's 标签 is in 更多
-        app.buttons["quick.more"].tap(); tapPoint(app.buttons["标签…"].firstMatch, timeout: 5)
+        app.buttons["quick.more"].tap()
+        let tagMenuItem = app.buttons["标签…"].firstMatch
+        XCTAssertTrue(tagMenuItem.waitForExistence(timeout: 5))
+        tagMenuItem.tap()
         let input = app.textFields["新标签，如 trip-shanghai"]
         XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("phase-two")
         app.buttons["添加"].tap()
         app.navigationBars.buttons["取消"].tap()
-        app.buttons["quick.more"].tap(); tapPoint(app.buttons["标签…"].firstMatch, timeout: 5)
+        app.buttons["quick.more"].tap()
+        XCTAssertTrue(tagMenuItem.waitForExistence(timeout: 5))
+        tagMenuItem.tap()
         XCTAssertFalse(app.staticTexts["#phase-two"].exists)
         app.navigationBars.buttons["取消"].tap()
         app.buttons["关闭"].tap()
@@ -744,6 +749,11 @@ final class EditInteractionTests: XCTestCase {
         partyCandidate.tap()
         XCTAssertEqual(party.value as? String, "Coffee")
         note.tap(); note.typeText(" updated")
+        // Event synthesis returning does not guarantee the final text change has reached accessibility yet.
+        // Wait for the complete value, rather than reading a transient prefix immediately after typing.
+        let inputApplied = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "Interaction test updated"), object: note)
+        XCTAssertEqual(XCTWaiter().wait(for: [inputApplied], timeout: 5), .completed)
         XCTAssertEqual(note.value as? String, "Interaction test updated")
         app.buttons["quick.text.done"].tap()
         XCTAssertTrue(keyboard.waitForNonExistence(timeout: 5))
@@ -1461,14 +1471,14 @@ final class EditInteractionTests: XCTestCase {
     /// outright instead of answering no, so wait for a real frame first; and it is already hittable while the popover
     /// still slides up, so also wait until two reads in a row find it in the same place. On a slow runner the contents
     /// can lose their frame again right after that, so frame, place and hittability are one wait
-    private func waitSettled(_ element: XCUIElement) {
+    private func waitSettled(_ element: XCUIElement, requireHittable: Bool = true) {
         var previous = CGRect.null
         let ready = expectation(for: NSPredicate { _, _ in
             let frame = element.frame
             defer { previous = frame }
             guard !frame.isInfinite && !frame.isNull && frame.width > 0 && frame.height > 0 && frame == previous
             else { return false }
-            return element.isHittable
+            return !requireHittable || element.isHittable
         }, evaluatedWith: nil)
         wait(for: [ready], timeout: 15)
     }
@@ -1483,24 +1493,35 @@ final class EditInteractionTests: XCTestCase {
     }
 
     private func chooseCalendarMonth(_ app: XCUIApplication, year: String, month: String) {
-        tapPoint(app.buttons["calendar.monthTitle"], timeout: 5)
+        let title = app.buttons["calendar.monthTitle"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        // A regular button's native tap synchronizes its hit point. Do not wrap its cold-start
+        // AX frame conversion in the popover's short predicate wait: that can cancel the query
+        // while this visible header is unchanged. The wheels below prove that the tap opened it.
+        title.tap()
         // the wheels can only be turned once the popover has finished appearing: turning one while it still
         // animates in fails with "Failed to get possible values for picker"
         for (name, value) in [("calendar.yearWheel", year), ("calendar.monthWheel", month)] {
-            let wheel = app.pickers[name].pickerWheels.firstMatch
+            let picker = app.pickers[name]
+            let wheel = picker.pickerWheels.firstMatch
             XCTAssertTrue(wheel.waitForExistence(timeout: 5))
             // A wheel already at this value needs no event. Turning it anyway rebuilds the other wheel
             // and can leave that wheel without an accessibility frame while the picker animates.
             if wheel.value as? String == value { continue }
-            waitSettled(wheel)
+            // The wheel's accessible bounds include its moving rows. Wait for the enclosing picker instead;
+            // adjust() resolves the wheel's current interaction point after that layout has settled.
+            waitSettled(picker, requireHittable: false)
             wheel.adjust(toPickerWheelValue: value)
+            XCTAssertEqual(wheel.value as? String, value)
         }
         // turning a wheel lays the popover out again (at large text, its button too): a tap while the button has no
         // frame fails with "point.x != INFINITY"
         let done = app.buttons["完成"]
         XCTAssertTrue(done.waitForExistence(timeout: 5))
         waitSettled(done)
-        done.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        // Use the button's actionable hit point. A saved centre coordinate can miss the toolbar
+        // when the large-text month picker finishes laying out after a wheel adjustment.
+        done.tap()
         // the title opens nothing while the popover is still on its way out, so the next month waits for it to go
         XCTAssertTrue(app.pickers["calendar.yearWheel"].waitForNonExistence(timeout: 5))
     }
