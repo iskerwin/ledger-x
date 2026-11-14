@@ -1,6 +1,7 @@
 """Dev output and stage limits, using tiny Python children; no builds or simulator."""
 import fcntl
 import io
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -8,6 +9,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from contextlib import ExitStack
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -78,6 +80,88 @@ class DevExecutionTests(unittest.TestCase):
         self.assertEqual(tests[0][1]['timeout'], 1500)
         self.assertIn('-only-testing:' + selector, tests[0][0])
         self.assertEqual(proof['selected_interaction']['selectors'], [selector])
+
+    def run_selected_batches(self, selectors, *, fail_batch=None, missing_batch=None, command='dev'):
+        calls, results = [], {}
+        def run(cmd, **options):
+            calls.append((cmd, options))
+            if 'test-without-building' not in cmd and 'test' not in cmd:
+                return
+            selected = [arg.removeprefix('-only-testing:') for arg in cmd if arg.startswith('-only-testing:')]
+            batch = len(results) + 1
+            if batch == fail_batch:
+                raise ship.Failure('fixture test failed')
+            # At 90 seconds per case plus setup/teardown, the old single 26-case invocation times out.
+            if options['timeout'] is not None and len(selected) * 90 + 120 > options['timeout']:
+                raise ship.Failure('fixture stage timeout')
+            path = cmd[cmd.index('-resultBundlePath') + 1]
+            results[path] = selected[:-1] if batch == missing_batch else selected
+        def out(cmd):
+            selected = results[cmd[cmd.index('--path') + 1]]
+            if 'summary' in cmd:
+                return json.dumps(dict(result='Passed', totalTestCount=len(selected), passedTests=len(selected),
+                                       failedTests=0, skippedTests=0, expectedFailures=0))
+            return json.dumps(dict(testNodes=[dict(nodeType='UI test bundle', name='LedgerUITests', children=[
+                dict(nodeType='Test Case', nodeIdentifier=selector, result='Passed') for selector in selected])]))
+        with tempfile.TemporaryDirectory() as temp, ExitStack() as stack:
+            stack.enter_context(patch.object(ship, 'ROOT', Path(temp)))
+            stack.enter_context(patch.dict(os.environ, dict(LEDGER_COMMAND=command, LEDGER_CORE_FILTER='',
+                                                           LEDGER_UI_TESTS='\n'.join(selectors), LEDGER_SIMULATOR_DEVICE='')))
+            for name, value in [('validate_development', lambda: dict(scope='build')), ('step', lambda text: None),
+                                ('fresh_simulator', lambda: ('fixture', 'fixture simulator')), ('run', run), ('out', out)]:
+                stack.enter_context(patch.object(ship, name, value))
+            shutdown = stack.enter_context(patch.object(ship.subprocess, 'run'))
+            try:
+                return ship.validate_targeted(), calls
+            finally:
+                shutdown.assert_called_once_with(['xcrun', 'simctl', 'shutdown', 'fixture'], capture_output=True)
+
+    def test_cumulative_ui_plan_finishes_in_bounded_batches_without_losing_cases_or_evidence(self):
+        selectors = [f'LedgerUITests/Example/testCase{index}' for index in range(26)]
+        proof, calls = self.run_selected_batches(selectors)
+        self.assertEqual(sum('build-for-testing' in cmd for cmd, _ in calls), 1)
+        runs = [(cmd, options) for cmd, options in calls if 'test-without-building' in cmd]
+        self.assertEqual(len(runs), 5)
+        actual = []
+        for cmd, options in runs:
+            batch = [arg.removeprefix('-only-testing:') for arg in cmd if arg.startswith('-only-testing:')]
+            self.assertLessEqual(len(batch), 6)
+            self.assertEqual(options['timeout'], 1500)
+            self.assertEqual(cmd[cmd.index('-maximum-test-execution-time-allowance') + 1], '180')
+            actual.extend(batch)
+        self.assertEqual(actual, selectors)
+        record = proof['selected_interaction']
+        self.assertEqual(record['selectors'], selectors)
+        self.assertEqual(record['passed'], 26)
+        self.assertEqual(len({batch['result'] for batch in record['batches']}), 5)
+        self.assertEqual(len({batch['log'] for batch in record['batches']}), 5)
+
+    def test_failed_or_missing_case_in_a_later_batch_cannot_leave_a_passing_proof(self):
+        selectors = [f'LedgerUITests/Example/testCase{index}' for index in range(14)]
+        with self.assertRaisesRegex(ship.Failure, 'fixture test failed'):
+            self.run_selected_batches(selectors, fail_batch=2)
+        with self.assertRaisesRegex(ship.Failure, '没有实际执行'):
+            self.run_selected_batches(selectors, missing_batch=2)
+
+    def test_manual_targeted_execution_keeps_its_existing_single_run_and_allowance(self):
+        selectors = [f'LedgerUITests/Example/testCase{index}' for index in range(26)]
+        proof, calls = self.run_selected_batches(selectors, command='test')
+        runs = [(cmd, options) for cmd, options in calls if 'test' in cmd]
+        self.assertEqual(len(runs), 1)
+        self.assertIsNone(runs[0][1]['timeout'])
+        self.assertEqual(proof['selected_interaction']['passed'], 26)
+        self.assertNotIn('batches', proof['selected_interaction'])
+
+    def test_batch_logs_show_test_progress_and_keep_counts_for_watch(self):
+        log = "Test Case '-[Example testSave]' passed (0.1 seconds).\nTest Case '-[Example testOpen]' started.\n"
+        with tempfile.TemporaryDirectory() as temp, patch.object(ship, 'ROOT', Path(temp)):
+            for name in ('batch-1-interaction-tests.log', 'batch-2-narrow-interaction-tests.log'):
+                (Path(temp) / name).write_text(log)
+                info = ship.log_progress(name, log)
+                self.assertEqual(info['passed'], 1)
+                self.assertEqual(info['current'], 'Example testOpen')
+            self.assertEqual(ship.run_totals(0), {'batch-1-interaction-tests.log': 1,
+                                                 'batch-2-narrow-interaction-tests.log': 1})
 
 
 if __name__ == '__main__':
