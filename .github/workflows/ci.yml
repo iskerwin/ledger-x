@@ -1,5 +1,5 @@
 name: Inspect Calendar CI Evidence
-run-name: Inspect failed calendar evidence 43552692691
+run-name: Inspect failed calendar activities and diagnostics
 on:
   workflow_dispatch:
 permissions:
@@ -13,23 +13,24 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
-      - name: Read existing failed result without running tests
+      - name: Read existing failed results without running tests
         shell: bash
         run: |
-          evidence="$RUNNER_TEMP/calendar-ci-evidence"
-          mkdir -p "$evidence/raw" "$evidence/extracted"
-          gh run download 43552692691 --repo iskerwin/ledger-x --name ledger-pr-43552692691 --dir "$evidence/raw"
-          bundle="$evidence/raw/interaction-tests-batch-1.xcresult"
-          xcrun xcresulttool get test-results summary --path "$bundle" --compact > "$evidence/extracted/summary.json"
-          xcrun xcresulttool get test-results tests --path "$bundle" --compact > "$evidence/extracted/tests.json"
-          xcrun xcresulttool export attachments --path "$bundle" --output-path "$evidence/extracted/attachments"
-          xcrun xcresulttool get test-results activities --help
-          cat "$evidence/extracted/summary.json"
-          cat "$evidence/extracted/tests.json"
+          for run in 43548744487 43552692691; do
+            evidence="$RUNNER_TEMP/calendar-ci-evidence/$run"
+            mkdir -p "$evidence/raw" "$evidence/extracted"
+            gh run download "$run" --repo iskerwin/ledger-x --name "ledger-pr-$run" --dir "$evidence/raw"
+            bundle="$evidence/raw/interaction-tests-batch-1.xcresult"
+            xcrun xcresulttool get test-results summary --path "$bundle" --compact > "$evidence/extracted/summary.json"
+            xcrun xcresulttool get test-results tests --path "$bundle" --compact > "$evidence/extracted/tests.json"
+            xcrun xcresulttool get test-results activities --path "$bundle" --test-id 'EditInteractionTests/testGlassCalendarFixedRowsAndDaySelection()' --compact > "$evidence/extracted/activities.json"
+            xcrun xcresulttool export attachments --path "$bundle" --output-path "$evidence/extracted/attachments"
+            xcrun xcresulttool export diagnostics --path "$bundle" --output-path "$evidence/extracted/diagnostics"
+          done
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: calendar-ci-readable-evidence
           retention-days: 7
           if-no-files-found: error
-          path: ${{ runner.temp }}/calendar-ci-evidence/extracted/
+          path: ${{ runner.temp }}/calendar-ci-evidence/*/extracted/
