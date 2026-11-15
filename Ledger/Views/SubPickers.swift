@@ -343,4 +343,3 @@ struct SubscriptionCalendarView: View {
         return subs.reduce(0.0) { $0 + (toCNY(L, $1.amount, $1.currency) ?? 0) }
     }
 }
-extension Entry: Identifiable {}

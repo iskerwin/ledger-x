@@ -2,7 +2,7 @@ import Foundation
 
 /// what one reading of a folder's ledger went by: its main file, the bytes of every file it read (nil: it couldn't be
 /// read), and the folder's files when an include wildcard or option "documents" asked for them
-struct FolderReads: Equatable {
+struct FolderReads: Equatable, Sendable {
     var root: String
     /// the language its messages are in
     var chinese = KitLocale.chinese
@@ -18,7 +18,7 @@ struct FolderReads: Equatable {
 }
 
 /// a ledger with what it was read from
-struct FolderLoad {
+struct FolderLoad: Sendable {
     let reads: FolderReads
     let ledger: Ledger
 }

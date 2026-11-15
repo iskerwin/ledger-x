@@ -1,7 +1,7 @@
 import Foundation
 
 /// a new entry worked out against a folder on this computer, nothing written yet; `issues` are what it would break
-public struct FolderSave {
+public struct FolderSave: Sendable {
     public let issues: [ChangeIssue]
     let main: String
     /// in the order they are written
@@ -170,7 +170,7 @@ public func prepareFolderAttachment(_ entry: Entry, data: Data, ext: String, fol
 }
 
 /// what deleting a document did with its file
-public enum DocumentFileOutcome: Equatable {
+public enum DocumentFileOutcome: Equatable, Sendable {
     /// left where it is, as asked
     case kept
     /// left where it is: this many other lines still point at it

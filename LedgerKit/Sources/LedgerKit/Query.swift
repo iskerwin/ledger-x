@@ -19,7 +19,7 @@ import Foundation
 // MARK: - values
 
 /// a multi-currency sum (what SUM(position) returns)
-public struct Inventory: Equatable {
+public struct Inventory: Equatable, Sendable {
     public var order: [String] = []
     public var amounts: [String: Double] = [:]
     public init() {}
@@ -31,7 +31,7 @@ public struct Inventory: Equatable {
     public var isEmpty: Bool { nonZero.isEmpty }
 }
 
-public enum QValue: Equatable {
+public enum QValue: Equatable, Sendable {
     case null
     case number(Double)
     case string(String)
@@ -102,7 +102,7 @@ public struct QueryError: Error, LocalizedError {
     init(_ m: String) { message = m }
 }
 
-public struct QueryResult {
+public struct QueryResult: Sendable {
     public var columns: [String]
     public var rows: [[QValue]]
     /// columns holding numbers or amounts (right-aligned in tables)
@@ -851,7 +851,7 @@ public func runQuery(_ text: String, _ L: Ledger) throws -> QueryResult {
 
 // MARK: - saved queries
 
-public struct SavedQuery: Codable, Identifiable, Hashable {
+public struct SavedQuery: Codable, Identifiable, Hashable, Sendable {
     public var id: String
     public var name: String
     public var text: String

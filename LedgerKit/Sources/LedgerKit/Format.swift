@@ -277,8 +277,8 @@ public func alignText(_ text: String) -> String {
 
 // MARK: - edits applied to repo files (pending queue)
 
-public struct Op: Codable, Identifiable, Equatable {
-    public enum Kind: String, Codable { case insert, remove, link, include, balance, deleteFile, replace, rename, renamePayee, write }
+public struct Op: Codable, Identifiable, Equatable, Sendable {
+    public enum Kind: String, Codable, Sendable { case insert, remove, link, include, balance, deleteFile, replace, rename, renamePayee, write }
     public var id = UUID()
     public var kind: Kind
     public var path: String

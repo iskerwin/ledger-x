@@ -6,7 +6,8 @@ let package = Package(
     platforms: [.iOS(.v17), .macOS(.v14)],
     products: [.library(name: "LedgerKit", targets: ["LedgerKit"])],
     targets: [
-        .target(name: "LedgerKit"),
+        // Sendable and actor checks where code opts into concurrency, as the apps' SWIFT_STRICT_CONCURRENCY: targeted
+        .target(name: "LedgerKit", swiftSettings: [.unsafeFlags(["-strict-concurrency=targeted"])]),
         .testTarget(name: "LedgerKitTests", dependencies: ["LedgerKit"], resources: [.copy("Fixtures")]),
     ]
 )
