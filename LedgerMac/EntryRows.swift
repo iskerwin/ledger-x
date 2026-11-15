@@ -261,6 +261,8 @@ struct EntryTasks {
         let save: FolderSave
         /// what goes ahead anyway, as the button says it
         let verb: String
+        /// the step as 编辑 › 撤销 names it
+        let step: String
         let done: () -> Void
     }
 
@@ -304,7 +306,7 @@ extension View {
             }
             .alert(tasks.wrappedValue.review?.save.issues.first?.title ?? "", isPresented: tasks.review.present(), presenting: tasks.wrappedValue.review) { review in
                 if !review.save.issues.contains(where: \.blocking) {
-                    Button(review.verb, role: .destructive) { commitEntrySave(review.save, tasks, folder: folder, done: review.done) }
+                    Button(review.verb, role: .destructive) { commitEntrySave(review.save, tasks, folder: folder, step: review.step, done: review.done) }
                 }
                 Button("取消", role: .cancel) {}
             } message: { review in
@@ -333,17 +335,17 @@ private func deleteEntry(_ entry: Entry, _ tasks: Binding<EntryTasks>, folder: U
         case .failure(let error): tasks.wrappedValue.notice = error.message
         case .success(let save):
             if save.issues.isEmpty {
-                commitEntrySave(save, tasks, folder: folder) {}
+                commitEntrySave(save, tasks, folder: folder, step: "删除交易") {}
             } else {
-                tasks.wrappedValue.review = EntryTasks.Review(save: save, verb: "仍然删除", done: {})
+                tasks.wrappedValue.review = EntryTasks.Review(save: save, verb: "仍然删除", step: "删除交易", done: {})
             }
         }
     }
 }
 
-private func commitEntrySave(_ save: FolderSave, _ tasks: Binding<EntryTasks>, folder: URL, done: () -> Void) {
+private func commitEntrySave(_ save: FolderSave, _ tasks: Binding<EntryTasks>, folder: URL, step: String, done: () -> Void) {
     do {
-        try commitFolderSave(save, folder: folder)
+        try SaveUndo.commit(save, folder: folder, name: step)
         done()
     } catch {
         tasks.wrappedValue.notice = error.localizedDescription
@@ -463,8 +465,9 @@ struct SourcePanel: View {
     private func attach(_ urls: [URL]) {
         let entry = entry, folder = folder
         Task {
-            let failed = await Task.detached { DocumentFiles.attach(urls, to: entry, folder: folder) }.value
-            message = failed ?? ""
+            let done = await Task.detached { DocumentFiles.attach(urls, to: entry, folder: folder) }.value
+            SaveUndo.record(done.change, folder: folder, name: "添加附件")
+            message = done.failure ?? ""
         }
     }
 
@@ -486,7 +489,7 @@ struct SourcePanel: View {
                 if save.issues.isEmpty {
                     write(save)
                 } else {
-                    tasks.review = EntryTasks.Review(save: save, verb: "仍然保存") { text = nil }
+                    tasks.review = EntryTasks.Review(save: save, verb: "仍然保存", step: "修改原文") { text = nil }
                 }
             }
         }
@@ -494,7 +497,7 @@ struct SourcePanel: View {
 
     private func write(_ save: FolderSave) {
         do {
-            try commitFolderSave(save, folder: folder)
+            try SaveUndo.commit(save, folder: folder, name: "修改原文")
             text = nil
         } catch {
             message = error.localizedDescription

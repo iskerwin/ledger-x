@@ -183,25 +183,27 @@ public enum DocumentFileOutcome: Equatable {
 
 /// A document's line removed, as the phone's 删除 does: with `file`, its file goes to the Trash as well, unless another
 /// line still points at it. The line goes first: stopped between the two, the most left behind is a file nothing points at.
-public func deleteFolderDocument(_ entry: Entry, file: Bool, folder: URL) throws -> DocumentFileOutcome {
+public func deleteFolderDocument(_ entry: Entry, file: Bool, folder: URL) throws -> (outcome: DocumentFileOutcome, change: FolderChange) {
     guard entry.type == .document, !entry.synthetic else { throw entryChanged }
     let save = try prepareFolderDelete(entry, folder: folder).get()
     let path = entry.path.flatMap { documentPath($0, from: entry.file) }
     let others = file && path != nil ? loadLedger(folder: folder).map { ledger in
         documentReferences(ledger, path: path!).filter { !($0.file == entry.file && $0.line == entry.line) }.count
     } ?? 0 : 0
-    try commitFolderSave(save, folder: folder)
-    guard file, let path else { return .kept }
-    if others > 0 { return .inUse(others) }
+    var change = try commitFolderSave(save, folder: folder)
+    guard file, let path else { return (.kept, change) }
+    if others > 0 { return (.inUse(others), change) }
     let url = folder.appendingPathComponent(path)
-    guard FileManager.default.fileExists(atPath: url.path) else { return .missing }
+    guard FileManager.default.fileExists(atPath: url.path) else { return (.missing, change) }
     do {
-        try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+        var trashed: NSURL?
+        try FileManager.default.trashItem(at: url, resultingItemURL: &trashed)
+        if let trashed { change.trashed.append((path, trashed as URL)) }
     } catch {
         throw FolderSaveError(message: tr("记录已移除，文件没能移到废纸篓：\(error.localizedDescription)",
                                           "The record is gone, but the file couldn't go to the Trash: \(error.localizedDescription)"))
     }
-    return .trashed
+    return (.trashed, change)
 }
 
 /// `documents/<box>/<box>_YYYYMMDD.<ext>`, numbered past what's in the folder and what the ledger already points at
@@ -279,8 +281,9 @@ public func prepareFolderConfig(folder: URL, _ change: (inout LedgerXConfig) -> 
     return .success(FolderSave(issues: [], main: folderMain(folder), files: [(LedgerXConfig.path, before, config.json())]))
 }
 
-/// Writes it, unless a file has changed since it was worked out.
-public func commitFolderSave(_ save: FolderSave, folder: URL) throws {
+/// Writes it, unless a file has changed since it was worked out; what it changed, to put back (`undoFolderChange`)
+@discardableResult
+public func commitFolderSave(_ save: FolderSave, folder: URL) throws -> FolderChange {
     for blob in save.blobs where FileManager.default.fileExists(atPath: folder.appendingPathComponent(blob.path).path) {
         throw FolderSaveError(message: tr("\(blob.path) 已经有了，没有写入", "\(blob.path) is already there: nothing was written"))
     }
@@ -300,6 +303,7 @@ public func commitFolderSave(_ save: FolderSave, folder: URL) throws {
         try coordinatedWrite(folder.appendingPathComponent(file.path), file.after)
     }
     if let after = save.after { FolderLedgers.keep(after, for: folder) }
+    return FolderChange(files: save.files.map { ($0.path, $0.before, $0.after) }, blobs: save.blobs)
 }
 
 /// ledger-x.json first, then what the ledger looks like (as the phone's Store does, without its settings)
@@ -313,7 +317,7 @@ private func folderLayout(_ ledger: Ledger, folder: URL) -> RepoLayout {
     return layout
 }
 
-private func coordinatedRead(_ url: URL) throws -> String {
+func coordinatedRead(_ url: URL) throws -> String {
     var coordination: NSError?
     var result: Result<String, Error>?
     NSFileCoordinator().coordinate(readingItemAt: url, options: [], error: &coordination) { readable in
@@ -323,7 +327,7 @@ private func coordinatedRead(_ url: URL) throws -> String {
     return try result?.get() ?? ""
 }
 
-private func coordinatedWrite(_ url: URL, _ text: String) throws {
+func coordinatedWrite(_ url: URL, _ text: String) throws {
     try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
     var coordination: NSError?
     var failure: Error?

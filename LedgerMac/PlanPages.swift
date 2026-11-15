@@ -305,7 +305,7 @@ struct SubscriptionsPage: View {
                 if !ids.contains(candidate.id) { ids.append(candidate.id) }
                 config.subsIgnored = ids
             }.get()
-            try commitFolderSave(save, folder: folder)
+            try SaveUndo.commit(save, folder: folder, name: "忽略订阅")
         } catch {
             notice = error.localizedDescription
         }

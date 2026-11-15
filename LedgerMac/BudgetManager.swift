@@ -119,7 +119,7 @@ struct BudgetManager: View {
     }
 
     private func write(_ save: FolderSave) {
-        do { try commitFolderSave(save, folder: folder) } catch { message = error.localizedDescription }
+        do { try SaveUndo.commit(save, folder: folder, name: "修改预算") } catch { message = error.localizedDescription }
     }
 }
 
@@ -229,6 +229,6 @@ private struct BudgetEditor: View {
     }
 
     private func write(_ save: FolderSave) {
-        do { try commitFolderSave(save, folder: folder); dismiss() } catch { message = error.localizedDescription }
+        do { try SaveUndo.commit(save, folder: folder, name: "修改预算"); dismiss() } catch { message = error.localizedDescription }
     }
 }

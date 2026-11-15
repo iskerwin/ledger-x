@@ -109,6 +109,7 @@ private struct ContentView: View {
     @State private var source = ""
     @State private var changes = 0
     @State private var readings = SerialWork()
+    @Environment(\.undoManager) private var undoManager
 
     var body: some View {
         Group {
@@ -128,6 +129,9 @@ private struct ContentView: View {
         .frame(minWidth: 960, minHeight: 640)
         .background(WindowReader { $0.fitScreen() })
         .navigationTitle(folder.isEmpty ? "Ledger X" : URL(fileURLWithPath: folder).lastPathComponent)
+        // saves are undone from this window's 编辑 › 撤销
+        .onAppear { SaveUndo.manager = undoManager }
+        .onChange(of: undoManager) { SaveUndo.manager = undoManager }
         .task(id: "\(changes)|\(opened)|\(folder)") {
             guard !folder.isEmpty else { return }
             let url = URL(fileURLWithPath: folder)
@@ -136,6 +140,7 @@ private struct ContentView: View {
                 open.folder = url
                 open.ledger = nil
                 missing = false
+                SaveUndo.forget()
                 watcher = FolderWatcher(url) { changes += 1 }
             }
             // one reading at a time: changes that arrive during one end in a single reading after it

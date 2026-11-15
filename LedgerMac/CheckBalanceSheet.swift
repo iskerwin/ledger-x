@@ -96,7 +96,7 @@ struct CheckBalanceSheet: View {
             let result = await Task.detached { prepareFolderBalance(account: account, day: day, amount: value, currency: currency, folder: folder) }.value
             saving = false
             do {
-                try commitFolderSave(try result.get(), folder: folder)
+                try SaveUndo.commit(try result.get(), folder: folder, name: "核对余额")
                 dismiss()
             } catch {
                 message = error.localizedDescription

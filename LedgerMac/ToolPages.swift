@@ -3,13 +3,14 @@ import UniformTypeIdentifiers
 import LedgerKit
 
 /// 值得留意 checked and found fine, set aside on every device: ledger-x.json, as the phone keeps it
+@MainActor
 func confirmAlert(_ alert: Anomaly, folder: URL) throws {
     let save = try prepareFolderConfig(folder: folder) { config in
         var ids = config.alertsConfirmed ?? []
         if !ids.contains(alert.id) { ids.append(alert.id) }
         config.alertsConfirmed = ids
     }.get()
-    try commitFolderSave(save, folder: folder)
+    try SaveUndo.commit(save, folder: folder, name: "核对无误")
 }
 
 extension Anomaly.Kind {
@@ -407,7 +408,10 @@ private struct ErrorDetail: View {
         let folder = folder, firstUsed = error.entry?.date
         Task {
             let outcome = await Task.detached { Result { try commitFolderSave(prepareFolderCommodity(currency, firstUsed: firstUsed, folder: folder).get(), folder: folder) } }.value
-            if case .failure(let error) = outcome { failure = error.localizedDescription }
+            switch outcome {
+            case .success(let change): SaveUndo.record(change, folder: folder, name: "补上声明")
+            case .failure(let error): failure = error.localizedDescription
+            }
             working = false
         }
     }

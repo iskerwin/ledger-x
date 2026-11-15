@@ -265,7 +265,7 @@ struct NewEntrySheet: View {
 
     private func write(_ prepared: FolderSave) {
         do {
-            try commitFolderSave(prepared, folder: folder)
+            try SaveUndo.commit(prepared, folder: folder, name: editing ? "修改交易" : "记一笔")
             if !editing { KeptDraft.clear(folder) }
             if another { startNext() } else { done() }
         } catch {

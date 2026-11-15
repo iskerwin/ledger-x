@@ -138,8 +138,9 @@ struct DocumentsPage: View {
     private func keep(_ urls: [URL], with account: String) {
         let folder = folder
         Task {
-            let failure = await Task.detached { DocumentFiles.keep(urls, with: account, folder: folder) }.value
-            message = failure ?? ""
+            let done = await Task.detached { DocumentFiles.keep(urls, with: account, folder: folder) }.value
+            SaveUndo.record(done.change, folder: folder, name: "添加对账单")
+            message = done.failure ?? ""
             failed = true
         }
     }
@@ -164,31 +165,26 @@ extension View {
 /// adding files from this Mac, the way the phone does
 enum DocumentFiles {
     /// each file as a statement of `account`, dated by its name when it has a day in it (2026-10-31, 20261031), else today;
-    /// the first failure, else nil
-    static func keep(_ urls: [URL], with account: String, folder: URL) -> String? {
-        for url in urls {
-            guard let data = try? Data(contentsOf: url) else { return "读不了 \(url.lastPathComponent)" }
-            let prepared = prepareFolderStatement(account: account, date: documentDay(inName: url.lastPathComponent) ?? Day.today(), data: data,
-                                                  ext: url.pathExtension, folder: folder)
-            if let failure = commit(prepared, folder: folder) { return failure }
+    /// the first failure, and what was written up to it as one step to undo
+    static func keep(_ urls: [URL], with account: String, folder: URL) -> (failure: String?, change: FolderChange) {
+        write(urls, folder: folder) { data, url in
+            prepareFolderStatement(account: account, date: documentDay(inName: url.lastPathComponent) ?? Day.today(), data: data,
+                                   ext: url.pathExtension, folder: folder)
         }
-        return nil
     }
 
-    /// each file attached to `entry`; the first failure, else nil
-    static func attach(_ urls: [URL], to entry: Entry, folder: URL) -> String? {
-        for url in urls {
-            guard let data = try? Data(contentsOf: url) else { return "读不了 \(url.lastPathComponent)" }
-            if let failure = commit(prepareFolderAttachment(entry, data: data, ext: url.pathExtension, folder: folder), folder: folder) { return failure }
-        }
-        return nil
+    /// each file attached to `entry`; the first failure, and what was written up to it as one step to undo
+    static func attach(_ urls: [URL], to entry: Entry, folder: URL) -> (failure: String?, change: FolderChange) {
+        write(urls, folder: folder) { data, url in prepareFolderAttachment(entry, data: data, ext: url.pathExtension, folder: folder) }
     }
 
     /// on the writing path, away from the window; the folder's watcher reads the change back
+    @MainActor
     static func delete(_ entry: Entry, file: Bool, folder: URL, done: @escaping (String, Bool) -> Void) {
-        Task {
+        Task { @MainActor in
             let outcome = await Task.detached { Result { try deleteFolderDocument(entry, file: file, folder: folder) } }.value
-            switch outcome {
+            if case .success(let deleted) = outcome { SaveUndo.record(deleted.change, folder: folder, name: "删除附件") }
+            switch outcome.map(\.outcome) {
             case .success(.inUse(let n)): done("文件还被其他 \(n) 条记录使用，已保留文件", false)
             case .success(.missing): done("文件夹里没有这个文件，只移除了引用", false)
             case .success: done("", false)
@@ -197,14 +193,19 @@ enum DocumentFiles {
         }
     }
 
-    private static func commit(_ prepared: Result<FolderSave, FolderSaveError>, folder: URL) -> String? {
-        switch prepared {
-        case .failure(let error): return error.message
-        case .success(let save):
-            if let issue = save.issues.first { return issue.detail.isEmpty ? issue.title : issue.detail }
-            do { try commitFolderSave(save, folder: folder) } catch { return error.localizedDescription }
-            return nil
+    private static func write(_ urls: [URL], folder: URL, _ prepare: (Data, URL) -> Result<FolderSave, FolderSaveError>) -> (failure: String?, change: FolderChange) {
+        var changes: [FolderChange] = []
+        func stop(_ failure: String) -> (failure: String?, change: FolderChange) { (failure, .merged(changes)) }
+        for url in urls {
+            guard let data = try? Data(contentsOf: url) else { return stop("读不了 \(url.lastPathComponent)") }
+            switch prepare(data, url) {
+            case .failure(let error): return stop(error.message)
+            case .success(let save):
+                if let issue = save.issues.first { return stop(issue.detail.isEmpty ? issue.title : issue.detail) }
+                do { changes.append(try commitFolderSave(save, folder: folder)) } catch { return stop(error.localizedDescription) }
+            }
         }
+        return (nil, .merged(changes))
     }
 }
 

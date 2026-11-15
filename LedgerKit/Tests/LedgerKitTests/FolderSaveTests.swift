@@ -590,9 +590,9 @@ final class FolderSaveTests: XCTestCase {
         func statement(_ name: String) throws -> Entry {
             try XCTUnwrap(documentItems(try XCTUnwrap(loadLedger(folder: folder))).first { $0.name == name }?.entry)
         }
-        XCTAssertEqual(try deleteFolderDocument(try statement("bank_20261030.pdf"), file: false, folder: folder), .kept)
+        XCTAssertEqual(try deleteFolderDocument(try statement("bank_20261030.pdf"), file: false, folder: folder).outcome, .kept)
         XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent("documents/bank/bank_20261030.pdf").path))
-        XCTAssertEqual(try deleteFolderDocument(try statement("bank_20261031.pdf"), file: true, folder: folder), .trashed)
+        XCTAssertEqual(try deleteFolderDocument(try statement("bank_20261031.pdf"), file: true, folder: folder).outcome, .trashed)
         XCTAssertFalse(FileManager.default.fileExists(atPath: folder.appendingPathComponent("documents/bank/bank_20261031.pdf").path))
         XCTAssertTrue(documentItems(try XCTUnwrap(loadLedger(folder: folder))).isEmpty)
     }
@@ -606,7 +606,7 @@ final class FolderSaveTests: XCTestCase {
 
         """)
         let first = try XCTUnwrap(documentItems(try XCTUnwrap(loadLedger(folder: folder))).last?.entry)
-        XCTAssertEqual(try deleteFolderDocument(first, file: true, folder: folder), .inUse(1))
+        XCTAssertEqual(try deleteFolderDocument(first, file: true, folder: folder).outcome, .inUse(1))
         XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent("documents/bank/shared.pdf").path))
         XCTAssertEqual(documentItems(try XCTUnwrap(loadLedger(folder: folder))).map(\.account), ["Assets:Cash"])
     }

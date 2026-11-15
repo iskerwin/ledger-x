@@ -74,6 +74,15 @@ private struct AccountEditor: View {
         case save(AccountForm, Entry?)
         case close(Entry, String)
         case reopen(Entry)
+
+        /// as 编辑 › 撤销 names it
+        var step: String {
+            switch self {
+            case .save(_, let original): original == nil ? "新建账户" : "修改账户"
+            case .close: "关闭账户"
+            case .reopen: "重新开启账户"
+            }
+        }
     }
     let folder: URL
     @State private var original: Entry?
@@ -86,6 +95,7 @@ private struct AccountEditor: View {
     @State private var initialCloseDate = Day.today()
     @State private var message = ""
     @State private var saving = false
+    @State private var step = ""
     @State private var leaving = false
     @State private var closing = false
     @State private var reopening = false
@@ -219,6 +229,7 @@ private struct AccountEditor: View {
         guard !saving else { return }
         saving = true
         message = ""
+        step = change.step
         let folder = folder
         Task { @MainActor in
             let result = await Task.detached {
@@ -239,7 +250,7 @@ private struct AccountEditor: View {
 
     private func write(_ save: FolderSave) {
         do {
-            try commitFolderSave(save, folder: folder)
+            try SaveUndo.commit(save, folder: folder, name: step)
             dismiss()
         } catch { message = error.localizedDescription }
     }
