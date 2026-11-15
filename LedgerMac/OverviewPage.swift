@@ -350,8 +350,11 @@ private struct PeriodBars: View {
                 Rectangle().fill(.clear).contentShape(Rectangle())
                     .onContinuousHover { phase in
                         switch phase {
-                        case .active(let point): hovered = key(at: point, proxy, geometry).flatMap { keys.contains($0) ? $0 : nil }
-                        case .ended: hovered = nil
+                        // set only on a change: every pointer move would otherwise draw the chart again
+                        case .active(let point):
+                            let over = key(at: point, proxy, geometry).flatMap { keys.contains($0) ? $0 : nil }
+                            if hovered != over { hovered = over }
+                        case .ended: if hovered != nil { hovered = nil }
                         }
                     }
                     .gesture(SpatialTapGesture().onEnded { tap in
