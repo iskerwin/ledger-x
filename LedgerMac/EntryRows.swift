@@ -207,10 +207,24 @@ struct EntryListCard<Header: View>: View {
     @ViewBuilder var header: Header
     @State private var open: String?
     @State private var tasks = EntryTasks()
+    /// the rows and their widths are kept while the card is drawn again for a hover or an opened source
+    @State private var worked = LastResult<CardRows, (lines: [JournalRow], widths: EntryWidths)>()
+
+    /// what the rows were worked out from: the same loaded ledger, account and entries
+    private struct CardRows: Equatable {
+        let ledger: Ledger
+        let account: String?
+        let entries: [Entry]
+        static func == (a: Self, b: Self) -> Bool {
+            a.ledger === b.ledger && a.account == b.account && a.entries.elementsEqual(b.entries, by: ===)
+        }
+    }
 
     var body: some View {
-        let lines = entries.map { JournalRow($0, ledger, account: account) }
-        let widths = EntryWidths.measure(lines)
+        let (lines, widths) = worked.value(for: CardRows(ledger: ledger, account: account, entries: entries)) {
+            let lines = entries.map { JournalRow($0, ledger, account: account) }
+            return (lines, EntryWidths.measure(lines))
+        }
         // the card's width isn't known here: as many columns as fit
         let full = widths.fit(columns, in: .infinity), least = widths.fit(columns, in: 0)
         Card {

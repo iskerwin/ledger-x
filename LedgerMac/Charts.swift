@@ -134,9 +134,11 @@ private extension View {
                         switch phase {
                         case .active(let point):
                             guard let plot = proxy.plotFrame else { return }
-                            picked.wrappedValue = proxy.value(atX: point.x - geometry[plot].minX, as: String.self)
+                            // set only on a change: every pointer move would otherwise draw the chart again
+                            let month = proxy.value(atX: point.x - geometry[plot].minX, as: String.self)
+                            if picked.wrappedValue != month { picked.wrappedValue = month }
                         case .ended:
-                            picked.wrappedValue = nil
+                            if picked.wrappedValue != nil { picked.wrappedValue = nil }
                         }
                     }
             }
