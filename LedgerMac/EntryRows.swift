@@ -429,6 +429,33 @@ struct DayOrderSheet: View {
     }
 }
 
+extension Binding {
+    /// shown while there is something in it; put away, nothing
+    func present<Wrapped>() -> Binding<Bool> where Value == Wrapped? {
+        Binding<Bool>(get: { wrappedValue != nil }, set: { if !$0 { wrappedValue = nil } })
+    }
+}
+
+private func deleteMessage(_ entry: Entry, _ ledger: Ledger) -> String {
+    let summary = [entry.date, entry.payee, entry.narration].filter { !$0.isEmpty }.joined(separator: " ")
+    let linked = ledger.txns.filter { !$0.synthetic && $0.src != entry.src && !Set($0.links).isDisjoint(with: entry.links) }.count
+    return linked == 0 ? summary : summary + LS("\n它和另外 %@ 笔交易有关联", linked)
+}
+
+private func deleteEntry(_ entry: Entry, _ tasks: Binding<EntryTasks>, folder: URL) {
+    Task { @MainActor in
+        switch await Task.detached(operation: { prepareFolderDelete(entry, folder: folder) }).value {
+        case .failure(let error): tasks.wrappedValue.notice = error.message
+        case .success(let save):
+            if save.issues.isEmpty {
+                commitEntrySave(save, tasks, folder: folder, step: LS("删除交易")) {}
+            } else {
+                tasks.wrappedValue.review = EntryTasks.Review(save: save, verb: LS("仍然删除"), step: LS("删除交易"), done: {})
+            }
+        }
+    }
+}
+
 @MainActor
 private func commitEntrySave(_ save: FolderSave, _ tasks: Binding<EntryTasks>, folder: URL, step: String, done: () -> Void) {
     do {
