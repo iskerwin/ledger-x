@@ -233,27 +233,28 @@ public struct RatePoint {
     public let v: Double
 }
 
+/// Shared across threads once loaded (`@unchecked Sendable`): only LedgerKit, while building it, sets what it holds
 public final class Ledger: @unchecked Sendable {
-    public var entries: [Entry] = []
-    public var files: [String] = []
-    public var options: [String: [String?]] = [:]
-    public var plugins: [(String?, String?)] = []
-    public var errors: [LedgerError] = []
-    public var accounts: [String: Account] = [:]
-    public var txns: [Entry] = []
-    public var balances: [Entry] = []
-    public var prices: [Entry] = []
-    public var commodities: [String: Meta] = [:]
-    public var pads: [Entry] = []
-    public var events: [Entry] = []
-    public var notes: [Entry] = []
-    public var documents: [Entry] = []
-    public var base = "CNY"
-    public var balanceResults: [BalanceResult] = []
+    public internal(set) var entries: [Entry] = []
+    public internal(set) var files: [String] = []
+    public internal(set) var options: [String: [String?]] = [:]
+    public internal(set) var plugins: [(String?, String?)] = []
+    public internal(set) var errors: [LedgerError] = []
+    public internal(set) var accounts: [String: Account] = [:]
+    public internal(set) var txns: [Entry] = []
+    public internal(set) var balances: [Entry] = []
+    public internal(set) var prices: [Entry] = []
+    public internal(set) var commodities: [String: Meta] = [:]
+    public internal(set) var pads: [Entry] = []
+    public internal(set) var events: [Entry] = []
+    public internal(set) var notes: [Entry] = []
+    public internal(set) var documents: [Entry] = []
+    public internal(set) var base = "CNY"
+    public internal(set) var balanceResults: [BalanceResult] = []
     /// account -> currency -> units
-    public var final: [String: [String: Double]] = [:]
-    public var inventory: [String: [Lot]] = [:]
-    public var rates: [String: [RatePoint]] = [:]
+    public internal(set) var final: [String: [String: Double]] = [:]
+    public internal(set) var inventory: [String: [Lot]] = [:]
+    public internal(set) var rates: [String: [RatePoint]] = [:]
     /// figures worked out from the ledger once and kept with it (it doesn't change once loaded)
     private var memo: [String: Any] = [:]
     private let memoLock = NSLock()
