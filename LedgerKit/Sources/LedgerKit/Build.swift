@@ -290,13 +290,15 @@ public func ledgerConfig(folder: URL) -> LedgerXConfig? {
     (try? String(contentsOf: folder.appendingPathComponent(LedgerXConfig.path), encoding: .utf8)).flatMap(LedgerXConfig.parse)
 }
 
-/// the ledger in a folder on this computer, starting from ledger-x.json's main file, else main.bean; nil without that file
+/// the ledger in a folder on this computer, starting from ledger-x.json's main file, else main.bean; nil without that file.
+/// Parsed again only when the folder no longer holds what the last reading of it went by (`FolderLedgers`).
 public func loadLedger(folder: URL) -> Ledger? {
     let root = folderMain(folder)
     guard FileManager.default.fileExists(atPath: folder.appendingPathComponent(root).path) else { return nil }
-    return loadLedger(root: root, listFiles: { folderFiles(folder) }) { path in
-        try String(contentsOf: folder.appendingPathComponent(path), encoding: .utf8)
-    }
+    if let kept = FolderLedgers.current(folder) { return kept }
+    let load = readFolderLedger(root: root, folder: folder)
+    FolderLedgers.keep(load, for: folder)
+    return load.ledger
 }
 
 func folderMain(_ folder: URL) -> String {

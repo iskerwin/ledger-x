@@ -108,6 +108,7 @@ private struct ContentView: View {
     /// which folder and opening is on screen: while it stays the same, a reload keeps the old list up until the new one is ready
     @State private var source = ""
     @State private var changes = 0
+    @State private var readings = SerialWork()
 
     var body: some View {
         Group {
@@ -137,8 +138,8 @@ private struct ContentView: View {
                 missing = false
                 watcher = FolderWatcher(url) { changes += 1 }
             }
-            let loaded = await Task.detached { (loadLedger(folder: url), ledgerConfig(folder: url)) }.value
-            guard !Task.isCancelled else { return }
+            // one reading at a time: changes that arrive during one end in a single reading after it
+            guard let loaded = await readings.run({ (loadLedger(folder: url), ledgerConfig(folder: url)) }), !Task.isCancelled else { return }
             open.ledger = loaded.0
             open.config = loaded.1
             missing = loaded.0 == nil
