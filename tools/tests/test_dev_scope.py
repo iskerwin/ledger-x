@@ -227,7 +227,8 @@ class DevScopeTests(unittest.TestCase):
         self.assertIn('LedgerUITests/EditInteractionTests/testJournalSearchAppliesOnSubmitAndClearRestores', plan['ui_tests'])
         self.assertNotIn('LedgerUITests/EditInteractionTests', plan['ui_tests'])
         self.assertNotIn('LedgerUITests/ColorInteractionTests', plan['ui_tests'])
-        self.assertEqual(len([value for value in plan['ui_tests'] if value.startswith('LedgerUITests/')]), 16)
+        # 15: the system calendar's dot test went with the system calendar
+        self.assertEqual(len([value for value in plan['ui_tests'] if value.startswith('LedgerUITests/')]), 15)
 
 
     SHARED = (

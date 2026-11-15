@@ -20,7 +20,6 @@ CRITICAL_UI = tuple('LedgerUITests/EditInteractionTests/' + name for name in (
 ))
 CALENDAR_TESTS = (
     'testTheCalendarTakesTheQuickFiltersPlaceAndKeepsItsHeight',
-    'testTheCalendarDotsSitUnderTheirDate',
     'testGlassCalendarFixedRowsAndDaySelection',
     'testGlassCalendarFixedRowsAndDaySelectionAtLargeText',
     'testGlassSubscriptionCalendarRangeAndSelection',
