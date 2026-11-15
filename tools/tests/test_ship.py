@@ -100,6 +100,25 @@ class ShipTests(unittest.TestCase):
                 with self.subTest(updates=updates), self.assertRaises(ValueError):
                     ship.verify_package(folder, dict(manifest, **updates), proof, 'example/app')
 
+    def test_a_full_run_reports_its_slowest_interaction_tests(self):
+        log = ("Test Case '-[LedgerUITests.EditInteractionTests testA]' passed (12.5 seconds).\n"
+               "Test Case '-[LedgerUITests.EditInteractionTests testB]' failed (70.951 seconds).\n"
+               "Test Case '-[LedgerTests.SyncTests testC]' passed (0.2 seconds).\n"
+               "Test Case '-[LedgerUITests.EditInteractionTests testD]' started.\n")
+        self.assertEqual(ship.slowest_tests(log, 2), [(70.951, 'EditInteractionTests testB', False),
+                                                      (12.5, 'EditInteractionTests testA', True)])
+        with tempfile.TemporaryDirectory() as temp:
+            summary = Path(temp) / 'summary.md'
+            with patch.dict(os.environ, GITHUB_STEP_SUMMARY=str(summary)), patch('builtins.print') as shown:
+                ship.report_slowest(log)
+            printed = shown.call_args.args[0]
+            self.assertIn('合计 1 分钟', printed)
+            self.assertLess(printed.index('testB（失败）'), printed.index('testA'))
+            self.assertIn('| 71 | EditInteractionTests testB（失败） |', summary.read_text())
+        with patch('builtins.print') as shown:
+            ship.report_slowest('no cases here')
+        shown.assert_not_called()
+
     def test_package_needs_complete_local_validation(self):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp)

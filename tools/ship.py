@@ -469,6 +469,28 @@ def checked_interaction_results(summary, tests):
     return targets
 
 
+def slowest_tests(text, count=10):
+    """The slowest finished cases in an xcodebuild log, slowest first: (seconds, 'Class method', passed)."""
+    cases = [(float(seconds), name, result == 'passed') for name, result, seconds in
+             re.findall(r"Test Case '-\[(?:\w+\.)?(\S+ \S+)\]' (passed|failed) \((\d+(?:\.\d+)?) seconds\)", text)]
+    return sorted(cases, key=lambda case: -case[0])[:count]
+
+
+def report_slowest(text):
+    """Each full run says where its interaction time went, so the slow cases can be dealt with one by one."""
+    cases = slowest_tests(text)
+    if not cases:
+        return
+    total = sum(float(s) for s in re.findall(r"Test Case '-\[\S+ \S+\]' (?:passed|failed) \((\d+(?:\.\d+)?) seconds\)", text))
+    lines = [f'最慢的 {len(cases)} 个（全部用例合计 {total / 60:.0f} 分钟）：']
+    lines += [f'  {seconds:6.0f} 秒  {name}{"" if passed else "（失败）"}' for seconds, name, passed in cases]
+    print('\n'.join(lines), flush=True)
+    if os.environ.get('GITHUB_STEP_SUMMARY'):
+        with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as target:
+            target.write('\n## 最慢的界面测试\n\n| 秒 | 用例 |\n| ---: | --- |\n'
+                         + ''.join(f'| {seconds:.0f} | {name}{"" if passed else "（失败）"} |\n' for seconds, name, passed in cases))
+
+
 def interaction_results():
     command = ['xcrun', 'xcresulttool', 'get', 'test-results']
     try:
@@ -510,13 +532,14 @@ def validate():
     run(['xcodebuild', 'build-for-testing', '-project', 'Ledger.xcodeproj', '-scheme', 'LedgerInteractionTests',
          '-destination', destination, '-derivedDataPath', 'build-demo', 'CODE_SIGNING_ALLOWED=NO'], log='demo-build.log')
 
-    step('附件与交互测试（不并行，约 20 分钟）')
+    step('附件与交互测试（不并行，约 1 小时）')
     shutil.rmtree(ROOT / 'interaction-tests.xcresult', ignore_errors=True)
     code = run(['xcodebuild', 'test-without-building', '-project', 'Ledger.xcodeproj', '-scheme', 'LedgerInteractionTests',
                 '-destination', destination, '-derivedDataPath', 'build-demo', '-parallel-testing-enabled', 'NO',
                 '-test-timeouts-enabled', 'YES', '-maximum-test-execution-time-allowance', str(TEST_TIMEOUT),
                 '-resultBundlePath', 'interaction-tests.xcresult'], log='interaction-tests.log', check=False)
     text = (ROOT / 'interaction-tests.log').read_text(errors='replace')
+    report_slowest(text)
     failures = re.findall(r"Test Case '-\[(\S+ \S+)\]' failed", text)
     if code or failures or not re.search(r'\*\* TEST (EXECUTE )?SUCCEEDED \*\*', text):
         for name in failures:
