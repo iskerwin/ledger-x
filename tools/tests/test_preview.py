@@ -19,6 +19,15 @@ ROOT = Path(__file__).resolve().parents[2]
 DEMO_SHA = ship.content_digest([('main.bean', b'; fictional sample')])
 
 
+
+def fake_mac(version, build, target):
+    """ship.build_mac without Xcode: a zip holding the Info.plist it would check."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(target, 'w') as package:
+        package.writestr(ship.MAC_INFO, plistlib.dumps(dict(
+            CFBundleShortVersionString=version, CFBundleVersion=build, CFBundleIdentifier='com.iskerwin.ledger.mac')))
+    return target
+
 class PreviewNumberTests(unittest.TestCase):
     def test_previews_count_up_after_the_last_dev_and_never_take_its_number(self):
         releases = [dict(tag_name='dev', body='版本 1.0.8 · 构建 41 · main abc')]
@@ -68,6 +77,7 @@ class PreviewPublishTests(unittest.TestCase):
                     patch.object(ship, 'fetch_releases', return_value=[dict(tag_name='dev', body='构建 41')]),
                     patch.object(ship, 'out', return_value=''), patch.object(ship, 'listed_builds', return_value=[]),
                     patch.object(ship, 'build_ipa', side_effect=build),
+                    patch.object(ship, 'build_mac', side_effect=fake_mac),
                     patch.object(ship, 'gh_api', return_value=[dict(number=13)]),
                     patch.object(ship, 'release_for_tag', return_value=None),
                     patch.object(ship, 'run', side_effect=lambda cmd, **kw: calls.append([str(c) for c in cmd])),
@@ -88,6 +98,8 @@ class PreviewPublishTests(unittest.TestCase):
             notes = (root/'dist/release-notes.md').read_text()
             self.assertIn('版本 1.0.8 · 构建 41.1 · fix/x aaaaaaa · PR #13', notes)
             self.assertIn('不能转正', notes)
+            self.assertIn(str(root/'dist'/ship.MAC_ZIP), releases[0])
+            self.assertIn('mac_sha256', manifest)
             # a preview can never be promoted
             with self.assertRaises(ship.Failure):
                 ship.promoted_identity(manifest)
