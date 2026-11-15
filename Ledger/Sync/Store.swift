@@ -853,14 +853,16 @@ enum Prefs {
         guard gen == rebuildGen else { return }
         let files = tree.files
         let ops = pending
-        // ledger-x.json first: it may name the main file
-        repoConfig = Self.readConfig(files: files, ops: ops)
+        // ledger-x.json first: it may name the main file. Read off the main thread, as the cached files are on disk
+        let config = await Task.detached(priority: .userInitiated) { Store.readConfig(files: files, ops: ops) }.value
+        guard gen == rebuildGen else { return }
+        repoConfig = config
         let main = self.main
         let receivable = self.receivable
-        let result: (Ledger, Derived)? = await Task.detached(priority: .userInitiated) {
+        let result: (Ledger, Derived, [SavedQuery])? = await Task.detached(priority: .userInitiated) {
             let L = Store.loadWith(files: files, main: main, ops: ops)
             if L.txns.isEmpty && L.files.isEmpty { return nil }
-            return (L, Derived(L, receivable: receivable))
+            return (L, Derived(L, receivable: receivable), Store.ledgerQueries(L, files: files, ops: ops))
         }.value
         // a newer rebuild started (another commit, or the ledger was switched): its result wins
         guard gen == rebuildGen else { return }
@@ -872,13 +874,7 @@ enum Prefs {
             L = r.0
             D = r.1
             tplCache = nil
-            var qs = Self.directiveQueries(r.0)
-            let bql = Set(files.keys.filter { $0.hasSuffix(".bql") }).union(ops.map { $0.path }.filter { $0.hasSuffix(".bql") })
-            for path in bql.sorted() {
-                let base = files[path].flatMap { BlobCache.get($0) } ?? ""
-                if let t = try? applyOps(base, path: path, ops: ops) { qs += parseBQLFile(t, file: path) }
-            }
-            ledgerQueries = qs
+            ledgerQueries = r.2
             loadError = nil
             version += 1
             afterLoad()
@@ -892,8 +888,19 @@ enum Prefs {
         }
     }
 
+    /// the ledger's query directives, then each *.bql file's, with queued changes applied
+    nonisolated static func ledgerQueries(_ L: Ledger, files: [String: String], ops: [Op]) -> [SavedQuery] {
+        var qs = directiveQueries(L)
+        let bql = Set(files.keys.filter { $0.hasSuffix(".bql") }).union(ops.map { $0.path }.filter { $0.hasSuffix(".bql") })
+        for path in bql.sorted() {
+            let base = files[path].flatMap { BlobCache.get($0) } ?? ""
+            if let t = try? applyOps(base, path: path, ops: ops) { qs += parseBQLFile(t, file: path) }
+        }
+        return qs
+    }
+
     /// ledger-x.json from the downloaded files, with queued changes applied
-    static func readConfig(files: [String: String], ops: [Op]) -> LedgerXConfig? {
+    nonisolated static func readConfig(files: [String: String], ops: [Op]) -> LedgerXConfig? {
         let path = LedgerXConfig.path
         let base = files[path].flatMap { BlobCache.get($0) }
         guard base != nil || ops.contains(where: { $0.path == path }) else { return nil }
@@ -1260,7 +1267,7 @@ enum Prefs {
 
     // MARK: - helpers for views
 
-    static func directiveQueries(_ L: Ledger) -> [SavedQuery] {
+    nonisolated static func directiveQueries(_ L: Ledger) -> [SavedQuery] {
         L.entries.filter { $0.type == .query }.compactMap { e in
             guard let q = e.query, !q.trimmed.isEmpty else { return nil }
             return SavedQuery(id: "query:" + (e.name ?? q), name: e.name ?? "query", text: q.trimmed, source: "ledger")
