@@ -772,7 +772,7 @@ public struct LayoutRule: Codable, Equatable, Hashable, Sendable {
 }
 
 /// a saved search on 明细
-public struct QuickSearch: Codable, Equatable, Identifiable, Hashable {
+public struct QuickSearch: Codable, Equatable, Identifiable, Hashable, Sendable {
     public var name: String
     public var query: String
     public var id: String { name + "|" + query }
