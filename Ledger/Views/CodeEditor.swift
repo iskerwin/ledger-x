@@ -218,6 +218,7 @@ struct CodeTextView: UIViewRepresentable {
         v.inputAccessoryView = editable ? accessory(v) : nil
         v.delegate = context.coordinator
         v.text = text
+        context.coordinator.synced = text
         return v
     }
 
@@ -263,11 +264,16 @@ struct CodeTextView: UIViewRepresentable {
             h.language = language
             h.apply(v.textStorage, NSRange(location: 0, length: v.textStorage.length))
         }
-        if v.text != text {
-            let sel = v.selectedRange
-            v.text = text
-            if NSMaxRange(sel) <= (text as NSString).length { v.selectedRange = sel }
-            if fitsContent { v.invalidateIntrinsicContentSize() }
+        // The view's own edits arrive through textViewDidChange and are remembered there: only a text set from
+        // outside differs, so typing does not copy and compare the whole text again on every key.
+        if text != context.coordinator.synced {
+            context.coordinator.synced = text
+            if v.text != text {
+                let sel = v.selectedRange
+                v.text = text
+                if NSMaxRange(sel) <= (text as NSString).length { v.selectedRange = sel }
+                if fitsContent { v.invalidateIntrinsicContentSize() }
+            }
         }
         if context.coordinator.find != find {
             context.coordinator.find = find
@@ -295,13 +301,17 @@ struct CodeTextView: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate {
         var parent: CodeTextView
         var find = 0
+        /// the text the view and the binding last agreed on
+        var synced = ""
         let highlighter: CodeHighlighter
         init(_ p: CodeTextView) {
             parent = p
             highlighter = CodeHighlighter(p.language, size: p.fontSize)
         }
         func textViewDidChange(_ v: UITextView) {
-            parent.text = v.text
+            let now = v.text ?? ""
+            synced = now
+            parent.text = now
             if parent.fitsContent { v.invalidateIntrinsicContentSize() }
         }
         func textViewDidBeginEditing(_ v: UITextView) { if parent.focused?.wrappedValue == false { parent.focused?.wrappedValue = true } }

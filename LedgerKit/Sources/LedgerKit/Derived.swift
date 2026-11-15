@@ -45,7 +45,12 @@ public enum Day {
 
     public static func string(_ d: Date) -> String {
         let c = calendar.dateComponents([.year, .month, .day], from: d)
-        return String(format: "%04d-%02d-%02d", c.year!, c.month!, c.day!)
+        return pad(c.year!, 4) + "-" + pad(c.month!, 2) + "-" + pad(c.day!, 2)
+    }
+    /// `%0<width>d` without the format parser: dates are made for every row and every calendar cell
+    private static func pad(_ n: Int, _ width: Int) -> String {
+        let s = String(n)
+        return s.count >= width ? s : String(repeating: "0", count: width - s.count) + s
     }
     public static func today() -> String { string(Date()) }
     public static func date(_ s: String) -> Date? {
@@ -70,15 +75,26 @@ public enum Day {
         if !KitLocale.chinese { return "\(MONTHS_EN[max(0, min(11, mo - 1))]) \(m.prefix(4))" }
         return "\(m.prefix(4))年\(mo)月"
     }
+    private static let weekEN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    private static let weekZH = Array("日一二三四五六")
+
     public static func dayLabel(_ d: String) -> String {
-        let wd = date(d).map { calendar.component(.weekday, from: $0) - 1 } ?? 0
+        dayLabel(d, weekday: date(d).map { calendar.component(.weekday, from: $0) - 1 } ?? 0)
+    }
+    /// `weekday` 0 is Sunday: a caller that already knows it (a calendar cell) skips reading the date again
+    public static func dayLabel(_ d: String, weekday wd: Int) -> String {
         let mo = Int(d.dropFirst(5).prefix(2)) ?? 0, day = Int(d.dropFirst(8).prefix(2)) ?? 0
         if !KitLocale.chinese {
-            let week = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-            return "\(week[wd]), \(MONTHS_EN[max(0, min(11, mo - 1))]) \(day)"
+            return "\(weekEN[wd]), \(MONTHS_EN[max(0, min(11, mo - 1))]) \(day)"
         }
-        let week = Array("日一二三四五六")
-        return "\(mo)月\(day)日 周\(week[wd])"
+        return "\(mo)月\(day)日 周\(weekZH[wd])"
+    }
+    /// the 42 days of a month's six-row grid, from the week start before its first day
+    public static func monthGrid(_ month: String, firstWeekday start: Int? = nil) -> [String] {
+        let first = month + "-01"
+        guard let base = date(first) else { return [] }
+        let offset = daysAfterWeekStart(first, firstWeekday: start)
+        return (0..<42).map { i in calendar.date(byAdding: .day, value: i - offset, to: base).map(string) ?? first }
     }
     public static func monthEnd(_ m: String) -> String { shift(addMonth(m, 1) + "-01", -1) }
 
@@ -96,9 +112,7 @@ public enum Day {
     public static func daysAfterWeekStart(_ day: String, firstWeekday start: Int? = nil) -> Int {
         guard let when = date(day) else { return 0 }
         let first = resolvedWeekStart(start)
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = calendar.timeZone
-        let weekday = cal.component(.weekday, from: when)
+        let weekday = calendar.component(.weekday, from: when)
         return (weekday - first + 7) % 7
     }
 
