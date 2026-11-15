@@ -19,6 +19,15 @@ import ship
 DEMO_SHA = ship.content_digest([('main.bean', b'; fictional sample')])
 
 
+
+def fake_mac(version, build, target):
+    """ship.build_mac without Xcode: a zip holding the Info.plist it would check."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(target, 'w') as package:
+        package.writestr(ship.MAC_INFO, plistlib.dumps(dict(
+            CFBundleShortVersionString=version, CFBundleVersion=build, CFBundleIdentifier='com.iskerwin.ledger.mac')))
+    return target
+
 class ShipTests(unittest.TestCase):
     def setUp(self):
         # These regressions cover the legacy worker branches with fictional APIs.
@@ -100,6 +109,43 @@ class ShipTests(unittest.TestCase):
                 with self.subTest(updates=updates), self.assertRaises(ValueError):
                     ship.verify_package(folder, dict(manifest, **updates), proof, 'example/app')
 
+    def mac_zip(self, folder, version, build, bundle='com.iskerwin.ledger.mac'):
+        with zipfile.ZipFile(folder / ship.MAC_ZIP, 'w') as package:
+            package.writestr(ship.MAC_INFO, plistlib.dumps(dict(
+                CFBundleShortVersionString=version, CFBundleVersion=build, CFBundleIdentifier=bundle)))
+
+    def test_package_checks_the_mac_app_it_records(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            manifest, proof = self.fixture(folder)
+            self.assertEqual(ship.assets(manifest), ship.FILES)
+            self.mac_zip(folder, manifest['version'], manifest['build'])
+            with_mac = ship.with_mac(manifest, folder)
+            self.assertEqual(ship.assets(with_mac), ship.FILES + (ship.MAC_ZIP,))
+            ship.verify_package(folder, with_mac, proof, 'example/app')
+            for updates in [dict(mac_sha256='invalid'), dict(mac_size=1)]:
+                with self.subTest(updates=updates), self.assertRaises(ValueError):
+                    ship.verify_package(folder, dict(with_mac, **updates), proof, 'example/app')
+            for version, build, bundle in [('1.0.1', manifest['build'], 'com.iskerwin.ledger.mac'),
+                                           (manifest['version'], '5', 'com.iskerwin.ledger.mac'),
+                                           (manifest['version'], manifest['build'], 'com.example.other')]:
+                with self.subTest(version=version, build=build, bundle=bundle):
+                    self.mac_zip(folder, version, build, bundle)
+                    with self.assertRaises(ValueError):
+                        ship.verify_package(folder, ship.with_mac(manifest, folder), proof, 'example/app')
+
+    def test_the_fixed_mac_download_follows_the_published_version(self):
+        manifest = dict(version='1.0.17', build='69', source_sha='a'*40)
+        for existing in (dict(tag_name='mac'), None):
+            calls = []
+            with self.subTest(existing=bool(existing)), patch.object(ship, 'release_for_tag', return_value=existing), \
+                 patch.object(ship, 'run', side_effect=lambda cmd, **_: calls.append([str(arg) for arg in cmd])):
+                ship.publish_mac('example/app', Path('LedgerMac.zip'), manifest)
+            self.assertTrue(any('mac' in cmd and 'LedgerMac.zip' in cmd for cmd in calls))
+            self.assertTrue(any(f'sha={"a"*40}' in cmd or ('--target' in cmd and 'a'*40 in cmd) for cmd in calls))
+            self.assertFalse(any('--latest' in cmd for cmd in calls))
+        self.assertEqual(ship.release_tags('abc\trefs/tags/mac\n'), set())
+
     def test_package_needs_complete_local_validation(self):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp)
@@ -172,7 +218,7 @@ class ShipTests(unittest.TestCase):
                                                 'LEDGER_UI_TESTS': '', 'GITHUB_STEP_SUMMARY': str(root/'summary.md')}),
                         patch.object(ship, 'fetch_releases', return_value=[dict(body='构建 3')]),
                         patch.object(ship, 'out', return_value=''), patch.object(ship, 'remote_has', return_value=False),
-                        patch.object(ship, 'build_ipa', side_effect=build), patch.object(ship, 'run', side_effect=command),
+                        patch.object(ship, 'build_ipa', side_effect=build), patch.object(ship, 'run', side_effect=command), patch.object(ship, 'build_mac', side_effect=fake_mac),
                         patch.object(ship, 'release_for_tag', return_value=None),
                         patch.object(ship, 'update_sources', side_effect=ship.Failure('sources failed') if failure == 'sources' else None),
                         patch.object(release_notes, 'previous_changelog', return_value=''), patch('builtins.print'),
@@ -198,6 +244,10 @@ class ShipTests(unittest.TestCase):
                             self.assertEqual(json.loads((root/'.ship/dev-test-plan.json').read_text()), plan)
                             self.assertIn('Dev 自动测试范围', (root/'summary.md').read_text())
                         self.assertIn(unittest.mock.call(['git', 'push', 'origin', 'HEAD:refs/heads/main']), run.call_args_list)
+                        manifest = json.loads((root/'dist/build-manifest.json').read_text())
+                        self.assertEqual(manifest['mac_sha256'], ship.hashlib.sha256((root/'dist'/ship.MAC_ZIP).read_bytes()).hexdigest())
+                        created = next(c.args[0] for c in run.call_args_list if c.args[0][:3] == ['gh', 'release', 'create'])
+                        self.assertIn(root/'dist'/ship.MAC_ZIP, created)
                     effects = ship.progress.state.get('effects', {})
                     if failure == 'build':
                         run.assert_not_called()
@@ -477,6 +527,34 @@ class ShipTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     ship.ship_release()
                 publish.assert_not_called()
+
+    def test_release_publishes_the_accepted_mac_app_with_the_ipa(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp)
+            manifest, proof = self.fixture(source)
+            manifest['repository'] = 'example/app'
+            fake_mac(manifest['version'], manifest['build'], source / ship.MAC_ZIP)
+            manifest = ship.with_mac(manifest, source)
+            (source/'build-manifest.json').write_text(json.dumps(manifest))
+            (source/'validation-evidence.json').write_text(json.dumps(proof))
+            (source/'release-notes.md').write_text('dev notes')
+            fetched, mac = [], []
+            def download(repo, tag, folder, files=ship.FILES):
+                fetched.extend(files)
+                for name in files: (folder/name).write_bytes((source/name).read_bytes())
+            def publish(repo, tag, folder, published, notes):
+                self.assertEqual((folder/ship.MAC_ZIP).read_bytes(), (source/ship.MAC_ZIP).read_bytes())
+                self.assertEqual(published['mac_sha256'], manifest['mac_sha256'])
+            with patch.object(ship, 'repository', return_value='example/app'), \
+                 patch.object(ship, 'download', side_effect=download), patch.object(ship, 'verify_source'), \
+                 patch.object(ship, 'tag_sha', return_value='a'*40), \
+                 patch.object(ship, 'git', return_value='## 1.0.0\n### 新增\n- 记账。'), \
+                 patch.object(ship, 'update_sources'), patch.object(ship, 'publish', side_effect=publish), \
+                 patch.object(ship, 'publish_mac', side_effect=lambda repo, path, m: mac.append(path.read_bytes())), \
+                 patch('builtins.print'):
+                ship.ship_release()
+            self.assertIn(ship.MAC_ZIP, fetched)
+            self.assertEqual(mac, [(source/ship.MAC_ZIP).read_bytes()])
 
     def test_source_updates_preserve_branches_and_can_retry_initial_creation(self):
         # Every command is mocked: no branch, remote, release or real ledger is touched.

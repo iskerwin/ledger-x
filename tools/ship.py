@@ -39,6 +39,10 @@ TYPECHECK_FLAGS = ('-Xswiftc', '-Xfrontend', '-Xswiftc', '-warn-long-expression-
 sys.path.insert(0, str(ROOT / 'tools/release'))  # release_notes
 DIST = ROOT / 'dist'
 FILES = ('Ledger.ipa', 'build-manifest.json', 'validation-evidence.json', 'release-notes.md')
+# the Mac app, built with the same version and build as the IPA and published next to it (dev, preview, release)
+MAC_ZIP = 'LedgerMac.zip'
+MAC_APP = 'build-demo/Build/Products/Release/Ledger X.app'
+MAC_INFO = 'Ledger X.app/Contents/Info.plist'
 XCODE = '/Applications/Xcode.app/Contents/Developer'
 BEANCOUNT = ('/opt/homebrew/opt/beancount/libexec/bin/python', '/usr/local/opt/beancount/libexec/bin/python')
 SIM_NAME = 'Ledger Local Tests'
@@ -853,7 +857,9 @@ def verify_package(folder, manifest, proof, repo, preview=False):
                 raise ValueError('安装包内的演示内容与验证记录不一致')
         if manifest.get('demo_commit') and info.get('LedgerDemoCommit') != manifest['demo_commit']:
             raise ValueError('安装包内的演示提交与清单不一致')
-        return digest
+    if manifest.get('mac_sha256'):
+        verify_mac(folder, manifest)
+    return digest
 
 
 def verify_source(repo, manifest):
@@ -911,6 +917,50 @@ def build_ipa(version, build, demo):
     return ipa
 
 
+def build_mac(version=None, build=None, target=ROOT / MAC_ZIP):
+    """Compile the Mac app, signed for this machine only, and zip it. Given a version and build (Dev, Preview), the
+    app carries the same ones as the IPA; the PR gate builds it without them, only to show it compiles."""
+    step('编译 Mac App（最多 20 分钟）')
+    run(['xcodegen', 'generate', '--quiet'])
+    numbers = [f'MARKETING_VERSION={version}', f'CURRENT_PROJECT_VERSION={build}'] if version else []
+    run(['xcodebuild', 'build', '-project', 'Ledger.xcodeproj', '-scheme', 'LedgerMac', '-configuration', 'Release',
+         '-destination', 'generic/platform=macOS', '-derivedDataPath', 'build-demo', *numbers, 'CODE_SIGNING_ALLOWED=NO'],
+        log='mac-build.log', timeout=20 * 60)
+    run(['codesign', '-f', '-s', '-', MAC_APP])
+    if version:
+        info = plistlib.loads((ROOT / MAC_APP / 'Contents/Info.plist').read_bytes())
+        if info.get('CFBundleShortVersionString') != version or info.get('CFBundleVersion') != build:
+            raise Failure('Mac App 的版本或构建号与预期不一致')
+    Path(target).unlink(missing_ok=True)
+    run(['ditto', '-c', '-k', '--keepParent', MAC_APP, target])
+    return Path(target)
+
+
+def with_mac(manifest, folder):
+    """The manifest records the Mac app next to the IPA; Kerwin's acceptance binds both."""
+    mac = folder / MAC_ZIP
+    return dict(manifest, mac_sha256=hashlib.sha256(mac.read_bytes()).hexdigest(), mac_size=mac.stat().st_size)
+
+
+def assets(manifest):
+    """The files published for a package: an older dev from before the Mac app joined it has none."""
+    return FILES + ((MAC_ZIP,) if manifest.get('mac_sha256') else ())
+
+
+def verify_mac(folder, manifest):
+    mac = folder / MAC_ZIP
+    if hashlib.sha256(mac.read_bytes()).hexdigest() != manifest['mac_sha256'] or mac.stat().st_size != manifest['mac_size']:
+        raise ValueError('Mac App 大小或 SHA256 不匹配')
+    with zipfile.ZipFile(mac) as package:
+        if package.testzip():
+            raise ValueError('Mac App ZIP 校验失败')
+        info = plistlib.loads(package.read(MAC_INFO))
+        for key, value in [('CFBundleShortVersionString', manifest['version']),
+                           ('CFBundleVersion', manifest['build']), ('CFBundleIdentifier', 'com.iskerwin.ledger.mac')]:
+            if info.get(key) != value:
+                raise ValueError(f'Mac App {key} 与清单不一致')
+
+
 def download(repo, tag, folder, files=FILES):
     for name in files:
         run(['gh', 'release', 'download', tag, '--repo', repo, '--pattern', name, '--dir', folder])
@@ -946,9 +996,22 @@ def publish(repo, tag, folder, manifest, notes):
     progress.effect('release', 'started')
     run(['gh', 'release', 'create', tag, '--repo', repo, '--target', manifest['source_sha'], '--draft',
          '--title', f'Ledger X {manifest["version"]}', '--notes-file', notes])
-    run(['gh', 'release', 'upload', tag, '--repo', repo, *[folder/name for name in FILES]])
+    run(['gh', 'release', 'upload', tag, '--repo', repo, *[folder/name for name in assets(manifest)]])
     run(['gh', 'release', 'edit', tag, '--repo', repo, '--draft=false', '--prerelease=false', '--latest'])
     progress.effect('release', 'done')
+
+
+def publish_mac(repo, mac, manifest):
+    """The fixed Mac download (`mac` prerelease, the README's install command) follows the published versions:
+    the same app Kerwin accepted, never a build of a newer main."""
+    notes = f'Ledger X {manifest["version"]}（构建 {manifest["build"]}），与正式版 v{manifest["version"]} 同一源码 {manifest["source_sha"][:7]}'
+    if release_for_tag(repo, 'mac'):
+        run(['gh', 'release', 'upload', 'mac', '--repo', repo, mac, '--clobber'])
+        run(['gh', 'api', '-X', 'PATCH', f'repos/{repo}/git/refs/tags/mac', '-f', f'sha={manifest["source_sha"]}', '-F', 'force=true'])
+        run(['gh', 'release', 'edit', 'mac', '--repo', repo, '--prerelease', '--notes', notes])
+    else:
+        run(['gh', 'release', 'create', 'mac', mac, '--repo', repo, '--target', manifest['source_sha'], '--prerelease',
+             '--title', 'Ledger X for Mac', '--notes', notes])
 
 
 def remote_has(branch):
@@ -1040,6 +1103,7 @@ def ship_dev():
     DIST.mkdir()
     verify_demo_snapshot(proof['demo_commit'], proof['demo_sha256'])
     ipa = build_ipa(version, build, proof['demo_commit'])
+    build_mac(version, build, DIST / MAC_ZIP)
     proof['release_build'] = True
     # Tests and the build must not have changed tracked files; the package is exactly this commit.
     if git('rev-parse', 'HEAD') != sha or git('status', '--porcelain'):
@@ -1051,6 +1115,7 @@ def ship_dev():
                     channel='self-signing', phone_acceptance='pending', xcode=proof['xcode'],
                     demo_commit=proof['demo_commit'], demo_sha256=proof['demo_sha256'],
                     built_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
+    manifest = with_mac(manifest, DIST)
     (DIST / 'validation-evidence.json').write_text(json.dumps(proof, ensure_ascii=False, indent=2) + '\n')
     (DIST / 'build-manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
     verify_package(DIST, manifest, proof, repo)
@@ -1066,16 +1131,16 @@ def ship_dev():
     notes = release_notes.render(changelog, release_notes.previous_changelog(repo),
                                  repo, sha, version, build, proof, ipa_sha256=manifest['sha256'])
     (DIST / 'release-notes.md').write_text(notes)
-    assets = [DIST / name for name in FILES]
+    files = [DIST / name for name in assets(manifest)]
     title = f'Ledger X {version} 开发版'
     previous = release_for_tag(repo, 'dev')
     progress.effect('dev_release', 'started')
     if previous:
-        run(['gh', 'release', 'upload', 'dev', '--repo', repo, *assets, '--clobber'])
+        run(['gh', 'release', 'upload', 'dev', '--repo', repo, *files, '--clobber'])
         run(['gh', 'api', '-X', 'PATCH', f'repos/{repo}/git/refs/tags/dev', '-f', f'sha={sha}', '-F', 'force=true'])
         run(['gh', 'release', 'edit', 'dev', '--repo', repo, '--prerelease', '--title', title, '--notes-file', DIST / 'release-notes.md'])
     else:
-        run(['gh', 'release', 'create', 'dev', '--repo', repo, *assets, '--target', sha, '--prerelease',
+        run(['gh', 'release', 'create', 'dev', '--repo', repo, *files, '--target', sha, '--prerelease',
              '--title', title, '--notes-file', DIST / 'release-notes.md'])
     progress.effect('dev_release', 'done')
     update_sources(repo)
@@ -1108,6 +1173,7 @@ def ship_preview():
     shutil.rmtree(DIST, ignore_errors=True)
     DIST.mkdir()
     ipa = build_ipa(version, build, proof['demo_commit'])
+    build_mac(version, build, DIST / MAC_ZIP)
     proof['release_build'] = True
     if git('rev-parse', 'HEAD') != sha or git('status', '--porcelain'):
         raise Failure('编译期间源码有变化：\n' + git('status', '--short'))
@@ -1118,6 +1184,7 @@ def ship_preview():
                     channel='preview', branch=branch, phone_acceptance='pending', xcode=proof['xcode'],
                     demo_commit=proof['demo_commit'], demo_sha256=proof['demo_sha256'],
                     built_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
+    manifest = with_mac(manifest, DIST)
     (DIST / 'validation-evidence.json').write_text(json.dumps(proof, ensure_ascii=False, indent=2) + '\n')
     (DIST / 'build-manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
     verify_package(DIST, manifest, proof, repo, preview=True)
@@ -1128,15 +1195,15 @@ def ship_preview():
     except (subprocess.CalledProcessError, ValueError):
         pulls = []  # the PR number is only a label in the notes
     (DIST / 'release-notes.md').write_text(preview_notes(repo, sha, branch, version, build, pulls[0]['number'] if pulls else None))
-    assets = [DIST / name for name in FILES]
+    files = [DIST / name for name in assets(manifest)]
     title = f'Ledger X {version} 预览'
     progress.effect('preview_release', 'started')
     if release_for_tag(repo, 'preview'):
-        run(['gh', 'release', 'upload', 'preview', '--repo', repo, *assets, '--clobber'])
+        run(['gh', 'release', 'upload', 'preview', '--repo', repo, *files, '--clobber'])
         run(['gh', 'api', '-X', 'PATCH', f'repos/{repo}/git/refs/tags/preview', '-f', f'sha={sha}', '-F', 'force=true'])
         run(['gh', 'release', 'edit', 'preview', '--repo', repo, '--prerelease', '--title', title, '--notes-file', DIST / 'release-notes.md'])
     else:
-        run(['gh', 'release', 'create', 'preview', '--repo', repo, *assets, '--target', sha, '--prerelease',
+        run(['gh', 'release', 'create', 'preview', '--repo', repo, *files, '--target', sha, '--prerelease',
              '--title', title, '--notes-file', DIST / 'release-notes.md'])
     progress.effect('preview_release', 'done')
     update_sources(repo)
@@ -1186,6 +1253,8 @@ def ship_release():
         step('下载并校验开发版')
         download(repo, 'dev', folder)
         manifest = json.loads((folder/'build-manifest.json').read_text())
+        if manifest.get('mac_sha256'):
+            download(repo, 'dev', folder, (MAC_ZIP,))
         proof = json.loads((folder/'validation-evidence.json').read_text())
         demo_digest = verify_package(folder, manifest, proof, repo)
         manifest.setdefault('demo_commit', proof.get('demo_commit'))
@@ -1212,6 +1281,8 @@ def ship_release():
             ipa_sha256=manifest['sha256']))
         step(f'发布正式版 {tag}')
         publish(repo, tag, folder, manifest, folder/'release-notes.md')
+        if manifest.get('mac_sha256'):
+            publish_mac(repo, folder / MAC_ZIP, manifest)
     update_sources(repo)
     done(f'\n✓ 已发布正式版 {tag}（构建 {manifest["build"]}）\n  https://github.com/{repo}/releases/tag/{tag}')
 
