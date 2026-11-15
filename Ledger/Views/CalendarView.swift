@@ -24,10 +24,27 @@ struct JournalCalendar: View {
     /// a day with entries that are neither (transfers, advances, reimbursements): not shown as empty
     static var other: Color { Color.secondary.opacity(0.6) }
 
+    /// what a month's totals were worked out from: the same loaded ledger and the same transactions in that month
+    private struct MonthKey: Equatable {
+        let ledger: Ledger
+        let entries: [Entry]
+        static func == (a: Self, b: Self) -> Bool {
+            a.ledger === b.ledger && a.entries.elementsEqual(b.entries, by: ===)
+        }
+    }
+
+    /// kept while the page is drawn again for a tapped day or a sheet, which change nothing it adds up
+    @State private var totalsOfMonth = LastResult<MonthKey, [String: DayTotal]>()
+
     private var byDay: [String: DayTotal] {
-        var m: [String: DayTotal] = [:]
         let prefix = month
-        for t in entries where t.date.hasPrefix(prefix) {
+        let inMonth = entries.filter { $0.date.hasPrefix(prefix) }
+        return totalsOfMonth.value(for: MonthKey(ledger: L, entries: inMonth)) { dayTotals(inMonth) }
+    }
+
+    private func dayTotals(_ inMonth: [Entry]) -> [String: DayTotal] {
+        var m: [String: DayTotal] = [:]
+        for t in inMonth {
             var d = m[t.date] ?? DayTotal()
             d.n += 1
             // the same reading as the overview: transfers, advances and others' AA parts aren't spending
@@ -226,9 +243,7 @@ struct GlassMonthCalendar<Totals: View, Footer: View>: View {
         return c
     }
     private var days: [String] {
-        guard Day.date(month + "-01") != nil else { return [] }
-        let offset = Day.daysAfterWeekStart(month + "-01")
-        return (0..<42).map { Day.shift(month + "-01", $0 - offset) }
+        Day.monthGrid(month)
     }
     private var weekdays: [String] {
         let symbols = symbolCalendar.veryShortStandaloneWeekdaySymbols
@@ -324,12 +339,18 @@ struct GlassMonthCalendar<Totals: View, Footer: View>: View {
 
     private var grid: some View {
         let dates = days
+        // read once for the 42 cells, not once in each
+        let today = Day.today()
+        let weekStart = Day.firstWeekday
         return GeometryReader { geometry in
             VStack(spacing: 0) {
                 ForEach(0..<6, id: \.self) { row in
                     HStack(spacing: 0) {
-                        ForEach(Array(dates.dropFirst(row * 7).prefix(7)), id: \.self) { d in
-                            cell(d, width: geometry.size.width / 7)
+                        ForEach(0..<7, id: \.self) { column in
+                            if row * 7 + column < dates.count {
+                                cell(dates[row * 7 + column], width: geometry.size.width / 7, today: today,
+                                     weekday: (weekStart - 1 + column) % 7)
+                            }
                         }
                     }
                 }
@@ -347,8 +368,9 @@ struct GlassMonthCalendar<Totals: View, Footer: View>: View {
         .accessibilityIdentifier("calendar.grid")
     }
 
-    private func cell(_ d: String, width: CGFloat) -> some View {
-        let today = d == Day.today()
+    private func cell(_ d: String, width: CGFloat, today todayDay: String, weekday: Int) -> some View {
+        let today = d == todayDay
+        let on = enabled(d)
         let selected = selection == d
         let mark = marks[d] ?? DayMark()
         return Button {
@@ -378,9 +400,9 @@ struct GlassMonthCalendar<Totals: View, Footer: View>: View {
             .frame(width: width, height: cellHeight)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain).disabled(!enabled(d))
-        .opacity(!d.hasPrefix(month) ? 0.3 : enabled(d) ? 1 : 0.35)
-        .accessibilityLabel(Day.dayLabel(d) + (describe(d).map { " · " + $0 } ?? ""))
+        .buttonStyle(.plain).disabled(!on)
+        .opacity(!d.hasPrefix(month) ? 0.3 : on ? 1 : 0.35)
+        .accessibilityLabel(Day.dayLabel(d, weekday: weekday) + (describe(d).map { " · " + $0 } ?? ""))
         .accessibilityValue(selected ? LS("已选中") : "")
         .accessibilityAddTraits(selected ? [.isSelected] : [])
         .accessibilityHidden(!d.hasPrefix(month))

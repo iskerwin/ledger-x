@@ -236,13 +236,18 @@ struct ListRowBottomShadowClamp: UIViewRepresentable {
 }
 
 final class ListRowBottomShadowClampView: UIView {
+    /// the row's cell, found once per place in the hierarchy instead of walking up at every layout
+    private weak var cell: UIView?
+
     override func didMoveToSuperview() {
         super.didMoveToSuperview()
+        cell = nil
         clamp()
     }
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
+        cell = nil
         clamp()
     }
 
@@ -252,20 +257,20 @@ final class ListRowBottomShadowClampView: UIView {
     }
 
     func clamp() {
+        if cell == nil { cell = enclosingCell() }
+        guard let cell else { return }
+        clear(cell.layer)
+        let background = (cell as? UICollectionViewCell)?.backgroundView ?? (cell as? UITableViewCell)?.backgroundView
+        if let background { clear(background.layer) }
+    }
+
+    private func enclosingCell() -> UIView? {
         var ancestor: UIView? = superview
         while let view = ancestor {
-            if let cell = view as? UICollectionViewCell {
-                clear(cell.layer)
-                if let background = cell.backgroundView { clear(background.layer) }
-                return
-            }
-            if let cell = view as? UITableViewCell {
-                clear(cell.layer)
-                if let background = cell.backgroundView { clear(background.layer) }
-                return
-            }
+            if view is UICollectionViewCell || view is UITableViewCell { return view }
             ancestor = view.superview
         }
+        return nil
     }
 
     private func clear(_ layer: CALayer) {
