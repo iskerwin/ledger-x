@@ -40,7 +40,8 @@ func readFolderLedger(root: String, folder: URL, written: [String: String] = [:]
             return text
         }
         let url = folder.appendingPathComponent(path)
-        reads.files[path] = try? Data(contentsOf: url)
+        // kept as nil when it can't be read (assigning nil would drop the key): appearing later is a change
+        reads.files.updateValue(try? Data(contentsOf: url), forKey: path)
         return try String(contentsOf: url, encoding: .utf8)
     }
     FolderLedgers.counted()

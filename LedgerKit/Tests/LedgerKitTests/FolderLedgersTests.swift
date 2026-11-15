@@ -11,6 +11,11 @@ final class FolderLedgersTests: XCTestCase {
         include "journals/*.bean"
         2025-01-01 open Assets:Bank CNY
         2025-01-01 open Expenses:Food CNY
+        2025-01-01 open Equity:Opening CNY
+
+        2025-01-01 * "Opening"
+          Assets:Bank  1000.00 CNY
+          Equity:Opening  -1000.00 CNY
 
         """)
         try write("journals/2025.bean", txn("2025-03-01", "Main"))
@@ -77,7 +82,7 @@ final class FolderLedgersTests: XCTestCase {
         try write("journals/2025.bean", txn("2025-03-01", "Mbin"))
         let second = try XCTUnwrap(loadLedger(folder: folder))
         XCTAssertFalse(second === first)
-        XCTAssertEqual(second.txns.map(\.narration), ["Mbin"])
+        XCTAssertEqual(second.txns.map(\.narration), ["Opening", "Mbin"])
     }
 
     func testANewFileTheWildcardTakesIsReadAgain() throws {
@@ -85,7 +90,7 @@ final class FolderLedgersTests: XCTestCase {
         try write("journals/2026.bean", txn("2026-03-01", "New"))
         let second = try XCTUnwrap(loadLedger(folder: folder))
         XCTAssertFalse(second === first)
-        XCTAssertEqual(Set(second.txns.map(\.narration)), ["Main", "New"])
+        XCTAssertEqual(Set(second.txns.map(\.narration)), ["Opening", "Main", "New"])
     }
 
     func testAnIncludedFileThatAppearsIsReadAgain() throws {
