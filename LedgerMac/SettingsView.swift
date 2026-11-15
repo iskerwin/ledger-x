@@ -6,9 +6,9 @@ enum Appearance: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .system: return "跟随系统"
-        case .light: return "浅色"
-        case .dark: return "深色"
+        case .system: return LS("跟随系统")
+        case .light: return LS("浅色")
+        case .dark: return LS("深色")
         }
     }
 
@@ -28,32 +28,36 @@ struct SettingsView: View {
     @AppStorage("defaultPage") private var defaultPage = Page.overview.rawValue
     @AppStorage("appearance") private var appearance = Appearance.system.rawValue
     @AppStorage("hideAmounts") private var hideAmounts = false
+    @AppStorage(MacLanguage.key) private var language = MacLanguage.system.rawValue
 
     var body: some View {
         TabView {
             Form {
-                Picker("默认打开", selection: $defaultPage) {
+                Picker(LS("默认打开"), selection: $defaultPage) {
                     ForEach(Page.allCases.filter { $0 != .errors }, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
                 }
+                Picker(LS("语言"), selection: $language) {
+                    ForEach(MacLanguage.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
+                }
             }
-            .tabItem { Label("通用", systemImage: "gearshape") }
+            .tabItem { Label(LS("通用"), systemImage: "gearshape") }
             Form {
-                Picker("外观", selection: $appearance) {
+                Picker(LS("外观"), selection: $appearance) {
                     ForEach(Appearance.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
                 }
             }
-            .tabItem { Label("外观", systemImage: "circle.lefthalf.filled") }
+            .tabItem { Label(LS("外观"), systemImage: "circle.lefthalf.filled") }
             Form {
-                Toggle("隐藏金额", isOn: $hideAmounts)
+                Toggle(LS("隐藏金额"), isOn: $hideAmounts)
             }
-            .tabItem { Label("安全", systemImage: "lock") }
+            .tabItem { Label(LS("安全"), systemImage: "lock") }
             Form {
-                LabeledContent("当前账本") {
-                    Text(folder.isEmpty ? "未打开" : folder).lineLimit(2).truncationMode(.middle).textSelection(.enabled)
+                LabeledContent(LS("当前账本")) {
+                    Text(folder.isEmpty ? LS("未打开") : folder).lineLimit(2).truncationMode(.middle).textSelection(.enabled)
                 }
-                Button("切换账本…") { picking = true }
+                Button(LS("切换账本…")) { picking = true }
             }
-            .tabItem { Label("账本", systemImage: "folder") }
+            .tabItem { Label(LS("账本"), systemImage: "folder") }
         }
         .formStyle(.grouped)
         .frame(width: 560, height: 320)

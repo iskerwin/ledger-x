@@ -14,9 +14,10 @@ struct LedgerMacApp: App {
     /// counts the times a folder was chosen, so choosing the same one again reads it again
     @State private var opened = 0
     @State private var open = OpenLedger()
+    @AppStorage(MacLanguage.key) private var language = MacLanguage.system.rawValue
 
     init() {
-        KitLocale.chinese = true
+        MacLanguage.apply()
         KitPrivacy.masked = UserDefaults.standard.bool(forKey: "hideAmounts")
         _page = State(initialValue: Page(rawValue: UserDefaults.standard.string(forKey: "defaultPage") ?? "") ?? .overview)
     }
@@ -25,9 +26,13 @@ struct LedgerMacApp: App {
         Window("Ledger X", id: "main") {
             ContentView(folder: folder, opened: opened, picking: $picking, adding: $adding, page: $page, searching: $searching)
                 // dates as the words around them, whatever the system's first language is
-                .environment(\.locale, Locale(identifier: "zh_CN"))
+                .environment(\.locale, MacLanguage.current.locale)
+                // every page drawn again in the other language
+                .id(language)
                 .preferredColorScheme(Appearance(rawValue: appearance)?.scheme)
                 .onChange(of: hideAmounts) { KitPrivacy.masked = hideAmounts }
+                // the window's view made again (`id`) reads the ledger again, with LedgerKit's words in the new language
+                .onChange(of: language) { MacLanguage.apply() }
                 .environment(open)
                 .fileImporter(isPresented: $picking, allowedContentTypes: [.folder]) { result in
                     if case .success(let url) = result {
@@ -39,14 +44,14 @@ struct LedgerMacApp: App {
         .defaultSize(width: 1280, height: 820)
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button("记一笔…") { withoutSheet { adding = true } }
+                Button(LS("记一笔…")) { withoutSheet { adding = true } }
                     .keyboardShortcut("n")
                     .disabled(folder.isEmpty)
-                Button("打开账本…") { withoutSheet { picking = true } }
+                Button(LS("打开账本…")) { withoutSheet { picking = true } }
                     .keyboardShortcut("o")
             }
             CommandGroup(after: .textEditing) {
-                Button("搜索") {
+                Button(LS("搜索")) {
                     withoutSheet {
                         // the box may have lost focus without closing: closing it first brings it back every time
                         searching = false
@@ -67,15 +72,16 @@ struct LedgerMacApp: App {
                     }
                     Divider()
                 }
-                Toggle("隐藏金额", isOn: $hideAmounts)
+                Toggle(LS("隐藏金额"), isOn: $hideAmounts)
                     .keyboardShortcut("h", modifiers: [.command, .shift])
                 Divider()
             }
         }
-        Window("记一笔", id: EntryWindow.id) {
+        Window(LS("记一笔"), id: EntryWindow.id) {
             EntryWindow()
                 .environment(open)
-                .environment(\.locale, Locale(identifier: "zh_CN"))
+                .environment(\.locale, MacLanguage.current.locale)
+                .id(language)
                 .preferredColorScheme(Appearance(rawValue: appearance)?.scheme)
         }
         .windowStyle(.hiddenTitleBar)
@@ -84,7 +90,8 @@ struct LedgerMacApp: App {
         .commandsRemoved()
         Settings {
             SettingsView(folder: folder, picking: $picking)
-                .environment(\.locale, Locale(identifier: "zh_CN"))
+                .environment(\.locale, MacLanguage.current.locale)
+                .id(language)
                 .preferredColorScheme(Appearance(rawValue: appearance)?.scheme)
         }
     }
@@ -109,6 +116,7 @@ private struct ContentView: View {
     @State private var source = ""
     @State private var changes = 0
     @State private var readings = SerialWork()
+    @Environment(\.undoManager) private var undoManager
 
     var body: some View {
         Group {
@@ -116,8 +124,8 @@ private struct ContentView: View {
                 MainView(ledger: ledger, config: open.config, folder: URL(fileURLWithPath: folder), changes: changes, adding: $adding, page: $page, searching: $searching, picking: $picking)
             } else if folder.isEmpty || missing {
                 VStack(spacing: 12) {
-                    if missing { Text("这个文件夹里没有账本").foregroundStyle(.secondary) }
-                    Button("打开账本") { picking = true }
+                    if missing { Text(LS("这个文件夹里没有账本")).foregroundStyle(.secondary) }
+                    Button(LS("打开账本")) { picking = true }
                         .controlSize(.large)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -128,6 +136,9 @@ private struct ContentView: View {
         .frame(minWidth: 960, minHeight: 640)
         .background(WindowReader { $0.fitScreen() })
         .navigationTitle(folder.isEmpty ? "Ledger X" : URL(fileURLWithPath: folder).lastPathComponent)
+        // saves are undone from this window's 编辑 › 撤销
+        .onAppear { SaveUndo.manager = undoManager }
+        .onChange(of: undoManager) { SaveUndo.manager = undoManager }
         .task(id: "\(changes)|\(opened)|\(folder)") {
             guard !folder.isEmpty else { return }
             let url = URL(fileURLWithPath: folder)
@@ -136,6 +147,7 @@ private struct ContentView: View {
                 open.folder = url
                 open.ledger = nil
                 missing = false
+                SaveUndo.opened(url)
                 watcher = FolderWatcher(url) { changes += 1 }
             }
             // one reading at a time: changes that arrive during one end in a single reading after it

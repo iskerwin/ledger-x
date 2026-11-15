@@ -69,7 +69,7 @@ struct AccountsPage: View {
         HStack(spacing: 0) {
             VStack(spacing: 0) {
                 Picker(selection: $mode) {
-                    ForEach(AccountsMode.allCases, id: \.self) { Text($0.rawValue) }
+                    ForEach(AccountsMode.allCases, id: \.self) { Text(LS($0.rawValue)) }
                 } label: { EmptyView() }
                 .pickerStyle(.segmented)
                 .labelsHidden()
@@ -85,7 +85,7 @@ struct AccountsPage: View {
                                     }
                                 }
                             } else {
-                                Card(summary: true) { Headline(label: mode.rawValue, value: money(categories.total, ledger.base)) }
+                                Card(summary: true) { Headline(label: LS(mode.rawValue), value: money(categories.total, ledger.base)) }
                                 if !categories.lines.isEmpty { categoryCard(categories.lines) }
                             }
                         }
@@ -127,7 +127,7 @@ struct AccountsPage: View {
         .background(Color.page)
         .toolbar {
             ToolbarItem {
-                Button("管理账户", systemImage: "slider.horizontal.3") { managing = true }
+                Button(LS("管理账户"), systemImage: "slider.horizontal.3") { managing = true }
             }
         }
         .sheet(isPresented: $managing) { AccountManager(ledger: ledger, folder: folder) }
@@ -213,7 +213,7 @@ struct AccountsPage: View {
         return Card {
             VStack(alignment: .leading, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("净资产").foregroundStyle(.secondary)
+                    Text(LS("净资产")).foregroundStyle(.secondary)
                     Text(money(worth.assets + worth.liabilities, ledger.base))
                         .font(.system(size: 28, weight: .bold, design: .rounded))
                         .monospacedDigit()
@@ -221,11 +221,11 @@ struct AccountsPage: View {
                         .minimumScaleFactor(0.5)
                 }
                 HStack(alignment: .top) {
-                    figure("资产", money(worth.assets, ledger.base), .leading)
+                    figure(LS("资产"), money(worth.assets, ledger.base), .leading)
                     Spacer(minLength: 8)
-                    figure("负债", money(owed, ledger.base), .leading)
+                    figure(LS("负债"), money(owed, ledger.base), .leading)
                     Spacer(minLength: 8)
-                    figure("资产负债率", worth.assets > 0 && owed > 0.005 ? String(format: "%.1f%%", owed / worth.assets * 100) : "—", .trailing)
+                    figure(LS("资产负债率"), worth.assets > 0 && owed > 0.005 ? String(format: "%.1f%%", owed / worth.assets * 100) : "—", .trailing)
                 }
             }
         }
@@ -252,8 +252,8 @@ struct AccountsPage: View {
                     Image(systemName: "chevron.right")
                         .font(.caption2.weight(.bold))
                         .rotationEffect(.degrees(shut ? 0 : 90))
-                    Text(ZH[group] ?? group)
-                    if shut { Text("\(lines.count) 个").foregroundStyle(.tertiary) }
+                    Text(groupName(group))
+                    if shut { Text(LS("%@ 个", lines.count)).foregroundStyle(.tertiary) }
                     Spacer()
                     Text(amountsText(lines.reduce(Inventory()) { $0 + $1.balance }, ledger)).monospacedDigit().lineLimit(1)
                 }
@@ -313,11 +313,11 @@ struct AccountsPage: View {
     private func subtitle(_ line: AccountLine, due: String?) -> String {
         let currencies = line.balance.byCurrency(base: ledger.base)
         if currencies.count > 1 { return currencies.map(\.currency).joined(separator: " · ") }
-        if let due { return "\(Int(due.dropFirst(5).prefix(2)) ?? 0)月\(Int(due.suffix(2)) ?? 0)日还款" }
+        if let due { return LS("%@月%@日还款", Int(due.dropFirst(5).prefix(2)) ?? 0, Int(due.suffix(2)) ?? 0) }
         // an assertion checks the start of its day: it was checked the day before
         if let last = ledger.balanceResults.filter({ $0.ok && $0.entry.account == line.name }).map(\.entry.date).max() {
             let ago = daysBetween(last, Day.today()) + 1
-            if ago >= 0 && ago <= 30 { return ago == 0 ? "今天已核对" : ago == 1 ? "昨天已核对" : "\(ago) 天前已核对" }
+            if ago >= 0 && ago <= 30 { return ago == 0 ? LS("今天已核对") : ago == 1 ? LS("昨天已核对") : LS("%@ 天前已核对", ago) }
         }
         return line.name
     }
@@ -401,10 +401,10 @@ private struct AccountDetail: View {
                         Text(account).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
                     }
                     Spacer()
-                    if mode == .worth { Button("核对余额…", systemImage: "checkmark.circle") { checking = true } }
+                    if mode == .worth { Button(LS("核对余额…"), systemImage: "checkmark.circle") { checking = true } }
                 }
                 if let root = mode.root {
-                    Card(summary: true) { MonthAmountChart(points: monthAmounts(root), currency: ledger.base, label: mode.rawValue) }
+                    Card(summary: true) { MonthAmountChart(points: monthAmounts(root), currency: ledger.base, label: LS(mode.rawValue)) }
                 } else {
                     // each currency for itself, side by side: they aren't added up here
                     HStack(alignment: .top, spacing: 12) {
@@ -417,7 +417,7 @@ private struct AccountDetail: View {
                 }
                 HStack {
                     Picker(selection: $tab) {
-                        ForEach(AccountTab.allCases, id: \.self) { Text($0.rawValue) }
+                        ForEach(AccountTab.allCases, id: \.self) { Text(LS($0.rawValue)) }
                     } label: {
                         EmptyView()
                     }
@@ -426,7 +426,7 @@ private struct AccountDetail: View {
                     .fixedSize()
                     Spacer()
                     if mode == .worth, let check = lastCheck {
-                        Text("上次核对 " + check).font(.callout).foregroundStyle(.secondary)
+                        Text(LS("上次核对 ") + check).font(.callout).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -452,7 +452,7 @@ private struct AccountDetail: View {
     private var months: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                MonthLine(month: "月份", change: mode == .worth ? "变动" : "金额", end: mode == .worth ? "月末余额" : nil, heading: true)
+                MonthLine(month: LS("月份"), change: mode == .worth ? LS("变动") : LS("金额"), end: mode == .worth ? LS("月末余额") : nil, heading: true)
                 ForEach(accountMonths(ledger, account: account)) { month in
                     Divider()
                     NavigationLink(value: JournalScope(title: accountTitle(ledger, account) + " · " + month.month, account: account,

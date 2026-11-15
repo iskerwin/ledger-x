@@ -39,31 +39,21 @@ struct DocumentsPage: View {
                 .frame(width: 260)
             Divider()
             VStack(spacing: 0) {
-                HStack(spacing: 10) {
-                    Picker(selection: $kind) {
-                        ForEach(DocumentKind.allCases, id: \.self) { Text($0.rawValue) }
-                    } label: { EmptyView() }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .fixedSize()
-                    TextField("搜索", text: $query, prompt: Text("文件名、收付款方、账户"))
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 260)
-                    Spacer()
-                    Button("添加对账单…", systemImage: "doc.badge.plus") { choose() }
-                        .disabled(account == nil)
-                        .help(account == nil ? "先在左边选一个账户" : "")
+                // the whole row while it fits; in a narrow window (or longer words) a menu and the button's icon
+                ViewThatFits(in: .horizontal) {
+                    toolbar(compact: false)
+                    toolbar(compact: true)
                 }
                 .padding(12)
                 if !message.isEmpty {
                     Text(message).foregroundStyle(failed ? Color.loss : Color.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.bottom, 8)
                 }
                 Table(shown, selection: $picked) {
-                    TableColumn("日期") { Text($0.entry.date).monospacedDigit() }.width(min: 80, ideal: 90, max: 110)
-                    TableColumn("文件") { item in
+                    TableColumn(LS("日期")) { Text($0.entry.date).monospacedDigit() }.width(min: 80, ideal: 90, max: 110)
+                    TableColumn(LS("文件")) { item in
                         Label(item.name, systemImage: item.isAttachment ? "paperclip" : "doc.text").lineLimit(1)
                     }
-                    TableColumn("交易 / 账户") { item in
+                    TableColumn(LS("交易 / 账户")) { item in
                         if let t = item.transaction {
                             Text([t.payee, t.narration].filter { !$0.isEmpty }.joined(separator: " · ")).lineLimit(1)
                         } else {
@@ -73,7 +63,7 @@ struct DocumentsPage: View {
                 }
                 .contextMenu(forSelectionType: DocumentItem.ID.self) { ids in
                     if let item = shown.first(where: { ids.first == $0.id }), ids.count == 1 {
-                        Button("删除…") { deleting = item.entry }.disabled(item.entry.synthetic)
+                        Button(LS("删除…")) { deleting = item.entry }.disabled(item.entry.synthetic)
                     }
                 }
                 .onDeleteCommand {
@@ -101,13 +91,13 @@ struct DocumentsPage: View {
 
     /// 全部, then each account that has documents, under 资产, 负债 and the rest
     private func accounts(_ total: Int, _ counts: [String: Int]) -> some View {
-        let roots = [("资产", "Assets"), ("负债", "Liabilities")]
+        let roots = [(LS("资产"), "Assets"), (LS("负债"), "Liabilities")]
         let named = counts.keys.sorted()
         let rest = named.filter { a in !roots.contains { a.hasPrefix($0.1 + ":") } }
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: 2) {
-                PickRow(title: "全部", trailing: "\(total)", picked: account == nil) { account = nil }
-                ForEach(roots + [("其他", "")], id: \.0) { group in
+                PickRow(title: LS("全部"), trailing: "\(total)", picked: account == nil) { account = nil }
+                ForEach(roots + [(LS("其他"), "")], id: \.0) { group in
                     let names = group.1.isEmpty ? rest : named.filter { $0.hasPrefix(group.1 + ":") }
                     if !names.isEmpty {
                         Text(group.0).font(.caption.weight(.semibold)).foregroundStyle(.secondary).padding(.horizontal, 10).padding(.top, 8)
@@ -125,6 +115,26 @@ struct DocumentsPage: View {
         }
     }
 
+    private func toolbar(compact: Bool) -> some View {
+        HStack(spacing: 10) {
+            let picker = Picker(selection: $kind) {
+                ForEach(DocumentKind.allCases, id: \.self) { Text(LS($0.rawValue)) }
+            } label: { EmptyView() }
+            if compact { picker.pickerStyle(.menu).labelsHidden().fixedSize() } else { picker.pickerStyle(.segmented).labelsHidden().fixedSize() }
+            TextField(LS("搜索"), text: $query, prompt: Text(LS("文件名、收付款方、账户")))
+                .textFieldStyle(.roundedBorder)
+                .frame(minWidth: compact ? 120 : 160, maxWidth: 260)
+            Spacer(minLength: 0)
+            Button(action: choose) {
+                if compact { Image(systemName: "doc.badge.plus") } else { Label(LS("添加对账单…"), systemImage: "doc.badge.plus") }
+            }
+            .fixedSize()
+            .disabled(account == nil)
+            .help(account == nil ? LS("先在左边选一个账户") : LS("添加对账单…"))
+            .accessibilityLabel(LS("添加对账单…"))
+        }
+    }
+
     private func choose() {
         guard let account else { return }
         let panel = NSOpenPanel()
@@ -138,8 +148,9 @@ struct DocumentsPage: View {
     private func keep(_ urls: [URL], with account: String) {
         let folder = folder
         Task {
-            let failure = await Task.detached { DocumentFiles.keep(urls, with: account, folder: folder) }.value
-            message = failure ?? ""
+            let done = await Task.detached { DocumentFiles.keep(urls, with: account, folder: folder) }.value
+            SaveUndo.record(done.change, folder: folder, name: LS("添加对账单"))
+            message = done.failure ?? ""
             failed = true
         }
     }
@@ -149,14 +160,14 @@ extension View {
     /// 删除 for a document, as on the phone: 只移除引用 keeps its file, 移除并删除文件 puts it in the Trash as well, unless
     /// another line still points at it. `done` hears what came of it, and whether that was a failure
     func documentDeletion(_ deleting: Binding<Entry?>, folder: URL, done: @escaping (String, Bool) -> Void) -> some View {
-        confirmationDialog(deleting.wrappedValue.map { "删除 \($0.date) " + (($0.path ?? "") as NSString).lastPathComponent + "？" } ?? "",
+        confirmationDialog(deleting.wrappedValue.map { LS("删除 %@ %@？", $0.date, (($0.path ?? "") as NSString).lastPathComponent) } ?? "",
                            isPresented: Binding(get: { deleting.wrappedValue != nil }, set: { if !$0 { deleting.wrappedValue = nil } }),
                            titleVisibility: .visible, presenting: deleting.wrappedValue) { entry in
-            Button("只移除引用", role: .destructive) { DocumentFiles.delete(entry, file: false, folder: folder, done: done) }
-            Button("移除并删除文件", role: .destructive) { DocumentFiles.delete(entry, file: true, folder: folder, done: done) }
-            Button("取消", role: .cancel) {}
+            Button(LS("只移除引用"), role: .destructive) { DocumentFiles.delete(entry, file: false, folder: folder, done: done) }
+            Button(LS("移除并删除文件"), role: .destructive) { DocumentFiles.delete(entry, file: true, folder: folder, done: done) }
+            Button(LS("取消"), role: .cancel) {}
         } message: { _ in
-            Text("「只移除引用」把文件留在账本文件夹里；「移除并删除文件」把文件移到废纸篓，其他记录还在用的文件不会删除。")
+            Text(LS("「只移除引用」把文件留在账本文件夹里；「移除并删除文件」把文件移到废纸篓，其他记录还在用的文件不会删除。"))
         }
     }
 }
@@ -164,47 +175,47 @@ extension View {
 /// adding files from this Mac, the way the phone does
 enum DocumentFiles {
     /// each file as a statement of `account`, dated by its name when it has a day in it (2026-10-31, 20261031), else today;
-    /// the first failure, else nil
-    static func keep(_ urls: [URL], with account: String, folder: URL) -> String? {
-        for url in urls {
-            guard let data = try? Data(contentsOf: url) else { return "读不了 \(url.lastPathComponent)" }
-            let prepared = prepareFolderStatement(account: account, date: documentDay(inName: url.lastPathComponent) ?? Day.today(), data: data,
-                                                  ext: url.pathExtension, folder: folder)
-            if let failure = commit(prepared, folder: folder) { return failure }
+    /// the first failure, and what was written up to it as one step to undo
+    static func keep(_ urls: [URL], with account: String, folder: URL) -> (failure: String?, change: FolderChange) {
+        write(urls, folder: folder) { data, url in
+            prepareFolderStatement(account: account, date: documentDay(inName: url.lastPathComponent) ?? Day.today(), data: data,
+                                   ext: url.pathExtension, folder: folder)
         }
-        return nil
     }
 
-    /// each file attached to `entry`; the first failure, else nil
-    static func attach(_ urls: [URL], to entry: Entry, folder: URL) -> String? {
-        for url in urls {
-            guard let data = try? Data(contentsOf: url) else { return "读不了 \(url.lastPathComponent)" }
-            if let failure = commit(prepareFolderAttachment(entry, data: data, ext: url.pathExtension, folder: folder), folder: folder) { return failure }
-        }
-        return nil
+    /// each file attached to `entry`; the first failure, and what was written up to it as one step to undo
+    static func attach(_ urls: [URL], to entry: Entry, folder: URL) -> (failure: String?, change: FolderChange) {
+        write(urls, folder: folder) { data, url in prepareFolderAttachment(entry, data: data, ext: url.pathExtension, folder: folder) }
     }
 
     /// on the writing path, away from the window; the folder's watcher reads the change back
+    @MainActor
     static func delete(_ entry: Entry, file: Bool, folder: URL, done: @escaping (String, Bool) -> Void) {
-        Task {
+        Task { @MainActor in
             let outcome = await Task.detached { Result { try deleteFolderDocument(entry, file: file, folder: folder) } }.value
-            switch outcome {
-            case .success(.inUse(let n)): done("文件还被其他 \(n) 条记录使用，已保留文件", false)
-            case .success(.missing): done("文件夹里没有这个文件，只移除了引用", false)
+            if case .success(let deleted) = outcome { SaveUndo.record(deleted.change, folder: folder, name: LS("删除附件")) }
+            switch outcome.map(\.outcome) {
+            case .success(.inUse(let n)): done(LS("文件还被其他 %@ 条记录使用，已保留文件", n), false)
+            case .success(.missing): done(LS("文件夹里没有这个文件，只移除了引用"), false)
             case .success: done("", false)
             case .failure(let error): done(error.localizedDescription, true)
             }
         }
     }
 
-    private static func commit(_ prepared: Result<FolderSave, FolderSaveError>, folder: URL) -> String? {
-        switch prepared {
-        case .failure(let error): return error.message
-        case .success(let save):
-            if let issue = save.issues.first { return issue.detail.isEmpty ? issue.title : issue.detail }
-            do { try commitFolderSave(save, folder: folder) } catch { return error.localizedDescription }
-            return nil
+    private static func write(_ urls: [URL], folder: URL, _ prepare: (Data, URL) -> Result<FolderSave, FolderSaveError>) -> (failure: String?, change: FolderChange) {
+        var changes: [FolderChange] = []
+        func stop(_ failure: String) -> (failure: String?, change: FolderChange) { (failure, .merged(changes)) }
+        for url in urls {
+            guard let data = try? Data(contentsOf: url) else { return stop(LS("读不了 %@", url.lastPathComponent)) }
+            switch prepare(data, url) {
+            case .failure(let error): return stop(error.message)
+            case .success(let save):
+                if let issue = save.issues.first { return stop(issue.detail.isEmpty ? issue.title : issue.detail) }
+                do { changes.append(try commitFolderSave(save, folder: folder)) } catch { return stop(error.localizedDescription) }
+            }
         }
+        return (nil, .merged(changes))
     }
 }
 
@@ -221,15 +232,15 @@ private struct DocumentPreview: View {
                 Text(item.path ?? item.entry.path ?? "").font(.callout.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 Spacer()
                 if let link = item.entry.links.first, item.transaction != nil {
-                    NavigationLink("到明细", value: JournalScope(title: item.name, link: link))
+                    NavigationLink(LS("到明细"), value: JournalScope(title: item.name, link: link))
                 }
-                Button("打开") { if let url { NSWorkspace.shared.open(url) } }.disabled(url == nil)
-                Button("在 Finder 中显示") { if let url { NSWorkspace.shared.activateFileViewerSelecting([url]) } }.disabled(url == nil)
+                Button(LS("打开")) { if let url { NSWorkspace.shared.open(url) } }.disabled(url == nil)
+                Button(LS("在 Finder 中显示")) { if let url { NSWorkspace.shared.activateFileViewerSelecting([url]) } }.disabled(url == nil)
             }
             if let url, FileManager.default.fileExists(atPath: url.path) {
                 QuickLook(url: url)
             } else {
-                ContentUnavailableView("找不到这个文件", systemImage: "doc.questionmark")
+                ContentUnavailableView(LS("找不到这个文件"), systemImage: "doc.questionmark")
             }
         }
         .padding(12)

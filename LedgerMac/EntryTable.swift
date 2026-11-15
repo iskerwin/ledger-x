@@ -342,12 +342,12 @@ struct EntryList: View {
     private func menu(_ chosen: [JournalRow]) -> [TableMenuItem] {
         let entries = chosen.map(\.entry)
         guard entries.count == 1, let entry = entries.first else {
-            return [TableMenuItem(title: "复制 \(entries.count) 笔原文") { EntryTasks.copy(entries) }]
+            return [TableMenuItem(title: LS("复制 %@ 笔原文", entries.count)) { EntryTasks.copy(entries) }]
         }
-        return [TableMenuItem(title: "编辑…", enabled: entry.editable) { tasks.edit(entry, ledger, config) },
-                TableMenuItem(title: "复制原文") { EntryTasks.copy(entries) },
-                TableMenuItem(title: "打开所在文件") { EntryTasks.open(entry, in: folder) },
+        return [TableMenuItem(title: LS("编辑…"), enabled: entry.editable) { tasks.edit(entry, ledger, config) },
+                TableMenuItem(title: LS("复制原文")) { EntryTasks.copy(entries) },
+                TableMenuItem(title: LS("打开所在文件")) { EntryTasks.open(entry, in: folder) },
                 .divider,
-                TableMenuItem(title: "删除…", enabled: entry.editable) { tasks.deleting = entry }]
+                TableMenuItem(title: LS("删除…"), enabled: entry.editable) { tasks.deleting = entry }]
     }
 }

@@ -105,7 +105,7 @@ struct QuickCard: View {
                     VStack(spacing: Space.control) {
                         if d.kind == .transfer { transferPanel(d) }
                         else if d.reimb {
-                            LabeledContent("报销应收科目", value: accountTitle(ledger, derived.receivable))
+                            LabeledContent(LS("报销应收科目"), value: accountTitle(ledger, derived.receivable))
                                 .padding(.vertical, Space.control)
                         } else { grid(d); subCategories(d) }
                     }
@@ -154,9 +154,9 @@ struct QuickCard: View {
             Button(action: close) { barIcon("xmark") }
                 .buttonStyle(.plain)
                 .keyboardShortcut(.cancelAction)
-                .help("关闭")
+                .help(LS("关闭"))
             Spacer()
-            Picker("类型", selection: Binding(get: { Self.kinds.contains(draft.kind) ? draft.kind : .expense }, set: { _ = setKind($0) })) {
+            Picker(LS("类型"), selection: Binding(get: { Self.kinds.contains(draft.kind) ? draft.kind : .expense }, set: { _ = setKind($0) })) {
                 ForEach(Self.kinds) { Text($0.label).tag($0) }
             }
             .pickerStyle(.segmented)
@@ -181,12 +181,12 @@ struct QuickCard: View {
 
     private var moreMenu: some View {
         Menu {
-            Button("完整表单", systemImage: "list.bullet.rectangle") { openFull() }
-            Button("分录（多行）", systemImage: "list.number") { if setKind(.multi) { openFull() } }
-            Button("文本（Beancount 指令）", systemImage: "text.alignleft") { if setKind(.raw) { openFull() } }
-            Button(draft.edited != nil ? "源文本（已手动编辑）" : "源文本", systemImage: "chevron.left.forwardslash.chevron.right") { editingText = true }
+            Button(LS("完整表单"), systemImage: "list.bullet.rectangle") { openFull() }
+            Button(LS("分录（多行）"), systemImage: "list.number") { if setKind(.multi) { openFull() } }
+            Button(LS("文本（Beancount 指令）"), systemImage: "text.alignleft") { if setKind(.raw) { openFull() } }
+            Button(draft.edited != nil ? LS("源文本（已手动编辑）") : LS("源文本"), systemImage: "chevron.left.forwardslash.chevron.right") { editingText = true }
             if draft.edited != nil {
-                Button("恢复自动生成", systemImage: "arrow.counterclockwise") { draft.edited = nil }
+                Button(LS("恢复自动生成"), systemImage: "arrow.counterclockwise") { draft.edited = nil }
             }
             if draft.kind == .income && (isPersonal(draft.account) || isPersonal(draft.funding)) {
                 personButton(draft)
@@ -198,14 +198,14 @@ struct QuickCard: View {
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("更多")
+        .help(LS("更多"))
     }
 
     /// above the grid: which entry is being edited, or the frequent entries
     @ViewBuilder
     private func topStrip(_ d: Draft) -> some View {
         if let r = d.replacing {
-            Label("修改：\(r.date) \(r.summary)", systemImage: "pencil")
+            Label(LS("修改：%@ %@", r.date, r.summary), systemImage: "pencil")
                 .font(.system(size: Size.footnote))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -283,7 +283,7 @@ struct QuickCard: View {
         let picked = d.account.hasPrefix(root) ? catOf(d.account) : nil
         let top = shownGroups(groups, picked: picked)
         if groups.isEmpty {
-            Text("账本里还没有\(d.kind == .income ? "收入" : "支出")科目，可在「账户」里新建。")
+            Text(LS("账本里还没有%@科目，可在「账户」里新建。", d.kind == .income ? "收入" : "支出"))
                 .font(.system(size: Size.footnote))
                 .foregroundStyle(.secondary)
         } else {
@@ -294,10 +294,10 @@ struct QuickCard: View {
                         if g.id == picked && !g.single { subPicking = g.id } else { pick(g) }
                     }
                     .contextMenu {
-                        if !g.single { Button("选择子类", systemImage: "list.bullet") { pick(g); subPicking = g.id } }
+                        if !g.single { Button(LS("选择子类"), systemImage: "list.bullet") { pick(g); subPicking = g.id } }
                     }
                 }
-                CategoryCell(icon: "square.grid.2x2", title: "全部", single: true, selected: false) { field = nil; allCategories = true }
+                CategoryCell(icon: "square.grid.2x2", title: LS("全部"), single: true, selected: false) { field = nil; allCategories = true }
             }
         }
     }
@@ -360,7 +360,7 @@ struct QuickCard: View {
         let out = sent.map { $0 + (d.feeMode == .added && (d.feeCurrency ?? d.currency) == d.currency ? fee : 0) }
         let into = received.map { $0 - (d.feeMode == .deducted && (d.feeCurrency ?? incoming) == incoming ? fee : 0) }
         return VStack(spacing: Space.icon) {
-            transferCard("转出", d.funding, currency: d.currency, change: out.map { -$0 }, arriving: nil) { picking = .from }
+            transferCard(LS("转出"), d.funding, currency: d.currency, change: out.map { -$0 }, arriving: nil) { picking = .from }
             ZStack {
                 if !d.funding.isEmpty && !d.to.isEmpty {
                     Button(action: swapTransfer) {
@@ -371,18 +371,18 @@ struct QuickCard: View {
                             .background(Color.jade, in: Circle())
                     }
                     .buttonStyle(.plain)
-                    .help("对调")
+                    .help(LS("对调"))
                 }
                 // the same account, another currency: 换汇 within it
                 if !d.funding.isEmpty && d.funding == d.to, let c = incoming {
                     HStack {
                         Spacer()
-                        Text("同账户换汇 \(d.currency) → \(c)").font(.system(size: Size.caption)).foregroundStyle(.secondary)
+                        Text(LS("同账户换汇 %@ → %@", d.currency, c)).font(.system(size: Size.caption)).foregroundStyle(.secondary)
                     }
                 }
             }
             .frame(height: d.funding.isEmpty || d.to.isEmpty ? 0 : 34)
-            transferCard("转入", d.to, currency: incoming ?? d.currency, change: into, arriving: incoming == d.currency ? nil : incoming) { picking = .to }
+            transferCard(LS("转入"), d.to, currency: incoming ?? d.currency, change: into, arriving: incoming == d.currency ? nil : incoming) { picking = .to }
         }
     }
 
@@ -406,7 +406,7 @@ struct QuickCard: View {
             HStack(spacing: Space.control) {
                 if a.isEmpty {
                     Image(systemName: "plus.circle.fill").font(.system(size: 20)).foregroundStyle(Color.jade).frame(width: 36, height: 36)
-                    Text(label == "转出" ? "选择转出账户" : "选择转入账户").foregroundStyle(Color.jade)
+                    Text(label == LS("转出") ? LS("选择转出账户") : LS("选择转入账户")).foregroundStyle(Color.jade)
                     Spacer()
                 } else {
                     let look = accountLook(a)
@@ -449,9 +449,9 @@ struct QuickCard: View {
         let now = ledger.final[a]?[currency] ?? 0
         let owing = a.hasPrefix("Liabilities:")
         func show(_ v: Double) -> String { money(owing ? -v : v, currency, 0) }
-        var balance = (owing ? "欠款 " : "余额 ") + show(now)
+        var balance = (owing ? LS("欠款 ") : LS("余额 ")) + show(now)
         if let c = change, abs(c) > 0.005 { balance += " → " + show(now + c) }
-        return ([balance] + (arriving.map { ["到账 " + $0] } ?? [])).joined(separator: " · ")
+        return ([balance] + (arriving.map { [LS("到账 ") + $0] } ?? [])).joined(separator: " · ")
     }
 
     private func accountLook(_ a: String) -> (symbol: String, color: Color) {
@@ -465,21 +465,21 @@ struct QuickCard: View {
         return Group {
             switch p {
             case .funding:
-                AccountChooser(title: d.kind == .income ? "收款账户" : "付款账户", prefixes: prefixes, ledger: ledger, derived: derived, current: d.funding) { a in
+                AccountChooser(title: d.kind == .income ? LS("收款账户") : LS("付款账户"), prefixes: prefixes, ledger: ledger, derived: derived, current: d.funding) { a in
                     draft.funding = a
                     draft.edited = nil
                     pickedFunding()
                 }
             case .from:
-                AccountChooser(title: "转出", prefixes: prefixes, ledger: ledger, derived: derived, current: d.funding) { a in
+                AccountChooser(title: LS("转出"), prefixes: prefixes, ledger: ledger, derived: derived, current: d.funding) { a in
                     pickedFunding()
                     draft.funding = a
                     draft.currency = derived.acctCcy[a] ?? draft.currency
                     draft.edited = nil
                 }
             case .to:
-                AccountChooser(title: "转入", prefixes: prefixes, ledger: ledger, derived: derived, current: d.to,
-                               hints: d.funding.isEmpty ? [:] : [d.funding: "同账户换汇"]) { a in
+                AccountChooser(title: LS("转入"), prefixes: prefixes, ledger: ledger, derived: derived, current: d.to,
+                               hints: d.funding.isEmpty ? [:] : [d.funding: LS("同账户换汇")]) { a in
                     draft.to = a
                     draft.edited = nil
                 }
@@ -533,7 +533,7 @@ struct QuickCard: View {
     private func fundingMenu(_ d: Draft) -> some View {
         let funds = Array(derived.rankAccounts(["Assets:", "Liabilities:"]).filter { !$0.hasPrefix("Assets:Receivable") }.prefix(8))
         let others = d.kind == .expense ? d.extraFunds.filter { !$0.account.isEmpty }.count : 0
-        let title = (d.funding.isEmpty ? (d.kind == .income ? "收款账户" : "付款账户") : accountTitle(ledger, d.funding)) + (others > 0 ? " + \(others)" : "")
+        let title = (d.funding.isEmpty ? (d.kind == .income ? LS("收款账户") : LS("付款账户")) : accountTitle(ledger, d.funding)) + (others > 0 ? " + \(others)" : "")
         let look = d.funding.isEmpty ? (symbol: "creditcard", color: Color.jade) : accountLook(d.funding)
         return Menu {
             ForEach(funds, id: \.self) { a in
@@ -546,9 +546,9 @@ struct QuickCard: View {
                 }
             }
             Divider()
-            Button("更多账户…", systemImage: "building.columns") { picking = .funding }
+            Button(LS("更多账户…"), systemImage: "building.columns") { picking = .funding }
             if d.kind == .expense {
-                Button("组合付款…", systemImage: "square.split.2x1") { open(.pay) }
+                Button(LS("组合付款…"), systemImage: "square.split.2x1") { open(.pay) }
             }
         } label: {
             HStack(spacing: Space.icon) {
@@ -576,27 +576,27 @@ struct QuickCard: View {
         return Menu {
             Menu { reimbItems(d) } label: { Label(reimbLabel(d), systemImage: d.reimb ? "checkmark.circle.fill" : "doc.text") }
             if discountAllowed(d) {
-                Button(discount > 0 ? "优惠 " + money(discount, d.currency) : "优惠…", systemImage: "gift") { open(.pay) }
+                Button(discount > 0 ? LS("优惠 ") + money(discount, d.currency) : LS("优惠…"), systemImage: "gift") { open(.pay) }
             }
-            Button(marks.isEmpty ? "标签…" : marks.joined(separator: " "), systemImage: "tag") { open(.marks) }
+            Button(marks.isEmpty ? LS("标签…") : marks.joined(separator: " "), systemImage: "tag") { open(.marks) }
             Divider()
             if !d.reimb {
-                Button("AA 分摊…", systemImage: "person.2") {
+                Button(LS("AA 分摊…"), systemImage: "person.2") {
                     draft.split = true
                     draft.edited = nil
                     openFull()
                 }
             }
-            Button("组合付款…", systemImage: "square.split.2x1") { open(.pay) }
+            Button(LS("组合付款…"), systemImage: "square.split.2x1") { open(.pay) }
             if topup {
-                Button("本期补差", systemImage: d.topup ? "checkmark" : "plus.forwardslash.minus") {
+                Button(LS("本期补差"), systemImage: d.topup ? "checkmark" : "plus.forwardslash.minus") {
                     draft.topup.toggle()
                     draft.edited = nil
                 }
             }
             if person { personButton(d) }
         } label: {
-            cell(shown.isEmpty ? "更多" : shown.joined(separator: " "), icon: "ellipsis.circle", on: on)
+            cell(shown.isEmpty ? LS("更多") : shown.joined(separator: " "), icon: "ellipsis.circle", on: on)
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
@@ -605,7 +605,7 @@ struct QuickCard: View {
 
     /// 填写对方: in spending's 更多, and in the ⋯ menu for income
     private func personButton(_ d: Draft) -> some View {
-        Button(d.person.trimmed.isEmpty ? "填写对方…" : "对方：" + d.person, systemImage: "person") { openFull() }
+        Button(d.person.trimmed.isEmpty ? LS("填写对方…") : LS("对方：") + d.person, systemImage: "person") { openFull() }
     }
 
     /// one part of the row: an icon, its text, and a chevron; in the theme's colour when something is set
@@ -630,14 +630,14 @@ struct QuickCard: View {
     private func markChip(_ d: Draft) -> some View {
         let parts = markParts(d)
         return Button { open(.marks) } label: {
-            cell(parts.isEmpty ? "标签" : parts.joined(separator: " "), icon: "tag", on: !parts.isEmpty)
+            cell(parts.isEmpty ? LS("标签") : parts.joined(separator: " "), icon: "tag", on: !parts.isEmpty)
         }
         .buttonStyle(.plain)
     }
 
     private func reimbLabel(_ d: Draft) -> String {
         let onFloat = d.reimb && isFloatLink(d.link.trimmed)
-        let label = !d.reimb ? "报销" : onFloat ? "报销 · 备用金" : "报销 · 垫付"
+        let label = !d.reimb ? LS("报销") : onFloat ? LS("报销 · 备用金") : LS("报销 · 垫付")
         return label + (d.reimb && !d.voucher.isEmpty ? " · " + d.voucher : "")
     }
 
@@ -652,22 +652,22 @@ struct QuickCard: View {
             draft.edited = nil
         }
         Button { set(false, isFloatLink(d.link.trimmed) ? "" : d.link) } label: {
-            if !d.reimb { Label("不报销", systemImage: "checkmark") } else { Text("不报销") }
+            if !d.reimb { Label(LS("不报销"), systemImage: "checkmark") } else { Text(LS("不报销")) }
         }
         ForEach(floats) { f in
             Button { set(true, f.link) } label: {
-                let title = "备用金 \(f.date)（剩 \(money(f.left, f.currency))）"
+                let title = LS("备用金 %@（剩 %@）", f.date, money(f.left, f.currency))
                 if d.reimb && d.link == f.link { Label(title, systemImage: "checkmark") } else { Text(title) }
             }
         }
         Button { set(true, isFloatLink(d.link.trimmed) ? "" : d.link) } label: {
-            if d.reimb && !onFloat { Label("自己垫付", systemImage: "checkmark") } else { Text("自己垫付") }
+            if d.reimb && !onFloat { Label(LS("自己垫付"), systemImage: "checkmark") } else { Text(LS("自己垫付")) }
         }
         if d.reimb {
             Divider()
-            Picker("凭证类型", selection: Binding(get: { draft.voucher }, set: { draft.voucher = $0; draft.edited = nil })) {
-                Text("凭证：不填").tag("")
-                ForEach(voucherKinds, id: \.self) { Text("凭证：" + $0).tag($0) }
+            Picker(LS("凭证类型"), selection: Binding(get: { draft.voucher }, set: { draft.voucher = $0; draft.edited = nil })) {
+                Text(LS("凭证：不填")).tag("")
+                ForEach(voucherKinds, id: \.self) { Text(LS("凭证：") + $0).tag($0) }
             }
         }
     }
@@ -678,7 +678,7 @@ struct QuickCard: View {
         let other = conversionCurrency(d, ledger, derived)
         let cross = other != nil && other != d.currency && !(d.kind != .transfer && hasCombo(d))
         return VStack(alignment: .leading, spacing: Space.icon) {
-            Text(d.kind == .income ? "收入金额" : d.kind == .transfer ? "转出金额" : "支出金额")
+            Text(d.kind == .income ? LS("收入金额") : d.kind == .transfer ? LS("转出金额") : LS("支出金额"))
                 .font(.system(size: Size.caption))
                 .foregroundStyle(.secondary)
             HStack(alignment: .center, spacing: Space.icon) {
@@ -708,11 +708,11 @@ struct QuickCard: View {
                 }
                 .buttonStyle(.plain)
                 .fixedSize()
-                .help(d.kind == .expense || d.kind == .transfer ? "币种、汇率与手续费" : "币种与汇率")
+                .help(d.kind == .expense || d.kind == .transfer ? LS("币种、汇率与手续费") : LS("币种与汇率"))
             }
             if cross, let o = other {
                 Button { open(.rate) } label: {
-                    Label(draftRate(d).map { "1 \(d.currency) = \(rateString($0)) \(o)" } ?? "填汇率…", systemImage: "arrow.left.arrow.right")
+                    Label(draftRate(d).map { "1 \(d.currency) = \(rateString($0)) \(o)" } ?? LS("填汇率…"), systemImage: "arrow.left.arrow.right")
                         .font(.system(size: Size.footnote))
                         .foregroundStyle(draftRate(d) == nil ? Color.warn : Color.secondary)
                 }
@@ -720,7 +720,7 @@ struct QuickCard: View {
             }
             if d.kind == .expense || d.kind == .transfer, let fee = evalAmount(d.transferFee ?? ""), fee > 0 {
                 Button { open(.rate) } label: {
-                    Label("手续费 " + money(fee, d.feeCurrency ?? other ?? d.currency), systemImage: "percent")
+                    Label(LS("手续费 ") + money(fee, d.feeCurrency ?? other ?? d.currency), systemImage: "percent")
                         .font(.system(size: Size.footnote))
                         .foregroundStyle(.secondary)
                 }
@@ -769,7 +769,7 @@ struct QuickCard: View {
                 CellIcon(symbol: icon).foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: Space.detail) {
                     if empty {
-                        Text(d.kind == .income ? "付款方 · 摘要" : "收付款方 · 摘要").foregroundStyle(.secondary)
+                        Text(d.kind == .income ? LS("付款方 · 摘要") : LS("收付款方 · 摘要")).foregroundStyle(.secondary)
                     } else {
                         if !d.payee.trimmed.isEmpty { Text(d.payee).lineLimit(2) }
                         if !d.narration.trimmed.isEmpty {
@@ -795,23 +795,23 @@ struct QuickCard: View {
     /// 今天, 昨天, or the day ("10月14日"; with the year when it isn't this year's)
     private func dayLabel(_ day: String) -> String {
         let today = Day.today()
-        if day == today { return "今天" }
-        if day == Day.shift(today, -1) { return "昨天" }
+        if day == today { return LS("今天") }
+        if day == Day.shift(today, -1) { return LS("昨天") }
         let m = Int(day.dropFirst(5).prefix(2)) ?? 0, dd = Int(day.suffix(2)) ?? 0
-        return day.prefix(4) == today.prefix(4) ? "\(m)月\(dd)日" : day
+        return day.prefix(4) == today.prefix(4) ? LS("%@月%@日", m, dd) : day
     }
 
     @ViewBuilder
     private func textFields(_ d: Draft) -> some View {
         let notes = narrationSuggestions(derived, typed: "", payee: d.payee, limit: 1)
-        labeled("收付款方") {
-            TextField("收付款方", text: Binding(get: { draft.payee }, set: { updateText(\.payee, $0) }), prompt: Text("如 便利店、淘宝，可不填"))
+        labeled(LS("收付款方")) {
+            TextField(LS("收付款方"), text: Binding(get: { draft.payee }, set: { updateText(\.payee, $0) }), prompt: Text(LS("如 便利店、淘宝，可不填")))
                 .focused($field, equals: .payee)
                 .onSubmit { applyPayee(draft.payee.trimmed, onlyBlanks: false); field = .narration }
         }
-        labeled("摘要") {
-            TextField("摘要", text: Binding(get: { draft.narration }, set: { updateText(\.narration, $0) }),
-                      prompt: Text(notes.first.map { "如 \($0)，可不填" } ?? "买了什么、做什么用，可不填"))
+        labeled(LS("摘要")) {
+            TextField(LS("摘要"), text: Binding(get: { draft.narration }, set: { updateText(\.narration, $0) }),
+                      prompt: Text(notes.first.map { LS("如 %@，可不填", $0) } ?? LS("买了什么、做什么用，可不填")))
                 .focused($field, equals: .narration)
                 .onSubmit { field = nil; writing = false }
         }
@@ -834,7 +834,7 @@ struct QuickCard: View {
                     }
                 }
             }
-            Button { field = nil; writing = false } label: { Label("完成", systemImage: "checkmark") }
+            Button { field = nil; writing = false } label: { Label(LS("完成"), systemImage: "checkmark") }
                 .buttonStyle(.plain)
                 .font(.system(size: Size.body, weight: .semibold))
                 .foregroundStyle(Color.jade)
@@ -890,19 +890,19 @@ struct QuickCard: View {
     private func keypad(_ d: Draft) -> some View {
         let expression = isExpression(d.amount)
         return Grid(horizontalSpacing: Space.icon, verticalSpacing: Space.icon) {
-            GridRow { digit("1"); digit("2"); digit("3"); KeyCap(systemImage: "delete.left", label: "退格", tap: { key("⌫") }, hold: { setAmount("") }) }
-            GridRow { digit("4"); digit("5"); digit("6"); KeyCap(text: "+  ×", label: "加，长按为乘", tap: { key("+") }, hold: { key("×") }) }
-            GridRow { digit("7"); digit("8"); digit("9"); KeyCap(text: "−  ÷", label: "减，长按为除", tap: { key("-") }, hold: { key("÷") }) }
+            GridRow { digit("1"); digit("2"); digit("3"); KeyCap(systemImage: "delete.left", label: LS("退格"), tap: { key("⌫") }, hold: { setAmount("") }) }
+            GridRow { digit("4"); digit("5"); digit("6"); KeyCap(text: "+  ×", label: LS("加，长按为乘"), tap: { key("+") }, hold: { key("×") }) }
+            GridRow { digit("7"); digit("8"); digit("9"); KeyCap(text: "−  ÷", label: LS("减，长按为除"), tap: { key("-") }, hold: { key("÷") }) }
             GridRow {
                 digit(".")
                 digit("0")
                 if editing {
                     // editing: there is no next one; its text instead
-                    KeyCap(text: "源文本", symbol: "chevron.left.forwardslash.chevron.right", font: .system(size: 16, weight: .semibold), tap: { editingText = true })
+                    KeyCap(text: LS("源文本"), symbol: "chevron.left.forwardslash.chevron.right", font: .system(size: 16, weight: .semibold), tap: { editingText = true })
                 } else {
-                    KeyCap(text: "保存再记", symbol: "plus.circle", font: .system(size: 16, weight: .semibold), soft: true, tap: { submit(close: false) })
+                    KeyCap(text: LS("保存再记"), symbol: "plus.circle", font: .system(size: 16, weight: .semibold), soft: true, tap: { submit(close: false) })
                 }
-                KeyCap(text: expression ? "=" : "保存", symbol: expression ? nil : "checkmark", font: .system(size: expression ? 24 : 17, weight: .semibold),
+                KeyCap(text: expression ? "=" : LS("保存"), symbol: expression ? nil : "checkmark", font: .system(size: expression ? 24 : 17, weight: .semibold),
                        filled: true, tap: { expression ? equals() : submit(close: true) })
                     .opacity(saving ? 0.5 : 1)
             }
@@ -1149,14 +1149,14 @@ private struct DayChooser: View {
         let today = Day.today()
         VStack(spacing: Space.control) {
             HStack(spacing: Space.icon) {
-                ForEach([("今天", today), ("昨天", Day.shift(today, -1)), ("前天", Day.shift(today, -2))], id: \.1) { quick in
+                ForEach([(LS("今天"), today), (LS("昨天"), Day.shift(today, -1)), (LS("前天"), Day.shift(today, -2))], id: \.1) { quick in
                     QuickChip(label: quick.0, systemImage: "calendar", selected: day == quick.1) {
                         day = quick.1
                         done()
                     }
                 }
             }
-            DayPicker(title: "日期", day: Binding(get: { day }, set: { day = $0; done() }))
+            DayPicker(title: LS("日期"), day: Binding(get: { day }, set: { day = $0; done() }))
         }
         .padding(Space.control)
     }
@@ -1171,12 +1171,12 @@ private struct SheetBar: View {
 
     var body: some View {
         HStack {
-            Button("取消") { dismiss() }.keyboardShortcut(.cancelAction)
+            Button(LS("取消")) { dismiss() }.keyboardShortcut(.cancelAction)
             Spacer()
             Text(title).font(.headline)
             Spacer()
             if let done {
-                Button("完成", action: done).keyboardShortcut(.defaultAction).disabled(!canFinish)
+                Button(LS("完成"), action: done).keyboardShortcut(.defaultAction).disabled(!canFinish)
             }
         }
         .padding(Space.content)
@@ -1200,7 +1200,7 @@ private struct AccountChooser: View {
         let accounts = derived.rankAccounts(prefixes).filter { typed.isEmpty || fuzzy(typed, accountTitle(ledger, $0)) > 0 || fuzzy(typed, $0) > 0 }
         VStack(spacing: 0) {
             SheetBar(title: title)
-            TextField("搜索账户", text: $query)
+            TextField(LS("搜索账户"), text: $query)
                 .textFieldStyle(.roundedBorder)
                 .padding(.horizontal, Space.content)
             List(accounts, id: \.self) { a in
@@ -1277,25 +1277,25 @@ private struct AllCategoriesSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SheetBar(title: "全部分类", done: finish, canFinish: account != nil)
-            TextField("搜索分类", text: $query)
+            SheetBar(title: LS("全部分类"), done: finish, canFinish: account != nil)
+            TextField(LS("搜索分类"), text: $query)
                 .textFieldStyle(.roundedBorder)
                 .padding(.horizontal, Space.content)
             ScrollView {
                 VStack(alignment: .leading, spacing: Space.control) {
                     if query.trimmed.isEmpty {
-                        Text("常用分类").font(.system(size: Size.footnote)).foregroundStyle(.secondary)
+                        Text(LS("常用分类")).font(.system(size: Size.footnote)).foregroundStyle(.secondary)
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: Space.control) { ForEach(common) { cell($0).frame(width: 64) } }
                         }
                         Divider()
-                        Text("所有分类").font(.system(size: Size.footnote)).foregroundStyle(.secondary)
+                        Text(LS("所有分类")).font(.system(size: Size.footnote)).foregroundStyle(.secondary)
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Space.icon, alignment: .top), count: 4), spacing: Space.control) {
                             ForEach(groups) { cell($0) }
                         }
                     } else {
                         let hits = matches()
-                        if hits.isEmpty { Text("没有找到「\(query.trimmed)」").foregroundStyle(.secondary).padding(.top, Space.content) }
+                        if hits.isEmpty { Text(LS("没有找到「%@」", query.trimmed)).foregroundStyle(.secondary).padding(.top, Space.content) }
                         ForEach(Array(hits.enumerated()), id: \.offset) { _, hit in
                             let (g, a) = hit
                             Button { choose(g, a) } label: {
@@ -1358,7 +1358,7 @@ private struct AllCategoriesSheet: View {
                 }
             }
             Button(action: finish) {
-                Label("使用「\(categoryGroupTitle(g, ledger) + (g.single || account == nil ? "" : " · " + leafTitle(ledger, account!)))」", systemImage: "checkmark")
+                Label(LS("使用「%@」", categoryGroupTitle(g, ledger) + (g.single || account == nil ? "" : " · " + leafTitle(ledger, account!))), systemImage: "checkmark")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
@@ -1397,7 +1397,7 @@ private struct SourceSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SheetBar(title: "编辑源文本", done: finish)
+            SheetBar(title: LS("编辑源文本"), done: finish)
             TextEditor(text: $text)
                 .font(.system(size: 12, design: .monospaced))
                 .scrollContentBackground(.hidden)
@@ -1419,7 +1419,7 @@ private struct SourceSheet: View {
     private func finish() {
         let checked = validateText(text, ledger, single: single)
         guard checked.ok else {
-            problem = checked.msg ?? "这段文本无法保存"
+            problem = checked.msg ?? LS("这段文本无法保存")
             return
         }
         apply(text)

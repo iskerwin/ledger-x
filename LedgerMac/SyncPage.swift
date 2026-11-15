@@ -24,7 +24,7 @@ struct SyncPage: View {
             if let status {
                 content(status)
             } else {
-                ContentUnavailableView("这个文件夹不能同步", systemImage: "arrow.up.arrow.down")
+                ContentUnavailableView(LS("这个文件夹不能同步"), systemImage: "arrow.up.arrow.down")
             }
         }
         .background(Color.page)
@@ -40,7 +40,7 @@ struct SyncPage: View {
                 if !status.paths.isEmpty || status.ahead > 0 {
                     Card {
                         VStack(alignment: .leading, spacing: 0) {
-                            Text("本机改动").fontWeight(.medium).padding(.bottom, 8)
+                            Text(LS("本机改动")).fontWeight(.medium).padding(.bottom, 8)
                             ForEach(status.paths, id: \.self) { path in
                                 Divider()
                                 HStack {
@@ -50,7 +50,7 @@ struct SyncPage: View {
                                         Text(path).lineLimit(1).truncationMode(.middle)
                                     }
                                     Spacer()
-                                    Button(shown == path ? "收起差异" : "查看差异") { shown = shown == path ? nil : path }
+                                    Button(shown == path ? LS("收起差异") : LS("查看差异")) { shown = shown == path ? nil : path }
                                         .buttonStyle(.link)
                                 }
                                 .padding(.vertical, 6)
@@ -65,15 +65,15 @@ struct SyncPage: View {
                             }
                             if status.ahead > 0 {
                                 Divider()
-                                Text("另有 \(status.ahead) 个本机提交").foregroundStyle(.secondary).padding(.top, 6)
+                                Text(LS("另有 %@ 个本机提交", status.ahead)).foregroundStyle(.secondary).padding(.top, 6)
                             }
                         }
                     }
                 }
                 HStack(spacing: 12) {
-                    TextField("提交说明", text: $commitMessage, prompt: Text("提交说明"))
+                    TextField(LS("提交说明"), text: $commitMessage, prompt: Text(LS("提交说明")))
                         .textFieldStyle(.roundedBorder)
-                    Button("提交并推送") { sync(status) }
+                    Button(LS("提交并推送")) { sync(status) }
                         .keyboardShortcut(.defaultAction)
                         .disabled(busy || (paths(status).isEmpty && status.ahead == 0))
                 }
@@ -86,7 +86,7 @@ struct SyncPage: View {
                 if !log.isEmpty {
                     Card {
                         VStack(alignment: .leading, spacing: 0) {
-                            Text("最近提交").fontWeight(.medium).padding(.bottom, 8)
+                            Text(LS("最近提交")).fontWeight(.medium).padding(.bottom, 8)
                             ForEach(log) { commit in
                                 Divider()
                                 HStack(spacing: 12) {
@@ -114,15 +114,15 @@ struct SyncPage: View {
                 Text(summary(status)).font(.callout).foregroundStyle(.secondary)
             }
             Spacer()
-            Button("拉取", systemImage: "arrow.down") { pull() }
+            Button(LS("拉取"), systemImage: "arrow.down") { pull() }
                 .disabled(busy || (remoteReached && status.behind == 0))
         }
     }
 
     private func summary(_ status: FolderGitStatus) -> String {
-        var parts = ["\(status.paths.count) 个文件改动"]
-        if status.behind > 0 { parts.append("远端有 \(status.behind) 个新提交") }
-        if !remoteReached { parts.append("没有连上远端") }
+        var parts = [LS("%@ 个文件改动", status.paths.count)]
+        if status.behind > 0 { parts.append(LS("远端有 %@ 个新提交", status.behind)) }
+        if !remoteReached { parts.append(LS("没有连上远端")) }
         return parts.joined(separator: " · ")
     }
 
@@ -151,7 +151,7 @@ struct SyncPage: View {
     }
 
     private func sync(_ status: FolderGitStatus) {
-        run(success: "已提交并推送") { [folder, chosen = paths(status), message = commitMessage] in
+        run(success: LS("已提交并推送")) { [folder, chosen = paths(status), message = commitMessage] in
             try syncFolderGit(folder, paths: chosen, message: message)
         } after: {
             commitMessage = ""
@@ -160,7 +160,7 @@ struct SyncPage: View {
     }
 
     private func pull() {
-        run(success: "已拉取") { [folder] in try pullFolderGit(folder) } after: {}
+        run(success: LS("已拉取")) { [folder] in try pullFolderGit(folder) } after: {}
     }
 
     private func run(success: String, _ work: @escaping @Sendable () throws -> Void, after: @escaping () -> Void) {

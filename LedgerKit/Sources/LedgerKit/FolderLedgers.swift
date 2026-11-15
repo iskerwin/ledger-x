@@ -4,12 +4,14 @@ import Foundation
 /// read), and the folder's files when an include wildcard or option "documents" asked for them
 struct FolderReads: Equatable, Sendable {
     var root: String
+    /// the language its messages are in
+    var chinese = KitLocale.chinese
     var files: [String: Data?] = [:]
     var listing: [String]?
 
     /// the folder still holds exactly this, byte for byte
     func isCurrent(in folder: URL) -> Bool {
-        guard folderMain(folder) == root else { return false }
+        guard folderMain(folder) == root, KitLocale.chinese == chinese else { return false }
         for (path, data) in files where (try? Data(contentsOf: folder.appendingPathComponent(path))) != data { return false }
         return listing.map { $0 == folderListing(folder, adding: []) } ?? true
     }

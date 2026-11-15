@@ -8,7 +8,7 @@ private func labelled(_ months: [String]) -> [String] {
     return months.filter { ((Int($0.suffix(2)) ?? 1) - 1) % step == 0 }
 }
 
-private func monthNumber(_ month: String) -> String { String(Int(month.suffix(2)) ?? 0) + "月" }
+private func monthNumber(_ month: String) -> String { String(Int(month.suffix(2)) ?? 0) + LS("月") }
 
 /// how much an account held at each month's end; the pointer shows that month in the same place
 struct BalanceChart: View {
@@ -24,17 +24,17 @@ struct BalanceChart: View {
         let lo = points.map(\.amount).min() ?? 0, hi = points.map(\.amount).max() ?? 0
         let pad = max((hi - lo) * 0.1, 1)
         VStack(alignment: .leading, spacing: 12) {
-            Headline(label: shown.map { $0.month + " 月末" } ?? title ?? "当前余额 · " + currency, value: money(shown?.amount ?? current, currency))
+            Headline(label: shown.map { $0.month + LS(" 月末") } ?? title ?? LS("当前余额 · ") + currency, value: money(shown?.amount ?? current, currency))
             Chart(points) { point in
-                LineMark(x: .value("月份", point.month), y: .value("余额", point.amount))
+                LineMark(x: .value(LS("月份"), point.month), y: .value(LS("余额"), point.amount))
                     .foregroundStyle(Color.jade)
                     .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round))
                     .interpolationMethod(.monotone)
                 if point.month == picked {
-                    RuleMark(x: .value("月份", point.month))
+                    RuleMark(x: .value(LS("月份"), point.month))
                         .foregroundStyle(Color.secondary.opacity(0.4))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                    PointMark(x: .value("月份", point.month), y: .value("余额", point.amount))
+                    PointMark(x: .value(LS("月份"), point.month), y: .value(LS("余额"), point.amount))
                         .foregroundStyle(Color.jade)
                         .symbolSize(70)
                 }
@@ -65,7 +65,7 @@ struct MonthAmountChart: View {
         VStack(alignment: .leading, spacing: 12) {
             Headline(label: (shown.map { monthNumber($0.month) } ?? "") + label, value: money(shown?.amount ?? 0, currency))
             Chart(points) { point in
-                BarMark(x: .value("月份", point.month), y: .value("金额", point.amount))
+                BarMark(x: .value(LS("月份"), point.month), y: .value(LS("金额"), point.amount))
                     .foregroundStyle(Color.jade)
                     .cornerRadius(3)
                     .opacity(picked == nil || picked == point.month ? 1 : 0.5)
@@ -94,22 +94,22 @@ struct FlowCard: View {
         let month = picked ?? months.last
         let came = month.flatMap { income[$0] } ?? 0, went = month.flatMap { expenses[$0] } ?? 0
         VStack(alignment: .leading, spacing: 12) {
-            Headline(label: (month.map(monthNumber) ?? "") + "结余", value: money(came - went, base), color: came - went < 0 ? .loss : .primary)
+            Headline(label: (month.map(monthNumber) ?? "") + LS("结余"), value: money(came - went, base), color: came - went < 0 ? .loss : .primary)
             Chart {
                 ForEach(months, id: \.self) { month in
-                    BarMark(x: .value("月份", month), y: .value("金额", income[month] ?? 0))
-                        .foregroundStyle(by: .value("类别", "收入"))
-                        .position(by: .value("类别", "收入"))
+                    BarMark(x: .value(LS("月份"), month), y: .value(LS("金额"), income[month] ?? 0))
+                        .foregroundStyle(by: .value(LS("类别"), LS("收入")))
+                        .position(by: .value(LS("类别"), LS("收入")))
                         .cornerRadius(3)
                         .opacity(picked == nil || picked == month ? 1 : 0.5)
-                    BarMark(x: .value("月份", month), y: .value("金额", expenses[month] ?? 0))
-                        .foregroundStyle(by: .value("类别", "支出"))
-                        .position(by: .value("类别", "支出"))
+                    BarMark(x: .value(LS("月份"), month), y: .value(LS("金额"), expenses[month] ?? 0))
+                        .foregroundStyle(by: .value(LS("类别"), LS("支出")))
+                        .position(by: .value(LS("类别"), LS("支出")))
                         .cornerRadius(3)
                         .opacity(picked == nil || picked == month ? 1 : 0.5)
                 }
             }
-            .chartForegroundStyleScale(["收入": Color.chartGain, "支出": Color.chartLoss])
+            .chartForegroundStyleScale([LS("收入"): Color.chartGain, LS("支出"): Color.chartLoss])
             .chartLegend(.hidden)
             .chartYAxis(.hidden)
             .chartXAxis {
@@ -120,7 +120,7 @@ struct FlowCard: View {
             }
             .pickingMonth($picked)
             .frame(height: 180)
-            SummaryFigures(items: [("收入", money(came, base), .gain), ("支出", money(went, base), .loss)])
+            SummaryFigures(items: [(LS("收入"), money(came, base), .gain), (LS("支出"), money(went, base), .loss)])
         }
     }
 }
@@ -165,7 +165,7 @@ struct DonutSlice: Identifiable {
                        color: CategoryPalette.color(slots[node.name] ?? stableColorSlot(node.name, count: CategoryPalette.colors.count)), opens: true)
         }
         let rest = positive.dropFirst(head.count).reduce(0) { $0 + $1.total }
-        if rest > 0.005 { slices.append(DonutSlice(id: "__other", label: "其他", value: rest, color: .gray, opens: false)) }
+        if rest > 0.005 { slices.append(DonutSlice(id: "__other", label: LS("其他"), value: rest, color: .gray, opens: false)) }
         return slices
     }
 }

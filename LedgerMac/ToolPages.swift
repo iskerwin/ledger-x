@@ -3,13 +3,14 @@ import UniformTypeIdentifiers
 import LedgerKit
 
 /// 值得留意 checked and found fine, set aside on every device: ledger-x.json, as the phone keeps it
+@MainActor
 func confirmAlert(_ alert: Anomaly, folder: URL) throws {
     let save = try prepareFolderConfig(folder: folder) { config in
         var ids = config.alertsConfirmed ?? []
         if !ids.contains(alert.id) { ids.append(alert.id) }
         config.alertsConfirmed = ids
     }.get()
-    try commitFolderSave(save, folder: folder)
+    try SaveUndo.commit(save, folder: folder, name: LS("核对无误"))
 }
 
 extension Anomaly.Kind {
@@ -43,7 +44,7 @@ struct QueryPage: View {
 
     var body: some View {
         SplitPage(listWidth: 240) {
-            ForEach([("内置", builtinQueries), ("账本", ledgerQueries), ("最近", recent)], id: \.0) { group in
+            ForEach([(LS("内置"), builtinQueries), (LS("账本"), ledgerQueries), (LS("最近"), recent)], id: \.0) { group in
                 if !group.1.isEmpty {
                     Text(group.0).font(.caption.weight(.semibold)).foregroundStyle(.secondary).padding(.horizontal, 10).padding(.top, 8)
                     ForEach(group.1) { query in
@@ -65,15 +66,15 @@ struct QueryPage: View {
                     .frame(height: 140)
                     .background(Color.card, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 HStack(spacing: 8) {
-                    Button("运行", action: run)
+                    Button(LS("运行"), action: run)
                         .buttonStyle(.borderedProminent)
                         .keyboardShortcut(.return, modifiers: .command)
                     if running != nil { ProgressView().controlSize(.small) }
                     Spacer()
                     if let result {
-                        Text("\(result.rows.count) 行 · " + String(format: "%.2f 秒", took)).monospacedDigit().foregroundStyle(.secondary)
-                        Button("复制") { copy(result) }
-                        Button("导出 CSV…") { export(result) }
+                        Text(LS("%@ 行 · ", result.rows.count) + String(format: LS("%.2f 秒"), took)).monospacedDigit().foregroundStyle(.secondary)
+                        Button(LS("复制")) { copy(result) }
+                        Button(LS("导出 CSV…")) { export(result) }
                     }
                 }
                 if let failure {
@@ -318,7 +319,7 @@ struct ErrorsPage: View {
     var body: some View {
         let errors = self.errors
         if errors.isEmpty {
-            ContentUnavailableView("没有错误", systemImage: "checkmark.circle")
+            ContentUnavailableView(LS("没有错误"), systemImage: "checkmark.circle")
         } else {
             SplitPage(listWidth: 320) {
                 ForEach(Array(errors.enumerated()), id: \.offset) { index, error in
@@ -359,11 +360,11 @@ private struct ErrorDetail: View {
                         Text(place(error)).font(.callout.monospaced()).foregroundStyle(.secondary)
                         Spacer()
                         if case .declareCommodity(let currency) = error.fix {
-                            Button("补上声明") { declare(currency) }
+                            Button(LS("补上声明")) { declare(currency) }
                                 .buttonStyle(.borderedProminent)
                                 .disabled(working)
                         }
-                        Button("打开文件") { EntryTasks.open(file: file, in: folder) }
+                        Button(LS("打开文件")) { EntryTasks.open(file: file, in: folder) }
                     }
                 }
                 if let failure {
@@ -407,7 +408,10 @@ private struct ErrorDetail: View {
         let folder = folder, firstUsed = error.entry?.date
         Task {
             let outcome = await Task.detached { Result { try commitFolderSave(prepareFolderCommodity(currency, firstUsed: firstUsed, folder: folder).get(), folder: folder) } }.value
-            if case .failure(let error) = outcome { failure = error.localizedDescription }
+            switch outcome {
+            case .success(let change): SaveUndo.record(change, folder: folder, name: LS("补上声明"))
+            case .failure(let error): failure = error.localizedDescription
+            }
             working = false
         }
     }

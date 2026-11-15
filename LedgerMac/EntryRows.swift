@@ -7,12 +7,12 @@ enum EntryColumn: CaseIterable {
 
     var title: String {
         switch self {
-        case .date: return "日期"
-        case .payee: return "收付款方"
-        case .category: return "分类"
-        case .accounts: return "账户"
-        case .status: return "状态"
-        case .amount: return "金额"
+        case .date: return LS("日期")
+        case .payee: return LS("收付款方")
+        case .category: return LS("分类")
+        case .accounts: return LS("账户")
+        case .status: return LS("状态")
+        case .amount: return LS("金额")
         }
     }
 
@@ -47,12 +47,12 @@ struct EntryWidths: Equatable {
         // the cell's padding, and a little over what's measured: drawn, a text can come out a point wider and be cut short
         let gap: CGFloat = 16 + 4
         var widths = EntryWidths()
-        widths.natural[.date] = max(widest(rows.map { shortDay($0.date) }, digits, figures: true), width("日期", body)) + gap
-        widths.natural[.category] = min(max(widest(rows.map(\.category), body), width("分类", body)) + gap, 160)
-        widths.natural[.accounts] = min(max(widest(rows.map(\.accounts), body), width("账户", body)) + gap, 220)
+        widths.natural[.date] = max(widest(rows.map { shortDay($0.date) }, digits, figures: true), width(LS("日期"), body)) + gap
+        widths.natural[.category] = min(max(widest(rows.map(\.category), body), width(LS("分类"), body)) + gap, 160)
+        widths.natural[.accounts] = min(max(widest(rows.map(\.accounts), body), width(LS("账户"), body)) + gap, 220)
         // nothing to show in it, no column
         widths.natural[.status] = rows.contains(where: \.marked) ? 90 : 0
-        widths.natural[.amount] = max(widest(amounts, digits, figures: true), widest(captions, small, figures: true), width("金额", body)) + gap
+        widths.natural[.amount] = max(widest(amounts, digits, figures: true), widest(captions, small, figures: true), width(LS("金额"), body)) + gap
         return widths
     }
 
@@ -261,6 +261,8 @@ struct EntryTasks {
         let save: FolderSave
         /// what goes ahead anyway, as the button says it
         let verb: String
+        /// the step as 编辑 › 撤销 names it
+        let step: String
         let done: () -> Void
     }
 
@@ -273,7 +275,7 @@ struct EntryTasks {
         if let draft = folderEditDraft(entry, ledger, folderDerived(ledger, config: config)) {
             editing = Edited(draft: draft)
         } else {
-            notice = "表单装不下这笔交易，请用「修改原文」修改"
+            notice = LS("表单装不下这笔交易，请用「修改原文」修改")
         }
     }
 
@@ -296,17 +298,17 @@ extension View {
     func entryTasks(_ tasks: Binding<EntryTasks>, ledger: Ledger, config: LedgerXConfig?, folder: URL) -> some View {
         opensEntry(when: Binding(get: { tasks.wrappedValue.editing != nil }, set: { if !$0 { tasks.wrappedValue.editing = nil } }),
                    editing: tasks.wrappedValue.editing?.draft, ledger: ledger, config: config, folder: folder)
-            .alert("删除这笔交易？", isPresented: tasks.deleting.present(), presenting: tasks.wrappedValue.deleting) { entry in
-                Button("删除", role: .destructive) { deleteEntry(entry, tasks, folder: folder) }
-                Button("取消", role: .cancel) {}
+            .alert(LS("删除这笔交易？"), isPresented: tasks.deleting.present(), presenting: tasks.wrappedValue.deleting) { entry in
+                Button(LS("删除"), role: .destructive) { deleteEntry(entry, tasks, folder: folder) }
+                Button(LS("取消"), role: .cancel) {}
             } message: { entry in
                 Text(deleteMessage(entry, ledger))
             }
             .alert(tasks.wrappedValue.review?.save.issues.first?.title ?? "", isPresented: tasks.review.present(), presenting: tasks.wrappedValue.review) { review in
                 if !review.save.issues.contains(where: \.blocking) {
-                    Button(review.verb, role: .destructive) { commitEntrySave(review.save, tasks, folder: folder, done: review.done) }
+                    Button(review.verb, role: .destructive) { commitEntrySave(review.save, tasks, folder: folder, step: review.step, done: review.done) }
                 }
-                Button("取消", role: .cancel) {}
+                Button(LS("取消"), role: .cancel) {}
             } message: { review in
                 Text(review.save.issues.map(\.detail).joined(separator: "\n"))
             }
@@ -324,7 +326,7 @@ extension Binding {
 private func deleteMessage(_ entry: Entry, _ ledger: Ledger) -> String {
     let summary = [entry.date, entry.payee, entry.narration].filter { !$0.isEmpty }.joined(separator: " ")
     let linked = ledger.txns.filter { !$0.synthetic && $0.src != entry.src && !Set($0.links).isDisjoint(with: entry.links) }.count
-    return linked == 0 ? summary : summary + "\n它和另外 \(linked) 笔交易有关联"
+    return linked == 0 ? summary : summary + LS("\n它和另外 %@ 笔交易有关联", linked)
 }
 
 private func deleteEntry(_ entry: Entry, _ tasks: Binding<EntryTasks>, folder: URL) {
@@ -333,17 +335,18 @@ private func deleteEntry(_ entry: Entry, _ tasks: Binding<EntryTasks>, folder: U
         case .failure(let error): tasks.wrappedValue.notice = error.message
         case .success(let save):
             if save.issues.isEmpty {
-                commitEntrySave(save, tasks, folder: folder) {}
+                commitEntrySave(save, tasks, folder: folder, step: LS("删除交易")) {}
             } else {
-                tasks.wrappedValue.review = EntryTasks.Review(save: save, verb: "仍然删除", done: {})
+                tasks.wrappedValue.review = EntryTasks.Review(save: save, verb: LS("仍然删除"), step: LS("删除交易"), done: {})
             }
         }
     }
 }
 
-private func commitEntrySave(_ save: FolderSave, _ tasks: Binding<EntryTasks>, folder: URL, done: () -> Void) {
+@MainActor
+private func commitEntrySave(_ save: FolderSave, _ tasks: Binding<EntryTasks>, folder: URL, step: String, done: () -> Void) {
     do {
-        try commitFolderSave(save, folder: folder)
+        try SaveUndo.commit(save, folder: folder, name: step)
         done()
     } catch {
         tasks.wrappedValue.notice = error.localizedDescription
@@ -397,7 +400,7 @@ struct SourcePanel: View {
                     }
                     .buttonStyle(.link)
                     .padding(.horizontal, 11)
-                    .contextMenu { Button("删除…") { deletingDocument = item.entry } }
+                    .contextMenu { Button(LS("删除…")) { deletingDocument = item.entry } }
                 }
                 if !message.isEmpty {
                     Text(message).font(.callout).foregroundStyle(Color.loss)
@@ -406,25 +409,25 @@ struct SourcePanel: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             VStack(alignment: .leading, spacing: 6) {
                 if text != nil {
-                    Button("保存", action: save)
+                    Button(LS("保存"), action: save)
                         .buttonStyle(.borderedProminent)
                         .keyboardShortcut(.return, modifiers: .command)
                         .disabled(saving)
-                    Button("取消") {
+                    Button(LS("取消")) {
                         text = nil
                         message = ""
                     }
                     .keyboardShortcut(.cancelAction)
                 } else {
-                    Button("修改原文") { text = source }
+                    Button(LS("修改原文")) { text = source }
                         .disabled(!entry.editable || KitPrivacy.masked)
-                    Menu("更多") {
-                        Button("编辑…") { tasks.edit(entry, ledger, config) }.disabled(!entry.editable)
-                        Button("添加附件…") { chooseAttachments() }.disabled(!entry.editable)
-                        Button("复制原文") { EntryTasks.copy([entry]) }
-                        Button("打开所在文件") { EntryTasks.open(entry, in: folder) }
+                    Menu(LS("更多")) {
+                        Button(LS("编辑…")) { tasks.edit(entry, ledger, config) }.disabled(!entry.editable)
+                        Button(LS("添加附件…")) { chooseAttachments() }.disabled(!entry.editable)
+                        Button(LS("复制原文")) { EntryTasks.copy([entry]) }
+                        Button(LS("打开所在文件")) { EntryTasks.open(entry, in: folder) }
                         Divider()
-                        Button("删除…", role: .destructive) { tasks.deleting = entry }.disabled(!entry.editable)
+                        Button(LS("删除…"), role: .destructive) { tasks.deleting = entry }.disabled(!entry.editable)
                     }
                     .fixedSize()
                 }
@@ -463,8 +466,9 @@ struct SourcePanel: View {
     private func attach(_ urls: [URL]) {
         let entry = entry, folder = folder
         Task {
-            let failed = await Task.detached { DocumentFiles.attach(urls, to: entry, folder: folder) }.value
-            message = failed ?? ""
+            let done = await Task.detached { DocumentFiles.attach(urls, to: entry, folder: folder) }.value
+            SaveUndo.record(done.change, folder: folder, name: LS("添加附件"))
+            message = done.failure ?? ""
         }
     }
 
@@ -486,7 +490,7 @@ struct SourcePanel: View {
                 if save.issues.isEmpty {
                     write(save)
                 } else {
-                    tasks.review = EntryTasks.Review(save: save, verb: "仍然保存") { text = nil }
+                    tasks.review = EntryTasks.Review(save: save, verb: LS("仍然保存"), step: LS("修改原文")) { text = nil }
                 }
             }
         }
@@ -494,7 +498,7 @@ struct SourcePanel: View {
 
     private func write(_ save: FolderSave) {
         do {
-            try commitFolderSave(save, folder: folder)
+            try SaveUndo.commit(save, folder: folder, name: LS("修改原文"))
             text = nil
         } catch {
             message = error.localizedDescription
@@ -583,7 +587,7 @@ private struct StatusCell: View {
         let tags = entry.tags.filter { $0 != "transfer" && $0 != "fx" }
         let quiet = picked ? Color.white : Color.secondary
         HStack(spacing: 4) {
-            if entry.flag == "!" { RowTag(text: "待确认", color: picked ? .white : .orange) }
+            if entry.flag == "!" { RowTag(text: LS("待确认"), color: picked ? .white : .orange) }
             if entry.synthetic { RowTag(text: "pad", color: quiet) }
             // a narrow column cuts the tag short: a count alone reads as a tag of its own
             if let first = tags.first {
@@ -623,7 +627,7 @@ private struct AmountCell: View {
                         .font(.caption)
                         .monospacedDigit()
                         .foregroundStyle(picked ? Color.white.opacity(0.8) : .secondary)
-                        .help("余额")
+                        .help(LS("余额"))
                 }
             }
         }
