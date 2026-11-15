@@ -343,6 +343,7 @@ private func deleteEntry(_ entry: Entry, _ tasks: Binding<EntryTasks>, folder: U
     }
 }
 
+@MainActor
 private func commitEntrySave(_ save: FolderSave, _ tasks: Binding<EntryTasks>, folder: URL, step: String, done: () -> Void) {
     do {
         try SaveUndo.commit(save, folder: folder, name: step)
