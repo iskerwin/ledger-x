@@ -164,6 +164,9 @@ struct MainView: View {
             }
             // a list of its own for each page: left to reuse its rows, one page's row keeps what the last page's row did when clicked
             .id(page ?? .overview)
+            // a page never wider than its column: what doesn't fit is cut off there rather than pushing the sidebar out
+            .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
             // the pages read the search once typing pauses: not a whole ledger filtered again on each key
             .task(id: filter) {
                 guard filter != query else { return }

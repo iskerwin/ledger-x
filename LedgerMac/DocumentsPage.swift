@@ -39,20 +39,10 @@ struct DocumentsPage: View {
                 .frame(width: 260)
             Divider()
             VStack(spacing: 0) {
-                HStack(spacing: 10) {
-                    Picker(selection: $kind) {
-                        ForEach(DocumentKind.allCases, id: \.self) { Text(LS($0.rawValue)) }
-                    } label: { EmptyView() }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .fixedSize()
-                    TextField(LS("搜索"), text: $query, prompt: Text(LS("文件名、收付款方、账户")))
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 260)
-                    Spacer()
-                    Button(LS("添加对账单…"), systemImage: "doc.badge.plus") { choose() }
-                        .disabled(account == nil)
-                        .help(account == nil ? LS("先在左边选一个账户") : "")
+                // the whole row while it fits; in a narrow window (or longer words) a menu and the button's icon
+                ViewThatFits(in: .horizontal) {
+                    toolbar(compact: false)
+                    toolbar(compact: true)
                 }
                 .padding(12)
                 if !message.isEmpty {
@@ -122,6 +112,26 @@ struct DocumentsPage: View {
                 }
             }
             .padding(10)
+        }
+    }
+
+    private func toolbar(compact: Bool) -> some View {
+        HStack(spacing: 10) {
+            let picker = Picker(selection: $kind) {
+                ForEach(DocumentKind.allCases, id: \.self) { Text(LS($0.rawValue)) }
+            } label: { EmptyView() }
+            if compact { picker.pickerStyle(.menu).labelsHidden().fixedSize() } else { picker.pickerStyle(.segmented).labelsHidden().fixedSize() }
+            TextField(LS("搜索"), text: $query, prompt: Text(LS("文件名、收付款方、账户")))
+                .textFieldStyle(.roundedBorder)
+                .frame(minWidth: compact ? 120 : 160, maxWidth: 260)
+            Spacer(minLength: 0)
+            Button(action: choose) {
+                if compact { Image(systemName: "doc.badge.plus") } else { Label(LS("添加对账单…"), systemImage: "doc.badge.plus") }
+            }
+            .fixedSize()
+            .disabled(account == nil)
+            .help(account == nil ? LS("先在左边选一个账户") : LS("添加对账单…"))
+            .accessibilityLabel(LS("添加对账单…"))
         }
     }
 
