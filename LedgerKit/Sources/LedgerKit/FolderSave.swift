@@ -9,6 +9,8 @@ public struct FolderSave {
     /// new files that aren't text (a statement, a receipt), written first: stopped after them, the most left behind is a
     /// file nothing points at yet
     var blobs: [(path: String, data: Data)] = []
+    /// the ledger as it reads once written, kept for the folder when it is
+    var after: FolderLoad?
 }
 
 public struct FolderSaveError: Error, LocalizedError, Equatable {
@@ -17,7 +19,8 @@ public struct FolderSaveError: Error, LocalizedError, Equatable {
 }
 
 /// The phone's writing path without its queue: draftIssue → draftText (formatTxn, orderedPostings) → makeOps → applyOps →
-/// reviewChange, on the files as they are now. An earlier read of the folder isn't trusted: anything may have changed it.
+/// reviewChange, on the files as they are now. An earlier reading of the folder is used only while its files are still
+/// byte for byte what it read (`loadLedger(folder:)`): anything may have changed them.
 /// A draft with `replacing` changes that entry, which must still be there and be told apart from any copy of it.
 public func prepareFolderSave(_ draft: Draft, folder: URL) -> Result<FolderSave, FolderSaveError> {
     guard let ledger = loadLedger(folder: folder) else { return .failure(noLedgerInFolder) }
@@ -57,7 +60,7 @@ public func prepareFolderSave(_ draft: Draft, folder: URL) -> Result<FolderSave,
         guard !replacedBalances.isEmpty else { return save }
         let detail = replacedBalances.map { "\($0.date) \($0.account ?? "")" }.joined(separator: "\n")
         let issue = ChangeIssue(kind: .balance, title: tr("同一天已有余额断言", "That day already has a balance assertion"), detail: detail)
-        return FolderSave(issues: [issue] + save.issues, main: save.main, files: save.files)
+        return FolderSave(issues: [issue] + save.issues, main: save.main, files: save.files, blobs: save.blobs, after: save.after)
     }
 }
 
@@ -251,11 +254,8 @@ func folderSave(_ ops: [Op], before ledger: Ledger, main: String, folder: URL, b
             let before = exists(path) ? try coordinatedRead(folder.appendingPathComponent(path)) : nil
             files.append((path, before, try applyOps(before ?? "", path: path, ops: ops, strict: true)))
         }
-        let written = Dictionary(uniqueKeysWithValues: files.map { ($0.path, $0.after) })
-        let after = loadLedger(root: main, listFiles: { folderFiles(folder) + Array(written.keys) }) { path in
-            try written[path] ?? String(contentsOf: folder.appendingPathComponent(path), encoding: .utf8)
-        }
-        return .success(FolderSave(issues: reviewChange(before: ledger, after: after), main: main, files: files, blobs: blobs))
+        let after = readFolderLedger(root: main, folder: folder, written: Dictionary(uniqueKeysWithValues: files.map { ($0.path, $0.after) }))
+        return .success(FolderSave(issues: reviewChange(before: ledger, after: after.ledger), main: main, files: files, blobs: blobs, after: after))
     } catch {
         return .failure(FolderSaveError(message: error.localizedDescription))
     }
@@ -299,6 +299,7 @@ public func commitFolderSave(_ save: FolderSave, folder: URL) throws {
     for file in save.files {
         try coordinatedWrite(folder.appendingPathComponent(file.path), file.after)
     }
+    if let after = save.after { FolderLedgers.keep(after, for: folder) }
 }
 
 /// ledger-x.json first, then what the ledger looks like (as the phone's Store does, without its settings)
