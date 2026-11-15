@@ -391,11 +391,11 @@ private struct ErrorDetail: View {
         }
         .task {
             guard let file = error.file, let line = error.line, line > 0 else { return }
-            let url = folder.appendingPathComponent(file)
+            let url = folder.appendingPathComponent(file), around = Self.around
             lines = await Task.detached {
                 guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
                 let all = text.components(separatedBy: "\n")
-                let shown = max(1, line - Self.around)...min(all.count, line + Self.around)
+                let shown = max(1, line - around)...min(all.count, line + around)
                 return shown.isEmpty ? [] : shown.map { ($0, all[$0 - 1]) }
             }.value
         }

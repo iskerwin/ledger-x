@@ -1,8 +1,8 @@
 import Foundation
 
 /// something a pending change would break, found before it is written
-public struct ChangeIssue: Identifiable, Equatable {
-    public enum Kind: String { case balance, error, insufficient, creditLimit }
+public struct ChangeIssue: Identifiable, Equatable, Sendable {
+    public enum Kind: String, Sendable { case balance, error, insufficient, creditLimit }
     public let kind: Kind
     public let title: String
     public let detail: String

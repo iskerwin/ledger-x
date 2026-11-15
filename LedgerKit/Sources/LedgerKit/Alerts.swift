@@ -14,8 +14,8 @@ public struct AnomalySettings: Equatable {
     public init(large: Double = 2000) { self.large = large }
 }
 
-public struct Anomaly: Identifiable, Equatable {
-    public enum Kind: String { case duplicate, large, category, subscription }
+public struct Anomaly: Identifiable, Equatable, Sendable {
+    public enum Kind: String, Sendable { case duplicate, large, category, subscription }
     public let kind: Kind
     /// stable across reloads, to dismiss it for good
     public let id: String

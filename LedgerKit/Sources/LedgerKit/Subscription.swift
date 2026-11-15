@@ -109,7 +109,9 @@ public struct SubPeriod: Equatable, Hashable, Codable {
     }
 }
 
-public enum SubStatus: String, CaseIterable, Codable {
+public enum SubStatus: String, CaseIterable, Codable, Identifiable, Sendable {
+    public var id: String { rawValue }
+
     case active, paused, cancelled
     public var name: String {
         switch self {

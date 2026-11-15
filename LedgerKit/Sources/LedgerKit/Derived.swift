@@ -181,7 +181,7 @@ public func acctDisplay(_ a: String) -> String {
 
 // MARK: - classification
 
-public enum TxKind: String { case expense, refund, income, transfer }
+public enum TxKind: String, Sendable { case expense, refund, income, transfer }
 
 public struct Classified {
     public let kind: TxKind

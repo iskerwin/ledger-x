@@ -242,9 +242,10 @@ struct RemindersSection: View {
 }
 
 /// shows reminders while the app is open, and opens the right tab when one is tapped
-final class NotificationRouter: NSObject, UNUserNotificationCenterDelegate {
+/// Called by the system off the main thread; what it holds is read and set on the main actor only
+final class NotificationRouter: NSObject, UNUserNotificationCenterDelegate, @unchecked Sendable {
     static let shared = NotificationRouter()
-    var open: ((String) -> Void)?
+    @MainActor var open: ((String) -> Void)?
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
         [.banner, .sound]
