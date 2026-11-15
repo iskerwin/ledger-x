@@ -54,11 +54,14 @@ final class PerfTests: XCTestCase {
         return out
     }
 
+    /// Each limit is about twice the median on the hosted runner (22 CI runs, Nov 2026) and above the slowest seen, so a
+    /// step that gets twice as slow fails while runner noise doesn't. `load` and `journal search` already run close to
+    /// theirs and keep them.
     private func time<T>(_ label: String, max: Double, _ body: () throws -> T) rethrows -> T {
         let t0 = Date()
         let v = try body()
         let s = Date().timeIntervalSince(t0)
-        print(String(format: "PERF %-22@ %7.2f s  (limit %.0f s)", label as NSString, s, max))
+        print(String(format: "PERF %-22@ %7.2f s  (limit %.1f s)", label as NSString, s, max))
         XCTAssertLessThan(s, max, label)
         return v
     }
@@ -67,7 +70,7 @@ final class PerfTests: XCTestCase {
         let text = Self.bigLedger()
         let L = time("load", max: 10) { loadLedger(root: "main.bean") { _ in text } }
         XCTAssertGreaterThan(L.txns.count, Self.txns)
-        let D = time("derived", max: 6) { Derived(L, today: "2025-01-01") }
+        let D = time("derived", max: 2) { Derived(L, today: "2025-01-01") }
         // every note is offered while one is typed: tens of thousands of them, on each key
         let notes = time("note suggestions", max: 1) { (0..<20).map { narrationSuggestions(D, typed: "消费 \($0)", payee: "", limit: 8) } }
         XCTAssertEqual(notes.last?.count, 8)
@@ -75,13 +78,13 @@ final class PerfTests: XCTestCase {
         let after = time("load (after a change)", max: 10) {
             loadLedger(root: "main.bean") { _ in text + "2024-12-30 * \"X\"\n  Expenses:Travel  1.00 CNY\n  Assets:Cash\n" }
         }
-        _ = time("pre-commit check", max: 3) { reviewChange(before: L, after: after) }
-        _ = time("income statement", max: 2) { incomeStatement(L, from: "2024-01-01", to: "2024-12-31") }
-        _ = time("balance sheet", max: 2) { balanceSheet(L, at: nil) }
-        _ = time("net worth series", max: 3) { netWorthSeries(L, today: "2025-01-01") }
-        _ = time("reconcile", max: 2) { reconcileDue(L, today: "2025-01-01") }
+        _ = time("pre-commit check", max: 0.5) { reviewChange(before: L, after: after) }
+        _ = time("income statement", max: 0.1) { incomeStatement(L, from: "2024-01-01", to: "2024-12-31") }
+        _ = time("balance sheet", max: 0.3) { balanceSheet(L, at: nil) }
+        _ = time("net worth series", max: 0.8) { netWorthSeries(L, today: "2025-01-01") }
+        _ = time("reconcile", max: 0.3) { reconcileDue(L, today: "2025-01-01") }
         // the Mac journal works its lines out once, then picks from them as each letter is typed
-        let rows = time("journal rows", max: 4) { journalRows(L) }
+        let rows = time("journal rows", max: 3) { journalRows(L) }
         XCTAssertEqual(rows.count, L.txns.count)
         let query = TxQuery("星巴克")
         _ = time("journal search", max: 2) { rows.filter { query.matches($0.entry, L) } }
@@ -91,15 +94,15 @@ final class PerfTests: XCTestCase {
             row.payee = txn.payee; row.amount = abs(posting.units ?? 0)
             return (row, posting.account)
         }
-        let duplicates = time("import duplicates", max: 2) { findDuplicates(bill, L) }
+        let duplicates = time("import duplicates", max: 0.3) { findDuplicates(bill, L) }
         XCTAssertNotNil(duplicates.first ?? nil)
         let found = duplicates.compactMap { $0?.id }
         XCTAssertEqual(Set(found).count, found.count)
-        _ = try time("BQL group by", max: 3) {
+        _ = try time("BQL group by", max: 1) {
             try runQuery("SELECT account, sum(position) WHERE account ~ '^Expenses' GROUP BY account ORDER BY account", L)
         }
-        _ = time("CSV export", max: 4) { exportCSV(L) }
-        _ = time("link check", max: 3) { linkIssues(L, subscriptions: subscriptions(L)) }
+        _ = time("CSV export", max: 3.5) { exportCSV(L) }
+        _ = time("link check", max: 0.5) { linkIssues(L, subscriptions: subscriptions(L)) }
     }
 
     /// a detail page asks for its transaction on every redraw, and a save redraws it many times; after a refund
@@ -110,7 +113,7 @@ final class PerfTests: XCTestCase {
         let old = txnKey(e)
         let moved = Array(L.txns.dropFirst(L.txns.count / 2 + 1).prefix(1))[0]
         let moves = [normEntryText(old + "  "): txnKey(moved)]
-        let lookup = time("lookup table", max: 3) { TxnLookup(L) }
+        let lookup = time("lookup table", max: 0.5) { TxnLookup(L) }
         let first = time("first redraw after a move", max: 3) { lookup.find(id: -1, key: old + "  ", moves: moves) }
         XCTAssertEqual(first?.src, moved.src)
         let found = time("200 more redraws", max: 0.2) {
@@ -121,7 +124,7 @@ final class PerfTests: XCTestCase {
 
     func testTransactionListBuildsIdentitiesAsABatch() {
         let L = loadLedger(root: "main.bean") { _ in Self.bigLedger(10_000) }
-        let ids = time("10000 row identities", max: 2) { txnRowIDs(L.txns) }
+        let ids = time("10000 row identities", max: 0.2) { txnRowIDs(L.txns) }
         XCTAssertEqual(ids.count, L.txns.count)
         XCTAssertEqual(Set(ids).count, ids.count)
     }
@@ -157,7 +160,7 @@ final class PerfTests: XCTestCase {
         """ }
         let oldCount = cached.txns.count
         let freshIssues = reviewChange(before: rebuilt, after: after)
-        let cachedIssues = time("cached save review", max: 3) { reviewChange(before: cached, after: after) }
+        let cachedIssues = time("cached save review", max: 0.3) { reviewChange(before: cached, after: after) }
         XCTAssertEqual(cachedIssues, freshIssues)
         XCTAssertTrue(cachedIssues.contains { $0.kind == .insufficient })
         XCTAssertEqual(cached.txns.count, oldCount)
