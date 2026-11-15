@@ -1571,8 +1571,10 @@ final class EditInteractionTests: XCTestCase {
             // adjust() resolves the wheel's current interaction point after that layout has settled.
             waitSettled(picker, requireHittable: false)
             wheel.adjust(toPickerWheelValue: value)
-            // the wheel reports its new value once it has come to rest: read straight after turning, it can still say ""
-            wait(for: [expectation(for: NSPredicate(format: "value == %@", value), evaluatedWith: wheel)], timeout: 5)
+            // the wheel reports its new value once it has come to rest: read straight after turning, it can still say "".
+            // On a slow runner one read of the wheel takes seconds and it comes to rest a row at a time, so it gets the
+            // same 15 s as waitSettled
+            wait(for: [expectation(for: NSPredicate(format: "value == %@", value), evaluatedWith: wheel)], timeout: 15)
             XCTAssertEqual(wheel.value as? String, value)
         }
         // turning a wheel lays the popover out again (at large text, its button too): a tap while the button has no
