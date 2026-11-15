@@ -342,7 +342,7 @@ extension View {
                 Text(review.save.issues.map(\.detail).joined(separator: "\n"))
             }
             .alert(tasks.wrappedValue.notice ?? "", isPresented: tasks.notice.present()) {}
-            .sheet(item: tasks.ordering) { order in DayOrderSheet(order: order, ledger: ledger, folder: folder, tasks: tasks) }
+            .sheet(item: tasks.ordering) { order in DayOrderSheet(order: order, ledger: ledger, folder: folder) }
     }
 }
 
@@ -357,9 +357,11 @@ struct DayOrderSheet: View {
     let order: DayOrder
     let ledger: Ledger
     let folder: URL
-    @Binding var tasks: EntryTasks
     @State private var items: [Entry] = []
     @State private var saving = false
+    /// why it wasn't saved; the order stays as dragged
+    @State private var message = ""
+    @State private var review: FolderSave?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -378,6 +380,11 @@ struct DayOrderSheet: View {
                 .onMove { items.move(fromOffsets: $0, toOffset: $1) }
             }
             .frame(minHeight: 180)
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(Color.loss)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, minHeight: 20, alignment: .leading)
             HStack {
                 Spacer()
                 Button(LS("取消")) { dismiss() }.keyboardShortcut(.cancelAction)
@@ -389,50 +396,35 @@ struct DayOrderSheet: View {
         .padding(20)
         .frame(width: 460)
         .onAppear { if items.isEmpty { items = order.entries } }
+        .alert(review?.issues.first?.title ?? "", isPresented: Binding(get: { review != nil }, set: { if !$0 { review = nil } })) {
+            if review?.issues.contains(where: \.blocking) == false {
+                Button(LS("仍然调整"), role: .destructive) { if let review { write(review) } }
+            }
+            Button(LS("返回修改"), role: .cancel) {}
+        } message: {
+            Text(review?.issues.map(\.detail).joined(separator: "\n") ?? "")
+        }
     }
 
     private func save() {
         saving = true
+        message = ""
         let ordered = items
         Task { @MainActor in
             defer { saving = false }
             switch await Task.detached(operation: { prepareFolderReorder(ordered, folder: folder) }).value {
-            case .failure(let error): tasks.notice = error.message
-            case .success(let save):
-                if save.issues.isEmpty {
-                    commitEntrySave(save, $tasks, folder: folder, step: LS("调整当天顺序")) {}
-                } else {
-                    tasks.review = EntryTasks.Review(save: save, verb: LS("仍然调整"), step: LS("调整当天顺序"), done: {})
-                }
+            case .failure(let error): message = error.message
+            case .success(let save): if save.issues.isEmpty { write(save) } else { review = save }
             }
-            dismiss()
         }
     }
-}
 
-extension Binding {
-    /// shown while there is something in it; put away, nothing
-    func present<Wrapped>() -> Binding<Bool> where Value == Wrapped? {
-        Binding<Bool>(get: { wrappedValue != nil }, set: { if !$0 { wrappedValue = nil } })
-    }
-}
-
-private func deleteMessage(_ entry: Entry, _ ledger: Ledger) -> String {
-    let summary = [entry.date, entry.payee, entry.narration].filter { !$0.isEmpty }.joined(separator: " ")
-    let linked = ledger.txns.filter { !$0.synthetic && $0.src != entry.src && !Set($0.links).isDisjoint(with: entry.links) }.count
-    return linked == 0 ? summary : summary + LS("\n它和另外 %@ 笔交易有关联", linked)
-}
-
-private func deleteEntry(_ entry: Entry, _ tasks: Binding<EntryTasks>, folder: URL) {
-    Task { @MainActor in
-        switch await Task.detached(operation: { prepareFolderDelete(entry, folder: folder) }).value {
-        case .failure(let error): tasks.wrappedValue.notice = error.message
-        case .success(let save):
-            if save.issues.isEmpty {
-                commitEntrySave(save, tasks, folder: folder, step: LS("删除交易")) {}
-            } else {
-                tasks.wrappedValue.review = EntryTasks.Review(save: save, verb: LS("仍然删除"), step: LS("删除交易"), done: {})
-            }
+    private func write(_ save: FolderSave) {
+        do {
+            try SaveUndo.commit(save, folder: folder, name: LS("调整当天顺序"))
+            dismiss()
+        } catch {
+            message = error.localizedDescription
         }
     }
 }
