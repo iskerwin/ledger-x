@@ -101,6 +101,30 @@ public func prepareFolderDelete(_ entry: Entry, folder: URL) -> Result<FolderSav
     return folderSave([entryOp(current, text: nil)] + pairedLinkOps(ledger, oldText: current.src, newText: nil), before: ledger, main: folderMain(folder), folder: folder)
 }
 
+/// One day's entries of one file in the order given, as the phone's 调整当天顺序 writes it: the entries trade places in
+/// the stretch of the file they take up, and whatever lies between them (a balance assertion, a comment) stays put.
+/// Refused when any of them is no longer in the file as it was.
+public func prepareFolderReorder(_ ordered: [Entry], folder: URL) -> Result<FolderSave, FolderSaveError> {
+    guard let ledger = loadLedger(folder: folder) else { return .failure(noLedgerInFolder) }
+    guard ordered.count > 1, let first = ordered.first,
+          ordered.allSatisfy({ $0.file == first.file && $0.date == first.date }),
+          let text = try? coordinatedRead(folder.appendingPathComponent(first.file)) else { return .failure(entryChanged) }
+    let current = parseFile(text, file: first.file).entries
+    let located = ordered.compactMap { EntryLocator($0).resolve(in: current) }
+    guard located.count == ordered.count, Set(located.map(\.startLine)).count == located.count else { return .failure(entryChanged) }
+    let inFile = located.sorted { $0.startLine < $1.startLine }
+    let order = located.compactMap { entry in inFile.firstIndex { $0.startLine == entry.startLine } }
+    guard let blocks = reorderBlocks(text, ranges: inFile.map { ($0.startLine, $0.endLine) }, order: order) else {
+        return .failure(entryChanged)
+    }
+    var op = Op(kind: .replace, path: first.file)
+    op.old = blocks.old
+    op.text = blocks.new
+    op.date = first.date
+    op.anchorLine = inFile[0].startLine + 1
+    return folderSave([op], before: ledger, main: folderMain(folder), folder: folder)
+}
+
 /// That `account` ended `day` with `amount`. Beancount checks an assertion at the start of its day, so it is dated the next one.
 /// Refused, with the difference, when the ledger says otherwise: the entries are put right first, as on the phone.
 public func prepareFolderBalance(account: String, day: String, amount: Double, currency: String, folder: URL) -> Result<FolderSave, FolderSaveError> {
