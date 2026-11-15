@@ -19,11 +19,11 @@ struct PayeesPage: View {
     var body: some View {
         let shown = text.trimmed.isEmpty ? Array(all.prefix(50)) : all.filter { $0.name.localizedCaseInsensitiveContains(text.trimmed) }
         SplitPage {
-            TextField("搜索", text: $text)
+            TextField(LS("搜索"), text: $text)
                 .textFieldStyle(.roundedBorder)
                 .padding(.bottom, 6)
             ForEach(shown) { payee in
-                PickRow(title: payee.name, caption: "\(payee.n) 笔 · 最近 \(shortDay(payee.last))",
+                PickRow(title: payee.name, caption: LS("%@ 笔 · 最近 %@", payee.n, shortDay(payee.last)),
                         trailing: payee.spent > 0.005 ? money(payee.spent, ledger.base) : payee.received > 0.005 ? "+" + money(payee.received, ledger.base) : "",
                         picked: picked == payee.name) { picked = payee.name }
             }
@@ -85,36 +85,36 @@ private struct PayeeDetail: View {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(name).font(.title2.weight(.semibold))
-                    Text("\(entries.count) 笔 · \(entries.first.map { $0.date } ?? "") 起 · 最近 \(entries.last.map { shortDay($0.date) } ?? "")")
+                    Text(LS("%@ 笔 · %@ 起 · 最近 %@", entries.count, entries.first.map { $0.date } ?? "", entries.last.map { shortDay($0.date) } ?? ""))
                         .foregroundStyle(.secondary)
                 }
                 Card(summary: true) {
                     VStack(alignment: .leading, spacing: 12) {
                         Headline(label: period.isCurrent && period.day == nil ? period.current : period.title, value: money(spent, ledger.base))
-                        SummaryFigures(items: [("月均", money(spent / months, ledger.base), .primary),
-                                               ("每笔约", money(inPeriod.isEmpty ? 0 : spent / Double(inPeriod.count), ledger.base), .primary)])
+                        SummaryFigures(items: [(LS("月均"), money(spent / months, ledger.base), .primary),
+                                               (LS("每笔约"), money(inPeriod.isEmpty ? 0 : spent / Double(inPeriod.count), ledger.base), .primary)])
                     }
                 }
                 SideBySide {
                     Card {
                         VStack(alignment: .leading, spacing: 0) {
-                            CardTitle("每月")
+                            CardTitle(LS("每月"))
                             MonthlySpend(ledger: ledger, entries: entries, months: monthsTo(period))
                         }
                     }
                     Card {
                         VStack(alignment: .leading, spacing: 0) {
-                            CardTitle("常用")
+                            CardTitle(LS("常用"))
                             ForEach(usual(entries), id: \.0) { item in
                                 Divider()
-                                FigureRow(label: item.0, value: "\(item.1) 笔")
+                                FigureRow(label: item.0, value: LS("%@ 笔", item.1))
                             }
                         }
                     }
                 }
                 EntryListCard(entries: Array(inPeriod.reversed().prefix(200)), ledger: ledger, config: config, folder: folder,
                               columns: [.date, .payee, .category, .accounts, .amount]) {
-                    CardTitle("交易")
+                    CardTitle(LS("交易"))
                 }
             }
             .padding(20)
@@ -149,7 +149,7 @@ private struct MonthlySpend: View {
             if shown.kind == .expense || shown.kind == .refund { spent[Day.ym(entry.date), default: 0] -= shown.amount }
         }
         return Chart(months, id: \.self) { month in
-            BarMark(x: .value("月份", month), y: .value("支出", spent[month] ?? 0))
+            BarMark(x: .value(LS("月份"), month), y: .value(LS("支出"), spent[month] ?? 0))
                 .foregroundStyle(Color.jade.opacity(0.75))
                 .cornerRadius(3)
         }
@@ -160,7 +160,7 @@ private struct MonthlySpend: View {
             }
         }
         .frame(height: 100)
-        .accessibilityLabel("每月支出")
+        .accessibilityLabel(LS("每月支出"))
     }
 }
 
@@ -177,7 +177,7 @@ struct YearPage: View {
                                       exclude: config?.netWorthExclude ?? [], reimbursement: config?.receivable ?? "Assets:Receivable:Reimbursement")
         ReportScaffold {
             if review.isEmpty {
-                ContentUnavailableView("\(year) 年没有交易", systemImage: "calendar")
+                ContentUnavailableView(LS("%@ 年没有交易", year), systemImage: "calendar")
             } else {
                 summary(review)
                 SideBySide(weights: [2, 1]) {
@@ -202,17 +202,17 @@ struct YearPage: View {
     }
 
     private func summary(_ review: YearReview) -> some View {
-        let changes = [change(review.income, review.previousIncome).map { "收入比上年 " + $0 },
-                       change(review.expenses, review.previousExpenses).map { "支出比上年 " + $0 }].compactMap { $0 }
+        let changes = [change(review.income, review.previousIncome).map { LS("收入比上年 ") + $0 },
+                       change(review.expenses, review.previousExpenses).map { LS("支出比上年 ") + $0 }].compactMap { $0 }
         return Card(summary: true) {
             VStack(alignment: .leading, spacing: 12) {
-                Headline(label: "\(review.year) 年结余" + (review.through < review.year + "-12-31" ? "（截至 \(review.through.dropFirst(5))）" : ""),
+                Headline(label: LS("%@ 年结余", review.year) + (review.through < review.year + "-12-31" ? LS("（截至 %@）", review.through.dropFirst(5)) : ""),
                          value: m(review.net), color: review.net < 0 ? .loss : .primary)
                 if !changes.isEmpty {
-                    Text(changes.joined(separator: "，")).foregroundStyle(.secondary)
+                    Text(changes.joined(separator: LS("，"))).foregroundStyle(.secondary)
                 }
-                SummaryFigures(items: [("收入", m(review.income), .gain), ("支出", m(review.expenses), .loss),
-                                       ("储蓄率", review.savingsRate.map { String(format: "%.1f%%", $0 * 100) } ?? "—", .primary)])
+                SummaryFigures(items: [(LS("收入"), m(review.income), .gain), (LS("支出"), m(review.expenses), .loss),
+                                       (LS("储蓄率"), review.savingsRate.map { String(format: "%.1f%%", $0 * 100) } ?? "—", .primary)])
             }
         }
     }
@@ -224,8 +224,8 @@ struct YearPage: View {
                          expenses: Dictionary(uniqueKeysWithValues: review.months.map { ($0.month, $0.expenses) }), base: ledger.base)
                 if let most = review.dearestMonth, let least = review.cheapestMonth {
                     Divider()
-                    FigureRow(label: "花得最多", caption: "\(Int(most.month.suffix(2)) ?? 0) 月", value: m(most.expenses))
-                    FigureRow(label: "花得最少", caption: "\(Int(least.month.suffix(2)) ?? 0) 月", value: m(least.expenses))
+                    FigureRow(label: LS("花得最多"), caption: LS("%@ 月", Int(most.month.suffix(2)) ?? 0), value: m(most.expenses))
+                    FigureRow(label: LS("花得最少"), caption: LS("%@ 月", Int(least.month.suffix(2)) ?? 0), value: m(least.expenses))
                 }
             }
         }
@@ -234,15 +234,15 @@ struct YearPage: View {
     private func worth(_ review: YearReview) -> some View {
         Card {
             VStack(alignment: .leading, spacing: 0) {
-                CardTitle("净资产")
-                if let start = review.worthStart { FigureRow(label: "年初", value: m(start)) }
-                if let end = review.worthEnd { FigureRow(label: review.through < review.year + "-12-31" ? "现在" : "年末", value: m(end)) }
+                CardTitle(LS("净资产"))
+                if let start = review.worthStart { FigureRow(label: LS("年初"), value: m(start)) }
+                if let end = review.worthEnd { FigureRow(label: review.through < review.year + "-12-31" ? LS("现在") : LS("年末"), value: m(end)) }
                 if let start = review.worthStart, let end = review.worthEnd {
-                    FigureRow(label: "变化", value: signedMoney(end - start, ledger.base), color: end - start < 0 ? .loss : .gain)
+                    FigureRow(label: LS("变化"), value: signedMoney(end - start, ledger.base), color: end - start < 0 ? .loss : .gain)
                 }
                 Divider().padding(.vertical, 4)
-                FigureRow(label: "资产变化", value: signedMoney(review.assetsChange, ledger.base))
-                FigureRow(label: "负债变化", value: signedMoney(review.liabilitiesChange, ledger.base))
+                FigureRow(label: LS("资产变化"), value: signedMoney(review.assetsChange, ledger.base))
+                FigureRow(label: LS("负债变化"), value: signedMoney(review.liabilitiesChange, ledger.base))
             }
         }
     }
@@ -250,11 +250,11 @@ struct YearPage: View {
     private func categories(_ review: YearReview) -> some View {
         Card {
             VStack(alignment: .leading, spacing: 0) {
-                CardTitle("支出构成")
+                CardTitle(LS("支出构成"))
                 ForEach(review.categories.prefix(8)) { category in
                     Divider()
                     FigureRow(label: acctZH(category.account) ?? acctDisplay(category.account),
-                              caption: change(category.amount, category.previous).map { "比上年 " + $0 } ?? "",
+                              caption: change(category.amount, category.previous).map { LS("比上年 ") + $0 } ?? "",
                               value: m(category.amount))
                 }
             }
@@ -264,7 +264,7 @@ struct YearPage: View {
     private func biggest(_ review: YearReview) -> some View {
         Card {
             VStack(alignment: .leading, spacing: 0) {
-                CardTitle("最大的 5 笔支出")
+                CardTitle(LS("最大的 5 笔支出"))
                 ForEach(review.biggest.prefix(5)) { item in
                     Divider()
                     FigureRow(label: item.entry.payee.isEmpty ? item.entry.narration : item.entry.payee, caption: shortDay(item.entry.date), value: m(item.amount))
@@ -276,18 +276,18 @@ struct YearPage: View {
     private func others(_ review: YearReview) -> some View {
         var rows: [(String, String)] = []
         if let salary = review.salary {
-            rows.append(("工资实发", m(salary.net)))
-            rows.append(("个税", m(salary.tax)))
+            rows.append((LS("工资实发"), m(salary.net)))
+            rows.append((LS("个税"), m(salary.tax)))
         }
-        if review.subscriptions > 0.005 { rows.append(("订阅", m(review.subscriptions))) }
-        if review.advanced > 0.005 { rows.append(("报销：垫付", m(review.advanced))) }
-        if review.reimbOwed > 0.005 { rows.append(("报销：年末未回款", m(review.reimbOwed))) }
-        for item in review.events.prefix(3) { rows.append(("事件：" + item.event.title, "\(item.days) 天 · " + m(item.summary.total))) }
+        if review.subscriptions > 0.005 { rows.append((LS("订阅"), m(review.subscriptions))) }
+        if review.advanced > 0.005 { rows.append((LS("报销：垫付"), m(review.advanced))) }
+        if review.reimbOwed > 0.005 { rows.append((LS("报销：年末未回款"), m(review.reimbOwed))) }
+        for item in review.events.prefix(3) { rows.append((LS("事件：") + item.event.title, LS("%@ 天 · ", item.days) + m(item.summary.total))) }
         return Group {
             if !rows.isEmpty {
                 Card {
                     VStack(alignment: .leading, spacing: 0) {
-                        CardTitle("其他")
+                        CardTitle(LS("其他"))
                         ForEach(rows, id: \.0) { row in
                             Divider()
                             FigureRow(label: row.0, value: row.1)

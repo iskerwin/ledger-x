@@ -206,7 +206,7 @@ struct DateRow: View {
 
     private var shown: String {
         let today = Day.today()
-        if day == today { return "今天 · " + Day.dayLabel(day) }
+        if day == today { return LS("今天 · ") + Day.dayLabel(day) }
         return Day.dayLabel(day) + (day.prefix(4) != today.prefix(4) ? " " + day.prefix(4) : "")
     }
 }

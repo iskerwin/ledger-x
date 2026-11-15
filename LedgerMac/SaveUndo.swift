@@ -22,9 +22,13 @@ enum SaveUndo {
         record(try commitFolderSave(save, folder: folder), folder: folder, name: name)
     }
 
-    /// another folder: its steps don't apply to it
-    static func forget() {
+    private static var folder: URL?
+
+    /// a folder on screen: another one's steps don't apply to it
+    static func opened(_ url: URL) {
+        guard url != folder else { return }
         manager?.removeAllActions(withTarget: target)
+        folder = url
     }
 
     private static func register(_ change: FolderChange, folder: URL, name: String, undoing: Bool) {

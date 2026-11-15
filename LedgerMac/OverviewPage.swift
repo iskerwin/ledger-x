@@ -74,13 +74,13 @@ struct OverviewPage: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .bottom, spacing: 24) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Headline(label: (current ? (byYear ? "今年" : "本月") : MonthOrYear.title(byYear, month)) + "支出", value: money(spent, ledger.base))
+                        Headline(label: (current ? (byYear ? LS("今年") : LS("本月")) : MonthOrYear.title(byYear, month)) + LS("支出"), value: money(spent, ledger.base))
                         // kept in place without a figure to compare with, so the card doesn't move under the pointer
                         let change = previous > 0.005 ? (spent - previous) / previous : 0
                         HStack(spacing: 6) {
                             Text((change < 0 ? "↓ " : "↑ ") + String(format: "%.1f%%", abs(change) * 100))
                                 .foregroundStyle(change < 0 ? Color.gain : Color.loss)
-                            Text((current ? "较上期同期 " : "较上期 ") + money(previous, ledger.base))
+                            Text((current ? LS("较上期同期 ") : LS("较上期 ")) + money(previous, ledger.base))
                                 .foregroundStyle(.secondary)
                         }
                         .monospacedDigit()
@@ -94,9 +94,9 @@ struct OverviewPage: View {
                     }
                     .frame(maxWidth: 360)
                 }
-                SummaryFigures(items: [("收入", money(came, ledger.base), .gain),
-                                       ("结余", money(came - spent, ledger.base), came - spent < 0 ? .loss : .primary),
-                                       ("净资产", money(worth.assets + worth.liabilities, ledger.base), .primary)])
+                SummaryFigures(items: [(LS("收入"), money(came, ledger.base), .gain),
+                                       (LS("结余"), money(came - spent, ledger.base), came - spent < 0 ? .loss : .primary),
+                                       (LS("净资产"), money(worth.assets + worth.liabilities, ledger.base), .primary)])
             }
         }
     }
@@ -107,7 +107,7 @@ struct OverviewPage: View {
         let total = shown.reduce(0) { $0 + $1.value }
         return Card {
             VStack(alignment: .leading, spacing: 0) {
-                Text("支出分类").fontWeight(.medium).padding(.bottom, 8)
+                Text(LS("支出分类")).fontWeight(.medium).padding(.bottom, 8)
                 ForEach(shown) { slice in
                     Divider()
                     let row = CategoryShare(label: slice.label, value: slice.value, share: total > 0 ? slice.value / total : 0, color: slice.color, base: ledger.base)
@@ -126,9 +126,9 @@ struct OverviewPage: View {
         Card {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
-                    Text("最近").fontWeight(.medium)
+                    Text(LS("最近")).fontWeight(.medium)
                     Spacer()
-                    Button("全部明细") { page = .journal }.buttonStyle(.link)
+                    Button(LS("全部明细")) { page = .journal }.buttonStyle(.link)
                 }
                 .padding(.bottom, 8)
                 ForEach(Array(ledger.txns.reversed().lazy.filter { !$0.synthetic }.prefix(6)).map { JournalRow($0, ledger) }) { line in
@@ -173,7 +173,7 @@ struct OverviewPage: View {
                                 HStack(alignment: .firstTextBaseline) {
                                     Text(alert.detail).foregroundStyle(.secondary)
                                     Spacer(minLength: 12)
-                                    Button("核对无误") { confirm(alert) }
+                                    Button(LS("核对无误")) { confirm(alert) }
                                 }
                                 EntryListCard(entries: alert.entries, ledger: ledger, config: config, folder: folder,
                                               columns: [.date, .payee, .category, .accounts, .amount]) { EmptyView() }
@@ -185,7 +185,7 @@ struct OverviewPage: View {
                     ForEach(bills) { bill in
                         Divider().opacity(alerts.isEmpty && bill.id == bills.first?.id ? 0 : 1)
                         NavigationLink(value: JournalScope(title: accountTitle(ledger, bill.account), account: bill.account)) {
-                            TodoRow(color: .warn, text: accountTitle(ledger, bill.account) + " " + monthDay(bill.due) + "还款",
+                            TodoRow(color: .warn, text: accountTitle(ledger, bill.account) + " " + monthDay(bill.due) + LS("还款"),
                                     side: money(bill.statementAmount - bill.paid, bill.currency))
                         }
                         .buttonStyle(.plain)
@@ -193,14 +193,14 @@ struct OverviewPage: View {
                     ForEach(checks) { check in
                         Divider().opacity(alerts.isEmpty && bills.isEmpty && check.id == checks.first?.id ? 0 : 1)
                         Button { page = .accounts } label: {
-                            TodoRow(color: .secondary, text: accountTitle(ledger, check.account) + " " + monthDay(check.day) + "核对余额", side: "")
+                            TodoRow(color: .secondary, text: accountTitle(ledger, check.account) + " " + monthDay(check.day) + LS("核对余额"), side: "")
                         }
                         .buttonStyle(.plain)
                     }
                     if unpushed > 0 {
                         Divider().opacity(alerts.isEmpty && bills.isEmpty && checks.isEmpty ? 0 : 1)
                         Button { page = .sync } label: {
-                            TodoRow(color: .jade, text: "\(unpushed) 处改动没有推送", side: "")
+                            TodoRow(color: .jade, text: LS("%@ 处改动没有推送", unpushed), side: "")
                         }
                         .buttonStyle(.plain)
                     }
@@ -219,7 +219,7 @@ struct OverviewPage: View {
     }
 
     private func monthDay(_ day: String) -> String {
-        "\(Int(day.dropFirst(5).prefix(2)) ?? 0) 月 \(Int(day.suffix(2)) ?? 0) 日"
+        LS("%@ 月 %@ 日", Int(day.dropFirst(5).prefix(2)) ?? 0, Int(day.suffix(2)) ?? 0)
     }
 }
 
@@ -236,7 +236,7 @@ enum MonthOrYear {
     }
 
     static func title(_ byYear: Bool, _ month: String) -> String {
-        byYear ? "\(month.prefix(4)) 年" : "\(month.prefix(4)) 年 \(Int(month.suffix(2)) ?? 0) 月"
+        byYear ? LS("%@ 年", month.prefix(4)) : LS("%@ 年 %@ 月", month.prefix(4), Int(month.suffix(2)) ?? 0)
     }
 }
 
@@ -335,7 +335,7 @@ private struct PeriodBars: View {
             picked = chosen
         }
         return Chart(keys, id: \.self) { key in
-            BarMark(x: .value("期间", key), y: .value("支出", values[key] ?? 0))
+            BarMark(x: .value(LS("期间"), key), y: .value(LS("支出"), values[key] ?? 0))
                 .foregroundStyle(key == (hovered ?? picked) ? Color.jade : Color.jade.opacity(0.35))
                 .cornerRadius(3)
         }
@@ -363,7 +363,7 @@ private struct PeriodBars: View {
             }
         }
         .frame(height: 90)
-        .accessibilityLabel(byYear ? "近 6 年支出" : "近 12 个月支出")
+        .accessibilityLabel(byYear ? LS("近 6 年支出") : LS("近 12 个月支出"))
     }
 
     private func key(at point: CGPoint, _ proxy: ChartProxy, _ geometry: GeometryProxy) -> String? {

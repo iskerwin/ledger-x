@@ -139,6 +139,15 @@ public let ZH: [String: String] = [
     "Assets": "资产", "Liabilities": "负债", "Income": "收入", "Expenses": "支出", "Equity": "权益",
 ]
 
+/// an account group's name in the interface's language (Chinese from `ZH`)
+public func groupName(_ g: String) -> String {
+    if KitLocale.chinese { return ZH[g] ?? g }
+    let en = ["Bank": "Bank Accounts", "EWallet": "E-Wallets", "Cash": "Cash", "Brokerage": "Brokerage", "Crypto": "Crypto",
+              "Receivable": "Receivables", "CreditCard": "Credit Cards", "Loan": "Loans",
+              "Assets": "Assets", "Liabilities": "Liabilities", "Income": "Income", "Expenses": "Expenses", "Equity": "Equity"]
+    return en[g] ?? g
+}
+
 public let SYM: [String: String] = ["CNY": "¥", "HKD": "HK$", "USD": "$", "EUR": "€", "GBP": "£", "SGD": "S$", "MOP": "MOP$"]
 
 /// an amount for display; "¥***" while amounts are hidden

@@ -56,7 +56,7 @@ struct ReportsPage: View {
         let standing: (String) -> JournalScope = { JournalScope(title: accountTitle(ledger, $0), account: $0, to: end) }
         ReportScaffold {
             Picker(selection: $tab) {
-                ForEach(ReportTab.allCases, id: \.self) { Text($0.rawValue) }
+                ForEach(ReportTab.allCases, id: \.self) { Text(LS($0.rawValue)) }
             } label: {
                 EmptyView()
             }
@@ -66,8 +66,8 @@ struct ReportsPage: View {
             Spacer()
             // every account at one day: nothing to split by month; kept in its place, so the tabs don't move
             Picker(selection: $byMonth) {
-                Text("合计").tag(false)
-                Text("按月").tag(true)
+                Text(LS("合计")).tag(false)
+                Text(LS("按月")).tag(true)
             } label: {
                 EmptyView()
             }
@@ -90,11 +90,11 @@ struct ReportsPage: View {
                 } else {
                     let net = -report.income.shown + -report.expenses.shown
                     SideBySide {
-                        TreeCard(title: "收入", root: report.income, ledger: ledger, negated: true, scope: scope)
-                        TreeCard(title: "支出", root: report.expenses, ledger: ledger, scope: scope)
+                        TreeCard(title: LS("收入"), root: report.income, ledger: ledger, negated: true, scope: scope)
+                        TreeCard(title: LS("支出"), root: report.expenses, ledger: ledger, scope: scope)
                     }
                     Card {
-                        FigureRow(label: "净收益", value: amountsText(net, ledger), color: net.amounts.values.reduce(0, +) < 0 ? .loss : .primary)
+                        FigureRow(label: LS("净收益"), value: amountsText(net, ledger), color: net.amounts.values.reduce(0, +) < 0 ? .loss : .primary)
                     }
                 }
             case .balance:
@@ -106,14 +106,14 @@ struct ReportsPage: View {
                         JournalScope(title: accountTitle(ledger, account), account: account, to: Day.monthEnd(month))
                     }
                 } else {
-                    let conversions = sheet.conversions.byCurrency(base: ledger.base).isEmpty ? [] : [("货币兑换", sheet.conversions)]
+                    let conversions = sheet.conversions.byCurrency(base: ledger.base).isEmpty ? [] : [(LS("货币兑换"), sheet.conversions)]
                     SideBySide {
-                        TreeCard(title: "资产", root: sheet.assets, ledger: ledger, scope: standing)
+                        TreeCard(title: LS("资产"), root: sheet.assets, ledger: ledger, scope: standing)
                         Card {
                             VStack(alignment: .leading, spacing: 12) {
-                                TreeCard(title: "负债", root: sheet.liabilities, ledger: ledger, negated: true, scope: standing, bare: true)
-                                TreeCard(title: "权益", root: sheet.equity, ledger: ledger, negated: true, scope: standing,
-                                         lines: [("未结转损益", sheet.earningsByCurrency)] + conversions, bare: true)
+                                TreeCard(title: LS("负债"), root: sheet.liabilities, ledger: ledger, negated: true, scope: standing, bare: true)
+                                TreeCard(title: LS("权益"), root: sheet.equity, ledger: ledger, negated: true, scope: standing,
+                                         lines: [(LS("未结转损益"), sheet.earningsByCurrency)] + conversions, bare: true)
                             }
                         }
                     }
@@ -162,10 +162,10 @@ private struct PeriodSummary: View {
         let came = income.amounts[ledger.base] ?? 0, kept = net.amounts[ledger.base] ?? 0
         Card(summary: true) {
             VStack(alignment: .leading, spacing: 12) {
-                Headline(label: title + "支出", value: amountsText(expenses, ledger))
-                SummaryFigures(items: [("收入", amountsText(income, ledger), .gain),
-                                       ("结余", amountsText(net, ledger), net.amounts.values.reduce(0, +) < 0 ? .loss : .primary),
-                                       ("储蓄率", came > 0.005 ? String(format: "%.1f%%", kept / came * 100) : "—", .primary)])
+                Headline(label: title + LS("支出"), value: amountsText(expenses, ledger))
+                SummaryFigures(items: [(LS("收入"), amountsText(income, ledger), .gain),
+                                       (LS("结余"), amountsText(net, ledger), net.amounts.values.reduce(0, +) < 0 ? .loss : .primary),
+                                       (LS("储蓄率"), came > 0.005 ? String(format: "%.1f%%", kept / came * 100) : "—", .primary)])
             }
         }
     }
@@ -179,7 +179,7 @@ private struct MonthsChart: View {
     var body: some View {
         let valued = ledger.monthlyFlowsKept(months, mode: .convert(ledger.base))
         VStack(alignment: .leading, spacing: 0) {
-            CardTitle("按月对比")
+            CardTitle(LS("按月对比"))
             FlowCard(months: months, income: valued.mapValues { $0.income.amounts[ledger.base] ?? 0 },
                      expenses: valued.mapValues { $0.expenses.amounts[ledger.base] ?? 0 }, base: ledger.base)
         }
@@ -198,9 +198,9 @@ private struct WorthSummary: View {
         Card(summary: true) {
             VStack(alignment: .leading, spacing: 12) {
                 BalanceChart(points: points, currency: ledger.base, current: assets - owed,
-                             title: end == Day.today() ? "净资产" : "净资产 · 截至 " + shortDay(end))
-                SummaryFigures(items: [("资产", money(assets, ledger.base), .primary), ("负债", money(owed, ledger.base), .primary),
-                                       ("资产负债率", assets > 0 && owed > 0.005 ? String(format: "%.1f%%", owed / assets * 100) : "—", .primary)])
+                             title: end == Day.today() ? LS("净资产") : LS("净资产 · 截至 ") + shortDay(end))
+                SummaryFigures(items: [(LS("资产"), money(assets, ledger.base), .primary), (LS("负债"), money(owed, ledger.base), .primary),
+                                       (LS("资产负债率"), assets > 0 && owed > 0.005 ? String(format: "%.1f%%", owed / assets * 100) : "—", .primary)])
             }
         }
     }
@@ -223,7 +223,7 @@ private struct MonthGridCard: View {
         Card {
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 0) {
-                    line { Text("账户").foregroundStyle(.secondary) }
+                    line { Text(LS("账户")).foregroundStyle(.secondary) }
                     ForEach(rows, id: \.name) { node in
                         Divider()
                         line { name(node) }
@@ -282,8 +282,8 @@ private struct MonthGridCard: View {
             .buttonStyle(.plain)
             .opacity(node.children.isEmpty ? 0 : 1)
             .disabled(node.children.isEmpty)
-            .accessibilityLabel(open.contains(node.name) ? "收起" : "展开")
-            Text(node.depth == 0 ? (ZH[node.name] ?? node.name) : accountTitle(ledger, node.name) == acctLabel(node.name) ? node.label : accountTitle(ledger, node.name))
+            .accessibilityLabel(open.contains(node.name) ? LS("收起") : LS("展开"))
+            Text(node.depth == 0 ? groupName(node.name) : accountTitle(ledger, node.name) == acctLabel(node.name) ? node.label : accountTitle(ledger, node.name))
                 .fontWeight(node.depth == 0 ? .medium : .regular)
         }
         .padding(.leading, CGFloat(node.depth) * 14)
@@ -306,7 +306,7 @@ private struct MonthGridCard: View {
 
     private func monthTitle(_ month: String) -> String {
         let number = Int(month.suffix(2)) ?? 0
-        return number == 1 || month == columns.months.first ? "\(month.prefix(4)) 年 \(number) 月" : "\(number) 月"
+        return number == 1 || month == columns.months.first ? LS("%@ 年 %@ 月", month.prefix(4), number) : LS("%@ 月", number)
     }
 }
 
@@ -326,7 +326,7 @@ private struct TrialCard: View {
         let accounts = roots.flatMap(leaves)
         Card {
             VStack(alignment: .leading, spacing: 0) {
-                CardTitle("试算平衡")
+                CardTitle(LS("试算平衡"))
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 28), count: 3), alignment: .leading, spacing: 0) {
                     ForEach(accounts, id: \.name) { node in
                         NavigationLink(value: scope(node.name)) {
@@ -344,7 +344,7 @@ private struct TrialCard: View {
                 }
                 ForEach(currencies, id: \.self) { currency in
                     Divider()
-                    FigureRow(label: "借方 · 贷方" + (currencies.count > 1 ? " · " + currency : ""),
+                    FigureRow(label: LS("借方 · 贷方") + (currencies.count > 1 ? " · " + currency : ""),
                               value: money(debit[currency] ?? 0, currency) + " · " + money(credit[currency] ?? 0, currency))
                 }
             }
@@ -442,7 +442,7 @@ struct TreeCard: View {
             .buttonStyle(.plain)
             .opacity(node.children.isEmpty ? 0 : 1)
             .disabled(node.children.isEmpty)
-            .accessibilityLabel(open.contains(node.name) ? "收起" : "展开")
+            .accessibilityLabel(open.contains(node.name) ? LS("收起") : LS("展开"))
             NavigationLink(value: scope(node.name)) {
                 TreeRow(name: name(node), amount: amountsText(shown(node.shown), ledger))
             }

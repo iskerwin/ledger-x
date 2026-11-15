@@ -21,22 +21,22 @@ struct ReimbursementsPage: View {
         ReportScaffold {
             Card(summary: true) {
                 VStack(alignment: .leading, spacing: 12) {
-                    Headline(label: "待报销", value: money(waitingTotal, ledger.base))
-                    SummaryFigures(items: [("进行中", "\(open.count) 张", .primary),
-                                           ("报销应收余额", money(owed, ledger.base), .primary),
-                                           ("\(thisYear) 年已结清", money(advanced(settled.filter { $0.last.hasPrefix(thisYear) }), ledger.base), .primary)])
+                    Headline(label: LS("待报销"), value: money(waitingTotal, ledger.base))
+                    SummaryFigures(items: [(LS("进行中"), LS("%@ 张", open.count), .primary),
+                                           (LS("报销应收余额"), money(owed, ledger.base), .primary),
+                                           (LS("%@ 年已结清", thisYear), money(advanced(settled.filter { $0.last.hasPrefix(thisYear) }), ledger.base), .primary)])
                 }
             }
             // both kept when empty, so the page doesn't change with them
             SideBySide {
                 Card {
                     VStack(alignment: .leading, spacing: 0) {
-                        CardTitle(title: "进行中") { Text("\(open.count) 张").foregroundStyle(.secondary) }
+                        CardTitle(title: LS("进行中")) { Text(LS("%@ 张", open.count)).foregroundStyle(.secondary) }
                         ForEach(open) { batch in
                             Divider()
                             NavigationLink(value: JournalScope(title: batchTitle(batch), account: nil, link: batch.link)) {
-                                FigureRow(label: batchTitle(batch), caption: "\(shortDay(batch.first))–\(shortDay(batch.last)) · \(batch.count) 笔",
-                                          value: (batch.kind == .float ? "剩 " : "待回款 ") + money(abs(batch.balance), batch.currency))
+                                FigureRow(label: batchTitle(batch), caption: LS("%@–%@ · %@ 笔", shortDay(batch.first), shortDay(batch.last), batch.count),
+                                          value: (batch.kind == .float ? LS("剩 ") : LS("待回款 ")) + money(abs(batch.balance), batch.currency))
                             }
                             .buttonStyle(.plain)
                         }
@@ -44,16 +44,16 @@ struct ReimbursementsPage: View {
                 }
                 Card {
                     VStack(alignment: .leading, spacing: 0) {
-                        CardTitle(title: "已结清") { Text(money(advanced(settled), ledger.base)).monospacedDigit().foregroundStyle(.secondary) }
+                        CardTitle(title: LS("已结清")) { Text(money(advanced(settled), ledger.base)).monospacedDigit().foregroundStyle(.secondary) }
                         ForEach(years(settled), id: \.0) { year in
                             Divider()
-                            FigureRow(label: "\(year.0) 年", caption: "\(year.1.count) 张单子", value: money(advanced(year.1), ledger.base))
+                            FigureRow(label: LS("%@ 年", year.0), caption: LS("%@ 张单子", year.1.count), value: money(advanced(year.1), ledger.base))
                         }
                     }
                 }
             }
             EntryListCard(entries: Array(waiting.map(\.t).reversed()), ledger: ledger, config: config, folder: folder) {
-                CardTitle(title: "待报销") { Text("\(waiting.count) 笔").foregroundStyle(.secondary) }
+                CardTitle(title: LS("待报销")) { Text(LS("%@ 笔", waiting.count)).foregroundStyle(.secondary) }
             }
         }
     }
@@ -64,7 +64,7 @@ struct ReimbursementsPage: View {
     }
 
     private func batchTitle(_ batch: ReimbBatch) -> String {
-        batch.kind == .float ? "备用金" + (batch.payer.isEmpty ? "" : " · " + batch.payer) : (batch.payer.isEmpty ? batch.link : batch.payer)
+        batch.kind == .float ? LS("备用金") + (batch.payer.isEmpty ? "" : " · " + batch.payer) : (batch.payer.isEmpty ? batch.link : batch.payer)
     }
 
     private func years(_ batches: [ReimbBatch]) -> [(String, [ReimbBatch])] {
@@ -88,7 +88,7 @@ struct SalaryPage: View {
             SplitPage {
                 ForEach(employers, id: \.self) { employer in
                     let last = slips.last { $0.payee == employer }
-                    PickRow(title: employer, caption: last.map { "上次 " + String($0.date.prefix(7)) } ?? "", picked: name == employer) { picked = employer }
+                    PickRow(title: employer, caption: last.map { LS("上次 ") + String($0.date.prefix(7)) } ?? "", picked: name == employer) { picked = employer }
                 }
             } detail: {
                 detail(name, slips)
@@ -102,7 +102,7 @@ struct SalaryPage: View {
         if let name {
             EmployerDetail(ledger: ledger, config: config, folder: folder, name: name, slips: slips.filter { $0.payee == name }).id(name)
         } else {
-            ContentUnavailableView("没有工资记录", systemImage: "banknote")
+            ContentUnavailableView(LS("没有工资记录"), systemImage: "banknote")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
@@ -149,26 +149,26 @@ private struct EmployerDetail: View {
                 }
                 Card(summary: true) {
                     VStack(alignment: .leading, spacing: 12) {
-                        Headline(label: "\(year) 年实发", value: money(sum(\.net), ledger.base))
-                        SummaryFigures(items: [("税前", money(sum(\.gross), ledger.base), .primary),
-                                               ("扣款", money(sum(\.deductions), ledger.base), .primary),
-                                               ("个税", money(sum(\.tax), ledger.base), .primary)])
+                        Headline(label: LS("%@ 年实发", year), value: money(sum(\.net), ledger.base))
+                        SummaryFigures(items: [(LS("税前"), money(sum(\.gross), ledger.base), .primary),
+                                               (LS("扣款"), money(sum(\.deductions), ledger.base), .primary),
+                                               (LS("个税"), money(sum(\.tax), ledger.base), .primary)])
                     }
                 }
                 SideBySide(weights: [2, 1]) {
                     Card {
                         VStack(alignment: .leading, spacing: 0) {
-                            CardTitle("每月实发")
+                            CardTitle(LS("每月实发"))
                             // what came in each month, the months in order
                             Chart(shown.reversed()) { slip in
-                                BarMark(x: .value("月份", String(slip.entry.date.prefix(7))), y: .value("实发", slip.figures.net))
+                                BarMark(x: .value(LS("月份"), String(slip.entry.date.prefix(7))), y: .value(LS("实发"), slip.figures.net))
                                     .foregroundStyle(focused?.id == slip.id ? Color.jade : Color.jade.opacity(0.55))
                                     .cornerRadius(3)
                             }
                             .chartYAxis(.hidden)
                             .chartXAxis {
                                 AxisMarks { value in
-                                    AxisValueLabel { if let month = value.as(String.self) { Text(String(Int(month.suffix(2)) ?? 0) + "月") } }
+                                    AxisValueLabel { if let month = value.as(String.self) { Text(String(Int(month.suffix(2)) ?? 0) + LS("月")) } }
                                 }
                             }
                             .frame(height: 150)
@@ -176,24 +176,24 @@ private struct EmployerDetail: View {
                     }
                     Card {
                         VStack(alignment: .leading, spacing: 0) {
-                            CardTitle(title: "工资条") { Text(focused.map { String($0.entry.date.prefix(7)) } ?? "").monospacedDigit().foregroundStyle(.secondary) }
+                            CardTitle(title: LS("工资条")) { Text(focused.map { String($0.entry.date.prefix(7)) } ?? "").monospacedDigit().foregroundStyle(.secondary) }
                             if let figures = focused?.figures {
                                 ForEach(figures.earnings.sorted { $0.value > $1.value }, id: \.key) { item in
                                     FigureRow(label: acctDisplay(item.key), value: money(item.value, ledger.base))
                                     Divider()
                                 }
-                                FigureRow(label: "扣款", value: money(figures.deductions, ledger.base))
+                                FigureRow(label: LS("扣款"), value: money(figures.deductions, ledger.base))
                                 Divider()
-                                FigureRow(label: "个税", value: money(figures.tax, ledger.base))
+                                FigureRow(label: LS("个税"), value: money(figures.tax, ledger.base))
                                 Divider()
-                                FigureRow(label: "实发", value: money(figures.net, ledger.base), color: .gain)
+                                FigureRow(label: LS("实发"), value: money(figures.net, ledger.base), color: .gain)
                             }
                         }
                     }
                 }
                 Card {
                     VStack(alignment: .leading, spacing: 0) {
-                        SlipRow(cells: ["月份", "应发", "扣款", "个税", "实发"], heading: true)
+                        SlipRow(cells: [LS("月份"), LS("应发"), LS("扣款"), LS("个税"), LS("实发")], heading: true)
                             .padding(.bottom, 6)
                         ForEach(shown) { slip in
                             let entry = slip.entry, figures = slip.figures
@@ -258,12 +258,12 @@ struct EventsPage: View {
         let ended = events.filter { event in !going.contains { $0.tag == event.tag } }
         let receivable = config?.receivable ?? "Assets:Receivable:Reimbursement"
         SplitPage {
-            ForEach([("进行中", going), ("已结束", ended)], id: \.0) { section in
+            ForEach([(LS("进行中"), going), (LS("已结束"), ended)], id: \.0) { section in
                 if !section.1.isEmpty {
                     Text(section.0).font(.caption.weight(.semibold)).foregroundStyle(.secondary).padding(.horizontal, 10).padding(.top, 8)
                     ForEach(section.1) { event in
                         let summary = ledger.eventSummaryKept(event.tag, reimbursement: receivable)
-                        PickRow(title: event.title, caption: "#\(event.tag) · \(shortDay(event.start)) 起 · \(summary.txns.count) 笔",
+                        PickRow(title: event.title, caption: LS("#%@ · %@ 起 · %@ 笔", event.tag, shortDay(event.start), summary.txns.count),
                                 trailing: money(summary.total, ledger.base), picked: (picked ?? events.first?.tag) == event.tag) { picked = event.tag }
                     }
                 }
@@ -289,19 +289,19 @@ private struct EventDetail: View {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(event.title).font(.title2.weight(.semibold))
-                    Text("#\(event.tag) · \(event.start)" + (event.end.map { " – \($0)" } ?? " 起")).foregroundStyle(.secondary)
+                    Text("#\(event.tag) · \(event.start)" + (event.end.map { " – \($0)" } ?? LS(" 起"))).foregroundStyle(.secondary)
                 }
                 Card(summary: true) {
                     VStack(alignment: .leading, spacing: 12) {
-                        Headline(label: "一共", value: money(summary.total, ledger.base))
-                        SummaryFigures(items: [("其中未报销", money(summary.unpaid, ledger.base), .primary),
-                                               ("自己的支出", money(summary.spent, ledger.base), .primary)])
+                        Headline(label: LS("一共"), value: money(summary.total, ledger.base))
+                        SummaryFigures(items: [(LS("其中未报销"), money(summary.unpaid, ledger.base), .primary),
+                                               (LS("自己的支出"), money(summary.spent, ledger.base), .primary)])
                     }
                 }
                 SideBySide {
                     Card {
                         VStack(alignment: .leading, spacing: 0) {
-                            CardTitle("分类")
+                            CardTitle(LS("分类"))
                             ForEach(summary.byCategory, id: \.account) { item in
                                 Divider()
                                 FigureRow(label: acctDisplay(item.account), value: money(item.amount, ledger.base))
@@ -310,9 +310,9 @@ private struct EventDetail: View {
                     }
                     Card {
                         VStack(alignment: .leading, spacing: 0) {
-                            CardTitle("按天")
+                            CardTitle(LS("按天"))
                             Chart(byDay, id: \.0) { day in
-                                BarMark(x: .value("日期", shortDay(day.0)), y: .value("支出", day.1))
+                                BarMark(x: .value(LS("日期"), shortDay(day.0)), y: .value(LS("支出"), day.1))
                                     .foregroundStyle(Color.jade.opacity(0.75))
                                     .cornerRadius(3)
                             }
@@ -323,7 +323,7 @@ private struct EventDetail: View {
                 }
                 EntryListCard(entries: Array(summary.txns.reversed()), ledger: ledger, config: config, folder: folder,
                               columns: [.date, .payee, .category, .accounts, .amount]) {
-                    CardTitle("交易")
+                    CardTitle(LS("交易"))
                 }
             }
             .padding(20)

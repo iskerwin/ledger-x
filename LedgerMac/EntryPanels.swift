@@ -42,7 +42,7 @@ func payingSummary(_ draft: Draft, _ ledger: Ledger) -> String? {
     }
     var summary = parts.joined(separator: " + ")
     if discountAllowed(draft), let discount = evalAmount(draft.discount), discount > 0 {
-        summary += (summary.isEmpty ? "" : " · ") + "优惠 " + money(discount, draft.currency)
+        summary += (summary.isEmpty ? "" : " · ") + LS("优惠 ") + money(discount, draft.currency)
     }
     return summary
 }
@@ -58,7 +58,7 @@ struct AccountField: View {
         let ranked = derived.rankAccounts(prefixes)
         Picker(title, selection: $account) {
             // nothing picked yet reads as such, not as an empty box
-            Text("选择" + title).tag("")
+            Text(LS("选择") + title).tag("")
             if !account.isEmpty && !ranked.contains(account) { Text(acctDisplay(account)).tag(account) }
             ForEach(ranked, id: \.self) { Text(acctDisplay($0)).tag($0) }
         }
@@ -81,9 +81,9 @@ private struct PanelFrame<Content: View>: View {
             HStack {
                 Spacer()
                 if let cancel {
-                    Button("取消", role: .cancel, action: cancel).keyboardShortcut(.cancelAction)
+                    Button(LS("取消"), role: .cancel, action: cancel).keyboardShortcut(.cancelAction)
                 }
-                Button("完成", action: done).keyboardShortcut(.defaultAction)
+                Button(LS("完成"), action: done).keyboardShortcut(.defaultAction)
             }
             .padding([.horizontal, .bottom], 16)
         }
@@ -143,24 +143,24 @@ struct RateSheet: View {
     }
 
     var body: some View {
-        PanelFrame(title: hasFee ? "币种、汇率与手续费" : "币种与汇率", height: 520, done: save, cancel: { dismiss() }) {
+        PanelFrame(title: hasFee ? LS("币种、汇率与手续费") : LS("币种与汇率"), height: 520, done: save, cancel: { dismiss() }) {
             Section {
-                Picker("账单币种", selection: $currency) {
+                Picker(LS("账单币种"), selection: $currency) {
                     ForEach(currencies, id: \.self) { Text($0).tag($0) }
                 }
-                Picker("目标币种", selection: $target) {
+                Picker(LS("目标币种"), selection: $target) {
                     ForEach(currencies, id: \.self) { Text($0).tag($0) }
                 }
             }
             if let error { Text(error).foregroundStyle(Color.loss) }
             if let other, other != currency {
                 if !transfer && hasCombo(working) {
-                    Text("组合付款时，各账户要与支出同币种。").foregroundStyle(.secondary)
+                    Text(LS("组合付款时，各账户要与支出同币种。")).foregroundStyle(.secondary)
                 } else {
                     conversion(other)
                 }
             } else {
-                Section { row("金额", $amount, unit: currency, part: .amount) }
+                Section { row(LS("金额"), $amount, unit: currency, part: .amount) }
             }
             if hasFee { feeSections }
         }
@@ -186,10 +186,10 @@ struct RateSheet: View {
 
     @ViewBuilder private func conversion(_ other: String) -> some View {
         Section {
-            row(transfer ? "转出金额" : "账单金额", $amount, unit: currency, part: .amount)
+            row(transfer ? LS("转出金额") : LS("账单金额"), $amount, unit: currency, part: .amount)
             LabeledContent("1 \(reverse ? other : currency) =") {
                 HStack {
-                    TextField("汇率", text: $rate, prompt: Text(ledgerRate.map(rateString) ?? ""))
+                    TextField(LS("汇率"), text: $rate, prompt: Text(ledgerRate.map(rateString) ?? ""))
                         .labelsHidden()
                         .focused($focus, equals: .rate)
                         .multilineTextAlignment(.trailing)
@@ -198,15 +198,15 @@ struct RateSheet: View {
                     Text(reverse ? currency : other).foregroundStyle(.secondary)
                 }
             }
-            row(transfer ? "实际到账" : "换算金额", $converted, unit: other, part: .converted)
+            row(transfer ? LS("实际到账") : LS("换算金额"), $converted, unit: other, part: .converted)
             if transfer, let sent = evalAmount(amount), let quoted = Double(rate), let received = evalAmount(converted),
                let expected = solveTransferRate(.converted, draft: candidate, amount: sent, rate: perUnit(quoted), received: received), abs(expected - received) > 0.011 {
-                Text("银行报价与实际金额存在差异，请核对；已填金额不会被自动覆盖。").foregroundStyle(Color.warn)
+                Text(LS("银行报价与实际金额存在差异，请核对；已填金额不会被自动覆盖。")).foregroundStyle(Color.warn)
             }
         }
         Section {
             if transfer {
-                Button("交换汇率方向", systemImage: "arrow.left.arrow.right") {
+                Button(LS("交换汇率方向"), systemImage: "arrow.left.arrow.right") {
                     quotes[reverse] = rate
                     reverse.toggle()
                     if let saved = quotes[reverse] {
@@ -216,7 +216,7 @@ struct RateSheet: View {
                     }
                 }
             }
-            Button("重置汇率", systemImage: "arrow.counterclockwise") {
+            Button(LS("重置汇率"), systemImage: "arrow.counterclockwise") {
                 explicitQuote = false
                 recent = [.rate] + recent.filter { $0 != .rate }.prefix(1)
                 rate = ledgerRate.map { rateString(perUnit($0)) } ?? ""
@@ -255,14 +255,14 @@ struct RateSheet: View {
     @ViewBuilder private var feeSections: some View {
         let expense = working.kind == .expense
         let feeCurrencies = Array(Set(derived.currencies + (ledger.accounts[feePayer]?.currencies ?? []) + [currency, target, feeCurrency]).subtracting([""])).sorted()
-        Section("手续费") {
-            Picker("扣费方式", selection: Binding(get: { feeMode }, set: setFeeMode)) {
+        Section(LS("手续费")) {
+            Picker(LS("扣费方式"), selection: Binding(get: { feeMode }, set: setFeeMode)) {
                 ForEach(expense ? [TransferFeeMode.added, .separate] : TransferFeeMode.allCases, id: \.self) { mode in
-                    Text(expense && mode == .added ? "由付款账户另付" : mode.label).tag(mode)
+                    Text(expense && mode == .added ? LS("由付款账户另付") : mode.label).tag(mode)
                 }
             }
-            LabeledContent("金额") {
-                TextField("金额", text: Binding(get: { working.transferFee ?? "" }, set: { value in
+            LabeledContent(LS("金额")) {
+                TextField(LS("金额"), text: Binding(get: { working.transferFee ?? "" }, set: { value in
                     working.transferFee = value.trimmed.isEmpty ? nil : value
                     if working.feeCurrency == nil { working.feeCurrency = feeCurrency }
                     error = nil
@@ -272,32 +272,32 @@ struct RateSheet: View {
                 .multilineTextAlignment(.trailing)
                 .monospacedDigit()
             }
-            Picker("手续费币种", selection: Binding(get: { feeCurrency }, set: { working.feeCurrency = $0 })) {
+            Picker(LS("手续费币种"), selection: Binding(get: { feeCurrency }, set: { working.feeCurrency = $0 })) {
                 ForEach(feeCurrencies, id: \.self) { Text($0).tag($0) }
             }
             .disabled(!expense && (feeMode == .included || feeMode == .deducted))
             if feeMode == .separate {
-                AccountField(title: "扣费账户", prefixes: ["Assets:", "Liabilities:"], derived: derived, account: Binding(get: { feePayer }, set: { working.feeFunding = $0 }))
+                AccountField(title: LS("扣费账户"), prefixes: ["Assets:", "Liabilities:"], derived: derived, account: Binding(get: { feePayer }, set: { working.feeFunding = $0 }))
             } else {
-                LabeledContent("手续费由", value: accountTitle(ledger, feePayer))
+                LabeledContent(LS("手续费由"), value: accountTitle(ledger, feePayer))
             }
         }
         if (evalAmount(working.transferFee ?? "") ?? 0) > 0 {
             if expense, let breakdown = expenseFeeBreakdown(candidate, ledger, derived) {
-                Section("金额核对") {
-                    LabeledContent("商品扣款", value: money(breakdown.purchaseDebit, breakdown.purchaseCurrency))
-                    LabeledContent("手续费", value: money(breakdown.fee, breakdown.feeCurrency))
-                    LabeledContent("付款账户合计扣款", value: money(breakdown.totalDebit, breakdown.purchaseCurrency))
+                Section(LS("金额核对")) {
+                    LabeledContent(LS("商品扣款"), value: money(breakdown.purchaseDebit, breakdown.purchaseCurrency))
+                    LabeledContent(LS("手续费"), value: money(breakdown.fee, breakdown.feeCurrency))
+                    LabeledContent(LS("付款账户合计扣款"), value: money(breakdown.totalDebit, breakdown.purchaseCurrency))
                     if breakdown.payer != working.funding || breakdown.debitCurrency != breakdown.purchaseCurrency {
-                        LabeledContent("另付手续费", value: money(breakdown.feeDebit, breakdown.debitCurrency))
+                        LabeledContent(LS("另付手续费"), value: money(breakdown.feeDebit, breakdown.debitCurrency))
                     }
                 }
             } else if !expense, let breakdown = transferBreakdown(candidate, target: target) {
-                Section("金额核对") {
-                    LabeledContent("转出账户扣款", value: money(breakdown.sourceDebit, currency))
-                    LabeledContent("参与兑换", value: money(breakdown.principal, currency))
-                    LabeledContent("手续费", value: money(breakdown.fee, breakdown.feeCurrency))
-                    if breakdown.netReceived > 0 { LabeledContent("实际到账", value: money(breakdown.netReceived, target)) }
+                Section(LS("金额核对")) {
+                    LabeledContent(LS("转出账户扣款"), value: money(breakdown.sourceDebit, currency))
+                    LabeledContent(LS("参与兑换"), value: money(breakdown.principal, currency))
+                    LabeledContent(LS("手续费"), value: money(breakdown.fee, breakdown.feeCurrency))
+                    if breakdown.netReceived > 0 { LabeledContent(LS("实际到账"), value: money(breakdown.netReceived, target)) }
                 }
             }
         }
@@ -380,13 +380,13 @@ struct RateSheet: View {
         if transfer, let issue = transferFeeIssue(next, ledger, derived) { error = issue.message; return }
         if next.kind == .expense, let issue = expenseFeeIssue(next, ledger, derived) { error = issue.message; return }
         if !transfer, hasCombo(next), target != currency {
-            error = "组合付款时，各账户要与支出同币种。"
+            error = LS("组合付款时，各账户要与支出同币种。")
             return
         }
         if let other, other != currency, transfer || !hasCombo(next) {
             guard let sent = evalAmount(amount), sent > 0, let received = evalAmount(converted), received > 0,
                   let quoted = Double(rate.trimmed), quoted.isFinite, quoted > 0 else {
-                error = "请输入有效金额和汇率"
+                error = LS("请输入有效金额和汇率")
                 return
             }
             setConversion(&next, amount: amount.trimmed, rate: transfer ? rateString(perUnit(quoted)) : rate.trimmed, converted: converted.trimmed, computed: computed)
@@ -417,23 +417,23 @@ struct PaySheet: View {
 
     var body: some View {
         let rest = comboRest(draft)
-        PanelFrame(title: "组合付款与优惠", done: { dismiss() }) {
+        PanelFrame(title: LS("组合付款与优惠"), done: { dismiss() }) {
             Section {
-                LabeledContent("总额", value: evalAmount(draft.amount).map { money($0, draft.currency) } ?? "—")
-                LabeledContent(draft.funding.isEmpty ? "主账户" : accountTitle(ledger, draft.funding),
-                               value: rest.map { "付余下的 " + money(max(0, $0), draft.currency) } ?? "付余下的部分")
+                LabeledContent(LS("总额"), value: evalAmount(draft.amount).map { money($0, draft.currency) } ?? "—")
+                LabeledContent(draft.funding.isEmpty ? LS("主账户") : accountTitle(ledger, draft.funding),
+                               value: rest.map { LS("付余下的 ") + money(max(0, $0), draft.currency) } ?? LS("付余下的部分"))
             }
-            Section("其他付款账户") {
+            Section(LS("其他付款账户")) {
                 ForEach($draft.extraFunds) { $extra in
                     HStack {
-                        AccountField(title: "账户", prefixes: ["Assets:", "Liabilities:"], derived: derived, account: $extra.account)
+                        AccountField(title: LS("账户"), prefixes: ["Assets:", "Liabilities:"], derived: derived, account: $extra.account)
                             .labelsHidden()
-                        TextField("金额", text: $extra.amount, prompt: Text("0.00"))
+                        TextField(LS("金额"), text: $extra.amount, prompt: Text("0.00"))
                             .labelsHidden()
                             .multilineTextAlignment(.trailing)
                             .monospacedDigit()
                             .frame(maxWidth: 100)
-                        Button("删除", systemImage: "minus.circle") {
+                        Button(LS("删除"), systemImage: "minus.circle") {
                             let id = extra.id
                             draft.extraFunds.removeAll { $0.id == id }
                         }
@@ -442,17 +442,17 @@ struct PaySheet: View {
                         .foregroundStyle(.secondary)
                     }
                 }
-                Button("添加付款账户", systemImage: "plus.circle") { draft.extraFunds.append(ExtraFund(account: "")) }
+                Button(LS("添加付款账户"), systemImage: "plus.circle") { draft.extraFunds.append(ExtraFund(account: "")) }
             }
             if discountAllowed(draft) {
-                Section("优惠") {
-                    LabeledContent("优惠金额") {
-                        TextField("优惠金额", text: $draft.discount, prompt: Text("0.00"))
+                Section(LS("优惠")) {
+                    LabeledContent(LS("优惠金额")) {
+                        TextField(LS("优惠金额"), text: $draft.discount, prompt: Text("0.00"))
                             .labelsHidden()
                             .multilineTextAlignment(.trailing)
                             .monospacedDigit()
                     }
-                    AccountField(title: "记到", prefixes: ["Income:"], derived: derived, account: $draft.discountAccount)
+                    AccountField(title: LS("记到"), prefixes: ["Income:"], derived: derived, account: $draft.discountAccount)
                 }
             }
             if let issue = comboIssue(draft, ledger, derived) {
@@ -477,9 +477,9 @@ struct MarkSheet: View {
         let eventTags = Set(events.map(\.tag))
         let hidden: Set<String> = ["transfer", "fx", "reimbursed", "refund", "reimbursement"]
         let known = Array(Set(ledger.txns.suffix(2000).flatMap(\.tags))).filter { !hidden.contains($0) && !draft.tags.contains($0) && !eventTags.contains($0) }.sorted()
-        PanelFrame(title: "标记", done: finish) {
+        PanelFrame(title: LS("标记"), done: finish) {
             if !events.isEmpty {
-                Section("事件") {
+                Section(LS("事件")) {
                     ForEach(events) { event in
                         Toggle(event.title, isOn: Binding(get: { draft.events.contains(event.tag) }, set: { on in
                             if on { draft.events.append(event.tag) } else { draft.events.removeAll { $0 == event.tag } }
@@ -488,23 +488,23 @@ struct MarkSheet: View {
                     }
                 }
             }
-            Section("标签") {
+            Section(LS("标签")) {
                 ForEach(draft.tags, id: \.self) { tag in
                     HStack {
                         Text("#" + tag)
                         Spacer()
-                        Button("删除标签 #\(tag)", systemImage: "xmark.circle.fill") { draft.tags.removeAll { $0 == tag } }
+                        Button(LS("删除标签 #%@", tag), systemImage: "xmark.circle.fill") { draft.tags.removeAll { $0 == tag } }
                             .labelStyle(.iconOnly)
                             .buttonStyle(.plain)
                             .foregroundStyle(.secondary)
                     }
                 }
                 HStack {
-                    TextField("新标签", text: $newTag).onSubmit(addTyped)
-                    Button("添加", action: addTyped).disabled(newTag.trimmed.isEmpty)
+                    TextField(LS("新标签"), text: $newTag).onSubmit(addTyped)
+                    Button(LS("添加"), action: addTyped).disabled(newTag.trimmed.isEmpty)
                 }
                 if badTag {
-                    Text("标签只能用英文字母、数字和 - _ / .（Beancount 的规定）").foregroundStyle(Color.warn)
+                    Text(LS("标签只能用英文字母、数字和 - _ / .（Beancount 的规定）")).foregroundStyle(Color.warn)
                 }
                 if !known.isEmpty {
                     ChipRow {
@@ -515,7 +515,7 @@ struct MarkSheet: View {
                 }
             }
             Section {
-                Toggle("待确认（!）", isOn: Binding(get: { draft.flag == "!" }, set: { draft.flag = $0 ? "!" : "*" }))
+                Toggle(LS("待确认（!）"), isOn: Binding(get: { draft.flag == "!" }, set: { draft.flag = $0 ? "!" : "*" }))
             }
         }
     }

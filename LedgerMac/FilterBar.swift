@@ -12,26 +12,26 @@ struct PeriodBar: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            Button("上一期", systemImage: "chevron.left") { period = period.stepped(-1) }
+            Button(LS("上一期"), systemImage: "chevron.left") { period = period.stepped(-1) }
                 .disabled(!period.steps)
             Menu {
                 Picker(selection: Binding(get: { period.unit }, set: { period = period.showing($0) })) {
-                    Text("按月").tag(ViewPeriod.Unit.month)
-                    Text("按季度").tag(ViewPeriod.Unit.quarter)
-                    Text("按年").tag(ViewPeriod.Unit.year)
-                    Text("近 30 天").tag(ViewPeriod.Unit.recent)
-                    Text("全部时间").tag(ViewPeriod.Unit.all)
+                    Text(LS("按月")).tag(ViewPeriod.Unit.month)
+                    Text(LS("按季度")).tag(ViewPeriod.Unit.quarter)
+                    Text(LS("按年")).tag(ViewPeriod.Unit.year)
+                    Text(LS("近 30 天")).tag(ViewPeriod.Unit.recent)
+                    Text(LS("全部时间")).tag(ViewPeriod.Unit.all)
                 } label: {
                     EmptyView()
                 }
                 .pickerStyle(.inline)
                 Divider()
-                Button("选择日期…") { choosingDay = true }
-                Button("选择时间段…") {
+                Button(LS("选择日期…")) { choosingDay = true }
+                Button(LS("选择时间段…")) {
                     if let span = period.span { (from, to) = (span.0, min(span.1, Day.today())) }
                     choosingDays = true
                 }
-                Button("回到本期") { period = ViewPeriod(unit: period.unit) }
+                Button(LS("回到本期")) { period = ViewPeriod(unit: period.unit) }
                     .disabled(period.isCurrent && period.day == nil && period.days == nil)
             } label: {
                 // as wide as the longest title, so the arrows stay put
@@ -39,12 +39,12 @@ struct PeriodBar: View {
             }
             .menuIndicator(.hidden)
             .fixedSize()
-            Button("下一期", systemImage: "chevron.right") { period = period.stepped(1) }
+            Button(LS("下一期"), systemImage: "chevron.right") { period = period.stepped(1) }
                 .disabled(!period.steps || period.isCurrent)
         }
         .labelStyle(.iconOnly)
         .popover(isPresented: $choosingDay) {
-            DayPicker(title: "日期", day: Binding(get: { period.day ?? Day.today() }, set: {
+            DayPicker(title: LS("日期"), day: Binding(get: { period.day ?? Day.today() }, set: {
                 period.days = nil
                 period.day = $0
                 choosingDay = false
@@ -54,10 +54,10 @@ struct PeriodBar: View {
         .popover(isPresented: $choosingDays) {
             VStack(alignment: .trailing, spacing: 12) {
                 HStack(alignment: .top, spacing: 16) {
-                    DayPicker(title: "开始", day: $from, latest: Date())
-                    DayPicker(title: "结束", day: $to, latest: Date())
+                    DayPicker(title: LS("开始"), day: $from, latest: Date())
+                    DayPicker(title: LS("结束"), day: $to, latest: Date())
                 }
-                Button("确定") {
+                Button(LS("确定")) {
                     period.days = ViewPeriod.Days(from: from, to: to)
                     choosingDays = false
                 }
@@ -75,11 +75,11 @@ struct AccountFilter: View {
 
     var body: some View {
         Menu {
-            Button("全部账户") { account = nil }
+            Button(LS("全部账户")) { account = nil }
             ForEach(["Assets", "Liabilities", "Income", "Expenses", "Equity"], id: \.self) { root in
                 let names = accounts.filter { $0.hasPrefix(root + ":") }
                 if !names.isEmpty {
-                    Section(ZH[root] ?? root) {
+                    Section(groupName(root)) {
                         ForEach(names, id: \.self) { name in
                             Button(String(repeating: "    ", count: name.split(separator: ":").count - 2) + accountTitle(ledger, name)) { account = name }
                         }
@@ -87,7 +87,7 @@ struct AccountFilter: View {
                 }
             }
         } label: {
-            Label(account.map { accountTitle(ledger, $0) } ?? "全部账户", systemImage: "line.3.horizontal.decrease.circle")
+            Label(account.map { accountTitle(ledger, $0) } ?? LS("全部账户"), systemImage: "line.3.horizontal.decrease.circle")
                 .labelStyle(.titleAndIcon)
         }
         .fixedSize()
@@ -121,7 +121,7 @@ extension EnvironmentValues {
 extension View {
     /// the window's search on a page that adds up only what it finds
     func filtering(_ text: Binding<String>, _ searching: Binding<Bool>) -> some View {
-        searchable(text: text, isPresented: searching, placement: .toolbar, prompt: Text("标签、收付款方或文字"))
+        searchable(text: text, isPresented: searching, placement: .toolbar, prompt: Text(LS("标签、收付款方或文字")))
     }
 }
 

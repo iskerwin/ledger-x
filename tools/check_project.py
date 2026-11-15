@@ -147,6 +147,15 @@ try:
 except ValueError as error:
     require(False, str(error))
 
+# Chinese handed straight to a SwiftUI view is looked up by SwiftUI, not LS: it shows in Chinese in English on both apps
+literal_ui = re.compile(r'(?:\b(?:Text|Button|Label|Toggle|Picker|Section|TextField|Menu|LabeledContent|ContentUnavailableView)'
+                        r'|\.(?:navigationTitle|help|accessibilityLabel|confirmationDialog|alert))\(\s*"(?:[^"\\]|\\.)*[\u4e00-\u9fff]')
+for d in ('Ledger', 'LedgerMac'):
+    for p in (ROOT/d).rglob('*.swift'):
+        text = p.read_text()
+        for m in literal_ui.finditer(text):
+            require(False, f'{p.relative_to(ROOT)}:{text.count(chr(10), 0, m.start()) + 1}: Chinese shown without LS')
+
 # every Chinese text shown through LS has its English; every English entry is still shown somewhere
 english = json.loads((ROOT/'Ledger/en.json').read_text())
 sources = ''.join(p.read_text() for d in ('Ledger', 'LedgerMac', 'LedgerKit/Sources') for p in (ROOT/d).rglob('*.swift'))

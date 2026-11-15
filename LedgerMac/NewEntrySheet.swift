@@ -96,21 +96,21 @@ struct NewEntrySheet: View {
         }
         .alert(review?.issues.first?.title ?? "", isPresented: reviewing) {
             if review?.issues.contains(where: \.blocking) == false {
-                Button("仍然保存") { if let review { write(review) } }
+                Button(LS("仍然保存")) { if let review { write(review) } }
             }
-            Button("返回修改", role: .cancel) {}
+            Button(LS("返回修改"), role: .cancel) {}
         } message: {
             Text(review?.issues.map(\.detail).joined(separator: "\n") ?? "")
         }
-        .confirmationDialog("这笔还没有保存", isPresented: $leaving) {
-            Button("继续编辑", role: .cancel) {}
+        .confirmationDialog(LS("这笔还没有保存"), isPresented: $leaving) {
+            Button(LS("继续编辑"), role: .cancel) {}
             if !editing {
-                Button("保留草稿") {
+                Button(LS("保留草稿")) {
                     KeptDraft.write(draft, folder)
                     done()
                 }
             }
-            Button("放弃", role: .destructive) {
+            Button(LS("放弃"), role: .destructive) {
                 if !editing { KeptDraft.clear(folder) }
                 done()
             }
@@ -130,14 +130,14 @@ struct NewEntrySheet: View {
                 .padding(.horizontal, 20)
             HStack {
                 Spacer()
-                Button("取消", role: .cancel) { close() }
+                Button(LS("取消"), role: .cancel) { close() }
                     .keyboardShortcut(.cancelAction)
                 if !editing {
-                    Button("保存再记") { save(another: true) }
+                    Button(LS("保存再记")) { save(another: true) }
                         .keyboardShortcut(.return, modifiers: [.command, .shift])
                         .disabled(saving)
                 }
-                Button("保存") { save(another: false) }
+                Button(LS("保存")) { save(another: false) }
                     .keyboardShortcut(.defaultAction)
                     .disabled(saving)
             }
@@ -150,12 +150,12 @@ struct NewEntrySheet: View {
     private var header: some View {
         VStack(spacing: 12) {
             ZStack {
-                Text(editing ? "编辑交易" : "记一笔").font(.headline)
+                Text(editing ? LS("编辑交易") : LS("记一笔")).font(.headline)
                 if draft.kind != .refund && !draft.split {
-                    Button("返回", systemImage: "chevron.left", action: back)
+                    Button(LS("返回"), systemImage: "chevron.left", action: back)
                         .labelStyle(.iconOnly)
                         .buttonStyle(.borderless)
-                        .help("返回")
+                        .help(LS("返回"))
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
@@ -171,7 +171,7 @@ struct NewEntrySheet: View {
                     .frame(width: 220)
                     Spacer()
                     Picker(selection: Binding(get: { mode }, set: { setMode($0) })) {
-                        Text("表单").tag(Mode.form)
+                        Text(LS("表单")).tag(Mode.form)
                         Text(DraftKind.multi.label).tag(Mode.multi)
                         Text(DraftKind.raw.label).tag(Mode.raw)
                     } label: {
@@ -265,7 +265,7 @@ struct NewEntrySheet: View {
 
     private func write(_ prepared: FolderSave) {
         do {
-            try SaveUndo.commit(prepared, folder: folder, name: editing ? "修改交易" : "记一笔")
+            try SaveUndo.commit(prepared, folder: folder, name: editing ? LS("修改交易") : LS("记一笔"))
             if !editing { KeptDraft.clear(folder) }
             if another { startNext() } else { done() }
         } catch {

@@ -11,22 +11,22 @@ enum Page: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .overview: return "概览"
-        case .journal: return "明细"
-        case .accounts: return "账户"
-        case .reports: return "报表"
-        case .payees: return "收付款方"
-        case .year: return "年度回顾"
-        case .budgets: return "预算"
-        case .forecast: return "现金流预测"
-        case .subscriptions: return "订阅"
-        case .reimbursements: return "报销"
-        case .salary: return "工资"
-        case .events: return "事件"
-        case .query: return "BQL 查询"
-        case .errors: return "错误"
-        case .documents: return "附件与对账单"
-        case .sync: return "同步与改动"
+        case .overview: return LS("概览")
+        case .journal: return LS("明细")
+        case .accounts: return LS("账户")
+        case .reports: return LS("报表")
+        case .payees: return LS("收付款方")
+        case .year: return LS("年度回顾")
+        case .budgets: return LS("预算")
+        case .forecast: return LS("现金流预测")
+        case .subscriptions: return LS("订阅")
+        case .reimbursements: return LS("报销")
+        case .salary: return LS("工资")
+        case .events: return LS("事件")
+        case .query: return LS("BQL 查询")
+        case .errors: return LS("错误")
+        case .documents: return LS("附件与对账单")
+        case .sync: return LS("同步与改动")
         }
     }
 
@@ -57,14 +57,14 @@ enum Page: String, CaseIterable {
 
     var followsPeriod: Bool { [.overview, .journal, .reports, .payees, .year, .budgets].contains(self) }
 
-    /// the sidebar's groups, in order; the menu follows them
-    static let sections: [(String, [Page])] = [
-        ("账本", [.overview, .journal, .accounts, .documents]),
-        ("分析", [.reports, .payees, .year]),
-        ("计划", [.budgets, .forecast, .subscriptions]),
-        ("往来", [.reimbursements, .salary, .events]),
-        ("工具", [.query, .errors, .sync]),
-    ]
+    /// the sidebar's groups, in order; the menu follows them. Worked out each time, in the language shown
+    static var sections: [(String, [Page])] { [
+        (LS("账本"), [.overview, .journal, .accounts, .documents]),
+        (LS("分析"), [.reports, .payees, .year]),
+        (LS("计划"), [.budgets, .forecast, .subscriptions]),
+        (LS("往来"), [.reimbursements, .salary, .events]),
+        (LS("工具"), [.query, .errors, .sync]),
+    ] }
 }
 
 /// the journal kept to what a report counted for one account
@@ -124,8 +124,8 @@ struct MainView: View {
             }
             .safeAreaInset(edge: .bottom) {
                 VStack(alignment: .leading, spacing: 8) {
-                    SettingsLink { Label("设置", systemImage: "gearshape") }
-                    Button { picking = true } label: { Label("切换账本…", systemImage: "folder") }
+                    SettingsLink { Label(LS("设置"), systemImage: "gearshape") }
+                    Button { picking = true } label: { Label(LS("切换账本…"), systemImage: "folder") }
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
@@ -187,8 +187,8 @@ struct MainView: View {
                     }
                 }
                 ToolbarItem(placement: .primaryAction) {
-                    Button { adding = true } label: { Label("记一笔", systemImage: "plus") }
-                        .help("记一笔")
+                    Button { adding = true } label: { Label(LS("记一笔"), systemImage: "plus") }
+                        .help(LS("记一笔"))
                 }
             }
         }

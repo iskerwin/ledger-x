@@ -112,6 +112,16 @@ final class FolderLedgersTests: XCTestCase {
         XCTAssertEqual(second.txns.map(\.narration), ["Root"])
     }
 
+    /// LedgerKit's messages (errors, checks) are in the language shown: the other language reads the folder again
+    func testAnotherLanguageIsReadAgain() throws {
+        let chinese = KitLocale.chinese
+        defer { KitLocale.chinese = chinese }
+        KitLocale.chinese = true
+        let first = try XCTUnwrap(loadLedger(folder: folder))
+        KitLocale.chinese = false
+        XCTAssertFalse(try XCTUnwrap(loadLedger(folder: folder)) === first)
+    }
+
     /// a reading asked for during another waits for it, and one cancelled while it waits doesn't run
     func testSerialWorkRunsOneAtATimeAndSkipsTheCancelled() async {
         let serial = SerialWork()

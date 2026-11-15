@@ -20,11 +20,11 @@ private enum Shown: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .txn: return "交易"
+        case .txn: return LS("交易")
         case .pad: return "pad"
-        case .balance: return "余额断言"
-        case .note: return "备注"
-        case .document: return "文档"
+        case .balance: return LS("余额断言")
+        case .note: return LS("备注")
+        case .document: return LS("文档")
         }
     }
 
@@ -101,7 +101,7 @@ struct JournalPage: View {
     private var filters: some View {
         HStack(spacing: 12) {
             Picker(selection: $kind) {
-                ForEach(KindFilter.allCases, id: \.self) { Text($0.rawValue) }
+                ForEach(KindFilter.allCases, id: \.self) { Text(LS($0.rawValue)) }
             } label: {
                 EmptyView()
             }
@@ -112,11 +112,11 @@ struct JournalPage: View {
                     Toggle(item.title, isOn: showing(item)).toggleStyle(.button)
                 }
                 Divider().frame(height: 16).padding(.horizontal, 4)
-                Toggle("分录", isOn: $postings).toggleStyle(.button)
+                Toggle(LS("分录"), isOn: $postings).toggleStyle(.button)
             }
             .controlSize(.small)
             Spacer()
-            Text("\(lines.count) 笔").monospacedDigit().foregroundStyle(.secondary)
+            Text(LS("%@ 笔", lines.count)).monospacedDigit().foregroundStyle(.secondary)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

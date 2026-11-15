@@ -88,8 +88,19 @@ targets:
     platform: macOS
     sources:
       - path: LedgerMac
+      # the English for the interface, shared with the phone
+      - path: Ledger/en.json
+        buildPhase: resources
     dependencies:
       - package: LedgerKit
+    info:
+      path: LedgerMac/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: zh_CN
+        # the menus the system draws follow the language; the app shows in 系统设置 › 语言与地区 › 应用程序
+        CFBundleLocalizations: [zh-Hans, en]
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
     settings:
       base:
         PRODUCT_NAME: Ledger X

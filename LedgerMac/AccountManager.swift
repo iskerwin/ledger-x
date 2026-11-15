@@ -18,19 +18,19 @@ struct AccountManager: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("管理账户").font(.headline)
+                Text(LS("管理账户")).font(.headline)
                 Spacer()
-                Toggle("显示已关闭的账户", isOn: $showClosed).toggleStyle(.checkbox)
-                Button("新建账户", systemImage: "plus") { target = AccountTarget(name: nil) }
-                Button("完成") { dismiss() }.keyboardShortcut(.cancelAction)
+                Toggle(LS("显示已关闭的账户"), isOn: $showClosed).toggleStyle(.checkbox)
+                Button(LS("新建账户"), systemImage: "plus") { target = AccountTarget(name: nil) }
+                Button(LS("完成")) { dismiss() }.keyboardShortcut(.cancelAction)
             }
             .padding(16)
-            TextField("搜索账户", text: $query).textFieldStyle(.roundedBorder).padding([.horizontal, .bottom], 16)
+            TextField(LS("搜索账户"), text: $query).textFieldStyle(.roundedBorder).padding([.horizontal, .bottom], 16)
             List {
                 ForEach(AccountForm.roots, id: \.self) { root in
                     let accounts = matches(root)
                     if !accounts.isEmpty {
-                        Section(["Assets": "资产", "Liabilities": "负债", "Income": "收入", "Expenses": "支出", "Equity": "权益"][root] ?? root) {
+                        Section(groupName(root)) {
                             ForEach(accounts, id: \.name) { account in
                                 Button { target = AccountTarget(name: account.name) } label: {
                                     HStack {
@@ -39,8 +39,8 @@ struct AccountManager: View {
                                             Text(account.name).font(.caption.monospaced()).foregroundStyle(.secondary)
                                         }
                                         Spacer()
-                                        if account.implicit { Text("未开户").foregroundStyle(Color.warn) }
-                                        if account.close.map({ $0 <= Day.today() }) == true { Text("已关闭").foregroundStyle(.secondary) }
+                                        if account.implicit { Text(LS("未开户")).foregroundStyle(Color.warn) }
+                                        if account.close.map({ $0 <= Day.today() }) == true { Text(LS("已关闭")).foregroundStyle(.secondary) }
                                         Image(systemName: "chevron.right").foregroundStyle(.tertiary)
                                     }
                                     .contentShape(Rectangle())
@@ -78,9 +78,9 @@ private struct AccountEditor: View {
         /// as 编辑 › 撤销 names it
         var step: String {
             switch self {
-            case .save(_, let original): original == nil ? "新建账户" : "修改账户"
-            case .close: "关闭账户"
-            case .reopen: "重新开启账户"
+            case .save(_, let original): original == nil ? LS("新建账户") : LS("修改账户")
+            case .close: LS("关闭账户")
+            case .reopen: LS("重新开启账户")
             }
         }
     }
@@ -118,65 +118,65 @@ private struct AccountEditor: View {
         _baseline = State(initialValue: fields)
         _form = State(initialValue: fields)
         balances = (ledger.final[account ?? ""] ?? [:]).filter { abs($0.value) > 0.005 }.sorted { $0.key < $1.key }
-            .map { money($0.value, $0.key) }.joined(separator: "、")
+            .map { money($0.value, $0.key) }.joined(separator: LS("、"))
     }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text(created ? "新建账户" : "编辑账户").font(.headline)
+                Text(created ? LS("新建账户") : LS("编辑账户")).font(.headline)
                 Spacer()
-                Button("取消") { close() }.keyboardShortcut(.cancelAction).disabled(saving)
-                Button("保存") { prepare(.save(form, original)) }
+                Button(LS("取消")) { close() }.keyboardShortcut(.cancelAction).disabled(saving)
+                Button(LS("保存")) { prepare(.save(form, original)) }
                     .keyboardShortcut(.defaultAction)
                     .disabled(saving || (!created && original != nil && form == baseline))
             }
             .padding(16)
             Form {
-                Section("开户信息") {
+                Section(LS("开户信息")) {
                     if created {
-                        TextField("账户", text: $form.account, prompt: Text("Assets:Bank:Example"))
+                        TextField(LS("账户"), text: $form.account, prompt: Text("Assets:Bank:Example"))
                     } else {
-                        LabeledContent("账户", value: form.account).textSelection(.enabled)
+                        LabeledContent(LS("账户"), value: form.account).textSelection(.enabled)
                     }
-                    DateRow(title: "开立日期", day: $form.date)
-                    TextField("显示名称", text: $form.name)
-                    TextField("限定币种", text: $form.currencies, prompt: Text("CNY,USD"))
-                    Picker("批次方法", selection: $form.booking) {
-                        ForEach(AccountForm.bookings, id: \.self) { Text($0.isEmpty ? "默认" : $0).tag($0) }
+                    DateRow(title: LS("开立日期"), day: $form.date)
+                    TextField(LS("显示名称"), text: $form.name)
+                    TextField(LS("限定币种"), text: $form.currencies, prompt: Text("CNY,USD"))
+                    Picker(LS("批次方法"), selection: $form.booking) {
+                        ForEach(AccountForm.bookings, id: \.self) { Text($0.isEmpty ? LS("默认") : $0).tag($0) }
                     }
                     if form.account.hasPrefix("Assets:") {
-                        monthlyDay("核对日", selection: $form.statementDay)
-                        Toggle("允许负余额", isOn: $form.allowNegative)
+                        monthlyDay(LS("核对日"), selection: $form.statementDay)
+                        Toggle(LS("允许负余额"), isOn: $form.allowNegative)
                     } else if form.account.hasPrefix("Liabilities:") {
-                        TextField("信用额度", text: $form.limit, prompt: Text("50000 或 50000 CNY"))
-                        monthlyDay("账单日", selection: $form.statementDay)
-                        monthlyDay("还款日", selection: $form.dueDay)
+                        TextField(LS("信用额度"), text: $form.limit, prompt: Text(LS("50000 或 50000 CNY")))
+                        monthlyDay(LS("账单日"), selection: $form.statementDay)
+                        monthlyDay(LS("还款日"), selection: $form.dueDay)
                     }
                 }
                 if let original {
                     Section {
                         if let closed {
-                            LabeledContent("关闭日期", value: closed.date)
-                            Button("重新开启账户", systemImage: "lock.open") { reopening = true }
+                            LabeledContent(LS("关闭日期"), value: closed.date)
+                            Button(LS("重新开启账户"), systemImage: "lock.open") { reopening = true }
                         } else {
-                            DateRow(title: "关闭日期", day: $closeDate)
+                            DateRow(title: LS("关闭日期"), day: $closeDate)
                             if !balances.isEmpty {
-                                Label("当前余额 " + balances, systemImage: "exclamationmark.triangle")
+                                Label(LS("当前余额 ") + balances, systemImage: "exclamationmark.triangle")
                                     .foregroundStyle(Color.warn)
                             }
-                            Button("关闭账户", role: .destructive) { closing = true }
+                            Button(LS("关闭账户"), role: .destructive) { closing = true }
                         }
                     }
                     .disabled(saving || form != baseline)
-                    .confirmationDialog("关闭账户？", isPresented: $closing, titleVisibility: .visible) {
-                        Button("关闭账户", role: .destructive) { prepare(.close(original, closeDate)) }
-                        Button("取消", role: .cancel) {}
+                    .confirmationDialog(LS("关闭账户？"), isPresented: $closing, titleVisibility: .visible) {
+                        Button(LS("关闭账户"), role: .destructive) { prepare(.close(original, closeDate)) }
+                        Button(LS("取消"), role: .cancel) {}
                     } message: {
-                        Text("将写入一条 close 指令，此后该账户不能再有交易。历史记录保留。")
+                        Text(LS("将写入一条 close 指令，此后该账户不能再有交易。历史记录保留。"))
                     }
                 }
-                DisclosureGroup("Beancount 原文") {
+                DisclosureGroup(LS("Beancount 原文")) {
                     if case .success(let text) = form.directive(keeping: original?.src) {
                         Text(text).font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
                     }
@@ -192,21 +192,21 @@ private struct AccountEditor: View {
         }
         .frame(width: 600, height: 640)
         .interactiveDismissDisabled(dirty || saving)
-        .confirmationDialog("修改还没有保存", isPresented: $leaving, titleVisibility: .visible) {
-            Button("继续编辑", role: .cancel) {}
-            Button("放弃修改", role: .destructive) { dismiss() }
+        .confirmationDialog(LS("修改还没有保存"), isPresented: $leaving, titleVisibility: .visible) {
+            Button(LS("继续编辑"), role: .cancel) {}
+            Button(LS("放弃修改"), role: .destructive) { dismiss() }
         }
-        .confirmationDialog("重新开启账户？", isPresented: $reopening, titleVisibility: .visible) {
-            Button("重新开启账户") {
+        .confirmationDialog(LS("重新开启账户？"), isPresented: $reopening, titleVisibility: .visible) {
+            Button(LS("重新开启账户")) {
                 if let closed { prepare(.reopen(closed)) }
             }
-            Button("取消", role: .cancel) {}
-        } message: { Text("重新开启会删除这条 close 指令。") }
+            Button(LS("取消"), role: .cancel) {}
+        } message: { Text(LS("重新开启会删除这条 close 指令。")) }
         .alert(review?.issues.first?.title ?? "", isPresented: Binding(get: { review != nil }, set: { if !$0 { review = nil } })) {
             if review?.issues.contains(where: \.blocking) == false {
-                Button("仍然保存") { if let review { write(review) } }
+                Button(LS("仍然保存")) { if let review { write(review) } }
             }
-            Button("返回修改", role: .cancel) {}
+            Button(LS("返回修改"), role: .cancel) {}
         } message: {
             Text(review?.issues.map { [$0.title, $0.detail].filter { !$0.isEmpty }.joined(separator: "\n") }.joined(separator: "\n\n") ?? "")
         }
@@ -214,8 +214,8 @@ private struct AccountEditor: View {
 
     private func monthlyDay(_ title: String, selection: Binding<Int>) -> some View {
         Picker(title, selection: selection) {
-            Text("未设置").tag(0)
-            ForEach(1...31, id: \.self) { Text("每月 \($0) 日").tag($0) }
+            Text(LS("未设置")).tag(0)
+            ForEach(1...31, id: \.self) { Text(LS("每月 %@ 日", $0)).tag($0) }
         }
     }
 
