@@ -205,8 +205,7 @@ final class EditInteractionTests: XCTestCase {
         // the full form's type picker (the quick page under it has a 支出 / 收入 / 转账 one of its own), back in sight:
         // typing in the row scrolled the form past it
         let types = app.segmentedControls.containing(.button, identifier: "分录").firstMatch
-        for _ in 0..<6 where !(types.exists && types.isHittable) { app.swipeDown() }
-        XCTAssertTrue(types.isHittable)
+        scrollDown(to: types, in: app)
         types.buttons["支出"].tap()
         XCTAssertTrue(app.textFields["field.amount"].waitForExistence(timeout: 5), "still locked in 分录")
         types.buttons["分录"].tap()
@@ -422,8 +421,7 @@ final class EditInteractionTests: XCTestCase {
         let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == '1'"), object: toggle)
         XCTAssertEqual(XCTWaiter().wait(for: [enabled], timeout: 5), .completed)
         let funding = app.descendants(matching: .any)["field.付款账户"].firstMatch
-        for _ in 0..<6 where !funding.isHittable { app.swipeDown() }
-        XCTAssertTrue(funding.isHittable)
+        scrollDown(to: funding, in: app)
         XCTAssertFalse(app.descendants(matching: .any)["field.支出科目"].firstMatch.exists)
         funding.tap()
         pickAccount(app, "Assets:Bank:ExampleFX")
@@ -2532,6 +2530,19 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "3,000,000"), object: row)], timeout: 20), .completed)
         XCTAssertEqual(row.frame.height, month, accuracy: 0.5)
         XCTAssertEqual(row.frame.minY, top, accuracy: 0.5, "The total card above keeps its height")
+    }
+
+    /// Small steps down until `element`, above what is in sight, sits wholly below the front navigation bar.
+    /// isHittable already passes for a row mostly under the bar, and a tap there lands on the bar, not the row.
+    private func scrollDown(to element: XCUIElement, in app: XCUIApplication) {
+        // the presented sheet's bar comes last; bars of the pages under it sit lower and are covered
+        let bar = { app.navigationBars.allElementsBoundByIndex.last?.frame.maxY ?? 0 }
+        for _ in 0..<10 {
+            if element.exists, element.isHittable, element.frame.minY >= bar() { return }
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 150)))
+        }
+        XCTAssertGreaterThanOrEqual(element.frame.minY, bar(), "\(element) is still under the navigation bar")
     }
 
     /// small steps up until `element` is wholly on screen (a full swipe can carry it past)
