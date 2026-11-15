@@ -851,7 +851,7 @@ public func runQuery(_ text: String, _ L: Ledger) throws -> QueryResult {
 
 // MARK: - saved queries
 
-public struct SavedQuery: Codable, Identifiable, Hashable {
+public struct SavedQuery: Codable, Identifiable, Hashable, Sendable {
     public var id: String
     public var name: String
     public var text: String

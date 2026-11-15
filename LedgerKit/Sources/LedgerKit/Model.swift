@@ -51,7 +51,7 @@ public struct Meta: Equatable {
     public var items: [(String, MetaValue)] { keys.map { ($0, values[$0]!) } }
 }
 
-public enum EntryType: String {
+public enum EntryType: String, Sendable {
     case txn, open, close, commodity, balance, pad, note, document, event, query, price, custom
 }
 
