@@ -2,7 +2,7 @@ import Foundation
 
 /// One change the app made to the ledger, kept so it can be taken back later.
 /// Only the changed regions are stored (as ops that restore them), not whole files.
-public struct ChangeRecord: Codable, Identifiable, Equatable {
+public struct ChangeRecord: Codable, Identifiable, Equatable, Sendable {
     public var id = UUID()
     public var time: Date
     public var label: String

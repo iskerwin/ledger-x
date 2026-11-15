@@ -139,7 +139,7 @@ public final class Posting: @unchecked Sendable {
     }
 }
 
-public final class Entry: @unchecked Sendable {
+public final class Entry: @unchecked Sendable, Identifiable {
     public let type: EntryType
     public var date: String
     public var file: String

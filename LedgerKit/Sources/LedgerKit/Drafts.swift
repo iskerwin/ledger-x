@@ -760,7 +760,7 @@ public enum LayoutKind: String, CaseIterable, Codable, Identifiable {
 }
 
 /// transactions touching `account` (or its sub-accounts) go to `file`
-public struct LayoutRule: Codable, Equatable, Hashable {
+public struct LayoutRule: Codable, Equatable, Hashable, Sendable {
     public var account: String
     public var file: String
     public init(account: String, file: String) { self.account = account; self.file = file }
@@ -780,7 +780,7 @@ public struct QuickSearch: Codable, Equatable, Identifiable, Hashable {
 }
 
 /// ledger-x.json in the repository root: where each kind of directive is written, shared by every device
-public struct LedgerXConfig: Codable, Equatable {
+public struct LedgerXConfig: Codable, Equatable, Sendable {
     public static let path = "ledger-x.json"
     public var files: [String: String] = [:]
     public var rules: [LayoutRule] = []

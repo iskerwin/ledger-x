@@ -12,7 +12,7 @@ import Foundation
 //
 // The templates (which items, which accounts, where the pay goes) live in ledger-x.json, shared by every device.
 
-public struct PayslipItem: Codable, Equatable, Identifiable, Hashable {
+public struct PayslipItem: Codable, Equatable, Identifiable, Hashable, Sendable {
     public var name: String
     public var account: String
     /// taken off the pay (leave, tax…) rather than part of it
@@ -25,7 +25,7 @@ public struct PayslipItem: Codable, Equatable, Identifiable, Hashable {
     }
 }
 
-public struct PayslipTemplate: Codable, Equatable, Identifiable {
+public struct PayslipTemplate: Codable, Equatable, Identifiable, Sendable {
     /// the payee of the salary transactions ("星河")
     public var employer: String
     public var items: [PayslipItem]

@@ -463,7 +463,6 @@ private func byCategory(_ subs: [Subscription], _ L: Ledger) -> [(key: String, v
     return m.sorted { $0.value > $1.value }.map { (key: $0.key, value: $0.value) }
 }
 
-extension SubStatus: Identifiable { public var id: String { rawValue } }
 
 // MARK: - detail
 

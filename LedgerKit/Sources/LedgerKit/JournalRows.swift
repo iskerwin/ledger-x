@@ -14,7 +14,7 @@ public struct ShownAmount: Sendable, Equatable {
 }
 
 /// an entry on a line of the journal, with what it shows and sorts by worked out once for the ledger
-public struct JournalRow: Identifiable {
+public struct JournalRow: Identifiable, Sendable {
     public let entry: Entry
     /// where it is written: file and line
     public let id: String
