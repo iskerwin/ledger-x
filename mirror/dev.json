@@ -20,6 +20,16 @@
       "versions": [
         {
           "version": "1.0.15",
+          "buildVersion": "65",
+          "date": "2026-11-15T01:37:53Z",
+          "localizedDescription": "# Ledger X 1.0.15 开发版\n\n版本 1.0.15 · 构建 65 · main 265c42d 。\n\n## 新增\n\n- Mac 预算页新增「管理预算」，可新增、调整和停用预算、查看及删除历史记录；调整默认从本月生效，保留更早的记录，覆盖其他同日记录和删除历史前会确认。\n- Mac 账户页新增「管理账户」，可搜索全部账户（含未开户和已关闭账户），新建、修改开户信息、关闭和重新开启账户；修改保留其他元数据，并在写入前检查账户使用和文件是否被外部改动。\n\n## 改进\n\n- 报销记账不再必选支出分类：开启报销后直接显示应收账户，金额和付款信息照常填写；旧记录已有的支出类型保留，需要时在报销单里补。iOS 和 Mac 一致。\n- 明细搜索不再弹出写法示例；使用指南新增完整搜索说明，包括字段、组合与排除、金额、日期范围、相对日期和快速搜索。\n- 账户选择顶部只保留最近使用的最多五个其他账户，取消重复的最常用分组；完整账户分组、搜索和当前账户标签保留，各共用入口一致。",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.15-65",
+          "size": 10994589,
+          "minOSVersion": "17.0",
+          "sha256": "f6e2c1ac779e918442f7712ce210f9adf0f563eb490bff124daca074d9682932"
+        },
+        {
+          "version": "1.0.15",
           "buildVersion": "64.1",
           "date": "2026-11-13T13:57:53Z",
           "localizedDescription": "# Ledger X 1.0.15 预览\n\n版本 1.0.15 · 构建 64.1 · preview/mac-parity cb229ba · PR #152 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
@@ -27,16 +37,6 @@
           "size": 10994586,
           "minOSVersion": "17.0",
           "sha256": "f86ff30d14f88b8b7756eddbaea73b48ef801aaee3fc5971732ef0d0e4239a04"
-        },
-        {
-          "version": "1.0.15",
-          "buildVersion": "64",
-          "date": "2026-11-13T07:23:37Z",
-          "localizedDescription": "# Ledger X 1.0.15 开发版\n\n版本 1.0.15 · 构建 64 · main d0e0196 。\n\n## 新增\n\n- Mac 版补齐侧栏各页面，记一笔使用快捷记账卡片；明细改用可排序的原生表格，支持共用时间、账户和搜索筛选、按月财务报表、附件与对账单、BQL 查询和错误页，并提供独立的同步与改动页及设置窗口。",
-          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.15-64",
-          "size": 10973333,
-          "minOSVersion": "17.0",
-          "sha256": "e2da5020620349614f67d7c8147a778c59f43d07fd0a9424179821dbf5664023"
         },
         {
           "version": "1.0.14",
@@ -188,10 +188,10 @@
         }
       },
       "version": "1.0.15",
-      "versionDate": "2026-11-13T13:57:53Z",
-      "versionDescription": "# Ledger X 1.0.15 预览\n\n版本 1.0.15 · 构建 64.1 · preview/mac-parity cb229ba · PR #152 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.15-64.1",
-      "size": 10994586
+      "versionDate": "2026-11-15T01:37:53Z",
+      "versionDescription": "# Ledger X 1.0.15 开发版\n\n版本 1.0.15 · 构建 65 · main 265c42d 。\n\n## 新增\n\n- Mac 预算页新增「管理预算」，可新增、调整和停用预算、查看及删除历史记录；调整默认从本月生效，保留更早的记录，覆盖其他同日记录和删除历史前会确认。\n- Mac 账户页新增「管理账户」，可搜索全部账户（含未开户和已关闭账户），新建、修改开户信息、关闭和重新开启账户；修改保留其他元数据，并在写入前检查账户使用和文件是否被外部改动。\n\n## 改进\n\n- 报销记账不再必选支出分类：开启报销后直接显示应收账户，金额和付款信息照常填写；旧记录已有的支出类型保留，需要时在报销单里补。iOS 和 Mac 一致。\n- 明细搜索不再弹出写法示例；使用指南新增完整搜索说明，包括字段、组合与排除、金额、日期范围、相对日期和快速搜索。\n- 账户选择顶部只保留最近使用的最多五个其他账户，取消重复的最常用分组；完整账户分组、搜索和当前账户标签保留，各共用入口一致。",
+      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.15-65",
+      "size": 10994589
     }
   ],
   "news": []
