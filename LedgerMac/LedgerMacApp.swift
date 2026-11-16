@@ -76,6 +76,8 @@ struct LedgerMacApp: App {
                     .keyboardShortcut("h", modifiers: [.command, .shift])
                 Divider()
             }
+            EntryCommands()
+            CommandGroup(replacing: .help) { GuideButton() }
         }
         Window(LS("记一笔"), id: EntryWindow.id) {
             EntryWindow()
@@ -88,6 +90,14 @@ struct LedgerMacApp: App {
         .windowResizability(.contentSize)
         .defaultPosition(.center)
         .commandsRemoved()
+        Window(LS("使用指南"), id: MacGuide.id) {
+            MacGuide()
+                .environment(\.locale, MacLanguage.current.locale)
+                .id(language)
+                .preferredColorScheme(Appearance(rawValue: appearance)?.scheme)
+        }
+        .defaultSize(width: 640, height: 720)
+        .commandsRemoved()
         Settings {
             SettingsView(folder: folder, picking: $picking)
                 .environment(\.locale, MacLanguage.current.locale)
@@ -95,10 +105,50 @@ struct LedgerMacApp: App {
                 .preferredColorScheme(Appearance(rawValue: appearance)?.scheme)
         }
     }
+}
 
-    /// a sheet's form would be lost if the page behind it changed, and menu shortcuts still reach here while one is up
-    private func withoutSheet(_ action: () -> Void) {
-        if NSApp.keyWindow?.isSheet != true { action() }
+/// a sheet's form would be lost if the page behind it changed, and menu shortcuts still reach here while one is up
+@MainActor
+func withoutSheet(_ action: () -> Void) {
+    if NSApp.keyWindow?.isSheet != true { action() }
+}
+
+/// 交易: what right-clicking the picked entries offers, for the journal or an account's entries on screen
+private struct EntryCommands: Commands {
+    @FocusedValue(\.entryMenu) private var entryMenu
+
+    var body: some Commands {
+        CommandMenu(LS("交易")) {
+            let items = entryMenu?.items() ?? []
+            if items.isEmpty {
+                // nothing picked: the lines every entry has, to be found here before picking one
+                ForEach([LS("编辑…"), LS("复制为新交易…"), LS("复制原文"), LS("打开所在文件"), LS("删除…")], id: \.self) { title in
+                    Button(title) {}
+                        .keyboardShortcut(title == LS("复制为新交易…") ? EntryMenu.duplicate : nil)
+                        .disabled(true)
+                }
+            } else {
+                ForEach(items.indices, id: \.self) { i in
+                    if let run = items[i].run {
+                        Button(items[i].title) { withoutSheet(run) }
+                            .keyboardShortcut(items[i].key)
+                            .disabled(!items[i].enabled)
+                    } else {
+                        Divider()
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// 帮助 › Ledger X 使用指南
+private struct GuideButton: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button(LS("Ledger X 使用指南")) { openWindow(id: MacGuide.id) }
+            .keyboardShortcut("?", modifiers: .command)
     }
 }
 

@@ -2,10 +2,12 @@ import SwiftUI
 import AppKit
 import LedgerKit
 
-/// a line of the table's right-click menu; one with nothing to run is a divider
+/// a line of the table's right-click menu, and of the menu bar's 交易; one with nothing to run is a divider
 struct TableMenuItem {
     let title: String
     var enabled = true
+    /// the menu bar's, shown on the right-click line too
+    var key: KeyboardShortcut? = nil
     let run: (() -> Void)?
 
     static let divider = TableMenuItem(title: "", run: nil)
@@ -198,9 +200,12 @@ struct EntryTable: NSViewRepresentable {
             syncing = false
         }
 
+        var picked: [JournalRow] {
+            table?.selectedRowIndexes.compactMap(line(at:)).map { lines[$0] } ?? []
+        }
+
         func menu() -> NSMenu? {
-            guard let parent, let table else { return nil }
-            let picked = table.selectedRowIndexes.compactMap(line(at:)).map { lines[$0] }
+            guard let parent else { return nil }
             let items = parent.menu(picked)
             guard !items.isEmpty else { return nil }
             let menu = NSMenu()
@@ -211,7 +216,8 @@ struct EntryTable: NSViewRepresentable {
                     continue
                 }
                 let action = MenuAction(run)
-                let entry = NSMenuItem(title: item.title, action: #selector(MenuAction.fire), keyEquivalent: "")
+                let entry = NSMenuItem(title: item.title, action: #selector(MenuAction.fire), keyEquivalent: item.key.map { String($0.key.character) } ?? "")
+                entry.keyEquivalentModifierMask = item.key.map { NSEvent.ModifierFlags($0.modifiers) } ?? []
                 entry.target = action
                 entry.representedObject = action
                 entry.isEnabled = item.enabled
@@ -253,6 +259,12 @@ final class KeyedTable: NSTableView {
             return
         }
         super.mouseDown(with: event)
+    }
+
+    /// 编辑 › 拷贝 (⌘C): the source of what's picked
+    @objc func copy(_ sender: Any?) {
+        let entries = coordinator?.picked.map(\.entry) ?? []
+        if !entries.isEmpty { EntryTasks.copy(entries) }
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
@@ -337,6 +349,8 @@ struct EntryList: View {
                            focus: focus)
             }
         }
+        // the menu bar's 交易: the right-click menu of what's picked
+        .focusedSceneValue(\.entryMenu, EntryMenu { menu(lines.filter { selected.contains($0.id) }) })
     }
 
     private func menu(_ chosen: [JournalRow]) -> [TableMenuItem] {
@@ -349,5 +363,34 @@ struct EntryList: View {
                 TableMenuItem(title: LS("打开所在文件")) { EntryTasks.open(entry, in: folder) },
                 .divider,
                 TableMenuItem(title: LS("删除…"), enabled: entry.editable) { tasks.deleting = entry }]
+    }
+}
+
+/// what the menu bar's 交易 lists: the picked entries' right-click menu
+struct EntryMenu {
+    let items: () -> [TableMenuItem]
+
+    /// 复制为新交易, as 复制 is elsewhere on the Mac
+    static let duplicate = KeyboardShortcut("d")
+}
+
+private struct EntryMenuKey: FocusedValueKey {
+    typealias Value = EntryMenu
+}
+
+extension FocusedValues {
+    var entryMenu: EntryMenu? {
+        get { self[EntryMenuKey.self] }
+        set { self[EntryMenuKey.self] = newValue }
+    }
+}
+
+extension NSEvent.ModifierFlags {
+    init(_ modifiers: EventModifiers) {
+        self = []
+        if modifiers.contains(.command) { insert(.command) }
+        if modifiers.contains(.shift) { insert(.shift) }
+        if modifiers.contains(.option) { insert(.option) }
+        if modifiers.contains(.control) { insert(.control) }
     }
 }
