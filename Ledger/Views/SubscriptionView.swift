@@ -93,45 +93,10 @@ extension Store {
     /// add `^link` to the header of each transaction; a left-over or other subscription's link is replaced
     func linkOps(_ txns: [Entry], link: String, label: String?) async -> [Op]? {
         let ledgerID = cfg.id
-        var ops: [Op] = []
         var files: [String: String] = [:]
-        for original in txns where !original.links.contains(link) {
-            if files[original.file] == nil { files[original.file] = try? await fileText(original.file) }
-            guard cfg.id == ledgerID, let file = files[original.file],
-                  let e = EntryLocator(original).resolve(in: parseFile(file, file: original.file).entries) else {
-                showFailure(LS("记录或账本已变化，请重新打开后再试")); return nil
-            }
-            if let oldLink = e.links.first(where: { $0.hasPrefix("sub-") }) {
-                var op = entryOp(e, text: headerLinkReplace(e.src, link: oldLink, with: link))
-                if ops.isEmpty, let l = label { op.label = l } else { op.silent = true }
-                ops.append(op)
-            } else {
-                let lines = file.components(separatedBy: "\n")
-                guard e.startLine < lines.count else { return nil }
-                var op = Op(kind: .link, path: e.file)
-                op.headerLine = e.startLine + 1; op.header = lines[e.startLine]
-                op.add = " ^" + link; op.link = link; op.date = e.date
-                if ops.isEmpty, let l = label { op.label = l } else { op.silent = true }
-                ops.append(op)
-            }
-        }
-        return ops
-    }
-
-    /// take `^link` off a transaction
-    func unlinkOp(_ e: Entry, link: String) -> Op? {
-        var op = entryOp(e, text: headerLinkReplace(e.src, link: link, with: nil))
-        op.label = LS("取消订阅关联：%@ %@", e.date, e.payee)
-        return op
-    }
-
-    /// remove the subscription's link from all its charges
-    func unlinkAllOps(_ s: Subscription) -> [Op] {
-        var ops: [Op] = []
-        for c in s.charges where c.txn.links.contains(s.link) {
-            guard var op = unlinkOp(c.txn, link: s.link) else { continue }
-            op.label = nil; op.silent = true
-            ops.append(op)
+        for file in Set(txns.filter { !$0.links.contains(link) }.map(\.file)) { files[file] = try? await fileText(file) }
+        guard cfg.id == ledgerID, let ops = subscriptionLinkOps(txns, link: link, label: label, files: files) else {
+            showFailure(LS("记录或账本已变化，请重新打开后再试")); return nil
         }
         return ops
     }
@@ -156,33 +121,8 @@ extension Store {
 
     /// new transactions that match a subscription get its link (returns the names linked)
     func autoLinkSubscriptions(_ ops: [Op]) -> ([Op], [String]) {
-        guard let L = L, !subs.isEmpty else { return (ops, []) }
-        let owned = ownedSubLinks
-        var names: [String] = []
-        let out = ops.map { op -> Op in
-            guard op.kind == .insert, let text = op.text else { return op }
-            let blocks = text.components(separatedBy: "\n\n").map { block -> String in
-                let r = checkText(block, L)
-                guard r.entries.count == 1, let t = r.entries.first, t.type == .txn, !t.links.contains(where: { owned.contains($0) }),
-                      t.meta["subscription"] == nil,
-                      let exp = t.postings.first(where: { $0.account.hasPrefix("Expenses:") }), let u = exp.units, u > 0, let c = exp.currency
-                else { return block }
-                let payee = t.payee.isEmpty ? t.narration : t.payee
-                // two subscriptions fit equally (same payee, account and price): leave it to you
-                guard ambiguousSubscriptions(payee: payee, account: exp.account, amount: u, currency: c, subs).count <= 1,
-                      let s = matchSubscription(payee: payee, account: exp.account, amount: u, currency: c, subs)
-                else { return block }
-                var lines = block.components(separatedBy: "\n")
-                guard let i = lines.firstIndex(where: { $0.hasPrefix(t.date) }) else { return block }
-                lines[i] = trimTrailingSpaces(lines[i]) + " ^" + s.link
-                names.append(s.name)
-                return lines.joined(separator: "\n")
-            }
-            var o = op
-            o.text = blocks.joined(separator: "\n\n")
-            return o
-        }
-        return (out, names)
+        guard let L else { return (ops, []) }
+        return LedgerKit.autoLinkSubscriptions(ops, L, subs: subs)
     }
 
     /// after saving: a new transaction that fits a regular pattern → offer to track it
@@ -198,12 +138,6 @@ extension Store {
         // Queue behind the save confirmation. A fixed delay used to replace that confirmation early.
         show(LS("「%@」看起来是%@扣费", c.payee, c.period.name), action: LS("加入订阅")) { @MainActor [weak self] in self?.subSuggestion = c }
     }
-}
-
-func trimTrailingSpaces(_ s: String) -> String {
-    var x = s
-    while x.last == " " || x.last == "\t" { x.removeLast() }
-    return x
 }
 
 // MARK: - overview section
@@ -627,7 +561,7 @@ struct SubscriptionDetailView: View {
             }
             if c.txn.links.contains(s.link) {
                 Button {
-                    if let op = store.unlinkOp(c.txn, link: s.link) { Task { await store.commit([op], word: LS("已取消关联")) } }
+                    let op = subscriptionUnlinkOp(c.txn, link: s.link); Task { await store.commit([op], word: LS("已取消关联")) }
                 } label: { Label(LS("取消关联"), systemImage: "link") }
                 .tint(.gray)
             }
@@ -742,23 +676,12 @@ struct SubscriptionDetailView: View {
     }
 
     private func delete(_ s: Subscription, unlink: Bool) {
-        var ops: [Op] = s.entries.enumerated().map { i, e in
-            var op = Op(kind: .remove, path: e.file)
-            op.old = e.src
-            op.date = e.date
-            if i == 0 { op.label = LS("删除订阅：%@", s.name) } else { op.silent = true }
-            return op
-        }
-        if unlink { ops += store.unlinkAllOps(s) }
+        let ops = subscriptionDeleteOps(s, unlink: unlink)
         Task { if await store.commit(ops, word: LS("已删除")) { dismiss() } }
     }
 
     private func undo(_ item: SubTimelineItem, _ s: Subscription) {
-        guard let e = item.entry else { return }
-        var op = Op(kind: .remove, path: e.file)
-        op.old = e.src
-        op.date = e.date
-        op.label = LS("撤销订阅记录：%@ %@ %@", s.name, item.from, item.title)
+        guard let op = subscriptionUndoOp(item, s) else { return }
         undoing = nil
         Task { await store.commit([op], word: LS("已撤销")) }
     }
@@ -777,12 +700,7 @@ struct SubscriptionDetailView: View {
 
     /// mark a charge as a top-up of the period before (`topup: TRUE`), or take the mark off
     private func setTopup(_ c: SubCharge, _ on: Bool, _ s: Subscription) {
-        let e = c.txn
-        let text = setTxnMeta(e.src, key: subTopupMeta, value: on ? "TRUE" : nil)
-        guard text != e.src else { return }
-        var op = entryOp(e, text: text)
-        op.label = on ? LS("订阅补差：%@ %@ %@", s.name, e.date, money(c.amount, s.currency))
-            : LS("订阅单独一期：%@ %@ %@", s.name, e.date, money(c.amount, s.currency))
+        guard let op = subscriptionTopupOp(c, on, s) else { return }
         Task { await store.commit([op], word: on ? LS("已并入上一期") : LS("已改为单独一期")) }
     }
 
@@ -920,134 +838,6 @@ struct SubLinkSheet: View {
 }
 
 // MARK: - edit
-
-struct SubDraft: Identifiable {
-    enum Mode { case new, change, correct }
-    let id = UUID()
-    var mode = Mode.new
-    /// only the next charge date changes (调整到期日)
-    var dueOnly = false
-    var name = ""
-    var amount = ""
-    var currency = "CNY"
-    var period = SubPeriod.monthly
-    var custom = false
-    var start = Day.today()
-    /// effective date of a change
-    var date = Day.today()
-    var account = ""
-    var funding = ""
-    var payee = ""
-    var extended = false
-    var next = Day.today()
-    var trial = false
-    var trialEnd = Day.shift(Day.today(), 30)
-    var status = SubStatus.active
-    var link = ""
-    var manual = false
-    var variable = false
-    /// the subscription being changed
-    var original: Subscription?
-    /// transactions to link (from a candidate)
-    var txns: [Entry] = []
-    var picked = Set<Int>()
-
-    init(currency: String) { self.currency = currency }
-
-    init(_ s: Subscription, mode: Mode) {
-        self.mode = mode
-        name = s.name; amount = jsNumberString(s.amount); currency = s.currency; period = s.period
-        custom = !SubPeriod.presets.contains(s.period)
-        start = s.start; account = s.account; funding = s.funding; payee = s.payee
-        extended = s.next != nil
-        next = s.next ?? s.due(onOrAfter: Day.today())
-        trial = s.trialEnd != nil
-        trialEnd = s.trialEnd ?? Day.shift(Day.today(), 30)
-        status = s.status; link = s.link; original = s
-        manual = s.manual; variable = s.variable
-        date = Day.today()
-    }
-
-    /// 调整到期日: a dated change that only moves the next charge
-    init(dueOf s: Subscription) {
-        self.init(s, mode: .change)
-        dueOnly = true
-        extended = true
-        next = s.nextCharge(onOrAfter: Day.today())
-    }
-
-    init(_ c: SubCandidate) {
-        name = c.payee; amount = jsNumberString(c.amount); currency = c.currency; period = c.period
-        start = c.first; account = c.account; funding = c.funding; payee = c.payee
-        txns = c.txns; picked = Set(c.txns.map { $0.id })
-    }
-
-    /// from a transaction: its expense leg, funding leg and date
-    init(_ t: Entry, _ L: Ledger) {
-        name = t.payee.isEmpty ? t.narration : t.payee
-        payee = t.payee
-        start = t.date
-        if let e = t.postings.first(where: { $0.account.hasPrefix("Expenses:") }) {
-            account = e.account
-            amount = jsNumberString(abs(e.units ?? 0))
-            currency = e.currency ?? L.base
-        }
-        funding = t.postings.first { $0.account.hasPrefix("Assets:") || $0.account.hasPrefix("Liabilities:") }?.account ?? ""
-        txns = [t]; picked = [t.id]
-    }
-
-    var sub: Subscription? {
-        guard let a = evalAmount(amount), a > 0, !name.trimmed.isEmpty else { return nil }
-        var s = Subscription(name: name.trimmed, amount: a, currency: currency.trimmed.uppercased(), period: period, start: start,
-                             account: account, funding: funding, payee: payee.trimmed,
-                             next: extended && next > (mode == .change ? date : start) ? next : nil, status: status,
-                             link: link.isEmpty ? nil : link, trialEnd: trial ? trialEnd : nil)
-        s.manual = manual
-        s.variable = variable
-        if mode == .change { s.status = .active }
-        return s
-    }
-
-    /// the text to write: a whole first line, or only what changed for a dated change
-    var text: String? {
-        guard let s = sub else { return nil }
-        switch mode {
-        case .new: return subscriptionText(s, date: start)
-        case .correct: return subscriptionText(s, date: original?.entry?.date ?? start)
-        case .change:
-            var lines = [subscriptionText(s, date: date, full: false)]
-            let q = quoted
-            if let o = original {
-                if s.account != o.account { lines.insert("  account: " + q(s.account), at: 1) }
-                if s.funding != o.funding { lines.insert("  funding: " + q(s.funding), at: 1) }
-                if s.payee != o.payee { lines.insert("  payee: " + q(s.payee), at: 1) }
-                if s.trialEnd != o.trialEnd, let t = s.trialEnd { lines.insert("  trial_end: " + t, at: 1) }
-                if s.manual != o.manual { lines.insert("  renew: " + q(s.manual ? "manual" : "auto"), at: 1) }
-                if s.variable != o.variable { lines.insert("  variable: " + (s.variable ? "TRUE" : "FALSE"), at: 1) }
-            }
-            return lines.joined(separator: "\n")
-        }
-    }
-
-    /// what this change does, for the commit message and the toast
-    var changeSummary: String {
-        guard let s = sub else { return "" }
-        guard let o = original else { return LS("新订阅：%@ %@ / %@", s.name, money(s.amount, s.currency), s.period.name) }
-        var parts: [String] = []
-        if o.status != .active && mode == .change { parts.append(LS("恢复")) }
-        if abs(s.amount - o.amount) > 0.005 { parts.append(LS("调价 %@ → %@", money(o.amount, o.currency), money(s.amount, s.currency))) }
-        if s.period != o.period { parts.append(o.period.name + " → " + s.period.name) }
-        if s.account != o.account { parts.append(LS("科目 → %@", acctLabel(s.account))) }
-        if s.funding != o.funding { parts.append(LS("付款账户 → %@", acctLabel(s.funding))) }
-        if s.manual != o.manual { parts.append(s.manual ? LS("改为手动续费") : LS("改为自动扣费")) }
-        if s.variable != o.variable { parts.append(s.variable ? LS("金额不固定") : LS("金额固定")) }
-        if s.name != o.name { parts.append(LS("改名为 %@", s.name)) }
-        if s.trialEnd != o.trialEnd { parts.append(LS("试用期")) }
-        if s.next != o.next { parts.append(s.next.map { LS("下次扣费日改为 %@", $0) } ?? LS("下次扣费日")) }
-        let what = parts.isEmpty ? LS("更新") : parts.joined(separator: LS("，"))
-        return mode == .change ? LS("%@：%@（%@ 起）", s.name, what, date) : LS("%@：%@", s.name, what)
-    }
-}
 
 struct SubEditSheet: View {
     /// return moves on: name → currency → payee (the amount has a number pad, without a return key)
@@ -1227,28 +1017,8 @@ struct SubEditSheet: View {
         }
     }
 
-    /// a second change on one day: the new line, plus the old line's settings it doesn't mention
-    /// (next charge and status are always the new line's)
-    private func mergedChange(_ text: String, into old: String) -> String {
-        func key(_ l: String) -> String? {
-            let t = l.trimmingCharacters(in: .whitespaces)
-            guard l.hasPrefix(" "), let c = t.firstIndex(of: ":") else { return nil }
-            return String(t[..<c])
-        }
-        let lines = text.components(separatedBy: "\n")
-        let have = Set(lines.compactMap(key))
-        let keep = old.components(separatedBy: "\n").dropFirst().filter { l in
-            guard let k = key(l) else { return false }
-            return !have.contains(k) && k != "next" && k != "status"
-        }
-        return ([lines[0]] + keep + lines.dropFirst()).joined(separator: "\n")
-    }
-
     /// another subscription already uses this name
-    private var nameTaken: Bool {
-        let n = draft.name.trimmed
-        return n != draft.original?.name && store.subs.contains { $0.name == n }
-    }
+    private var nameTaken: Bool { draft.nameTaken(store.subs) }
 
     private func save() {
         guard !saving else { return }
@@ -1256,46 +1026,18 @@ struct SubEditSheet: View {
         if draft.mode == .new && draft.link.isEmpty {
             draft.link = uniqueSubscriptionLink(draft.name.trimmed, taken: store.ownedSubLinks)
         }
-        guard let s = draft.sub, let text = draft.text, !nameTaken else { return }
+        guard let s = draft.sub, draft.text != nil, !nameTaken else { return }
         let label = draft.changeSummary
         let ledgerID = store.cfg.id
         saving = true
         Task {
             defer { saving = false }
             guard store.cfg.id == ledgerID else { return }
-            var ops: [Op] = []
-            switch draft.mode {
-            case .new:
-                guard let x = store.makeOps(text, extra: OpExtra(label: label), single: false) else { return }
-                ops = x
-                let link = s.link
+            guard var ops = draft.ops(insert: { store.makeOps($0, extra: OpExtra(label: $1), single: false) }) else { return }
+            if draft.mode == .new {
                 let txns = draft.picked.sorted().compactMap { id in store.L.flatMap { id < $0.txns.count ? $0.txns[id] : nil } }
-                guard let linked = await store.linkOps(txns, link: link, label: nil) else { return }
+                guard let linked = await store.linkOps(txns, link: s.link, label: nil) else { return }
                 ops += linked
-            case .correct:
-                guard let o = draft.original, let e = o.entry else { return }
-                var op = entryOp(e, text: text)
-                op.label = label
-                ops = [op]
-                // a new name: rename the other lines too
-                if s.name != o.name {
-                    for other in o.entries where other !== e {
-                        var r = entryOp(other, text: other.src.replacingOccurrences(of: "\"subscription\" " + quoted(o.name), with: "\"subscription\" " + quoted(s.name)))
-                        r.silent = true
-                        ops.append(r)
-                    }
-                }
-            case .change:
-                // a second change on the same day replaces that day's line
-                if let o = draft.original, let e = o.entry, e.date == draft.date, o.entries.count > 1 {
-                    var op = Op(kind: .replace, path: e.file)
-                    // what that line changed stays (the new text only has what differs from it)
-                    op.old = e.src; op.text = mergedChange(text, into: e.src); op.date = e.date; op.label = label
-                    ops = [op]
-                } else {
-                    guard let x = store.makeOps(text, extra: OpExtra(label: label), single: false) else { return }
-                    ops = x
-                }
             }
             guard store.cfg.id == ledgerID else { return }
             await store.commit(ops, word: draft.mode == .new ? LS("已添加订阅") : label, closing: { dismiss() })
