@@ -90,7 +90,7 @@ struct ReimbSheet: View {
     }
     private func got(_ D: Derived) -> Double? { amount.trimmed.isEmpty ? owed(D) : evalAmount(amount) }
     /// the difference between what came back and what was advanced, either way (报销差额)
-    private func shortfall(_ L: Ledger) -> String { "Income:ReimbExcess" }
+    private func shortfall(_ L: Ledger) -> String { ReimbursementPayment.difference }
 
     private func past(_ L: Ledger) -> [Entry] { L.txns.filter { $0.tags.contains("reimbursement") } }
     private func payeeChoices(_ L: Ledger) -> [String] {
@@ -104,22 +104,9 @@ struct ReimbSheet: View {
     }
 
     private func text(_ L: Ledger, _ D: Derived) -> String {
-        guard let g = got(D), g > 0, owed(D) > 0, !account.isEmpty else { return "" }
-        let o = owed(D), c = currency(D)
-        let diff = roundTo(g - o, 2)
-        var tx = TxDraft(date: date)
-        tx.payee = payee.trimmed
-        let lk = link()
-        let digits = lk.range(of: #"\d{8}$"#, options: .regularExpression).map { String(lk[$0]) } ?? date.replacingOccurrences(of: "-", with: "")
-        tx.narration = LS("报销入账-") + digits
-        tx.tags = ["reimbursement"]
-        tx.links = [lk]
-        let pending = diff < -0.004 && keepOpen
-        tx.postings = [TxPosting(account: D.receivable, amount: -(pending ? g : o), currency: c)]
-        if diff > 0.004 { tx.postings.append(TxPosting(account: "Income:ReimbExcess", amount: -diff, currency: c)) }
-        if diff < -0.004 && !keepOpen { tx.postings.append(TxPosting(account: shortfall(L), amount: -diff, currency: c)) }
-        tx.postings.append(TxPosting(account: account, amount: g, currency: c))
-        return formatTxn(tx)
+        guard let g = got(D) else { return "" }
+        return ReimbursementPayment(date: date, payee: payee, account: account, link: link(), owed: owed(D), got: g, currency: currency(D),
+                                    receivable: D.receivable, keepOpen: keepOpen).text
     }
 
     // MARK: form
@@ -270,24 +257,12 @@ struct ReimbSheet: View {
         var ops: [Op] = []
         if target.link == nil {
             let p = pool(D)
-            var done = Set<ObjectIdentifier>()
-            for i in selected.sorted() where p.indices.contains(i) {
-                let e = p[i].t
-                guard done.insert(ObjectIdentifier(e)).inserted else { continue }
-                guard let file = try? await store.fileText(e.file) else { store.showFailure(LS("无法读取 %@", e.file)); return }
-                guard store.cfg.id == ledgerID, let current = EntryLocator(e).resolve(in: parseFile(file, file: e.file).entries) else {
-                    store.showFailure(LS("记录或账本已变化，请重新打开后再试")); return
-                }
-                let lines = file.components(separatedBy: "\n")
-                guard current.startLine < lines.count else { return }
-                var op = Op(kind: .link, path: e.file)
-                op.headerLine = current.startLine + 1
-                op.header = lines[current.startLine]
-                op.add = (e.tags.contains("reimbursed") ? "" : " #reimbursed") + " ^" + lk
-                op.link = lk
-                op.silent = true
-                ops.append(op)
+            let es = selected.sorted().compactMap { p.indices.contains($0) ? p[$0].t : nil }
+            guard let files = await store.advanceFiles(es) else { return }
+            guard store.cfg.id == ledgerID, let linked = advanceLinkOps(es, link: lk, label: nil, files: files) else {
+                store.showFailure(LS("记录或账本已变化，请重新打开后再试")); return
             }
+            ops = linked
         }
         let n = ops.count
         guard store.cfg.id == ledgerID,

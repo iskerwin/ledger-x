@@ -32,13 +32,6 @@ extension Store {
         Task { await clearIgnoredLinks(label: LS("恢复已忽略的链接问题")) }
     }
 
-    /// add or remove `^link` on a transaction
-    func linkEditOp(_ e: Entry, link: String, remove: Bool) -> Op? {
-        let text = headerLinkEdit(e.src, link: link, remove: remove)
-        guard text != e.src else { return nil }
-        return entryOp(e, text: text)
-    }
-
     /// one commit: put `link` on all of `txns`
     func addLink(_ link: String, to txns: [Entry], closing: () -> Void) async {
         var ops = txns.compactMap { linkEditOp($0, link: link, remove: false) }

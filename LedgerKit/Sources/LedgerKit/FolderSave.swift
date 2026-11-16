@@ -58,7 +58,7 @@ public func prepareFolderSave(_ draft: Draft, folder: URL) -> Result<FolderSave,
     // a refund puts its link on the purchase too, the one actually in the saved text (as the phone's save does)
     if draft.replacing == nil, let original = draft.refundOf, let link = refundLinkOp(original, savedText: text) { ops.append(link) }
     // a new charge of a subscription gets its link, as the phone's save gives it
-    ops = autoLinkSubscriptions(ops, ledger, subs: subscriptions(ledger)).0
+    if ops.contains(where: { $0.kind == .insert }) { ops = autoLinkSubscriptions(ops, ledger, subs: subscriptions(ledger)).0 }
     let replacedBalances = draft.kind == .raw ? duplicateBalances(validateText(text, ledger, single: false).entries, ledger) : []
     return folderSave(ops, before: ledger, main: layout.main, folder: folder).map { save in
         guard !replacedBalances.isEmpty else { return save }
