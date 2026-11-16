@@ -20,6 +20,16 @@
       "versions": [
         {
           "version": "1.0.17",
+          "buildVersion": "71",
+          "date": "2026-11-16T13:58:01Z",
+          "localizedDescription": "# Ledger X 1.0.17 开发版\n\n版本 1.0.17 · 构建 71 · main 5048e27 。\n\n## 新增\n\n- Mac 版报销页可以登记回款（多币种时按币种分批，短收可挂账等补发）和导出报销单（PDF 含附件、xlsx、CSV，存到自己选的位置）；明细右键一笔垫付可改支出类型和凭证类型，或把它移出报销单。",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.17-71",
+          "size": 11044396,
+          "minOSVersion": "17.0",
+          "sha256": "096d8eddee371e321f51a085f9be9d3d4d5f8927c75fe616aa466b116ed39e06"
+        },
+        {
+          "version": "1.0.17",
           "buildVersion": "70.1",
           "date": "2026-11-16T10:30:59Z",
           "localizedDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 70.1 · feat/mac-reimbursement cc39e71 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
@@ -27,16 +37,6 @@
           "size": 11044405,
           "minOSVersion": "17.0",
           "sha256": "e9245d2cc8825a1c80766293394b57e64df6dc4475eb83a46a181a2a492911cb"
-        },
-        {
-          "version": "1.0.17",
-          "buildVersion": "70",
-          "date": "2026-11-16T09:28:35Z",
-          "localizedDescription": "# Ledger X 1.0.17 开发版\n\n版本 1.0.17 · 构建 70 · main 36faad4 。\n\n## 新增\n\n- Mac 版明细右键一笔交易可以「复制为新交易」「登记退款」和「调整当天顺序」，和手机点开一笔后的操作一样：前两项打开预填好的记一笔窗口，调整顺序时拖动后保存。\n- Mac 版可以管理订阅：订阅页右上角「添加订阅」，每个订阅的「⋯」或右键可记一笔扣费、调价或更改、调整到期日、跳过下一期、暂停、取消、恢复、修正和删除；可能的订阅可直接「加入」。明细右键一笔支出可「加入订阅」，订阅的扣费可「并入上一期（补差）」。\n\n## 修复\n\n- Mac 版记一笔订阅的扣费时，会像手机一样自动关联到对应的订阅，不再需要回手机补关联。\n\n## 改进\n\n- Mac 版「记一笔」移到左侧栏顶部，在哪个页面都在同一个位置；窗口右上角只留当前页面自己的操作（管理账户、管理预算、添加订阅），不再和「记一笔」混在一起。",
-          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.17-70",
-          "size": 11035144,
-          "minOSVersion": "17.0",
-          "sha256": "75ea73e7945845f8a43b7569477a386e777564a2330819c30f14c2771b8ace70"
         },
         {
           "version": "1.0.16",
@@ -208,10 +208,10 @@
         }
       },
       "version": "1.0.17",
-      "versionDate": "2026-11-16T10:30:59Z",
-      "versionDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 70.1 · feat/mac-reimbursement cc39e71 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.17-70.1",
-      "size": 11044405
+      "versionDate": "2026-11-16T13:58:01Z",
+      "versionDescription": "# Ledger X 1.0.17 开发版\n\n版本 1.0.17 · 构建 71 · main 5048e27 。\n\n## 新增\n\n- Mac 版报销页可以登记回款（多币种时按币种分批，短收可挂账等补发）和导出报销单（PDF 含附件、xlsx、CSV，存到自己选的位置）；明细右键一笔垫付可改支出类型和凭证类型，或把它移出报销单。",
+      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.17-71",
+      "size": 11044396
     }
   ],
   "news": []
