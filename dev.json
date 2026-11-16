@@ -20,6 +20,16 @@
       "versions": [
         {
           "version": "1.0.17",
+          "buildVersion": "69.1",
+          "date": "2026-11-16T03:50:55Z",
+          "localizedDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 69.1 · feat/mac-subscription-page 794ebf2 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
+          "size": 11034536,
+          "minOSVersion": "17.0",
+          "sha256": "0aa0dcd720c626d75b47d493e43a56a4aa4139bb44f47344dfb2b37b71f5f56b"
+        },
+        {
+          "version": "1.0.17",
           "buildVersion": "69",
           "date": "2026-11-15T22:25:11Z",
           "localizedDescription": "# Ledger X 1.0.17 开发版\n\n版本 1.0.17 · 构建 69 · main 7aa2cdb 。\n\n## 改进\n\n- Mac 版和手机一起发布：开发版、预览包和正式版的发布页都附带 `LedgerMac.zip`，版本号和构建号与手机相同，「关于 Ledger X」里可以核对。README 里的 Mac 安装命令改为安装最新正式版，不再是 main 上最新的代码。",
@@ -27,16 +37,6 @@
           "size": 11008319,
           "minOSVersion": "17.0",
           "sha256": "27f993c0f6a5f72d4dbb8d5324e44040fd08af5c687384774096621ce62eafa8"
-        },
-        {
-          "version": "1.0.17",
-          "buildVersion": "68.1",
-          "date": "2026-11-15T19:03:11Z",
-          "localizedDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 68.1 · feat/mac-entry-actions 7ead242 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-          "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-          "size": 11038749,
-          "minOSVersion": "17.0",
-          "sha256": "0eac01ff390642423ca150cf87f887ea698918b5aa82d073992157cd91ebf21b"
         },
         {
           "version": "1.0.16",
@@ -208,10 +208,10 @@
         }
       },
       "version": "1.0.17",
-      "versionDate": "2026-11-15T22:25:11Z",
-      "versionDescription": "# Ledger X 1.0.17 开发版\n\n版本 1.0.17 · 构建 69 · main 7aa2cdb 。\n\n## 改进\n\n- Mac 版和手机一起发布：开发版、预览包和正式版的发布页都附带 `LedgerMac.zip`，版本号和构建号与手机相同，「关于 Ledger X」里可以核对。README 里的 Mac 安装命令改为安装最新正式版，不再是 main 上最新的代码。",
-      "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa",
-      "size": 11008319
+      "versionDate": "2026-11-16T03:50:55Z",
+      "versionDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 69.1 · feat/mac-subscription-page 794ebf2 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+      "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
+      "size": 11034536
     }
   ],
   "news": []
