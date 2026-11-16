@@ -37,7 +37,9 @@ final class SubscriptionEditTests: XCTestCase {
         let ops = try XCTUnwrap(d.ops { text, label in inserted.append((text, label)); return [Op(kind: .insert, path: "x")] })
         XCTAssertEqual(ops.count, 1)
         XCTAssertEqual(inserted.first?.0, d.text)
-        XCTAssertTrue(inserted.first?.0.hasPrefix("2026-03-01 custom \"subscription\" \"News\" \"monthly\" 8.00 CNY") ?? false)
+        let first = try XCTUnwrap(inserted.first?.0.components(separatedBy: "\n").first)
+        XCTAssertTrue(first.hasPrefix("2026-03-01 custom \"subscription\" \"News\" \"monthly\""), first)
+        XCTAssertTrue(first.hasSuffix(" 8.00 CNY"), first)
         XCTAssertTrue(d.nameTaken([]) == false)
     }
 
