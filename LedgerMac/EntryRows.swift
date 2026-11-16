@@ -339,9 +339,9 @@ struct EntryTasks {
         return entry.editable && entry.postings.contains { $0.account == receivable && ($0.units ?? 0) > 0 }
     }
 
-    /// the reimbursements and petty cash an advance is on
-    static func claims(_ entry: Entry) -> [String] {
-        entry.editable ? entry.links.filter { $0.hasPrefix("reimburse") || isFloatLink($0) } : []
+    /// the reimbursements and petty cash an advance is on (not the repayment or the cash handed over: they make the link)
+    static func claims(_ entry: Entry, _ ledger: Ledger, _ config: LedgerXConfig?) -> [String] {
+        advance(entry, ledger, config) ? entry.links.filter { $0.hasPrefix("reimburse") || isFloatLink($0) } : []
     }
 
     static func copy(_ entries: [Entry]) {
@@ -393,7 +393,7 @@ func entryActions(_ entry: Entry, _ ledger: Ledger, _ config: LedgerXConfig?, fo
     if EntryTasks.advance(entry, ledger, config) {
         items.append(TableMenuItem(title: LS("支出类型与凭证…")) { tasks.wrappedValue.fielding = entry })
     }
-    for link in EntryTasks.claims(entry) {
+    for link in EntryTasks.claims(entry, ledger, config) {
         let title = isFloatLink(link) ? LS("移出备用金") : LS("移出报销单")
         items.append(write(title) { $0.prepare(.remove(entry, link: link), step: title) })
     }

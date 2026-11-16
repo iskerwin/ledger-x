@@ -77,6 +77,9 @@ final class FolderReimbursementTests: XCTestCase {
         let es = try cny()
         try save(.pay(payment(owed: 50, got: 50), advances: [es[1]]))
         XCTAssertThrowsError(try prepareFolderReimbursement(.pay(payment(owed: 350, got: 350, link: "reimburse-b"), advances: es), folder: folder).get())
+        // a link cleared or mistyped
+        XCTAssertThrowsError(try prepareFolderReimbursement(.pay(payment(owed: 300, got: 300, link: ""), advances: [es[0]]), folder: folder).get())
+        XCTAssertThrowsError(try prepareFolderReimbursement(.pay(payment(owed: 300, got: 300, link: "a b"), advances: [es[0]]), folder: folder).get())
         // a link already used
         XCTAssertThrowsError(try prepareFolderReimbursement(.pay(payment(owed: 300, got: 300), advances: [es[0]]), folder: folder).get())
     }

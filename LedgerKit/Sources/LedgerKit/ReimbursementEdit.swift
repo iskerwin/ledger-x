@@ -105,6 +105,9 @@ public func prepareFolderReimbursement(_ change: ReimbursementChange, folder: UR
         switch change {
         case .pay(var payment, let advances):
             payment.receivable = derived.receivable
+            guard payment.link.range(of: #"^[A-Za-z0-9\-_/.]+$"#, options: .regularExpression) != nil else {
+                return .failure(FolderSaveError(message: LS("关联只能用字母、数字和 - _ / .")))
+            }
             var linked: [Op] = []
             if advances.isEmpty {
                 guard let open = derived.openLinks.first(where: { $0.link == payment.link }), open.currency == payment.currency,
@@ -114,15 +117,18 @@ public func prepareFolderReimbursement(_ change: ReimbursementChange, folder: UR
                     return .failure(FolderSaveError(message: LS("^%@ 已被使用，请换一个", payment.link)))
                 }
                 let pool = derived.unclaimed.filter { $0.currency == payment.currency }
-                var picked: [Unclaimed] = []
+                var found: [Entry] = []
                 for a in advances {
-                    guard let t = EntryLocator(a).resolve(in: pool.map(\.t)), let u = pool.first(where: { $0.t === t }) else { return .failure(changed) }
-                    picked.append(u)
+                    guard let t = EntryLocator(a).resolve(in: pool.map(\.t)) else { return .failure(changed) }
+                    found.append(t)
                 }
+                // an advance with two receivable lines counts both, as the form added them up
+                let ids = Set(found.map(ObjectIdentifier.init))
+                let picked = pool.filter { ids.contains(ObjectIdentifier($0.t)) }
                 guard let total = reimbursementTotal(picked, currency: payment.currency), abs(total - payment.owed) < 0.005 else { return .failure(changed) }
                 var files: [String: String] = [:]
-                for path in Set(picked.map(\.t.file)) { files[path] = file(path) }
-                guard let ops = advanceLinkOps(picked.map(\.t), link: payment.link, label: nil, files: files) else { return .failure(changed) }
+                for path in Set(found.map(\.file)) { files[path] = file(path) }
+                guard let ops = advanceLinkOps(found, link: payment.link, label: nil, files: files) else { return .failure(changed) }
                 linked = ops
             }
             let text = payment.text

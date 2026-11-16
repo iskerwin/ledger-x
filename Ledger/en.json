@@ -2432,5 +2432,6 @@
  "支出类型与凭证…": "Expense Type and Receipt…",
  "未填": "None",
  "移出备用金": "Remove from Petty Cash",
- "移出报销单": "Remove from Claim"
+ "移出报销单": "Remove from Claim",
+ "关联只能用字母、数字和 - _ / .": "A link can only use letters, digits and - _ / ."
 }

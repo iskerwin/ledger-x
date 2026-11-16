@@ -24,7 +24,7 @@ struct ReimbursementPaySheet: View {
     @State private var linkText = ""
     @State private var linkTouched = false
     @State private var currency: String
-    @State private var picked: Set<ObjectIdentifier>
+    @State private var picked: Set<String>
     @State private var keepOpen = false
     @State private var busy = false
     @State private var message = ""
@@ -41,7 +41,7 @@ struct ReimbursementPaySheet: View {
         let currencies = Set(derived.unclaimed.map(\.currency))
         let currency = currencies.contains(ledger.base) ? ledger.base : currencies.sorted().first ?? ledger.base
         _currency = State(initialValue: currency)
-        _picked = State(initialValue: Set(derived.unclaimed.filter { $0.currency == currency }.map { ObjectIdentifier($0.t) }))
+        _picked = State(initialValue: Set(derived.unclaimed.filter { $0.currency == currency }.map { $0.t.key }))
         let past = ledger.txns.filter { $0.tags.contains("reimbursement") }
         _payee = State(initialValue: past.last { !$0.payee.isEmpty }?.payee ?? "")
         let boost = past.suffix(10).reversed().flatMap { t in t.postings.filter { ($0.units ?? 0) > 0 }.map(\.account) }
@@ -52,7 +52,7 @@ struct ReimbursementPaySheet: View {
     private var open: OpenLink? { link.flatMap { l in derived.openLinks.first { $0.link == l } } }
     private var currencies: [String] { Array(Set(derived.unclaimed.map(\.currency))).sorted() }
     private var pool: [Unclaimed] { link == nil ? derived.unclaimed.filter { $0.currency == currency } : [] }
-    private var chosen: [Unclaimed] { pool.filter { picked.contains(ObjectIdentifier($0.t)) } }
+    private var chosen: [Unclaimed] { pool.filter { picked.contains($0.t.key) } }
     private var owed: Double { open?.amount ?? reimbursementTotal(chosen, currency: currency) ?? 0 }
 
     private var linkValue: String {
@@ -130,13 +130,13 @@ struct ReimbursementPaySheet: View {
             if currencies.count > 1 {
                 Picker(LS("回款币种"), selection: Binding(get: { currency }, set: { value in
                     currency = value
-                    picked = Set(derived.unclaimed.filter { $0.currency == value }.map { ObjectIdentifier($0.t) })
+                    picked = Set(derived.unclaimed.filter { $0.currency == value }.map { $0.t.key })
                     amount = ""
                 })) { ForEach(currencies, id: \.self) { Text($0).tag($0) } }
             }
-            ForEach(pool, id: \.t.key) { item in
-                Toggle(isOn: Binding(get: { picked.contains(ObjectIdentifier(item.t)) }, set: { on in
-                    if on { picked.insert(ObjectIdentifier(item.t)) } else { picked.remove(ObjectIdentifier(item.t)) }
+            ForEach(Array(pool.enumerated()), id: \.offset) { _, item in
+                Toggle(isOn: Binding(get: { picked.contains(item.t.key) }, set: { on in
+                    if on { picked.insert(item.t.key) } else { picked.remove(item.t.key) }
                 })) {
                     HStack {
                         Text(item.t.date).monospacedDigit().foregroundStyle(.secondary)
@@ -151,7 +151,7 @@ struct ReimbursementPaySheet: View {
                 Text(LS("已选 %@/%@ 笔，合计 ", chosen.count, pool.count) + money(owed, currency))
                 Spacer()
                 Button(chosen.count == pool.count ? LS("全不选") : LS("全选")) {
-                    picked = chosen.count == pool.count ? [] : Set(pool.map { ObjectIdentifier($0.t) })
+                    picked = chosen.count == pool.count ? [] : Set(pool.map { $0.t.key })
                 }
                 .buttonStyle(.link)
             }
@@ -257,7 +257,7 @@ struct ReimbExportSheet: View {
 
     /// a transaction's own attachments, where they are in the folder
     private func receipts(_ entry: Entry) -> [String] {
-        documentItems(ledger).filter { $0.transaction === entry }.compactMap(\.path)
+        transactionDocuments(ledger, entry).compactMap { d in d.path.flatMap { documentPath($0, from: d.file) } }
     }
 
     var body: some View {
