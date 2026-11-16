@@ -1480,50 +1480,23 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertFalse(app.buttons["放弃修改并关闭"].exists)
     }
 
-    /// The journal's calendar is the system's: it keeps its height from month to month (a four-week February as a
-    /// six-week one), so the list under it does not move; open, it takes the quick filters' place, and what is on
-    /// stays with its ✕
+    /// Open, the journal's calendar takes the quick filters' place and what is on stays with its ✕; stepping back
+    /// month by month keeps its height, so the list under it does not move. Closed again, the quick filters return.
     func testTheCalendarTakesTheQuickFiltersPlaceAndKeepsItsHeight() {
-        let app = launchTab("journal", env: ["LEDGER_FILTERS": "large", "LEDGER_GLASS_CALENDAR": "0"])
-        // the calendar opens as it was left
-        let toggle = app.buttons.matching(NSPredicate(format: "label IN %@", ["月历", "收起月历"])).firstMatch
-        XCTAssertTrue(toggle.waitForExistence(timeout: 20))
-        let calendar = app.descendants(matching: .any)["calendar.month"].firstMatch
-        if !calendar.exists { tapPoint(app.buttons["月历"], timeout: 5) }
-        XCTAssertTrue(calendar.waitForExistence(timeout: 5))
+        let app = launchTab("journal", env: ["LEDGER_FILTERS": "large"])
+        let card = openGlassCalendar(app)
         XCTAssertFalse(app.buttons["本月"].exists)
         XCTAssertFalse(app.buttons["#refund"].exists)
         XCTAssertTrue(app.buttons["清除"].exists)
-        let height = calendar.frame.height, below = app.otherElements["calendar.figures"].frame.minY
-        let previous = calendar.buttons["上个月"]
+        let height = card.frame.height, below = app.otherElements["calendar.figures"].frame.minY
+        let previous = app.buttons["上个月"]
         for _ in 0..<8 {
-            previous.tap()
-            XCTAssertEqual(calendar.frame.height, height, accuracy: 0.5)
+            tapPoint(previous, timeout: 5)
+            XCTAssertEqual(card.frame.height, height, accuracy: 0.5)
             XCTAssertEqual(app.otherElements["calendar.figures"].frame.minY, below, accuracy: 0.5)
         }
-        // closed again, the quick filters are back
         tapPoint(app.buttons["收起月历"], timeout: 5)
         XCTAssertTrue(app.buttons["本月"].waitForExistence(timeout: 5))
-    }
-
-    /// A day's dots sit centred under its date; the system puts a decoration at the day's leading edge, and they
-    /// were off to the left of it
-    func testTheCalendarDotsSitUnderTheirDate() {
-        let app = launchTab("journal", env: ["LEDGER_GLASS_CALENDAR": "0"])
-        let calendar = app.descendants(matching: .any)["calendar.month"].firstMatch
-        let toggle = app.buttons.matching(NSPredicate(format: "label IN %@", ["月历", "收起月历"])).firstMatch
-        XCTAssertTrue(toggle.waitForExistence(timeout: 20))
-        if !calendar.exists { tapPoint(app.buttons["月历"], timeout: 5) }
-        XCTAssertTrue(calendar.waitForExistence(timeout: 5))
-        let dots = calendar.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'calendar.dots.'"))
-        for _ in 0..<24 where dots.count == 0 { calendar.buttons["上个月"].tap() }
-        XCTAssertGreaterThan(dots.count, 0)
-        for i in 0..<min(dots.count, 6) {
-            let dot = dots.element(boundBy: i).frame
-            let day = calendar.buttons.allElementsBoundByIndex.first { $0.frame.width < calendar.frame.width / 2 && $0.frame.contains(CGPoint(x: dot.midX, y: dot.midY)) }
-            XCTAssertNotNil(day)
-            if let day { XCTAssertEqual(dot.midX, day.frame.midX, accuracy: 1, "\(dots.element(boundBy: i).identifier)") }
-        }
     }
 
     /// until a popover's control has settled: asking for hittability before it has a frame ({inf, inf}) fails the test
@@ -2418,9 +2391,8 @@ final class EditInteractionTests: XCTestCase {
 
     /// The calendar's 支出 · 收入 · 结余 sit centred in equal columns: a month's wide income no longer pushes 收入 aside
     func testCalendarFiguresSitInEqualColumns() {
-        let app = launchTab("journal", env: ["LEDGER_EXTRA": heightExtra, "LEDGER_CALENDAR": "1", "LEDGER_GLASS_CALENDAR": "0"])
-        let calendar = app.descendants(matching: .any)["calendar.month"].firstMatch
-        XCTAssertTrue(calendar.waitForExistence(timeout: 20))
+        let app = launchTab("journal", env: ["LEDGER_EXTRA": heightExtra, "LEDGER_CALENDAR": "1"])
+        _ = openGlassCalendar(app)
         let figures = app.otherElements["calendar.figures"]
         let spent = figures.staticTexts["支出"], income = figures.staticTexts["收入"], net = figures.staticTexts["结余"]
         XCTAssertTrue(spent.exists && income.exists && net.exists)

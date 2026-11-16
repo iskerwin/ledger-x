@@ -270,7 +270,6 @@ struct SubscriptionCalendarView: View {
     @Environment(Store.self) var store
     @State private var month = Day.ym(Day.today())
     @State private var day: String?
-    @AppStorage("journal.glassCalendar") private var glassCalendar = true
 
     var body: some View {
         let today = Day.today()
@@ -288,15 +287,11 @@ struct SubscriptionCalendarView: View {
         let total = monthTotal(days.flatMap { byDate[$0] ?? [] })
         return List {
             Section {
-                if glassCalendar {
-                    GlassMonthCalendar(marks: marks, month: $month, first: today, last: end,
-                                       selection: $day, themeMarks: true, pickImmediately: true, pick: { day = $0 }) {
-                        EmptyView()
-                    } footer: {
-                        Text(LS("点日期查看当天扣费")).font(.caption2).foregroundStyle(.secondary)
-                    }
-                } else {
-                    MonthCalendar(marks: marks.mapValues { _ in [Color.jade] }, month: $month, first: today, last: end) { d in day = d }
+                GlassMonthCalendar(marks: marks, month: $month, first: today, last: end,
+                                   selection: $day, themeMarks: true, pickImmediately: true, pick: { day = $0 }) {
+                    EmptyView()
+                } footer: {
+                    Text(LS("点日期查看当天扣费")).font(.caption2).foregroundStyle(.secondary)
                 }
             }
             Section {
