@@ -377,7 +377,7 @@ func entryActions(_ entry: Entry, _ ledger: Ledger, _ config: LedgerXConfig?, fo
         }
     }
     var items = [TableMenuItem(title: LS("编辑…"), enabled: entry.editable) { tasks.wrappedValue.edit(entry, ledger, config) },
-                 TableMenuItem(title: LS("复制为新交易…"), enabled: entry.editable) { tasks.wrappedValue.copyAsNew(entry, ledger, config) }]
+                 TableMenuItem(title: LS("复制为新交易…"), enabled: entry.editable, key: EntryMenu.duplicate) { tasks.wrappedValue.copyAsNew(entry, ledger, config) }]
     if EntryTasks.refundable(entry, ledger) {
         items.append(TableMenuItem(title: LS("登记退款…")) { tasks.wrappedValue.refund(entry, ledger, config) })
     }

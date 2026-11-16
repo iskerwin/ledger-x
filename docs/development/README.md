@@ -13,6 +13,6 @@
 | [06 手机验收清单](06-手机验收清单.md) | 安装后逐项验收与构建号记录 |
 | [07 开发计划](07-开发计划.md) | 待选的改进清单与建议先后，做完即删 |
 
-App 入口、按钮或操作变化时，同一提交更新 `Ledger/Views/GuideView.swift` 的使用指南与常见问题，保持中英文一致。
+App 入口、按钮或操作变化时，同一提交更新使用指南，保持中英文一致：手机改 `Ledger/Views/GuideView.swift`（含常见问题），Mac 改 `LedgerMac/MacGuide.swift`。
 
 版本与安装包看 [Releases](https://github.com/iskerwin/ledger-x/releases)，变化看 [CHANGELOG](../../CHANGELOG.md)，验证结果看安装包附带的 `validation-evidence.json`。手册只写实际规则，不重复记录发布状态。
