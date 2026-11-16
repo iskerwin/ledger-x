@@ -7,6 +7,8 @@ struct ReimbursementsPage: View {
     let ledger: Ledger
     let config: LedgerXConfig?
     let folder: URL
+    @State private var paying: PayTarget?
+    @State private var exporting: ReimbExportTarget?
 
     var body: some View {
         let derived = folderDerived(ledger, config: config)
@@ -39,6 +41,14 @@ struct ReimbursementsPage: View {
                                           value: (batch.kind == .float ? LS("剩 ") : LS("待回款 ")) + money(abs(batch.balance), batch.currency))
                             }
                             .buttonStyle(.plain)
+                            .contextMenu {
+                                if batch.kind == .reimburse, derived.openLinks.contains(where: { $0.link == batch.link }) {
+                                    Button(LS("登记回款…")) { paying = PayTarget(link: batch.link) }
+                                }
+                                Button(LS("导出报销单…")) {
+                                    exporting = ReimbExportTarget(title: "^" + batch.link, entries: (derived.byLink[batch.link] ?? []).filter { !$0.synthetic })
+                                }
+                            }
                         }
                     }
                 }
@@ -53,9 +63,14 @@ struct ReimbursementsPage: View {
                 }
             }
             EntryListCard(entries: Array(waiting.map(\.t).reversed()), ledger: ledger, config: config, folder: folder) {
-                CardTitle(title: LS("待报销")) { Text(LS("%@ 笔", waiting.count)).foregroundStyle(.secondary) }
+                CardTitle(title: LS("待报销")) {
+                    Text(LS("%@ 笔", waiting.count)).foregroundStyle(.secondary)
+                    Button(LS("登记回款…")) { paying = PayTarget(link: nil) }.disabled(waiting.isEmpty)
+                }
             }
         }
+        .sheet(item: $paying) { ReimbursementPaySheet(ledger: ledger, config: config, folder: folder, link: $0.link) }
+        .sheet(item: $exporting) { ReimbExportSheet(target: $0, ledger: ledger, derived: derived, folder: folder) }
     }
 
     /// what the batches advanced, in the operating currency

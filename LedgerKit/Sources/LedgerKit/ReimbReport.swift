@@ -88,6 +88,13 @@ public func reimbReport(_ entries: [Entry], _ L: Ledger, receivable: String, tit
 
 /// the report as CSV for a spreadsheet (byte-order mark so Excel reads the Chinese as UTF-8); `docs` gives the
 /// file names attached to each line's transaction
+/// the 报销单's file name, without an extension: its title with what a file name can't hold made safe
+public func reimbFileName(_ title: String) -> String {
+    let bad = CharacterSet(charactersIn: "/\\:?%*|\"<>^")
+    let t = title.unicodeScalars.map { bad.contains($0) ? "-" : String($0) }.joined().trimmingCharacters(in: .whitespaces)
+    return LS("报销单") + "-" + (t.isEmpty ? Day.today() : t)
+}
+
 public func reimbCSV(_ r: ReimbReport, docs: (Entry) -> [String] = { _ in [] }) -> String {
     func cell(_ s: String) -> String {
         s.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" || $0 == "\r" })

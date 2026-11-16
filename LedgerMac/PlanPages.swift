@@ -326,11 +326,11 @@ struct SubscriptionsPage: View {
         } message: { _ in
             Text(LS("删除这个订阅的全部记录，扣费交易本身保留。不再续费时建议改为「取消订阅」。"))
         }
-        .subscriptionReview(writer, $review, step: step) {}
+        .folderReview(writer, $review, step: step) {}
         .entryTasks($tasks, ledger: ledger, config: config, folder: folder)
     }
 
-    private var writer: SubscriptionWriter { SubscriptionWriter(folder: folder, busy: $busy, message: $message, review: $review) }
+    private var writer: FolderWriter { FolderWriter(folder: folder, busy: $busy, message: $message, review: $review) }
 
     private func write(_ change: SubscriptionChange, _ step: String) {
         self.step = step

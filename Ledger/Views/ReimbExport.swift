@@ -129,7 +129,7 @@ struct ReimbExportSheet: View {
             }
         }
         progress = LS("生成 PDF…")
-        let name = safeFileName(r.title)
+        let name = reimbFileName(r.title)
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("reimb-" + String(UUID().uuidString.prefix(6)), isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         var out: [URL] = []
@@ -149,11 +149,6 @@ struct ReimbExportSheet: View {
         if out.isEmpty { store.showFailure(LS("生成失败")) }
     }
 
-    private func safeFileName(_ s: String) -> String {
-        let bad = CharacterSet(charactersIn: "/\\:?%*|\"<>^")
-        let t = s.unicodeScalars.map { bad.contains($0) ? "-" : String($0) }.joined().trimmingCharacters(in: .whitespaces)
-        return LS("报销单") + "-" + (t.isEmpty ? Day.today() : t)
-    }
 }
 
 struct ReceiptFile {

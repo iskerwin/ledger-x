@@ -127,6 +127,8 @@ struct GuideView: View {
                "Reports → Reimbursements has what's waiting, petty cash, every claim and the history. Swipe a line to change its type, receipt or take it off the claim."),
             tr("在一张报销单或备用金里点「导出报销单」，可生成 PDF（含附件）、按公司模板的 xlsx 和 CSV。",
                "Export from a claim or petty cash makes a PDF with the attachments, an xlsx in the company template and a CSV."),
+            tr("Mac 版报销页「待报销」旁点「登记回款…」，勾选这次回款的垫付（多币种时先选币种）后保存；进行中的报销单右键可登记回款或导出报销单，导出时选择保存位置，PDF、xlsx 和 CSV 放在一起。明细右键一笔垫付可改「支出类型与凭证」或移出报销单。",
+               "On Mac, click Record Repayment… beside Waiting on Reimbursements, tick the advances paid back (pick the currency first when there are several) and save. Right-click an open claim to record its repayment or export it; choose where to save, and the PDF, xlsx and CSV go together. In the journal, right-click an advance to set its expense type and receipt, or take it off its claim."),
             tr("报销页顶部的报销应收余额 = 垫付未回款 − 手上的备用金。",
                "The balance at the top of Reimbursements is what you advanced and haven't been paid back, less the petty cash in hand."),
         ]),

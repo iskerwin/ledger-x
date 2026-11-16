@@ -2424,5 +2424,13 @@
  "通用": "General",
  "错误": "Errors",
  "默认打开": "Open at Launch",
- "（截至 %@）": " (through %@)"
+ "（截至 %@）": " (through %@)",
+ "^%@ 已被使用，请换一个": "^%@ is already used: pick another",
+ "付款方": "Paid by",
+ "导出…": "Export…",
+ "支出类型与凭证": "Expense Type and Receipt",
+ "支出类型与凭证…": "Expense Type and Receipt…",
+ "未填": "None",
+ "移出备用金": "Remove from Petty Cash",
+ "移出报销单": "Remove from Claim"
 }

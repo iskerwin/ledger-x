@@ -53,9 +53,11 @@ struct AccountField: View {
     let prefixes: [String]
     let derived: Derived
     @Binding var account: String
+    /// accounts under this are left out (the reimbursement receivable, for where its money came back to)
+    var excluding: String?
 
     var body: some View {
-        let ranked = derived.rankAccounts(prefixes)
+        let ranked = derived.rankAccounts(prefixes).filter { a in excluding.map { !a.hasPrefix($0) } ?? true }
         Picker(title, selection: $account) {
             // nothing picked yet reads as such, not as an empty box
             Text(LS("选择") + title).tag("")

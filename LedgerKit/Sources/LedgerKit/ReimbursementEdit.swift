@@ -84,3 +84,61 @@ public struct ReimbursementPayment: Sendable {
         return formatTxn(tx)
     }
 }
+
+/// a reimbursement change on the Mac, worked out again on the folder as it is when saved
+public enum ReimbursementChange: Sendable {
+    /// money paid back: for the advances picked (put on the payment's link first), or with none for a link already open
+    case pay(ReimbursementPayment, advances: [Entry])
+    /// an advance's 支出类型 and 凭证类型, as they should read (nil: not filled)
+    case fields(Entry, category: String?, voucher: String?)
+    /// an advance taken off a reimbursement or petty cash, back to 待报销
+    case remove(Entry, link: String)
+}
+
+/// The phone's reimbursement saves on a ledger folder. What the form was drawn from must still be there: the advances
+/// still waiting and adding up to what was shown, the open link still owing the same, the entry still as it read.
+public func prepareFolderReimbursement(_ change: ReimbursementChange, folder: URL) -> Result<FolderSave, FolderSaveError> {
+    let changed = FolderSaveError(message: LS("记录或账本已变化，请重新打开后再试"))
+    let config = ledgerConfig(folder: folder)
+    return prepareFolderOps(folder: folder) { ledger, insert, file in
+        let derived = folderDerived(ledger, config: config)
+        switch change {
+        case .pay(var payment, let advances):
+            payment.receivable = derived.receivable
+            var linked: [Op] = []
+            if advances.isEmpty {
+                guard let open = derived.openLinks.first(where: { $0.link == payment.link }), open.currency == payment.currency,
+                      abs(open.amount - payment.owed) < 0.005 else { return .failure(changed) }
+            } else {
+                guard !derived.allLinks.contains(payment.link) else {
+                    return .failure(FolderSaveError(message: LS("^%@ 已被使用，请换一个", payment.link)))
+                }
+                let pool = derived.unclaimed.filter { $0.currency == payment.currency }
+                var picked: [Unclaimed] = []
+                for a in advances {
+                    guard let t = EntryLocator(a).resolve(in: pool.map(\.t)), let u = pool.first(where: { $0.t === t }) else { return .failure(changed) }
+                    picked.append(u)
+                }
+                guard let total = reimbursementTotal(picked, currency: payment.currency), abs(total - payment.owed) < 0.005 else { return .failure(changed) }
+                var files: [String: String] = [:]
+                for path in Set(picked.map(\.t.file)) { files[path] = file(path) }
+                guard let ops = advanceLinkOps(picked.map(\.t), link: payment.link, label: nil, files: files) else { return .failure(changed) }
+                linked = ops
+            }
+            let text = payment.text
+            guard !text.isEmpty, let ins = insert(text) else { return .failure(changed) }
+            return .success(linked + ins)
+        case .fields(let entry, let category, let voucher):
+            guard let t = EntryLocator(entry).resolve(in: ledger.txns) else { return .failure(changed) }
+            var text = t.src
+            for (key, value) in [(categoryMeta, category), (voucherMeta, voucher)] {
+                if let next = setPostingMeta(text, account: derived.receivable, key: key, value: value) { text = next }
+            }
+            guard text != t.src else { return .failure(changed) }
+            return .success([entryOp(t, text: text)])
+        case .remove(let entry, let link):
+            guard let t = EntryLocator(entry).resolve(in: ledger.txns), let op = linkEditOp(t, link: link, remove: true) else { return .failure(changed) }
+            return .success([op] + pairedLinkOps(ledger, oldText: t.src, newText: op.text))
+        }
+    }
+}
