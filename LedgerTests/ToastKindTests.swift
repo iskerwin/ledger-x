@@ -7,7 +7,10 @@ import SwiftUI
 @MainActor
 final class ToastKindTests: XCTestCase {
     private func shown(_ store: Store) async -> Toast? {
-        for _ in 0..<40 where store.toast == nil { try? await Task.sleep(nanoseconds: 50_000_000) }
+        for _ in 0..<40 {
+            guard store.toast == nil else { break }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
         return store.toast
     }
 
