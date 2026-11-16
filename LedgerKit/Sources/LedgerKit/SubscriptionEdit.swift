@@ -297,3 +297,77 @@ public func trimTrailingSpaces(_ s: String) -> String {
     while x.last == " " || x.last == "\t" { x.removeLast() }
     return x
 }
+
+// MARK: - straight into a folder (the Mac)
+
+/// one thing the Mac's subscription page writes
+public enum SubscriptionChange: Sendable {
+    /// added, changed from a date on, corrected, or its next charge moved; a new one links the transactions picked for it
+    case save(SubDraft)
+    /// paused or cancelled from `date`; a cancelled plan may stay usable `until` a day
+    case state(name: String, SubStatus, date: String, until: String?)
+    case skip(name: String, due: String)
+    case delete(name: String, unlink: Bool)
+    /// a charge counted as a top-up of the period before, or as a period of its own
+    case topup(Entry, on: Bool)
+}
+
+extension SubDraft: @unchecked Sendable {}
+
+/// Worked out on the folder as it is now: the subscription is found again by name, and a change made elsewhere since
+/// the page was drawn is refused rather than written over
+public func prepareFolderSubscription(_ change: SubscriptionChange, folder: URL) -> Result<FolderSave, FolderSaveError> {
+    let changed = FolderSaveError(message: tr("订阅记录已经变了，请重新打开再试", "The subscription has changed: open it again"))
+    return prepareFolderOps(folder: folder) { ledger, insert, file in
+        let subs = subscriptions(ledger)
+        func current(_ name: String) -> Subscription? { subs.first { $0.name == name } }
+        switch change {
+        case .save(var draft):
+            if let o = draft.original {
+                guard let now = current(o.name), now.entries.map(\.src) == o.entries.map(\.src) else { return .failure(changed) }
+                draft.original = now
+            }
+            if draft.nameTaken(subs) { return .failure(FolderSaveError(message: LS("已有同名订阅，请换一个名称"))) }
+            if draft.mode == .new && draft.link.isEmpty {
+                draft.link = uniqueSubscriptionLink(draft.name.trimmingCharacters(in: .whitespacesAndNewlines), taken: Set(subs.map(\.link)))
+            }
+            guard let s = draft.sub, var ops = draft.ops(insert: { text, _ in insert(text) }) else { return .failure(changed) }
+            if draft.mode == .new {
+                let txns = draft.txns.filter { draft.picked.contains($0.id) }
+                var files: [String: String] = [:]
+                for path in Set(txns.map(\.file)) { files[path] = file(path) }
+                guard let linked = subscriptionLinkOps(txns, link: s.link, label: nil, files: files) else { return .failure(changed) }
+                ops += linked
+            }
+            return .success(ops)
+        case .state(let name, let status, let date, let until):
+            guard current(name) != nil, let ops = insert(subscriptionStateText(name, status, date: date, until: until)) else { return .failure(changed) }
+            return .success(ops)
+        case .skip(let name, let due):
+            guard current(name) != nil, let ops = insert(subscriptionSkipText(name, due: due)) else { return .failure(changed) }
+            return .success(ops)
+        case .delete(let name, let unlink):
+            guard let s = current(name) else { return .failure(changed) }
+            return .success(subscriptionDeleteOps(s, unlink: unlink))
+        case .topup(let entry, let on):
+            guard let txn = EntryLocator(entry).resolve(in: ledger.txns),
+                  let s = subs.first(where: { $0.charges.contains { $0.txn === txn } }),
+                  let charge = s.charges.first(where: { $0.txn === txn }) else { return .failure(changed) }
+            return subscriptionTopupOp(charge, on, s).map { .success([$0]) } ?? .failure(changed)
+        }
+    }
+}
+
+/// the subscription a transaction is a charge of, and that charge
+public func subscriptionCharge(_ entry: Entry, _ subs: [Subscription]) -> (Subscription, SubCharge)? {
+    for s in subs { if let c = s.charges.first(where: { $0.txn === entry }) { return (s, c) } }
+    return nil
+}
+
+/// what a charge can be turned into: true, a top-up of the period before (there is an earlier charge, and it isn't a refund);
+/// false, a period of its own again; nil, neither
+public func subscriptionTopupChoice(_ c: SubCharge, in s: Subscription) -> Bool? {
+    if c.topup { return false }
+    guard !c.refund, s.charges.contains(where: { !$0.refund && !$0.topup && ($0.date < c.date || ($0.date == c.date && $0.id < c.id)) }) else { return nil }
+    return true
+}

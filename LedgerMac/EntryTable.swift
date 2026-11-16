@@ -352,6 +352,18 @@ struct EntryList: View {
         if EntryTasks.sameDay(entry, ledger).count > 1 {
             items.append(TableMenuItem(title: LS("调整当天顺序…")) { tasks.order(entry, ledger) })
         }
+        if EntryTasks.subscribable(entry, ledger) {
+            items.append(TableMenuItem(title: LS("加入订阅…")) { tasks.subscribe(entry, ledger) })
+        }
+        if let topup = EntryTasks.topup(entry, ledger) {
+            items.append(TableMenuItem(title: topup.title) {
+                // AppKit runs a menu item's action on the main thread
+                MainActor.assumeIsolated {
+                    tasks.topupStep = topup.title
+                    topupWriter($tasks, folder).prepare(.topup(entry, on: topup.on), step: topup.title)
+                }
+            })
+        }
         return items + [
                 TableMenuItem(title: LS("复制原文")) { EntryTasks.copy(entries) },
                 TableMenuItem(title: LS("打开所在文件")) { EntryTasks.open(entry, in: folder) },
