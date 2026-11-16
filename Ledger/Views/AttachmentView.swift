@@ -23,9 +23,7 @@ extension Store {
     /// a refund, a subscription, a month's salary) don't make a document this transaction's own.
     func documents(for t: Entry) -> [Entry] {
         guard let L = L else { return [] }
-        let links = Set(t.links.filter { [.document, .other].contains(LinkRole.of($0)) && !isSalaryLink($0) })
-        if links.isEmpty { return [] }
-        return L.entries.filter { $0.type == .document && !links.isDisjoint(with: $0.links) }
+        return transactionDocuments(L, t)
     }
 
     static func attachmentDataKind(_ id: UUID) -> String { "attachment-" + id.uuidString }

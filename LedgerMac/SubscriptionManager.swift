@@ -1,22 +1,31 @@
 import SwiftUI
 import LedgerKit
 
-/// a subscription change worked out off the main thread, then written with 编辑 › 撤销 to take it back; what it would
-/// break is asked about first, and a refusal stays on screen with the form as it was
+/// a subscription or reimbursement change worked out off the main thread, then written with 编辑 › 撤销 to take it back;
+/// what it would break is asked about first, and a refusal stays on screen with the form as it was
 @MainActor
-struct SubscriptionWriter {
+struct FolderWriter {
     let folder: URL
     @Binding var busy: Bool
     @Binding var message: String
     @Binding var review: FolderSave?
 
     func prepare(_ change: SubscriptionChange, step: String, done: @escaping @MainActor () -> Void = {}) {
+        let folder = folder
+        prepare(step: step, done: done) { prepareFolderSubscription(change, folder: folder) }
+    }
+
+    func prepare(_ change: ReimbursementChange, step: String, done: @escaping @MainActor () -> Void = {}) {
+        let folder = folder
+        prepare(step: step, done: done) { prepareFolderReimbursement(change, folder: folder) }
+    }
+
+    private func prepare(step: String, done: @escaping @MainActor () -> Void, work: @escaping @Sendable () -> Result<FolderSave, FolderSaveError>) {
         guard !busy else { return }
         busy = true
         message = ""
-        let folder = folder
         Task { @MainActor in
-            let result = await Task.detached { prepareFolderSubscription(change, folder: folder) }.value
+            let result = await Task.detached(operation: work).value
             busy = false
             switch result {
             case .failure(let error): message = error.message
@@ -36,8 +45,8 @@ struct SubscriptionWriter {
 }
 
 extension View {
-    /// what a subscription save would break, asked before it is written anyway
-    func subscriptionReview(_ writer: SubscriptionWriter, _ review: Binding<FolderSave?>, step: String, done: @escaping @MainActor () -> Void) -> some View {
+    /// what a subscription or reimbursement save would break, asked before it is written anyway
+    func folderReview(_ writer: FolderWriter, _ review: Binding<FolderSave?>, step: String, done: @escaping @MainActor () -> Void) -> some View {
         alert(review.wrappedValue?.issues.first?.title ?? "", isPresented: review.present()) {
             if review.wrappedValue?.issues.contains(where: \.blocking) == false {
                 Button(LS("仍然保存")) { if let save = review.wrappedValue { writer.write(save, step: step, done: done) } }
@@ -86,7 +95,7 @@ struct SubscriptionEditor: View {
         _draft = State(initialValue: draft)
     }
 
-    private var writer: SubscriptionWriter { SubscriptionWriter(folder: folder, busy: $busy, message: $message, review: $review) }
+    private var writer: FolderWriter { FolderWriter(folder: folder, busy: $busy, message: $message, review: $review) }
 
     private var title: String {
         draft.dueOnly ? LS("调整到期日") : draft.mode == .new ? LS("添加订阅") : draft.mode == .correct ? LS("修正记录")
@@ -137,7 +146,7 @@ struct SubscriptionEditor: View {
             Button(LS("继续编辑"), role: .cancel) {}
             Button(LS("放弃修改"), role: .destructive) { dismiss() }
         }
-        .subscriptionReview(writer, $review, step: step) { dismiss() }
+        .folderReview(writer, $review, step: step) { dismiss() }
     }
 
     private var step: String { draft.mode == .new ? LS("添加订阅") : title }
@@ -230,7 +239,7 @@ struct SubscriptionStateEditor: View {
         _until = State(initialValue: sub.lastCharge.map { max(Day.shift(sub.period.add($0.date, 1), -1), today) } ?? today)
     }
 
-    private var writer: SubscriptionWriter { SubscriptionWriter(folder: folder, busy: $busy, message: $message, review: $review) }
+    private var writer: FolderWriter { FolderWriter(folder: folder, busy: $busy, message: $message, review: $review) }
 
     private var text: String {
         subscriptionStateText(name, status, date: date, until: status == .cancelled && keepUntil ? until : nil)
@@ -265,7 +274,7 @@ struct SubscriptionStateEditor: View {
         }
         .frame(width: 480, height: 340)
         .interactiveDismissDisabled(busy)
-        .subscriptionReview(writer, $review, step: step) { dismiss() }
+        .folderReview(writer, $review, step: step) { dismiss() }
     }
 
     private var step: String { status == .paused ? LS("暂停订阅") : LS("取消订阅") }

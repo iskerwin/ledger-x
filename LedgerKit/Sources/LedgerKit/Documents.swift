@@ -177,6 +177,14 @@ public func transactionAttachments(_ L: Ledger) -> [Entry] {
     documentItems(L).filter(\.isAttachment).map(\.entry)
 }
 
+/// a transaction's own documents: those sharing one of its links. Links that tie a whole group together (a reimbursement,
+/// petty cash, a refund, a subscription, a month's salary) don't make a document this transaction's own
+public func transactionDocuments(_ L: Ledger, _ t: Entry) -> [Entry] {
+    let links = Set(t.links.filter { [.document, .other].contains(LinkRole.of($0)) && !isSalaryLink($0) })
+    if links.isEmpty { return [] }
+    return L.entries.filter { $0.type == .document && !links.isDisjoint(with: $0.links) }
+}
+
 /// a document as 附件与对账单 lists it, as Fava's documents page: under its account, with the transaction it's
 /// attached to
 public struct DocumentItem: Identifiable {

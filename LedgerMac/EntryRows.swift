@@ -272,10 +272,13 @@ struct EntryTasks {
     var ordering: DayOrder?
     /// a purchase made into a subscription (加入订阅)
     var subscribing: SubDraft?
-    var topupBusy = false
-    var topupMessage = ""
-    var topupReview: FolderSave?
-    var topupStep = ""
+    /// an advance's 支出类型 and 凭证类型 being filled in
+    var fielding: Entry?
+    /// a right-click save written as the subscription and reimbursement pages write theirs
+    var writeBusy = false
+    var writeMessage = ""
+    var writeReview: FolderSave?
+    var writeStep = ""
     var review: Review?
     var notice: String?
 
@@ -330,6 +333,17 @@ struct EntryTasks {
         return (on ? LS("并入上一期（补差）") : LS("改为单独一期"), on)
     }
 
+    /// money advanced to be paid back: what 支出类型 and 凭证类型 are written on
+    static func advance(_ entry: Entry, _ ledger: Ledger, _ config: LedgerXConfig?) -> Bool {
+        let receivable = folderDerived(ledger, config: config).receivable
+        return entry.editable && entry.postings.contains { $0.account == receivable && ($0.units ?? 0) > 0 }
+    }
+
+    /// the reimbursements and petty cash an advance is on (not the repayment or the cash handed over: they make the link)
+    static func claims(_ entry: Entry, _ ledger: Ledger, _ config: LedgerXConfig?) -> [String] {
+        advance(entry, ledger, config) ? entry.links.filter { $0.hasPrefix("reimburse") || isFloatLink($0) } : []
+    }
+
     static func copy(_ entries: [Entry]) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(entries.map { $0.src.trimmingCharacters(in: .newlines) }.joined(separator: "\n\n"), forType: .string)
@@ -344,10 +358,46 @@ struct EntryTasks {
     }
 }
 
-/// 并入上一期 and 改为单独一期 from a right-click, saved as the subscription page saves
+/// a right-click save (并入上一期, 移出报销单), written as the subscription and reimbursement pages write theirs
 @MainActor
-func topupWriter(_ tasks: Binding<EntryTasks>, _ folder: URL) -> SubscriptionWriter {
-    SubscriptionWriter(folder: folder, busy: tasks.topupBusy, message: tasks.topupMessage, review: tasks.topupReview)
+func entryWriter(_ tasks: Binding<EntryTasks>, _ folder: URL) -> FolderWriter {
+    FolderWriter(folder: folder, busy: tasks.writeBusy, message: tasks.writeMessage, review: tasks.writeReview)
+}
+
+/// what an entry's right-click and its source's 更多 both offer, in the same order
+@MainActor
+func entryActions(_ entry: Entry, _ ledger: Ledger, _ config: LedgerXConfig?, folder: URL, tasks: Binding<EntryTasks>) -> [TableMenuItem] {
+    // AppKit runs a menu item's action on the main thread
+    func write(_ title: String, _ save: @escaping @MainActor (FolderWriter) -> Void) -> TableMenuItem {
+        TableMenuItem(title: title) {
+            MainActor.assumeIsolated {
+                tasks.wrappedValue.writeStep = title
+                save(entryWriter(tasks, folder))
+            }
+        }
+    }
+    var items = [TableMenuItem(title: LS("编辑…"), enabled: entry.editable) { tasks.wrappedValue.edit(entry, ledger, config) },
+                 TableMenuItem(title: LS("复制为新交易…"), enabled: entry.editable) { tasks.wrappedValue.copyAsNew(entry, ledger, config) }]
+    if EntryTasks.refundable(entry, ledger) {
+        items.append(TableMenuItem(title: LS("登记退款…")) { tasks.wrappedValue.refund(entry, ledger, config) })
+    }
+    if EntryTasks.sameDay(entry, ledger).count > 1 {
+        items.append(TableMenuItem(title: LS("调整当天顺序…")) { tasks.wrappedValue.order(entry, ledger) })
+    }
+    if EntryTasks.subscribable(entry, ledger) {
+        items.append(TableMenuItem(title: LS("加入订阅…")) { tasks.wrappedValue.subscribe(entry, ledger) })
+    }
+    if let topup = EntryTasks.topup(entry, ledger) {
+        items.append(write(topup.title) { $0.prepare(.topup(entry, on: topup.on), step: topup.title) })
+    }
+    if EntryTasks.advance(entry, ledger, config) {
+        items.append(TableMenuItem(title: LS("支出类型与凭证…")) { tasks.wrappedValue.fielding = entry })
+    }
+    for link in EntryTasks.claims(entry, ledger, config) {
+        let title = isFloatLink(link) ? LS("移出备用金") : LS("移出报销单")
+        items.append(write(title) { $0.prepare(.remove(entry, link: link), step: title) })
+    }
+    return items
 }
 
 extension View {
@@ -372,9 +422,10 @@ extension View {
             .alert(tasks.wrappedValue.notice ?? "", isPresented: tasks.notice.present()) {}
             .sheet(item: tasks.ordering) { order in DayOrderSheet(order: order, ledger: ledger, folder: folder) }
             .sheet(item: tasks.subscribing) { SubscriptionEditor(draft: $0, ledger: ledger, config: config, folder: folder) }
-            .alert(tasks.wrappedValue.topupMessage, isPresented: Binding(get: { !tasks.wrappedValue.topupMessage.isEmpty },
-                                                                        set: { if !$0 { tasks.wrappedValue.topupMessage = "" } })) {}
-            .subscriptionReview(topupWriter(tasks, folder), tasks.topupReview, step: tasks.wrappedValue.topupStep) {}
+            .sheet(item: tasks.fielding) { AdvanceFieldsSheet(entry: $0, ledger: ledger, config: config, folder: folder) }
+            .alert(tasks.wrappedValue.writeMessage, isPresented: Binding(get: { !tasks.wrappedValue.writeMessage.isEmpty },
+                                                                        set: { if !$0 { tasks.wrappedValue.writeMessage = "" } })) {}
+            .folderReview(entryWriter(tasks, folder), tasks.writeReview, step: tasks.wrappedValue.writeStep) {}
     }
 }
 
@@ -567,22 +618,9 @@ struct SourcePanel: View {
                     Button(LS("修改原文")) { text = source }
                         .disabled(!entry.editable || KitPrivacy.masked)
                     Menu(LS("更多")) {
-                        Button(LS("编辑…")) { tasks.edit(entry, ledger, config) }.disabled(!entry.editable)
-                        Button(LS("复制为新交易…")) { tasks.copyAsNew(entry, ledger, config) }.disabled(!entry.editable)
-                        if EntryTasks.refundable(entry, ledger) {
-                            Button(LS("登记退款…")) { tasks.refund(entry, ledger, config) }
-                        }
-                        if EntryTasks.sameDay(entry, ledger).count > 1 {
-                            Button(LS("调整当天顺序…")) { tasks.order(entry, ledger) }
-                        }
-                        if EntryTasks.subscribable(entry, ledger) {
-                            Button(LS("加入订阅…")) { tasks.subscribe(entry, ledger) }
-                        }
-                        if let topup = EntryTasks.topup(entry, ledger) {
-                            Button(topup.title) {
-                                tasks.topupStep = topup.title
-                                topupWriter($tasks, folder).prepare(.topup(entry, on: topup.on), step: topup.title)
-                            }
+                        let actions = entryActions(entry, ledger, config, folder: folder, tasks: $tasks)
+                        ForEach(actions.indices, id: \.self) { i in
+                            Button(actions[i].title) { actions[i].run?() }.disabled(!actions[i].enabled)
                         }
                         Button(LS("添加附件…")) { chooseAttachments() }.disabled(!entry.editable)
                         Button(LS("复制原文")) { EntryTasks.copy([entry]) }
