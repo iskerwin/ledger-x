@@ -75,6 +75,8 @@ struct GuideView: View {
                "Before saving the app checks balance, open accounts, balance assertions, overdrafts and credit limits; bean-check in the repository has the final word."),
             tr("设置 →「同步与最近改动」→「已同步记录」打开最近改动，左滑一条可以撤回 App 做的修改；在电脑上改过的地方不能从 App 撤回。",
                "Settings → Sync and recent changes → Synced changes opens Recent changes; swipe one to take back a change made in the app. It won't undo what was edited elsewhere."),
+            tr("Mac 版的「记一笔」在左侧栏顶部（⌘N），哪个页面都一样；窗口右上角只放当前页面自己的操作，如管理账户、管理预算、添加订阅。",
+               "On Mac, Add is at the top of the sidebar (⌘N), the same on every page; the top right of the window holds only the open page's own actions, such as Manage Accounts, Manage Budgets or Add Subscription."),
             tr("Mac 版用菜单「编辑 › 撤销」（⌘Z）撤回刚才的保存，可连续撤多步，「重做」（⇧⌘Z）再写回；文件之后被别处改过就不撤回。退出 App 或打开别的账本后不能再撤销。",
                "On Mac, Edit › Undo (⌘Z) takes back the last save, several in a row, and Redo (⇧⌘Z) writes it again; a file changed elsewhere since isn't touched. Undo ends when the app quits or another ledger is opened."),
             tr("Mac 版默认跟随系统语言，也可以在「设置 › 通用 › 语言」选简体中文或 English；菜单栏里系统自带的菜单在下次打开 App 时换过来。",
