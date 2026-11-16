@@ -8,38 +8,32 @@ struct UnclaimedDest: Hashable {}
 extension Store {
     /// write 支出类型 (`category:`) or 凭证类型 (`voucher:`) on an advance; nil value clears it
     func setAdvanceMeta(_ t: Entry, key: String, value: String?) async {
-        guard let D = D, let text = setPostingMeta(t.src, account: D.receivable, key: key, value: value), text != t.src else { return }
-        var op = entryOp(t, text: text)
-        let what = key == categoryMeta ? LS("支出类型") : LS("凭证类型")
-        op.label = LS("%@：%@ %@ → %@", what, t.date, t.payee, value.map { key == categoryMeta ? acctLabel($0) : $0 } ?? LS("清除"))
+        guard let D, let op = advanceMetaOp(t, receivable: D.receivable, key: key, value: value) else { return }
         await commit([op], word: LS("已修改"))
     }
 
     /// put advances on a reimbursement or petty cash: `#reimbursed ^link` on each, one commit
     @discardableResult
     func linkAdvances(_ es: [Entry], link: String, label: String) async -> Bool {
-        let ledgerID = cfg.id
-        var ops: [Op] = []
-        var done = Set<ObjectIdentifier>()
-        for e in es {
-            guard done.insert(ObjectIdentifier(e)).inserted else { continue }
-            guard let file = try? await fileText(e.file) else { showFailure(LS("无法读取 %@", e.file)); return false }
-            guard cfg.id == ledgerID, let current = EntryLocator(e).resolve(in: parseFile(file, file: e.file).entries) else {
-                showFailure(LS("记录或账本已变化，请重新打开后再试")); return false
-            }
-            let lines = file.components(separatedBy: "\n")
-            guard current.startLine < lines.count else { return false }
-            var op = Op(kind: .link, path: e.file)
-            op.headerLine = current.startLine + 1
-            op.header = lines[current.startLine]
-            op.add = (e.tags.contains("reimbursed") ? "" : " #reimbursed") + " ^" + link
-            op.link = link
-            op.silent = !ops.isEmpty
-            if ops.isEmpty { op.label = label }
-            ops.append(op)
+        guard let files = await advanceFiles(es) else { return false }
+        guard let ops = advanceLinkOps(es, link: link, label: label, files: files) else {
+            showFailure(LS("记录或账本已变化，请重新打开后再试")); return false
         }
-        guard cfg.id == ledgerID, !ops.isEmpty else { return false }
+        guard !ops.isEmpty else { return false }
         return await commit(ops, word: LS("已关联"))
+    }
+
+    /// the current text of each file the advances are in; nil, with the reason shown, when one can't be read or the
+    /// ledger changed while reading
+    func advanceFiles(_ es: [Entry]) async -> [String: String]? {
+        let ledgerID = cfg.id
+        var files: [String: String] = [:]
+        for path in Set(es.map(\.file)).sorted() {
+            guard let text = try? await fileText(path) else { showFailure(LS("无法读取 %@", path)); return nil }
+            files[path] = text
+        }
+        guard cfg.id == ledgerID else { showFailure(LS("记录或账本已变化，请重新打开后再试")); return nil }
+        return files
     }
 }
 
