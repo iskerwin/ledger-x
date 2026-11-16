@@ -56,6 +56,11 @@ paths = [p for p in ROOT.rglob('*') if p.is_file() and '.git' not in p.parts
 for p in paths:
     require(p.suffix not in ('.js','.mjs','.html','.webmanifest'), f'Unexpected non-native source file: {p.relative_to(ROOT)}')
     require(p.name not in ('package.json','sw.js','service-worker.js'), f'Unexpected runtime file: {p.name}')
+    # `for … where` only skips a pass and never stops early: a wait or scroll loop keeps querying the screen after it
+    # is done (about a second a query on CI). Stop it with `guard … else { break }` instead.
+    if p.suffix == '.swift' and p.parts[len(ROOT.parts)] in ('LedgerTests', 'LedgerUITests'):
+        for n, line in enumerate(p.read_text().splitlines(), 1):
+            require(not re.match(r'\s*for _ in .* where ', line), f'{p.relative_to(ROOT)}:{n}: loop with `where` never stops early; use guard … else {{ break }}')
 
 project = (ROOT/'project.yml').read_text()
 schemes = project.split('\nschemes:', 1)[-1]

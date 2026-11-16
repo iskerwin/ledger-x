@@ -42,7 +42,10 @@ final class ColorInteractionTests: XCTestCase {
         month.tap()
         let chart = app.otherElements["overview.trend"]
         // List creates off-screen rows lazily, especially when the summary grows at the largest text size.
-        for _ in 0..<10 where !chart.exists { scroll(app, up: true) }
+        for _ in 0..<10 {
+            guard !chart.exists else { break }
+            scroll(app, up: true)
+        }
         XCTAssertTrue(chart.waitForExistence(timeout: 10))
         for _ in 0..<10 {
             let frame = chart.frame, screen = app.windows.firstMatch.frame
@@ -52,7 +55,10 @@ final class ColorInteractionTests: XCTestCase {
         XCTAssertTrue(chart.isHittable)
         let mode = app.segmentedControls["overview.trendMode"]
         XCTAssertTrue(mode.exists)
-        for _ in 0..<4 where mode.frame.minY < app.navigationBars.firstMatch.frame.maxY + 8 { scroll(app, up: false) }
+        for _ in 0..<4 {
+            guard mode.frame.minY < app.navigationBars.firstMatch.frame.maxY + 8 else { break }
+            scroll(app, up: false)
+        }
         // Select through the real control. An argument-domain UserDefaults override would lock AppStorage in exp.
         mode.buttons["支出"].tap()
         let line = app.staticTexts["overview.trendLine"]

@@ -412,7 +412,10 @@ final class EditInteractionTests: XCTestCase {
         let app = launch(filled: false)
         openFull(app)
         let toggle = app.switches["可报销（计入应收款并标记 #reimbursed）"]
-        for _ in 0..<6 where !toggle.isHittable { app.swipeUp() }
+        for _ in 0..<6 {
+            guard !toggle.isHittable else { break }
+            app.swipeUp()
+        }
         XCTAssertTrue(toggle.isHittable)
         // SwiftUI exposes the wrapped label and switch as one wide element. Its centre is the label;
         // the trailing edge is the actual switch, even when the label wraps onto two lines.
@@ -427,7 +430,10 @@ final class EditInteractionTests: XCTestCase {
         pickAccount(app, "Assets:Bank:ExampleFX")
         app.buttons["account.done"].tap()
         let paid = app.textFields["账户实际扣款"]
-        for _ in 0..<6 where !paid.isHittable { app.swipeUp() }
+        for _ in 0..<6 {
+            guard !paid.isHittable else { break }
+            app.swipeUp()
+        }
         XCTAssertTrue(paid.isHittable)
         XCTAssertTrue(app.buttons["填实付金额"].exists)
     }
@@ -551,7 +557,10 @@ final class EditInteractionTests: XCTestCase {
         let app = launch()
         openFull(app)
         let before = app.buttons["前天"].firstMatch
-        for _ in 0..<4 where !(before.exists && before.isHittable) { app.swipeUp() }
+        for _ in 0..<4 {
+            guard !(before.exists && before.isHittable) else { break }
+            app.swipeUp()
+        }
         XCTAssertTrue(app.buttons["今天"].firstMatch.exists)
         XCTAssertTrue(app.buttons["昨天"].firstMatch.exists)
         XCTAssertTrue(app.buttons["今天"].firstMatch.isSelected, "a new entry starts on today")
@@ -1022,7 +1031,10 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["账户"].waitForExistence(timeout: 20))
         // the list's rows come and go as it fills and scrolls: look again after each swipe, not at a row seen before
         let entry = app.buttons["accounts.documents"].firstMatch
-        for _ in 0..<6 where !(entry.exists && entry.isHittable) { app.swipeUp() }
+        for _ in 0..<6 {
+            guard !(entry.exists && entry.isHittable) else { break }
+            app.swipeUp()
+        }
         XCTAssertTrue(entry.isHittable)
         entry.tap()
         let kinds = app.segmentedControls["documents.kind"]
@@ -1188,7 +1200,10 @@ final class EditInteractionTests: XCTestCase {
         func reveal(_ id: String) -> XCUIElement {
             let e = app.descendants(matching: .any)[id].firstMatch
             // only ever down: a swipe down at the top would close the sheet
-            for _ in 0..<5 where !(e.exists && e.isHittable) { app.swipeUp() }
+            for _ in 0..<5 {
+                guard !(e.exists && e.isHittable) else { break }
+                app.swipeUp()
+            }
             XCTAssertTrue(e.waitForExistence(timeout: 5), id)
             return e
         }
@@ -1244,7 +1259,10 @@ final class EditInteractionTests: XCTestCase {
         func reveal(_ id: String) -> XCUIElement {
             let e = app.descendants(matching: .any)[id].firstMatch
             // only ever down: a swipe down at the top would close the sheet
-            for _ in 0..<5 where !(e.exists && e.isHittable) { app.swipeUp() }
+            for _ in 0..<5 {
+                guard !(e.exists && e.isHittable) else { break }
+                app.swipeUp()
+            }
             XCTAssertTrue(e.waitForExistence(timeout: 5), id)
             return e
         }
@@ -1286,7 +1304,10 @@ final class EditInteractionTests: XCTestCase {
         func reveal(_ id: String) -> XCUIElement {
             let e = app.descendants(matching: .any)[id].firstMatch
             // only ever down: a swipe down at the top would close the sheet
-            for _ in 0..<5 where !(e.exists && e.isHittable) { app.swipeUp() }
+            for _ in 0..<5 {
+                guard !(e.exists && e.isHittable) else { break }
+                app.swipeUp()
+            }
             XCTAssertTrue(e.waitForExistence(timeout: 5), id)
             return e
         }
@@ -1636,7 +1657,10 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(opened.waitForNonExistence(timeout: 5), "The sheet's Done button dismisses it")
         XCTAssertNotEqual(first.value as? String, "已选中")
         let coffee = app.buttons["calendar.day.2026-10-17"]
-        for _ in 0..<4 where !(coffee.exists && coffee.isHittable) { app.swipeUp() }
+        for _ in 0..<4 {
+            guard !(coffee.exists && coffee.isHittable) else { break }
+            app.swipeUp()
+        }
         tapPoint(coffee, timeout: 5)
         XCTAssertTrue(app.navigationBars["10月17日 周六"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "12.00")).firstMatch.exists)
@@ -1647,7 +1671,10 @@ final class EditInteractionTests: XCTestCase {
         add(shot)
         tapPoint(app.buttons["完成"], timeout: 5)
         let advance = app.buttons["calendar.day.2026-10-16"]
-        for _ in 0..<4 where !(advance.exists && advance.isHittable) { app.swipeUp() }
+        for _ in 0..<4 {
+            guard !(advance.exists && advance.isHittable) else { break }
+            app.swipeUp()
+        }
         tapPoint(advance, timeout: 5)
         XCTAssertTrue(app.navigationBars["10月16日 周五"].waitForExistence(timeout: 5))
     }
@@ -1838,7 +1865,8 @@ final class EditInteractionTests: XCTestCase {
         let back = bar.buttons["上个月"]
         // the fixture spends in one month only; from now back, there is a month with it and one without
         var empty: CGRect?, spent: CGRect?
-        for _ in 0..<24 where empty == nil || spent == nil {
+        for _ in 0..<24 {
+            guard empty == nil || spent == nil else { break }
             if where_.staticTexts["这个月还没有支出"].exists { empty = empty ?? where_.frame } else { spent = spent ?? where_.frame }
             back.tap()
         }
@@ -2162,7 +2190,10 @@ final class EditInteractionTests: XCTestCase {
         scrollIntoView(chart, in: app)
         chart.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.5)).tap()
         let back = hero.buttons["回到本月"]
-        for _ in 0..<4 where !back.isHittable { app.swipeDown() }
+        for _ in 0..<4 {
+            guard !back.isHittable else { break }
+            app.swipeDown()
+        }
         XCTAssertTrue(back.waitForExistence(timeout: 5))
         XCTAssertEqual(hero.frame.height, height, accuracy: 0.5)
     }
@@ -2212,7 +2243,10 @@ final class EditInteractionTests: XCTestCase {
         let bottom = line.frame.maxY - chart.frame.minY
         for (period, trend) in [("月", "收支"), ("年", "收支"), ("年", "支出"), ("月", "支出")] {
             let tab = app.buttons[period].firstMatch
-            for _ in 0..<4 where !tab.isHittable { app.swipeDown() }
+            for _ in 0..<4 {
+                guard !tab.isHittable else { break }
+                app.swipeDown()
+            }
             tab.tap()
             scrollIntoView(chart, in: app)
             app.buttons[trend].firstMatch.tap()
@@ -2293,7 +2327,8 @@ final class EditInteractionTests: XCTestCase {
         // the fixture's Coffee is in October 2026: from a later month (it failed on 1 November) step back to it,
         // so the chart's last month and the payees' list are October's whatever today is
         let period = app.staticTexts["overview.period"], bar = app.descendants(matching: .any)["overview.monthbar"].firstMatch
-        for _ in 0..<36 where period.label != "2026年10月" {
+        for _ in 0..<36 {
+            guard period.label != "2026年10月" else { break }
             let name = period.label
             bar.buttons["上个月"].tap()
             XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", name), object: period)], timeout: 5), .completed)
@@ -2318,7 +2353,10 @@ final class EditInteractionTests: XCTestCase {
         // swipe the chart: a swipe on the window can start on the chart and not move the list
         let payeeHint = text(app, "点按查看交易")
         let heading = text(app, "收付款方支出排行")
-        for _ in 0..<18 where !(heading.exists && heading.isHittable) { chart.swipeUp() }
+        for _ in 0..<18 {
+            guard !(heading.exists && heading.isHittable) else { break }
+            chart.swipeUp()
+        }
         XCTAssertTrue(heading.waitForExistence(timeout: 3), "did not reach the payee list")
         for _ in 0..<4 {
             if payeeHint.exists {
@@ -2329,7 +2367,10 @@ final class EditInteractionTests: XCTestCase {
         }
         XCTAssertTrue(payeeHint.exists, "the payee list is on screen and its hint text is not")
         let payee = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Coffee")).firstMatch
-        for _ in 0..<6 where !(payee.exists && payee.isHittable && payeeHint.exists) { chart.swipeUp() }
+        for _ in 0..<6 {
+            guard !(payee.exists && payee.isHittable && payeeHint.exists) else { break }
+            chart.swipeUp()
+        }
         XCTAssertTrue(payee.isHittable)
         XCTAssertTrue(payeeHint.exists)
         payee.tap()
@@ -2366,7 +2407,10 @@ final class EditInteractionTests: XCTestCase {
         let hold = text(app, "点按打开或关掉")
         tapPoint(app.buttons["币种与换算"].firstMatch, timeout: 20)
         XCTAssertTrue(app.staticTexts["币种"].firstMatch.waitForExistence(timeout: 5))
-        for _ in 0..<3 where !hold.exists { app.staticTexts["币种"].firstMatch.swipeUp() }
+        for _ in 0..<3 {
+            guard !hold.exists else { break }
+            app.staticTexts["币种"].firstMatch.swipeUp()
+        }
         XCTAssertTrue(hold.waitForExistence(timeout: 5))
         XCTAssertTrue(hold.label.contains("长按"))
         app.staticTexts["CNY"].firstMatch.press(forDuration: 1)
@@ -2551,7 +2595,10 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(picked.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["查看该月"].exists)
         let back = app.otherElements["overview.hero"].buttons["回到本月"]
-        for _ in 0..<4 where !back.isHittable { app.swipeDown() }
+        for _ in 0..<4 {
+            guard !back.isHittable else { break }
+            app.swipeDown()
+        }
         back.tap()
         XCTAssertTrue(picked.waitForNonExistence(timeout: 5))
     }
