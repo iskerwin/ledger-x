@@ -57,6 +57,8 @@ public func prepareFolderSave(_ draft: Draft, folder: URL) -> Result<FolderSave,
     }
     // a refund puts its link on the purchase too, the one actually in the saved text (as the phone's save does)
     if draft.replacing == nil, let original = draft.refundOf, let link = refundLinkOp(original, savedText: text) { ops.append(link) }
+    // a new charge of a subscription gets its link, as the phone's save gives it
+    ops = autoLinkSubscriptions(ops, ledger, subs: subscriptions(ledger)).0
     let replacedBalances = draft.kind == .raw ? duplicateBalances(validateText(text, ledger, single: false).entries, ledger) : []
     return folderSave(ops, before: ledger, main: layout.main, folder: folder).map { save in
         guard !replacedBalances.isEmpty else { return save }
@@ -125,6 +127,28 @@ public func prepareFolderReorder(_ ordered: [Entry], folder: URL) -> Result<Fold
     op.date = first.date
     op.anchorLine = inFile[0].startLine + 1
     return folderSave([op], before: ledger, main: folderMain(folder), folder: folder)
+}
+
+/// Changes worked out from the folder as it is now and written straight into it: `build` gets the ledger, a way to turn
+/// ledger text into insert ops (placed in the file the phone would put them in) and each file's current text. What the
+/// subscription pages write goes this way (`SubscriptionEdit.swift`).
+public func prepareFolderOps(folder: URL, build: (_ ledger: Ledger, _ insert: (String) -> [Op]?, _ file: (String) -> String?) -> Result<[Op], FolderSaveError>)
+    -> Result<FolderSave, FolderSaveError> {
+    guard let ledger = loadLedger(folder: folder) else { return .failure(noLedgerInFolder) }
+    let layout = folderLayout(ledger, folder: folder)
+    let exists = { (path: String) in FileManager.default.fileExists(atPath: folder.appendingPathComponent(path).path) }
+    var refused: FolderSaveError?
+    let insert = { (text: String) -> [Op]? in
+        switch makeOps(text, ledger, layout: layout, pending: [], fileExists: exists, single: false) {
+        case .success(let ops): return ops
+        case .failure(let error): refused = FolderSaveError(message: error.message); return nil
+        }
+    }
+    let file = { (path: String) in try? coordinatedRead(folder.appendingPathComponent(path)) }
+    switch build(ledger, insert, file) {
+    case .failure(let error): return .failure(refused ?? error)
+    case .success(let ops): return folderSave(ops, before: ledger, main: layout.main, folder: folder)
+    }
 }
 
 /// That `account` ended `day` with `amount`. Beancount checks an assertion at the start of its day, so it is dated the next one.

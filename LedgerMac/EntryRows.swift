@@ -270,6 +270,12 @@ struct EntryTasks {
     var deleting: Entry?
     /// one day's entries of one file, being put in order
     var ordering: DayOrder?
+    /// a purchase made into a subscription (加入订阅)
+    var subscribing: SubDraft?
+    var topupBusy = false
+    var topupMessage = ""
+    var topupReview: FolderSave?
+    var topupStep = ""
     var review: Review?
     var notice: String?
 
@@ -308,6 +314,22 @@ struct EntryTasks {
         if day.count > 1 { ordering = DayOrder(entries: day) }
     }
 
+    /// a purchase not yet part of a subscription can start one, as the phone's 加入订阅管理
+    static func subscribable(_ entry: Entry, _ ledger: Ledger) -> Bool {
+        refundable(entry, ledger) && subscriptionCharge(entry, ledger.subscriptionsKept()) == nil
+    }
+
+    mutating func subscribe(_ entry: Entry, _ ledger: Ledger) {
+        subscribing = SubDraft(entry, ledger)
+    }
+
+    /// 并入上一期 or 改为单独一期 for a subscription's charge, with its title; nil when it is neither
+    static func topup(_ entry: Entry, _ ledger: Ledger) -> (title: String, on: Bool)? {
+        guard entry.editable, let (s, c) = subscriptionCharge(entry, ledger.subscriptionsKept()),
+              let on = subscriptionTopupChoice(c, in: s) else { return nil }
+        return (on ? LS("并入上一期（补差）") : LS("改为单独一期"), on)
+    }
+
     static func copy(_ entries: [Entry]) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(entries.map { $0.src.trimmingCharacters(in: .newlines) }.joined(separator: "\n\n"), forType: .string)
@@ -320,6 +342,12 @@ struct EntryTasks {
         let url = folder.appendingPathComponent(file)
         if !NSWorkspace.shared.open(url) { NSWorkspace.shared.activateFileViewerSelecting([url]) }
     }
+}
+
+/// 并入上一期 and 改为单独一期 from a right-click, saved as the subscription page saves
+@MainActor
+func topupWriter(_ tasks: Binding<EntryTasks>, _ folder: URL) -> SubscriptionWriter {
+    SubscriptionWriter(folder: folder, busy: tasks.topupBusy, message: tasks.topupMessage, review: tasks.topupReview)
 }
 
 extension View {
@@ -343,6 +371,10 @@ extension View {
             }
             .alert(tasks.wrappedValue.notice ?? "", isPresented: tasks.notice.present()) {}
             .sheet(item: tasks.ordering) { order in DayOrderSheet(order: order, ledger: ledger, folder: folder) }
+            .sheet(item: tasks.subscribing) { SubscriptionEditor(draft: $0, ledger: ledger, config: config, folder: folder) }
+            .alert(tasks.wrappedValue.topupMessage, isPresented: Binding(get: { !tasks.wrappedValue.topupMessage.isEmpty },
+                                                                        set: { if !$0 { tasks.wrappedValue.topupMessage = "" } })) {}
+            .subscriptionReview(topupWriter(tasks, folder), tasks.topupReview, step: tasks.wrappedValue.topupStep) {}
     }
 }
 
@@ -542,6 +574,15 @@ struct SourcePanel: View {
                         }
                         if EntryTasks.sameDay(entry, ledger).count > 1 {
                             Button(LS("调整当天顺序…")) { tasks.order(entry, ledger) }
+                        }
+                        if EntryTasks.subscribable(entry, ledger) {
+                            Button(LS("加入订阅…")) { tasks.subscribe(entry, ledger) }
+                        }
+                        if let topup = EntryTasks.topup(entry, ledger) {
+                            Button(topup.title) {
+                                tasks.topupStep = topup.title
+                                topupWriter($tasks, folder).prepare(.topup(entry, on: topup.on), step: topup.title)
+                            }
                         }
                         Button(LS("添加附件…")) { chooseAttachments() }.disabled(!entry.editable)
                         Button(LS("复制原文")) { EntryTasks.copy([entry]) }

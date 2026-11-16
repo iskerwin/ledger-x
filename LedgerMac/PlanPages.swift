@@ -223,12 +223,28 @@ struct ForecastPage: View {
     }
 }
 
+struct SubStateTarget: Identifiable {
+    let id = UUID()
+    let sub: Subscription
+    let status: SubStatus
+}
+
 /// what subscriptions cost, the charges due but not in the ledger, every subscription, and regular payments that look like one
 struct SubscriptionsPage: View {
     let ledger: Ledger
     let config: LedgerXConfig?
     let folder: URL
     @State private var notice: String?
+    @State private var editing: SubDraft?
+    @State private var stateChange: SubStateTarget?
+    @State private var deleting: Subscription?
+    /// 记一笔扣费 opens the entry window as 记一笔 does
+    @State private var tasks = EntryTasks()
+    @State private var busy = false
+    @State private var message = ""
+    @State private var review: FolderSave?
+    /// what the save being asked about is called in 编辑 › 撤销
+    @State private var step = ""
 
     var body: some View {
         let subs = ledger.subscriptionsKept()
@@ -253,10 +269,16 @@ struct SubscriptionsPage: View {
                         CardTitle(LS("订阅"))
                         ForEach(subs.sorted { ($0.status == .active ? 0 : 1, $0.name) < ($1.status == .active ? 0 : 1, $1.name) }) { sub in
                             Divider()
-                            NavigationLink(value: JournalScope(title: sub.name, account: nil, link: sub.link)) {
-                                FigureRow(label: sub.name, caption: caption(sub), value: money(sub.amount, sub.currency), color: sub.status == .active ? .primary : .secondary)
+                            HStack(spacing: 8) {
+                                NavigationLink(value: JournalScope(title: sub.name, account: nil, link: sub.link)) {
+                                    FigureRow(label: sub.name, caption: caption(sub), value: money(sub.amount, sub.currency), color: sub.status == .active ? .primary : .secondary)
+                                }
+                                .buttonStyle(.plain)
+                                Menu { actions(sub) } label: { Image(systemName: "ellipsis") }
+                                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                                    .accessibilityLabel(LS("订阅操作"))
                             }
-                            .buttonStyle(.plain)
+                            .contextMenu { actions(sub) }
                         }
                     }
                 }
@@ -267,7 +289,10 @@ struct SubscriptionsPage: View {
                             CardTitle(title: LS("待记账")) { Text(money(dueTotal, ledger.base)).monospacedDigit().foregroundStyle(.secondary) }
                             ForEach(due) { item in
                                 Divider()
-                                FigureRow(label: item.sub.name, caption: shortDay(item.date) + LS(" 应扣费"), value: money(item.sub.amount, item.sub.currency), color: .warn)
+                                HStack(spacing: 12) {
+                                    FigureRow(label: item.sub.name, caption: shortDay(item.date) + LS(" 应扣费"), value: money(item.sub.amount, item.sub.currency), color: .warn)
+                                    Button(LS("记一笔")) { record(item.sub) }
+                                }
                             }
                         }
                     }
@@ -280,6 +305,7 @@ struct SubscriptionsPage: View {
                                 HStack(spacing: 12) {
                                     FigureRow(label: candidate.payee, caption: LS("%@ · %@ 笔 · %@ 起", candidate.period.name, candidate.count, candidate.first),
                                               value: money(candidate.amount, candidate.currency))
+                                    Button(LS("加入…")) { editing = SubDraft(candidate) }
                                     Button(LS("忽略")) { ignore(candidate) }
                                 }
                             }
@@ -289,6 +315,54 @@ struct SubscriptionsPage: View {
             }
         }
         .alert(notice ?? "", isPresented: $notice.present()) {}
+        .alert(message, isPresented: Binding(get: { !message.isEmpty }, set: { if !$0 { message = "" } })) {}
+        .toolbar { ToolbarItem { Button(LS("添加订阅"), systemImage: "plus") { editing = SubDraft(currency: ledger.base) } } }
+        .sheet(item: $editing) { SubscriptionEditor(draft: $0, ledger: ledger, config: config, folder: folder) }
+        .sheet(item: $stateChange) { SubscriptionStateEditor(sub: $0.sub, status: $0.status, folder: folder) }
+        .confirmationDialog(LS("删除订阅「%@」？", deleting?.name ?? ""), isPresented: $deleting.present(), titleVisibility: .visible, presenting: deleting) { sub in
+            let n = sub.charges.filter { $0.txn.links.contains(sub.link) }.count
+            Button(n > 0 ? LS("删除，并移除 %@ 笔交易的链接", n) : LS("删除"), role: .destructive) { write(.delete(name: sub.name, unlink: true), LS("删除订阅")) }
+            if n > 0 { Button(LS("删除，保留交易上的链接")) { write(.delete(name: sub.name, unlink: false), LS("删除订阅")) } }
+        } message: { _ in
+            Text(LS("删除这个订阅的全部记录，扣费交易本身保留。不再续费时建议改为「取消订阅」。"))
+        }
+        .subscriptionReview(writer, $review, step: step) {}
+        .entryTasks($tasks, ledger: ledger, config: config, folder: folder)
+    }
+
+    private var writer: SubscriptionWriter { SubscriptionWriter(folder: folder, busy: $busy, message: $message, review: $review) }
+
+    private func write(_ change: SubscriptionChange, _ step: String) {
+        self.step = step
+        writer.prepare(change, step: step)
+    }
+
+    /// the phone's actions on a subscription, from its ⋯ or a right-click
+    @ViewBuilder private func actions(_ sub: Subscription) -> some View {
+        if sub.status == .active {
+            let next = sub.nextCharge(onOrAfter: Day.today())
+            Button(sub.manual ? LS("记一笔续费…") : LS("记一笔扣费…")) { record(sub) }
+            Button(LS("调价或更改…")) { editing = SubDraft(sub, mode: .change) }
+            Button(LS("调整到期日…")) { editing = SubDraft(dueOf: sub) }
+            Button(LS("跳过下一期（%@）", next)) { write(.skip(name: sub.name, due: next), LS("跳过一期")) }
+            Button(LS("暂停…")) { stateChange = SubStateTarget(sub: sub, status: .paused) }
+        } else {
+            Button(LS("恢复订阅…")) { var d = SubDraft(sub, mode: .change); d.status = .active; editing = d }
+        }
+        Button(LS("修正记录…")) { editing = SubDraft(sub, mode: .correct) }
+        Divider()
+        if sub.status == .active {
+            Button(LS("取消订阅…"), role: .destructive) { stateChange = SubStateTarget(sub: sub, status: .cancelled) }
+        }
+        Button(LS("删除订阅…"), role: .destructive) { deleting = sub }
+    }
+
+    private func record(_ sub: Subscription) {
+        if let draft = subscriptionChargeDraft(sub, ledger, config) {
+            tasks.editing = EntryTasks.Edited(draft: draft)
+        } else {
+            notice = LS("请先为「%@」设置支出科目和付款账户", sub.name)
+        }
     }
 
     private func caption(_ sub: Subscription) -> String {
