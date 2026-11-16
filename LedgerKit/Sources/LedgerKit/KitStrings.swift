@@ -38,3 +38,8 @@ public enum KitStrings {
         return out + rest
     }
 }
+
+/// LedgerKit's own text the apps show, keyed as theirs are (Ledger/en.json): `%@` for each argument, in order
+func LS(_ key: String, _ args: Any...) -> String {
+    KitStrings.text(key, args, english: !KitLocale.chinese)
+}
