@@ -122,6 +122,15 @@ struct MainView: View {
                     }
                 }
             }
+            // 记一笔 belongs to the whole ledger, not to a page: one place, whatever page is open
+            .safeAreaInset(edge: .top) {
+                Button { adding = true } label: { Label(LS("记一笔"), systemImage: "plus").frame(maxWidth: .infinity) }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .help(LS("记一笔") + " ⌘N")
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+            }
             .safeAreaInset(edge: .bottom) {
                 VStack(alignment: .leading, spacing: 8) {
                     SettingsLink { Label(LS("设置"), systemImage: "gearshape") }
@@ -188,10 +197,6 @@ struct MainView: View {
                         PeriodBar(period: $period)
                         if (page ?? .overview).followsFilter { AccountFilter(ledger: ledger, account: $account) }
                     }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button { adding = true } label: { Label(LS("记一笔"), systemImage: "plus") }
-                        .help(LS("记一笔"))
                 }
             }
         }
