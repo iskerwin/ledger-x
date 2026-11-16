@@ -161,6 +161,8 @@ struct GuideView: View {
                "Pick how transactions look in Settings → Appearance → Transaction list: Simple (the default, words only), Icon (each starts with its category's icon, in the colour the reports give it, or the one you picked) or Compact (one line each; open one for its note and tags). The journal, account pages, search results and a calendar day all follow; it is kept on this phone only."),
             tr("点开一笔交易可以编辑源文本、复制为新交易、登记退款、调整当天顺序、加入订阅。",
                "Open an entry to edit its text, copy it as a new one, record a refund, reorder the day or make it a subscription."),
+            tr("Mac 版在明细右键一笔交易（或展开原文后的「⋯」）可复制为新交易、登记退款（支出才有）、调整当天顺序（同一天同一文件有几笔时才有），前两项打开记一笔窗口，调整顺序时拖动后保存。",
+               "On Mac, right-click an entry in the journal (or use ⋯ under its text) to Duplicate as New, Record Refund (for spending) or Reorder This Day (when the day has several in one file). The first two open the Add window; to reorder, drag and save."),
             tr("退款默认只退商品金额；原交易有银行手续费、而且银行也退回了的，在退款表单打开「同时退回手续费」，手续费退回到当初付它的账户。",
                "A refund takes back the goods only; if the original had a bank fee and the bank refunded it too, turn on Also refund the fee in the refund form, and it goes back to the account that paid it."),
         ]),

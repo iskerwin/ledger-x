@@ -45,7 +45,8 @@ struct NewEntrySheet: View {
         self.ledger = ledger
         self.folder = folder
         self.config = config
-        self.editing = editing != nil
+        // a draft that replaces an entry is an edit; one that doesn't (复制为新交易, 登记退款) is a new entry filled in
+        self.editing = editing?.replacing != nil
         self.done = done
         let derived = folderDerived(ledger, config: config)
         self.derived = derived
@@ -53,7 +54,7 @@ struct NewEntrySheet: View {
         let blank = Self.blank(.expense, ledger: ledger, derived: derived, config: config)
         let opened = editing ?? KeptDraft.read(folder) ?? blank
         _draft = State(initialValue: opened)
-        _baseline = State(initialValue: editing ?? blank)
+        _baseline = State(initialValue: editing?.replacing != nil ? editing! : blank)
         _formKind = State(initialValue: Self.formKinds.contains(opened.kind) ? opened.kind : .expense)
         _full = State(initialValue: !Self.fitsCard(opened))
         _gridOrder = State(initialValue: Dictionary(uniqueKeysWithValues: ["Expenses:", "Income:"].map { ($0, categoryGroups(derived, root: $0).map(\.id)) }))

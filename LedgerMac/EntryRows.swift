@@ -268,6 +268,8 @@ struct EntryTasks {
 
     var editing: Edited?
     var deleting: Entry?
+    /// one day's entries of one file, being put in order
+    var ordering: DayOrder?
     var review: Review?
     var notice: String?
 
@@ -277,6 +279,33 @@ struct EntryTasks {
         } else {
             notice = LS("表单装不下这笔交易，请用「修改原文」修改")
         }
+    }
+
+    /// a new entry like this one, dated today, as the phone's 复制
+    mutating func copyAsNew(_ entry: Entry, _ ledger: Ledger, _ config: LedgerXConfig?) {
+        var draft = draftFromTxn(entry, ledger, folderDerived(ledger, config: config), defaultFunding: config?.defaultFunding)
+        draft.date = Day.today()
+        editing = Edited(draft: draft)
+    }
+
+    /// the refund of a purchase, as the phone's 退款
+    mutating func refund(_ entry: Entry, _ ledger: Ledger, _ config: LedgerXConfig?) {
+        editing = Edited(draft: refundDraft(entry, ledger, folderDerived(ledger, config: config), defaultFunding: config?.defaultFunding))
+    }
+
+    static func refundable(_ entry: Entry, _ ledger: Ledger) -> Bool {
+        entry.editable && classify(entry, ledger).kind == .expense
+    }
+
+    /// the entries sharing this one's day and file, in file order; more than one can be put in order
+    static func sameDay(_ entry: Entry, _ ledger: Ledger) -> [Entry] {
+        guard entry.editable else { return [] }
+        return ledger.txns.filter { $0.date == entry.date && $0.file == entry.file && !$0.synthetic }.sorted { $0.startLine < $1.startLine }
+    }
+
+    mutating func order(_ entry: Entry, _ ledger: Ledger) {
+        let day = Self.sameDay(entry, ledger)
+        if day.count > 1 { ordering = DayOrder(entries: day) }
     }
 
     static func copy(_ entries: [Entry]) {
@@ -313,6 +342,90 @@ extension View {
                 Text(review.save.issues.map(\.detail).joined(separator: "\n"))
             }
             .alert(tasks.wrappedValue.notice ?? "", isPresented: tasks.notice.present()) {}
+            .sheet(item: tasks.ordering) { order in DayOrderSheet(order: order, ledger: ledger, folder: folder) }
+    }
+}
+
+struct DayOrder: Identifiable {
+    let id = UUID()
+    let entries: [Entry]
+}
+
+/// 调整当天顺序: drag the day's entries into the order they happened; saved, they trade places in their file and whatever
+/// lies between them (balance assertions, notes) stays put (`prepareFolderReorder`)
+struct DayOrderSheet: View {
+    let order: DayOrder
+    let ledger: Ledger
+    let folder: URL
+    @State private var items: [Entry] = []
+    @State private var saving = false
+    /// why it wasn't saved; the order stays as dragged
+    @State private var message = ""
+    @State private var review: FolderSave?
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(LS("调整当天顺序")).font(.headline)
+            List {
+                ForEach(items, id: \.startLine) { entry in
+                    let line = JournalRow(entry, ledger, account: nil)
+                    HStack {
+                        Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary)
+                        Text([line.payee, line.note].filter { !$0.isEmpty }.joined(separator: " · ")).lineLimit(1)
+                        Spacer()
+                        if let amount = line.amounts.first { Text(amount.text).monospacedDigit().foregroundStyle(amount.tone.color) }
+                    }
+                }
+                .onMove { items.move(fromOffsets: $0, toOffset: $1) }
+            }
+            .frame(minHeight: 180)
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(Color.loss)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, minHeight: 20, alignment: .leading)
+            HStack {
+                Spacer()
+                Button(LS("取消")) { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(LS("保存"), action: save)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(saving || items.map(\.startLine) == order.entries.map(\.startLine))
+            }
+        }
+        .padding(20)
+        .frame(width: 460)
+        .onAppear { if items.isEmpty { items = order.entries } }
+        .alert(review?.issues.first?.title ?? "", isPresented: Binding(get: { review != nil }, set: { if !$0 { review = nil } })) {
+            if review?.issues.contains(where: \.blocking) == false {
+                Button(LS("仍然调整"), role: .destructive) { if let review { write(review) } }
+            }
+            Button(LS("返回修改"), role: .cancel) {}
+        } message: {
+            Text(review?.issues.map(\.detail).joined(separator: "\n") ?? "")
+        }
+    }
+
+    private func save() {
+        saving = true
+        message = ""
+        let ordered = items
+        Task { @MainActor in
+            defer { saving = false }
+            switch await Task.detached(operation: { prepareFolderReorder(ordered, folder: folder) }).value {
+            case .failure(let error): message = error.message
+            case .success(let save): if save.issues.isEmpty { write(save) } else { review = save }
+            }
+        }
+    }
+
+    private func write(_ save: FolderSave) {
+        do {
+            try SaveUndo.commit(save, folder: folder, name: LS("调整当天顺序"))
+            dismiss()
+        } catch {
+            message = error.localizedDescription
+        }
     }
 }
 
@@ -423,6 +536,13 @@ struct SourcePanel: View {
                         .disabled(!entry.editable || KitPrivacy.masked)
                     Menu(LS("更多")) {
                         Button(LS("编辑…")) { tasks.edit(entry, ledger, config) }.disabled(!entry.editable)
+                        Button(LS("复制为新交易…")) { tasks.copyAsNew(entry, ledger, config) }.disabled(!entry.editable)
+                        if EntryTasks.refundable(entry, ledger) {
+                            Button(LS("登记退款…")) { tasks.refund(entry, ledger, config) }
+                        }
+                        if EntryTasks.sameDay(entry, ledger).count > 1 {
+                            Button(LS("调整当天顺序…")) { tasks.order(entry, ledger) }
+                        }
                         Button(LS("添加附件…")) { chooseAttachments() }.disabled(!entry.editable)
                         Button(LS("复制原文")) { EntryTasks.copy([entry]) }
                         Button(LS("打开所在文件")) { EntryTasks.open(entry, in: folder) }
