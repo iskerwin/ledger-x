@@ -30,13 +30,13 @@
         },
         {
           "version": "1.0.17",
-          "buildVersion": "69.2",
-          "date": "2026-11-16T04:36:02Z",
-          "localizedDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 69.2 · feat/mac-sidebar-add f8c5d13 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "buildVersion": "69.3",
+          "date": "2026-11-16T09:34:41Z",
+          "localizedDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 69.3 · feat/mac-reimbursement 7d6883e 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
           "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-          "size": 11035145,
+          "size": 11043285,
           "minOSVersion": "17.0",
-          "sha256": "314dd785edacee39a75bbd6f511e0ddd375b6c7d2010054f9f735f7a64cc1fd9"
+          "sha256": "da616d189d5f904b756b4ae7e295a416ce60bfc72edc1b13c2ae793c38fcdb9a"
         },
         {
           "version": "1.0.16",
