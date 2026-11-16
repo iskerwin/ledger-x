@@ -344,7 +344,15 @@ struct EntryList: View {
         guard entries.count == 1, let entry = entries.first else {
             return [TableMenuItem(title: LS("复制 %@ 笔原文", entries.count)) { EntryTasks.copy(entries) }]
         }
-        return [TableMenuItem(title: LS("编辑…"), enabled: entry.editable) { tasks.edit(entry, ledger, config) },
+        var items = [TableMenuItem(title: LS("编辑…"), enabled: entry.editable) { tasks.edit(entry, ledger, config) },
+                     TableMenuItem(title: LS("复制为新交易…"), enabled: entry.editable) { tasks.copyAsNew(entry, ledger, config) }]
+        if EntryTasks.refundable(entry, ledger) {
+            items.append(TableMenuItem(title: LS("登记退款…")) { tasks.refund(entry, ledger, config) })
+        }
+        if EntryTasks.sameDay(entry, ledger).count > 1 {
+            items.append(TableMenuItem(title: LS("调整当天顺序…")) { tasks.order(entry, ledger) })
+        }
+        return items + [
                 TableMenuItem(title: LS("复制原文")) { EntryTasks.copy(entries) },
                 TableMenuItem(title: LS("打开所在文件")) { EntryTasks.open(entry, in: folder) },
                 .divider,
