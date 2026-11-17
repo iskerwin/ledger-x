@@ -41,8 +41,8 @@ struct MacGuide: View {
 
     static var topics: [Topic] { [
         Topic(title: tr("打开账本", "Opening a ledger"), points: [
-            tr("「文件 › 打开账本…」（⌘O）选择账本所在的文件夹（有 main.bean 的那个）。「设置 › 账本」显示当前账本的位置，也可以在那里切换。",
-               "File › Open Ledger… (⌘O) chooses the folder the ledger is in (the one with main.bean). Settings › Ledger shows where the open ledger is and switches to another."),
+            tr("「文件 › 打开账本…」（⌘O）选择账本所在的文件夹（有 main.bean 的那个）；「文件 › 打开最近使用」列出最近打开过的几本，一点即开。「设置 › 账本」显示当前账本的位置，也可以在那里切换。",
+               "File › Open Ledger… (⌘O) chooses the folder the ledger is in (the one with main.bean); File › Open Recent lists the last few opened, one click away. Settings › Ledger shows where the open ledger is and switches to another."),
             tr("账本是文件夹里的普通 Beancount 文本，App 不另存数据。文件在别处改过，页面会自动重新读取。",
                "The ledger is plain Beancount text in the folder; the app keeps no data of its own. When a file is changed elsewhere, the pages read it again by themselves."),
             tr("账本有错误时，窗口底部出现一条提示，点它打开「错误」页，可以直接打开出错的文件；缺少的币种声明可以「补上声明」。",
