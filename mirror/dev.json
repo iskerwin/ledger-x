@@ -20,6 +20,16 @@
       "versions": [
         {
           "version": "1.0.17",
+          "buildVersion": "72.1",
+          "date": "2026-11-17T05:21:59Z",
+          "localizedDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 72.1 · preview/batch-mac-1 cbb30cb 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.17-72.1",
+          "size": 11041781,
+          "minOSVersion": "17.0",
+          "sha256": "78f140522f66373911f1566c79f447c1646a322b38f849d6e0a31b2b07ed5609"
+        },
+        {
+          "version": "1.0.17",
           "buildVersion": "72",
           "date": "2026-11-16T17:18:38Z",
           "localizedDescription": "# Ledger X 1.0.17 开发版\n\n版本 1.0.17 · 构建 72 · main 8096f17 。\n\n## 新增\n\n- Mac 版菜单栏多了「交易」：在明细里选中一笔后，这里列出和右键一样的操作，「复制为新交易」可按 ⌘D；「编辑 › 拷贝」（⌘C）复制所选交易的原文。「帮助 › Ledger X 使用指南」（⌘?）打开按 Mac 操作写的使用指南，手机的使用指南不再夹着 Mac 的说明。",
@@ -27,16 +37,6 @@
           "size": 11041676,
           "minOSVersion": "17.0",
           "sha256": "a69f83630cd97aa125a8f87b52ace60c7a00ce1c6155a62c7a243d017c7c1b9a"
-        },
-        {
-          "version": "1.0.17",
-          "buildVersion": "70.2",
-          "date": "2026-11-16T14:04:37Z",
-          "localizedDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 70.2 · feat/mac-guide-menus 151d632 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.17-70.2",
-          "size": 11041681,
-          "minOSVersion": "17.0",
-          "sha256": "4763e428b7fb0cda84c08f74399b85fef561bbc9815e3a3ea351bf2266faf1f7"
         },
         {
           "version": "1.0.16",
@@ -208,10 +208,10 @@
         }
       },
       "version": "1.0.17",
-      "versionDate": "2026-11-16T17:18:38Z",
-      "versionDescription": "# Ledger X 1.0.17 开发版\n\n版本 1.0.17 · 构建 72 · main 8096f17 。\n\n## 新增\n\n- Mac 版菜单栏多了「交易」：在明细里选中一笔后，这里列出和右键一样的操作，「复制为新交易」可按 ⌘D；「编辑 › 拷贝」（⌘C）复制所选交易的原文。「帮助 › Ledger X 使用指南」（⌘?）打开按 Mac 操作写的使用指南，手机的使用指南不再夹着 Mac 的说明。",
-      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/dev/Ledger.ipa?v=1.0.17-72",
-      "size": 11041676
+      "versionDate": "2026-11-17T05:21:59Z",
+      "versionDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 72.1 · preview/batch-mac-1 cbb30cb 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.17-72.1",
+      "size": 11041781
     }
   ],
   "news": []
