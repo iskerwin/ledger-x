@@ -274,6 +274,8 @@ struct EntryTasks {
     var subscribing: SubDraft?
     /// an advance's 支出类型 and 凭证类型 being filled in
     var fielding: Entry?
+    /// several picked, changed at once
+    var batching: BatchRequest?
     /// a right-click save written as the subscription and reimbursement pages write theirs
     var writeBusy = false
     var writeMessage = ""
@@ -423,6 +425,7 @@ extension View {
             .sheet(item: tasks.ordering) { order in DayOrderSheet(order: order, ledger: ledger, folder: folder) }
             .sheet(item: tasks.subscribing) { SubscriptionEditor(draft: $0, ledger: ledger, config: config, folder: folder) }
             .sheet(item: tasks.fielding) { AdvanceFieldsSheet(entry: $0, ledger: ledger, config: config, folder: folder) }
+            .sheet(item: tasks.batching) { BatchEditSheet(request: $0, ledger: ledger, folder: folder) }
             .alert(tasks.wrappedValue.writeMessage, isPresented: Binding(get: { !tasks.wrappedValue.writeMessage.isEmpty },
                                                                         set: { if !$0 { tasks.wrappedValue.writeMessage = "" } })) {}
             .folderReview(entryWriter(tasks, folder), tasks.writeReview, step: tasks.wrappedValue.writeStep) {}
