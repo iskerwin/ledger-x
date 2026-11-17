@@ -366,7 +366,7 @@ struct LoanSheet: View {
             Section {
                 DateField(value: $d.date)
                 LabeledContent(LS("金额 ") + d.currency) {
-                    TextField(suggested(p).map { fmtNum($0) } ?? "0.00", text: $d.amount)
+                    TextField(loanOutstanding(d, L).map { fmtNum($0) } ?? "0.00", text: $d.amount)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                         .monospacedDigit()
@@ -414,13 +414,6 @@ struct LoanSheet: View {
         }
     }
 
-    /// what is outstanding, for collecting or repaying it in full
-    private func suggested(_ p: Person?) -> Double? {
-        guard let p = p, let v = p.net[d.currency] else { return nil }
-        if d.kind == .collect && v > 0 { return v }
-        if d.kind == .repay && v < 0 { return -v }
-        return nil
-    }
 
     private func kindHelp(_ k: LoanKind) -> String {
         switch k {
@@ -434,7 +427,7 @@ struct LoanSheet: View {
     private func save(_ text0: String) async {
         var text = text0
         // collecting / repaying with the amount left empty: the outstanding amount
-        if text.isEmpty, let L = store.L, let s = suggested(person(L)) {
+        if text.isEmpty, let L = store.L, let s = loanOutstanding(d, L) {
             d.amount = fmtNum(s); text = loanText(d, L)
         }
         guard !text.isEmpty else { return }

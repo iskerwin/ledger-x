@@ -88,6 +88,12 @@ struct MacGuide: View {
             tr("报销页「待报销」旁点「登记回款…」，勾选这次回款的垫付（多币种时先选币种）后保存；进行中的报销单右键可登记回款或导出报销单，导出时选择保存位置，PDF、xlsx 和 CSV 放在一起。明细右键一笔垫付可改「支出类型与凭证」或移出报销单。",
                "Click Record payment… beside Waiting on Reimbursements, tick the advances paid back (pick the currency first when there are several) and save. Right-click an open claim to record its repayment or export it; choose where to save, and the PDF, xlsx and CSV go together. In the journal, right-click an advance to set its expense type and receipt, or take it off its claim."),
         ]),
+        Topic(title: tr("个人往来", "People"), points: [
+            tr("侧栏「往来 › 个人往来」按人列出借出、代付、AA 和借款：左边是每个人还欠多少（他欠我或我欠他），右边是这个人的余额和全部记录。",
+               "Dealings › People lists lending, paying for others, sharing and borrowing by person: the left shows what each one owes or is owed, the right their balance and every entry with them."),
+            tr("右上角「登记往来…」记借出、收回、借入或还钱；从某个人打开时已选好对方和币种，金额不填就按现在欠的全额记。第一次向某人借钱要填借款账户名（拼音，如 WangWu）。保存可用 ⌘Z 撤销。",
+               "Record with Someone… at the top right records lending, collecting, borrowing or repaying; opened on a person, it has them and the currency set, and an empty amount is the whole outstanding sum. Borrowing from someone the first time needs a loan account name (such as WangWu). ⌘Z undoes it."),
+        ]),
         Topic(title: tr("附件与对账单", "Attachments and statements"), points: [
             tr("「附件与对账单」页按账户列出。把文件拖到左边的某个账户上，或选中账户后点「添加对账单…」，就作为它的对账单保存；交易的附件在原文下的「更多 › 添加附件…」。",
                "Attachments & Statements lists them by account. Drop a file on an account at the left, or pick the account and click Add Statement…, to keep it as that account's statement; an entry's attachments are added from More › Add Attachment… under its text."),

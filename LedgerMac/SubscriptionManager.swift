@@ -20,6 +20,11 @@ struct FolderWriter {
         prepare(step: step, done: done) { prepareFolderReimbursement(change, folder: folder) }
     }
 
+    func prepare(_ loan: LoanDraft, step: String, done: @escaping @MainActor () -> Void = {}) {
+        let folder = folder
+        prepare(step: step, done: done) { prepareFolderLoan(loan, folder: folder) }
+    }
+
     private func prepare(step: String, done: @escaping @MainActor () -> Void, work: @escaping @Sendable () -> Result<FolderSave, FolderSaveError>) {
         guard !busy else { return }
         busy = true
