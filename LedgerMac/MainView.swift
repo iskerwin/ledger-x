@@ -129,8 +129,8 @@ struct MainView: View {
             // and switching ledgers are the menu bar's (⌘, ⌘O), so the sidebar is the pages alone and nothing sits over them
             .toolbar {
                 ToolbarItem {
+                    // no .help: a toolbar shows the label as its own tooltip, and a second one over it blinks
                     Button { adding = true } label: { Label(LS("记一笔"), systemImage: "square.and.pencil") }
-                        .help(LS("记一笔") + " ⌘N")
                 }
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 208, max: 260)
