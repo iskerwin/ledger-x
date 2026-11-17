@@ -338,6 +338,28 @@ public func loanText(_ d: LoanDraft, _ L: Ledger) -> String {
     return parts.joined(separator: "\n\n")
 }
 
+/// what is outstanding with them in the draft's currency, for collecting or repaying it in full; nil for lending or
+/// borrowing, or when nothing is owed that way
+public func loanOutstanding(_ d: LoanDraft, _ L: Ledger) -> Double? {
+    let name = d.name.trimmingCharacters(in: .whitespaces)
+    guard let v = people(L).first(where: { $0.name == name })?.net[d.currency] else { return nil }
+    if d.kind == .collect && v > 0 { return v }
+    if d.kind == .repay && v < 0 { return -v }
+    return nil
+}
+
+/// A loan entry written into a ledger folder (the Mac): the amount left empty is what is outstanding, as on the phone
+public func prepareFolderLoan(_ d: LoanDraft, folder: URL) -> Result<FolderSave, FolderSaveError> {
+    prepareFolderOps(folder: folder) { ledger, insert, _ in
+        var d = d
+        if d.amount.trimmingCharacters(in: .whitespaces).isEmpty, let owed = loanOutstanding(d, ledger) { d.amount = fmtNum(owed) }
+        let text = loanText(d, ledger)
+        guard !text.isEmpty else { return .failure(FolderSaveError(message: tr("对方、金额或账户没填好", "Fill in who, the amount and the account"))) }
+        guard let ops = insert(text) else { return .failure(FolderSaveError(message: tr("没有写入", "Nothing was written"))) }
+        return .success(ops)
+    }
+}
+
 /// one balance to bring to zero
 public struct SettleItem: Equatable, Hashable {
     public let account: String
