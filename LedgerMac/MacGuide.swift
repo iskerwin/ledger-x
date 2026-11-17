@@ -67,6 +67,8 @@ struct MacGuide: View {
                "With an entry picked, ↩ edits it, ⌫ deletes it after asking, and ⌘C copies the text of what's picked."),
             tr("右键一笔，或用菜单栏的「交易」：编辑、复制为新交易（⌘D）、登记退款（支出才有）、调整当天顺序（同一天同一文件有几笔时才有）、加入订阅、复制原文、打开所在文件和删除。复制为新交易和登记退款打开预填好的记一笔窗口，调整顺序时拖动后保存。",
                "Right-click an entry, or use Transactions in the menu bar, to edit it, Duplicate as New (⌘D), Record Refund (for spending), Reorder This Day (when the day has several in one file), Add to Subscriptions, copy its text, open its file or delete it. Duplicate and Refund open the Add window filled in; to reorder, drag and save."),
+            tr("选中多笔后右键（或菜单栏「交易」）「批量编辑…」：把某个科目整体换成另一个（只换完全相同的科目，不含子科目），或给它们都加上同一个标签、链接；一次写入，⌘Z 一步撤回。",
+               "With several picked, right-click (or Transactions in the menu bar) › Batch Edit… replaces one account with another (exactly that account, not its sub-accounts) or adds one tag or link to them all; written at once, undone in one step with ⌘Z."),
             tr("原文下的「修改原文」直接改 Beancount 文本，⌘↩ 保存，Esc 取消；「更多」里还能添加附件。",
                "Edit Source under the text changes the Beancount text itself: ⌘↩ saves, Esc cancels. More also adds attachments."),
         ]),
