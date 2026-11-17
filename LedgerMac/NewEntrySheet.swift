@@ -77,7 +77,7 @@ struct NewEntrySheet: View {
                           editing: editing, saving: saving, message: message, blank: { Self.blank($0, ledger: ledger, derived: derived, config: config) }, setKind: setKind,
                           openFull: { message = ""; full = true }, close: close, save: save(another:)) { panel = $0 }
                     .id(entry)
-                    .frame(width: 400, height: EntryWindow.fitted(740))
+                    .frame(width: 560, height: EntryWindow.fitted(600))
             } else {
                 form
             }

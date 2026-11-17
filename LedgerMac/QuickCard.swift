@@ -14,8 +14,9 @@ private enum Radius {
     static let panel: CGFloat = 14, control: CGFloat = 12
 }
 
-/// 记一笔's quick page, the phone's (`QuickAddView` in Ledger/Views/QuickAddView.swift): the frequent entries, the category grid (or a
-/// transfer's two accounts), the amount, the paying account, the day and 更多, and the keypad; typed keys work as the keypad's.
+/// 记一笔's quick page, laid out for a keyboard and a mouse rather than a finger: the amount typed first, then the category (common
+/// ones as chips, any one by typing a few letters) or a transfer's two accounts, the paying account, the day and 更多, who and
+/// what for, and the save buttons; everything close together, Tab from one field to the next, ↩ to save.
 /// 分录, 文本, AA and the like are one step in, on 完整表单
 struct QuickCard: View {
     @Binding var draft: Draft
@@ -35,12 +36,12 @@ struct QuickCard: View {
     let save: (_ another: Bool) -> Void
     let open: (EntryPanel) -> Void
 
-    enum Field: Hashable { case payee, narration }
+    enum Field: Hashable { case amount, category, payee, narration }
     enum Pick: String, Identifiable { case funding, from, to; var id: String { rawValue } }
 
     @FocusState private var field: Field?
-    /// typing the payee and description: the fields replace the keypad
-    @State private var writing = false
+    /// what is typed to find a category; the chips show what it finds
+    @State private var categoryQuery = ""
     @State private var attemptedSave = false
     /// goes up at each save turned back, to shake the reason
     @State private var blockedSaves = 0
@@ -93,45 +94,48 @@ struct QuickCard: View {
         let d = draft
         VStack(spacing: 0) {
             topBar
-            if writing {
-                ScrollView {
-                    amountCard(d).padding(Space.control)
-                }
-                textSuggestions(d)
-            } else {
-                topStrip(d)
-                // the grid and the details scroll in their own area: the amount, the choices and the keypad below never move
-                ScrollView {
-                    VStack(spacing: Space.control) {
-                        if d.kind == .transfer { transferPanel(d) }
-                        else if d.reimb {
-                            LabeledContent(LS("报销应收科目"), value: accountTitle(ledger, derived.receivable))
-                                .padding(.vertical, Space.control)
-                        } else { grid(d); subCategories(d) }
+            topStrip(d)
+            // the fields scroll in their own area: the kind above and the save buttons below never move
+            ScrollView {
+                VStack(alignment: .leading, spacing: Space.control) {
+                    amountCard(d)
+                    if d.kind == .transfer { transferPanel(d) }
+                    else if d.reimb {
+                        LabeledContent(LS("报销应收科目"), value: accountTitle(ledger, derived.receivable))
+                            .padding(.vertical, Space.icon)
+                    } else {
+                        categoryRow(d)
+                        subCategories(d)
                     }
-                    .padding(.horizontal, Space.content)
-                    .padding(.vertical, Space.icon)
+                    choices(d)
+                    textFields(d)
                 }
-                .frame(maxHeight: .infinity)
-                bottomPanel(d)
+                .padding(.horizontal, Space.content)
+                .padding(.vertical, Space.icon)
             }
+            .frame(maxHeight: .infinity)
+            saveBar
         }
         .background(Color.page)
-        // the keyboard types on the keypad wherever the click last was; the payee and description fields keep their own keys
-        .background(TypedKeys(enabled: !writing) { typed in
-            switch typed {
+        // digits typed while no field has the cursor (after a click on a chip) still go to the amount
+        .background(TypedKeys(enabled: true) { typed in
+            // a Chinese or Japanese input method sends 。 for the point and full-width digits
+            switch asciiTyped(typed) {
             case "*": key("×")
             case "/": key("÷")
             case "=": equals()
+            case "\r", "\u{3}": isExpression(draft.amount) ? equals() : submit(close: true)
             case "\u{7F}": key("⌫")
             default:
+                let typed = asciiTyped(typed)
                 guard typed.count == 1, "0123456789.+-×÷".contains(typed) else { return false }
                 key(typed)
             }
             return true
         })
+        // the cursor starts in the amount (a field can only be focused once it is on screen)
+        .onAppear { DispatchQueue.main.async { if field == nil { field = .amount } } }
         .onChange(of: field) { old, new in
-            if new == nil && old != nil { DispatchQueue.main.async { if field == nil { writing = false } } }
             // leaving the payee or the note: a known one fills in what isn't picked yet
             if old == .payee && new != .payee { applyPayee(draft.payee.trimmed, onlyBlanks: true) }
             if old == .narration && new != .narration { applyNarration(draft.narration.trimmed, onlyBlanks: true) }
@@ -277,29 +281,58 @@ struct QuickCard: View {
         return top
     }
 
+    /// the common categories as chips and 全部; typing in the field beside them shows the categories that match instead,
+    /// and ↩ there takes the first
     @ViewBuilder
-    private func grid(_ d: Draft) -> some View {
+    private func categoryRow(_ d: Draft) -> some View {
         let groups = gridGroups(root)
         let picked = d.account.hasPrefix(root) ? catOf(d.account) : nil
-        let top = shownGroups(groups, picked: picked)
+        let typed = categoryQuery.trimmed
         if groups.isEmpty {
             Text(LS("账本里还没有%@科目，可在「账户」里新建。", d.kind == .income ? "收入" : "支出"))
                 .font(.system(size: Size.footnote))
                 .foregroundStyle(.secondary)
         } else {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Space.icon, alignment: .top), count: 4), spacing: Space.control) {
-                ForEach(top) { g in
-                    CategoryCell(icon: categorySymbol(g.id), title: categoryGroupTitle(g, ledger), single: g.single, selected: g.id == picked) {
-                        // the picked group again: its sub-categories
-                        if g.id == picked && !g.single { subPicking = g.id } else { pick(g) }
-                    }
-                    .contextMenu {
-                        if !g.single { Button(LS("选择子类"), systemImage: "list.bullet") { pick(g); subPicking = g.id } }
+            HStack(spacing: Space.icon) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Space.icon) {
+                        if typed.isEmpty {
+                            ForEach(shownGroups(groups, picked: picked)) { g in
+                                QuickChip(label: categoryGroupTitle(g, ledger), systemImage: categorySymbol(g.id), selected: g.id == picked) {
+                                    // the picked group again: its sub-categories
+                                    if g.id == picked && !g.single { subPicking = g.id } else { pick(g) }
+                                }
+                                .contextMenu {
+                                    if !g.single { Button(LS("选择子类"), systemImage: "list.bullet") { pick(g); subPicking = g.id } }
+                                }
+                            }
+                            QuickChip(label: LS("全部"), systemImage: "square.grid.2x2") { field = nil; allCategories = true }
+                        } else {
+                            let hits = categoryMatches(groups, typed, ledger)
+                            if hits.isEmpty {
+                                Text(LS("没有找到「%@」", typed)).font(.system(size: Size.subheadline)).foregroundStyle(.secondary)
+                            }
+                            ForEach(Array(hits.prefix(12).enumerated()), id: \.offset) { _, hit in
+                                QuickChip(label: categoryGroupTitle(hit.0, ledger) + (hit.0.single ? "" : " › " + leafTitle(ledger, hit.1)),
+                                          systemImage: categorySymbol(hit.0.id), selected: hit.1 == d.account) { pickTyped(hit.1) }
+                            }
+                        }
                     }
                 }
-                CategoryCell(icon: "square.grid.2x2", title: LS("全部"), single: true, selected: false) { field = nil; allCategories = true }
+                TextField(LS("搜索分类"), text: $categoryQuery)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 120)
+                    .focused($field, equals: .category)
+                    .onSubmit { if let first = categoryMatches(groups, typed, ledger).first { pickTyped(first.1) } }
             }
         }
+    }
+
+    /// a category found by typing: picked, the search cleared, on to who it was with
+    private func pickTyped(_ account: String) {
+        pickCategory(account)
+        categoryQuery = ""
+        field = .payee
     }
 
     /// a group of one picks its account; a bigger one the account last used in it (click again for the others)
@@ -493,19 +526,7 @@ struct QuickCard: View {
         draft.selection = selection
     }
 
-    // MARK: the bottom: amount, choices, keypad
-
-    private func bottomPanel(_ d: Draft) -> some View {
-        VStack(spacing: Space.icon) {
-            amountCard(d)
-            choices(d)
-            keypad(d)
-        }
-        .padding(.horizontal, Space.control)
-        .padding(.top, Space.icon)
-        .padding(.bottom, Space.control)
-        .background(Color.page)
-    }
+    // MARK: account, day, 更多
 
     /// one row in equal parts: the paying account (not for a transfer), the day, then 更多 for spending or 标签 for income and transfers
     private func choices(_ d: Draft) -> some View {
@@ -683,13 +704,14 @@ struct QuickCard: View {
                 .foregroundStyle(.secondary)
             HStack(alignment: .center, spacing: Space.icon) {
                 Text(SYM[d.currency] ?? "").font(.system(size: 22, weight: .semibold, design: .rounded)).foregroundStyle(kindColor)
-                // smaller as the expression grows (a fixed size each step, so it doesn't wobble while typing)
-                Text(d.amount.isEmpty ? "0.00" : d.amount)
-                    .font(.system(size: d.amount.count <= 10 ? 38 : d.amount.count <= 15 ? 28 : 21, weight: .bold, design: .rounded))
+                // typed straight in; ↩ works out a sum, then saves
+                TextField("0.00", text: Binding(get: { draft.amount }, set: { setAmount(typedAmount($0)) }))
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 30, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(d.amount.isEmpty ? Color.secondary.opacity(0.5) : kindColor)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
+                    .foregroundStyle(kindColor)
+                    .focused($field, equals: .amount)
+                    .onSubmit { isExpression(draft.amount) ? equals() : submit(close: true) }
                 if isExpression(d.amount) {
                     Text("= " + (evalAmount(d.amount).map { fmtNum($0) } ?? "?"))
                         .font(.system(size: Size.callout).monospacedDigit())
@@ -726,7 +748,7 @@ struct QuickCard: View {
                 }
                 .buttonStyle(.plain)
             }
-            if !writing, let summary = payingSummary(d, ledger) {
+            if let summary = payingSummary(d, ledger) {
                 let issue = comboIssue(d, ledger, derived)
                 Label(issue ?? summary, systemImage: issue == nil ? "square.split.2x1" : "exclamationmark.triangle")
                     .font(.system(size: Size.footnote))
@@ -744,8 +766,6 @@ struct QuickCard: View {
                 .buttonStyle(.plain)
                 .modifier(Shake(trigger: blockedSaves))
             }
-            Divider()
-            if writing { textFields(d) } else { merchantRow(d) }
         }
         .padding(Space.control)
         .background(Color.card, in: RoundedRectangle(cornerRadius: 16))
@@ -760,38 +780,6 @@ struct QuickCard: View {
         shownIssue?.message ?? (message.isEmpty ? nil : message)
     }
 
-    /// 瑞幸咖啡 · 冰美式: who and what for in one line; click to type them
-    private func merchantRow(_ d: Draft) -> some View {
-        let icon = d.account.isEmpty ? "storefront" : categorySymbol(catOf(d.account))
-        let empty = d.payee.trimmed.isEmpty && d.narration.trimmed.isEmpty
-        return Button { startWriting(d.payee.trimmed.isEmpty ? .payee : .narration) } label: {
-            HStack(spacing: Space.icon) {
-                CellIcon(symbol: icon).foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: Space.detail) {
-                    if empty {
-                        Text(d.kind == .income ? LS("付款方 · 摘要") : LS("收付款方 · 摘要")).foregroundStyle(.secondary)
-                    } else {
-                        if !d.payee.trimmed.isEmpty { Text(d.payee).lineLimit(2) }
-                        if !d.narration.trimmed.isEmpty {
-                            Text(d.narration).font(.system(size: Size.subheadline)).foregroundStyle(.secondary).lineLimit(2)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: "chevron.right").font(.system(size: Size.caption, weight: .semibold)).foregroundStyle(.tertiary)
-            }
-            .font(.system(size: Size.body))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    /// show the payee and description fields, then put the cursor in one (a field can only be focused once it exists)
-    private func startWriting(_ f: Field) {
-        writing = true
-        DispatchQueue.main.async { field = f }
-    }
-
     /// 今天, 昨天, or the day ("10月14日"; with the year when it isn't this year's)
     private func dayLabel(_ day: String) -> String {
         let today = Day.today()
@@ -801,56 +789,36 @@ struct QuickCard: View {
         return day.prefix(4) == today.prefix(4) ? LS("%@月%@日", m, dd) : day
     }
 
-    @ViewBuilder
+    /// who and what for, each with what was used before as chips under it while the cursor is there; ↩ in the note saves
     private func textFields(_ d: Draft) -> some View {
         let notes = narrationSuggestions(derived, typed: "", payee: d.payee, limit: 1)
-        labeled(LS("收付款方")) {
+        let typedPayee = d.payee.trimmed
+        return VStack(alignment: .leading, spacing: Space.icon) {
             TextField(LS("收付款方"), text: Binding(get: { draft.payee }, set: { updateText(\.payee, $0) }), prompt: Text(LS("如 便利店、淘宝，可不填")))
+                .textFieldStyle(.roundedBorder)
                 .focused($field, equals: .payee)
                 .onSubmit { applyPayee(draft.payee.trimmed, onlyBlanks: false); field = .narration }
-        }
-        labeled(LS("摘要")) {
             TextField(LS("摘要"), text: Binding(get: { draft.narration }, set: { updateText(\.narration, $0) }),
                       prompt: Text(notes.first.map { LS("如 %@，可不填", $0) } ?? LS("买了什么、做什么用，可不填")))
+                .textFieldStyle(.roundedBorder)
                 .focused($field, equals: .narration)
-                .onSubmit { field = nil; writing = false }
-        }
-    }
-
-    /// the payees or notes that fit what is typed, and 完成
-    private func textSuggestions(_ d: Draft) -> some View {
-        HStack(spacing: Space.icon) {
+                .onSubmit { submit(close: true) }
+            // one row, always there, so nothing below moves as the cursor goes from field to field
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Space.icon) {
                     if field == .payee {
-                        let typed = d.payee.trimmed
-                        ForEach(Array(derived.payees.lazy.filter { typed.isEmpty || fuzzy(typed, $0.name) > 0 }.prefix(8)), id: \.name) { p in
+                        ForEach(Array(derived.payees.lazy.filter { typedPayee.isEmpty || fuzzy(typedPayee, $0.name) > 0 }.prefix(8)), id: \.name) { p in
                             QuickChip(label: p.name) { applyPayee(p.name, onlyBlanks: false); field = .narration }
                         }
-                    } else {
+                    } else if field == .narration {
                         ForEach(narrationSuggestions(derived, typed: d.narration, payee: d.payee, limit: 8), id: \.self) { n in
                             QuickChip(label: n, selected: d.narration == n) { applyNarration(n, onlyBlanks: false) }
                         }
                     }
                 }
             }
-            Button { field = nil; writing = false } label: { Label(LS("完成"), systemImage: "checkmark") }
-                .buttonStyle(.plain)
-                .font(.system(size: Size.body, weight: .semibold))
-                .foregroundStyle(Color.jade)
-                .padding(.vertical, Space.icon)
+            .frame(height: 32)
         }
-        .padding(.horizontal, Space.control)
-        .padding(.vertical, Space.icon)
-        .background(Color.card)
-    }
-
-    private func labeled<F: View>(_ label: String, @ViewBuilder _ f: () -> F) -> some View {
-        HStack(spacing: Space.control) {
-            Text(label).font(.system(size: Size.subheadline)).foregroundStyle(.secondary).frame(width: 64, alignment: .leading)
-            f().textFieldStyle(.plain).font(.system(size: Size.body))
-        }
-        .padding(.vertical, Space.detail)
     }
 
     private func updateText(_ key: WritableKeyPath<Draft, String>, _ value: String) {
@@ -885,47 +853,44 @@ struct QuickCard: View {
         }
     }
 
-    // MARK: keypad
+    // MARK: saving
 
-    private func keypad(_ d: Draft) -> some View {
-        let expression = isExpression(d.amount)
-        return Grid(horizontalSpacing: Space.icon, verticalSpacing: Space.icon) {
-            GridRow { digit("1"); digit("2"); digit("3"); KeyCap(systemImage: "delete.left", label: LS("退格"), tap: { key("⌫") }, hold: { setAmount("") }) }
-            GridRow { digit("4"); digit("5"); digit("6"); KeyCap(text: "+  ×", label: LS("加，长按为乘"), tap: { key("+") }, hold: { key("×") }) }
-            GridRow { digit("7"); digit("8"); digit("9"); KeyCap(text: "−  ÷", label: LS("减，长按为除"), tap: { key("-") }, hold: { key("÷") }) }
-            GridRow {
-                digit(".")
-                digit("0")
-                if editing {
-                    // editing: there is no next one; its text instead
-                    KeyCap(text: LS("源文本"), symbol: "chevron.left.forwardslash.chevron.right", font: .system(size: 16, weight: .semibold), tap: { editingText = true })
-                } else {
-                    KeyCap(text: LS("保存再记"), symbol: "plus.circle", font: .system(size: 16, weight: .semibold), soft: true, tap: { submit(close: false) })
-                }
-                KeyCap(text: expression ? "=" : LS("保存"), symbol: expression ? nil : "checkmark", font: .system(size: expression ? 24 : 17, weight: .semibold),
-                       filled: true, tap: { expression ? equals() : submit(close: true) })
-                    .opacity(saving ? 0.5 : 1)
+    /// 保存再记 (源文本 when editing) and 保存, at the bottom right; ↩ in the amount or the note saves, ⇧⌘↩ saves and starts another
+    private var saveBar: some View {
+        HStack(spacing: Space.control) {
+            Spacer()
+            if editing {
+                Button(LS("源文本"), systemImage: "chevron.left.forwardslash.chevron.right") { editingText = true }
+                    .controlSize(.large)
+            } else {
+                Button(LS("保存再记")) { submit(close: false) }
+                    .keyboardShortcut(.return, modifiers: [.command, .shift])
+                    .controlSize(.large)
             }
+            // ↩ is each field's own (a default button would fire as well and save twice); with no field, TypedKeys takes it
+            Button(LS("保存")) { isExpression(draft.amount) ? equals() : submit(close: true) }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.jade)
+                .controlSize(.large)
+                .disabled(saving)
         }
-        // ↩ is the filled key, ⇧⌘↩ the one beside it
-        .background {
-            Group {
-                Button("") { expression ? equals() : submit(close: true) }.keyboardShortcut(.defaultAction)
-                if !editing { Button("") { submit(close: false) }.keyboardShortcut(.return, modifiers: [.command, .shift]) }
-            }
-            .opacity(0)
-            .allowsHitTesting(false)
-        }
+        .padding(.horizontal, Space.content)
+        .padding(.vertical, Space.control)
+        .background(Color.page)
     }
 
-    private func digit(_ s: String) -> some View { KeyCap(text: s, tap: { key(s) }) }
+    /// what the amount field keeps of what is typed: digits, one point a number and the four signs (* and / as × and ÷)
+    private func typedAmount(_ text: String) -> String {
+        asciiTyped(text).replacingOccurrences(of: "*", with: "×").replacingOccurrences(of: "/", with: "÷")
+            .filter { "0123456789.+-×÷".contains($0) }
+    }
 
     private func setAmount(_ a: String) {
         draft.amount = a
         draft.edited = nil
     }
 
-    /// typing on the keypad: one decimal point and two decimals per number, no leading zeros, one operator in a row
+    /// typing with no field focused: one decimal point and two decimals per number, no leading zeros, one operator in a row
     private func key(_ k: String) {
         var a = draft.amount
         let ops: Set<Character> = ["+", "-", "×", "÷"]
@@ -958,7 +923,6 @@ struct QuickCard: View {
 
     private func locate(_ issue: DraftIssue) {
         field = nil
-        writing = false
         switch issue.field {
         case .category: allCategories = true
         case .funding: picking = draft.kind == .transfer ? .from : .funding
@@ -980,7 +944,6 @@ struct QuickCard: View {
             return
         }
         field = nil
-        writing = false
         save(!close)
     }
 }
@@ -1067,53 +1030,6 @@ private struct CategoryCell: View {
             .animation(.easeOut(duration: 0.15), value: selected)
         }
         .buttonStyle(.plain)
-    }
-}
-
-/// a key of the pad: its face darkens while held, and never moves or changes size
-private struct KeyCap: View {
-    var text: String?
-    var systemImage: String?
-    var label: String?
-    var symbol: String?
-    var font: Font = .system(size: 24, weight: .regular, design: .rounded)
-    var filled = false
-    /// a light key in the theme's colour (保存再记)
-    var soft = false
-    let tap: () -> Void
-    var hold: (() -> Void)?
-    @State private var pressed = false
-
-    private var ink: Color { filled ? .white : soft ? .jade : .primary }
-    private var fill: Color { filled ? .jade : soft ? Color.jade.soft : .card }
-
-    var body: some View {
-        Group {
-            if let systemImage {
-                Image(systemName: systemImage).font(.system(size: 20, weight: .medium))
-            } else if let symbol {
-                VStack(spacing: Space.detail) {
-                    Image(systemName: symbol).font(.system(size: 14, weight: .semibold))
-                    Text(text ?? "").font(font).lineLimit(1).minimumScaleFactor(0.7)
-                }
-            } else {
-                Text(text ?? "").font(font).lineLimit(1).minimumScaleFactor(0.7)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 50)
-        .foregroundStyle(ink)
-        .background(fill, in: RoundedRectangle(cornerRadius: Radius.control))
-        .overlay(RoundedRectangle(cornerRadius: Radius.control).fill(Color.primary.opacity(pressed ? 0.1 : 0)))
-        .contentShape(RoundedRectangle(cornerRadius: Radius.control))
-        .onTapGesture(perform: tap)
-        .onLongPressGesture(minimumDuration: 0.45) {
-            if let hold { hold() } else { tap() }
-        } onPressingChanged: { pressed = $0 }
-        .accessibilityElement()
-        .accessibilityLabel(label ?? text ?? "")
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { tap() }
     }
 }
 
@@ -1370,19 +1286,21 @@ private struct AllCategoriesSheet: View {
         .background(.bar)
     }
 
-    /// what the search finds: (group, account), the group's own name first
-    private func matches() -> [(CategoryGroup, String)] {
-        let q = query.trimmed.lowercased()
-        var out: [(CategoryGroup, String)] = []
-        for g in groups {
-            let name = categoryGroupTitle(g, ledger).lowercased()
-            for a in g.accounts {
-                let names = [name, leafTitle(ledger, a).lowercased(), a.lowercased(), acctDisplay(a).lowercased()]
-                if names.contains(where: { $0.contains(q) }) { out.append((g, a)) }
-            }
+    private func matches() -> [(CategoryGroup, String)] { categoryMatches(groups, query.trimmed, ledger) }
+}
+
+/// the categories a search finds: (group, account), in the groups' order; by the group's name, the sub-category's or the account's
+private func categoryMatches(_ groups: [CategoryGroup], _ query: String, _ ledger: Ledger) -> [(CategoryGroup, String)] {
+    let q = query.lowercased()
+    var out: [(CategoryGroup, String)] = []
+    for g in groups {
+        let name = categoryGroupTitle(g, ledger).lowercased()
+        for a in g.accounts {
+            let names = [name, leafTitle(ledger, a).lowercased(), a.lowercased(), acctDisplay(a).lowercased()]
+            if names.contains(where: { $0.contains(q) }) { out.append((g, a)) }
         }
-        return out
     }
+    return out
 }
 
 /// 源文本: the entry's Beancount text, checked before it is kept; saved as written
