@@ -28,6 +28,7 @@ final class TransferTemplateTests: XCTestCase {
         let text = accounts
             + transfer("2026-06-01", "Assets:Bank", "Liabilities:Card", "500.00")
             + transfer("2026-06-10", "Assets:Bank", "Liabilities:Card", "500.00")
+            + transfer("2026-06-15", "Assets:Bank", "Liabilities:Card", "500.00")
             + transfer("2026-06-20", "Assets:Bank", "Liabilities:Card", "500.00", payee: "Card repay")
             + transfer("2026-06-02", "Assets:Bank", "Assets:Wallet", "100.00")
             + transfer("2026-06-12", "Assets:Bank", "Assets:Wallet", "250.00")
