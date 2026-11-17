@@ -49,8 +49,8 @@ struct MacGuide: View {
                "When the ledger has errors, a bar at the bottom of the window opens Errors, where each one opens its file; a missing currency declaration can be added with Declare."),
         ]),
         Topic(title: tr("记一笔", "Adding an entry"), points: [
-            tr("左侧栏顶部的「记一笔」或 ⌘N 打开记一笔窗口，在哪个页面都一样；窗口右上角只放当前页面自己的操作。",
-               "Add Entry at the top of the sidebar, or ⌘N, opens the Add window from any page; the top right of the main window holds only the open page's own actions."),
+            tr("侧栏底部的「记一笔」或 ⌘N 打开记一笔窗口，在哪个页面都一样；窗口右上角只放当前页面自己的操作。",
+               "Add Entry at the bottom of the sidebar, or ⌘N, opens the Add window from any page; the top right of the main window holds only the open page's own actions."),
             tr("快捷卡片上选支出、收入或转账；分录、直接写文本、AA 和组合付款在「完整表单」里。",
                "The quick card records expenses, income and transfers; split entries, plain text, sharing and several accounts are on Full form."),
             tr("↩ 保存并关闭，⇧⌘↩ 保存后接着记下一笔；金额里有算式时，↩ 先算出结果。",

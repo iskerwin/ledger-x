@@ -193,7 +193,7 @@ private struct ContentView: View {
     var body: some View {
         Group {
             if let ledger = open.ledger {
-                MainView(ledger: ledger, config: open.config, folder: URL(fileURLWithPath: folder), changes: changes, adding: $adding, page: $page, searching: $searching, picking: $picking)
+                MainView(ledger: ledger, config: open.config, folder: URL(fileURLWithPath: folder), changes: changes, adding: $adding, page: $page, searching: $searching)
             } else if folder.isEmpty || missing {
                 VStack(spacing: 12) {
                     if missing { Text(LS("这个文件夹里没有账本")).foregroundStyle(.secondary) }

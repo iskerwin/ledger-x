@@ -94,7 +94,6 @@ struct MainView: View {
     @Binding var adding: Bool
     @Binding var page: Page?
     @Binding var searching: Bool
-    @Binding var picking: Bool
     /// showing the entries a row counts, where the search box has them to search
     @State private var inScope = false
     @State private var git: FolderGitStatus?
@@ -126,25 +125,11 @@ struct MainView: View {
                     }
                 }
             }
-            // 记一笔 belongs to the whole ledger, not to a page: one place, whatever page is open
-            .safeAreaInset(edge: .top) {
-                Button { adding = true } label: { Label(LS("记一笔"), systemImage: "plus").frame(maxWidth: .infinity) }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .help(LS("记一笔") + " ⌘N")
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-            }
-            .safeAreaInset(edge: .bottom) {
-                VStack(alignment: .leading, spacing: 8) {
-                    SettingsLink { Label(LS("设置"), systemImage: "gearshape") }
-                    Button { picking = true } label: { Label(LS("切换账本…"), systemImage: "folder") }
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
-            }
+            // 记一笔 belongs to the whole ledger, not to a page: a bar under the sidebar's pages, whatever page is open.
+            // Not in the sidebar's toolbar: there it shares the titlebar strip with the system's 隐藏边栏 button, hovering
+            // swaps between the two and blinks, and each page change rebuilds the whole toolbar. Settings and switching
+            // ledgers are the menu bar's (⌘, ⌘O)
+            .sidebarBar { NewEntryButton(adding: $adding) }
             .navigationSplitViewColumnWidth(min: 180, ideal: 208, max: 260)
         } detail: {
             Group {
@@ -292,6 +277,32 @@ private struct ErrorBar: View {
             .buttonStyle(.plain)
             .help(first.msg)
             .background(.bar)
+        }
+    }
+}
+
+/// 记一笔 under the sidebar's pages, across the column
+private struct NewEntryButton: View {
+    @Binding var adding: Bool
+
+    var body: some View {
+        Button { adding = true } label: { Label(LS("记一笔"), systemImage: "square.and.pencil").frame(maxWidth: .infinity) }
+            .controlSize(.large)
+            .help(LS("记一笔") + " ⌘N")
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+    }
+}
+
+private extension View {
+    /// a bar fixed under a scrolling column: the system's own on macOS 26, where the list fades under it as it scrolls;
+    /// before that a plain bar with the window's bar material, so the rows never show through the button
+    @ViewBuilder
+    func sidebarBar(@ViewBuilder _ bar: () -> some View) -> some View {
+        if #available(macOS 26.0, *) {
+            safeAreaBar(edge: .bottom) { bar() }
+        } else {
+            safeAreaInset(edge: .bottom, spacing: 0) { bar().background(.bar) }
         }
     }
 }
