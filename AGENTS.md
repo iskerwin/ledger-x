@@ -26,8 +26,8 @@ Ledger X 是原生 SwiftUI 的 iOS 17+ 记账 App，账本是用户自己的 Bea
 
 目标、架构、设计、实现都 SHOULD 保持简单。界面以 Linear 官网和苹果备忘录的干净程度为参照。
 
-- MUST NOT 放标语、提示文字和次要标签。页面要靠这些才看得懂，SHOULD 改布局，MUST NOT 加文字。错误信息和防止丢数据的确认不在此列。
-- 每个决定都 SHOULD 同时提升用户体验（UX）、开发者体验（DX）和智能体体验（AX）：用户更好用，开发者更好改，智能体更容易读懂和验证。做不到就 SHOULD 换做法。
+- MUST NOT 放标语、提示文字和次要标签。页面要靠这些才看得懂，MUST 改布局，MUST NOT 加文字。错误信息和防止丢数据的确认不在此列。
+- 每个决定都 MUST 同时提升用户体验（UX）、开发者体验（DX）和智能体体验（AX）：用户更好用，开发者更好改，智能体更容易读懂和验证。做不到就 MUST 换做法。
 - MUST NOT 弄坏任何东西：现有功能、数据契约和测试 MUST 保持有效，MUST NOT 靠删功能或改测试换简单。
 - 本原则用于判断怎么做，不授权成批清理。改已有界面仍 MUST 按下面的约定先确认、发预览包。
 - 原生优先：能用系统原生做出用户要的效果，就 SHOULD 用原生，性能和手感最好，也最省维护。按顺序选：SwiftUI 自带的控件和手势；SwiftUI 做不到时，用 UIKit / AppKit 的系统控件（用 `UIViewRepresentable` / `NSViewRepresentable` 包一层）；前两种都做不到，才自绘或自写手势。效果以用户要的为准，原生做不出来才 MAY 往下一级，并 MUST 在代码旁用一句话写明原生为什么不行。已有的自绘和自写交互 MUST NOT 因这条成批替换，改到它时再按这条评估。
@@ -46,7 +46,7 @@ Ledger X 是原生 SwiftUI 的 iOS 17+ 记账 App，账本是用户自己的 Bea
 - 一件事 MUST 一个分支、一个 Pull Request，MUST 只经 PR 合并进 main；任何工具和助手都 MUST NOT 直接推 main。合并前「Ledger CI / gate」MUST 通过，且分支 MUST 已同步最新 main（main 的保护规则已要求）。PR 检查与开发版用同一套自动选测和同一个执行程序，只读，不发布安装包；通过后留下 PR 测试记录。版本号 MUST 只由 `ship.py version` 提高，并且 MUST 高于当前版本；构建号在发开发版时取已有发布说明和安装源历史里的最大值加一，正式版沿用已验收安装包上的同一个号。发布说明自动从 CHANGELOG 生成；开发助手 MUST 随每项改动维护更新记录，Kerwin 无需手写。功能或修复 MUST 在 CHANGELOG 当前版本的「新增 / 修复 / 改进」写用户看得见的变化，MUST 保留累计条目；新界面文字 MUST 补 `Ledger/en.json`。
 - 逻辑 SHOULD 放进 LedgerKit 用 `swift test` 覆盖；LedgerTests MUST 只放必须在 App 内运行的逻辑（上传、恢复、本机存储）；LedgerUITests MUST 只放必须看界面才能验证的行为（键盘、大字号、弹层、手势、跳转）。每个 bug 修复 MUST 配一个修复前会失败的回归测试，SHOULD 放在能覆盖它的最低一层。
 - 用户能感知的功能新增、删除，以及行为、界面或交互变化，SHOULD 尽快上手机：实现后 SHOULD 只做静态检查、工具测试与编译，先发预览包；Kerwin 手机验收通过后，再运行相关核心、存储和界面测试，全部通过后 MUST 经 PR 合并。SHOULD 验收后才开 PR；需要提前管理改动时 MAY 开草稿 PR，草稿不跑 gate，验收后转为可审查状态触发检查。纯测试、工具和文档改动无需手机验收，MUST 照常按范围验证。验收后若再改变用户能感知的行为，MUST 重新发预览确认；不变的已验收范围 SHOULD NOT 重复确认。
-- 日常开发 SHOULD 按改动范围验证，不要求每次修改都跑全量。PR 检查和开发版都比较上次开发版之后的全部改动，自动选相关核心/存储测试、本次回归和关键界面流程；共用组件文件（ControlStyle / Common / Theme）按改到的组件选它的界面测试；缺少 App 映射时 MUST NOT 拉起整套界面测试，并 MUST 在任务摘要写清实际范围。每周日 22:00（北京时间）main 自动跑一次全量，只验证不发布，失败 MUST 按真实原因修。合并后的 main 与 PR 测过的文件树一致、选测相同时，开发版复用 PR 测试记录，只编译发布；否则开发版自己跑同样的测试。Dev 不运行完整全量，也不接受 `--full`；无需手填参数。本机 MUST 只跑 `python3 tools/ship.py check`（与云端第一步相同的静态检查和工具测试），MUST NOT 在本机启动编译、Swift 测试或模拟器。只改文档或工具时，MUST 运行对应静态检查或工具测试，不必编译未改动的 App。涉及记账计算、保存、同步、数据隔离或共用组件时 MUST 扩大到受影响模块。指定测试用 `test --core-filter …` / `test --ui-test Target/Class/method`。准备正式版时，MUST 对手机验收过的那一版源码做云端全量 `python3 tools/ship.py test`，或由 `release` 在该提交上补跑。
+- 日常开发 SHOULD 按改动范围验证，不要求每次修改都跑全量。PR 检查和开发版都比较上次开发版之后的全部改动，自动选相关核心/存储测试、本次回归和关键界面流程；共用组件文件（ControlStyle / Common / Theme）按改到的组件选它的界面测试；缺少 App 映射时 MUST NOT 拉起整套界面测试，并 MUST 在任务摘要写清实际范围。每周日 22:00（北京时间）main 自动跑一次全量，只验证不发布，失败 MUST 按真实原因修。合并后的 main 与 PR 测过的文件树一致、选测相同时，开发版复用 PR 测试记录，只编译发布；否则开发版自己跑同样的测试。Dev 不运行完整全量，也不接受 `--full`；无需手填参数。本机检查 MUST 用 `python3 tools/ship.py check`（与云端第一步相同的静态检查和工具测试），MUST NOT 在本机启动编译、Swift 测试或模拟器。只改文档或工具时，MUST 运行对应静态检查或工具测试，不必编译未改动的 App。涉及记账计算、保存、同步、数据隔离或共用组件时 MUST 扩大到受影响模块。指定测试用 `test --core-filter …` / `test --ui-test Target/Class/method`。准备正式版时，MUST 对手机验收过的那一版源码做云端全量 `python3 tools/ship.py test`，或由 `release` 在该提交上补跑。
 - 测试失败 MUST 修业务或测试的真实原因：MUST NOT 删测试、放宽断言、改门槛或靠反复重跑凑绿。模拟器环境失败（测试尚未开始）MAY 直接重跑。未跑、失败和中断 MUST 如实记录，MUST NOT 写成通过；已知失败 MUST 向 Kerwin 报告，由他决定开发版是否继续，MUST NOT 把失败记录藏进未执行项目。
 - MUST NOT 用固定延时掩盖时序问题。
 - 同一页里会切换的内容（分段选择、换月 / 换年、点选图表、按钮或提示的出现与消失）切换前后高度和位置 MUST 保持不变，MUST NOT 让卡片忽高忽低、下面的内容上下移动、标题左右挪，看起来像跳了一下。做法见 03「界面约定」；改到这类界面时 MUST 配一个比较切换前后高度或位置的界面测试，并 SHOULD 按常用字号、较大字号和窄屏各看一次。
@@ -71,9 +71,9 @@ python3 tools/ship.py version patch|minor|major|X.Y.Z      # 在分支上本地�
 
 ## 发布
 
-- 测试、编译、打包、预览包、开发版发布、全量验证、正式版转正和 IPA 源更新MUST 全部在 GitHub 托管 macOS runner 执行。本机 MUST 只编辑、`ship.py check`、提交、推送分支、开 PR 和发起/查看任务。`test` 无筛选为全量，只验证不发布。`dev` 只跑自动选择的相关/模块测试（或复用 PR 测试记录），通过后才打包发布；完整全量在转正前对已验收那一版源码执行。实际范围 MUST 写进发布说明，单项 MUST NOT 冒充全量。Mac App 随预览包、开发版和正式版一起发布（`LedgerMac.zip`，版本号和构建号与手机相同），转正时 MUST 原样发布已验收的那个 zip，MUST NOT 重新编译。
+- 测试、编译、打包、预览包、开发版发布、全量验证、正式版转正和 IPA 源更新MUST 全部在 GitHub 托管 macOS runner 执行，MUST NOT 在本机执行；本机用于编辑、`ship.py check`、提交、推送分支、开 PR 和发起/查看任务。`test` 无筛选为全量，只验证不发布。`dev` 只跑自动选择的相关/模块测试（或复用 PR 测试记录），通过后才打包发布；完整全量在转正前对已验收那一版源码执行。实际范围 MUST 写进发布说明，单项 MUST NOT 冒充全量。Mac App 随预览包、开发版和正式版一起发布（`LedgerMac.zip`，版本号和构建号与手机相同），转正时 MUST 原样发布已验收的那个 zip，MUST NOT 重新编译。
 - 预览包用于在合并前上手机确认修复效果：在已推送的分支上执行 `python3 tools/ship.py preview`（或网页 Ledger Preview 选该分支），只做静态检查、工具测试和 Release 编译，约 10 分钟。构建号为「上次开发版号.序号」（如 41.1），列在开发版安装源里；不能转正，合并后的开发版号更大，会直接覆盖安装。所有用户能感知的功能新增、删除和行为、界面、交互变化，都 MUST 先发预览包请 Kerwin 验收，再运行相关自动测试；SHOULD NOT 为等自动测试而推迟预览。验收与相关测试通过后才 MAY 合并；不符合就 SHOULD 在原分支继续改，再发预览。
-- 开发版和正式版 MUST 只对着已经在 main 上的源码。失败时源码可以已在 main，但检查或编译失败 MUST NOT 发布 IPA，结论 MUST 写「源码已在 main，未发布安装包。」正在发布的任务 MUST NOT 取消；排队中的发布只保留最新一次。旧源码 MUST NOT 覆盖新开发版。失败和中断 MUST 如实报告。`watch` 查看云端任务。
+- 开发版和正式版 MUST 只对着已经在 main 上的源码。失败时源码可以已在 main，但检查或编译失败 MUST NOT 发布 IPA，结论 MUST 写「源码已在 main，未发布安装包。」正在发布的任务 MUST NOT 擅自取消；排队中的发布只保留最新一次。旧源码 MUST NOT 覆盖新开发版。失败和中断 MUST 如实报告。`watch` 查看云端任务。
 - 正式版 MUST 只在 Kerwin 手机验收后执行 `python3 tools/ship.py release --accepted-build N`（或明确授权代为执行）。任务绑定已验收构建号与 IPA SHA256。云端复用绑定到该提交、文件树和演示内容的完整全量记录，缺少时 MUST 检出该提交补跑，MUST NOT 改测更新的 main。全量通过才 MAY 把原安装包转正，版本号和构建号都 MUST 不变，MUST NOT 重新编译。MUST NOT 未经验收转正。
 - 一个版本的完整流程，MUST 按顺序：
   1. 开始新版本：在新分支上执行 `python3 tools/ship.py version patch|minor|major|X.Y.Z`，在 CHANGELOG 顶部加「## X.Y.Z（开发中）」并本地提交，经 PR 合并。
