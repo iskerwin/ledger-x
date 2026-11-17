@@ -14,6 +14,11 @@ final class FolderLoanTests: XCTestCase {
         2023-01-01 open Assets:Bank
         2023-01-01 open Assets:Receivable:Personal
         2023-01-01 open Expenses:Food
+        2023-01-01 open Equity:Opening
+
+        2023-01-02 * "Opening"
+          Assets:Bank                 1000.00 CNY
+          Equity:Opening
 
         \(Day.shift(Day.today(), -20)) * "Sample Diner" "Dinner"
           Expenses:Food                 60.00 CNY
