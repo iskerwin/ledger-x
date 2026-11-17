@@ -1,6 +1,13 @@
 {
  "打开最近使用": "Open Recent",
  "清除菜单": "Clear Menu",
+ "快速搜索": "Quick Searches",
+ "保存当前搜索…": "Save Current Search…",
+ "管理快速搜索…": "Manage Quick Searches…",
+ "管理快速搜索": "Manage Quick Searches",
+ "修改快速搜索": "Change Quick Searches",
+ "上移": "Move Up",
+ "下移": "Move Down",
  "Ledger X 使用指南": "Ledger X Guide",
  "修正记录…": "Correct Record…",
  "删除订阅…": "Delete Subscription…",
