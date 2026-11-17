@@ -590,3 +590,46 @@ public func moneyRoute(_ t: Entry) -> [String] {
     for p in lines where !out.contains(p.account) { out.append(p.account) }
     return out
 }
+
+/// a transfer made often lately: from one account to another in one currency, with its usual amount when it keeps to one
+public struct TransferTemplate: Identifiable, Equatable {
+    public var id: String { [from, to, currency].joined(separator: "|") }
+    public let from: String
+    public let to: String
+    public let currency: String
+    /// the latest one's
+    public let payee: String
+    public let narration: String
+    public let fixed: Double?
+    public let n: Int
+}
+
+/// the transfers between two of one's own accounts (assets and liabilities) made three times or more in the last 120 days,
+/// most made first: 常用交易 for 转账, as `templates` is for spending and income
+public func transferTemplates(_ L: Ledger, today now: String = Day.today()) -> [TransferTemplate] {
+    struct Seen { var payee = "", narration = "", last = "", amounts: [Double] = [] }
+    let since = Day.shift(now, -120)
+    let own = { (a: String) in a.hasPrefix("Assets:") || a.hasPrefix("Liabilities:") }
+    var seen: [String: Seen] = [:]
+    for t in L.txns where t.date >= since && !t.synthetic && t.postings.count == 2 {
+        guard t.postings.allSatisfy({ own($0.account) && $0.price == nil && $0.cost == nil }),
+              let out = t.postings.first(where: { ($0.units ?? 0) < 0 }), let into = t.postings.first(where: { $0 !== out }),
+              out.account != into.account, let ccy = out.currency, into.currency == ccy, let units = out.units else { continue }
+        let key = [out.account, into.account, ccy].joined(separator: "|")
+        var x = seen[key] ?? Seen()
+        x.amounts.append(-units)
+        if t.date >= x.last { (x.payee, x.narration, x.last) = (t.payee, t.narration, t.date) }
+        seen[key] = x
+    }
+    return seen.filter { $0.value.amounts.count >= 3 }
+        .sorted { a, b in a.value.amounts.count != b.value.amounts.count ? a.value.amounts.count > b.value.amounts.count : a.value.last > b.value.last }
+        .map { key, x in
+            let parts = key.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+            var count: [Double: Int] = [:]
+            for a in x.amounts { count[a, default: 0] += 1 }
+            let top = count.max { $0.value != $1.value ? $0.value < $1.value : $0.key > $1.key }!
+            let fixed = top.value >= 2 && Double(top.value) / Double(x.amounts.count) >= 0.6 ? top.key : nil
+            return TransferTemplate(from: parts[0], to: parts[1], currency: parts[2], payee: x.payee, narration: x.narration,
+                                    fixed: fixed, n: x.amounts.count)
+        }
+}

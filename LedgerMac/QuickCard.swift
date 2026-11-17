@@ -52,6 +52,7 @@ struct QuickCard: View {
     @State private var allCategories = false
     @State private var editingText = false
     private let templateList: [Template]
+    private let transferList: [TransferTemplate]
 
     private static let kinds: [DraftKind] = [.expense, .income, .transfer]
     /// how many categories the card shows before 全部
@@ -77,6 +78,7 @@ struct QuickCard: View {
         self.save = save
         self.open = open
         templateList = templates(ledger, pinned: [], hidden: [])
+        transferList = transferTemplates(ledger)
     }
 
     /// spending red, income green, a transfer the theme's
@@ -117,6 +119,8 @@ struct QuickCard: View {
             saveBar
         }
         .background(Color.page)
+        // the title bar is hidden: no strip kept for it above ✕ and the kind
+        .ignoresSafeArea(.container, edges: .top)
         // digits typed while no field has the cursor (after a click on a chip) still go to the amount
         .background(TypedKeys(enabled: true) { typed in
             // a Chinese or Japanese input method sends 。 for the point and full-width digits
@@ -215,6 +219,7 @@ struct QuickCard: View {
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, Space.content)
+                .frame(height: Self.stripHeight)
                 .padding(.top, Space.icon)
         } else {
             templateCapsules(d.kind)
@@ -223,31 +228,58 @@ struct QuickCard: View {
 
     // MARK: 常用交易
 
-    /// the frequent entries as small capsules (an orange one: a subscription not recorded this month); click to fill the card
-    @ViewBuilder
+    /// the frequent entries as small capsules (an orange one: a subscription not recorded this month); click to fill the card.
+    /// The row keeps its height with none to show, so the amount stays where it is as the kind changes
     private func templateCapsules(_ kind: DraftKind) -> some View {
         let list = kind == .transfer ? [] : Array(templateList.filter { $0.kind == (kind == .income ? .income : .expense) }.prefix(12))
-        if !list.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Space.icon) {
-                    ForEach(list) { x in
-                        Button { fillTemplate(x) } label: {
-                            HStack(spacing: Space.detail) {
-                                Text(x.label).lineLimit(1)
-                                if let fixed = x.fixed { Text(money(fixed, x.currency)).foregroundStyle(.secondary) }
-                            }
-                            .font(.system(size: Size.footnote))
-                            .padding(Space.icon)
-                            .foregroundStyle(x.due ? Color.warn : Color.primary)
-                            .background(x.due ? Color.warn.soft : Color.card, in: Capsule())
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Space.icon) {
+                if kind == .transfer {
+                    ForEach(transferList.prefix(12)) { x in
+                        capsule(accountTitle(ledger, x.from) + " → " + accountTitle(ledger, x.to), amount: x.fixed.map { money($0, x.currency) }) {
+                            fillTransfer(x)
                         }
-                        .buttonStyle(.plain)
+                    }
+                } else {
+                    ForEach(list) { x in
+                        capsule(x.label, amount: x.fixed.map { money($0, x.currency) }, due: x.due) { fillTemplate(x) }
                     }
                 }
-                .padding(.horizontal, Space.content)
             }
-            .padding(.top, Space.icon)
+            .padding(.horizontal, Space.content)
         }
+        .frame(height: Self.stripHeight)
+        .padding(.top, Space.icon)
+    }
+
+    private static let stripHeight: CGFloat = 32
+
+    private func capsule(_ label: String, amount: String?, due: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: Space.detail) {
+                Text(label).lineLimit(1)
+                if let amount { Text(amount).foregroundStyle(.secondary) }
+            }
+            .font(.system(size: Size.footnote))
+            .padding(Space.icon)
+            .foregroundStyle(due ? Color.warn : Color.primary)
+            .background(due ? Color.warn.soft : Color.card, in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func fillTransfer(_ x: TransferTemplate) {
+        var d = blank(.transfer)
+        d.payee = x.payee
+        d.narration = x.narration
+        d.funding = x.from
+        d.to = x.to
+        d.currency = x.currency
+        d.amount = x.fixed.map { jsNumberString($0) } ?? ""
+        var selection = DraftSelection()
+        selection.funding = true
+        d.selection = selection
+        draft = d
     }
 
     private func fillTemplate(_ x: Template) {
@@ -392,30 +424,27 @@ struct QuickCard: View {
         let fee = evalAmount(d.transferFee ?? "") ?? 0
         let out = sent.map { $0 + (d.feeMode == .added && (d.feeCurrency ?? d.currency) == d.currency ? fee : 0) }
         let into = received.map { $0 - (d.feeMode == .deducted && (d.feeCurrency ?? incoming) == incoming ? fee : 0) }
-        return VStack(spacing: Space.icon) {
-            transferCard(LS("转出"), d.funding, currency: d.currency, change: out.map { -$0 }, arriving: nil) { picking = .from }
-            ZStack {
-                if !d.funding.isEmpty && !d.to.isEmpty {
-                    Button(action: swapTransfer) {
-                        Image(systemName: "arrow.up.arrow.down")
-                            .font(.system(size: Size.subheadline, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 34, height: 34)
-                            .background(Color.jade, in: Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .help(LS("对调"))
+        // side by side, 对调 between: one row whatever is picked, as tall as a row of categories and its sub-categories
+        return VStack(alignment: .trailing, spacing: Space.detail) {
+            HStack(spacing: Space.icon) {
+                transferCard(LS("转出"), d.funding, currency: d.currency, change: out.map { -$0 }, arriving: nil) { picking = .from }
+                Button(action: swapTransfer) {
+                    Image(systemName: "arrow.left.arrow.right")
+                        .font(.system(size: Size.footnote, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(Color.jade, in: Circle())
                 }
-                // the same account, another currency: 换汇 within it
-                if !d.funding.isEmpty && d.funding == d.to, let c = incoming {
-                    HStack {
-                        Spacer()
-                        Text(LS("同账户换汇 %@ → %@", d.currency, c)).font(.system(size: Size.caption)).foregroundStyle(.secondary)
-                    }
-                }
+                .buttonStyle(.plain)
+                .help(LS("对调"))
+                .disabled(d.funding.isEmpty || d.to.isEmpty)
+                .opacity(d.funding.isEmpty || d.to.isEmpty ? 0.3 : 1)
+                transferCard(LS("转入"), d.to, currency: incoming ?? d.currency, change: into, arriving: incoming == d.currency ? nil : incoming) { picking = .to }
             }
-            .frame(height: d.funding.isEmpty || d.to.isEmpty ? 0 : 34)
-            transferCard(LS("转入"), d.to, currency: incoming ?? d.currency, change: into, arriving: incoming == d.currency ? nil : incoming) { picking = .to }
+            // the same account, another currency: 换汇 within it
+            if !d.funding.isEmpty && d.funding == d.to, let c = incoming {
+                Text(LS("同账户换汇 %@ → %@", d.currency, c)).font(.system(size: Size.caption)).foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -456,8 +485,7 @@ struct QuickCard: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
                     }
-                    Spacer(minLength: Space.icon)
-                    Text(label).font(.system(size: Size.caption, weight: .medium)).foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
                 }
                 Image(systemName: "chevron.right").font(.system(size: Size.caption)).foregroundStyle(.tertiary)
             }
