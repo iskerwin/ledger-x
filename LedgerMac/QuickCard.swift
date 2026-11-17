@@ -119,12 +119,14 @@ struct QuickCard: View {
         .background(Color.page)
         // the keyboard types on the keypad wherever the click last was; the payee and description fields keep their own keys
         .background(TypedKeys(enabled: !writing) { typed in
-            switch typed {
+            // a Chinese or Japanese input method sends 。 for the point and full-width digits
+            switch asciiTyped(typed) {
             case "*": key("×")
             case "/": key("÷")
             case "=": equals()
             case "\u{7F}": key("⌫")
             default:
+                let typed = asciiTyped(typed)
                 guard typed.count == 1, "0123456789.+-×÷".contains(typed) else { return false }
                 key(typed)
             }

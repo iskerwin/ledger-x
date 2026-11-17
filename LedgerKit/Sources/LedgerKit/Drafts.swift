@@ -2,9 +2,30 @@ import Foundation
 
 // MARK: - amount input
 
+/// What a Chinese or Japanese input method types for a number, as the plain characters: full-width digits and signs
+/// (１２．５＋３), 。 for the decimal point and ー for minus. Anything else is left as it is.
+public func asciiTyped(_ input: String) -> String {
+    var out = String.UnicodeScalarView()
+    for u in input.unicodeScalars {
+        switch u.value {
+        case 0xFF01...0xFF5E: out.append(Unicode.Scalar(u.value - 0xFEE0)!)
+        case 0x3000: out.append(" ")
+        case 0x3002, 0xFF61: out.append(".")
+        case 0x30FC, 0xFF70: out.append("-")
+        default: out.append(u)
+        }
+    }
+    return String(out)
+}
+
+/// a plain number as typed (a rate, a balance), whatever the input method; nil when it isn't one
+public func typedNumber(_ input: String) -> Double? {
+    Double(asciiTyped(input).trimmingCharacters(in: .whitespaces))
+}
+
 /// "12+8.5", "3×4", "1,234.5", "12,5" → number (nil if not a valid expression)
 public func evalExpr(_ input: String) -> Double? {
-    var s = input.trimmingCharacters(in: .whitespacesAndNewlines)
+    var s = asciiTyped(input).trimmingCharacters(in: .whitespacesAndNewlines)
     if s.range(of: #"^-?\d+,\d{1,2}$"#, options: .regularExpression) != nil { s = s.replacingOccurrences(of: ",", with: ".") }
     s = s.replacingOccurrences(of: #"[，,\s]"#, with: "", options: .regularExpression)
         .replacingOccurrences(of: #"[×xX]"#, with: "*", options: .regularExpression)
@@ -19,7 +40,7 @@ public func evalExpr(_ input: String) -> Double? {
 /// like evalExpr but rounded to cents (the simple forms)
 public func evalAmount(_ input: String) -> Double? {
     guard let v = evalExpr(input) else { return nil }
-    let plain = input.trimmingCharacters(in: .whitespaces).range(of: #"^\d*\.?\d+$"#, options: .regularExpression) != nil
+    let plain = asciiTyped(input).trimmingCharacters(in: .whitespaces).range(of: #"^\d*\.?\d+$"#, options: .regularExpression) != nil
     return plain ? v : roundMoney(v, 2)
 }
 
@@ -504,7 +525,7 @@ func draftTx0(_ d: Draft, _ L: Ledger, _ D: Derived) -> TxDraft? {
     if hasCombo(d) {
         guard let paying = payingPostings(d, total: amt, L, D) else { return nil }
         tx.postings = [cat] + paying
-    } else if fc != d.currency, d.byRate, let r = Double(d.rate.trimmingCharacters(in: .whitespaces)), r > 0 {
+    } else if fc != d.currency, d.byRate, let r = typedNumber(d.rate), r > 0 {
         // the receipt's rate as it is; the account is charged what it comes to, to the cent
         cat.suffix = "@ \(d.rate.trimmingCharacters(in: .whitespaces)) \(fc)"
         tx.postings = [cat, TxPosting(account: d.funding, amount: -sgn * mulMoney(amt, r, 2), currency: fc)]
@@ -1404,7 +1425,7 @@ public func draftRate(_ d: Draft) -> Double? {
         }
         return solveTransferRate(.rate, draft: d, amount: a, rate: nil, received: evalAmount(d.toAmount))
     }
-    if d.byRate { return Double(d.rate.trimmingCharacters(in: .whitespaces)).flatMap { $0 > 0 ? $0 : nil } }
+    if d.byRate { return typedNumber(d.rate).flatMap { $0 > 0 ? $0 : nil } }
     return evalAmount(d.paid).flatMap { $0 > 0 ? $0 / a : nil }
 }
 
