@@ -73,6 +73,8 @@ struct MacGuide: View {
         Topic(title: tr("搜索与时间", "Search and time"), points: [
             tr("⌘F 搜索标签、收付款方或文字，写法和手机的明细搜索一样。明细列出找到的交易，报表、收付款方和年度回顾只算这些；点一笔里的标签也会把它加进搜索。",
                "⌘F searches tags, payees or text, written as in the phone's journal search. The journal lists what it finds, and Reports, Payee and Year in Review count only that; clicking a tag in an entry adds it to the search."),
+            tr("工具栏的书签按钮列出快速搜索，和手机明细里保存的是同一批：点一个就搜它，再点一次清除；「保存当前搜索…」把搜索框里的条件存成一个，「管理快速搜索…」可编辑、上移、下移或删除。",
+               "The bookmark button in the toolbar lists the quick searches, the same ones saved in the phone's journal: pick one to search for it, pick it again to clear. Save Current Search… keeps what's in the search box; Manage Quick Searches… edits, moves or deletes them."),
             tr("工具栏左边的箭头切换上一期、下一期；点中间的时间可以按月、季度、年、近 30 天或全部时间看，也可以选某一天、某一段，或回到本期。明细和报表旁边还能只看一个账户。",
                "The arrows at the left of the toolbar step to the period before or after; click the period between them to view by month, quarter, year, the last 30 days or all time, pick a day or a span, or come back to now. The journal and reports can also keep to one account."),
         ]),
