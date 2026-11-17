@@ -8,6 +8,8 @@ enum Page: String, CaseIterable {
     case reimbursements, salary, events
     case query, errors, sync
     case documents
+    /// last, so ⌘1–9 stay on the pages they were on
+    case people
 
     var title: String {
         switch self {
@@ -27,6 +29,7 @@ enum Page: String, CaseIterable {
         case .errors: return LS("错误")
         case .documents: return LS("附件与对账单")
         case .sync: return LS("同步与改动")
+        case .people: return LS("个人往来")
         }
     }
 
@@ -48,6 +51,7 @@ enum Page: String, CaseIterable {
         case .errors: return "exclamationmark.triangle"
         case .documents: return "paperclip"
         case .sync: return "arrow.up.arrow.down"
+        case .people: return "person.2.circle"
         }
     }
 
@@ -62,7 +66,7 @@ enum Page: String, CaseIterable {
         (LS("账本"), [.overview, .journal, .accounts, .documents]),
         (LS("分析"), [.reports, .payees, .year]),
         (LS("计划"), [.budgets, .forecast, .subscriptions]),
-        (LS("往来"), [.reimbursements, .salary, .events]),
+        (LS("往来"), [.people, .reimbursements, .salary, .events]),
         (LS("工具"), [.query, .errors, .sync]),
     ] }
 }
@@ -164,6 +168,7 @@ struct MainView: View {
                 case .reimbursements: drillable { ReimbursementsPage(ledger: ledger, config: config, folder: folder) }
                 case .salary: SalaryPage(ledger: ledger, config: config, folder: folder)
                 case .events: EventsPage(ledger: ledger, config: config, folder: folder)
+                case .people: PeoplePage(ledger: ledger, config: config, folder: folder)
                 case .query: QueryPage(ledger: ledger, folder: folder)
                 case .errors: ErrorsPage(ledger: ledger, folder: folder)
                 case .documents: drillable { DocumentsPage(ledger: ledger, folder: folder) }
@@ -195,7 +200,10 @@ struct MainView: View {
                 if ((page ?? .overview).followsPeriod || page == .accounts && accountsMode != .worth) && !inScope {
                     ToolbarItemGroup(placement: .navigation) {
                         PeriodBar(period: $period)
-                        if (page ?? .overview).followsFilter { AccountFilter(ledger: ledger, account: $account) }
+                        if (page ?? .overview).followsFilter {
+                            AccountFilter(ledger: ledger, account: $account)
+                            QuickSearchMenu(config: config, folder: folder, filter: $filter)
+                        }
                     }
                 }
             }

@@ -20,6 +20,11 @@ struct FolderWriter {
         prepare(step: step, done: done) { prepareFolderReimbursement(change, folder: folder) }
     }
 
+    func prepare(_ loan: LoanDraft, step: String, done: @escaping @MainActor () -> Void = {}) {
+        let folder = folder
+        prepare(step: step, done: done) { prepareFolderLoan(loan, folder: folder) }
+    }
+
     func prepare(_ entries: [Entry], _ edit: BatchEdit, label: String, step: String, done: @escaping @MainActor () -> Void = {}) {
         let folder = folder
         prepare(step: step, done: done) { prepareFolderBatch(entries, edit, label: label, folder: folder) }
