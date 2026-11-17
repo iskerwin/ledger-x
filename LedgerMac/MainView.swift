@@ -90,7 +90,6 @@ struct MainView: View {
     @Binding var adding: Bool
     @Binding var page: Page?
     @Binding var searching: Bool
-    @Binding var picking: Bool
     /// showing the entries a row counts, where the search box has them to search
     @State private var inScope = false
     @State private var git: FolderGitStatus?
@@ -122,24 +121,13 @@ struct MainView: View {
                     }
                 }
             }
-            // 记一笔 belongs to the whole ledger, not to a page: one place, whatever page is open
-            .safeAreaInset(edge: .top) {
-                Button { adding = true } label: { Label(LS("记一笔"), systemImage: "plus").frame(maxWidth: .infinity) }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .help(LS("记一笔") + " ⌘N")
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-            }
-            .safeAreaInset(edge: .bottom) {
-                VStack(alignment: .leading, spacing: 8) {
-                    SettingsLink { Label(LS("设置"), systemImage: "gearshape") }
-                    Button { picking = true } label: { Label(LS("切换账本…"), systemImage: "folder") }
+            // 记一笔 belongs to the whole ledger, not to a page: the sidebar's own toolbar, whatever page is open. Settings
+            // and switching ledgers are the menu bar's (⌘, ⌘O), so the sidebar is the pages alone and nothing sits over them
+            .toolbar {
+                ToolbarItem {
+                    Button { adding = true } label: { Label(LS("记一笔"), systemImage: "square.and.pencil") }
+                        .help(LS("记一笔") + " ⌘N")
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 208, max: 260)
         } detail: {
