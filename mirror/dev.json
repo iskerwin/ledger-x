@@ -20,13 +20,13 @@
       "versions": [
         {
           "version": "1.0.17",
-          "buildVersion": "72.6",
-          "date": "2026-11-17T13:28:45Z",
-          "localizedDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 72.6 · feat/mac-sidebar-clean e792f28 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.17-72.6",
-          "size": 11048590,
+          "buildVersion": "72.7",
+          "date": "2026-11-17T15:05:20Z",
+          "localizedDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 72.7 · feat/mac-sidebar-clean 26a0a76 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.17-72.7",
+          "size": 11048587,
           "minOSVersion": "17.0",
-          "sha256": "c30620588b104519752bc1816d0de4024910cf499dd52dba52df8c6e2837f01c"
+          "sha256": "90e7c146b173727eaaec1bcd5b050ee6d989b91dfac2e47031fe37b46cc7da4f"
         },
         {
           "version": "1.0.17",
@@ -208,10 +208,10 @@
         }
       },
       "version": "1.0.17",
-      "versionDate": "2026-11-17T13:28:45Z",
-      "versionDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 72.6 · feat/mac-sidebar-clean e792f28 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.17-72.6",
-      "size": 11048590
+      "versionDate": "2026-11-17T15:05:20Z",
+      "versionDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 72.7 · feat/mac-sidebar-clean 26a0a76 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.17-72.7",
+      "size": 11048587
     }
   ],
   "news": []
