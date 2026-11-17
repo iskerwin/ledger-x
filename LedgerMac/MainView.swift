@@ -200,7 +200,10 @@ struct MainView: View {
                 if ((page ?? .overview).followsPeriod || page == .accounts && accountsMode != .worth) && !inScope {
                     ToolbarItemGroup(placement: .navigation) {
                         PeriodBar(period: $period)
-                        if (page ?? .overview).followsFilter { AccountFilter(ledger: ledger, account: $account) }
+                        if (page ?? .overview).followsFilter {
+                            AccountFilter(ledger: ledger, account: $account)
+                            QuickSearchMenu(config: config, folder: folder, filter: $filter)
+                        }
                     }
                 }
             }

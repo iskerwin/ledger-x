@@ -41,8 +41,8 @@ struct MacGuide: View {
 
     static var topics: [Topic] { [
         Topic(title: tr("打开账本", "Opening a ledger"), points: [
-            tr("「文件 › 打开账本…」（⌘O）选择账本所在的文件夹（有 main.bean 的那个）。「设置 › 账本」显示当前账本的位置，也可以在那里切换。",
-               "File › Open Ledger… (⌘O) chooses the folder the ledger is in (the one with main.bean). Settings › Ledger shows where the open ledger is and switches to another."),
+            tr("「文件 › 打开账本…」（⌘O）选择账本所在的文件夹（有 main.bean 的那个）；「文件 › 打开最近使用」列出最近打开过的几本，一点即开。「设置 › 账本」显示当前账本的位置，也可以在那里切换。",
+               "File › Open Ledger… (⌘O) chooses the folder the ledger is in (the one with main.bean); File › Open Recent lists the last few opened, one click away. Settings › Ledger shows where the open ledger is and switches to another."),
             tr("账本是文件夹里的普通 Beancount 文本，App 不另存数据。文件在别处改过，页面会自动重新读取。",
                "The ledger is plain Beancount text in the folder; the app keeps no data of its own. When a file is changed elsewhere, the pages read it again by themselves."),
             tr("账本有错误时，窗口底部出现一条提示，点它打开「错误」页，可以直接打开出错的文件；缺少的币种声明可以「补上声明」。",
@@ -73,6 +73,8 @@ struct MacGuide: View {
         Topic(title: tr("搜索与时间", "Search and time"), points: [
             tr("⌘F 搜索标签、收付款方或文字，写法和手机的明细搜索一样。明细列出找到的交易，报表、收付款方和年度回顾只算这些；点一笔里的标签也会把它加进搜索。",
                "⌘F searches tags, payees or text, written as in the phone's journal search. The journal lists what it finds, and Reports, Payee and Year in Review count only that; clicking a tag in an entry adds it to the search."),
+            tr("工具栏的书签按钮列出快速搜索，和手机明细里保存的是同一批：点一个就搜它，再点一次清除；「保存当前搜索…」把搜索框里的条件存成一个，「管理快速搜索…」可编辑、上移、下移或删除。",
+               "The bookmark button in the toolbar lists the quick searches, the same ones saved in the phone's journal: pick one to search for it, pick it again to clear. Save Current Search… keeps what's in the search box; Manage Quick Searches… edits, moves or deletes them."),
             tr("工具栏左边的箭头切换上一期、下一期；点中间的时间可以按月、季度、年、近 30 天或全部时间看，也可以选某一天、某一段，或回到本期。明细和报表旁边还能只看一个账户。",
                "The arrows at the left of the toolbar step to the period before or after; click the period between them to view by month, quarter, year, the last 30 days or all time, pick a day or a span, or come back to now. The journal and reports can also keep to one account."),
         ]),
