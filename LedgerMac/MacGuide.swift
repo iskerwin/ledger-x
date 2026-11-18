@@ -51,8 +51,8 @@ struct MacGuide: View {
         Topic(title: tr("记一笔", "Adding an entry"), points: [
             tr("左侧栏顶部的「记一笔」或 ⌘N 打开记一笔窗口，在哪个页面都一样；窗口右上角只放当前页面自己的操作。",
                "Add Entry at the top of the sidebar, or ⌘N, opens the Add window from any page; the top right of the main window holds only the open page's own actions."),
-            tr("窗口打开时光标已在金额里，直接打数字（可写 12+8 这样的算式）。分类点常用的那几个，或在「搜索分类」里打几个字、↩ 选第一个；Tab 依次到收付款方和摘要，下面列出用过的可点。中文、日文输入法下打的「。」也当小数点。",
-               "The cursor starts in the amount: type it (a sum like 12+8 works). Click a common category, or type a few letters in Search categories and press ↩ for the first; Tab goes on to the payee and the note, with ones used before listed to click. A 。 typed with a Chinese or Japanese input method counts as the decimal point."),
+            tr("窗口打开时光标已在金额里，直接打数字（可写 12+8 这样的算式）。分类点常用的那几个，或点分类末尾的放大镜，打几个字、↩ 选第一个；Tab 依次到收付款方和摘要，下面列出用过的可点。中文、日文输入法下打的「。」也当小数点。",
+               "The cursor starts in the amount: type it (a sum like 12+8 works). Click a common category, or click the magnifier after the categories, type a few letters and press ↩ for the first; Tab goes on to the payee and the note, with ones used before listed to click. A 。 typed with a Chinese or Japanese input method counts as the decimal point."),
             tr("支出、收入、转账在顶部切换，下面一行是常记的几笔（转账时是常转的两个账户），点一下填好；分录、直接写文本、AA 和组合付款在「⋯ › 完整表单」里。",
                "Switch between expense, income and transfer at the top; the row under it holds the entries made most (for a transfer, the pairs of accounts moved between most), one click to fill in; split entries, plain text, sharing and several accounts are under ⋯ › Full form."),
             tr("在金额或摘要里按 ↩ 保存并关闭，⇧⌘↩ 保存后接着记下一笔；金额里有算式时，↩ 先算出结果。",

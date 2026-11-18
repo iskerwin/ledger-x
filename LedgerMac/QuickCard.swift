@@ -42,6 +42,8 @@ struct QuickCard: View {
     @FocusState private var field: Field?
     /// what is typed to find a category; the chips show what it finds
     @State private var categoryQuery = ""
+    /// the search field is out (the 🔍 chip was clicked)
+    @State private var searching = false
     @State private var attemptedSave = false
     /// goes up at each save turned back, to shake the reason
     @State private var blockedSaves = 0
@@ -109,8 +111,7 @@ struct QuickCard: View {
                         categoryRow(d)
                         subCategories(d)
                     }
-                    choices(d)
-                    textFields(d)
+                    details(d)
                 }
                 .padding(.horizontal, Space.content)
                 .padding(.vertical, Space.icon)
@@ -141,6 +142,7 @@ struct QuickCard: View {
         .onAppear { DispatchQueue.main.async { if field == nil { field = .amount } } }
         .onChange(of: field) { old, new in
             // leaving the payee or the note: a known one fills in what isn't picked yet
+            if old == .category && new != .category && categoryQuery.trimmed.isEmpty { searching = false }
             if old == .payee && new != .payee { applyPayee(draft.payee.trimmed, onlyBlanks: true) }
             if old == .narration && new != .narration { applyNarration(draft.narration.trimmed, onlyBlanks: true) }
         }
@@ -325,37 +327,41 @@ struct QuickCard: View {
                 .font(.system(size: Size.footnote))
                 .foregroundStyle(.secondary)
         } else {
-            HStack(spacing: Space.icon) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: Space.icon) {
-                        if typed.isEmpty {
-                            ForEach(shownGroups(groups, picked: picked)) { g in
-                                QuickChip(label: categoryGroupTitle(g, ledger), systemImage: categorySymbol(g.id), selected: g.id == picked) {
-                                    // the picked group again: its sub-categories
-                                    if g.id == picked && !g.single { subPicking = g.id } else { pick(g) }
-                                }
-                                .contextMenu {
-                                    if !g.single { Button(LS("选择子类"), systemImage: "list.bullet") { pick(g); subPicking = g.id } }
-                                }
-                            }
-                            QuickChip(label: LS("全部"), systemImage: "square.grid.2x2") { field = nil; allCategories = true }
-                        } else {
-                            let hits = categoryMatches(groups, typed, ledger)
-                            if hits.isEmpty {
-                                Text(LS("没有找到「%@」", typed)).font(.system(size: Size.subheadline)).foregroundStyle(.secondary)
-                            }
-                            ForEach(Array(hits.prefix(12).enumerated()), id: \.offset) { _, hit in
-                                QuickChip(label: categoryGroupTitle(hit.0, ledger) + (hit.0.single ? "" : " › " + leafTitle(ledger, hit.1)),
-                                          systemImage: categorySymbol(hit.0.id), selected: hit.1 == d.account) { pickTyped(hit.1) }
-                            }
+            // wraps onto a second row rather than scrolling, so every category shows; the search field opens in the row
+            FlowLayout(spacing: Space.icon) {
+                if searching || !typed.isEmpty {
+                    TextField(LS("搜索分类"), text: $categoryQuery)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 140)
+                        .focused($field, equals: .category)
+                        .onSubmit { if let first = categoryMatches(groups, typed, ledger).first { pickTyped(first.1) } }
+                        .onExitCommand { categoryQuery = ""; searching = false; field = nil }
+                }
+                if typed.isEmpty {
+                    ForEach(shownGroups(groups, picked: picked)) { g in
+                        QuickChip(label: categoryGroupTitle(g, ledger), systemImage: categorySymbol(g.id), selected: g.id == picked) {
+                            // the picked group again: its sub-categories
+                            if g.id == picked && !g.single { subPicking = g.id } else { pick(g) }
+                        }
+                        .contextMenu {
+                            if !g.single { Button(LS("选择子类"), systemImage: "list.bullet") { pick(g); subPicking = g.id } }
                         }
                     }
+                    QuickChip(label: LS("全部"), systemImage: "square.grid.2x2") { field = nil; allCategories = true }
+                    if !searching {
+                        QuickChip(label: "", systemImage: "magnifyingglass") { searching = true; field = .category }
+                            .help(LS("搜索分类"))
+                    }
+                } else {
+                    let hits = categoryMatches(groups, typed, ledger)
+                    if hits.isEmpty {
+                        Text(LS("没有找到「%@」", typed)).font(.system(size: Size.subheadline)).foregroundStyle(.secondary)
+                    }
+                    ForEach(Array(hits.prefix(12).enumerated()), id: \.offset) { _, hit in
+                        QuickChip(label: categoryGroupTitle(hit.0, ledger) + (hit.0.single ? "" : " › " + leafTitle(ledger, hit.1)),
+                                  systemImage: categorySymbol(hit.0.id), selected: hit.1 == d.account) { pickTyped(hit.1) }
+                    }
                 }
-                TextField(LS("搜索分类"), text: $categoryQuery)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 120)
-                    .focused($field, equals: .category)
-                    .onSubmit { if let first = categoryMatches(groups, typed, ledger).first { pickTyped(first.1) } }
             }
         }
     }
@@ -390,19 +396,10 @@ struct QuickCard: View {
     @ViewBuilder
     private func subCategories(_ d: Draft) -> some View {
         if d.account.hasPrefix(root), let g = gridGroups(root).first(where: { $0.id == catOf(d.account) }), !g.single {
-            HStack(spacing: Space.icon) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: Space.icon) {
-                        ForEach(g.accounts, id: \.self) { a in
-                            QuickChip(label: leafTitle(ledger, a), systemImage: categorySymbol(a), selected: a == d.account) { pickCategory(a) }
-                        }
-                    }
+            FlowLayout(spacing: Space.icon) {
+                ForEach(g.accounts, id: \.self) { a in
+                    QuickChip(label: leafTitle(ledger, a), systemImage: categorySymbol(a), selected: a == d.account) { pickCategory(a) }
                 }
-                Text(categoryGroupTitle(g, ledger) + " › " + leafTitle(ledger, d.account))
-                    .font(.system(size: Size.caption))
-                    .foregroundStyle(Color.jade)
-                    .lineLimit(1)
-                    .fixedSize()
             }
         }
     }
@@ -576,7 +573,6 @@ struct QuickCard: View {
             .frame(maxWidth: .infinity)
         }
         .font(.system(size: Size.subheadline))
-        .background(Color.card, in: RoundedRectangle(cornerRadius: 16))
     }
 
     private func fundingMenu(_ d: Draft) -> some View {
@@ -817,20 +813,30 @@ struct QuickCard: View {
         return day.prefix(4) == today.prefix(4) ? LS("%@月%@日", m, dd) : day
     }
 
-    /// who and what for, each with what was used before as chips under it while the cursor is there; ↩ in the note saves
-    private func textFields(_ d: Draft) -> some View {
+    /// one card, rows divided by lines: account | day | 更多, then who, then what for; what was used before shows as chips under it
+    /// while the cursor is in a field; ↩ in the note saves
+    private func details(_ d: Draft) -> some View {
         let notes = narrationSuggestions(derived, typed: "", payee: d.payee, limit: 1)
         let typedPayee = d.payee.trimmed
         return VStack(alignment: .leading, spacing: Space.icon) {
-            TextField(LS("收付款方"), text: Binding(get: { draft.payee }, set: { updateText(\.payee, $0) }), prompt: Text(LS("如 便利店、淘宝，可不填")))
-                .textFieldStyle(.roundedBorder)
-                .focused($field, equals: .payee)
-                .onSubmit { applyPayee(draft.payee.trimmed, onlyBlanks: false); field = .narration }
-            TextField(LS("摘要"), text: Binding(get: { draft.narration }, set: { updateText(\.narration, $0) }),
-                      prompt: Text(notes.first.map { LS("如 %@，可不填", $0) } ?? LS("买了什么、做什么用，可不填")))
-                .textFieldStyle(.roundedBorder)
-                .focused($field, equals: .narration)
-                .onSubmit { submit(close: true) }
+            VStack(spacing: 0) {
+                choices(d)
+                Divider()
+                TextField(LS("收付款方"), text: Binding(get: { draft.payee }, set: { updateText(\.payee, $0) }), prompt: Text(LS("如 便利店、淘宝，可不填")))
+                    .textFieldStyle(.plain)
+                    .padding(Space.control)
+                    .focused($field, equals: .payee)
+                    .onSubmit { applyPayee(draft.payee.trimmed, onlyBlanks: false); field = .narration }
+                Divider()
+                TextField(LS("摘要"), text: Binding(get: { draft.narration }, set: { updateText(\.narration, $0) }),
+                          prompt: Text(notes.first.map { LS("如 %@，可不填", $0) } ?? LS("买了什么、做什么用，可不填")))
+                    .textFieldStyle(.plain)
+                    .padding(Space.control)
+                    .focused($field, equals: .narration)
+                    .onSubmit { submit(close: true) }
+            }
+            .font(.system(size: Size.subheadline))
+            .background(Color.card, in: RoundedRectangle(cornerRadius: 16))
             // one row, always there, so nothing below moves as the cursor goes from field to field
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Space.icon) {
@@ -995,6 +1001,37 @@ private struct CellIcon: View {
     }
 }
 
+/// children left to right, wrapping onto the next row when the width is used up
+/// (SwiftUI has no wrapping stack; a custom `Layout` is the native way)
+private struct FlowLayout: Layout {
+    var spacing: CGFloat
+
+    private func rows(_ subviews: Subviews, width: CGFloat) -> (frames: [CGRect], size: CGSize) {
+        var frames: [CGRect] = []
+        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, used: CGFloat = 0
+        for v in subviews {
+            let s = v.sizeThatFits(ProposedViewSize(width: width, height: nil))
+            if x > 0 && x + s.width > width { x = 0; y += rowHeight + spacing; rowHeight = 0 }
+            frames.append(CGRect(x: x, y: y, width: s.width, height: s.height))
+            x += s.width + spacing
+            used = max(used, x - spacing)
+            rowHeight = max(rowHeight, s.height)
+        }
+        return (frames, CGSize(width: used, height: y + rowHeight))
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        rows(subviews, width: proposal.width ?? .infinity).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let laid = rows(subviews, width: bounds.width)
+        for (v, f) in zip(subviews, laid.frames) {
+            v.place(at: CGPoint(x: bounds.minX + f.minX, y: bounds.minY + f.minY), proposal: ProposedViewSize(f.size))
+        }
+    }
+}
+
 /// a capsule choice, the phone's `Chip`
 private struct QuickChip: View {
     let label: String
@@ -1005,7 +1042,8 @@ private struct QuickChip: View {
     var body: some View {
         Button(action: action) {
             Group {
-                if let systemImage { Label(label, systemImage: systemImage) } else { Text(label) }
+                if let systemImage, label.isEmpty { Image(systemName: systemImage) }
+                else if let systemImage { Label(label, systemImage: systemImage) } else { Text(label) }
             }
             .font(.system(size: Size.subheadline))
             .lineLimit(1)
