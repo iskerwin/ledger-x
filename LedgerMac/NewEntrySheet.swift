@@ -34,6 +34,10 @@ struct NewEntrySheet: View {
     @State private var leaving = false
     /// 完整表单 open over the card
     @State private var full: Bool
+    /// 完整表单's fields and what its header and buttons take: the window is as tall as the form, no taller
+    @State private var formHeight: CGFloat = 0
+    @State private var headerHeight: CGFloat = 0
+    @State private var footerHeight: CGFloat = 0
     /// the card's category grid in the order it had as this opened: saving one doesn't move the cells
     @State private var gridOrder: [String: [String]]
 
@@ -121,30 +125,38 @@ struct NewEntrySheet: View {
     private var form: some View {
         VStack(spacing: 0) {
             header
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
             EntryForm(draft: $draft, ledger: ledger, derived: derived, subscriptionLinks: subscriptionLinks) { panel = $0 }
                 .id(entry)
-            Text(message)
-                .font(.callout)
-                .foregroundStyle(Color.loss)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, minHeight: 28)
-                .padding(.horizontal, 20)
-            HStack {
-                Spacer()
-                Button(LS("取消"), role: .cancel) { close() }
-                    .keyboardShortcut(.cancelAction)
-                if !editing {
-                    Button(LS("保存再记")) { save(another: true) }
-                        .keyboardShortcut(.return, modifiers: [.command, .shift])
+                .onScrollContentHeight { formHeight = $0 }
+                .frame(height: EntryWindow.fieldsHeight(formHeight, bars: headerHeight + footerHeight))
+            VStack(spacing: 0) {
+                Text(message)
+                    .font(.callout)
+                    .foregroundStyle(Color.loss)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, minHeight: 28)
+                    .padding(.horizontal, 20)
+                HStack {
+                    Spacer()
+                    Button(LS("取消"), role: .cancel) { close() }
+                        .keyboardShortcut(.cancelAction)
+                    if !editing {
+                        Button(LS("保存再记")) { save(another: true) }
+                            .keyboardShortcut(.return, modifiers: [.command, .shift])
+                            .disabled(saving)
+                    }
+                    Button(LS("保存")) { save(another: false) }
+                        .keyboardShortcut(.defaultAction)
                         .disabled(saving)
                 }
-                Button(LS("保存")) { save(another: false) }
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(saving)
+                .padding([.horizontal, .bottom], 16)
             }
-            .padding([.horizontal, .bottom], 16)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { footerHeight = $0 }
         }
-        .frame(width: 620, height: EntryWindow.fitted(640))
+        .frame(width: 620)
+        // the height it had where the form can't be measured (macOS 14)
+        .frame(height: formHeight == 0 ? EntryWindow.fitted(640) : nil)
     }
 
     /// back to the card, the kinds on the left, how it is written on the right; a refund stays one

@@ -124,7 +124,7 @@ struct QuickCard: View {
                 .padding(.vertical, Space.icon)
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fieldsHeight = $0 }
             }
-            .frame(height: fieldsHeight == 0 ? nil : min(fieldsHeight, max(0, EntryWindow.fitted(.greatestFiniteMagnitude) - topHeight - saveBarHeight)))
+            .frame(height: EntryWindow.fieldsHeight(fieldsHeight, bars: topHeight + saveBarHeight))
             saveBar
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { saveBarHeight = $0 }
         }

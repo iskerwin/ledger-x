@@ -56,6 +56,27 @@ struct EntryWindow: View {
         guard let free = NSScreen.main?.visibleFrame.height else { return height }
         return min(height, free - 40)
     }
+
+    /// how tall the scrolling fields are drawn, `bars` being the rest of the window: all of them, or what the screen has room for.
+    /// Nothing before they are measured
+    static func fieldsHeight(_ fields: CGFloat, bars: CGFloat) -> CGFloat? {
+        fields == 0 ? nil : min(fields, max(0, fitted(.greatestFiniteMagnitude) - bars))
+    }
+}
+
+extension View {
+    /// the height of all a scroll view in here holds, for a window as tall as its content.
+    /// macOS 14 can't tell it: nothing is reported there
+    @ViewBuilder
+    func onScrollContentHeight(_ action: @escaping (CGFloat) -> Void) -> some View {
+        if #available(macOS 15, *) {
+            onScrollGeometryChange(for: CGFloat.self) { $0.contentSize.height + $0.contentInsets.top + $0.contentInsets.bottom } action: { _, height in
+                action(height)
+            }
+        } else {
+            self
+        }
+    }
 }
 
 extension View {
