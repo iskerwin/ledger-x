@@ -49,6 +49,8 @@ struct QuickCard: View {
     @State private var fieldsHeight: CGFloat = 0
     @State private var topHeight: CGFloat = 0
     @State private var saveBarHeight: CGFloat = 0
+    /// the hidden title bar's strip, which the card is drawn up into
+    @State private var titleBarHeight: CGFloat = 0
     /// goes up at each save turned back, to shake the reason
     @State private var blockedSaves = 0
     @State private var picking: Pick?
@@ -129,8 +131,11 @@ struct QuickCard: View {
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { saveBarHeight = $0 }
         }
         .background(Color.page)
+        // the window adds the strip on top of the card's height: taken off again, so the window ends where the card does
+        .padding(.bottom, -titleBarHeight)
         // the title bar is hidden: no strip kept for it above ✕ and the kind
         .ignoresSafeArea(.container, edges: .top)
+        .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { titleBarHeight = $0 }
         // digits typed while no field has the cursor (after a click on a chip) still go to the amount
         .background(TypedKeys(enabled: true) { typed in
             // a Chinese or Japanese input method sends 。 for the point and full-width digits
@@ -822,46 +827,31 @@ struct QuickCard: View {
         return day.prefix(4) == today.prefix(4) ? LS("%@月%@日", m, dd) : day
     }
 
-    /// one card, rows divided by lines: account | day | 更多, then who, then what for; what was used before shows as chips under it
-    /// while the cursor is in a field; ↩ in the note saves
+    /// one card, rows divided by lines: account | day | 更多, then who, then what for; what was used before drops down as it is typed in
+    /// ↩ in the note saves
     private func details(_ d: Draft) -> some View {
         let notes = narrationSuggestions(derived, typed: "", payee: d.payee, limit: 1)
         let typedPayee = d.payee.trimmed
-        return VStack(alignment: .leading, spacing: Space.icon) {
-            VStack(spacing: 0) {
-                choices(d)
-                Divider()
-                TextField(LS("收付款方"), text: Binding(get: { draft.payee }, set: { updateText(\.payee, $0) }), prompt: Text(LS("如 便利店、淘宝，可不填")))
-                    .textFieldStyle(.plain)
-                    .padding(Space.control)
-                    .focused($field, equals: .payee)
-                    .onSubmit { applyPayee(draft.payee.trimmed, onlyBlanks: false); field = .narration }
-                Divider()
-                TextField(LS("摘要"), text: Binding(get: { draft.narration }, set: { updateText(\.narration, $0) }),
-                          prompt: Text(notes.first.map { LS("如 %@，可不填", $0) } ?? LS("买了什么、做什么用，可不填")))
-                    .textFieldStyle(.plain)
-                    .padding(Space.control)
-                    .focused($field, equals: .narration)
-                    .onSubmit { submit(close: true) }
-            }
-            .font(.system(size: Size.subheadline))
-            .background(Color.card, in: RoundedRectangle(cornerRadius: 16))
-            // one row, always there, so nothing below moves as the cursor goes from field to field
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Space.icon) {
-                    if field == .payee {
-                        ForEach(Array(derived.payees.lazy.filter { typedPayee.isEmpty || fuzzy(typedPayee, $0.name) > 0 }.prefix(8)), id: \.name) { p in
-                            QuickChip(label: p.name) { applyPayee(p.name, onlyBlanks: false); field = .narration }
-                        }
-                    } else if field == .narration {
-                        ForEach(narrationSuggestions(derived, typed: d.narration, payee: d.payee, limit: 8), id: \.self) { n in
-                            QuickChip(label: n, selected: d.narration == n) { applyNarration(n, onlyBlanks: false) }
-                        }
-                    }
-                }
-            }
-            .frame(height: 32)
+        return VStack(spacing: 0) {
+            choices(d)
+            Divider()
+            TextField(LS("收付款方"), text: Binding(get: { draft.payee }, set: { updateText(\.payee, $0) }), prompt: Text(LS("如 便利店、淘宝，可不填")))
+                .textFieldStyle(.plain)
+                .padding(Space.control)
+                .focused($field, equals: .payee)
+                .suggesting(Array(derived.payees.lazy.filter { typedPayee.isEmpty || fuzzy(typedPayee, $0.name) > 0 }.prefix(8).map(\.name)))
+                .onSubmit { applyPayee(draft.payee.trimmed, onlyBlanks: false); field = .narration }
+            Divider()
+            TextField(LS("摘要"), text: Binding(get: { draft.narration }, set: { updateText(\.narration, $0) }),
+                      prompt: Text(notes.first.map { LS("如 %@，可不填", $0) } ?? LS("买了什么、做什么用，可不填")))
+                .textFieldStyle(.plain)
+                .padding(Space.control)
+                .focused($field, equals: .narration)
+                .suggesting(narrationSuggestions(derived, typed: d.narration, payee: d.payee, limit: 8))
+                .onSubmit { submit(close: true) }
         }
+        .font(.system(size: Size.subheadline))
+        .background(Color.card, in: RoundedRectangle(cornerRadius: 16))
     }
 
     private func updateText(_ key: WritableKeyPath<Draft, String>, _ value: String) {

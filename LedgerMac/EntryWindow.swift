@@ -77,6 +77,17 @@ extension View {
             self
         }
     }
+    /// what was used before, dropping down under a text field as it is typed in; macOS 14 has no such list
+    @ViewBuilder
+    func suggesting(_ items: [String]) -> some View {
+        if #available(macOS 15, *) {
+            textInputSuggestions {
+                ForEach(items, id: \.self) { Text($0).textInputCompletion($0) }
+            }
+        } else {
+            self
+        }
+    }
 }
 
 extension View {
