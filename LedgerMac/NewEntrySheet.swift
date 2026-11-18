@@ -77,8 +77,7 @@ struct NewEntrySheet: View {
                           editing: editing, saving: saving, message: message, blank: { Self.blank($0, ledger: ledger, derived: derived, config: config) }, setKind: setKind,
                           openFull: { message = ""; full = true }, close: close, save: save(another:)) { panel = $0 }
                     .id(entry)
-                    // as tall as spending with a sub-category row; what's rarer (报销, an edit's line) scrolls
-                    .frame(width: 560, height: EntryWindow.fitted(500))
+                    .frame(width: 560)
             } else {
                 form
             }

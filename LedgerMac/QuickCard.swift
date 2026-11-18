@@ -45,6 +45,10 @@ struct QuickCard: View {
     /// the search field is out (the 🔍 chip was clicked)
     @State private var searching = false
     @State private var attemptedSave = false
+    /// the fields' own height and what the top and the save bar take: the window is as tall as the card, no taller
+    @State private var fieldsHeight: CGFloat = 0
+    @State private var topHeight: CGFloat = 0
+    @State private var saveBarHeight: CGFloat = 0
     /// goes up at each save turned back, to shake the reason
     @State private var blockedSaves = 0
     @State private var picking: Pick?
@@ -97,9 +101,12 @@ struct QuickCard: View {
     var body: some View {
         let d = draft
         VStack(spacing: 0) {
-            topBar
-            topStrip(d)
-            // the fields scroll in their own area: the kind above and the save buttons below never move
+            VStack(spacing: 0) {
+                topBar
+                topStrip(d)
+            }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { topHeight = $0 }
+            // the window grows and shrinks with the fields; they scroll only where the screen has no more room
             ScrollView {
                 VStack(alignment: .leading, spacing: Space.control) {
                     amountCard(d)
@@ -115,9 +122,11 @@ struct QuickCard: View {
                 }
                 .padding(.horizontal, Space.content)
                 .padding(.vertical, Space.icon)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fieldsHeight = $0 }
             }
-            .frame(maxHeight: .infinity)
+            .frame(height: fieldsHeight == 0 ? nil : min(fieldsHeight, max(0, EntryWindow.fitted(.greatestFiniteMagnitude) - topHeight - saveBarHeight)))
             saveBar
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { saveBarHeight = $0 }
         }
         .background(Color.page)
         // the title bar is hidden: no strip kept for it above ✕ and the kind
