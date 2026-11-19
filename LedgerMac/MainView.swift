@@ -8,6 +8,8 @@ enum Page: String, CaseIterable {
     case reimbursements, salary, events
     case query, errors, sync
     case documents
+    /// last, so ⌘1–9 stay on the pages they were on
+    case people
 
     var title: String {
         switch self {
@@ -27,6 +29,7 @@ enum Page: String, CaseIterable {
         case .errors: return LS("错误")
         case .documents: return LS("附件与对账单")
         case .sync: return LS("同步与改动")
+        case .people: return LS("个人往来")
         }
     }
 
@@ -48,6 +51,7 @@ enum Page: String, CaseIterable {
         case .errors: return "exclamationmark.triangle"
         case .documents: return "paperclip"
         case .sync: return "arrow.up.arrow.down"
+        case .people: return "person.2.circle"
         }
     }
 
@@ -62,7 +66,7 @@ enum Page: String, CaseIterable {
         (LS("账本"), [.overview, .journal, .accounts, .documents]),
         (LS("分析"), [.reports, .payees, .year]),
         (LS("计划"), [.budgets, .forecast, .subscriptions]),
-        (LS("往来"), [.reimbursements, .salary, .events]),
+        (LS("往来"), [.people, .reimbursements, .salary, .events]),
         (LS("工具"), [.query, .errors, .sync]),
     ] }
 }
@@ -90,7 +94,6 @@ struct MainView: View {
     @Binding var adding: Bool
     @Binding var page: Page?
     @Binding var searching: Bool
-    @Binding var picking: Bool
     /// showing the entries a row counts, where the search box has them to search
     @State private var inScope = false
     @State private var git: FolderGitStatus?
@@ -122,25 +125,11 @@ struct MainView: View {
                     }
                 }
             }
-            // 记一笔 belongs to the whole ledger, not to a page: one place, whatever page is open
-            .safeAreaInset(edge: .top) {
-                Button { adding = true } label: { Label(LS("记一笔"), systemImage: "plus").frame(maxWidth: .infinity) }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .help(LS("记一笔") + " ⌘N")
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-            }
-            .safeAreaInset(edge: .bottom) {
-                VStack(alignment: .leading, spacing: 8) {
-                    SettingsLink { Label(LS("设置"), systemImage: "gearshape") }
-                    Button { picking = true } label: { Label(LS("切换账本…"), systemImage: "folder") }
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
-            }
+            // 记一笔 belongs to the whole ledger, not to a page: a bar under the sidebar's pages, whatever page is open.
+            // Not in the sidebar's toolbar: there it shares the titlebar strip with the system's 隐藏边栏 button, hovering
+            // swaps between the two and blinks, and each page change rebuilds the whole toolbar. Settings and switching
+            // ledgers are the menu bar's (⌘, ⌘O)
+            .sidebarBar { NewEntryButton(adding: $adding) }
             .navigationSplitViewColumnWidth(min: 180, ideal: 208, max: 260)
         } detail: {
             Group {
@@ -164,6 +153,7 @@ struct MainView: View {
                 case .reimbursements: drillable { ReimbursementsPage(ledger: ledger, config: config, folder: folder) }
                 case .salary: SalaryPage(ledger: ledger, config: config, folder: folder)
                 case .events: EventsPage(ledger: ledger, config: config, folder: folder)
+                case .people: PeoplePage(ledger: ledger, config: config, folder: folder)
                 case .query: QueryPage(ledger: ledger, folder: folder)
                 case .errors: ErrorsPage(ledger: ledger, folder: folder)
                 case .documents: drillable { DocumentsPage(ledger: ledger, folder: folder) }
@@ -195,7 +185,10 @@ struct MainView: View {
                 if ((page ?? .overview).followsPeriod || page == .accounts && accountsMode != .worth) && !inScope {
                     ToolbarItemGroup(placement: .navigation) {
                         PeriodBar(period: $period)
-                        if (page ?? .overview).followsFilter { AccountFilter(ledger: ledger, account: $account) }
+                        if (page ?? .overview).followsFilter {
+                            AccountFilter(ledger: ledger, account: $account)
+                            QuickSearchMenu(config: config, folder: folder, filter: $filter)
+                        }
                     }
                 }
             }
@@ -284,6 +277,32 @@ private struct ErrorBar: View {
             .buttonStyle(.plain)
             .help(first.msg)
             .background(.bar)
+        }
+    }
+}
+
+/// 记一笔 under the sidebar's pages, across the column
+private struct NewEntryButton: View {
+    @Binding var adding: Bool
+
+    var body: some View {
+        Button { adding = true } label: { Label(LS("记一笔"), systemImage: "square.and.pencil").frame(maxWidth: .infinity) }
+            .controlSize(.large)
+            .help(LS("记一笔") + " ⌘N")
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+    }
+}
+
+private extension View {
+    /// a bar fixed under a scrolling column: the system's own on macOS 26, where the list fades under it as it scrolls;
+    /// before that a plain bar with the window's bar material, so the rows never show through the button
+    @ViewBuilder
+    func sidebarBar(@ViewBuilder _ bar: () -> some View) -> some View {
+        if #available(macOS 26.0, *) {
+            safeAreaBar(edge: .bottom) { bar() }
+        } else {
+            safeAreaInset(edge: .bottom, spacing: 0) { bar().background(.bar) }
         }
     }
 }

@@ -352,7 +352,7 @@ struct AccountEditView: View {
         let ccy = currencies.uppercased().split(whereSeparator: { $0 == "," || $0 == " " }).map(String.init).filter { !$0.isEmpty }
         let limit = creditLimitText.replacingOccurrences(of: ",", with: "").trimmed
         return openDirectiveText(date: openDate, account: n, currencies: ccy, booking: booking, name: display.trimmed,
-                                 creditLimit: Double(limit), allowNegative: allowNegative, statementDay: statementDay,
+                                 creditLimit: typedNumber(limit), allowNegative: allowNegative, statementDay: statementDay,
                                  dueDay: dueDay, keep: openEntry(L)?.src)
     }
 

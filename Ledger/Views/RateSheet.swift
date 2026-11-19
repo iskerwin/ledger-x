@@ -42,7 +42,7 @@ struct RateSheet: View {
         if next.kind == .transfer { next.toAmount = converted }
         else {
             next.byRate = computed == .converted
-            next.rate = next.kind == .transfer ? rateString(Double(rate.trimmed).map(perUnit) ?? 0) : rate.trimmed
+            next.rate = next.kind == .transfer ? rateString(typedNumber(rate).map(perUnit) ?? 0) : rate.trimmed
             next.paid = converted
         }
         return next
@@ -182,7 +182,7 @@ struct RateSheet: View {
             row(d.kind == .transfer ? LS("实际到账") : LS("换算金额"), $converted, unit: fc, part: .converted)
         } footer: {
             VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                if let a = evalAmount(amount), let r = Double(rate), let c = evalAmount(converted) {
+                if let a = evalAmount(amount), let r = typedNumber(rate), let c = evalAmount(converted) {
                     if d.kind == .transfer {
                         let expected = solveTransferRate(.converted, draft: candidate, amount: a, rate: perUnit(r), received: c)
                         Text(LS("转出金额与实际到账按所选扣费方式计算。")).font(.caption)
@@ -203,7 +203,7 @@ struct RateSheet: View {
                         quotes[reverse] = rate
                         reverse.toggle()
                         if let saved = quotes[reverse] { rate = saved }
-                        else if let r = Double(rate), r > 0 { rate = rateString(1 / r) }
+                        else if let r = typedNumber(rate), r > 0 { rate = rateString(1 / r) }
                     } label: { Label(LS("交换汇率方向"), systemImage: "arrow.left.arrow.right").labelStyle(ControlLabelStyle()) }
                     .accessibilityLabel(LS("交换汇率方向"))
             }
@@ -288,8 +288,8 @@ struct RateSheet: View {
     private func recompute() {
         if d.kind == .transfer, computed == .rate, explicitQuote { return }
         let v = d.kind == .transfer
-            ? solveTransferRate(computed, draft: candidate, amount: evalAmount(amount), rate: Double(rate.trimmed).map(perUnit), received: evalAmount(converted))
-            : solveRate(computed, amount: evalAmount(amount), rate: Double(rate.trimmed).map(perUnit), converted: evalAmount(converted))
+            ? solveTransferRate(computed, draft: candidate, amount: evalAmount(amount), rate: typedNumber(rate).map(perUnit), received: evalAmount(converted))
+            : solveRate(computed, amount: evalAmount(amount), rate: typedNumber(rate).map(perUnit), converted: evalAmount(converted))
         let s = v.map { computed == .rate ? rateString(displayed($0)) : toFixed($0, 2) } ?? ""
         switch computed {
         case .amount: if amount != s { amount = s }
@@ -312,7 +312,7 @@ struct RateSheet: View {
         }
         if let fc = other, fc != currency, x.kind == .transfer || !hasCombo(x) {
             guard let a = evalAmount(amount), a > 0, let c = evalAmount(converted), c > 0,
-                  let r = Double(rate.trimmed), r.isFinite, r > 0 else {
+                  let r = typedNumber(rate), r.isFinite, r > 0 else {
                 error = LS("请输入有效金额和汇率"); return
             }
             setConversion(&x, amount: amount.trimmed, rate: x.kind == .transfer ? rateString(perUnit(r)) : rate.trimmed, converted: converted.trimmed, computed: computed)

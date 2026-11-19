@@ -15,11 +15,26 @@ struct LedgerMacApp: App {
     @State private var opened = 0
     @State private var open = OpenLedger()
     @AppStorage(MacLanguage.key) private var language = MacLanguage.system.rawValue
+    @AppStorage(RecentLedgers.key) private var recent = ""
 
     init() {
         MacLanguage.apply()
         KitPrivacy.masked = UserDefaults.standard.bool(forKey: "hideAmounts")
+        // the ledger open from before 打开最近使用 kept a list is on it too
+        if let current = UserDefaults.standard.string(forKey: "ledgerFolder"), !current.isEmpty {
+            let stored = UserDefaults.standard.string(forKey: RecentLedgers.key) ?? ""
+            if !RecentLedgers.list(stored).contains(current) {
+                UserDefaults.standard.set(RecentLedgers.adding(current, to: stored), forKey: RecentLedgers.key)
+            }
+        }
         _page = State(initialValue: Page(rawValue: UserDefaults.standard.string(forKey: "defaultPage") ?? "") ?? .overview)
+    }
+
+    /// a ledger folder chosen, or chosen again: read afresh, and first on 打开最近使用
+    private func openLedger(_ path: String) {
+        folder = path
+        opened += 1
+        recent = RecentLedgers.adding(path, to: recent)
     }
 
     var body: some Scene {
@@ -35,10 +50,7 @@ struct LedgerMacApp: App {
                 .onChange(of: language) { MacLanguage.apply() }
                 .environment(open)
                 .fileImporter(isPresented: $picking, allowedContentTypes: [.folder]) { result in
-                    if case .success(let url) = result {
-                        folder = url.path
-                        opened += 1
-                    }
+                    if case .success(let url) = result { openLedger(url.path) }
                 }
         }
         .defaultSize(width: 1280, height: 820)
@@ -49,6 +61,16 @@ struct LedgerMacApp: App {
                     .disabled(folder.isEmpty)
                 Button(LS("打开账本…")) { withoutSheet { picking = true } }
                     .keyboardShortcut("o")
+                // the system's 打开最近使用 lists documents of the types an app declares; a ledger is a folder, so the
+                // list is kept here
+                Menu(LS("打开最近使用")) {
+                    ForEach(RecentLedgers.list(recent), id: \.self) { path in
+                        Button(URL(fileURLWithPath: path).lastPathComponent) { withoutSheet { openLedger(path) } }
+                    }
+                    Divider()
+                    Button(LS("清除菜单")) { recent = "" }
+                }
+                .disabled(RecentLedgers.list(recent).isEmpty)
             }
             CommandGroup(after: .textEditing) {
                 Button(LS("搜索")) {
@@ -171,7 +193,7 @@ private struct ContentView: View {
     var body: some View {
         Group {
             if let ledger = open.ledger {
-                MainView(ledger: ledger, config: open.config, folder: URL(fileURLWithPath: folder), changes: changes, adding: $adding, page: $page, searching: $searching, picking: $picking)
+                MainView(ledger: ledger, config: open.config, folder: URL(fileURLWithPath: folder), changes: changes, adding: $adding, page: $page, searching: $searching)
             } else if folder.isEmpty || missing {
                 VStack(spacing: 12) {
                     if missing { Text(LS("这个文件夹里没有账本")).foregroundStyle(.secondary) }
@@ -206,5 +228,19 @@ private struct ContentView: View {
             open.config = loaded.1
             missing = loaded.0 == nil
         }
+    }
+}
+
+/// 文件 › 打开最近使用: the last few ledger folders, newest first, one path a line
+enum RecentLedgers {
+    static let key = "recentLedgers"
+    static let limit = 8
+
+    static func list(_ stored: String) -> [String] {
+        stored.split(separator: "\n").map(String.init)
+    }
+
+    static func adding(_ path: String, to stored: String) -> String {
+        ([path] + list(stored).filter { $0 != path }).prefix(limit).joined(separator: "\n")
     }
 }

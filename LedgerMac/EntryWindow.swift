@@ -56,6 +56,42 @@ struct EntryWindow: View {
         guard let free = NSScreen.main?.visibleFrame.height else { return height }
         return min(height, free - 40)
     }
+
+}
+
+extension View {
+    /// a scroll view drawn as tall as the `fields` it holds (nothing before they are measured), or as the screen has room for
+    /// beside `bars`, the rest of the window. Its scroller shows only when they don't fit: one that came and went would
+    /// narrow the fields, wrap them anew and change their height, round and round
+    func fittedScroll(_ fields: CGFloat, bars: CGFloat) -> some View {
+        let room = max(0, EntryWindow.fitted(.greatestFiniteMagnitude) - bars)
+        return frame(height: fields == 0 ? nil : min(fields, room))
+            .scrollIndicators(fields <= room ? .never : .automatic)
+    }
+
+    /// the height of all a scroll view in here holds, for a window as tall as its content.
+    /// macOS 14 can't tell it: nothing is reported there
+    @ViewBuilder
+    func onScrollContentHeight(_ action: @escaping (CGFloat) -> Void) -> some View {
+        if #available(macOS 15, *) {
+            onScrollGeometryChange(for: CGFloat.self) { $0.contentSize.height + $0.contentInsets.top + $0.contentInsets.bottom } action: { _, height in
+                action(height)
+            }
+        } else {
+            self
+        }
+    }
+    /// what was used before, dropping down under a text field as it is typed in; macOS 14 has no such list
+    @ViewBuilder
+    func suggesting(_ items: [String]) -> some View {
+        if #available(macOS 15, *) {
+            textInputSuggestions {
+                ForEach(items, id: \.self) { Text($0).textInputCompletion($0) }
+            }
+        } else {
+            self
+        }
+    }
 }
 
 extension View {

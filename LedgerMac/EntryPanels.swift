@@ -201,7 +201,7 @@ struct RateSheet: View {
                 }
             }
             row(transfer ? LS("实际到账") : LS("换算金额"), $converted, unit: other, part: .converted)
-            if transfer, let sent = evalAmount(amount), let quoted = Double(rate), let received = evalAmount(converted),
+            if transfer, let sent = evalAmount(amount), let quoted = typedNumber(rate), let received = evalAmount(converted),
                let expected = solveTransferRate(.converted, draft: candidate, amount: sent, rate: perUnit(quoted), received: received), abs(expected - received) > 0.011 {
                 Text(LS("银行报价与实际金额存在差异，请核对；已填金额不会被自动覆盖。")).foregroundStyle(Color.warn)
             }
@@ -213,7 +213,7 @@ struct RateSheet: View {
                     reverse.toggle()
                     if let saved = quotes[reverse] {
                         rate = saved
-                    } else if let quoted = Double(rate), quoted > 0 {
+                    } else if let quoted = typedNumber(rate), quoted > 0 {
                         rate = rateString(1 / quoted)
                     }
                 }
@@ -363,8 +363,8 @@ struct RateSheet: View {
     private func recompute() {
         if transfer, computed == .rate, explicitQuote { return }
         let value = transfer
-            ? solveTransferRate(computed, draft: candidate, amount: evalAmount(amount), rate: Double(rate.trimmed).map(perUnit), received: evalAmount(converted))
-            : solveRate(computed, amount: evalAmount(amount), rate: Double(rate.trimmed).map(perUnit), converted: evalAmount(converted))
+            ? solveTransferRate(computed, draft: candidate, amount: evalAmount(amount), rate: typedNumber(rate).map(perUnit), received: evalAmount(converted))
+            : solveRate(computed, amount: evalAmount(amount), rate: typedNumber(rate).map(perUnit), converted: evalAmount(converted))
         let shown = value.map { computed == .rate ? rateString(perUnit($0)) : toFixed($0, 2) } ?? ""
         switch computed {
         case .amount: if amount != shown { amount = shown }
@@ -387,7 +387,7 @@ struct RateSheet: View {
         }
         if let other, other != currency, transfer || !hasCombo(next) {
             guard let sent = evalAmount(amount), sent > 0, let received = evalAmount(converted), received > 0,
-                  let quoted = Double(rate.trimmed), quoted.isFinite, quoted > 0 else {
+                  let quoted = typedNumber(rate), quoted.isFinite, quoted > 0 else {
                 error = LS("请输入有效金额和汇率")
                 return
             }
