@@ -356,7 +356,9 @@ struct EntryList: View {
     private func menu(_ chosen: [JournalRow]) -> [TableMenuItem] {
         let entries = chosen.map(\.entry)
         guard entries.count == 1, let entry = entries.first else {
-            return [TableMenuItem(title: LS("复制 %@ 笔原文", entries.count)) { EntryTasks.copy(entries) }]
+            let editable = entries.filter(\.editable)
+            return [TableMenuItem(title: LS("批量编辑…"), enabled: !editable.isEmpty) { tasks.batching = BatchRequest(entries: editable) },
+                    TableMenuItem(title: LS("复制 %@ 笔原文", entries.count)) { EntryTasks.copy(entries) }]
         }
         return entryActions(entry, ledger, config, folder: folder, tasks: $tasks) + [
                 TableMenuItem(title: LS("复制原文")) { EntryTasks.copy(entries) },
