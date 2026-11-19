@@ -36,14 +36,10 @@ struct QuickCard: View {
     let save: (_ another: Bool) -> Void
     let open: (EntryPanel) -> Void
 
-    enum Field: Hashable { case amount, category, payee, narration }
+    enum Field: Hashable { case amount, payee, narration }
     enum Pick: String, Identifiable { case funding, from, to; var id: String { rawValue } }
 
     @FocusState private var field: Field?
-    /// what is typed to find a category; the chips show what it finds
-    @State private var categoryQuery = ""
-    /// the search field is out (the 🔍 chip was clicked)
-    @State private var searching = false
     @State private var attemptedSave = false
     /// the fields' own height and what the top and the save bar take: the window is as tall as the card, no taller
     @State private var fieldsHeight: CGFloat = 0
@@ -165,7 +161,6 @@ struct QuickCard: View {
         .onAppear { DispatchQueue.main.async { if field == nil { field = .amount } } }
         .onChange(of: field) { old, new in
             // leaving the payee or the note: a known one fills in what isn't picked yet
-            if old == .category && new != .category && categoryQuery.trimmed.isEmpty { searching = false }
             if old == .payee && new != .payee { applyPayee(draft.payee.trimmed, onlyBlanks: true) }
             if old == .narration && new != .narration { applyNarration(draft.narration.trimmed, onlyBlanks: true) }
         }
@@ -341,74 +336,41 @@ struct QuickCard: View {
         return top
     }
 
-    /// the common categories as chips and 全部; typing in the field beside them shows the categories that match instead,
-    /// and ↩ there takes the first
+    /// the common categories as chips and 全部, which has the rest and the search
     @ViewBuilder
     private func categoryRow(_ d: Draft) -> some View {
         let groups = gridGroups(root)
         let picked = d.account.hasPrefix(root) ? catOf(d.account) : nil
-        let typed = categoryQuery.trimmed
         if groups.isEmpty {
             Text(LS("账本里还没有%@科目，可在「账户」里新建。", d.kind == .income ? "收入" : "支出"))
                 .font(.system(size: Size.footnote))
                 .foregroundStyle(.secondary)
         } else {
-            // two rows, never more: as many of the common ones (or of what's found) as they hold, 全部 and 🔍 always there
+            // two rows, never more: as many of the common ones as they hold, 全部 always there
             ViewThatFits(in: .vertical) {
-                ForEach((0...(typed.isEmpty ? Self.shownCategories : 12)).reversed(), id: \.self) { n in
-                    categoryChips(d, groups: groups, picked: picked, typed: typed, count: n)
+                ForEach((0...Self.shownCategories).reversed(), id: \.self) { n in
+                    categoryChips(d, groups: groups, picked: picked, count: n)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
     }
 
-    /// the search field when it's out, then `count` common categories with 全部 and 🔍, or `count` of the ones found.
-    /// The picked one reads 餐饮 › 午餐; clicked again it opens its sub-categories
-    private func categoryChips(_ d: Draft, groups: [CategoryGroup], picked: String?, typed: String, count: Int) -> some View {
+    /// `count` common categories and 全部. The picked one reads 餐饮 › 午餐; clicked again it opens its sub-categories
+    private func categoryChips(_ d: Draft, groups: [CategoryGroup], picked: String?, count: Int) -> some View {
         FlowLayout(spacing: Space.icon) {
-            if searching || !typed.isEmpty {
-                TextField(LS("搜索分类"), text: $categoryQuery)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 140)
-                    .focused($field, equals: .category)
-                    .onSubmit { if let first = categoryMatches(groups, typed, ledger).first { pickTyped(first.1) } }
-                    .onExitCommand { categoryQuery = ""; searching = false; field = nil }
-            }
-            if typed.isEmpty {
-                ForEach(shownGroups(groups, picked: picked, count: count)) { g in
-                    let title = categoryGroupTitle(g, ledger) + (g.id == picked && !g.single ? " › " + leafTitle(ledger, d.account) : "")
-                    QuickChip(label: title, systemImage: categorySymbol(g.id), selected: g.id == picked) {
-                        // the picked group again: its sub-categories
-                        if g.id == picked && !g.single { subPicking = g.id } else { pick(g) }
-                    }
-                    .contextMenu {
-                        if !g.single { Button(LS("选择子类"), systemImage: "list.bullet") { pick(g); subPicking = g.id } }
-                    }
+            ForEach(shownGroups(groups, picked: picked, count: count)) { g in
+                let title = categoryGroupTitle(g, ledger) + (g.id == picked && !g.single ? " › " + leafTitle(ledger, d.account) : "")
+                QuickChip(label: title, systemImage: categorySymbol(g.id), selected: g.id == picked) {
+                    // the picked group again: its sub-categories
+                    if g.id == picked && !g.single { subPicking = g.id } else { pick(g) }
                 }
-                QuickChip(label: LS("全部"), systemImage: "square.grid.2x2") { field = nil; allCategories = true }
-                if !searching {
-                    QuickChip(label: "", systemImage: "magnifyingglass") { searching = true; field = .category }
-                        .help(LS("搜索分类"))
-                }
-            } else {
-                let hits = categoryMatches(groups, typed, ledger)
-                if hits.isEmpty {
-                    Text(LS("没有找到「%@」", typed)).font(.system(size: Size.subheadline)).foregroundStyle(.secondary)
-                }
-                ForEach(Array(hits.prefix(count).enumerated()), id: \.offset) { _, hit in
-                    QuickChip(label: categoryGroupTitle(hit.0, ledger) + (hit.0.single ? "" : " › " + leafTitle(ledger, hit.1)),
-                              systemImage: categorySymbol(hit.0.id), selected: hit.1 == d.account) { pickTyped(hit.1) }
+                .contextMenu {
+                    if !g.single { Button(LS("选择子类"), systemImage: "list.bullet") { pick(g); subPicking = g.id } }
                 }
             }
+            QuickChip(label: LS("全部"), systemImage: "square.grid.2x2") { field = nil; allCategories = true }
         }
-    }
-
-    /// a category found by typing: picked, the search cleared, on to who it was with
-    private func pickTyped(_ account: String) {
-        pickCategory(account)
-        categoryQuery = ""
-        field = .payee
     }
 
     /// a group of one picks its account; a bigger one the account last used in it (click again for the others)
