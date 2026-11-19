@@ -813,7 +813,7 @@ struct QuickCard: View {
                 .textFieldStyle(.plain)
                 .padding(Space.control)
                 .focused($field, equals: .payee)
-                .suggesting(Array(derived.payees.lazy.filter { typedPayee.isEmpty || fuzzy(typedPayee, $0.name) > 0 }.prefix(8).map(\.name)))
+                .suggesting(Array(derived.payees.lazy.filter { typedPayee.isEmpty || fuzzy(typedPayee, $0.name) > 0 }.prefix(8).map(\.name)), closed: derived.payee(typedPayee) != nil)
                 .onSubmit { applyPayee(draft.payee.trimmed, onlyBlanks: false); field = .narration }
             Divider()
             TextField(LS("摘要"), text: Binding(get: { draft.narration }, set: { updateText(\.narration, $0) }),
@@ -821,7 +821,7 @@ struct QuickCard: View {
                 .textFieldStyle(.plain)
                 .padding(Space.control)
                 .focused($field, equals: .narration)
-                .suggesting(narrationSuggestions(derived, typed: d.narration, payee: d.payee, limit: 8))
+                .suggesting(narrationSuggestions(derived, typed: d.narration, payee: d.payee, limit: 8), closed: derived.narration(d.narration.trimmed) != nil)
                 .onSubmit { submit(close: true) }
         }
         .font(.system(size: Size.subheadline))
@@ -1187,26 +1187,24 @@ private struct AccountChooser: View {
     }
 }
 
-/// a group's sub-categories, to pick one
+/// a group's sub-categories: one click picks it and closes
 private struct SubCategorySheet: View {
     let group: CategoryGroup
     let title: String
     let ledger: Ledger
     let current: String
     let pick: (String) -> Void
-    @State private var pending: String?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        let chosen = pending ?? current
         VStack(spacing: 0) {
-            SheetBar(title: title, done: { pick(chosen); dismiss() }, canFinish: !chosen.isEmpty)
+            SheetBar(title: title)
             List(group.accounts, id: \.self) { a in
-                Button { pending = a } label: {
+                Button { pick(a); dismiss() } label: {
                     HStack(spacing: Space.control) {
                         Text(accountTitle(ledger, a))
                         Spacer()
-                        if a == chosen { Image(systemName: "checkmark").foregroundStyle(Color.jade).fontWeight(.semibold) }
+                        if a == current { Image(systemName: "checkmark").foregroundStyle(Color.jade).fontWeight(.semibold) }
                     }
                     .contentShape(Rectangle())
                 }
@@ -1226,13 +1224,13 @@ private struct AllCategoriesSheet: View {
     let ledger: Ledger
     let use: (String) -> Void
     @State private var query = ""
+    /// the group whose sub-categories are shown under the grid
     @State private var group: String?
-    @State private var account: String?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 0) {
-            SheetBar(title: LS("全部分类"), done: finish, canFinish: account != nil)
+            SheetBar(title: LS("全部分类"))
             TextField(LS("搜索分类"), text: $query)
                 .textFieldStyle(.roundedBorder)
                 .padding(.horizontal, Space.content)
@@ -1253,7 +1251,7 @@ private struct AllCategoriesSheet: View {
                         if hits.isEmpty { Text(LS("没有找到「%@」", query.trimmed)).foregroundStyle(.secondary).padding(.top, Space.content) }
                         ForEach(Array(hits.enumerated()), id: \.offset) { _, hit in
                             let (g, a) = hit
-                            Button { choose(g, a) } label: {
+                            Button { finish(a) } label: {
                                 HStack(spacing: Space.icon) {
                                     Image(systemName: categorySymbol(g.id))
                                         .frame(width: 30, height: 30)
@@ -1263,7 +1261,7 @@ private struct AllCategoriesSheet: View {
                                         Text(a).font(.system(size: Size.caption)).foregroundStyle(.secondary)
                                     }
                                     Spacer()
-                                    if a == account { Image(systemName: "checkmark").foregroundStyle(Color.jade) }
+                                    if a == current { Image(systemName: "checkmark").foregroundStyle(Color.jade) }
                                 }
                                 .contentShape(Rectangle())
                             }
@@ -1274,54 +1272,39 @@ private struct AllCategoriesSheet: View {
                 }
                 .padding(Space.content)
             }
-            if let id = group, let g = groups.first(where: { $0.id == id }) { picker(g) }
+            if let id = group, let g = groups.first(where: { $0.id == id }), !g.single { picker(g) }
         }
         .frame(width: 420, height: 640)
         .background(Color.page)
         .onAppear {
-            if let current { group = catOf(current); account = current }
+            if let current { group = catOf(current) }
         }
     }
 
+    /// a group of one is picked at once; a bigger one shows its sub-categories below
     private func cell(_ g: CategoryGroup) -> some View {
-        CategoryCell(icon: categorySymbol(g.id), title: categoryGroupTitle(g, ledger), single: true, selected: group == g.id) { choose(g, nil) }
+        CategoryCell(icon: categorySymbol(g.id), title: categoryGroupTitle(g, ledger), single: true, selected: group == g.id) {
+            if g.single { finish(g.accounts[0]) } else { group = g.id }
+        }
     }
 
-    /// a group, and an account in it (the one on the card when it is in this group)
-    private func choose(_ g: CategoryGroup, _ a: String?) {
-        group = g.id
-        if let a { account = a }
-        else if let current, catOf(current) == g.id { account = current }
-        else { account = g.accounts.first }
-    }
-
-    private func finish() {
-        guard let account else { return }
+    private func finish(_ account: String) {
         use(account)
         dismiss()
     }
 
-    /// the picked category's sub-categories and 使用「…」
+    /// the shown group's sub-categories: one click picks it and closes
     private func picker(_ g: CategoryGroup) -> some View {
         VStack(alignment: .leading, spacing: Space.icon) {
             Text(categoryGroupTitle(g, ledger)).font(.headline)
-            if !g.single {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: Space.icon) {
-                        ForEach(g.accounts, id: \.self) { a in QuickChip(label: leafTitle(ledger, a), selected: account == a) { account = a } }
-                    }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Space.icon) {
+                    ForEach(g.accounts, id: \.self) { a in QuickChip(label: leafTitle(ledger, a), selected: current == a) { finish(a) } }
                 }
             }
-            Button(action: finish) {
-                Label(LS("使用「%@」", categoryGroupTitle(g, ledger) + (g.single || account == nil ? "" : " · " + leafTitle(ledger, account!))), systemImage: "checkmark")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Color.jade)
-            .controlSize(.large)
-            .disabled(account == nil)
         }
         .padding(Space.content)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(.bar)
     }
 
