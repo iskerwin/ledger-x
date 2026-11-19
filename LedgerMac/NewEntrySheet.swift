@@ -129,7 +129,7 @@ struct NewEntrySheet: View {
             EntryForm(draft: $draft, ledger: ledger, derived: derived, subscriptionLinks: subscriptionLinks) { panel = $0 }
                 .id(entry)
                 .onScrollContentHeight { formHeight = $0 }
-                .frame(height: EntryWindow.fieldsHeight(formHeight, bars: headerHeight + footerHeight))
+                .fittedScroll(formHeight, bars: headerHeight + footerHeight)
             VStack(spacing: 0) {
                 Text(message)
                     .font(.callout)

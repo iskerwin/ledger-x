@@ -126,7 +126,7 @@ struct QuickCard: View {
                 .padding(.vertical, Space.icon)
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fieldsHeight = $0 }
             }
-            .frame(height: EntryWindow.fieldsHeight(fieldsHeight, bars: topHeight + saveBarHeight))
+            .fittedScroll(fieldsHeight, bars: topHeight + saveBarHeight)
             saveBar
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { saveBarHeight = $0 }
         }
@@ -135,7 +135,8 @@ struct QuickCard: View {
         .padding(.bottom, -titleBarHeight)
         // the title bar is hidden: no strip kept for it above ✕ and the kind
         .ignoresSafeArea(.container, edges: .top)
-        .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { titleBarHeight = $0 }
+        // asked of the window, not measured here: what's measured here moves as the window is sized by it, and back again
+        .background(WindowReader { titleBarHeight = $0.frame.height - $0.contentLayoutRect.height })
         // digits typed while no field has the cursor (after a click on a chip) still go to the amount
         .background(TypedKeys(enabled: true) { typed in
             // a Chinese or Japanese input method sends 。 for the point and full-width digits

@@ -57,14 +57,18 @@ struct EntryWindow: View {
         return min(height, free - 40)
     }
 
-    /// how tall the scrolling fields are drawn, `bars` being the rest of the window: all of them, or what the screen has room for.
-    /// Nothing before they are measured
-    static func fieldsHeight(_ fields: CGFloat, bars: CGFloat) -> CGFloat? {
-        fields == 0 ? nil : min(fields, max(0, fitted(.greatestFiniteMagnitude) - bars))
-    }
 }
 
 extension View {
+    /// a scroll view drawn as tall as the `fields` it holds (nothing before they are measured), or as the screen has room for
+    /// beside `bars`, the rest of the window. Its scroller shows only when they don't fit: one that came and went would
+    /// narrow the fields, wrap them anew and change their height, round and round
+    func fittedScroll(_ fields: CGFloat, bars: CGFloat) -> some View {
+        let room = max(0, EntryWindow.fitted(.greatestFiniteMagnitude) - bars)
+        return frame(height: fields == 0 ? nil : min(fields, room))
+            .scrollIndicators(fields <= room ? .never : .automatic)
+    }
+
     /// the height of all a scroll view in here holds, for a window as tall as its content.
     /// macOS 14 can't tell it: nothing is reported there
     @ViewBuilder
