@@ -51,6 +51,9 @@ struct QuickCard: View {
     @State private var saveBarHeight: CGFloat = 0
     /// the hidden title bar's strip, which the card is drawn up into
     @State private var titleBarHeight: CGFloat = 0
+    /// a chip's height: two rows of them are what the categories, 报销's account and a transfer's two cards each take,
+    /// so the card is as tall whatever the kind
+    @State private var chipHeight: CGFloat = 0
     /// goes up at each save turned back, to shake the reason
     @State private var blockedSaves = 0
     @State private var picking: Pick?
@@ -112,15 +115,20 @@ struct QuickCard: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Space.control) {
                     amountCard(d)
-                    if d.kind == .transfer { transferPanel(d) }
-                    else if d.reimb {
-                        LabeledContent(LS("报销应收科目"), value: accountTitle(ledger, derived.receivable))
-                            .padding(.vertical, Space.icon)
-                    } else {
-                        categoryRow(d)
-                        subCategories(d)
+                    Group {
+                        if d.kind == .transfer { transferPanel(d) }
+                        else if d.reimb { LabeledContent(LS("报销应收科目"), value: accountTitle(ledger, derived.receivable)) }
+                        else { categoryRow(d) }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: twoRows)
                     details(d)
+                }
+                .background(alignment: .topLeading) {
+                    QuickChip(label: LS("全部"), systemImage: "square.grid.2x2") {}
+                        .fixedSize()
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { chipHeight = $0 }
+                        .hidden()
                 }
                 .padding(.horizontal, Space.content)
                 .padding(.vertical, Space.icon)
@@ -321,9 +329,12 @@ struct QuickCard: View {
         orderedGroups(categoryGroups(derived, root: root), saved: gridOrder[root] ?? [])
     }
 
-    /// the first seven in the grid's order, the picked one put in the last place when it isn't among them
-    private func shownGroups(_ groups: [CategoryGroup], picked: String?) -> [CategoryGroup] {
-        var top = Array(groups.prefix(Self.shownCategories))
+    /// two rows of chips, once a chip has been measured
+    private var twoRows: CGFloat? { chipHeight == 0 ? nil : chipHeight * 2 + Space.icon }
+
+    /// the first `count` in the grid's order, the picked one put in the last place when it isn't among them
+    private func shownGroups(_ groups: [CategoryGroup], picked: String?, count: Int) -> [CategoryGroup] {
+        var top = Array(groups.prefix(count))
         if let p = picked, !top.contains(where: { $0.id == p }), let g = groups.first(where: { $0.id == p }), !top.isEmpty {
             top[top.count - 1] = g
         }
@@ -342,40 +353,52 @@ struct QuickCard: View {
                 .font(.system(size: Size.footnote))
                 .foregroundStyle(.secondary)
         } else {
-            // wraps onto a second row rather than scrolling, so every category shows; the search field opens in the row
-            FlowLayout(spacing: Space.icon) {
-                if searching || !typed.isEmpty {
-                    TextField(LS("搜索分类"), text: $categoryQuery)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 140)
-                        .focused($field, equals: .category)
-                        .onSubmit { if let first = categoryMatches(groups, typed, ledger).first { pickTyped(first.1) } }
-                        .onExitCommand { categoryQuery = ""; searching = false; field = nil }
+            // two rows, never more: as many of the common ones (or of what's found) as they hold, 全部 and 🔍 always there
+            ViewThatFits(in: .vertical) {
+                ForEach((0...(typed.isEmpty ? Self.shownCategories : 12)).reversed(), id: \.self) { n in
+                    categoryChips(d, groups: groups, picked: picked, typed: typed, count: n)
                 }
-                if typed.isEmpty {
-                    ForEach(shownGroups(groups, picked: picked)) { g in
-                        QuickChip(label: categoryGroupTitle(g, ledger), systemImage: categorySymbol(g.id), selected: g.id == picked) {
-                            // the picked group again: its sub-categories
-                            if g.id == picked && !g.single { subPicking = g.id } else { pick(g) }
-                        }
-                        .contextMenu {
-                            if !g.single { Button(LS("选择子类"), systemImage: "list.bullet") { pick(g); subPicking = g.id } }
-                        }
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+    }
+
+    /// the search field when it's out, then `count` common categories with 全部 and 🔍, or `count` of the ones found.
+    /// The picked one reads 餐饮 › 午餐; clicked again it opens its sub-categories
+    private func categoryChips(_ d: Draft, groups: [CategoryGroup], picked: String?, typed: String, count: Int) -> some View {
+        FlowLayout(spacing: Space.icon) {
+            if searching || !typed.isEmpty {
+                TextField(LS("搜索分类"), text: $categoryQuery)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 140)
+                    .focused($field, equals: .category)
+                    .onSubmit { if let first = categoryMatches(groups, typed, ledger).first { pickTyped(first.1) } }
+                    .onExitCommand { categoryQuery = ""; searching = false; field = nil }
+            }
+            if typed.isEmpty {
+                ForEach(shownGroups(groups, picked: picked, count: count)) { g in
+                    let title = categoryGroupTitle(g, ledger) + (g.id == picked && !g.single ? " › " + leafTitle(ledger, d.account) : "")
+                    QuickChip(label: title, systemImage: categorySymbol(g.id), selected: g.id == picked) {
+                        // the picked group again: its sub-categories
+                        if g.id == picked && !g.single { subPicking = g.id } else { pick(g) }
                     }
-                    QuickChip(label: LS("全部"), systemImage: "square.grid.2x2") { field = nil; allCategories = true }
-                    if !searching {
-                        QuickChip(label: "", systemImage: "magnifyingglass") { searching = true; field = .category }
-                            .help(LS("搜索分类"))
+                    .contextMenu {
+                        if !g.single { Button(LS("选择子类"), systemImage: "list.bullet") { pick(g); subPicking = g.id } }
                     }
-                } else {
-                    let hits = categoryMatches(groups, typed, ledger)
-                    if hits.isEmpty {
-                        Text(LS("没有找到「%@」", typed)).font(.system(size: Size.subheadline)).foregroundStyle(.secondary)
-                    }
-                    ForEach(Array(hits.prefix(12).enumerated()), id: \.offset) { _, hit in
-                        QuickChip(label: categoryGroupTitle(hit.0, ledger) + (hit.0.single ? "" : " › " + leafTitle(ledger, hit.1)),
-                                  systemImage: categorySymbol(hit.0.id), selected: hit.1 == d.account) { pickTyped(hit.1) }
-                    }
+                }
+                QuickChip(label: LS("全部"), systemImage: "square.grid.2x2") { field = nil; allCategories = true }
+                if !searching {
+                    QuickChip(label: "", systemImage: "magnifyingglass") { searching = true; field = .category }
+                        .help(LS("搜索分类"))
+                }
+            } else {
+                let hits = categoryMatches(groups, typed, ledger)
+                if hits.isEmpty {
+                    Text(LS("没有找到「%@」", typed)).font(.system(size: Size.subheadline)).foregroundStyle(.secondary)
+                }
+                ForEach(Array(hits.prefix(count).enumerated()), id: \.offset) { _, hit in
+                    QuickChip(label: categoryGroupTitle(hit.0, ledger) + (hit.0.single ? "" : " › " + leafTitle(ledger, hit.1)),
+                              systemImage: categorySymbol(hit.0.id), selected: hit.1 == d.account) { pickTyped(hit.1) }
                 }
             }
         }
@@ -407,18 +430,6 @@ struct QuickCard: View {
         draft.selection = selection
     }
 
-    /// the picked group's other accounts, one click each, and the path picked ("餐饮 › 咖啡") on the right
-    @ViewBuilder
-    private func subCategories(_ d: Draft) -> some View {
-        if d.account.hasPrefix(root), let g = gridGroups(root).first(where: { $0.id == catOf(d.account) }), !g.single {
-            FlowLayout(spacing: Space.icon) {
-                ForEach(g.accounts, id: \.self) { a in
-                    QuickChip(label: leafTitle(ledger, a), systemImage: categorySymbol(a), selected: a == d.account) { pickCategory(a) }
-                }
-            }
-        }
-    }
-
     private var allCategoriesSheet: some View {
         let groups = gridGroups(root)
         return AllCategoriesSheet(groups: groups, common: Array(groups.prefix(Self.shownCategories)),
@@ -436,7 +447,7 @@ struct QuickCard: View {
         let fee = evalAmount(d.transferFee ?? "") ?? 0
         let out = sent.map { $0 + (d.feeMode == .added && (d.feeCurrency ?? d.currency) == d.currency ? fee : 0) }
         let into = received.map { $0 - (d.feeMode == .deducted && (d.feeCurrency ?? incoming) == incoming ? fee : 0) }
-        // side by side, 对调 between: one row whatever is picked, as tall as a row of categories and its sub-categories
+        // side by side, 对调 between: as tall as two rows of categories, whatever is picked
         return VStack(alignment: .trailing, spacing: Space.detail) {
             HStack(spacing: Space.icon) {
                 transferCard(LS("转出"), d.funding, currency: d.currency, change: out.map { -$0 }, arriving: nil) { picking = .from }
@@ -504,7 +515,7 @@ struct QuickCard: View {
             .font(.system(size: Size.body))
             .padding(.horizontal, Space.control)
             .padding(.vertical, Space.icon)
-            .frame(minHeight: 56)
+            .frame(maxHeight: .infinity)
             .background {
                 if a.isEmpty {
                     RoundedRectangle(cornerRadius: Radius.panel).strokeBorder(Color.jade.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
