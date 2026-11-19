@@ -14,8 +14,9 @@ private enum Radius {
     static let panel: CGFloat = 14, control: CGFloat = 12
 }
 
-/// 记一笔's quick page, the phone's (`QuickAddView` in Ledger/Views/QuickAddView.swift): the frequent entries, the category grid (or a
-/// transfer's two accounts), the amount, the paying account, the day and 更多, and the keypad; typed keys work as the keypad's.
+/// 记一笔's quick page, laid out for a keyboard and a mouse rather than a finger: the amount typed first, then the category (common
+/// ones as chips, any one by typing a few letters) or a transfer's two accounts, the paying account, the day and 更多, who and
+/// what for, and the save buttons; everything close together, Tab from one field to the next, ↩ to save.
 /// 分录, 文本, AA and the like are one step in, on 完整表单
 struct QuickCard: View {
     @Binding var draft: Draft
@@ -35,13 +36,20 @@ struct QuickCard: View {
     let save: (_ another: Bool) -> Void
     let open: (EntryPanel) -> Void
 
-    enum Field: Hashable { case payee, narration }
+    enum Field: Hashable { case amount, payee, narration }
     enum Pick: String, Identifiable { case funding, from, to; var id: String { rawValue } }
 
     @FocusState private var field: Field?
-    /// typing the payee and description: the fields replace the keypad
-    @State private var writing = false
     @State private var attemptedSave = false
+    /// the fields' own height and what the top and the save bar take: the window is as tall as the card, no taller
+    @State private var fieldsHeight: CGFloat = 0
+    @State private var topHeight: CGFloat = 0
+    @State private var saveBarHeight: CGFloat = 0
+    /// the hidden title bar's strip, which the card is drawn up into
+    @State private var titleBarHeight: CGFloat = 0
+    /// a chip's height: two rows of them are what the categories, 报销's account and a transfer's two cards each take,
+    /// so the card is as tall whatever the kind
+    @State private var chipHeight: CGFloat = 0
     /// goes up at each save turned back, to shake the reason
     @State private var blockedSaves = 0
     @State private var picking: Pick?
@@ -51,6 +59,7 @@ struct QuickCard: View {
     @State private var allCategories = false
     @State private var editingText = false
     private let templateList: [Template]
+    private let transferList: [TransferTemplate]
 
     private static let kinds: [DraftKind] = [.expense, .income, .transfer]
     /// how many categories the card shows before 全部
@@ -76,6 +85,7 @@ struct QuickCard: View {
         self.save = save
         self.open = open
         templateList = templates(ledger, pinned: [], hidden: [])
+        transferList = transferTemplates(ledger)
     }
 
     /// spending red, income green, a transfer the theme's
@@ -92,38 +102,53 @@ struct QuickCard: View {
     var body: some View {
         let d = draft
         VStack(spacing: 0) {
-            topBar
-            if writing {
-                ScrollView {
-                    amountCard(d).padding(Space.control)
-                }
-                textSuggestions(d)
-            } else {
+            VStack(spacing: 0) {
+                topBar
                 topStrip(d)
-                // the grid and the details scroll in their own area: the amount, the choices and the keypad below never move
-                ScrollView {
-                    VStack(spacing: Space.control) {
-                        if d.kind == .transfer { transferPanel(d) }
-                        else if d.reimb {
-                            LabeledContent(LS("报销应收科目"), value: accountTitle(ledger, derived.receivable))
-                                .padding(.vertical, Space.control)
-                        } else { grid(d); subCategories(d) }
-                    }
-                    .padding(.horizontal, Space.content)
-                    .padding(.vertical, Space.icon)
-                }
-                .frame(maxHeight: .infinity)
-                bottomPanel(d)
             }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { topHeight = $0 }
+            // the window grows and shrinks with the fields; they scroll only where the screen has no more room
+            ScrollView {
+                VStack(alignment: .leading, spacing: Space.control) {
+                    amountCard(d)
+                    Group {
+                        if d.kind == .transfer { transferPanel(d) }
+                        else if d.reimb { LabeledContent(LS("报销应收科目"), value: accountTitle(ledger, derived.receivable)) }
+                        else { categoryRow(d) }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: twoRows)
+                    details(d)
+                }
+                .background(alignment: .topLeading) {
+                    QuickChip(label: LS("全部"), systemImage: "square.grid.2x2") {}
+                        .fixedSize()
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { chipHeight = $0 }
+                        .hidden()
+                }
+                .padding(.horizontal, Space.content)
+                .padding(.vertical, Space.icon)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fieldsHeight = $0 }
+            }
+            .fittedScroll(fieldsHeight, bars: topHeight + saveBarHeight)
+            saveBar
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { saveBarHeight = $0 }
         }
         .background(Color.page)
-        // the keyboard types on the keypad wherever the click last was; the payee and description fields keep their own keys
-        .background(TypedKeys(enabled: !writing) { typed in
+        // the window adds the strip on top of the card's height: taken off again, so the window ends where the card does
+        .padding(.bottom, -titleBarHeight)
+        // the title bar is hidden: no strip kept for it above ✕ and the kind
+        .ignoresSafeArea(.container, edges: .top)
+        // asked of the window, not measured here: what's measured here moves as the window is sized by it, and back again
+        .background(WindowReader { titleBarHeight = $0.frame.height - $0.contentLayoutRect.height })
+        // digits typed while no field has the cursor (after a click on a chip) still go to the amount
+        .background(TypedKeys(enabled: true) { typed in
             // a Chinese or Japanese input method sends 。 for the point and full-width digits
             switch asciiTyped(typed) {
             case "*": key("×")
             case "/": key("÷")
             case "=": equals()
+            case "\r", "\u{3}": isExpression(draft.amount) ? equals() : submit(close: true)
             case "\u{7F}": key("⌫")
             default:
                 let typed = asciiTyped(typed)
@@ -132,8 +157,9 @@ struct QuickCard: View {
             }
             return true
         })
+        // the cursor starts in the amount (a field can only be focused once it is on screen)
+        .onAppear { DispatchQueue.main.async { if field == nil { field = .amount } } }
         .onChange(of: field) { old, new in
-            if new == nil && old != nil { DispatchQueue.main.async { if field == nil { writing = false } } }
             // leaving the payee or the note: a known one fills in what isn't picked yet
             if old == .payee && new != .payee { applyPayee(draft.payee.trimmed, onlyBlanks: true) }
             if old == .narration && new != .narration { applyNarration(draft.narration.trimmed, onlyBlanks: true) }
@@ -213,6 +239,7 @@ struct QuickCard: View {
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, Space.content)
+                .frame(height: Self.stripHeight)
                 .padding(.top, Space.icon)
         } else {
             templateCapsules(d.kind)
@@ -221,31 +248,58 @@ struct QuickCard: View {
 
     // MARK: 常用交易
 
-    /// the frequent entries as small capsules (an orange one: a subscription not recorded this month); click to fill the card
-    @ViewBuilder
+    /// the frequent entries as small capsules (an orange one: a subscription not recorded this month); click to fill the card.
+    /// The row keeps its height with none to show, so the amount stays where it is as the kind changes
     private func templateCapsules(_ kind: DraftKind) -> some View {
         let list = kind == .transfer ? [] : Array(templateList.filter { $0.kind == (kind == .income ? .income : .expense) }.prefix(12))
-        if !list.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Space.icon) {
-                    ForEach(list) { x in
-                        Button { fillTemplate(x) } label: {
-                            HStack(spacing: Space.detail) {
-                                Text(x.label).lineLimit(1)
-                                if let fixed = x.fixed { Text(money(fixed, x.currency)).foregroundStyle(.secondary) }
-                            }
-                            .font(.system(size: Size.footnote))
-                            .padding(Space.icon)
-                            .foregroundStyle(x.due ? Color.warn : Color.primary)
-                            .background(x.due ? Color.warn.soft : Color.card, in: Capsule())
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Space.icon) {
+                if kind == .transfer {
+                    ForEach(transferList.prefix(12)) { x in
+                        capsule(accountTitle(ledger, x.from) + " → " + accountTitle(ledger, x.to), amount: x.fixed.map { money($0, x.currency) }) {
+                            fillTransfer(x)
                         }
-                        .buttonStyle(.plain)
+                    }
+                } else {
+                    ForEach(list) { x in
+                        capsule(x.label, amount: x.fixed.map { money($0, x.currency) }, due: x.due) { fillTemplate(x) }
                     }
                 }
-                .padding(.horizontal, Space.content)
             }
-            .padding(.top, Space.icon)
+            .padding(.horizontal, Space.content)
         }
+        .frame(height: Self.stripHeight)
+        .padding(.top, Space.icon)
+    }
+
+    private static let stripHeight: CGFloat = 32
+
+    private func capsule(_ label: String, amount: String?, due: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: Space.detail) {
+                Text(label).lineLimit(1)
+                if let amount { Text(amount).foregroundStyle(.secondary) }
+            }
+            .font(.system(size: Size.footnote))
+            .padding(Space.icon)
+            .foregroundStyle(due ? Color.warn : Color.primary)
+            .background(due ? Color.warn.soft : Color.card, in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func fillTransfer(_ x: TransferTemplate) {
+        var d = blank(.transfer)
+        d.payee = x.payee
+        d.narration = x.narration
+        d.funding = x.from
+        d.to = x.to
+        d.currency = x.currency
+        d.amount = x.fixed.map { jsNumberString($0) } ?? ""
+        var selection = DraftSelection()
+        selection.funding = true
+        d.selection = selection
+        draft = d
     }
 
     private func fillTemplate(_ x: Template) {
@@ -270,37 +324,52 @@ struct QuickCard: View {
         orderedGroups(categoryGroups(derived, root: root), saved: gridOrder[root] ?? [])
     }
 
-    /// the first seven in the grid's order, the picked one put in the last place when it isn't among them
-    private func shownGroups(_ groups: [CategoryGroup], picked: String?) -> [CategoryGroup] {
-        var top = Array(groups.prefix(Self.shownCategories))
+    /// two rows of chips, once a chip has been measured
+    private var twoRows: CGFloat? { chipHeight == 0 ? nil : chipHeight * 2 + Space.icon }
+
+    /// the first `count` in the grid's order, the picked one put in the last place when it isn't among them
+    private func shownGroups(_ groups: [CategoryGroup], picked: String?, count: Int) -> [CategoryGroup] {
+        var top = Array(groups.prefix(count))
         if let p = picked, !top.contains(where: { $0.id == p }), let g = groups.first(where: { $0.id == p }), !top.isEmpty {
             top[top.count - 1] = g
         }
         return top
     }
 
+    /// the common categories as chips and 全部, which has the rest and the search
     @ViewBuilder
-    private func grid(_ d: Draft) -> some View {
+    private func categoryRow(_ d: Draft) -> some View {
         let groups = gridGroups(root)
         let picked = d.account.hasPrefix(root) ? catOf(d.account) : nil
-        let top = shownGroups(groups, picked: picked)
         if groups.isEmpty {
             Text(LS("账本里还没有%@科目，可在「账户」里新建。", d.kind == .income ? "收入" : "支出"))
                 .font(.system(size: Size.footnote))
                 .foregroundStyle(.secondary)
         } else {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Space.icon, alignment: .top), count: 4), spacing: Space.control) {
-                ForEach(top) { g in
-                    CategoryCell(icon: categorySymbol(g.id), title: categoryGroupTitle(g, ledger), single: g.single, selected: g.id == picked) {
-                        // the picked group again: its sub-categories
-                        if g.id == picked && !g.single { subPicking = g.id } else { pick(g) }
-                    }
-                    .contextMenu {
-                        if !g.single { Button(LS("选择子类"), systemImage: "list.bullet") { pick(g); subPicking = g.id } }
-                    }
+            // two rows, never more: as many of the common ones as they hold, 全部 always there
+            ViewThatFits(in: .vertical) {
+                ForEach((0...Self.shownCategories).reversed(), id: \.self) { n in
+                    categoryChips(d, groups: groups, picked: picked, count: n)
                 }
-                CategoryCell(icon: "square.grid.2x2", title: LS("全部"), single: true, selected: false) { field = nil; allCategories = true }
             }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+    }
+
+    /// `count` common categories and 全部. The picked one reads 餐饮 › 午餐; clicked again it opens its sub-categories
+    private func categoryChips(_ d: Draft, groups: [CategoryGroup], picked: String?, count: Int) -> some View {
+        FlowLayout(spacing: Space.icon) {
+            ForEach(shownGroups(groups, picked: picked, count: count)) { g in
+                let title = categoryGroupTitle(g, ledger) + (g.id == picked && !g.single ? " › " + leafTitle(ledger, d.account) : "")
+                QuickChip(label: title, systemImage: categorySymbol(g.id), selected: g.id == picked) {
+                    // the picked group again: its sub-categories
+                    if g.id == picked && !g.single { subPicking = g.id } else { pick(g) }
+                }
+                .contextMenu {
+                    if !g.single { Button(LS("选择子类"), systemImage: "list.bullet") { pick(g); subPicking = g.id } }
+                }
+            }
+            QuickChip(label: LS("全部"), systemImage: "square.grid.2x2") { field = nil; allCategories = true }
         }
     }
 
@@ -323,27 +392,6 @@ struct QuickCard: View {
         draft.selection = selection
     }
 
-    /// the picked group's other accounts, one click each, and the path picked ("餐饮 › 咖啡") on the right
-    @ViewBuilder
-    private func subCategories(_ d: Draft) -> some View {
-        if d.account.hasPrefix(root), let g = gridGroups(root).first(where: { $0.id == catOf(d.account) }), !g.single {
-            HStack(spacing: Space.icon) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: Space.icon) {
-                        ForEach(g.accounts, id: \.self) { a in
-                            QuickChip(label: leafTitle(ledger, a), systemImage: categorySymbol(a), selected: a == d.account) { pickCategory(a) }
-                        }
-                    }
-                }
-                Text(categoryGroupTitle(g, ledger) + " › " + leafTitle(ledger, d.account))
-                    .font(.system(size: Size.caption))
-                    .foregroundStyle(Color.jade)
-                    .lineLimit(1)
-                    .fixedSize()
-            }
-        }
-    }
-
     private var allCategoriesSheet: some View {
         let groups = gridGroups(root)
         return AllCategoriesSheet(groups: groups, common: Array(groups.prefix(Self.shownCategories)),
@@ -361,30 +409,27 @@ struct QuickCard: View {
         let fee = evalAmount(d.transferFee ?? "") ?? 0
         let out = sent.map { $0 + (d.feeMode == .added && (d.feeCurrency ?? d.currency) == d.currency ? fee : 0) }
         let into = received.map { $0 - (d.feeMode == .deducted && (d.feeCurrency ?? incoming) == incoming ? fee : 0) }
-        return VStack(spacing: Space.icon) {
-            transferCard(LS("转出"), d.funding, currency: d.currency, change: out.map { -$0 }, arriving: nil) { picking = .from }
-            ZStack {
-                if !d.funding.isEmpty && !d.to.isEmpty {
-                    Button(action: swapTransfer) {
-                        Image(systemName: "arrow.up.arrow.down")
-                            .font(.system(size: Size.subheadline, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 34, height: 34)
-                            .background(Color.jade, in: Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .help(LS("对调"))
+        // side by side, 对调 between: as tall as two rows of categories, whatever is picked
+        return VStack(alignment: .trailing, spacing: Space.detail) {
+            HStack(spacing: Space.icon) {
+                transferCard(LS("转出"), d.funding, currency: d.currency, change: out.map { -$0 }, arriving: nil) { picking = .from }
+                Button(action: swapTransfer) {
+                    Image(systemName: "arrow.left.arrow.right")
+                        .font(.system(size: Size.footnote, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(Color.jade, in: Circle())
                 }
-                // the same account, another currency: 换汇 within it
-                if !d.funding.isEmpty && d.funding == d.to, let c = incoming {
-                    HStack {
-                        Spacer()
-                        Text(LS("同账户换汇 %@ → %@", d.currency, c)).font(.system(size: Size.caption)).foregroundStyle(.secondary)
-                    }
-                }
+                .buttonStyle(.plain)
+                .help(LS("对调"))
+                .disabled(d.funding.isEmpty || d.to.isEmpty)
+                .opacity(d.funding.isEmpty || d.to.isEmpty ? 0.3 : 1)
+                transferCard(LS("转入"), d.to, currency: incoming ?? d.currency, change: into, arriving: incoming == d.currency ? nil : incoming) { picking = .to }
             }
-            .frame(height: d.funding.isEmpty || d.to.isEmpty ? 0 : 34)
-            transferCard(LS("转入"), d.to, currency: incoming ?? d.currency, change: into, arriving: incoming == d.currency ? nil : incoming) { picking = .to }
+            // the same account, another currency: 换汇 within it
+            if !d.funding.isEmpty && d.funding == d.to, let c = incoming {
+                Text(LS("同账户换汇 %@ → %@", d.currency, c)).font(.system(size: Size.caption)).foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -425,15 +470,14 @@ struct QuickCard: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
                     }
-                    Spacer(minLength: Space.icon)
-                    Text(label).font(.system(size: Size.caption, weight: .medium)).foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
                 }
                 Image(systemName: "chevron.right").font(.system(size: Size.caption)).foregroundStyle(.tertiary)
             }
             .font(.system(size: Size.body))
             .padding(.horizontal, Space.control)
             .padding(.vertical, Space.icon)
-            .frame(minHeight: 56)
+            .frame(maxHeight: .infinity)
             .background {
                 if a.isEmpty {
                     RoundedRectangle(cornerRadius: Radius.panel).strokeBorder(Color.jade.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
@@ -495,19 +539,7 @@ struct QuickCard: View {
         draft.selection = selection
     }
 
-    // MARK: the bottom: amount, choices, keypad
-
-    private func bottomPanel(_ d: Draft) -> some View {
-        VStack(spacing: Space.icon) {
-            amountCard(d)
-            choices(d)
-            keypad(d)
-        }
-        .padding(.horizontal, Space.control)
-        .padding(.top, Space.icon)
-        .padding(.bottom, Space.control)
-        .background(Color.page)
-    }
+    // MARK: account, day, 更多
 
     /// one row in equal parts: the paying account (not for a transfer), the day, then 更多 for spending or 标签 for income and transfers
     private func choices(_ d: Draft) -> some View {
@@ -529,7 +561,6 @@ struct QuickCard: View {
             .frame(maxWidth: .infinity)
         }
         .font(.system(size: Size.subheadline))
-        .background(Color.card, in: RoundedRectangle(cornerRadius: 16))
     }
 
     private func fundingMenu(_ d: Draft) -> some View {
@@ -685,13 +716,14 @@ struct QuickCard: View {
                 .foregroundStyle(.secondary)
             HStack(alignment: .center, spacing: Space.icon) {
                 Text(SYM[d.currency] ?? "").font(.system(size: 22, weight: .semibold, design: .rounded)).foregroundStyle(kindColor)
-                // smaller as the expression grows (a fixed size each step, so it doesn't wobble while typing)
-                Text(d.amount.isEmpty ? "0.00" : d.amount)
-                    .font(.system(size: d.amount.count <= 10 ? 38 : d.amount.count <= 15 ? 28 : 21, weight: .bold, design: .rounded))
+                // typed straight in; ↩ works out a sum, then saves
+                TextField("0.00", text: Binding(get: { draft.amount }, set: { setAmount(typedAmount($0)) }))
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 30, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(d.amount.isEmpty ? Color.secondary.opacity(0.5) : kindColor)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
+                    .foregroundStyle(kindColor)
+                    .focused($field, equals: .amount)
+                    .onSubmit { isExpression(draft.amount) ? equals() : submit(close: true) }
                 if isExpression(d.amount) {
                     Text("= " + (evalAmount(d.amount).map { fmtNum($0) } ?? "?"))
                         .font(.system(size: Size.callout).monospacedDigit())
@@ -728,7 +760,7 @@ struct QuickCard: View {
                 }
                 .buttonStyle(.plain)
             }
-            if !writing, let summary = payingSummary(d, ledger) {
+            if let summary = payingSummary(d, ledger) {
                 let issue = comboIssue(d, ledger, derived)
                 Label(issue ?? summary, systemImage: issue == nil ? "square.split.2x1" : "exclamationmark.triangle")
                     .font(.system(size: Size.footnote))
@@ -746,8 +778,6 @@ struct QuickCard: View {
                 .buttonStyle(.plain)
                 .modifier(Shake(trigger: blockedSaves))
             }
-            Divider()
-            if writing { textFields(d) } else { merchantRow(d) }
         }
         .padding(Space.control)
         .background(Color.card, in: RoundedRectangle(cornerRadius: 16))
@@ -762,38 +792,6 @@ struct QuickCard: View {
         shownIssue?.message ?? (message.isEmpty ? nil : message)
     }
 
-    /// 瑞幸咖啡 · 冰美式: who and what for in one line; click to type them
-    private func merchantRow(_ d: Draft) -> some View {
-        let icon = d.account.isEmpty ? "storefront" : categorySymbol(catOf(d.account))
-        let empty = d.payee.trimmed.isEmpty && d.narration.trimmed.isEmpty
-        return Button { startWriting(d.payee.trimmed.isEmpty ? .payee : .narration) } label: {
-            HStack(spacing: Space.icon) {
-                CellIcon(symbol: icon).foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: Space.detail) {
-                    if empty {
-                        Text(d.kind == .income ? LS("付款方 · 摘要") : LS("收付款方 · 摘要")).foregroundStyle(.secondary)
-                    } else {
-                        if !d.payee.trimmed.isEmpty { Text(d.payee).lineLimit(2) }
-                        if !d.narration.trimmed.isEmpty {
-                            Text(d.narration).font(.system(size: Size.subheadline)).foregroundStyle(.secondary).lineLimit(2)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: "chevron.right").font(.system(size: Size.caption, weight: .semibold)).foregroundStyle(.tertiary)
-            }
-            .font(.system(size: Size.body))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    /// show the payee and description fields, then put the cursor in one (a field can only be focused once it exists)
-    private func startWriting(_ f: Field) {
-        writing = true
-        DispatchQueue.main.async { field = f }
-    }
-
     /// 今天, 昨天, or the day ("10月14日"; with the year when it isn't this year's)
     private func dayLabel(_ day: String) -> String {
         let today = Day.today()
@@ -803,56 +801,31 @@ struct QuickCard: View {
         return day.prefix(4) == today.prefix(4) ? LS("%@月%@日", m, dd) : day
     }
 
-    @ViewBuilder
-    private func textFields(_ d: Draft) -> some View {
+    /// one card, rows divided by lines: account | day | 更多, then who, then what for; what was used before drops down as it is typed in
+    /// ↩ in the note saves
+    private func details(_ d: Draft) -> some View {
         let notes = narrationSuggestions(derived, typed: "", payee: d.payee, limit: 1)
-        labeled(LS("收付款方")) {
+        let typedPayee = d.payee.trimmed
+        return VStack(spacing: 0) {
+            choices(d)
+            Divider()
             TextField(LS("收付款方"), text: Binding(get: { draft.payee }, set: { updateText(\.payee, $0) }), prompt: Text(LS("如 便利店、淘宝，可不填")))
+                .textFieldStyle(.plain)
+                .padding(Space.control)
                 .focused($field, equals: .payee)
+                .suggesting(Array(derived.payees.lazy.filter { typedPayee.isEmpty || fuzzy(typedPayee, $0.name) > 0 }.prefix(8).map(\.name)))
                 .onSubmit { applyPayee(draft.payee.trimmed, onlyBlanks: false); field = .narration }
-        }
-        labeled(LS("摘要")) {
+            Divider()
             TextField(LS("摘要"), text: Binding(get: { draft.narration }, set: { updateText(\.narration, $0) }),
                       prompt: Text(notes.first.map { LS("如 %@，可不填", $0) } ?? LS("买了什么、做什么用，可不填")))
+                .textFieldStyle(.plain)
+                .padding(Space.control)
                 .focused($field, equals: .narration)
-                .onSubmit { field = nil; writing = false }
+                .suggesting(narrationSuggestions(derived, typed: d.narration, payee: d.payee, limit: 8))
+                .onSubmit { submit(close: true) }
         }
-    }
-
-    /// the payees or notes that fit what is typed, and 完成
-    private func textSuggestions(_ d: Draft) -> some View {
-        HStack(spacing: Space.icon) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Space.icon) {
-                    if field == .payee {
-                        let typed = d.payee.trimmed
-                        ForEach(Array(derived.payees.lazy.filter { typed.isEmpty || fuzzy(typed, $0.name) > 0 }.prefix(8)), id: \.name) { p in
-                            QuickChip(label: p.name) { applyPayee(p.name, onlyBlanks: false); field = .narration }
-                        }
-                    } else {
-                        ForEach(narrationSuggestions(derived, typed: d.narration, payee: d.payee, limit: 8), id: \.self) { n in
-                            QuickChip(label: n, selected: d.narration == n) { applyNarration(n, onlyBlanks: false) }
-                        }
-                    }
-                }
-            }
-            Button { field = nil; writing = false } label: { Label(LS("完成"), systemImage: "checkmark") }
-                .buttonStyle(.plain)
-                .font(.system(size: Size.body, weight: .semibold))
-                .foregroundStyle(Color.jade)
-                .padding(.vertical, Space.icon)
-        }
-        .padding(.horizontal, Space.control)
-        .padding(.vertical, Space.icon)
-        .background(Color.card)
-    }
-
-    private func labeled<F: View>(_ label: String, @ViewBuilder _ f: () -> F) -> some View {
-        HStack(spacing: Space.control) {
-            Text(label).font(.system(size: Size.subheadline)).foregroundStyle(.secondary).frame(width: 64, alignment: .leading)
-            f().textFieldStyle(.plain).font(.system(size: Size.body))
-        }
-        .padding(.vertical, Space.detail)
+        .font(.system(size: Size.subheadline))
+        .background(Color.card, in: RoundedRectangle(cornerRadius: 16))
     }
 
     private func updateText(_ key: WritableKeyPath<Draft, String>, _ value: String) {
@@ -887,47 +860,44 @@ struct QuickCard: View {
         }
     }
 
-    // MARK: keypad
+    // MARK: saving
 
-    private func keypad(_ d: Draft) -> some View {
-        let expression = isExpression(d.amount)
-        return Grid(horizontalSpacing: Space.icon, verticalSpacing: Space.icon) {
-            GridRow { digit("1"); digit("2"); digit("3"); KeyCap(systemImage: "delete.left", label: LS("退格"), tap: { key("⌫") }, hold: { setAmount("") }) }
-            GridRow { digit("4"); digit("5"); digit("6"); KeyCap(text: "+  ×", label: LS("加，长按为乘"), tap: { key("+") }, hold: { key("×") }) }
-            GridRow { digit("7"); digit("8"); digit("9"); KeyCap(text: "−  ÷", label: LS("减，长按为除"), tap: { key("-") }, hold: { key("÷") }) }
-            GridRow {
-                digit(".")
-                digit("0")
-                if editing {
-                    // editing: there is no next one; its text instead
-                    KeyCap(text: LS("源文本"), symbol: "chevron.left.forwardslash.chevron.right", font: .system(size: 16, weight: .semibold), tap: { editingText = true })
-                } else {
-                    KeyCap(text: LS("保存再记"), symbol: "plus.circle", font: .system(size: 16, weight: .semibold), soft: true, tap: { submit(close: false) })
-                }
-                KeyCap(text: expression ? "=" : LS("保存"), symbol: expression ? nil : "checkmark", font: .system(size: expression ? 24 : 17, weight: .semibold),
-                       filled: true, tap: { expression ? equals() : submit(close: true) })
-                    .opacity(saving ? 0.5 : 1)
+    /// 保存再记 (源文本 when editing) and 保存, at the bottom right; ↩ in the amount or the note saves, ⇧⌘↩ saves and starts another
+    private var saveBar: some View {
+        HStack(spacing: Space.control) {
+            Spacer()
+            if editing {
+                Button(LS("源文本"), systemImage: "chevron.left.forwardslash.chevron.right") { editingText = true }
+                    .controlSize(.large)
+            } else {
+                Button(LS("保存再记")) { submit(close: false) }
+                    .keyboardShortcut(.return, modifiers: [.command, .shift])
+                    .controlSize(.large)
             }
+            // ↩ is each field's own (a default button would fire as well and save twice); with no field, TypedKeys takes it
+            Button(LS("保存")) { isExpression(draft.amount) ? equals() : submit(close: true) }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.jade)
+                .controlSize(.large)
+                .disabled(saving)
         }
-        // ↩ is the filled key, ⇧⌘↩ the one beside it
-        .background {
-            Group {
-                Button("") { expression ? equals() : submit(close: true) }.keyboardShortcut(.defaultAction)
-                if !editing { Button("") { submit(close: false) }.keyboardShortcut(.return, modifiers: [.command, .shift]) }
-            }
-            .opacity(0)
-            .allowsHitTesting(false)
-        }
+        .padding(.horizontal, Space.content)
+        .padding(.vertical, Space.control)
+        .background(Color.page)
     }
 
-    private func digit(_ s: String) -> some View { KeyCap(text: s, tap: { key(s) }) }
+    /// what the amount field keeps of what is typed: digits, one point a number and the four signs (* and / as × and ÷)
+    private func typedAmount(_ text: String) -> String {
+        asciiTyped(text).replacingOccurrences(of: "*", with: "×").replacingOccurrences(of: "/", with: "÷")
+            .filter { "0123456789.+-×÷".contains($0) }
+    }
 
     private func setAmount(_ a: String) {
         draft.amount = a
         draft.edited = nil
     }
 
-    /// typing on the keypad: one decimal point and two decimals per number, no leading zeros, one operator in a row
+    /// typing with no field focused: one decimal point and two decimals per number, no leading zeros, one operator in a row
     private func key(_ k: String) {
         var a = draft.amount
         let ops: Set<Character> = ["+", "-", "×", "÷"]
@@ -960,7 +930,6 @@ struct QuickCard: View {
 
     private func locate(_ issue: DraftIssue) {
         field = nil
-        writing = false
         switch issue.field {
         case .category: allCategories = true
         case .funding: picking = draft.kind == .transfer ? .from : .funding
@@ -982,7 +951,6 @@ struct QuickCard: View {
             return
         }
         field = nil
-        writing = false
         save(!close)
     }
 }
@@ -1006,6 +974,37 @@ private struct CellIcon: View {
     }
 }
 
+/// children left to right, wrapping onto the next row when the width is used up
+/// (SwiftUI has no wrapping stack; a custom `Layout` is the native way)
+private struct FlowLayout: Layout {
+    var spacing: CGFloat
+
+    private func rows(_ subviews: Subviews, width: CGFloat) -> (frames: [CGRect], size: CGSize) {
+        var frames: [CGRect] = []
+        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, used: CGFloat = 0
+        for v in subviews {
+            let s = v.sizeThatFits(ProposedViewSize(width: width, height: nil))
+            if x > 0 && x + s.width > width { x = 0; y += rowHeight + spacing; rowHeight = 0 }
+            frames.append(CGRect(x: x, y: y, width: s.width, height: s.height))
+            x += s.width + spacing
+            used = max(used, x - spacing)
+            rowHeight = max(rowHeight, s.height)
+        }
+        return (frames, CGSize(width: used, height: y + rowHeight))
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        rows(subviews, width: proposal.width ?? .infinity).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let laid = rows(subviews, width: bounds.width)
+        for (v, f) in zip(subviews, laid.frames) {
+            v.place(at: CGPoint(x: bounds.minX + f.minX, y: bounds.minY + f.minY), proposal: ProposedViewSize(f.size))
+        }
+    }
+}
+
 /// a capsule choice, the phone's `Chip`
 private struct QuickChip: View {
     let label: String
@@ -1016,7 +1015,8 @@ private struct QuickChip: View {
     var body: some View {
         Button(action: action) {
             Group {
-                if let systemImage { Label(label, systemImage: systemImage) } else { Text(label) }
+                if let systemImage, label.isEmpty { Image(systemName: systemImage) }
+                else if let systemImage { Label(label, systemImage: systemImage) } else { Text(label) }
             }
             .font(.system(size: Size.subheadline))
             .lineLimit(1)
@@ -1069,53 +1069,6 @@ private struct CategoryCell: View {
             .animation(.easeOut(duration: 0.15), value: selected)
         }
         .buttonStyle(.plain)
-    }
-}
-
-/// a key of the pad: its face darkens while held, and never moves or changes size
-private struct KeyCap: View {
-    var text: String?
-    var systemImage: String?
-    var label: String?
-    var symbol: String?
-    var font: Font = .system(size: 24, weight: .regular, design: .rounded)
-    var filled = false
-    /// a light key in the theme's colour (保存再记)
-    var soft = false
-    let tap: () -> Void
-    var hold: (() -> Void)?
-    @State private var pressed = false
-
-    private var ink: Color { filled ? .white : soft ? .jade : .primary }
-    private var fill: Color { filled ? .jade : soft ? Color.jade.soft : .card }
-
-    var body: some View {
-        Group {
-            if let systemImage {
-                Image(systemName: systemImage).font(.system(size: 20, weight: .medium))
-            } else if let symbol {
-                VStack(spacing: Space.detail) {
-                    Image(systemName: symbol).font(.system(size: 14, weight: .semibold))
-                    Text(text ?? "").font(font).lineLimit(1).minimumScaleFactor(0.7)
-                }
-            } else {
-                Text(text ?? "").font(font).lineLimit(1).minimumScaleFactor(0.7)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 50)
-        .foregroundStyle(ink)
-        .background(fill, in: RoundedRectangle(cornerRadius: Radius.control))
-        .overlay(RoundedRectangle(cornerRadius: Radius.control).fill(Color.primary.opacity(pressed ? 0.1 : 0)))
-        .contentShape(RoundedRectangle(cornerRadius: Radius.control))
-        .onTapGesture(perform: tap)
-        .onLongPressGesture(minimumDuration: 0.45) {
-            if let hold { hold() } else { tap() }
-        } onPressingChanged: { pressed = $0 }
-        .accessibilityElement()
-        .accessibilityLabel(label ?? text ?? "")
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { tap() }
     }
 }
 
@@ -1372,19 +1325,21 @@ private struct AllCategoriesSheet: View {
         .background(.bar)
     }
 
-    /// what the search finds: (group, account), the group's own name first
-    private func matches() -> [(CategoryGroup, String)] {
-        let q = query.trimmed.lowercased()
-        var out: [(CategoryGroup, String)] = []
-        for g in groups {
-            let name = categoryGroupTitle(g, ledger).lowercased()
-            for a in g.accounts {
-                let names = [name, leafTitle(ledger, a).lowercased(), a.lowercased(), acctDisplay(a).lowercased()]
-                if names.contains(where: { $0.contains(q) }) { out.append((g, a)) }
-            }
+    private func matches() -> [(CategoryGroup, String)] { categoryMatches(groups, query.trimmed, ledger) }
+}
+
+/// the categories a search finds: (group, account), in the groups' order; by the group's name, the sub-category's or the account's
+private func categoryMatches(_ groups: [CategoryGroup], _ query: String, _ ledger: Ledger) -> [(CategoryGroup, String)] {
+    let q = query.lowercased()
+    var out: [(CategoryGroup, String)] = []
+    for g in groups {
+        let name = categoryGroupTitle(g, ledger).lowercased()
+        for a in g.accounts {
+            let names = [name, leafTitle(ledger, a).lowercased(), a.lowercased(), acctDisplay(a).lowercased()]
+            if names.contains(where: { $0.contains(q) }) { out.append((g, a)) }
         }
-        return out
     }
+    return out
 }
 
 /// 源文本: the entry's Beancount text, checked before it is kept; saved as written
