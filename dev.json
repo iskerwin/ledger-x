@@ -20,13 +20,13 @@
       "versions": [
         {
           "version": "1.0.17",
-          "buildVersion": "72.15",
-          "date": "2026-11-19T06:40:52Z",
-          "localizedDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 72.15 · preview/mac-entry 528b75e 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "buildVersion": "72.16",
+          "date": "2026-11-19T08:08:06Z",
+          "localizedDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 72.16 · preview/mac-entry c3d367c 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
           "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-          "size": 11057714,
+          "size": 11057712,
           "minOSVersion": "17.0",
-          "sha256": "608ee87423051c8fb3b4bf67bc4baceb03d9c672ac7d28310c33900c7a492930"
+          "sha256": "655b3514ba1296d8f5d6fc1c824bb634052bb7b3ff536d31ad0e8aa3c16953c6"
         },
         {
           "version": "1.0.17",
@@ -208,10 +208,10 @@
         }
       },
       "version": "1.0.17",
-      "versionDate": "2026-11-19T06:40:52Z",
-      "versionDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 72.15 · preview/mac-entry 528b75e 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+      "versionDate": "2026-11-19T08:08:06Z",
+      "versionDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 72.16 · preview/mac-entry c3d367c 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
       "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-      "size": 11057714
+      "size": 11057712
     }
   ],
   "news": []
