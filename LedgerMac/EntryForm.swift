@@ -271,7 +271,7 @@ struct EntryForm: View {
                     Text(other).foregroundStyle(.secondary)
                 }
             }
-            if let rate = Double(draft.rate.trimmed), let amount = evalAmount(draft.amount) {
+            if let rate = typedNumber(draft.rate), let amount = evalAmount(draft.amount) {
                 LabeledContent(LS("实付 ") + other, value: money(roundTo(amount * rate, 2), other))
             }
         } else {

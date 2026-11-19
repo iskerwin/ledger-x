@@ -34,24 +34,19 @@ struct BatchEditSheet: View {
         return c.sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }.map { $0.key }
     }
 
-    private var cleanWord: String {
-        word.trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "#^")).replacingOccurrences(of: " ", with: "-")
-    }
+    private var cleanWord: String { BatchEdit.word(word) }
 
-    private var affected: Int {
+    private var edit: BatchEdit {
         switch mode {
-        case .account: return entries.filter { t in t.postings.contains { $0.account == from } }.count
-        case .tag: return entries.filter { !$0.tags.contains(cleanWord) }.count
-        case .link: return entries.filter { !$0.links.contains(cleanWord) }.count
+        case .account: return .account(from: from, to: to)
+        case .tag: return .tag(cleanWord)
+        case .link: return .link(cleanWord)
         }
     }
 
-    private var ready: Bool {
-        switch mode {
-        case .account: return !from.isEmpty && isAccountName(to) && from != to
-        case .tag, .link: return !cleanWord.isEmpty
-        }
-    }
+    private var affected: Int { edit.affected(entries) }
+
+    private var ready: Bool { edit.ready }
 
     var body: some View {
         NavigationStack {
@@ -116,41 +111,12 @@ struct BatchEditSheet: View {
         }
     }
 
-    private func transform(_ block: String) -> String? {
-        switch mode {
-        case .account:
-            return accountReplaced(in: block, from: from, to: to)
-        case .tag, .link:
-            // on the header, before a trailing comment (it used to go after it, inside the comment)
-            let new = headerWordAdd(block, (mode == .tag ? "#" : "^") + cleanWord)
-            return new == block ? nil : new
-        }
-    }
-
     private func apply() async {
         working = true
         defer { working = false }
         let label = LS("批量编辑 %@ 笔：%@", affected, mode == .account ? acctLabel(from) + " → " + acctLabel(to) : (mode == .tag ? "#" : "^") + cleanWord)
-        await store.rewrite(entries, label: label, before: { dismiss(); done() }, transform: transform)
+        await store.rewrite(entries, label: label, before: { dismiss(); done() }, transform: edit.applied(to:))
     }
-}
-
-/// a transaction's text with one posting's account changed (exactly that account, not its sub-accounts); nil when
-/// it has no such posting
-func accountReplaced(in block: String, from: String, to: String) -> String? {
-    var lines = block.components(separatedBy: "\n")
-    var changed = false
-    for i in lines.indices.dropFirst() {
-        let l = lines[i]
-        let body = l.trimmingCharacters(in: .whitespaces)
-        let flagged = body.hasPrefix("! ") || body.hasPrefix("* ")
-        let name = (flagged ? String(body.dropFirst(2)).trimmingCharacters(in: .whitespaces) : body).split(separator: " ", maxSplits: 1).first.map(String.init) ?? ""
-        if name == from, let r = l.range(of: from) {
-            lines[i] = l.replacingCharacters(in: r, with: to)
-            changed = true
-        }
-    }
-    return changed ? alignText(lines.joined(separator: "\n")) : nil
 }
 
 extension Store {
@@ -158,28 +124,12 @@ extension Store {
     /// `before` runs once the review has passed. True when committed.
     @discardableResult
     func rewrite(_ entries: [Entry], label: String, before: () -> Void = {}, transform: (String) -> String?) async -> Bool {
-        var ops: [Op] = []
-        var cache: [String: [String]] = [:]
-        for t in entries.sorted(by: { $0.date < $1.date }) {
-            if cache[t.file] == nil { cache[t.file] = (try? await fileText(t.file))?.components(separatedBy: "\n") }
-            guard let lines = cache[t.file], t.endLine < lines.count else { continue }
-            let old = lines[t.startLine...t.endLine].joined(separator: "\n")
-            guard let new = transform(old) else { continue }
-            var op = Op(kind: .replace, path: t.file)
-            op.old = old
-            op.text = new
-            op.date = t.date
-            // this copy, not an identical one elsewhere in the file
-            op.anchorLine = t.line
-            op.summary = [t.payee, t.narration].filter { !$0.isEmpty }.joined(separator: " ")
-            ops.append(op)
+        var files: [String: [String]] = [:]
+        for file in Set(entries.map(\.file)) {
+            if let text = try? await fileText(file) { files[file] = text.components(separatedBy: "\n") }
         }
+        let ops = rewriteOps(entries, label: label, lines: { files[$0] }, transform: transform)
         guard !ops.isEmpty else { show(LS("没有需要修改的交易")); return false }
-        ops = bottomUp(ops)
-        for i in ops.indices {
-            ops[i].label = i == 0 ? label : nil
-            ops[i].silent = i == 0 ? nil : true
-        }
         let n = ops.count
         guard let checked = await review(ops) else { return false }
         before()
