@@ -20,13 +20,13 @@
       "versions": [
         {
           "version": "1.0.17",
-          "buildVersion": "73.2",
-          "date": "2026-11-19T13:53:25Z",
-          "localizedDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 73.2 · diag/sidebar-inset 5e6f8de 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "buildVersion": "73.3",
+          "date": "2026-11-19T14:07:44Z",
+          "localizedDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 73.3 · diag/sidebar-nobar 265ac55 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
           "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-          "size": 11057714,
+          "size": 11057716,
           "minOSVersion": "17.0",
-          "sha256": "c8231e0ba99bd3ed624294714da118cdd0f1f8e0db9cf7b6ec765fbab5d2cc76"
+          "sha256": "d3ba8d9691eceb2105d74d4a31e0c529e16a621294a0da26b5f4aae921f3abcd"
         },
         {
           "version": "1.0.17",
@@ -208,10 +208,10 @@
         }
       },
       "version": "1.0.17",
-      "versionDate": "2026-11-19T13:53:25Z",
-      "versionDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 73.2 · diag/sidebar-inset 5e6f8de 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+      "versionDate": "2026-11-19T14:07:44Z",
+      "versionDescription": "# Ledger X 1.0.17 预览\n\n版本 1.0.17 · 构建 73.3 · diag/sidebar-nobar 265ac55 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
       "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-      "size": 11057714
+      "size": 11057716
     }
   ],
   "news": []
