@@ -1,6 +1,8 @@
 # Ledger X 开发手册
 
-改账务或数据前先读 02，改代码前同时看 03。时间统一用北京时间（UTC+8）。协作规则见 [AGENTS.md](../../AGENTS.md)。
+本文的 MUST、MUST NOT、SHOULD、SHOULD NOT、MAY 按 RFC 2119 与 RFC 8174 解释，且只在全大写时如此。
+
+改账务或数据前 MUST 先读 02，改代码前 MUST 同时看 03。时间 MUST 统一用北京时间（UTC+8）。协作规则见 [AGENTS.md](../../AGENTS.md)。
 
 | 文档 | 重点 |
 | --- | --- |
@@ -13,6 +15,6 @@
 | [06 手机验收清单](06-手机验收清单.md) | 安装后逐项验收与构建号记录 |
 | [07 开发计划](07-开发计划.md) | 待选的改进清单与建议先后，做完即删 |
 
-App 入口、按钮或操作变化时，同一提交更新使用指南，保持中英文一致：手机改 `Ledger/Views/GuideView.swift`（含常见问题），Mac 改 `LedgerMac/MacGuide.swift`。
+App 入口、按钮或操作变化时，MUST 在同一提交更新使用指南，并保持中英文一致：手机改 `Ledger/Views/GuideView.swift`（含常见问题），Mac 改 `LedgerMac/MacGuide.swift`。
 
-版本与安装包看 [Releases](https://github.com/iskerwin/ledger-x/releases)，变化看 [CHANGELOG](../../CHANGELOG.md)，验证结果看安装包附带的 `validation-evidence.json`。手册只写实际规则，不重复记录发布状态。
+版本与安装包看 [Releases](https://github.com/iskerwin/ledger-x/releases)，变化看 [CHANGELOG](../../CHANGELOG.md)，验证结果看安装包附带的 `validation-evidence.json`。手册 MUST 只写实际规则，MUST NOT 重复记录发布状态。
