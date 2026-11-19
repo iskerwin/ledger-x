@@ -81,7 +81,7 @@ struct CheckBalanceSheet: View {
     }
 
     private func number(_ text: String) -> Double? {
-        Double(text.replacingOccurrences(of: ",", with: "").trimmingCharacters(in: .whitespaces))
+        typedNumber(text.replacingOccurrences(of: ",", with: ""))
     }
 
     private func save() {

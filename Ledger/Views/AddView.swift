@@ -476,7 +476,7 @@ struct AddForm: View {
                             Text(fc).foregroundStyle(.secondary)
                         }
                     }
-                    if let r = Double(d.rate.trimmed), let a = evalAmount(d.amount) {
+                    if let r = typedNumber(d.rate), let a = evalAmount(d.amount) {
                         LabeledContent(LS("实付 ") + fc, value: money(roundTo(a * r, 2), fc))
                     }
                 } else {

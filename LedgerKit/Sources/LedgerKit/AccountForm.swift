@@ -42,7 +42,7 @@ public struct AccountForm: Equatable {
         let parts = limit.split(whereSeparator: { $0.isWhitespace }).map(String.init)
         var amount: Double?
         if account.hasPrefix("Liabilities:"), !parts.isEmpty {
-            guard parts.count <= 2, let number = Double(parts[0].replacingOccurrences(of: ",", with: "")), number.isFinite, number > 0,
+            guard parts.count <= 2, let number = typedNumber(parts[0].replacingOccurrences(of: ",", with: "")), number.isFinite, number > 0,
                   parts.count == 1 || currencyLength(scalars(parts[1]), 0) == scalars(parts[1]).count else {
                 return .failure(FolderSaveError(message: tr("请输入有效的信用额度，如 50000 或 50000 CNY", "Enter a valid credit limit, such as 50000 or 50000 CNY")))
             }
