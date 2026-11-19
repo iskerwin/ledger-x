@@ -81,12 +81,15 @@ extension View {
             self
         }
     }
-    /// what was used before, dropping down under a text field as it is typed in; macOS 14 has no such list
+    /// what was used before, dropping down under a text field as it is typed in; macOS 14 has no such list.
+    /// `closed` once the field holds a known one whole (picked, or typed to the end): macOS keeps the list up while it has
+    /// anything in it, and one picked still matches itself. Typing on opens it again
     @ViewBuilder
-    func suggesting(_ items: [String]) -> some View {
+    func suggesting(_ items: [String], closed: Bool) -> some View {
         if #available(macOS 15, *) {
+            let shown = closed ? [] : items
             textInputSuggestions {
-                ForEach(items, id: \.self) { Text($0).textInputCompletion($0) }
+                ForEach(shown, id: \.self) { Text($0).textInputCompletion($0) }
             }
         } else {
             self
