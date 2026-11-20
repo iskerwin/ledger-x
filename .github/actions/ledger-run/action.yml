@@ -70,11 +70,21 @@ runs:
         retention-days: 30
         if-no-files-found: error
         path: .ship/full-validation.json
+    # one half of a full suite, joined with the other by the full workflow's combine job
+    - name: Keep this half of the full suite
+      if: inputs.check_only != 'true' && success() && hashFiles('.ship/shard.json') != ''
+      uses: actions/upload-artifact@v7
+      with:
+        name: 'ledger-shard-${{ env.LEDGER_SHARD }}-${{ github.run_id }}'
+        include-hidden-files: true
+        retention-days: 7
+        if-no-files-found: error
+        path: .ship/shard.json
     - name: Keep evidence, logs and package
       if: inputs.check_only != 'true' && always()
       uses: actions/upload-artifact@v7
       with:
-        name: 'ledger-${{ env.LEDGER_COMMAND }}-${{ github.run_id }}'
+        name: "ledger-${{ env.LEDGER_COMMAND }}${{ env.LEDGER_SHARD && format('-{0}', env.LEDGER_SHARD) || '' }}-${{ github.run_id }}"
         include-hidden-files: true
         retention-days: 7
         if-no-files-found: warn
@@ -82,6 +92,7 @@ runs:
           .ship/status.json
           .ship/full-validation.json
           .ship/selected-validation.json
+          .ship/shard.json
           .ship/dev-test-plan.json
           .ship/screenshots/
           *-tests.log

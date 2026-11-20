@@ -53,6 +53,10 @@ TEST_TIMEOUT = 300   # per interaction test, as in the former CI
 STATUS = ROOT / '.ship/status.json'     # the run in progress (or the last one), for `watch`
 HISTORY = ROOT / '.ship/history.json'   # totals of the last passing run, to show "41 / 64"
 FULL_VALIDATION = ROOT / '.ship/full-validation.json'  # a passing suite bound to an unchanged, clean source commit
+# A full suite runs as two halves on two runners at once (LEDGER_SHARD 1 or 2); each half leaves its record here, and
+# `combine` joins both into one full record. The release job finds this run's joined record in RUN_FULL_VALIDATION.
+SHARD = ROOT / '.ship/shard.json'
+RUN_FULL_VALIDATION = ROOT / '.ship/run-full/full-validation.json'
 
 # the stages of each command, as step() names them (the start is enough), for `watch` to list what is still to come
 PLAN = {
@@ -427,7 +431,7 @@ def validate_development():
     step('静态检查与流程回归')
     run([sys.executable, 'tools/check_project.py'], timeout=dev_limit(5 * 60))
     run([sys.executable, '-m', 'unittest', 'discover', '-s', 'tools/tests', '-p', 'test_*.py'], log='tools-tests.log',
-        env={k: v for k, v in os.environ.items() if k not in ('LEDGER_CORE_FILTER', 'LEDGER_UI_TESTS', 'LEDGER_SIMULATOR_DEVICE')},
+        env={k: v for k, v in os.environ.items() if k not in ('LEDGER_CORE_FILTER', 'LEDGER_UI_TESTS', 'LEDGER_SIMULATOR_DEVICE', 'LEDGER_SHARD')},
         timeout=dev_limit(5 * 60))
     return dict(validator='github-actions' if os.environ.get('GITHUB_ACTIONS') == 'true' else 'local',
                 **({'run_url': f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"}
@@ -505,9 +509,80 @@ def interaction_results():
     return checked_interaction_results(summary, tests)
 
 
+def ui_test_methods(root=None):
+    """LedgerUITests methods in source order, as Target/Class/method."""
+    cases = []
+    for path in sorted(((root or ROOT) / 'LedgerUITests').glob('*.swift')):
+        owner = None
+        for line in path.read_text().splitlines():
+            found = re.match(r'(?:final )?(?:class|extension) (\w+)\b', line)
+            if found:
+                owner = found.group(1)
+                continue
+            found = re.match(r'    func (test\w+)\(\)', line)
+            if found and owner:
+                cases.append(f'LedgerUITests/{owner}/{found.group(1)}')
+    return cases
+
+
+def first_half(root=None):
+    """Every other UI test, so neighbouring variants (normal / large text) go to different halves. The second half runs
+    the scheme without these, so a test this list misses still runs there: together the halves are the whole scheme."""
+    return ui_test_methods(root)[0::2]
+
+
+def shard():
+    value = os.environ.get('LEDGER_SHARD', '')
+    if value not in ('', '1', '2'):
+        raise Failure('LEDGER_SHARD 只能是 1 或 2')
+    return int(value) if value else None
+
+
+def passed_cases(summary, tests):
+    """Every case in an xcresult as Target/Class/method; all must have passed, matching the summary."""
+    cases = []
+    def walk(nodes, target=''):
+        for node in nodes:
+            if node.get('nodeType') in ('Unit test bundle', 'UI test bundle'):
+                target = node.get('name', '')
+            if node.get('nodeType') == 'Test Case':
+                if node.get('result') != 'Passed':
+                    raise Failure('测试包含失败、跳过或未完成的用例')
+                identity = str(node.get('nodeIdentifier', '')).removesuffix('()')
+                if not identity or target not in ('LedgerTests', 'LedgerUITests'):
+                    raise Failure('测试结果缺少用例或目标身份')
+                cases.append(identity if identity.startswith(target + '/') else target + '/' + identity)
+            walk(node.get('children', []), target)
+    walk(tests.get('testNodes', []))
+    if not cases or len(cases) != len(set(cases)) or summary.get('result') != 'Passed' or \
+            summary.get('totalTestCount') != len(cases) or summary.get('passedTests') != len(cases) or \
+            any(summary.get(key) != 0 for key in ('failedTests', 'skippedTests', 'expectedFailures')):
+        raise Failure('测试结果缺失、重复或汇总不一致')
+    return cases
+
+
+def shard_results(number, half):
+    """One half's cases: the first ran exactly its list, the second none of it."""
+    command = ['xcrun', 'xcresulttool', 'get', 'test-results']
+    try:
+        summary = json.loads(out([*command, 'summary', '--path', 'interaction-tests.xcresult', '--compact']))
+        tests = json.loads(out([*command, 'tests', '--path', 'interaction-tests.xcresult', '--compact']))
+    except (ValueError, subprocess.CalledProcessError) as error:
+        raise Failure('无法读取附件与交互测试结果，未认定通过，见 interaction-tests.xcresult') from error
+    cases = passed_cases(summary, tests)
+    if number == 1 and sorted(cases) != sorted(half):
+        raise Failure('第 1 份没有恰好执行分给它的界面测试')
+    if number == 2 and set(cases) & set(half):
+        raise Failure('第 2 份执行了分给第 1 份的界面测试')
+    return cases
+
+
 def validate():
-    """Full regression suite, used explicitly or before a stable release."""
+    """Full regression suite, used explicitly or before a stable release; with LEDGER_SHARD, one of its two halves."""
+    number = shard()
     proof = validate_development()
+    if number == 2:
+        return validate_interaction(proof, number)
 
     step('LedgerKit 核心测试')
     env = dict(os.environ, LEDGER_DEMO_PATH=str(ROOT / '.demo-data'), SAMPLE_OUT=str(ROOT / 'samples'))
@@ -524,7 +599,10 @@ def validate():
     if not reports:
         raise Failure('报表对照没有给出一致结论，见 reports-check.log')
     report(reports)
+    return validate_interaction(dict(proof, core_tests=core, reports=reports), number)
 
+
+def validate_interaction(proof, number):
     step('新建专用模拟器')
     udid, simulator = fresh_simulator()
     report(simulator)
@@ -536,12 +614,17 @@ def validate():
     run(['xcodebuild', 'build-for-testing', '-project', 'Ledger.xcodeproj', '-scheme', 'LedgerInteractionTests',
          '-destination', destination, '-derivedDataPath', 'build-demo', 'CODE_SIGNING_ALLOWED=NO'], log='demo-build.log')
 
-    step('附件与交互测试（不并行，约 1 小时）')
+    half = first_half() if number else []
+    if number and not half:
+        raise Failure('没有找到界面测试，无法分成两份')
+    selection = [f'-only-testing:{case}' for case in half] if number == 1 else \
+        [f'-skip-testing:{case}' for case in half]
+    step(f'附件与交互测试（第 {number}/2 份，约 40 分钟）' if number else '附件与交互测试（约 1 小时）')
     shutil.rmtree(ROOT / 'interaction-tests.xcresult', ignore_errors=True)
     code = run(['xcodebuild', 'test-without-building', '-project', 'Ledger.xcodeproj', '-scheme', 'LedgerInteractionTests',
                 '-destination', destination, '-derivedDataPath', 'build-demo', '-parallel-testing-enabled', 'NO',
                 '-test-timeouts-enabled', 'YES', '-maximum-test-execution-time-allowance', str(TEST_TIMEOUT),
-                '-resultBundlePath', 'interaction-tests.xcresult'], log='interaction-tests.log', check=False)
+                '-resultBundlePath', 'interaction-tests.xcresult', *selection], log='interaction-tests.log', check=False)
     text = (ROOT / 'interaction-tests.log').read_text(errors='replace')
     report_slowest(text)
     failures = re.findall(r"Test Case '-\[(\S+ \S+)\]' failed", text)
@@ -550,14 +633,49 @@ def validate():
             print(f'  ✗ {name}', file=sys.stderr)
         raise Failure('交互测试未通过，见 interaction-tests.log 与 interaction-tests.xcresult'
                       + ('' if failures else '（没有失败的测试用例，可能是环境问题）'))
-    targets = interaction_results()
-    interaction = sum(targets.values())
-    report(f'App 内 {targets["LedgerTests"]} 项、界面 {targets["LedgerUITests"]} 项通过')
+    if number:
+        cases = shard_results(number, half)
+        report(f'第 {number}/2 份：{len(cases)} 项通过')
+    else:
+        targets = interaction_results()
+        report(f'App 内 {targets["LedgerTests"]} 项、界面 {targets["LedgerUITests"]} 项通过')
     subprocess.run(['xcrun', 'simctl', 'shutdown', udid], capture_output=True)
 
     verify_demo_snapshot(proof['demo_commit'], proof['demo_sha256'])
-    return dict(proof, scope='full', simulator=simulator, core_tests=core, reports=reports,
-                interaction_tests=interaction, test_targets=targets)
+    if number:
+        return dict(proof, scope='shard', shard=number, simulator=simulator, first_half=half, cases=sorted(cases))
+    return dict(proof, scope='full', simulator=simulator, interaction_tests=sum(targets.values()), test_targets=targets)
+
+
+def combine_shards(first, second):
+    """Join the two halves into one full record, only when together they are exactly one whole suite of one source."""
+    if (first.get('scope'), first.get('shard'), second.get('scope'), second.get('shard')) != ('shard', 1, 'shard', 2):
+        raise Failure('全量需要第 1、2 两份结果')
+    for key in ('validator', 'run_url', 'source_sha', 'tree', 'demo_commit', 'demo_sha256', 'xcode', 'first_half'):
+        if not first.get(key) or first.get(key) != second.get(key):
+            raise Failure(f'两份结果的 {key} 不一致，不能合成全量')
+    if not all(half.get(key) is True for half in (first, second) for key in ('static_checks', 'tools_tests')):
+        raise Failure('两份结果都必须通过静态检查和工具回归')
+    one, two = first.get('cases') or [], second.get('cases') or []
+    if sorted(one) != sorted(first['first_half']) or set(one) & set(two) or len(set(one + two)) != len(one + two):
+        raise Failure('两份执行的用例有遗漏或重复，不能合成全量')
+    targets = dict(LedgerTests=0, LedgerUITests=0)
+    for case in one + two:
+        target = case.split('/', 1)[0]
+        if target not in targets:
+            raise Failure(f'未知测试目标：{case}')
+        targets[target] += 1
+    full = {key: first[key] for key in ('validator', 'run_url', 'source_sha', 'tree', 'demo_commit', 'demo_sha256',
+                                        'xcode', 'macos', 'simulator', 'core_tests', 'reports') if key in first}
+    full.update(schema=2, scope='full', static_checks=True, tools_tests=True, shards=2,
+                validated_at=max(first.get('validated_at', ''), second.get('validated_at', '')),
+                interaction_tests=len(one) + len(two), test_targets=targets)
+    try:
+        verify_proof(full, dict(source_sha=full['source_sha'], tree=full['tree'], repository=os.environ.get(
+            'GITHUB_REPOSITORY', full['run_url'].split('github.com/', 1)[-1].split('/actions/', 1)[0])), require_full=True)
+    except (KeyError, ValueError) as error:
+        raise Failure(f'合成的全量记录不完整：{error}') from error
+    return full
 
 
 # Packages, evidence and releases.
@@ -634,24 +752,7 @@ def validate_targeted():
 
 
 def checked_selected_results(summary, tests, selectors):
-    cases = []
-    def walk(nodes, target=''):
-        for node in nodes:
-            if node.get('nodeType') in ('Unit test bundle', 'UI test bundle'):
-                target = node.get('name', '')
-            if node.get('nodeType') == 'Test Case':
-                if node.get('result') != 'Passed':
-                    raise Failure('指定测试包含失败、跳过或未完成的用例')
-                identity = str(node.get('nodeIdentifier', '')).removesuffix('()')
-                if not identity or target not in ('LedgerTests', 'LedgerUITests'):
-                    raise Failure('指定测试缺少用例或目标身份')
-                cases.append(identity if identity.startswith(target + '/') else target + '/' + identity)
-            walk(node.get('children', []), target)
-    walk(tests.get('testNodes', []))
-    if not cases or len(cases) != len(set(cases)) or summary.get('result') != 'Passed' or \
-            summary.get('totalTestCount') != len(cases) or summary.get('passedTests') != len(cases) or \
-            any(summary.get(key) != 0 for key in ('failedTests', 'skippedTests', 'expectedFailures')):
-        raise Failure('指定测试结果缺失、重复或汇总不一致')
+    cases = passed_cases(summary, tests)
     for selector in selectors:
         # xcresult identifiers include the target, class and method.
         if not any(case == selector or case.startswith(selector + '/') for case in cases):
@@ -666,7 +767,7 @@ def release_validation_at_source(manifest, proof):
         try:
             verify_proof(proof, manifest, require_full=True)
         except ValueError:
-            previous = cloud_full_validation(manifest)
+            previous = run_full_validation(manifest) or cloud_full_validation(manifest)
             if previous:
                 return dict(previous, release_build=True)
     if os.environ.get('GITHUB_ACTIONS') != 'true' or git('rev-parse', 'HEAD') == manifest['source_sha']:
@@ -693,6 +794,16 @@ def release_validation_at_source(manifest, proof):
                 elif item.is_file():
                     shutil.copy(item, original / name)
             run(['git', 'worktree', 'remove', '--force', source])
+
+
+def run_full_validation(manifest):
+    """The full record this same run joined from its two halves before the release job (not yet a finished run)."""
+    candidate = read_json(RUN_FULL_VALIDATION)
+    try:
+        verify_proof(candidate, manifest, require_full=True)
+    except (KeyError, ValueError):
+        return None
+    return candidate
 
 
 def cloud_full_validation(manifest):
@@ -1467,6 +1578,11 @@ def run_totals(started):
 def worker_main(argv):
     command = argv[1] if len(argv) > 1 else ''
     usage = __doc__.split('\n\n')[1]
+    if command == 'combine' and len(argv) == 4:
+        full = combine_shards(read_json(Path(argv[2])), read_json(Path(argv[3])))
+        write_json(FULL_VALIDATION, full)
+        print(f'✓ 两份合成全量：核心 {full["core_tests"]} 项，交互 {full["interaction_tests"]} 项；{full["reports"]}', flush=True)
+        return 0
     if command == 'watch' and argv[2:] in ([], ['--once']):
         return watch(once=argv[2:] == ['--once'])
     if command not in ('test', 'dev', 'preview', 'release', 'version') or len(argv) != (3 if command == 'version' else 2):
@@ -1487,14 +1603,22 @@ def worker_main(argv):
         if command == 'test':
             source = None if git('status', '--porcelain') else git('rev-parse', 'HEAD')
             FULL_VALIDATION.unlink(missing_ok=True)
+            SHARD.unlink(missing_ok=True)
+            if shard() and selected_tests():
+                raise Failure('分成两份的只能是全量，不能和指定测试混用')
             proof = validate_targeted() if selected_tests() else validate()
-            if source and not selected_tests() and git('rev-parse', 'HEAD') == source and not git('status', '--porcelain'):
+            if shard():
+                if not source or git('rev-parse', 'HEAD') != source or git('status', '--porcelain'):
+                    raise Failure('测试期间源码有变化，这一份结果不能用于全量')
+                write_json(SHARD, dict(proof, source_sha=source, tree=git('rev-parse', f'{source}^{{tree}}')))
+                done(f'\n✓ 第 {proof["shard"]}/2 份通过：{len(proof["cases"])} 项；两份都通过后才合成全量')
+            elif source and not selected_tests() and git('rev-parse', 'HEAD') == source and not git('status', '--porcelain'):
                 write_json(FULL_VALIDATION, dict(proof, schema=2, source_sha=source,
                                                tree=git('rev-parse', f'{source}^{{tree}}')))
             if selected_tests():
                 write_json(ROOT / '.ship/selected-validation.json', dict(proof, source_sha=git('rev-parse', 'HEAD')))
                 done('✓ 指定测试通过；未执行全量验证，不发布安装包')
-            else:
+            elif not shard():
                 done(f'\n✓ 全部通过：核心 {proof["core_tests"]} 项，交互 {proof["interaction_tests"]} 项；{proof["reports"]}')
         elif command == 'dev':
             if selected_tests():
