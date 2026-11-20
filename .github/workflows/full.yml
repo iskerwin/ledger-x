@@ -1,0 +1,75 @@
+name: Ledger Full
+# The full suite as two halves on two runners at once, then one full record. Called by CI (weekly / manual full) and
+# by Release before promotion. No concurrency group here: Release holds ledger-publication for its whole run.
+on:
+  workflow_call:
+    inputs:
+      source_sha:
+        required: true
+        type: string
+      device:
+        type: string
+        default: ''
+      cache_epoch:
+        type: string
+        default: '1'
+permissions:
+  contents: read
+jobs:
+  shard:
+    name: 'full ${{ matrix.shard }}/2'
+    strategy:
+      # one half failing still lets the other finish, so its result is reported too
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    runs-on: macos-26
+    timeout-minutes: 150
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      LEDGER_COMMAND: test
+      LEDGER_SOURCE_SHA: ${{ inputs.source_sha }}
+      LEDGER_SIMULATOR_DEVICE: ${{ inputs.device }}
+      LEDGER_SHARD: ${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/ledger-run
+        with:
+          cache_epoch: ${{ inputs.cache_epoch }}
+  combine:
+    needs: shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: 'ledger-shard-*-${{ github.run_id }}'
+          path: shards
+      - name: Join both halves into one full record
+        run: >-
+          python3 tools/ship.py combine
+          'shards/ledger-shard-1-${{ github.run_id }}/shard.json'
+          'shards/ledger-shard-2-${{ github.run_id }}/shard.json'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: 'ledger-full-proof-${{ github.run_id }}'
+          include-hidden-files: true
+          retention-days: 30
+          if-no-files-found: error
+          path: .ship/full-validation.json

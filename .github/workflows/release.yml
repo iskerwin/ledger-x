@@ -21,8 +21,45 @@ jobs:
         run: |
           echo 'Release 只能在 main 发起：Run workflow 的 Branch 请选择 main'
           exit 1
-  publish:
+  # Before any tests: the accepted build, the source to test, and whether a full record already exists.
+  plan:
     if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      LEDGER_ACCEPTED_BUILD: ${{ inputs.accepted_build }}
+    outputs:
+      source_sha: ${{ steps.plan.outputs.source_sha }}
+      full: ${{ steps.plan.outputs.full }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - id: plan
+        run: python3 tools/cloud_worker.py plan
+  full:
+    needs: plan
+    if: needs.plan.outputs.full == 'true'
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/full.yml
+    with:
+      source_sha: ${{ needs.plan.outputs.source_sha }}
+      cache_epoch: ${{ vars.LEDGER_CACHE_EPOCH || '1' }}
+  publish:
+    needs: [plan, full]
+    # the full halves are skipped when a record already exists; publish never runs after a failed or missing half
+    if: always() && github.ref == 'refs/heads/main' && needs.plan.result == 'success' && (needs.full.result == 'success' || needs.full.result == 'skipped')
     runs-on: macos-26
     timeout-minutes: 180
     permissions:
@@ -38,6 +75,12 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
+      - name: Take this run's full record
+        if: needs.full.result == 'success'
+        uses: actions/download-artifact@v8
+        with:
+          name: 'ledger-full-proof-${{ github.run_id }}'
+          path: .ship/run-full
       - uses: ./.github/actions/ledger-run
         with:
           cache_epoch: ${{ vars.LEDGER_CACHE_EPOCH || '1' }}

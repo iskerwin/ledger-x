@@ -82,8 +82,9 @@ jobs:
             mac-build.log
             LedgerMac.zip
             interaction-tests*.xcresult/
+  # selected tests only; the full suite (weekly, or manual with nothing selected) is the full job below
   test:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    if: github.event_name == 'workflow_dispatch' && (inputs.core_filter != '' || inputs.ui_tests != '')
     runs-on: macos-26
     timeout-minutes: 180
     permissions:
@@ -105,3 +106,13 @@ jobs:
       - uses: ./.github/actions/ledger-run
         with:
           cache_epoch: ${{ vars.LEDGER_CACHE_EPOCH || '1' }}
+  full:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.core_filter == '' && inputs.ui_tests == '')
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/full.yml
+    with:
+      source_sha: ${{ inputs.source_sha || github.sha }}
+      device: ${{ inputs.device }}
+      cache_epoch: ${{ vars.LEDGER_CACHE_EPOCH || '1' }}

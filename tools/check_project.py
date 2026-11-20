@@ -80,7 +80,16 @@ dev = (ROOT/'.github/workflows/dev.yml').read_text()
 release = (ROOT/'.github/workflows/release.yml').read_text()
 preview = (ROOT/'.github/workflows/preview.yml').read_text()
 runner = (ROOT/'.github/actions/ledger-run/action.yml').read_text()
-workflow = '\n'.join((ci, dev, release, preview, runner, (ROOT/'tools/select_xcode.sh').read_text()))
+full = (ROOT/'.github/workflows/full.yml').read_text()
+workflow = '\n'.join((ci, dev, release, preview, full, runner, (ROOT/'tools/select_xcode.sh').read_text()))
+# The full suite: two read-only halves at once, joined into one record; no lock of its own (Release holds one).
+require('workflow_call:' in full and 'concurrency:' not in full and 'contents: write' not in full
+        and 'actions: write' not in full and not re.search(r'\b(?:vars|secrets)\s*[.\[]', full)
+        and 'uses: ./.github/actions/ledger-run' in full and 'cache_epoch: ${{ inputs.cache_epoch }}' in full
+        and 'LEDGER_SHARD: ${{ matrix.shard }}' in full and 'python3 tools/ship.py combine' in full
+        and 'uses: ./.github/workflows/full.yml' in ci and 'uses: ./.github/workflows/full.yml' in release
+        and "needs.full.result == 'success' || needs.full.result == 'skipped'" in release,
+        'The full suite must run as two read-only halves joined into one record, for CI and before Release')
 for name, publication in (('Dev', dev), ('Release', release)):
     require('workflow_dispatch:' in publication and 'pull_request:' not in publication
             and 'runs-on: macos-26' in publication and 'group: ledger-publication' in publication

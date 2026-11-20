@@ -64,6 +64,29 @@ def validate_inputs():
         raise ship.Failure('ui_tests 请填 Target/Class[/method]，例如 LedgerTests/AppearanceTests；多个用空格分隔')
 
 
+def plan_release():
+    """Before any tests: check the accepted build, then say which source the full suite is for and whether this run
+    must still run it (no reusable record yet, and that source's tooling can run it as two halves)."""
+    import cloud
+    build = os.environ.get('LEDGER_ACCEPTED_BUILD', '')
+    if not re.fullmatch(r'[1-9][0-9]*', build):
+        raise ship.Failure('请填写手机验收过的构建号，只填正整数，例如 123；校验值由程序自动获取')
+    with tempfile.TemporaryDirectory() as temp:
+        ship.run(['gh', 'release', 'download', 'dev', '--repo', ship.repository(),
+                  '--pattern', 'build-manifest.json', '--dir', temp])
+        manifest = ship.read_json(Path(temp) / 'build-manifest.json')
+    cloud.accepted_manifest(manifest, build)
+    sha = manifest['source_sha']
+    if not re.fullmatch(r'[0-9a-f]{40}', str(sha)):
+        raise ship.Failure('开发版清单缺少有效的源码提交')
+    halves = 'LEDGER_SHARD' in ship.git('show', f'{sha}:tools/ship.py')
+    full = halves and not ship.cloud_full_validation(manifest)
+    with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+        output.write(f'source_sha={sha}\nfull={"true" if full else "false"}\n')
+    print(f'源码 {sha[:7]}：' + ('分两份跑全量' if full else '已有全量记录可复用' if halves else
+                                 '该源码的工具不支持分两份，转正时按原方式跑全量'), flush=True)
+
+
 def run():
     validate_inputs()
     command = os.environ['LEDGER_COMMAND']
@@ -76,6 +99,6 @@ if __name__ == '__main__':
     if os.environ.get('GITHUB_ACTIONS') != 'true':
         sys.exit('此入口只在 GitHub Actions 执行；本机使用 ship.py')
     try:
-        sys.exit(prepare() if sys.argv[1:] == ['prepare'] else run())
+        sys.exit(prepare() if sys.argv[1:] == ['prepare'] else plan_release() if sys.argv[1:] == ['plan'] else run())
     except Exception as error:
         sys.exit(str(error))
