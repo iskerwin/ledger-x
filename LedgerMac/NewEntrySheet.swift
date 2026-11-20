@@ -18,7 +18,7 @@ struct NewEntrySheet: View {
     /// closes the window: saved, given up or kept as a draft
     private let done: () -> Void
     @State private var draft: Draft
-    /// what counts as nothing changed: closing from it needs no asking
+    /// what counts as nothing changed: closing from it needs no asking (a kind picked before anything else moves it)
     @State private var baseline: Draft
     /// each kind as it was left, to come back to
     @State private var snapshots: [DraftKind: Draft] = [:]
@@ -243,12 +243,16 @@ struct NewEntrySheet: View {
             next = switched.draft
         }
         if Self.formKinds.contains(kind) { formKind = kind }
-        draft = next
+        // as on the phone: another kind picked before anything is filled in is where this starts, not a change
+        let session = DraftSession(draft: draft, baseline: baseline).selectingKind(next)
+        draft = session.draft
+        baseline = session.baseline
         return true
     }
 
+    /// closing asks only when something was filled in or changed, by the phone's rule
     private func close() {
-        if draft == baseline {
+        if !DraftSession(draft: draft, baseline: baseline).shouldKeep {
             if !editing { KeptDraft.clear(folder) }
             done()
         } else {

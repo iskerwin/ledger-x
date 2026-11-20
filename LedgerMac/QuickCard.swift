@@ -166,9 +166,6 @@ struct QuickCard: View {
         }
         .sheet(item: $picking) { accountChooser($0) }
         .sheet(isPresented: $allCategories) { allCategoriesSheet }
-        .sheet(item: Binding(get: { subPicking.flatMap { id in gridGroups(root).first { $0.id == id } } }, set: { if $0 == nil { subPicking = nil } })) { g in
-            SubCategorySheet(group: g, title: categoryGroupTitle(g, ledger), ledger: ledger, current: draft.account) { pickCategory($0) }
-        }
         .sheet(isPresented: $editingText) {
             SourceSheet(initial: draftText(draft, ledger, derived), ledger: ledger, single: draftIsSingle(draft, ledger)) { applySource($0) }
         }
@@ -364,6 +361,10 @@ struct QuickCard: View {
                 QuickChip(label: title, systemImage: categorySymbol(g.id), selected: g.id == picked) {
                     // the picked group again: its sub-categories
                     if g.id == picked && !g.single { subPicking = g.id } else { pick(g) }
+                }
+                // under the chip, as tall as its sub-categories
+                .popover(isPresented: Binding(get: { subPicking == g.id }, set: { if !$0 { subPicking = nil } }), arrowEdge: .bottom) {
+                    SubCategoryList(group: g, ledger: ledger, current: d.account) { pickCategory($0); subPicking = nil }
                 }
                 .contextMenu {
                     if !g.single { Button(LS("选择子类"), systemImage: "list.bullet") { pick(g); subPicking = g.id } }
@@ -1187,31 +1188,39 @@ private struct AccountChooser: View {
     }
 }
 
-/// a group's sub-categories: one click picks it and closes
-private struct SubCategorySheet: View {
+/// a group's sub-categories in a popover under its chip: one click picks it and closes; a long list scrolls
+private struct SubCategoryList: View {
     let group: CategoryGroup
-    let title: String
     let ledger: Ledger
     let current: String
     let pick: (String) -> Void
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(spacing: 0) {
-            SheetBar(title: title)
-            List(group.accounts, id: \.self) { a in
-                Button { pick(a); dismiss() } label: {
+        if group.accounts.count > 12 {
+            ScrollView { rows }.frame(height: 12 * 28 + Space.icon * 2)
+        } else {
+            rows
+        }
+    }
+
+    private var rows: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(group.accounts, id: \.self) { a in
+                Button { pick(a) } label: {
                     HStack(spacing: Space.control) {
                         Text(accountTitle(ledger, a))
-                        Spacer()
-                        if a == current { Image(systemName: "checkmark").foregroundStyle(Color.jade).fontWeight(.semibold) }
+                        Spacer(minLength: Space.content)
+                        Image(systemName: "checkmark").fontWeight(.semibold).foregroundStyle(Color.jade).opacity(a == current ? 1 : 0)
                     }
+                    .frame(height: 28)
+                    .padding(.horizontal, Space.control)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
-        .frame(width: 360, height: 420)
+        .frame(minWidth: 180)
+        .padding(.vertical, Space.icon)
     }
 }
 
