@@ -87,6 +87,8 @@ class SplitTests(unittest.TestCase):
             results(2, 'LedgerUITests/A/testTwo', *first)
 
 
+# the record must link to this repository's runs, as the cloud's GITHUB_REPOSITORY says
+@patch.dict(os.environ, dict(GITHUB_REPOSITORY='example/app'))
 class CombineTests(unittest.TestCase):
     def halves(self):
         first = ['LedgerUITests/A/testOne', 'LedgerUITests/A/testThree']
@@ -114,6 +116,7 @@ class CombineTests(unittest.TestCase):
             'other demo': change(1, demo_sha256='d' * 64),
             'other split': change(1, first_half=['LedgerUITests/A/testOne']),
             'other run': change(1, run_url=RUN.replace('123', '456')),
+            'another repository': [dict(h, run_url=RUN.replace('example', 'other')) for h in self.halves()],
             'first half not run exactly': change(0, cases=['LedgerUITests/A/testOne']),
             'overlap': change(1, cases=['LedgerTests/S/testSave', 'LedgerUITests/A/testOne']),
             'no app tests': change(1, cases=['LedgerUITests/A/testTwo']),
@@ -151,6 +154,8 @@ class CombineTests(unittest.TestCase):
             self.assertEqual(json.loads(ship.SHARD.read_text())['source_sha'], SHA)
 
 
+# the record must link to this repository's runs, as the cloud's GITHUB_REPOSITORY says
+@patch.dict(os.environ, dict(GITHUB_REPOSITORY='example/app'))
 class ReleaseTests(unittest.TestCase):
     def test_release_takes_the_record_this_run_joined(self):
         manifest = dict(repository='example/app', source_sha=SHA, tree='tree', demo_commit='demo', demo_sha256='b' * 64)
