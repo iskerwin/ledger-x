@@ -54,6 +54,20 @@ class SplitTests(unittest.TestCase):
         with patch.dict(os.environ, dict(LEDGER_SHARD='3')), self.assertRaises(ship.Failure):
             ship.shard()
 
+    def test_tool_tests_inside_a_half_do_not_inherit_its_number(self):
+        envs = []
+        def run(cmd, log=None, env=None, **kwargs):
+            if log == 'tools-tests.log':
+                envs.append(env)
+            return 0
+        with patch.dict(os.environ, dict(LEDGER_SHARD='1')), patch.object(ship, 'use_xcode', return_value='Xcode'), \
+                patch.object(ship, 'demo_snapshot', return_value='demo'), \
+                patch.object(ship, 'verify_demo_snapshot', return_value='b' * 64), \
+                patch.object(ship, 'step'), patch.object(ship, 'run', side_effect=run):
+            ship.validate_development()
+        self.assertEqual(len(envs), 1)
+        self.assertFalse('LEDGER_SHARD' in envs[0], 'the tool tests got the half number')
+
     def test_halves_check_what_ran(self):
         first = ['LedgerUITests/A/testOne']
         summary = lambda n: dict(result='Passed', totalTestCount=n, passedTests=n, failedTests=0, skippedTests=0,

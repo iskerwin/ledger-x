@@ -431,7 +431,7 @@ def validate_development():
     step('静态检查与流程回归')
     run([sys.executable, 'tools/check_project.py'], timeout=dev_limit(5 * 60))
     run([sys.executable, '-m', 'unittest', 'discover', '-s', 'tools/tests', '-p', 'test_*.py'], log='tools-tests.log',
-        env={k: v for k, v in os.environ.items() if k not in ('LEDGER_CORE_FILTER', 'LEDGER_UI_TESTS', 'LEDGER_SIMULATOR_DEVICE')},
+        env={k: v for k, v in os.environ.items() if k not in ('LEDGER_CORE_FILTER', 'LEDGER_UI_TESTS', 'LEDGER_SIMULATOR_DEVICE', 'LEDGER_SHARD')},
         timeout=dev_limit(5 * 60))
     return dict(validator='github-actions' if os.environ.get('GITHUB_ACTIONS') == 'true' else 'local',
                 **({'run_url': f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"}
