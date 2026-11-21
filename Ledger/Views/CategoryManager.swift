@@ -11,13 +11,25 @@ struct StyleTarget: Identifiable {
 }
 
 /// 分类图标与排序: the 记一笔 grid's cells in order (drag to move), tap one for its icon, name and whether it shows.
-/// Kept on this phone; the ledger is not changed.
+/// Kept in ledger-x.json, so every device shows the same; the accounts are not changed.
 struct CategoryManager: View {
     @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
     @State var root: String
     @State private var styling: StyleTarget?
     @State private var editMode: EditMode = .inactive
+    /// per root: the order dragged to, written once sorting is done (one commit, not one per drag)
+    @State private var sorted: [String: [String]] = [:]
+
+    private func shownGroups(_ D: Derived) -> [CategoryGroup] {
+        let all = store.allGroups(root, D)
+        return sorted[root].map { orderedGroups(all, saved: $0) } ?? all
+    }
+
+    private func finishSorting() {
+        for (r, ids) in sorted { store.sortGrid(r, ids) }
+        sorted = [:]
+    }
 
     var body: some View {
         NavigationStack {
@@ -42,7 +54,7 @@ struct CategoryManager: View {
                             } icon: { Image(systemName: "folder") }
                         }
                     }
-                    let groups = store.allGroups(root, D)
+                    let groups = shownGroups(D)
                     let hidden = Set(store.catStyle.hidden)
                     Section {
                         ForEach(groups) { g in
@@ -67,24 +79,19 @@ struct CategoryManager: View {
                         .onMove { from, to in
                             var ids = groups.map { $0.id }
                             ids.move(fromOffsets: from, toOffset: to)
-                            store.catStyle.order[root] = ids
+                            sorted[root] = ids
                         }
                     } footer: {
-                        Text(LS("点「排序」后拖动调整宫格顺序；点按一项更换图标、改名或隐藏。这些设置只存在本机，不改动账本；隐藏的分类仍可在完整表单里选择。"))
+                        Text(LS("点「排序」后拖动调整宫格顺序；点按一项更换图标、改名或隐藏。这些设置存在账本的 ledger-x.json 里，各设备共用，不改动科目；隐藏的分类仍可在完整表单里选择。"))
                     }
                     Section {
                         Button {
-                            var s = store.catStyle
-                            for g in groups {
-                                s.icons[g.id] = nil
-                                for a in g.accounts { s.icons[a] = nil }
-                                s.titles[g.id] = nil
-                            }
-                            s.hidden.removeAll { id in groups.contains { $0.id == id } }
-                            store.catStyle = s
+                            let ids = groups.map { $0.id }
+                            store.editCategories(LS("恢复默认分类图标与名称")) { $0.resetIconsAndNames(ids) }
                         } label: { Label(LS("恢复默认图标与名称"), systemImage: "arrow.counterclockwise").labelStyle(ControlLabelStyle()) }
                         Button {
-                            store.catStyle.order[root] = categoryGroups(D, root: root).map { $0.id }
+                            sorted[root] = nil
+                            store.sortGrid(root, categoryGroups(D, root: root).map { $0.id })
                         } label: { Label(LS("按使用次数重新排序"), systemImage: "arrow.up.arrow.down").labelStyle(ControlLabelStyle()) }
                     }
                 }
@@ -95,10 +102,15 @@ struct CategoryManager: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button { withAnimation(AppMotion.standard) { editMode = editMode.isEditing ? .inactive : .active } } label: { Label(editMode.isEditing ? LS("排好了") : LS("排序"), systemImage: editMode.isEditing ? "checkmark" : "arrow.up.arrow.down").labelStyle(ControlLabelStyle()) }
+                    Button {
+                        if editMode.isEditing { finishSorting() }
+                        withAnimation(AppMotion.standard) { editMode = editMode.isEditing ? .inactive : .active }
+                    } label: { Label(editMode.isEditing ? LS("排好了") : LS("排序"), systemImage: editMode.isEditing ? "checkmark" : "arrow.up.arrow.down").labelStyle(ControlLabelStyle()) }
                 }
-                ToolbarItem(placement: .confirmationAction) { Button { dismiss() } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold) }
+                ToolbarItem(placement: .confirmationAction) { Button { finishSorting(); dismiss() } label: { Label(LS("完成"), systemImage: "checkmark").labelStyle(ControlLabelStyle()) }.fontWeight(.semibold) }
             }
+            // closed any other way (swiped down) while sorting: the order dragged to is still kept
+            .onDisappear { finishSorting() }
             .sheet(item: $styling) { CategoryStyleSheet(target: $0).pickerSheet() }
             .navigationDestination(for: CategoryAccountsDest.self) { AccountManagerView(only: $0.root) }
             .navigationDestination(for: AccountEditDest.self) { AccountEditView(name: $0.name) }
@@ -180,7 +192,7 @@ struct CategoryStyleSheet: View {
                 title = store.catStyle.titles[target.group.id] ?? ""
                 icon = store.catStyle.icons[key] ?? ""
                 hidden = store.catStyle.hidden.contains(target.group.id)
-                tint = store.catStyle.colors?[key]
+                tint = store.catStyle.colors[key]
             }
         }
     }
@@ -190,15 +202,19 @@ struct CategoryStyleSheet: View {
     }
 
     private func save() {
-        var s = store.catStyle
-        let t = title.trimmed
-        s.titles[target.group.id] = t.isEmpty ? nil : t
+        let id = target.group.id, cell = self.key, name = self.title, hide = self.hidden, color = self.tint
         // the built-in guess isn't stored, so a better guess in a later version still reaches it
-        s.icons[key] = icon.isEmpty || icon == defaultCategoryIcon(key) ? nil : icon
-        s.hidden.removeAll { $0 == target.group.id }
-        if hidden { s.hidden.append(target.group.id) }
-        s.colors = tinted(s.colors, key, tint)
-        store.catStyle = s
+        let symbol: String? = self.icon == defaultCategoryIcon(cell) ? nil : self.icon
+        let now = store.catStyle
+        // nothing changed here: nothing written
+        guard (now.titles[id] ?? "") != name.trimmed || (now.icons[cell] ?? "") != (symbol ?? "")
+                || now.hidden.contains(id) != hide || now.colors[cell] != color else { return }
+        store.editCategories(LS("分类样式：%@", name.trimmed.isEmpty ? id : name.trimmed)) { s in
+            s.setTitle(id, name)
+            s.setIcon(cell, symbol)
+            s.setHidden(id, hide)
+            s.setColor(cell, color)
+        }
     }
 
     /// symbols to choose from (any this iOS lacks is left out when shown)
@@ -312,7 +328,7 @@ struct GroupIconSheet: View {
                     .padding(.vertical, AppSpacing.icon)
                     Button { icon = builtIn } label: { Label(LS("恢复默认图标"), systemImage: "arrow.counterclockwise").labelStyle(ControlLabelStyle()) }
                 } footer: {
-                    Text(LS("这个大类在记一笔、管理账户、账户页和报表里都用这个图标；只存在这台手机。"))
+                    Text(LS("这个大类在记一笔、管理账户、账户页和报表里都用这个图标；存在账本的 ledger-x.json 里，各设备共用。"))
                 }
                 Section {
                     IconTintGrid(tint: $tint, fallback: builtInColor)
@@ -328,23 +344,17 @@ struct GroupIconSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button { dismiss() } label: { Label(LS("取消"), systemImage: "xmark").labelStyle(ControlLabelStyle()) } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
-                        var s = store.catStyle
-                        s.icons[group] = icon.isEmpty || icon == builtIn ? nil : icon
-                        s.colors = tinted(s.colors, group, tint)
-                        store.catStyle = s
+                        let g = self.group, color = self.tint
+                        let symbol: String? = self.icon == builtIn ? nil : self.icon
+                        if (store.catStyle.icons[g] ?? "") != (symbol ?? "") || store.catStyle.colors[g] != color {
+                            store.editCategories(LS("更换图标：%@", leaf(g))) { $0.setIcon(g, symbol); $0.setColor(g, color) }
+                        }
                         dismiss()
                     } label: { SaveLabel() }
                     .fontWeight(.semibold)
                 }
             }
-            .onAppear { icon = store.catStyle.icons[group] ?? ""; tint = store.catStyle.colors?[group] }
+            .onAppear { icon = store.catStyle.icons[group] ?? ""; tint = store.catStyle.colors[group] }
         }
     }
-}
-
-/// the saved colours with `key`'s set to `tint` (nil: its own again); nil when none is left
-func tinted(_ colors: [String: String]?, _ key: String, _ tint: String?) -> [String: String]? {
-    var c = colors ?? [:]
-    c[key] = tint
-    return c.isEmpty ? nil : c
 }

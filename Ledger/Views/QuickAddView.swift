@@ -259,12 +259,15 @@ struct QuickAddView: View {
         .alert(LS("分类名称"), isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
             TextField(renaming.map { store.catTitle($0, L) } ?? "", text: $newTitle)
             Button {
-                if let g = renaming { store.catStyle.titles[g.id] = newTitle.trimmed.isEmpty ? nil : newTitle.trimmed }
+                if let g = renaming, (store.catStyle.titles[g.id] ?? "") != newTitle.trimmed {
+                    let id = g.id, title = newTitle
+                    store.editCategories(LS("分类改名：%@", title.trimmed.isEmpty ? id : title.trimmed)) { $0.setTitle(id, title) }
+                }
                 renaming = nil
             } label: { Text(LS("保存")) }
             Button(role: .cancel) { renaming = nil } label: { Text(LS("取消")) }
         } message: {
-            Text(LS("只改本机宫格里显示的名字，账本里的科目不变；留空恢复默认。"))
+            Text(LS("只改宫格里显示的名字，各设备共用，账本里的科目不变；留空恢复默认。"))
         }
     }
 
@@ -435,7 +438,7 @@ struct QuickAddView: View {
             if !g.single { Button { pick(g, L); subPicking = g.id } label: { Label(LS("选择子类"), systemImage: "list.bullet").labelStyle(ControlLabelStyle()) } }
             Button { styling = StyleTarget(group: g) } label: { Label(LS("更换图标"), systemImage: "photo").labelStyle(ControlLabelStyle()) }
             Button { newTitle = store.catStyle.titles[g.id] ?? ""; renaming = g } label: { Label(LS("改名"), systemImage: "pencil").labelStyle(ControlLabelStyle()) }
-            Button(role: .destructive) { store.catStyle.hidden.append(g.id) } label: { Label(LS("从宫格隐藏"), systemImage: "eye.slash").labelStyle(ControlLabelStyle()) }
+            Button(role: .destructive) { let id = g.id; store.editCategories(LS("从宫格隐藏：%@", id)) { $0.setHidden(id, true) } } label: { Label(LS("从宫格隐藏"), systemImage: "eye.slash").labelStyle(ControlLabelStyle()) }
         })
     }
 

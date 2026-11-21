@@ -831,6 +831,8 @@ public struct LedgerXConfig: Codable, Equatable, Sendable {
     public var templatesHidden: [String]?
     /// 快速搜索 on 明细: a name and what goes in the search box ("出差和旅行": "#出差|#旅行"), in order
     public var searches: [QuickSearch]?
+    /// the category grid and the groups' icons: icons, names, colours, order, hidden (see CategoryStyle)
+    public var categories: CategoryStyle?
 
     public init(files: [String: String] = [:], rules: [LayoutRule] = [], receivable: String? = nil, slugs: [String: String] = [:]) {
         self.files = files; self.rules = rules; self.receivable = receivable; self.slugs = slugs
@@ -842,7 +844,7 @@ public struct LedgerXConfig: Codable, Equatable, Sendable {
         case main, defaultFunding = "default_funding", defaultCurrency = "default_currency", largeExpense = "large_expense"
         case alertsConfirmed = "alerts_confirmed", linksIgnored = "links_ignored", subsIgnored = "subs_ignored"
         case templatesPinned = "templates_pinned", templatesHidden = "templates_hidden"
-        case searches
+        case searches, categories
     }
 
     /// every key is optional, so a hand-written file with only some of them still loads
@@ -865,6 +867,7 @@ public struct LedgerXConfig: Codable, Equatable, Sendable {
         templatesPinned = try? c.decodeIfPresent([String].self, forKey: .templatesPinned)
         templatesHidden = try? c.decodeIfPresent([String].self, forKey: .templatesHidden)
         searches = try? c.decodeIfPresent([QuickSearch].self, forKey: .searches)
+        categories = try? c.decodeIfPresent(CategoryStyle.self, forKey: .categories)
     }
 
     /// the same settings with an account renamed (its sub-accounts too); nil when nothing refers to it
@@ -880,6 +883,7 @@ public struct LedgerXConfig: Codable, Equatable, Sendable {
         if let f = c.defaultFunding { c.defaultFunding = move(f) }
         c.netWorthExclude = dedup(c.netWorthExclude)
         c.balanceExclude = dedup(c.balanceExclude)
+        c.categories = c.categories?.renaming(from, to: to)
         return c == self ? nil : c
     }
 
@@ -905,6 +909,7 @@ public struct LedgerXConfig: Codable, Equatable, Sendable {
         if c.searches?.isEmpty ?? false { c.searches = nil }
         if c.netWorthExclude?.isEmpty ?? false { c.netWorthExclude = nil }
         if c.balanceExclude?.isEmpty ?? false { c.balanceExclude = nil }
+        if c.categories?.isEmpty ?? false { c.categories = nil }
         func blank(_ s: String?) -> Bool { (s ?? "").trimmingCharacters(in: .whitespaces).isEmpty }
         if blank(c.main) { c.main = nil }
         if blank(c.defaultFunding) { c.defaultFunding = nil }
