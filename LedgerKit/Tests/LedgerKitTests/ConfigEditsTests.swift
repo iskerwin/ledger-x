@@ -62,4 +62,16 @@ final class ConfigEditsTests: XCTestCase {
         c.removeSearch(a)
         XCTAssertEqual(c.searches?.count, 2)
     }
+
+    func testPinnedTemplatesKeepTheOrderTheyWerePinnedInThroughTheFile() throws {
+        var c = LedgerXConfig()
+        c.pinTemplate("b")
+        c.pinTemplate("a")
+        c.templatesPinned?.append("b")
+        let back = try XCTUnwrap(LedgerXConfig.parse(c.json()))
+        XCTAssertEqual(back.templatesPinned, ["b", "a"], "pinned first stays first; a repeat is written once")
+        var again = back
+        again.pinTemplate("c")
+        XCTAssertEqual(LedgerXConfig.parse(again.json())?.templatesPinned, ["b", "a", "c"])
+    }
 }
