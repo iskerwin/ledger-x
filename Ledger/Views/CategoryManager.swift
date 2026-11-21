@@ -157,7 +157,7 @@ struct CategoryStyleSheet: View {
                     }
                     Section(LS("图标")) {
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: AppSpacing.icon), count: 6), spacing: AppSpacing.control) {
-                            ForEach(Self.symbols.filter { Symbols.valid($0) }, id: \.self) { s in
+                            ForEach(CategoryStyle.symbols.filter { Symbols.valid($0) }, id: \.self) { s in
                                 let on = (icon.isEmpty ? store.catIcon(key) : icon) == s
                                 Button { icon = s } label: {
                                     Image(systemName: s)
@@ -216,24 +216,6 @@ struct CategoryStyleSheet: View {
             s.setColor(cell, color)
         }
     }
-
-    /// symbols to choose from (any this iOS lacks is left out when shown)
-    static let symbols: [String] = [
-        "fork.knife", "cup.and.saucer", "takeoutbag.and.cup.and.straw", "wineglass", "birthday.cake", "carrot",
-        "cart", "basket", "bag", "tshirt", "handbag", "eyeglasses",
-        "house", "key", "bolt", "drop", "flame", "sofa",
-        "lightbulb", "hammer", "wrench.and.screwdriver", "paintbrush", "washer", "bed.double",
-        "car", "fuelpump", "bus", "tram", "airplane", "bicycle",
-        "road.lanes", "parkingsign", "shippingbox", "suitcase", "map", "ferry",
-        "iphone", "desktopcomputer", "laptopcomputer", "headphones", "gamecontroller", "tv",
-        "app.badge", "icloud", "antenna.radiowaves.left.and.right", "wifi", "music.note", "film",
-        "book", "graduationcap", "pencil.and.ruler", "figure.run", "dumbbell", "sportscourt",
-        "cross.case", "pills", "stethoscope", "heart", "hands.sparkles", "comb",
-        "gift", "envelope", "person.2", "figure.2.and.child.holdinghands", "pawprint", "leaf",
-        "creditcard", "banknote", "percent", "chart.line.uptrend.xyaxis", "chart.pie", "building.columns",
-        "briefcase", "star", "ticket", "giftcard", "yensign.circle", "dollarsign.circle",
-        "shield", "doc.text", "scissors", "sparkles", "smoke", "ellipsis.circle",
-    ]
 }
 
 /// a group of accounts (Assets:Bank, Expenses:Food) whose icon is being changed from 管理账户
@@ -297,8 +279,8 @@ struct GroupIconSheet: View {
     var body: some View {
         let color = IconTint.color(tint) ?? builtInColor
         let current = icon.isEmpty ? store.groupIcon(group).symbol : icon
-        let choices = (group.hasPrefix("Assets") || group.hasPrefix("Liabilities") ? Self.accountSymbols + CategoryStyleSheet.symbols
-                       : CategoryStyleSheet.symbols + Self.accountSymbols)
+        let choices = (group.hasPrefix("Assets") || group.hasPrefix("Liabilities") ? Self.accountSymbols + CategoryStyle.symbols
+                       : CategoryStyle.symbols + Self.accountSymbols)
             .filter { Symbols.valid($0) }.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
         NavigationStack {
             Form {

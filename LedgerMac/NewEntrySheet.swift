@@ -61,7 +61,14 @@ struct NewEntrySheet: View {
         _baseline = State(initialValue: editing?.replacing != nil ? editing! : blank)
         _formKind = State(initialValue: Self.formKinds.contains(opened.kind) ? opened.kind : .expense)
         _full = State(initialValue: !Self.fitsCard(opened))
-        _gridOrder = State(initialValue: Dictionary(uniqueKeysWithValues: ["Expenses:", "Income:"].map { ($0, categoryGroups(derived, root: $0).map(\.id)) }))
+        _gridOrder = State(initialValue: Self.gridOrder(derived, config))
+    }
+
+    /// the order sorted by hand (ledger-x.json, the phone's too), new groups after it by use; else by use
+    private static func gridOrder(_ derived: Derived, _ config: LedgerXConfig?) -> [String: [String]] {
+        Dictionary(uniqueKeysWithValues: ["Expenses:", "Income:"].map { root in
+            (root, orderedGroups(categoryGroups(derived, root: root), saved: config?.categories?.order[root] ?? []).map(\.id))
+        })
     }
 
     /// what the card can show: spending, income or a transfer, not shared out (AA)
@@ -78,6 +85,7 @@ struct NewEntrySheet: View {
         Group {
             if !full && Self.fitsCard(draft) {
                 QuickCard(draft: $draft, ledger: ledger, derived: derived, subscriptionLinks: subscriptionLinks, gridOrder: gridOrder,
+                          folder: folder, templatesPinned: config?.templatesPinned ?? [], templatesHidden: config?.templatesHidden ?? [],
                           editing: editing, saving: saving, message: message, blank: { Self.blank($0, ledger: ledger, derived: derived, config: config) }, setKind: setKind,
                           openFull: { message = ""; full = true }, close: close, save: save(another:)) { panel = $0 }
                     .id(entry)
@@ -93,6 +101,8 @@ struct NewEntrySheet: View {
             case .marks: MarkSheet(draft: $draft, ledger: ledger)
             }
         }
+        // sorted by hand here or on the phone: the card follows
+        .onChange(of: config?.categories?.order) { gridOrder = Self.gridOrder(derived, config) }
         // new entries follow the events of their day until picked by hand
         .onChange(of: draft.date) {
             if !draft.eventsTouched && draft.kind != .transfer && draft.kind != .raw {

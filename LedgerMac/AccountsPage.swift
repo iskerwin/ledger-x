@@ -49,6 +49,7 @@ private struct CategoryLine {
 /// the accounts on the left as on the phone (净资产, then each group's accounts with their icon), or the categories with
 /// what they took in the period as Fava's income statement; the picked one on the right
 struct AccountsPage: View {
+    @Environment(\.categoryStyle) private var style
     let ledger: Ledger
     let config: LedgerXConfig?
     let folder: URL
@@ -183,11 +184,11 @@ struct AccountsPage: View {
                 if line.sub {
                     Color.clear.frame(width: 32, height: 1)
                 } else {
-                    Image(systemName: categorySymbol(line.name))
+                    Image(systemName: categorySymbol(line.name, style))
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 32, height: 32)
-                        .background(categoryColor(ledger, line.name), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .background(categoryColor(ledger, line.name, style), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                         .accessibilityHidden(true)
                 }
                 Text(accountTitle(ledger, line.name)).lineLimit(1)

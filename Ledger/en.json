@@ -2458,5 +2458,9 @@
  "从宫格隐藏：%@": "Hide from grid: %@",
  "把本机的分类图标与排序移入 %@": "Move this phone's category icons & order into %@",
  "分类图标与排序已移入 %@，各设备共用": "Category icons & order moved into %@, shared by every device",
- "已自定义": "Customised"
+ "已自定义": "Customised",
+ "从常用分类隐藏": "Hide from Common Categories",
+ "分类图标与排序…": "Category Icons & Order…",
+ "在常用分类中显示": "Show among common categories",
+ "更换图标与名称…": "Change Icon & Name…"
 }

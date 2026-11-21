@@ -41,6 +41,27 @@ public struct CategoryStyle: Codable, Equatable, Sendable {
 
     public var isEmpty: Bool { icons.isEmpty && titles.isEmpty && order.isEmpty && hidden.isEmpty && colors.isEmpty }
 
+    /// the icons to choose from on the phone and the Mac (any the system lacks is left out when shown)
+    public static let symbols: [String] = [
+        "fork.knife", "cup.and.saucer", "takeoutbag.and.cup.and.straw", "wineglass", "birthday.cake", "carrot",
+        "cart", "basket", "bag", "tshirt", "handbag", "eyeglasses",
+        "house", "key", "bolt", "drop", "flame", "sofa",
+        "lightbulb", "hammer", "wrench.and.screwdriver", "paintbrush", "washer", "bed.double",
+        "car", "fuelpump", "bus", "tram", "airplane", "bicycle",
+        "road.lanes", "parkingsign", "shippingbox", "suitcase", "map", "ferry",
+        "iphone", "desktopcomputer", "laptopcomputer", "headphones", "gamecontroller", "tv",
+        "app.badge", "icloud", "antenna.radiowaves.left.and.right", "wifi", "music.note", "film",
+        "book", "graduationcap", "pencil.and.ruler", "figure.run", "dumbbell", "sportscourt",
+        "cross.case", "pills", "stethoscope", "heart", "hands.sparkles", "comb",
+        "gift", "envelope", "person.2", "figure.2.and.child.holdinghands", "pawprint", "leaf",
+        "creditcard", "banknote", "percent", "chart.line.uptrend.xyaxis", "chart.pie", "building.columns",
+        "briefcase", "star", "ticket", "giftcard", "yensign.circle", "dollarsign.circle",
+        "shield", "doc.text", "scissors", "sparkles", "smoke", "ellipsis.circle",
+    ]
+
+    /// the colours a group's icon can take, by name (each platform draws its own system colour of that name)
+    public static let colorNames = ["red", "orange", "yellow", "green", "mint", "teal", "cyan", "blue", "indigo", "purple", "pink", "brown"]
+
     // MARK: - changes, each said as what changes (applied to the file as it is when written)
 
     /// nil or blank: the built-in icon again
