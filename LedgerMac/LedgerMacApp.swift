@@ -206,6 +206,7 @@ private struct ContentView: View {
             }
         }
         .frame(minWidth: 960, minHeight: 640)
+        .environment(\.categoryStyle, open.config?.categories ?? CategoryStyle())
         .background(WindowReader { $0.fitScreen() })
         .navigationTitle(folder.isEmpty ? "Ledger X" : URL(fileURLWithPath: folder).lastPathComponent)
         // saves are undone from this window's 编辑 › 撤销

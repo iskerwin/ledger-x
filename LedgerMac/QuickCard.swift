@@ -19,12 +19,15 @@ private enum Radius {
 /// what for, and the save buttons; everything close together, Tab from one field to the next, ↩ to save.
 /// 分录, 文本, AA and the like are one step in, on 完整表单
 struct QuickCard: View {
+    @Environment(\.categoryStyle) private var style
     @Binding var draft: Draft
     let ledger: Ledger
     let derived: Derived
     let subscriptionLinks: Set<String>
     /// the grid's order as 记一笔 opened, so cells don't move about after 保存再记
     let gridOrder: [String: [String]]
+    /// the ledger's folder: a change to the category style is written there (ledger-x.json)
+    let folder: URL
     let editing: Bool
     let saving: Bool
     /// why the last save didn't go through
@@ -58,6 +61,9 @@ struct QuickCard: View {
     @State private var subPicking: String?
     @State private var allCategories = false
     @State private var editingText = false
+    @State private var styling: CategoryStyleTarget?
+    @State private var managingCategories = false
+    @State private var styleMessage = ""
     private let templateList: [Template]
     private let transferList: [TransferTemplate]
 
@@ -66,8 +72,8 @@ struct QuickCard: View {
     private static let shownCategories = 7
     private static let allCell = "__all__"
 
-    init(draft: Binding<Draft>, ledger: Ledger, derived: Derived, subscriptionLinks: Set<String>, gridOrder: [String: [String]], editing: Bool,
-         saving: Bool, message: String,
+    init(draft: Binding<Draft>, ledger: Ledger, derived: Derived, subscriptionLinks: Set<String>, gridOrder: [String: [String]],
+         folder: URL, templatesPinned: [String], templatesHidden: [String], editing: Bool, saving: Bool, message: String,
          blank: @escaping (DraftKind) -> Draft, setKind: @escaping (DraftKind) -> Bool, openFull: @escaping () -> Void,
          close: @escaping () -> Void, save: @escaping (Bool) -> Void, open: @escaping (EntryPanel) -> Void) {
         _draft = draft
@@ -75,6 +81,7 @@ struct QuickCard: View {
         self.derived = derived
         self.subscriptionLinks = subscriptionLinks
         self.gridOrder = gridOrder
+        self.folder = folder
         self.editing = editing
         self.saving = saving
         self.message = message
@@ -84,7 +91,8 @@ struct QuickCard: View {
         self.close = close
         self.save = save
         self.open = open
-        templateList = templates(ledger, pinned: [], hidden: [])
+        // pinned and hidden as on the phone (ledger-x.json)
+        templateList = templates(ledger, pinned: templatesPinned, hidden: Set(templatesHidden))
         transferList = transferTemplates(ledger)
     }
 
@@ -165,6 +173,13 @@ struct QuickCard: View {
             if old == .narration && new != .narration { applyNarration(draft.narration.trimmed, onlyBlanks: true) }
         }
         .sheet(item: $picking) { accountChooser($0) }
+        .sheet(item: $styling) {
+            CategoryStyleEditor(group: $0.group, ledger: ledger, folder: folder).environment(\.categoryStyle, style)
+        }
+        .sheet(isPresented: $managingCategories) {
+            CategoryStyleManager(ledger: ledger, derived: derived, folder: folder, root: root).environment(\.categoryStyle, style)
+        }
+        .alert(styleMessage, isPresented: Binding(get: { !styleMessage.isEmpty }, set: { if !$0 { styleMessage = "" } })) {}
         .sheet(isPresented: $allCategories) { allCategoriesSheet }
         .sheet(isPresented: $editingText) {
             SourceSheet(initial: draftText(draft, ledger, derived), ledger: ledger, single: draftIsSingle(draft, ledger)) { applySource($0) }
@@ -207,6 +222,7 @@ struct QuickCard: View {
     private var moreMenu: some View {
         Menu {
             Button(LS("完整表单"), systemImage: "list.bullet.rectangle") { openFull() }
+            Button(LS("分类图标与排序…"), systemImage: "square.grid.2x2") { managingCategories = true }
             Button(LS("分录（多行）"), systemImage: "list.number") { if setKind(.multi) { openFull() } }
             Button(LS("文本（Beancount 指令）"), systemImage: "text.alignleft") { if setKind(.raw) { openFull() } }
             Button(draft.edited != nil ? LS("源文本（已手动编辑）") : LS("源文本"), systemImage: "chevron.left.forwardslash.chevron.right") { editingText = true }
@@ -316,9 +332,10 @@ struct QuickCard: View {
 
     // MARK: the grid
 
-    /// the groups under `root` in the order they had as the card opened
+    /// the groups under `root` in the order they had as the card opened, the hidden ones left out (they are in 全部)
     private func gridGroups(_ root: String) -> [CategoryGroup] {
-        orderedGroups(categoryGroups(derived, root: root), saved: gridOrder[root] ?? [])
+        let hidden = Set(style.hidden)
+        return orderedGroups(categoryGroups(derived, root: root), saved: gridOrder[root] ?? []).filter { !hidden.contains($0.id) }
     }
 
     /// two rows of chips, once a chip has been measured
@@ -357,8 +374,8 @@ struct QuickCard: View {
     private func categoryChips(_ d: Draft, groups: [CategoryGroup], picked: String?, count: Int) -> some View {
         FlowLayout(spacing: Space.icon) {
             ForEach(shownGroups(groups, picked: picked, count: count)) { g in
-                let title = categoryGroupTitle(g, ledger) + (g.id == picked && !g.single ? " › " + leafTitle(ledger, d.account) : "")
-                QuickChip(label: title, systemImage: categorySymbol(g.id), selected: g.id == picked) {
+                let title = categoryTitle(g, ledger, style) + (g.id == picked && !g.single ? " › " + leafTitle(ledger, d.account) : "")
+                QuickChip(label: title, systemImage: categorySymbol(g.id, style), selected: g.id == picked) {
                     // the picked group again: its sub-categories
                     if g.id == picked && !g.single { subPicking = g.id } else { pick(g) }
                 }
@@ -368,6 +385,14 @@ struct QuickCard: View {
                 }
                 .contextMenu {
                     if !g.single { Button(LS("选择子类"), systemImage: "list.bullet") { pick(g); subPicking = g.id } }
+                    Button(LS("更换图标与名称…"), systemImage: "paintpalette") { styling = CategoryStyleTarget(group: g) }
+                    Button(LS("从常用分类隐藏"), systemImage: "eye.slash") {
+                        let id = g.id
+                        do { try saveCategoryStyle(folder: folder, LS("从宫格隐藏：%@", categoryTitle(g, ledger, style))) { $0.setHidden(id, true) } }
+                        catch { styleMessage = error.localizedDescription }
+                    }
+                    Divider()
+                    Button(LS("分类图标与排序…"), systemImage: "square.grid.2x2") { managingCategories = true }
                 }
             }
             QuickChip(label: LS("全部"), systemImage: "square.grid.2x2") { field = nil; allCategories = true }
@@ -1236,6 +1261,7 @@ private struct AllCategoriesSheet: View {
     /// the group whose sub-categories are shown under the grid
     @State private var group: String?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.categoryStyle) private var style
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1262,11 +1288,11 @@ private struct AllCategoriesSheet: View {
                             let (g, a) = hit
                             Button { finish(a) } label: {
                                 HStack(spacing: Space.icon) {
-                                    Image(systemName: categorySymbol(g.id))
+                                    Image(systemName: categorySymbol(g.id, style))
                                         .frame(width: 30, height: 30)
                                         .background(Color.secondary.opacity(0.12), in: Circle())
                                     VStack(alignment: .leading, spacing: Space.detail) {
-                                        Text(categoryGroupTitle(g, ledger) + (g.single ? "" : " › " + leafTitle(ledger, a)))
+                                        Text(categoryTitle(g, ledger, style) + (g.single ? "" : " › " + leafTitle(ledger, a)))
                                         Text(a).font(.system(size: Size.caption)).foregroundStyle(.secondary)
                                     }
                                     Spacer()
@@ -1292,7 +1318,7 @@ private struct AllCategoriesSheet: View {
 
     /// a group of one is picked at once; a bigger one shows its sub-categories below
     private func cell(_ g: CategoryGroup) -> some View {
-        CategoryCell(icon: categorySymbol(g.id), title: categoryGroupTitle(g, ledger), single: true, selected: group == g.id) {
+        CategoryCell(icon: categorySymbol(g.id, style), title: categoryTitle(g, ledger, style), single: true, selected: group == g.id) {
             if g.single { finish(g.accounts[0]) } else { group = g.id }
         }
     }
@@ -1305,7 +1331,7 @@ private struct AllCategoriesSheet: View {
     /// the shown group's sub-categories: one click picks it and closes
     private func picker(_ g: CategoryGroup) -> some View {
         VStack(alignment: .leading, spacing: Space.icon) {
-            Text(categoryGroupTitle(g, ledger)).font(.headline)
+            Text(categoryTitle(g, ledger, style)).font(.headline)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Space.icon) {
                     ForEach(g.accounts, id: \.self) { a in QuickChip(label: leafTitle(ledger, a), selected: current == a) { finish(a) } }
@@ -1317,15 +1343,15 @@ private struct AllCategoriesSheet: View {
         .background(.bar)
     }
 
-    private func matches() -> [(CategoryGroup, String)] { categoryMatches(groups, query.trimmed, ledger) }
+    private func matches() -> [(CategoryGroup, String)] { categoryMatches(groups, query.trimmed, ledger, style) }
 }
 
 /// the categories a search finds: (group, account), in the groups' order; by the group's name, the sub-category's or the account's
-private func categoryMatches(_ groups: [CategoryGroup], _ query: String, _ ledger: Ledger) -> [(CategoryGroup, String)] {
+private func categoryMatches(_ groups: [CategoryGroup], _ query: String, _ ledger: Ledger, _ style: CategoryStyle) -> [(CategoryGroup, String)] {
     let q = query.lowercased()
     var out: [(CategoryGroup, String)] = []
     for g in groups {
-        let name = categoryGroupTitle(g, ledger).lowercased()
+        let name = categoryTitle(g, ledger, style).lowercased()
         for a in g.accounts {
             let names = [name, leafTitle(ledger, a).lowercased(), a.lowercased(), acctDisplay(a).lowercased()]
             if names.contains(where: { $0.contains(q) }) { out.append((g, a)) }

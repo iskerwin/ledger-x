@@ -30,10 +30,47 @@ extension String {
     var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
 }
 
-/// a category's symbol, or the grid's when this system doesn't have it
-func categorySymbol(_ account: String) -> String {
+private struct CategoryStyleKey: EnvironmentKey {
+    static let defaultValue = CategoryStyle()
+}
+
+extension EnvironmentValues {
+    /// the open ledger's category icons, names, colours, order and hidden groups (ledger-x.json, the phone's too)
+    var categoryStyle: CategoryStyle {
+        get { self[CategoryStyleKey.self] }
+        set { self[CategoryStyleKey.self] = newValue }
+    }
+}
+
+/// whether this system has a symbol of this name (one picked on a newer phone may not be here)
+func hasSymbol(_ name: String) -> Bool { NSImage(systemSymbolName: name, accessibilityDescription: nil) != nil }
+
+/// a category's symbol: its group's picked one, else the built-in guess, else the grid's when this system has neither
+func categorySymbol(_ account: String, _ style: CategoryStyle) -> String {
+    if let s = style.icons[catOf(account)], hasSymbol(s) { return s }
     let symbol = defaultCategoryIcon(account)
-    return NSImage(systemSymbolName: symbol, accessibilityDescription: nil) == nil ? "square.grid.2x2" : symbol
+    return hasSymbol(symbol) ? symbol : "square.grid.2x2"
+}
+
+/// a group's name: its own (ledger-x.json), else the built-in one
+func categoryTitle(_ g: CategoryGroup, _ ledger: Ledger, _ style: CategoryStyle) -> String {
+    if let t = style.titles[g.id]?.trimmed, !t.isEmpty { return t }
+    return categoryGroupTitle(g, ledger)
+}
+
+/// the colours a group's icon can take, the phone's by name
+enum IconTint {
+    private static let colors: [String: Color] = [
+        "red": .red, "orange": .orange, "yellow": .yellow, "green": .green, "mint": .mint, "teal": .teal,
+        "cyan": .cyan, "blue": .blue, "indigo": .indigo, "purple": .purple, "pink": .pink, "brown": .brown,
+    ]
+
+    static func color(_ name: String?) -> Color? { name.flatMap { colors[$0] } }
+
+    static func title(_ name: String) -> String {
+        [ "red": LS("红"), "orange": LS("橙"), "yellow": LS("黄"), "green": LS("绿"), "mint": LS("薄荷"), "teal": LS("青绿"),
+          "cyan": LS("青"), "blue": LS("蓝"), "indigo": LS("靛蓝"), "purple": LS("紫"), "pink": LS("粉"), "brown": LS("棕") ][name] ?? name
+    }
 }
 
 /// the eight colours a category keeps on the phone and here
@@ -67,11 +104,12 @@ struct CategoryBadge: View {
     let entry: Entry
     let ledger: Ledger
     var size: CGFloat = 28
+    @Environment(\.categoryStyle) private var style
 
     var body: some View {
         let account = shownCategory(entry)
-        let symbol = account.map { categorySymbol(catOf($0)) } ?? "arrow.left.arrow.right"
-        let color = account.map { categoryColor(ledger, $0) } ?? .gray
+        let symbol = account.map { categorySymbol($0, style) } ?? "arrow.left.arrow.right"
+        let color = account.map { categoryColor(ledger, $0, style) } ?? .gray
         Image(systemName: symbol)
             .font(.system(size: size * 0.5, weight: .semibold))
             .foregroundStyle(.white)
@@ -81,9 +119,10 @@ struct CategoryBadge: View {
     }
 }
 
-/// a category's colour, its group's on the phone and here
-func categoryColor(_ ledger: Ledger, _ account: String) -> Color {
+/// a category's colour, its group's on the phone and here: the one picked for it, else the group's place in the palette
+func categoryColor(_ ledger: Ledger, _ account: String, _ style: CategoryStyle) -> Color {
     let group = catOf(account), count = CategoryPalette.colors.count
+    if let picked = IconTint.color(style.colors[group]) { return picked }
     return CategoryPalette.color(categoryColorSlots(ledger, count: count)[group] ?? stableColorSlot(group, count: count))
 }
 

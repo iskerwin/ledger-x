@@ -55,6 +55,8 @@ struct MacGuide: View {
                "The cursor starts in the amount: type it (a sum like 12+8 works). Click a common category (the picked one reads like Food › Lunch; click it again for another sub-category); the rest, and a search, are under All; Tab goes on to the payee and the note; as you type, ones used before drop down to pick with ↑↓ and ↩. A 。 typed with a Chinese or Japanese input method counts as the decimal point."),
             tr("支出、收入、转账在顶部切换，下面一行是常记的几笔（转账时是常转的两个账户），点一下填好；分录、直接写文本、AA 和组合付款在「⋯ › 完整表单」里。",
                "Switch between expense, income and transfer at the top; the row under it holds the entries made most (for a transfer, the pairs of accounts moved between most), one click to fill in; split entries, plain text, sharing and several accounts are under ⋯ › Full form."),
+            tr("右键一个常用分类可以更换图标、名称和颜色，或把它从常用分类隐藏（仍在「全部」里）；「⋯ › 分类图标与排序…」里拖动调整顺序、恢复隐藏的分类。这些存在账本的 ledger-x.json 里，和手机一样；常用交易也照手机的置顶和隐藏排。",
+               "Right-click a common category to change its icon, name and colour, or hide it from the common ones (it stays under All); in ⋯ › Category Icons & Order… drag to reorder and bring hidden ones back. These are kept in the ledger's ledger-x.json, the same as on the phone; frequent entries follow the phone's pinned and hidden ones too."),
             tr("在金额或摘要里按 ↩ 保存并关闭，⇧⌘↩ 保存后接着记下一笔；金额里有算式时，↩ 先算出结果。",
                "↩ in the amount or the note saves and closes, ⇧⌘↩ saves and starts the next one; with a sum in the amount, ↩ works it out first."),
             tr("开启报销后，分类区显示报销应收账户，不必选择支出分类；填金额、付款账户、收付款方和摘要即可。",

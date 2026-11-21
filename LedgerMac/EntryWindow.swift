@@ -35,6 +35,8 @@ struct EntryWindow: View {
                 NewEntrySheet(ledger: live ?? request.ledger, config: live == nil ? request.config : open.config,
                               folder: request.folder, editing: request.editing) { open.entry = nil }
                     .id(request.id)
+                    // the open ledger's category style as it is saved (from here or the phone)
+                    .environment(\.categoryStyle, ((live == nil ? request.config : open.config)?.categories) ?? CategoryStyle())
             }
         }
         .background(WindowReader { window in
