@@ -147,21 +147,13 @@ extension Store {
         repoConfig?.categories ?? (demo || catStyleMoved ? CategoryStyle() : localCatStyle)
     }
 
-    func refreshCatStyle() {
-        var s = sharedCatStyle
-        for (root, l) in gridOrder where s.order[root] == nil { s.order[root] = l }
-        if s != catStyle { catStyle = s }
-    }
-
     /// One change to the style (one commit). Before this ledger has taken the style this phone kept, the change goes
     /// on top of that, so the rest of it isn't lost.
     func editCategories(_ label: String, _ change: @escaping (inout CategoryStyle) -> Void) {
         let local = demo || catStyleMoved ? nil : localCatStyle
         let accounts = L.map { Array($0.accounts.keys) } ?? []
         // shown at once; the ledger's own once the commit has reloaded it (or as it was, if the commit fails)
-        var shown = catStyle
-        change(&shown)
-        catStyle = shown
+        showCatStyle(change)
         Task {
             let done = await updateConfig(label, word: LS("已更新分类")) { c in
                 if let local { c.takeLocalCategories(local, accounts: accounts) }

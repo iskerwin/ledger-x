@@ -339,6 +339,20 @@ enum Prefs {
         refreshCatStyle()
     }
 
+    /// the grid's style as kept (ledger-x.json's, or this phone's not yet moved), the order fixed here where none is kept
+    func refreshCatStyle() {
+        var s = sharedCatStyle
+        for (root, l) in gridOrder where s.order[root] == nil { s.order[root] = l }
+        if s != catStyle { catStyle = s }
+    }
+
+    /// a change shown before its commit lands (`editCategories`); the next refresh shows what was kept
+    func showCatStyle(_ change: (inout CategoryStyle) -> Void) {
+        var s = catStyle
+        change(&s)
+        if s != catStyle { catStyle = s }
+    }
+
     var backend: LedgerBackend { makeBackend(cfg) }
     var connected: Bool { cfg.isComplete }
 
