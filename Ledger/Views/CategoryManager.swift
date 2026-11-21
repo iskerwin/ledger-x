@@ -239,7 +239,7 @@ struct CategoryStyleSheet: View {
 /// a group of accounts (Assets:Bank, Expenses:Food) whose icon is being changed from 管理账户
 struct IconTarget: Identifiable { let group: String; var id: String { group } }
 
-/// the icon of any account group, used wherever the group shows (grid, 管理账户, accounts, reports); kept on this phone
+/// the icon of any account group, used wherever the group shows (grid, 管理账户, accounts, reports); kept in ledger-x.json
 /// the colours to give a group's icon, and 默认 for its own; the picked one ringed
 struct IconTintGrid: View {
     @Binding var tint: String?
