@@ -360,7 +360,9 @@ struct QuickCard: View {
                 .font(.system(size: Size.footnote))
                 .foregroundStyle(.secondary)
         } else {
-            // two rows, never more and filled: as many as they hold (the used ones first), 全部 always there
+            // two rows, never more and filled: as many as they hold (the used ones first), 全部 always there, from the top.
+            // Tried against two and a half rows, not exactly two: a chip with a taller symbol (fork.knife) stands a
+            // little higher than the 全部 the rows are measured by, and two such rows must still count as two.
             ViewThatFits(in: .vertical) {
                 ForEach((0...groups.count).reversed(), id: \.self) { n in
                     categoryChips(d, groups: groups, picked: picked, count: n)
@@ -368,6 +370,8 @@ struct QuickCard: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
+            .frame(height: twoRows.map { $0 + chipHeight / 2 }, alignment: .top)
+            .frame(height: twoRows, alignment: .top)
         }
     }
 
