@@ -68,8 +68,8 @@ struct QuickCard: View {
     private let transferList: [TransferTemplate]
 
     private static let kinds: [DraftKind] = [.expense, .income, .transfer]
-    /// how many categories the card shows before 全部
-    private static let shownCategories = 7
+    /// how many categories the two rows hold before 全部 (what 全部 lists as the common ones)
+    @State private var shownCount = 0
     private static let allCell = "__all__"
 
     init(draft: Binding<Draft>, ledger: Ledger, derived: Derived, subscriptionLinks: Set<String>, gridOrder: [String: [String]],
@@ -360,10 +360,11 @@ struct QuickCard: View {
                 .font(.system(size: Size.footnote))
                 .foregroundStyle(.secondary)
         } else {
-            // two rows, never more: as many of the common ones as they hold, 全部 always there
+            // two rows, never more and filled: as many as they hold (the used ones first), 全部 always there
             ViewThatFits(in: .vertical) {
-                ForEach((0...Self.shownCategories).reversed(), id: \.self) { n in
+                ForEach((0...groups.count).reversed(), id: \.self) { n in
                     categoryChips(d, groups: groups, picked: picked, count: n)
+                        .onAppear { shownCount = n }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -420,7 +421,7 @@ struct QuickCard: View {
 
     private var allCategoriesSheet: some View {
         let groups = gridGroups(root)
-        return AllCategoriesSheet(groups: groups, common: Array(groups.prefix(Self.shownCategories)),
+        return AllCategoriesSheet(groups: groups, common: Array(groups.prefix(shownCount)),
                                   current: draft.account.hasPrefix(root) ? draft.account : nil, ledger: ledger) { pickCategory($0) }
     }
 
