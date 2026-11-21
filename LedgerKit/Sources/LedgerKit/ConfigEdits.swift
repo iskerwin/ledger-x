@@ -30,6 +30,23 @@ extension LedgerXConfig {
 
     public mutating func unhideAllTemplates() { templatesHidden = [] }
 
+    // 分类图标与排序
+
+    /// one change to the category style (an icon, a name, a colour, hidden, an order); nothing left: no key at all
+    public mutating func editCategories(_ change: (inout CategoryStyle) -> Void) {
+        var s = categories ?? CategoryStyle()
+        change(&s)
+        categories = s.isEmpty ? nil : s
+    }
+
+    /// the style a phone kept for all its ledgers, written into this one: only this ledger's groups, and only when
+    /// the file has none yet (another device may have written it first)
+    public mutating func takeLocalCategories(_ local: CategoryStyle, accounts: some Sequence<String>) {
+        guard categories == nil else { return }
+        let s = local.normalized().kept(for: accounts)
+        if !s.isEmpty { categories = s }
+    }
+
     // 值得留意
 
     /// checked and found fine; `live`: the ids that can still come up, to keep the list short (over 500)

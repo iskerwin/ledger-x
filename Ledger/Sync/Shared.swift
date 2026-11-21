@@ -132,6 +132,62 @@ extension Store {
     }
 }
 
+// MARK: 分类图标与排序
+
+// The grid's icons, names, colours, order and hidden groups are in ledger-x.json ("categories"), so the Mac shows the
+// same. Before, this phone kept one style for all its ledgers ("catStyle"); each ledger takes its own groups' part of
+// it once. Only an order sorted by hand is written: until then each device fixes the order it first showed.
+
+extension Store {
+    /// this ledger has taken the style this phone kept (or found one already in ledger-x.json)
+    var catStyleMoved: Bool { Prefs.get(pk("catStyle.moved"), false) }
+
+    /// the style as kept, without the order fixed on this phone
+    var sharedCatStyle: CategoryStyle {
+        repoConfig?.categories ?? (demo || catStyleMoved ? CategoryStyle() : localCatStyle)
+    }
+
+    /// One change to the style (one commit). Before this ledger has taken the style this phone kept, the change goes
+    /// on top of that, so the rest of it isn't lost.
+    func editCategories(_ label: String, _ change: @escaping (inout CategoryStyle) -> Void) {
+        let local = demo || catStyleMoved ? nil : localCatStyle
+        let accounts = L.map { Array($0.accounts.keys) } ?? []
+        // shown at once; the ledger's own once the commit has reloaded it (or as it was, if the commit fails)
+        showCatStyle(change)
+        Task {
+            let done = await updateConfig(label, word: LS("已更新分类")) { c in
+                if let local { c.takeLocalCategories(local, accounts: accounts) }
+                c.editCategories(change)
+            }
+            if done && !demo { Prefs.set(pk("catStyle.moved"), true) }
+            refreshCatStyle()
+        }
+    }
+
+    /// Write the style this phone kept into this ledger's ledger-x.json, once (one commit, only when this ledger has
+    /// any of it and the file has none). A second call while one is under way waits for it.
+    func moveCategoryStyle() async {
+        if let t = categoryMove { return await t.value }
+        guard !demo, !catStyleMoved, connected, let L = L else { return }
+        // wait for anything not pushed yet to settle: the move goes on top of the file as it is
+        guard !pending.contains(where: { $0.failed != nil || $0.held != nil }) else { return }
+        let local = localCatStyle
+        let accounts = Array(L.accounts.keys)
+        // nothing of this ledger's kept here: nothing to write (no ledger-x.json made for it)
+        guard !local.normalized().kept(for: accounts).isEmpty else { Prefs.set(pk("catStyle.moved"), true); refreshCatStyle(); return }
+        let t = Task { @MainActor in
+            let done = await self.updateConfig(LS("把本机的分类图标与排序移入 %@", LedgerXConfig.path),
+                                               word: LS("分类图标与排序已移入 %@，各设备共用", LedgerXConfig.path)) {
+                $0.takeLocalCategories(local, accounts: accounts)
+            }
+            if done { Prefs.set(self.pk("catStyle.moved"), true); self.refreshCatStyle() }
+        }
+        categoryMove = t
+        await t.value
+        categoryMove = nil
+    }
+}
+
 // MARK: 快速搜索 (明细)
 
 extension Store {

@@ -1,30 +1,6 @@
 import SwiftUI
 import LedgerKit
 
-/// how the 记一笔 category grid looks: kept on this phone (Prefs "catStyle"), never written to the ledger
-struct CatStyle: Codable, Equatable {
-    /// icons used to be kept under a lone account (Expenses:Foo:Bar for a group of one): now under its group
-    func normalized() -> CatStyle {
-        var s = self
-        for (k, v) in icons where k.components(separatedBy: ":").count > 2 {
-            s.icons[k] = nil
-            if s.icons[catOf(k)] == nil { s.icons[catOf(k)] = v }
-        }
-        return s
-    }
-
-    /// SF Symbol per group or account (a group of one is keyed by its account)
-    var icons: [String: String] = [:]
-    /// a name of one's own for a group
-    var titles: [String: String] = [:]
-    /// per root ("Expenses:", "Income:"): the groups in the order shown, fixed once the grid is first seen
-    var order: [String: [String]] = [:]
-    /// groups left out of the grid (still in 完整表单 and the account picker)
-    var hidden: [String] = []
-    /// a colour of one's own for a group's icon (an IconTint name). Optional, so a style saved before reads back whole.
-    var colors: [String: String]?
-}
-
 /// the colours a group's icon can take: system colours, each with its own shade in dark mode
 enum IconTint {
     /// (computed: the titles follow the app's language when it is switched)
@@ -200,27 +176,31 @@ extension Store {
         orderedGroups(categoryGroups(D, root: root), saved: catStyle.order[root] ?? [])
     }
 
-    /// fix the order the first time the grid is seen (the most used first), so cells don't move about later
+    /// fix the order on this phone the first time the grid is seen (the most used first), so cells don't move about
+    /// later; an order sorted by hand (ledger-x.json's) stays as it is, new groups after it
     func freezeGridOrder(_ root: String, _ D: Derived) {
+        guard sharedCatStyle.order[root] == nil else { return }
         let all = allGroups(root, D).map { $0.id }
-        let saved = catStyle.order[root] ?? []
-        if saved.isEmpty || all.contains(where: { !saved.contains($0) }) {
-            var s = catStyle
-            s.order[root] = all
-            catStyle = s
-        }
+        let saved = gridOrder[root] ?? []
+        if saved.isEmpty || all.contains(where: { !saved.contains($0) }) { gridOrder[root] = all }
     }
 
-    /// an account renamed or merged: its icon, name, place and hidden state in the grid go along (its sub-accounts too)
+    /// the groups under `root` in this order, sorted by hand (one commit; nothing when it is the order shown)
+    func sortGrid(_ root: String, _ ids: [String]) {
+        guard ids != (catStyle.order[root] ?? []) else { return }
+        editCategories(LS("调整分类顺序")) { $0.setOrder(root, ids) }
+    }
+
+    /// an account renamed or merged: its icon, name, place and hidden state in the grid go along (its sub-accounts too).
+    /// ledger-x.json's style moves with the rename's own commit (`LedgerXConfig.renamingAccount`); this moves what is
+    /// kept on this phone: the order fixed here, and the style not yet moved into the ledger.
     func renameInGrid(_ from: String, to: String) {
-        func move(_ a: String) -> String { a == from ? to : a.hasPrefix(from + ":") ? to + String(a.dropFirst(from.count)) : a }
-        var s = catStyle
-        s.icons = Dictionary(s.icons.map { (move($0.key), $0.value) }, uniquingKeysWith: { a, _ in a })
-        s.titles = Dictionary(s.titles.map { (move($0.key), $0.value) }, uniquingKeysWith: { a, _ in a })
-        s.order = s.order.mapValues { l in l.map(move).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } } }
-        s.hidden = s.hidden.map(move).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
-        s.colors = s.colors.map { c in Dictionary(c.map { (move($0.key), $0.value) }, uniquingKeysWith: { a, _ in a }) }
-        if s != catStyle { catStyle = s }
+        let local = localCatStyle.renaming(from, to: to)
+        if local != localCatStyle { localCatStyle = local }
+        var order = CategoryStyle()
+        order.order = gridOrder
+        let moved = order.renaming(from, to: to).order
+        if moved != gridOrder { gridOrder = moved }
         let faces = renamedFaceStyles(faceStyles, from: from, to: to)
         if faces != faceStyles { faceStyles = faces }
         renameCards(from, to: to)
@@ -238,7 +218,7 @@ extension Store {
     }
 
     /// the colour picked for an account's group, nil when none was (each place then keeps its own)
-    func pickedTint(_ account: String) -> Color? { IconTint.color(catStyle.colors?[catOf(account)]) }
+    func pickedTint(_ account: String) -> Color? { IconTint.color(catStyle.colors[catOf(account)]) }
 
     /// what a cell's icon is kept under: its group (Expenses:Food, Assets:Bank)
     static func cellKey(_ g: CategoryGroup) -> String { g.id }

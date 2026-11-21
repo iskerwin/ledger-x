@@ -101,8 +101,8 @@ struct GuideView: View {
                "Clear at the top right of the full form empties the page in one tap (the date stays); when editing an entry it's Revert, back to the entry as it was. Undo is on the banner. A split or text entry that isn't finished doesn't keep you there: switch type or go back to Quick entry, and it's kept for when you switch back."),
             tr("常用交易：近期重复出现的交易会列在卡片顶部，固定金额的点「入账」一步记好，提示条上可以撤销。",
                "Frequent entries appear at the top of the card; ones with a fixed amount are saved with one tap on Save, with undo on the banner."),
-            tr("宫格的图标、名称、顺序可以在「⋯」→ 分类图标与排序里改，或长按某个分类。只存在本机，不改账本。",
-               "Change the grid's icons, names and order under ⋯ → Category icons & order, or hold a category. Kept on this phone; the ledger doesn't change."),
+            tr("宫格的图标、名称、顺序可以在「⋯」→ 分类图标与排序里改，或长按某个分类。存在账本的 ledger-x.json 里，手机和 Mac 看到的一样；科目本身不变。",
+               "Change the grid's icons, names and order under ⋯ → Category icons & order, or hold a category. Kept in the ledger's ledger-x.json, so the phone and the Mac show the same; the accounts themselves don't change."),
         ]),
         Topic(symbol: "square.split.2x1", title: tr("组合付款与优惠", "Several accounts and discounts"), points: [
             tr("一笔支出由几个账户一起付：点付款账户 →「组合付款…」，添加其他账户和各自金额，选的付款账户付余下的部分。",
@@ -175,8 +175,8 @@ struct GuideView: View {
         Topic(symbol: "building.columns", title: tr("账户与核对", "Accounts and checking"), points: [
             tr("账户和科目详情按月分组：每月显示流出、流入和月末余额（科目显示当月合计），点一下展开当月的流水。",
                "An account's or category's page is grouped by month with money out, in and the month-end balance (a category shows its total); tap a month to open it."),
-            tr("每个大类的图标在记一笔、管理账户、账户页和报表里都一样；在管理账户里长按大类可以更换图标和颜色（记一笔里长按分类也可以），只存在这台手机。颜色用在管理账户、账户页、报表和记一笔的付款账户那一格上，记一笔的宫格仍是黑白、选中时用主题色。",
-               "Each group has one icon on the Add card, Manage accounts, the Accounts page and in reports; hold a group under Manage accounts (or a category on the Add card) to change its icon and colour, kept on this phone. The colour shows in Manage accounts, Accounts, reports and the Add card's account cell; the Add grid stays black and white and uses the theme colour when picked."),
+            tr("每个大类的图标在记一笔、管理账户、账户页和报表里都一样；在管理账户里长按大类可以更换图标和颜色（记一笔里长按分类也可以），各设备共用。颜色用在管理账户、账户页、报表和记一笔的付款账户那一格上，记一笔的宫格仍是黑白、选中时用主题色。",
+               "Each group has one icon on the Add card, Manage accounts, the Accounts page and in reports; hold a group under Manage accounts (or a category on the Add card) to change its icon and colour, shared by every device. The colour shows in Manage accounts, Accounts, reports and the Add card's account cell; the Add grid stays black and white and uses the theme colour when picked."),
             tr("账户页的分组（银行、信用卡…）和管理账户里的科目大类都可以点标题收起。",
                "Groups on the Accounts page (banks, cards…) and the categories under Manage accounts fold away with a tap on their heading."),
             tr("银行卡、电子钱包和储值卡、现金和信用卡的账户页顶部可以画成一张卡：在「设置 → 外观 → 账户卡片」选「卡面」。卡的颜色是这个账户大类的颜色（管理账户里长按大类可改），每张卡自带一种纹理和名称首字的水印，方便同色的卡互相区分。账户名用常见银行或钱包的英文简称（如 Assets:Bank:CMB、Assets:EWallet:Alipay），或显示名里有它的中文名（如「招商银行一卡通」）时，卡面改用接近它的配色，右下角水印是它的单色图标（照各家标志简化），目前认得招商、工商、建设、中国、农业、交通、浦发、中信、广发、光大、华夏、汇丰、花旗、恒生、中银香港、渣打、众安、Mox、iFAST、N26、支付宝、微信支付、Wise、八达通、AlipayHK、PayMe、PayPal、Revolut（余额宝算支付宝，零钱通算微信支付）；现金账户的水印是钞票图标。长按卡面选「编辑卡面」可以按账户改机构、颜色、纹理和水印（文字、图标或不显示），调水印大小和透明度；水印选「图标」时点一个内置图标就换，也可以从照片或文件选自己的图标，自己的图标默认变成单色剪影，跟卡面风格一致，白底图片会自动去背景（去不干净调「强度」），也可选原色。这些设置和图标只存在这台手机、按账本分开，「恢复默认」回到自动。银行卡和钱包写着当前余额、多久没核对、近 30 天走势、其他币种和本月流入流出；信用卡写着尾号、剩余应还、已还多少和还款日。下面的数字和按钮不变；证券、加密货币、应收和贷款仍是普通样式。",
@@ -305,7 +305,7 @@ struct GuideView: View {
            a: tr("附件每次打开都从仓库下载，网络慢时会等一会儿，失败会显示「无法下载」并可重试。JPG、PNG、HEIC、PDF 等常见格式都能预览，其他格式能保存但可能无法在 App 内预览，可用右上角分享到别的 App 打开。",
                  "An attachment is downloaded from the repository each time it opens, so a slow network takes a moment; a failure says it couldn't download, with Retry. JPG, PNG, HEIC, PDF and other common formats preview; other files may not, so share them to another app from the top corner.")),
         QA(q: tr("换手机后设置还在吗？", "Do my settings survive a new phone?"),
-           a: tr("跟账本有关的都在仓库的 ledger-x.json 里，所有设备共用：主文件、文件规则、记账偏好（默认付款账户、币种）、统计范围、大额支出、已核对和已忽略的提示、常用交易置顶与隐藏、工资条模板、收付款方拼音；保存的查询在 queries/ 里。主题、语言、宫格图标、提醒、面容 ID 只存在这台手机。账本的访问令牌也只留在这台手机，换手机后要在账本管理里重新填一次。设置 → 仓库结构与共用设置可以一页看全。",
-                 "Everything about the ledger is in ledger-x.json in the repository and shared by every device: main file, file rules, entry defaults, what's counted, the large-expense threshold, checked and ignored notices, pinned and hidden frequent entries, payslip templates and payee spellings; saved queries are in queries/. Theme, language, grid icons, reminders and Face ID stay on each phone. Access tokens stay on this phone too: enter them again in Ledgers on a new phone. Settings → Repository & shared settings shows it all.")),
+           a: tr("跟账本有关的都在仓库的 ledger-x.json 里，所有设备共用：主文件、文件规则、记账偏好（默认付款账户、币种）、统计范围、大额支出、已核对和已忽略的提示、常用交易置顶与隐藏、分类图标与排序、工资条模板、收付款方拼音；保存的查询在 queries/ 里。主题、语言、卡面样式、提醒、面容 ID 只存在这台手机。账本的访问令牌也只留在这台手机，换手机后要在账本管理里重新填一次。设置 → 仓库结构与共用设置可以一页看全。",
+                 "Everything about the ledger is in ledger-x.json in the repository and shared by every device: main file, file rules, entry defaults, what's counted, the large-expense threshold, checked and ignored notices, pinned and hidden frequent entries, category icons & order, payslip templates and payee spellings; saved queries are in queries/. Theme, language, card faces, reminders and Face ID stay on each phone. Access tokens stay on this phone too: enter them again in Ledgers on a new phone. Settings → Repository & shared settings shows it all.")),
     ] }
 }

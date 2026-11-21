@@ -132,10 +132,11 @@ struct RepoLayoutView: View {
                 LabeledContent(LS("工资条模板"), value: LS("%@ 个", (c.payslips ?? []).count))
                 LabeledContent(LS("已核对 / 已忽略"), value: LS("%@ 项", (c.alertsConfirmed ?? []).count + (c.linksIgnored ?? []).count + (c.subsIgnored ?? []).count))
                 LabeledContent(LS("常用交易置顶 / 隐藏"), value: LS("%@ 项", (c.templatesPinned ?? []).count + (c.templatesHidden ?? []).count))
+                LabeledContent(LS("分类图标与排序"), value: c.categories == nil ? LS("默认") : LS("已自定义"))
             } header: {
                 Text(LS("其他共用设置"))
             } footer: {
-                Text(LS("这些也在 %@ 里，在用到的地方修改：记账偏好在设置，大额支出在「值得留意」，工资条模板在「报表 → 工资」，常用交易在记一笔。", LedgerXConfig.path))
+                Text(LS("这些也在 %@ 里，在用到的地方修改：记账偏好在设置，大额支出在「值得留意」，工资条模板在「报表 → 工资」，常用交易、分类图标与排序在记一笔。", LedgerXConfig.path))
             }
 
             Section {

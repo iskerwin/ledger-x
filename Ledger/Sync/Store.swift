@@ -172,8 +172,16 @@ enum Prefs {
     @ObservationIgnored var addFull = false
     /// bumped by every request to open the card, so an open card goes back to the page asked for
     var addToken = 0
-    /// icons, names, order and hidden groups of the 记一笔 category grid (kept on this phone, not in the ledger)
-    var catStyle: CatStyle { didSet { Prefs.set("catStyle", catStyle) } }
+    /// icons, names, colours, order and hidden groups of the 记一笔 category grid, as shown: ledger-x.json's (until this
+    /// ledger's has been moved there, the style this phone kept), with the order fixed on this phone where none was
+    /// sorted by hand. Changed only through `editCategories` (Shared.swift).
+    private(set) var catStyle = CategoryStyle()
+    /// the style this phone kept for all its ledgers before it went into ledger-x.json; moved into each ledger once
+    @ObservationIgnored var localCatStyle = CategoryStyle() { didSet { Prefs.set("catStyle", localCatStyle); refreshCatStyle() } }
+    /// per root: the grid's order fixed on this phone the first time it is seen (the most used first), this ledger's
+    /// the one-time move of that style into this ledger, while under way
+    @ObservationIgnored var categoryMove: Task<Void, Never>?
+    @ObservationIgnored var gridOrder: [String: [String]] = [:] { didSet { if !demo { Prefs.set(pk("gridOrder"), gridOrder) }; refreshCatStyle() } }
     /// 编辑卡面: each account's card as changed by hand, this ledger's, on this phone (not written to the ledger)
     var faceStyles: [String: FaceStyle] = [:] { didSet { if !demo { Prefs.set(pk("faceStyles"), faceStyles) } } }
     /// 卡片信息: what each card's face shows of the card kept in the keychain (`CardVault`), this ledger's
@@ -228,7 +236,7 @@ enum Prefs {
     var subsFile: String { didSet { Prefs.set(pk("subsFile"), subsFile) } }
     private(set) var detectedLayout = RepoLayout()
     /// ledger-x.json in the repository (shared by every device); nil = not there yet
-    private(set) var repoConfig: LedgerXConfig? { didSet { LinkNaming.overrides = repoConfig?.slugs ?? [:] } }
+    private(set) var repoConfig: LedgerXConfig? { didSet { LinkNaming.overrides = repoConfig?.slugs ?? [:]; refreshCatStyle() } }
 
     /// BQL: queries saved on this phone, and the ones in the ledger (query directives, *.bql files)
     var myQueries: [SavedQuery] { didSet { Prefs.set("queries", myQueries) } }
@@ -325,8 +333,24 @@ enum Prefs {
         faceStyles = Prefs.get(Store.key("faceStyles", id), [String: FaceStyle]())
         cardHints = CardVault.hints(CardVault.load(ledger: id))
         myQueries = Prefs.get("queries", [SavedQuery]())
-        catStyle = Prefs.get("catStyle", CatStyle()).normalized()
+        localCatStyle = Prefs.get("catStyle", CategoryStyle()).normalized()
+        gridOrder = Prefs.get(Store.key("gridOrder", id), [String: [String]]())
         cview = Prefs.get("currencyView", CurrencyView())
+        refreshCatStyle()
+    }
+
+    /// the grid's style as kept (ledger-x.json's, or this phone's not yet moved), the order fixed here where none is kept
+    func refreshCatStyle() {
+        var s = sharedCatStyle
+        for (root, l) in gridOrder where s.order[root] == nil { s.order[root] = l }
+        if s != catStyle { catStyle = s }
+    }
+
+    /// a change shown before its commit lands (`editCategories`); the next refresh shows what was kept
+    func showCatStyle(_ change: (inout CategoryStyle) -> Void) {
+        var s = catStyle
+        change(&s)
+        if s != catStyle { catStyle = s }
     }
 
     var backend: LedgerBackend { makeBackend(cfg) }
@@ -399,6 +423,7 @@ enum Prefs {
         receivableAccount = Prefs.get(pk("receivable"), "")
         subsFile = Prefs.get(pk("subsFile"), "")
         faceStyles = Prefs.get(pk("faceStyles"), [String: FaceStyle]())
+        gridOrder = Prefs.get(pk("gridOrder"), [String: [String]]())
         cardHints = CardVault.hints(CardVault.load(ledger: cfg.id))
         tplCache = nil
         resetToast()
@@ -565,6 +590,7 @@ enum Prefs {
         subsFile = ""
         draftWorkspace = DraftWorkspace()
         faceStyles = [:]
+        gridOrder = [:]
         // the interface tests' cards start empty on every launch
         CardVault.delete(ledger: cfg.id)
         cardHints = [:]
@@ -877,7 +903,7 @@ enum Prefs {
             loadError = nil
             version += 1
             afterLoad()
-            if !demo { Task { await migrateLocalSettings() } }
+            if !demo { Task { await migrateLocalSettings(); await moveCategoryStyle() } }
             if !drafts.initialized { restoreCreationDraft() }
         } else {
             builtLedger = nil
