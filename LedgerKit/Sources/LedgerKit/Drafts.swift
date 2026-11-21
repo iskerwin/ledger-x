@@ -914,8 +914,12 @@ public struct LedgerXConfig: Codable, Equatable, Sendable {
         if blank(c.main) { c.main = nil }
         if blank(c.defaultFunding) { c.defaultFunding = nil }
         if blank(c.defaultCurrency) { c.defaultCurrency = nil }
-        for k in [\LedgerXConfig.alertsConfirmed, \.linksIgnored, \.subsIgnored, \.templatesPinned, \.templatesHidden] {
+        for k in [\LedgerXConfig.alertsConfirmed, \.linksIgnored, \.subsIgnored, \.templatesHidden] {
             if let l = c[keyPath: k] { c[keyPath: k] = l.isEmpty ? nil : Array(Set(l)).sorted() }
+        }
+        // pinned 常用交易 show in the order they were pinned: only the repeats go
+        if let l = c.templatesPinned {
+            c.templatesPinned = l.isEmpty ? nil : l.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
         }
         return (String(data: (try? e.encode(c)) ?? Data(), encoding: .utf8) ?? "{}") + "\n"
     }
