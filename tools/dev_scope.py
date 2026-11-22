@@ -64,7 +64,7 @@ MAPPINGS.update({
         core=('SearchTests',), ui=('LedgerUITests/EditInteractionTests/testJournalSearchAppliesOnSubmitAndClearRestores',),
         narrow=(), reason='查询解析和明细搜索提交/清除'),
 })
-SAFE_FILES = {'README.md', 'AGENTS.md', 'CLAUDE.md', 'CHANGELOG.md'}
+SAFE_FILES = {'README.md', 'README.zh-CN.md', 'AGENTS.md', 'CLAUDE.md', 'CHANGELOG.md'}
 
 
 def _ui(*names):
