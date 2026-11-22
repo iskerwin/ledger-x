@@ -19,7 +19,7 @@ def require(condition, message):
         errors.append(message)
 
 
-for p in [ROOT/'README.md', ROOT/'AGENTS.md', ROOT/'CLAUDE.md', *list((ROOT/'docs').rglob('*.md'))]:
+for p in [ROOT/'README.md', ROOT/'README.zh-CN.md', ROOT/'AGENTS.md', ROOT/'CLAUDE.md', *list((ROOT/'docs').rglob('*.md'))]:
     contents = p.read_text()
     links = re.findall(r'\]\(([^)]+)\)', contents) + re.findall(r'<img[^>]+src=[\"\']([^\"\']+)', contents)
     for link in links:
