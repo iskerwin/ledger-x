@@ -21,3 +21,4 @@ samples/
 .ship/
 *.xcresult/
 .DS_Store
+.venv/

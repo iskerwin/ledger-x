@@ -26,7 +26,7 @@ class CompositeActionTests(unittest.TestCase):
         gate = ci.split('\n  gate:', 1)[1].split('\n  test:', 1)[0]
         self.assertIn('uses: ./.github/actions/ledger-run', gate)
         self.assertIn("check_only: 'true'", gate)
-        self.assertLess(gate.index('uses: ./.github/actions/ledger-run'), gate.index('run: python3 tools/pr_gate.py'))
+        self.assertLess(gate.index('uses: ./.github/actions/ledger-run'), gate.index('run: uv run tools/pr_gate.py'))
 
     def test_load_only_check_skips_every_preparation_validation_and_publication_step(self):
         action = (ROOT/'.github/actions/ledger-run/action.yml').read_text()

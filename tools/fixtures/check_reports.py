@@ -2,7 +2,7 @@
 (ReportDumpTests → reports.json): balances as booked, at cost, at market value and converted, the conversions,
 income and expenses by month, net worth by month. Exits 1 on any difference larger than a cent.
 
-    python3 tools/fixtures/check_reports.py <main.bean> <reports.json>
+    uv run tools/fixtures/check_reports.py <main.bean> <reports.json>
 """
 import json
 import sys

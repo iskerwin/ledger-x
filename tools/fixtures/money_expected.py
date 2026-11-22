@@ -3,8 +3,8 @@
 totals of every account and parent account on the last day.
 
     F=LedgerKit/Tests/LedgerKitTests/Fixtures
-    python3 tools/fixtures/money_expected.py $F/realistic/main.bean $F/money/realistic.json 2024-06-30 2025-12-31 2026-10-08
-    python3 tools/fixtures/money_expected.py $F/money/main.bean $F/money/edge.json 2024-04-10 2024-06-30 2024-07-31
+    uv run tools/fixtures/money_expected.py $F/realistic/main.bean $F/money/realistic.json 2024-06-30 2025-12-31 2026-10-08
+    uv run tools/fixtures/money_expected.py $F/money/main.bean $F/money/edge.json 2024-04-10 2024-06-30 2024-07-31
 
 Run it again whenever a sample changes.
 """

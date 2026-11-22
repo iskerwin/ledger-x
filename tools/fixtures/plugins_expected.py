@@ -1,6 +1,6 @@
 """Work out, with Beancount itself, what the plugins the app runs report for a ledger (PluginTests):
 
-    python3 tools/fixtures/plugins_expected.py LedgerKit/Tests/LedgerKitTests/Fixtures/plugins/main.bean \
+    uv run tools/fixtures/plugins_expected.py LedgerKit/Tests/LedgerKitTests/Fixtures/plugins/main.bean \
         LedgerKit/Tests/LedgerKitTests/Fixtures/plugins/expected.json
 
 - missing_commodities  check_commodity: the currencies without a commodity directive, in Beancount's order
