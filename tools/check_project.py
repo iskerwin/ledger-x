@@ -114,8 +114,10 @@ require('pull_request:' in ci and 'runs-on: macos-26' in gate
         'Pull requests need one read-only gate and must not publish')
 require("if: inputs.check_only != 'true' && always()" in runner and 'actions/upload-artifact@v7' in runner,
         'Cloud runs must preserve failed-run evidence outside the load-only PR check')
-require('actions/checkout@v7' in workflow and 'astral-sh/setup-uv@v10' in workflow and 'setup-python' not in workflow and 'pip install' not in workflow and 'actions/cache@v6' in runner,
-        'Cloud workflow must use current major versions of checkout, setup-uv and cache, and install Python only through uv')
+# setup-uv 只发布完整版本号的标签（没有 v10 这样的主版本标签），必须写全
+uv_pins = re.findall(r'astral-sh/setup-uv@(\S+)', workflow)
+require('actions/checkout@v7' in workflow and uv_pins and all(re.fullmatch(r'v\d+\.\d+\.\d+', pin) for pin in uv_pins) and 'setup-python' not in workflow and 'pip install' not in workflow and 'actions/cache@v6' in runner,
+        'Cloud workflow must use current major versions of checkout and cache, pin setup-uv to a full version, and install Python only through uv')
 require('Xcode_26.6.app' in workflow and 'bash tools/select_xcode.sh' in runner and 'bash tools/select_xcode.sh' in gate
         and 'inputs.cache_epoch' in runner and 'contents: write' not in ci
         and all('uses: ./.github/actions/ledger-run' in item for item in (ci, dev, release, preview)),

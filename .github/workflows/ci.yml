@@ -38,7 +38,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.4.0
       - name: Check shared action loads without side effects
         uses: ./.github/actions/ledger-run
         with:

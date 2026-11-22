@@ -14,7 +14,7 @@ runs:
       if: inputs.check_only == 'true'
       shell: bash
       run: echo 'Shared Ledger action loaded; no preparation, tests, build or publication executed.'
-    - uses: astral-sh/setup-uv@v10
+    - uses: astral-sh/setup-uv@v10.4.0
       if: inputs.check_only != 'true'
     - name: Verify inputs, source and accepted package
       if: inputs.check_only != 'true'
