@@ -1,0 +1,10 @@
+# 构建、测试和发布工具（tools/*.py）；fixtures 生成报表期望值要用 Beancount，版本固定为 3.2.0。
+# 用 uv run tools/<脚本>.py 运行，CI 用 setup-uv 和同一份 uv.lock。
+[project]
+name = "ledger-x-tools"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["beancount==3.2.0"]
+
+[tool.uv]
+package = false

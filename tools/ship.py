@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Dispatch validation and publication to GitHub macOS; execute only on the runner.
 
-  python3 tools/ship.py check                    local static checks and tool tests, the same as the cloud's first stage
-  python3 tools/ship.py test                     cloud full validation, publishes nothing
-  python3 tools/ship.py preview                  phone build of the pushed branch: static checks and compile only
-  python3 tools/ship.py dev                      automatically select tests since the previous dev, then publish
-  python3 tools/ship.py release                  promote the phone-accepted dev package (requires --accepted-build N)
-  python3 tools/ship.py version patch|minor|major|X.Y.Z
+  uv run tools/ship.py check                    local static checks and tool tests, the same as the cloud's first stage
+  uv run tools/ship.py test                     cloud full validation, publishes nothing
+  uv run tools/ship.py preview                  phone build of the pushed branch: static checks and compile only
+  uv run tools/ship.py dev                      automatically select tests since the previous dev, then publish
+  uv run tools/ship.py release                  promote the phone-accepted dev package (requires --accepted-build N)
+  uv run tools/ship.py version patch|minor|major|X.Y.Z
                                                  commit a version bump and a new CHANGELOG section
-  python3 tools/ship.py watch                    follow the running (or the last) test / dev / release from any terminal
+  uv run tools/ship.py watch                    follow the running (or the last) test / dev / release from any terminal
 
 Failed checks or builds stop before publication. A later network failure may
 leave a pushed commit or partially updated release; status records what completed
@@ -44,7 +44,6 @@ MAC_ZIP = 'LedgerMac.zip'
 MAC_APP = 'build-demo/Build/Products/Release/Ledger X.app'
 MAC_INFO = 'Ledger X.app/Contents/Info.plist'
 XCODE = '/Applications/Xcode.app/Contents/Developer'
-BEANCOUNT = ('/opt/homebrew/opt/beancount/libexec/bin/python', '/usr/local/opt/beancount/libexec/bin/python')
 SIM_NAME = 'Ledger Local Tests'
 PREFERRED = ('iPhone 17', 'iPhone 16', 'iPhone 17 Pro', 'iPhone 16 Pro', 'iPhone 15')
 SIM_PREFS = Path.home() / 'Library/Preferences/com.apple.iphonesimulator.plist'
@@ -338,10 +337,11 @@ def verify_demo_snapshot(commit, expected_digest=None):
 
 
 def beancount_python():
-    for candidate in (*BEANCOUNT, sys.executable):
+    # uv run 用的是项目 .venv 的 Python，Beancount 版本由 uv.lock 锁定
+    for candidate in (sys.executable,):
         if Path(candidate).exists() and subprocess.run([candidate, '-c', 'import beancount'], capture_output=True).returncode == 0:
             return candidate
-    raise Failure('找不到 Beancount；请执行 brew install beancount')
+    raise Failure('找不到 Beancount；请用 uv run tools/ship.py 运行（uv sync 按 uv.lock 安装 Beancount）')
 
 
 def executed(text):
@@ -1126,7 +1126,7 @@ def tag_exists(repo, tag):
 def publish(repo, tag, folder, manifest, notes):
     """Create the published release; an existing version is never moved or replaced."""
     if release_for_tag(repo, tag) or tag_exists(repo, tag):
-        raise ValueError(f'{tag} 已发布；先用 python3 tools/ship.py version 选择新版本，再发布开发版')
+        raise ValueError(f'{tag} 已发布；先用 uv run tools/ship.py version 选择新版本，再发布开发版')
     progress.effect('release', 'started')
     run(['gh', 'release', 'create', tag, '--repo', repo, '--target', manifest['source_sha'], '--draft',
          '--title', f'Ledger X {manifest["version"]}', '--notes-file', notes])
@@ -1480,7 +1480,7 @@ def clock(seconds):
 def render(state, history, logs, now, alive=True):
     """The watch screen for one moment. `logs` maps log names to their text so far; `alive`: the run's process exists."""
     if not state:
-        return '还没有 ship.py 的运行记录；执行 python3 tools/ship.py test 或 dev 后再看。'
+        return '还没有 ship.py 的运行记录；执行 uv run tools/ship.py test 或 dev 后再看。'
     command = state.get('command', '')
     stages = state.get('stages', [])
     result = state.get('result')

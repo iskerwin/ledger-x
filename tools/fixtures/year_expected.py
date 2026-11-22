@@ -3,8 +3,8 @@ currency on its own): income and expenses by year, by month and by category grou
 liabilities, and net worth at the end of the year before and of each month.
 
     F=LedgerKit/Tests/LedgerKitTests/Fixtures
-    python3 tools/fixtures/year_expected.py $F/realistic/main.bean $F/money/realistic-years.json 2026-10-08
-    python3 tools/fixtures/year_expected.py $F/money/main.bean $F/money/edge-years.json 2024-07-31
+    uv run tools/fixtures/year_expected.py $F/realistic/main.bean $F/money/realistic-years.json 2026-10-08
+    uv run tools/fixtures/year_expected.py $F/money/main.bean $F/money/edge-years.json 2024-07-31
 
 The last argument is "today": the current year runs up to it. Run it again whenever a sample changes.
 """

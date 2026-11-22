@@ -38,9 +38,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v10
       - name: Check shared action loads without side effects
         uses: ./.github/actions/ledger-run
         with:
@@ -52,12 +50,12 @@ jobs:
         run: |
           export HOMEBREW_NO_AUTO_UPDATE=1
           if ! command -v xcodegen >/dev/null 2>&1; then brew install xcodegen; fi
-          python3 -m pip install 'beancount==3.2.0'
+          uv sync --frozen --quiet
       - name: Checks for this pull request
         env:
           # Read-only: the plan's baseline is the current dev package, as in Dev.
           GH_TOKEN: ${{ github.token }}
-        run: python3 tools/pr_gate.py
+        run: uv run tools/pr_gate.py
       # Dev reuses this when main becomes this same tree with the same plan.
       - name: Keep PR proof
         if: success()

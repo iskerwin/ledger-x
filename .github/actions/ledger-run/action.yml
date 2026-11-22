@@ -14,14 +14,12 @@ runs:
       if: inputs.check_only == 'true'
       shell: bash
       run: echo 'Shared Ledger action loaded; no preparation, tests, build or publication executed.'
-    - uses: actions/setup-python@v7
+    - uses: astral-sh/setup-uv@v10
       if: inputs.check_only != 'true'
-      with:
-        python-version: '3.12'
     - name: Verify inputs, source and accepted package
       if: inputs.check_only != 'true'
       shell: bash
-      run: python3 tools/cloud_worker.py prepare
+      run: uv run tools/cloud_worker.py prepare
     - name: Pin Xcode 26.6
       if: inputs.check_only != 'true'
       shell: bash
@@ -32,7 +30,7 @@ runs:
       run: |
         export HOMEBREW_NO_AUTO_UPDATE=1
         if ! command -v xcodegen >/dev/null 2>&1; then brew install xcodegen; fi
-        python3 -m pip install 'beancount==3.2.0'
+        uv sync --frozen --quiet
         git config user.name 'github-actions[bot]'
         git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
     - name: Restore Swift package and test build cache
@@ -51,7 +49,7 @@ runs:
     - name: Validate, build or promote
       if: inputs.check_only != 'true'
       shell: bash
-      run: python3 tools/cloud_worker.py run
+      run: uv run tools/cloud_worker.py run
     - name: Export screenshots
       if: inputs.check_only != 'true' && always()
       shell: bash

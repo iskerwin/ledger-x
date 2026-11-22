@@ -41,11 +41,9 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v10
       - id: plan
-        run: python3 tools/cloud_worker.py plan
+        run: uv run tools/cloud_worker.py plan
   full:
     needs: plan
     if: needs.plan.outputs.full == 'true'

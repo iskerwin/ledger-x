@@ -54,16 +54,14 @@ jobs:
         with:
           ref: ${{ inputs.source_sha }}
           persist-credentials: false
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v10
       - uses: actions/download-artifact@v8
         with:
           pattern: 'ledger-shard-*-${{ github.run_id }}'
           path: shards
       - name: Join both halves into one full record
         run: >-
-          python3 tools/ship.py combine
+          uv run tools/ship.py combine
           'shards/ledger-shard-1-${{ github.run_id }}/shard.json'
           'shards/ledger-shard-2-${{ github.run_id }}/shard.json'
       - uses: actions/upload-artifact@v7
