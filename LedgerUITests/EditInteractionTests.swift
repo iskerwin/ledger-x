@@ -1894,6 +1894,9 @@ final class EditInteractionTests: XCTestCase {
         subs.tap()
         let names = ["Example News", "Example Cloud", "Netflix"]
         let found = names.map { app.descendants(matching: .any)["sub.card." + $0].firstMatch }
+        // at a large text size the stacks start below the screen, where the List has not made them yet
+        XCTAssertTrue(app.navigationBars["订阅管理"].waitForExistence(timeout: 5))
+        for _ in 0..<6 where !(found[0].exists && found[0].isHittable && found[2].exists && found[2].isHittable) { app.swipeUp() }
         XCTAssertTrue(found[0].waitForExistence(timeout: 5))
         // in order of the next charge, which moves with today: taken from the top down
         let cards = zip(names, found.map(\.frame)).sorted { $0.1.minY < $1.1.minY }
