@@ -327,6 +327,7 @@ struct SubscriptionsView: View {
         Task { await store.commit(ops, word: LS("已整理订阅记录")) }
     }
 
+    @ViewBuilder
     private func statsSection(_ all: [Subscription], _ L: Ledger, _ today: String) -> some View {
         let active = all.filter { $0.status == .active }
         if active.count >= 2 {
