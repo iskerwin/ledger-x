@@ -20,13 +20,13 @@
       "versions": [
         {
           "version": "1.0.18",
-          "buildVersion": "75.5",
-          "date": "2026-11-26T05:03:52Z",
-          "localizedDescription": "# Ledger X 1.0.18 预览\n\n版本 1.0.18 · 构建 75.5 · feat/subscription-cards 406eb4c 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.18-75.5",
-          "size": 11100952,
+          "buildVersion": "75.6",
+          "date": "2026-11-26T05:15:53Z",
+          "localizedDescription": "# Ledger X 1.0.18 预览\n\n版本 1.0.18 · 构建 75.6 · feat/mac-holdings 2ef2a8a 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.18-75.6",
+          "size": 11080752,
           "minOSVersion": "17.0",
-          "sha256": "cedd843ba61ffede584f9d4a85881a23b8562be2b5e3ee9dc1e9224f579ffbe5"
+          "sha256": "fda157a7098f2d08a895948784427ecc670d0e1216958bcfe2567818706432d3"
         },
         {
           "version": "1.0.17",
@@ -218,10 +218,10 @@
         }
       },
       "version": "1.0.18",
-      "versionDate": "2026-11-26T05:03:52Z",
-      "versionDescription": "# Ledger X 1.0.18 预览\n\n版本 1.0.18 · 构建 75.5 · feat/subscription-cards 406eb4c 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
-      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.18-75.5",
-      "size": 11100952
+      "versionDate": "2026-11-26T05:15:53Z",
+      "versionDescription": "# Ledger X 1.0.18 预览\n\n版本 1.0.18 · 构建 75.6 · feat/mac-holdings 2ef2a8a 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+      "downloadURL": "https://gh-proxy.com/https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa?v=1.0.18-75.6",
+      "size": 11080752
     }
   ],
   "news": []
