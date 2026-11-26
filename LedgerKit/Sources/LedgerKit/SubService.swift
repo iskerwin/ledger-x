@@ -11,43 +11,34 @@ public struct SubService: Equatable {
     let names: [String]
 }
 
-/// Most specific first: YouTube before Google, iCloud and Apple TV before Apple, Claude before Anthropic's others.
+/// Most specific first: Grok before 𝕏, Red Pocket before eBay (what each is bought through).
 public let subServices: [SubService] = [
-    SubService(id: "netflix", words: ["netflix"], names: ["奈飞", "网飞"]),
-    SubService(id: "spotify", words: ["spotify"], names: []),
-    SubService(id: "youtube", words: ["youtube"], names: []),
-    SubService(id: "disney", words: ["disney", "disneyplus"], names: ["迪士尼"]),
     SubService(id: "icloud", words: ["icloud"], names: []),
-    SubService(id: "applemusic", words: ["applemusic"], names: []),
-    SubService(id: "apple", words: ["apple", "appleone", "appletv"], names: ["苹果"]),
     SubService(id: "chatgpt", words: ["chatgpt", "openai"], names: []),
     SubService(id: "claude", words: ["claude", "anthropic"], names: []),
-    SubService(id: "github", words: ["github", "copilot"], names: []),
-    SubService(id: "microsoft", words: ["microsoft", "office365", "m365", "xbox"], names: ["微软"]),
-    SubService(id: "google", words: ["google", "googleone", "gemini"], names: ["谷歌"]),
-    SubService(id: "adobe", words: ["adobe"], names: []),
-    SubService(id: "notion", words: ["notion"], names: []),
-    SubService(id: "dropbox", words: ["dropbox"], names: []),
-    SubService(id: "bilibili", words: ["bilibili"], names: ["哔哩哔哩", "大会员", "B站"]),
-    SubService(id: "iqiyi", words: ["iqiyi"], names: ["爱奇艺"]),
-    SubService(id: "tencentvideo", words: ["tencentvideo"], names: ["腾讯视频"]),
-    SubService(id: "youku", words: ["youku"], names: ["优酷"]),
-    SubService(id: "neteasemusic", words: ["neteasemusic", "ncm"], names: ["网易云音乐", "网易云"]),
-    SubService(id: "qqmusic", words: ["qqmusic"], names: ["QQ音乐", "QQ 音乐"]),
-    SubService(id: "jd", words: ["jdplus"], names: ["京东PLUS", "京东 PLUS", "京东Plus"]),
-    SubService(id: "taobao", words: ["88vip"], names: ["88VIP", "淘宝"]),
+    SubService(id: "grok", words: ["grok", "xai"], names: []),
+    SubService(id: "x", words: ["twitter", "xpremium"], names: ["𝕏"]),
+    SubService(id: "cloudflare", words: ["cloudflare"], names: []),
+    SubService(id: "vodafone", words: ["vodafone"], names: []),
+    SubService(id: "redpocket", words: ["redpocket"], names: ["red pocket"]),
+    SubService(id: "ebay", words: ["ebay"], names: []),
+    SubService(id: "proxy", words: ["vpn", "proxy"], names: ["机场", "梯子"]),
 ]
 
-/// The service a subscription is for, judged by its name and payee; nil when none matches.
+/// The service a subscription is for: judged by its name first, then by its payee (a plan bought through a store
+/// or a platform is the plan's, not the store's); nil when neither matches.
 public func subService(name: String, payee: String) -> SubService? {
-    let text = name + " " + payee
+    match(name) ?? match(payee)
+}
+
+private func match(_ text: String) -> SubService? {
     let lower = text.lowercased()
     let words = Set(lower.split { !$0.isLetter && !$0.isNumber }.map(String.init))
     let joined = lower.filter { $0.isLetter || $0.isNumber }
     for s in subServices {
         if s.words.contains(where: { words.contains($0) }) { return s }
         if s.names.contains(where: { lower.contains($0.lowercased()) }) { return s }
-        // words spelled together, as in AppleMusic or Disney+ written DisneyPlus
+        // words spelled together, as in ChatGPTPlus or CloudflareWorkers
         if s.words.contains(where: { $0.count > 5 && joined.contains($0) }) { return s }
     }
     return nil

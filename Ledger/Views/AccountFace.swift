@@ -139,13 +139,8 @@ enum FaceSubject: Equatable {
         }
     }
 
-    /// a built-in icon for a known institution; services have none (their marks are text)
-    func builtInSymbol(_ id: String?) -> Image? {
-        switch self {
-        case .account: return id.flatMap(FaceMarks.image)
-        case .subscription: return nil
-        }
-    }
+    /// the built-in icon of a known institution or service (shared by both: `FaceMarks`)
+    func builtInSymbol(_ id: String?) -> Image? { id.flatMap(FaceMarks.image) }
 }
 
 struct FaceDesign {
@@ -244,13 +239,12 @@ struct FaceDesign {
 struct FaceLook {
     /// the institutions in the order 编辑卡面 lists them, with their names
     static var named: [(id: String, name: String)] { [
-        ("cmb", LS("招商银行")), ("icbc", LS("工商银行")), ("ccb", LS("建设银行")), ("boc", LS("中国银行")), ("abc", LS("农业银行")),
-        ("bocom", LS("交通银行")), ("spdb", LS("浦发银行")), ("citic", LS("中信银行")),
-        ("cgb", LS("广发银行")), ("ceb", LS("光大银行")), ("hxb", LS("华夏银行")), ("hsbc", LS("汇丰")), ("citi", LS("花旗")),
-        ("hangseng", LS("恒生银行")), ("bochk", LS("中银香港")), ("sc", LS("渣打银行")), ("za", LS("众安银行")), ("mox", "Mox"),
-        ("ifast", "iFAST"), ("n26", "N26"),
-        ("alipay", LS("支付宝")), ("wechat", LS("微信支付")), ("wise", "Wise"), ("octopus", LS("八达通")), ("alipayhk", "AlipayHK"),
-        ("payme", "PayMe"), ("paypal", "PayPal"), ("revolut", "Revolut"),
+        ("cmb", LS("招商银行")), ("ccb", LS("建设银行")), ("boc", LS("中国银行")), ("bochk", LS("中银香港")),
+        ("spdb", LS("浦发银行")), ("citic", LS("中信银行")), ("cgb", LS("广发银行")), ("ceb", LS("光大银行")), ("hxb", LS("华夏银行")),
+        ("hsbc", LS("汇丰")), ("za", LS("众安银行")), ("ifast", "iFAST"), ("n26", "N26"),
+        ("alipay", LS("支付宝")), ("wechat", LS("微信支付")), ("wise", "Wise"), ("octopus", LS("八达通")), ("paypal", "PayPal"),
+        ("ibkr", "Interactive Brokers"), ("schwab", "Charles Schwab"), ("fsmone", "FSMone"), ("okx", "OKX"), ("plasma", "Plasma One"),
+        ("housingfund", LS("公积金")), ("medical", LS("医保")), ("pension", LS("养老金")),
     ] }
 
     let color: Color
@@ -273,33 +267,31 @@ struct FaceLook {
 
     private static let all: [String: FaceLook] = [
         "cmb": look(0xC8152D, 0x8E0E20, .rings(gap: 22), "招"),
-        "icbc": look(0xC7000B, 0xE0393E, .stripes(angle: 20, gap: 16), "工"),
         "ccb": look(0x0B5BA8, 0x073C70, .grid(gap: 20), "建"),
         "boc": look(0xA71E32, 0x6E1020, .rings(gap: 22), "中"),
-        "abc": look(0x0A8A6E, 0x05624E, .stripes(angle: 110, gap: 16), "农"),
-        "bocom": look(0x1C3F94, 0x2E5BC4, .dots(gap: 16), "交"),
         "spdb": look(0x0B3A73, 0x1A5AA6, .stripes(angle: 65, gap: 16), "浦"),
         "citic": look(0xD6001C, 0x9A0014, .dots(gap: 16), "信"),
         "cgb": look(0xE60012, 0xA8000D, .grid(gap: 20), "广"),
         "ceb": look(0x5E2B83, 0x8A4BB4, .rings(gap: 22), "光"),
         "hxb": look(0xD7000F, 0x96000A, .stripes(angle: 110, gap: 16), "华"),
         "hsbc": look(0xDB0011, 0xA3000D, .stripes(angle: 45, gap: 16), "HSBC"),
-        "citi": look(0x003B70, 0x056DAE, .stripes(angle: 20, gap: 16), "citi"),
-        "hangseng": look(0x00775B, 0x00543F, .rings(gap: 22), "恒"),
         "bochk": look(0x9E1B32, 0xC23A4F, .dots(gap: 16), "中银"),
-        "sc": look(0x0072AA, 0x1E9E6A, .stripes(angle: 155, gap: 16), "渣"),
         "za": look(0x00CF9A, 0x00A57B, .grid(gap: 20), "ZA"),
-        "mox": look(0x1C1C20, 0x3A3A44, .rings(gap: 22), "Mox"),
         "ifast": look(0x054F68, 0x00A3B2, .stripes(angle: 65, gap: 16), "iF"),
         "n26": look(0x008376, 0x00655B, .dots(gap: 16), "N26"),
         "alipay": look(0x1677FF, 0x0B4FCC, .rings(gap: 22), "支"),
         "wechat": look(0x07C160, 0x058F47, .dots(gap: 16), "微"),
         "wise": look(0x9FE870, 0x7FD44A, .stripes(angle: 155, gap: 16), "W", ink: 0x163300),
         "octopus": look(0xF08C00, 0xD06A00, .grid(gap: 20), "八"),
-        "alipayhk": look(0x1677FF, 0x00A0E9, .stripes(angle: 20, gap: 16), "HK"),
-        "payme": look(0xDB0011, 0xA3000D, .dots(gap: 16), "Me"),
         "paypal": look(0x003087, 0x009CDE, .rings(gap: 22), "P"),
-        "revolut": look(0x191C1F, 0x3B4048, .grid(gap: 20), "R"),
+        "ibkr": look(0xD81222, 0x8E0C17, .rings(gap: 22), "IB"),
+        "schwab": look(0x00A0DF, 0x006A99, .stripes(angle: 20, gap: 16), "S"),
+        "fsmone": look(0x00A3E0, 0x00709A, .dots(gap: 16), "FS"),
+        "okx": look(0x1C1C1E, 0x3A3A3C, .grid(gap: 20), "OKX"),
+        "plasma": look(0x6C3CE9, 0x3F1FA8, .rings(gap: 22), "P"),
+        "housingfund": look(0x2E7D32, 0x1B5E20, .grid(gap: 20), "公"),
+        "medical": look(0x1E88E5, 0x1565C0, .dots(gap: 16), "医"),
+        "pension": look(0x8D6E63, 0x5D4037, .stripes(angle: 110, gap: 16), "养"),
     ]
 }
 
@@ -497,17 +489,18 @@ struct TrendLine: View {
 /// is an imageset named after the id (template rendering, vector kept); check_project keeps the lists the same.
 enum FaceMarks {
     /// a group's own icon, for an account in it that is no known institution
-    static let groups = ["Cash": "cash"]
+    static let groups = ["Cash": "cash", "Receivable": "receivable", "Loan": "loan"]
     /// the group icons in the order 水印 → 图标 lists them after the institutions, with their names
-    static var groupsNamed: [(id: String, name: String)] { [("cash", LS("现金"))] }
+    static var groupsNamed: [(id: String, name: String)] { [("cash", LS("现金")), ("receivable", LS("应收")), ("loan", LS("借款"))] }
 
     static func image(_ id: String) -> Image? {
         UIImage(named: "FaceMarks/" + id) == nil ? nil : Image("FaceMarks/" + id)
     }
 
-    /// the icon of the group `account` is in (Assets:Cash, Assets:Cash:Wallet → cash), nil when its group has none
+    /// the icon of the group `account` is in (Assets:Cash:Wallet → cash, Liabilities:Loan:Bank → loan), nil when its
+    /// group has none
     static func group(of account: String) -> String? {
         let parts = account.split(separator: ":")
-        return parts.count > 1 && parts[0] == "Assets" ? groups[String(parts[1])] : nil
+        return parts.count > 1 && (parts[0] == "Assets" || parts[0] == "Liabilities") ? groups[String(parts[1])] : nil
     }
 }

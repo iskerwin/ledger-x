@@ -34,12 +34,12 @@ struct FaceStyleSheet: View {
             case .auto: style.mark = nil
             case .text: style.mark = .text(FacePattern.mark(title))
             // the built-in icon of the institution the card is for, else its group's; an uploaded one when there is one
-            // (a subscription's: its category's icon, drawn for `.icon` until one is uploaded)
+            // (a subscription for no known service: its category's icon, drawn for `.icon` until one is uploaded)
             case .icon:
                 if style.icon != nil { style.mark = .icon; break }
-                if case .account(let account) = subject {
-                    style.mark = (institutionID ?? FaceMarks.group(of: account)).map(FaceStyle.Mark.symbol) ?? .icon
-                } else { style.mark = .icon }
+                var own = institutionID.flatMap { FaceMarks.image($0) == nil ? nil : $0 }
+                if case .account(let account) = subject, own == nil { own = FaceMarks.group(of: account) }
+                style.mark = own.map(FaceStyle.Mark.symbol) ?? .icon
             case .off: style.mark = .off
             }
         }
@@ -176,8 +176,7 @@ struct FaceStyleSheet: View {
                     .accessibilityIdentifier("face.markText")
             }
             if markChoice.wrappedValue == .icon {
-                // the built-in icons are banks' and wallets': not offered on a subscription's card
-                if !isSubscription { SymbolGrid(mark: $style.mark, uploaded: style.icon != nil) }
+                SymbolGrid(mark: $style.mark, uploaded: style.icon != nil)
                 PhotosPicker(selection: $photo, matching: .images) {
                     Label(style.icon == nil ? LS("从照片选择图标") : LS("从照片换一个图标"), systemImage: "photo").labelStyle(ControlLabelStyle())
                 }
@@ -205,7 +204,6 @@ struct FaceStyleSheet: View {
         } footer: {
             if markChoice.wrappedValue == .icon {
                 Text(iconFailed ? LS("这个文件不是能读的图片，换一张试试。")
-                     : isSubscription ? LS("没选图标时用订阅分类的图标；也可以从照片或文件选自己的图标。单色时图标变成卡面文字颜色的剪影。")
                      : LS("点一个内置图标直接换；也可以从照片或文件选自己的图标。单色时图标变成卡面文字颜色的剪影：透明背景的 PNG 直接用它的形状；有底色的图片按四个角的颜色去掉背景，去不干净时调「强度」。"))
             }
         }
@@ -234,7 +232,8 @@ struct FaceStyleSheet: View {
     }
 }
 
-/// 水印 → 图标: the built-in institution and group icons to pick from, and the uploaded one when there is one
+/// 水印 → 图标: the built-in icons to pick from (institutions, services, groups; the same for accounts and
+/// subscriptions), and the uploaded one when there is one
 private struct SymbolGrid: View {
     @Binding var mark: FaceStyle.Mark?
     let uploaded: Bool
@@ -244,7 +243,7 @@ private struct SymbolGrid: View {
             if uploaded {
                 cell(.icon, LS("自己的图标")) { Image(systemName: "photo").font(.title3) }
             }
-            ForEach(FaceLook.named + FaceMarks.groupsNamed, id: \.id) { i in
+            ForEach(FaceLook.named + FaceLook.servicesNamed + FaceMarks.groupsNamed, id: \.id) { i in
                 if let image = FaceMarks.image(i.id) {
                     cell(.symbol(i.id), i.name) { image.renderingMode(.template).resizable().scaledToFit().frame(width: 26, height: 26) }
                         .accessibilityIdentifier("face.symbol." + i.id)

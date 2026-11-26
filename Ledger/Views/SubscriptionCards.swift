@@ -105,45 +105,29 @@ struct SubFigure: View {
     }
 }
 
-/// the services a subscription's card knows by colour (`subServices`); kept apart from the institutions, which each
-/// have a built-in icon
+/// the services a subscription's card knows (`subServices`): each with its colours and a built-in icon in `FaceMarks`,
+/// as the institutions have
 extension FaceLook {
     /// the services a subscription's card knows (`subServices`), in the order 编辑卡面 lists them
     static var servicesNamed: [(id: String, name: String)] { [
-        ("netflix", "Netflix"), ("spotify", "Spotify"), ("youtube", "YouTube"), ("disney", "Disney+"),
-        ("icloud", "iCloud"), ("applemusic", "Apple Music"), ("apple", "Apple"), ("chatgpt", "ChatGPT"), ("claude", "Claude"),
-        ("github", "GitHub"), ("microsoft", "Microsoft"), ("google", "Google"), ("adobe", "Adobe"), ("notion", "Notion"),
-        ("dropbox", "Dropbox"), ("bilibili", LS("哔哩哔哩")), ("iqiyi", LS("爱奇艺")), ("tencentvideo", LS("腾讯视频")),
-        ("youku", LS("优酷")), ("neteasemusic", LS("网易云音乐")), ("qqmusic", LS("QQ 音乐")), ("jd", LS("京东 PLUS")),
-        ("taobao", LS("淘宝 88VIP")),
+        ("icloud", "iCloud"), ("chatgpt", "ChatGPT"), ("claude", "Claude"), ("grok", "Grok"), ("x", "𝕏"),
+        ("cloudflare", "Cloudflare"), ("vodafone", "Vodafone"), ("redpocket", "Red Pocket"), ("ebay", "eBay"),
+        ("proxy", LS("机场订阅")),
     ] }
 
-    /// a service's card: close to its own colours, with a short mark (no logos: the colours tell them apart)
+    /// a service's card: close to its own colours, with its built-in icon (`FaceMarks`) and a short mark behind it
     static func service(_ id: String?) -> FaceLook? { id.flatMap { services[$0] } }
 
     private static let services: [String: FaceLook] = [
-        "netflix": look(0xE50914, 0x8F0610, .stripes(angle: 20, gap: 16), "N"),
-        "spotify": look(0x1DB954, 0x128A3E, .rings(gap: 22), "S", ink: 0x0B2A16),
-        "youtube": look(0xFF0000, 0xB20000, .dots(gap: 16), "YT"),
-        "disney": look(0x113CCF, 0x0B2A8F, .rings(gap: 22), "D+"),
         "icloud": look(0x3693F3, 0x1F6FD1, .dots(gap: 16), "iC"),
-        "applemusic": look(0xFA2D48, 0xC81E36, .stripes(angle: 65, gap: 16), "♪"),
-        "apple": look(0x1D1D1F, 0x3A3A3C, .grid(gap: 20), "A"),
         "chatgpt": look(0x10A37F, 0x0B7A5F, .rings(gap: 22), "GPT"),
         "claude": look(0xD97757, 0xB85C3E, .stripes(angle: 110, gap: 16), "C"),
-        "github": look(0x24292F, 0x3D444D, .grid(gap: 20), "GH"),
-        "microsoft": look(0x0078D4, 0x00589C, .grid(gap: 20), "MS"),
-        "google": look(0x4285F4, 0x2B63C6, .dots(gap: 16), "G"),
-        "adobe": look(0xFA0F00, 0xB80B00, .stripes(angle: 155, gap: 16), "Ad"),
-        "notion": look(0x191919, 0x3A3A3A, .stripes(angle: 45, gap: 16), "N"),
-        "dropbox": look(0x0061FF, 0x0047BB, .rings(gap: 22), "Db"),
-        "bilibili": look(0xFB7299, 0xE0507C, .dots(gap: 16), "B"),
-        "iqiyi": look(0x00BE06, 0x008F04, .stripes(angle: 20, gap: 16), "奇"),
-        "tencentvideo": look(0xFF6A00, 0xE04F00, .rings(gap: 22), "腾"),
-        "youku": look(0x2A7BFF, 0x1757C9, .stripes(angle: 65, gap: 16), "优"),
-        "neteasemusic": look(0xDD001B, 0xA60014, .rings(gap: 22), "云"),
-        "qqmusic": look(0x31C27C, 0x219160, .dots(gap: 16), "Q"),
-        "jd": look(0xE1251B, 0xB01A12, .grid(gap: 20), "京"),
-        "taobao": look(0xFF5000, 0xE03A00, .stripes(angle: 110, gap: 16), "88"),
+        "grok": look(0x1C1C1E, 0x3A3A3C, .stripes(angle: 20, gap: 16), "G"),
+        "x": look(0x000000, 0x2A2A2A, .grid(gap: 20), "𝕏"),
+        "cloudflare": look(0xF38020, 0xD9640A, .rings(gap: 22), "CF"),
+        "vodafone": look(0xE60000, 0xA80000, .dots(gap: 16), "V"),
+        "redpocket": look(0xE31B23, 0xA8131A, .stripes(angle: 65, gap: 16), "RP"),
+        "ebay": look(0x0064D2, 0x0047A0, .grid(gap: 20), "e"),
+        "proxy": look(0x5856D6, 0x3A38A8, .stripes(angle: 155, gap: 16), "机"),
     ]
 }
