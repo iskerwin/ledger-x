@@ -1876,7 +1876,7 @@ final class EditInteractionTests: XCTestCase {
     }
 
     /// 订阅管理 keeps its subscriptions as a stack of cards: the ones behind show the same strip, the front one is
-    /// whole, and a card behind opens its own subscription
+    /// whole, and a card behind opens its own subscription in place; closing puts every card back
     func testSubscriptionsStackAsCards() {
         checkSubscriptionStack(textSize: nil)
     }
@@ -1904,9 +1904,24 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertEqual(first, second, accuracy: 1)
         XCTAssertGreaterThan(frames[2].height, first * 2)
         XCTAssertEqual(frames[0].width, frames[2].width, accuracy: 1)
-        // the strip of a card behind is its own: it opens that subscription
+        // the strip of a card behind is its own: it opens that subscription in place, as Wallet's cards do
         app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: frames[0].midX, dy: frames[0].minY + first / 2)).tap()
         XCTAssertTrue(app.navigationBars[cards[0].0].waitForExistence(timeout: 5))
+        let close = app.navigationBars.buttons["关闭"]
+        XCTAssertTrue(close.exists)
+        XCTAssertTrue(app.staticTexts["扣费方式"].waitForExistence(timeout: 5))
+        // the open card at the top, above its subscription
+        let open = app.descendants(matching: .any)["sub.card." + cards[0].0].firstMatch
+        XCTAssertLessThan(open.frame.maxY, app.staticTexts["扣费方式"].frame.minY)
+        // closing puts every card back where it was
+        close.tap()
+        XCTAssertTrue(close.waitForNonExistence(timeout: 5))
+        for (name, before) in cards {
+            let card = app.descendants(matching: .any)["sub.card." + name].firstMatch
+            XCTAssertTrue(card.waitForExistence(timeout: 5))
+            XCTAssertEqual(card.frame.minY, before.minY, accuracy: 1, name)
+            XCTAssertEqual(card.frame.height, before.height, accuracy: 1, name)
+        }
     }
 
     /// 持仓、均价、现价 of an open holding each sit in the middle of their third

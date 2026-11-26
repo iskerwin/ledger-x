@@ -217,26 +217,33 @@ struct SubDueRow: View {
 
 struct SubscriptionsView: View {
     @Environment(Store.self) var store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var editing: SubDraft?
     @State private var demoDetail: String?
+    @State private var flight = SubFlight()
 
     var body: some View {
         Group {
-            if let L = store.L { list(L) } else { PageLoading() }
+            if let L = store.L { page(L) } else { PageLoading() }
         }
         .refreshable { await store.refresh() }
         .navigationTitle(LS("订阅管理"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                NavigationLink(value: SubCalendarDest()) { Image(systemName: "calendar") }
-                    .accessibilityLabel(LS("订阅日历"))
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { editing = SubDraft(currency: store.L?.base ?? "CNY") } label: { Image(systemName: "plus") }
-                    .accessibilityLabel(LS("添加订阅"))
+            if flight.open == nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink(value: SubCalendarDest()) { Image(systemName: "calendar") }
+                        .accessibilityLabel(LS("订阅日历"))
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { editing = SubDraft(currency: store.L?.base ?? "CNY") } label: { Image(systemName: "plus") }
+                        .accessibilityLabel(LS("添加订阅"))
+                }
             }
         }
+        .environment(flight)
+        .onChange(of: store.cfg.id) { _, _ in flight.reset() }
+        .onChange(of: reduceMotion, initial: true) { _, on in flight.reduceMotion = on }
         .sheet(item: $editing) { SubEditSheet(draft: $0) }
         .navigationDestination(item: $demoDetail) { SubscriptionDetailView(name: $0) }
         .task {
@@ -246,12 +253,38 @@ struct SubscriptionsView: View {
         }
     }
 
-    private func list(_ L: Ledger) -> some View {
-        let all = store.subs
+    /// the stacks, and over them the open card's subscription (`SubFlight`)
+    private func page(_ L: Ledger) -> some View {
         let today = Day.today()
+        let all = store.subs
         let active = all.filter { $0.status == .active }.sorted { $0.nextCharge(onOrAfter: today) < $1.nextCharge(onOrAfter: today) }
-        let misplaced = store.misplacedSubLines.count
         let inactive = all.filter { $0.status != .active }
+        let open = flight.open.flatMap { link in all.first { $0.link == link } }
+        return ZStack {
+            // kept while one is open: its place and where each card goes back to
+            list(L, active: active, inactive: inactive, today: today)
+                .opacity(flight.shown ? 0 : 1)
+                .allowsHitTesting(flight.open == nil)
+                .accessibilityHidden(flight.open != nil)
+            if let open {
+                // the others folded at the bottom: the soonest ones, as many as show
+                let others = (active + inactive).filter { $0.link != open.link }
+                SubscriptionDetailView(name: open.name, close: { flight.close() }, folded: Array(others.prefix(4)))
+                    .opacity(flight.shown ? 1 : 0)
+            }
+        }
+        .overlay {
+            if flight.phase == .opening || flight.phase == .closing {
+                SubFlightLayer(cards: active.reversed() + inactive.reversed(), today: today)
+            }
+        }
+        // deleted, or gone with a refresh: back to the stacks at once
+        .onChange(of: open == nil) { _, gone in if gone && flight.open != nil { flight.reset() } }
+    }
+
+    private func list(_ L: Ledger, active: [Subscription], inactive: [Subscription], today: String) -> some View {
+        let all = store.subs
+        let misplaced = store.misplacedSubLines.count
         let due = subscriptionsDue(L, today: today, subs: all)
         let monthly = active.reduce(0.0) { $0 + (toCNY(L, $1.monthly, $1.currency) ?? 0) }
         let year = String(today.prefix(4))
@@ -360,7 +393,12 @@ private func byCategory(_ subs: [Subscription], _ L: Ledger) -> [(key: String, v
 
 struct SubscriptionDetailView: View {
     @Environment(Store.self) var store
+    @Environment(SubFlight.self) private var flight: SubFlight?
     let name: String
+    /// opened in place from 订阅管理's stacks: closes back into them, with the other cards folded at the bottom
+    var close: (() -> Void)? = nil
+    var folded: [Subscription] = []
+    @State private var editingFace = false
     @State private var editing: SubDraft?
     @State private var stateChange: SubStatus?
     @State private var linking = false
@@ -388,7 +426,7 @@ struct SubscriptionDetailView: View {
         let alerts = subscriptionAlerts(s, today: today)
         let charges = Array(s.charges.reversed())
         return List {
-            hero(s, today: today, next: next)
+            if close != nil { openCard(s, today: today) } else { hero(s, today: today, next: next) }
             infoSection(s)
             if !alerts.isEmpty {
                 Section(LS("需要留意")) {
@@ -428,9 +466,24 @@ struct SubscriptionDetailView: View {
                 Text(LS("左滑变更记录可撤销。「调价或更改」会新增一条带生效日期的记录，保留历史；「修正记录」直接修改最近一条，用于改正填错的内容。"))
             }
         }
-        .safeAreaInset(edge: .bottom) { actionBar(s) }
-        .toolbar(.hidden, for: .tabBar)
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { moreMenu(s, next: next) } }
+        .safeAreaInset(edge: .bottom) {
+            if close != nil { SubFoldedStack(cards: folded, today: today) } else { actionBar(s) }
+        }
+        .modifier(HidesTabBar(on: close == nil))
+        .navigationBarBackButtonHidden(close != nil)
+        .toolbar {
+            if let close {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { close() } label: { Image(systemName: "xmark") }.accessibilityLabel(LS("关闭"))
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) { moreMenu(s, next: next) }
+        }
+        .sheet(isPresented: $editingFace) {
+            let face = store.subFace(s)
+            FaceStyleSheet(subject: face.subject, title: s.name, tint: face.tint)
+                .tint(Color.jadeInk).environment(\.locale, AppLanguage.current.locale)
+        }
         .listSectionSpacing(.compact)
         .confirmationDialog(LS("删除订阅「%@」？", name), isPresented: $confirmDelete, titleVisibility: .visible) {
             let n = s.charges.filter { $0.txn.links.contains(s.link) }.count
@@ -443,6 +496,20 @@ struct SubscriptionDetailView: View {
             Button(role: .destructive) { if let u = undoing { undo(u, s) } } label: { Text(LS("撤销")) }
         } message: {
             Text(undoing.map { $0.from + " " + $0.title } ?? "")
+        }
+    }
+
+    /// opened in place: the same card as in the stack, where its flight lands; a tap closes it
+    private func openCard(_ s: Subscription, today: String) -> some View {
+        Section {
+            Button { close?() } label: { SubCard(s: s, today: today) }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("sub.card." + s.name)
+                .fixedSize(horizontal: false, vertical: true)
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { flight?.place(s.link, $0, open: true) }
+                // its copy is in the air until it lands
+                .opacity(flight?.phase == .open ? 1 : 0)
+                .cardRow()
         }
     }
 
@@ -547,7 +614,15 @@ struct SubscriptionDetailView: View {
 
     /// the everyday actions at the bottom, as on a transaction
     private func actionBar(_ s: Subscription) -> some View {
-        let items: [ActionRow.Item] = s.status == .active ? [
+        ActionRow(size: .large, items: actionItems(s))
+            .padding(.horizontal, AppSpacing.content)
+            .padding(.top, AppSpacing.icon)
+            .padding(.bottom, AppSpacing.icon)
+            .background(.bar)
+    }
+
+    private func actionItems(_ s: Subscription) -> [ActionRow.Item] {
+        s.status == .active ? [
             ActionRow.Item(title: s.manual ? LS("记一笔续费") : LS("记一笔扣费"), systemImage: "plus.circle", emphasis: .primary) { store.recordSubscription(s) },
             ActionRow.Item(title: LS("调价或更改"), systemImage: "slider.horizontal.3") { editing = SubDraft(s, mode: .change) },
         ] : [
@@ -555,16 +630,19 @@ struct SubscriptionDetailView: View {
                 var d = SubDraft(s, mode: .change); d.status = .active; editing = d
             },
         ]
-        return ActionRow(size: .large, items: items)
-            .padding(.horizontal, AppSpacing.content)
-            .padding(.top, AppSpacing.icon)
-            .padding(.bottom, AppSpacing.icon)
-            .background(.bar)
     }
 
     /// everything else, as a transaction's ⋯
     private func moreMenu(_ s: Subscription, next: String) -> some View {
         Menu {
+            // opened in place there is no bar under it: its buttons are here
+            if close != nil {
+                ForEach(Array(actionItems(s).enumerated()), id: \.offset) { _, a in
+                    Button { a.action() } label: { Label(a.title, systemImage: a.systemImage) }
+                }
+                Button { editingFace = true } label: { Label(LS("编辑卡面"), systemImage: "paintbrush") }
+                Divider()
+            }
             if s.status == .active {
                 Button { editing = SubDraft(dueOf: s) } label: { Label(LS("调整到期日"), systemImage: "calendar.badge.clock") }
                 Button { skip(s, next) } label: { Label(LS("跳过下一期（%@）", next), systemImage: "forward.end") }
@@ -634,7 +712,8 @@ struct SubscriptionDetailView: View {
 
     private func delete(_ s: Subscription, unlink: Bool) {
         let ops = subscriptionDeleteOps(s, unlink: unlink)
-        Task { if await store.commit(ops, word: LS("已删除")) { dismiss() } }
+        // opened in place: 订阅管理 goes back to its stacks by itself once it is gone
+        Task { if await store.commit(ops, word: LS("已删除")), close == nil { dismiss() } }
     }
 
     private func undo(_ item: SubTimelineItem, _ s: Subscription) {
@@ -669,6 +748,14 @@ struct SubscriptionDetailView: View {
 }
 
 // MARK: - pause / cancel
+
+/// hides the tab bar on a page pushed over it; not on one opened in place, which would move the page under it
+private struct HidesTabBar: ViewModifier {
+    let on: Bool
+    func body(content: Content) -> some View {
+        if on { content.toolbar(.hidden, for: .tabBar) } else { content }
+    }
+}
 
 struct SubStateSheet: View {
     @Environment(Store.self) var store
