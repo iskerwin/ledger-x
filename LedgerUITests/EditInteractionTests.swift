@@ -1875,6 +1875,40 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertEqual(empty.height, spent.height, accuracy: 0.5)
     }
 
+    /// 订阅管理 keeps its subscriptions as a stack of cards: the ones behind show the same strip, the front one is
+    /// whole, and a card behind opens its own subscription
+    func testSubscriptionsStackAsCards() {
+        checkSubscriptionStack(textSize: nil)
+    }
+
+    func testSubscriptionsStackAsCardsAtLargeText() {
+        checkSubscriptionStack(textSize: "UICTContentSizeCategoryXXXL")
+    }
+
+    private func checkSubscriptionStack(textSize: String?) {
+        let extra = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/subs-extra.bean").path
+        let app = launchTab("reports", textSize: textSize, env: ["LEDGER_EXTRA": extra])
+        let subs = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "订阅管理")).firstMatch
+        XCTAssertTrue(app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "年度回顾")).firstMatch.waitForExistence(timeout: 20))
+        for _ in 0..<6 { if subs.exists && subs.isHittable { break }; app.swipeUp() }
+        subs.tap()
+        let names = ["Example News", "Example Cloud", "Netflix"]
+        let found = names.map { app.descendants(matching: .any)["sub.card." + $0].firstMatch }
+        XCTAssertTrue(found[0].waitForExistence(timeout: 5))
+        // in order of the next charge, which moves with today: taken from the top down
+        let cards = zip(names, found.map(\.frame)).sorted { $0.1.minY < $1.1.minY }
+        let frames = cards.map(\.1)
+        // one under another, each behind showing the same strip and the front one taller than a strip
+        let first = frames[1].minY - frames[0].minY, second = frames[2].minY - frames[1].minY
+        XCTAssertGreaterThan(first, 20)
+        XCTAssertEqual(first, second, accuracy: 1)
+        XCTAssertGreaterThan(frames[2].height, first * 2)
+        XCTAssertEqual(frames[0].width, frames[2].width, accuracy: 1)
+        // the strip of a card behind is its own: it opens that subscription
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: frames[0].midX, dy: frames[0].minY + first / 2)).tap()
+        XCTAssertTrue(app.navigationBars[cards[0].0].waitForExistence(timeout: 5))
+    }
+
     /// 持仓、均价、现价 of an open holding each sit in the middle of their third
     func testHoldingStatsAreCentred() {
         let extra = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/holdings-extra.bean").path

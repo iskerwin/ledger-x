@@ -4,22 +4,37 @@ import LedgerKit
 /// 账户卡片 → 卡面: the top of an account's page drawn as a card. A known bank or wallet (`FaceLook`) gets close to
 /// its own colours and its built-in icon (`FaceMarks`), large and faint, in the corner; any other account its
 /// group's colour, its own texture (picked from the account's name, the same on every launch) and its group's icon
-/// (cash) or else the first character of its name.
+/// (cash) or else the first character of its name. A subscription's card is drawn the same way from the service it
+/// is for (`FaceLook.service`), else its own colour and its category's icon.
 struct FaceCard<Content: View>: View {
     @Environment(Store.self) var store
-    let account: String
+    let subject: FaceSubject
     let title: String
     let tint: Color
     /// the style to draw instead of the saved one (编辑卡面's preview); the preview is not itself editable
     var preview: FaceStyle? = nil
     /// a bank card or a credit card: 卡片信息 is offered beside 编辑卡面
     var holdsCard = false
+    /// more items for the card's menu, before 编辑卡面
+    var actions: [FaceAction] = []
+    var identifier = "card.face"
     @ViewBuilder let content: (Color) -> Content
     @State private var editing = false
     @State private var cardInfo = false
 
+    init(account: String, title: String, tint: Color, preview: FaceStyle? = nil, holdsCard: Bool = false,
+         @ViewBuilder content: @escaping (Color) -> Content) {
+        self.init(subject: .account(account), title: title, tint: tint, preview: preview, holdsCard: holdsCard, content: content)
+    }
+
+    init(subject: FaceSubject, title: String, tint: Color, preview: FaceStyle? = nil, holdsCard: Bool = false,
+         actions: [FaceAction] = [], identifier: String = "card.face", @ViewBuilder content: @escaping (Color) -> Content) {
+        self.subject = subject; self.title = title; self.tint = tint; self.preview = preview
+        self.holdsCard = holdsCard; self.actions = actions; self.identifier = identifier; self.content = content
+    }
+
     var body: some View {
-        let d = FaceDesign(account: account, title: title, tint: tint, style: preview ?? store.faceStyles[account] ?? FaceStyle(), ledger: store.cfg.id)
+        let d = FaceDesign(subject: subject, title: title, tint: tint, style: preview ?? store.faceStyles[subject.key] ?? FaceStyle(), ledger: store.cfg.id)
         content(d.ink)
             .foregroundStyle(d.ink)
             .padding(AppSpacing.content)
@@ -39,6 +54,7 @@ struct FaceCard<Content: View>: View {
             .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
             .contextMenu {
                 if preview == nil {
+                    ForEach(actions) { a in Button { a.run() } label: { Label(a.title, systemImage: a.symbol) } }
                     Button { editing = true } label: { Label(LS("编辑卡面"), systemImage: "paintbrush") }
                     if holdsCard {
                         Button { cardInfo = true } label: { Label(LS("卡片信息"), systemImage: "creditcard") }
@@ -46,21 +62,92 @@ struct FaceCard<Content: View>: View {
                 }
             }
             .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("card.face")
+            .accessibilityIdentifier(identifier)
+            .modifier(FaceActionsA11y(actions: preview == nil ? actions : []))
             .accessibilityAction(named: Text(LS("编辑卡面"))) { if preview == nil { editing = true } }
             .accessibilityAction(named: Text(LS("卡片信息"))) { if preview == nil && holdsCard { cardInfo = true } }
             .sheet(isPresented: $editing) {
-                FaceStyleSheet(account: account, title: title, tint: tint)
+                FaceStyleSheet(subject: subject, title: title, tint: tint)
                     .tint(Color.jadeInk).environment(\.locale, AppLanguage.current.locale)
             }
             .sheet(isPresented: $cardInfo) {
-                CardInfoSheet(account: account, title: title)
-                    .tint(Color.jadeInk).environment(\.locale, AppLanguage.current.locale)
+                if case .account(let account) = subject {
+                    CardInfoSheet(account: account, title: title)
+                        .tint(Color.jadeInk).environment(\.locale, AppLanguage.current.locale)
+                }
             }
     }
 }
 
-/// What a card is drawn with once its saved style, its institution and its group's colour are settled.
+/// an item of a card's menu (and the same as an accessibility action)
+struct FaceAction: Identifiable {
+    var id: String { title }
+    let title: String
+    let symbol: String
+    let run: () -> Void
+}
+
+private struct FaceActionsA11y: ViewModifier {
+    let actions: [FaceAction]
+    func body(content: Content) -> some View {
+        actions.reduce(AnyView(content)) { view, a in AnyView(view.accessibilityAction(named: Text(a.title), a.run)) }
+    }
+}
+
+/// what a card face is drawn for. Its manual style is kept in `Store.faceStyles` under `key`: an account's name, or
+/// `sub:` and a subscription's link (the link stays when the subscription is renamed).
+enum FaceSubject: Equatable {
+    case account(String)
+    /// `symbol`: its category's icon, the watermark when it is for no known service
+    case subscription(link: String, name: String, payee: String, symbol: String)
+
+    var key: String {
+        switch self {
+        case .account(let a): return a
+        case .subscription(let link, _, _, _): return "sub:" + link
+        }
+    }
+
+    /// the institution or service recognised from its name, nil when none
+    func recognised(title: String) -> String? {
+        switch self {
+        case .account(let a): return institution(account: a, name: title)?.id
+        case .subscription(_, let name, let payee, _): return subService(name: name, payee: payee)?.id
+        }
+    }
+
+    func look(_ id: String?) -> FaceLook? {
+        switch self {
+        case .account: return FaceLook.of(id)
+        case .subscription: return FaceLook.service(id)
+        }
+    }
+
+    /// what 编辑卡面 offers to pick from, with their names
+    var named: [(id: String, name: String)] {
+        switch self {
+        case .account: return FaceLook.named
+        case .subscription: return FaceLook.servicesNamed
+        }
+    }
+
+    /// the icon drawn by default when there is no known one's own: an account group's (cash), a subscription's category
+    var defaultSymbol: Image? {
+        switch self {
+        case .account(let a): return FaceMarks.group(of: a).flatMap(FaceMarks.image)
+        case .subscription(_, _, _, let symbol): return Image(systemName: symbol)
+        }
+    }
+
+    /// a built-in icon for a known institution; services have none (their marks are text)
+    func builtInSymbol(_ id: String?) -> Image? {
+        switch self {
+        case .account: return id.flatMap(FaceMarks.image)
+        case .subscription: return nil
+        }
+    }
+}
+
 struct FaceDesign {
     let fill: Color
     let accent: Color
@@ -76,14 +163,18 @@ struct FaceDesign {
     let opacity: Double
 
     @MainActor init(account: String, title: String, tint: Color, style: FaceStyle, ledger: String) {
-        let id = style.institution.map { $0 == FaceStyle.noInstitution ? nil : $0 } ?? institution(account: account, name: title)?.id
-        let look = FaceLook.of(id)
+        self.init(subject: .account(account), title: title, tint: tint, style: style, ledger: ledger)
+    }
+
+    @MainActor init(subject: FaceSubject, title: String, tint: Color, style: FaceStyle, ledger: String) {
+        let id = style.institution.map { $0 == FaceStyle.noInstitution ? nil : $0 } ?? subject.recognised(title: title)
+        let look = subject.look(id)
         let picked = IconTint.color(style.color)
         fill = picked ?? look?.color ?? tint
         // a colour of one's own is flat: the brand's second colour would not go with it
         accent = picked == nil ? (look?.accent ?? fill) : fill
         ink = picked == nil ? (look?.ink ?? fill.onFill) : fill.onFill
-        pattern = style.pattern.flatMap(FacePatternKind.init(rawValue:)).map(FacePattern.init(kind:)) ?? look?.pattern ?? FacePattern.of(account)
+        pattern = style.pattern.flatMap(FacePatternKind.init(rawValue:)).map(FacePattern.init(kind:)) ?? look?.pattern ?? FacePattern.of(subject.key)
         iconMono = style.iconMono ?? true
         size = min(1.5, max(0.5, style.size ?? 1))
         opacity = min(0.4, max(0.04, style.opacity ?? FaceStyle.defaultOpacity))
@@ -91,8 +182,10 @@ struct FaceDesign {
         case .off?:
             mark = nil; icon = nil; symbol = nil
         case .icon?:
-            mark = nil; symbol = nil
+            mark = nil
             icon = style.icon.flatMap { FaceIcons.image($0, ledger: ledger, mono: style.iconMono ?? true, strength: style.strength ?? FaceStyle.defaultStrength) }
+            // a subscription's 图标 with nothing uploaded yet: its category's icon (an account's picks a built-in one)
+            if icon == nil, case .subscription = subject { symbol = subject.defaultSymbol } else { symbol = nil }
         case .symbol(let s)?:
             mark = nil; icon = nil
             symbol = FaceMarks.image(s)
@@ -101,7 +194,7 @@ struct FaceDesign {
         case nil:
             icon = nil
             // a known institution's own icon, else its group's (cash); its short mark only while it has none
-            symbol = look == nil ? FaceMarks.group(of: account).flatMap(FaceMarks.image) : id.flatMap(FaceMarks.image)
+            symbol = look == nil ? subject.defaultSymbol : subject.builtInSymbol(id)
             mark = symbol == nil ? look?.mark ?? FacePattern.mark(title) : nil
         }
     }
@@ -173,7 +266,8 @@ struct FaceLook {
         Color(red: Double(v >> 16 & 0xFF) / 255, green: Double(v >> 8 & 0xFF) / 255, blue: Double(v & 0xFF) / 255)
     }
 
-    private static func look(_ color: UInt32, _ accent: UInt32, _ pattern: FacePattern, _ mark: String, ink: UInt32? = nil) -> FaceLook {
+    /// a look from its colours (also the services' in SubscriptionCards.swift)
+    static func look(_ color: UInt32, _ accent: UInt32, _ pattern: FacePattern, _ mark: String, ink: UInt32? = nil) -> FaceLook {
         FaceLook(color: hex(color), accent: hex(accent), ink: ink.map(hex), pattern: pattern, mark: mark)
     }
 

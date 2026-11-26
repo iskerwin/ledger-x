@@ -236,7 +236,6 @@
  "上面的合计折算为 %@；条形图按原币种。": "The totals above are in %@; the bars are in each currency as booked.",
  "下一步": "Next",
  "下个账单日": "Next statement",
- "下次 %@（%@）": "next %@ (%@)",
  "下次扣费 %@（%@）": "Next charge %@ (%@)",
  "下次扣费日": "Next charge",
  "下次扣费日改为 %@": "Next charge moved to %@",
@@ -2462,5 +2461,19 @@
  "从常用分类隐藏": "Hide from Common Categories",
  "分类图标与排序…": "Category Icons & Order…",
  "在常用分类中显示": "Show among common categories",
- "更换图标与名称…": "Change Icon & Name…"
+ "更换图标与名称…": "Change Icon & Name…",
+ "服务": "Service",
+ "下次续费": "Next renewal",
+ "下次扣费": "Next charge",
+ "哔哩哔哩": "bilibili",
+ "爱奇艺": "iQIYI",
+ "腾讯视频": "Tencent Video",
+ "优酷": "Youku",
+ "网易云音乐": "NetEase Cloud Music",
+ "QQ 音乐": "QQ Music",
+ "京东 PLUS": "JD PLUS",
+ "淘宝 88VIP": "Taobao 88VIP",
+ "按订阅名称和收款方自动认出常见服务；认错或想换时在这里选，「不用」就用订阅自己的颜色。": "Common services are recognised from the subscription's name and payee; pick one here when it is wrong, or None for the subscription's own colour.",
+ "「默认」是服务的配色，没有服务时是订阅自己的颜色。": "Default is the service's colours, or the subscription's own colour when there is no service.",
+ "没选图标时用订阅分类的图标；也可以从照片或文件选自己的图标。单色时图标变成卡面文字颜色的剪影。": "Without an icon of your own the card shows its category's icon; you can also pick one from Photos or Files. Single colour turns the icon into a silhouette in the card's text colour."
 }

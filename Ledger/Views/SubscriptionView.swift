@@ -42,6 +42,12 @@ extension Store {
         return catIcon(catOf(s.account))
     }
 
+    /// a subscription's card: drawn for the service it is for, else in its category's picked colour or one of its own
+    func subFace(_ s: Subscription) -> (subject: FaceSubject, tint: Color) {
+        let tint = pickedTint(s.account) ?? CategoryPalette.color(stableColorSlot(s.name, count: CategoryPalette.colors.count))
+        return (.subscription(link: s.link, name: s.name, payee: s.payee, symbol: subIcon(s)), tint)
+    }
+
     /// subscriptions and candidates for the current ledger, computed once per rebuild
     var subs: [Subscription] {
         guard let L = L else { return [] }
@@ -211,7 +217,6 @@ struct SubDueRow: View {
 
 struct SubscriptionsView: View {
     @Environment(Store.self) var store
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var editing: SubDraft?
     @State private var demoDetail: String?
 
@@ -304,12 +309,12 @@ struct SubscriptionsView: View {
             }
             Section {
                 if active.isEmpty { EmptyAdd(text: LS("还没有订阅。也可以在交易详情里选择「加入订阅管理」。"), title: LS("添加订阅")) { editing = SubDraft(currency: store.L?.base ?? "CNY") } }
-                ForEach(active) { s in row(s, L, today) }
+                else { SubCardStack(subs: active, today: today).cardRow() }
             } header: {
                 Text(LS("订阅中"))
             }
             if !inactive.isEmpty {
-                Section(LS("已暂停 / 已取消")) { ForEach(inactive) { s in row(s, L, today) } }
+                Section(LS("已暂停 / 已取消")) { SubCardStack(subs: inactive, today: today).cardRow() }
             }
             statsSection(all, L, today)
         }
@@ -322,54 +327,6 @@ struct SubscriptionsView: View {
         Task { await store.commit(ops, word: LS("已整理订阅记录")) }
     }
 
-    private func row(_ s: Subscription, _ L: Ledger, _ today: String) -> some View {
-        let next = s.nextCharge(onOrAfter: today)
-        let alerts = subscriptionAlerts(s, today: today)
-        let when: String
-        if s.status == .active {
-            when = s.period.name + " · " + LS("下次 %@（%@）", next, daysText(next, today: today))
-        } else {
-            var tail = s.statusDate
-            if let u = s.until, u >= today { tail = LS("可用至 %@", u) }
-            when = s.period.name + " · " + s.status.name + " · " + tail
-        }
-        let count = s.periodCharges.count
-        let countLine = LS("已扣 %@ 期 · 累计 %@", count, money(s.totalPaid, s.currency, 0))
-        // each by its category's icon (as on its detail page), so they tell apart at a glance; paused or ended grey
-        let icon = s.status == .active ? store.subIcon(s) : s.status == .paused ? "pause" : "xmark"
-        let tint: Color = s.status == .active ? .purple : .gray
-        // charged today or tomorrow: the icon breathes
-        let dueSoon = s.status == .active && next >= today && next <= Day.shift(today, 1)
-        return NavigationLink(value: SubDetailDest(name: s.name)) {
-            HStack(spacing: AppSpacing.icon) {
-                IconBadge(symbol: icon, color: tint, size: 30)
-                    .symbolEffect(.pulse, options: .repeating, isActive: dueSoon && !reduceMotion)
-                VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                    HStack(spacing: AppSpacing.detail) {
-                        Text(s.name)
-                        if !alerts.isEmpty { Image(systemName: "exclamationmark.circle.fill").font(.caption).foregroundStyle(Color.warn) }
-                    }
-                    Text(when).font(.caption).foregroundStyle(.secondary)
-                    Text(countLine).font(.caption2).foregroundStyle(.secondary).sensitive()
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: AppSpacing.detail) {
-                    Text(money(s.amount, s.currency)).monospacedDigit()
-                    if s.period != .monthly {
-                        Text(LS("月均 %@", money(s.monthly, s.currency))).font(.caption2).foregroundStyle(.secondary).monospacedDigit()
-                    }
-                }
-                .sensitive()
-            }
-        }
-        .rowActions(edge: .leading) {
-            if s.status == .active {
-                Button { store.recordSubscription(s) } label: { Label(LS("记一笔"), systemImage: "plus.circle") }.tint(Color.jade)
-            }
-        }
-    }
-
-    @ViewBuilder
     private func statsSection(_ all: [Subscription], _ L: Ledger, _ today: String) -> some View {
         let active = all.filter { $0.status == .active }
         if active.count >= 2 {
@@ -488,38 +445,37 @@ struct SubscriptionDetailView: View {
         }
     }
 
-    /// as a transaction's detail: the icon, the name, what it costs each period, where it stands, the totals
+    /// its card: the name and where it stands, what it costs each period, the totals
     private func hero(_ s: Subscription, today: String, next: String) -> some View {
         let statusText = s.status.name + " · " + s.statusDate + (s.until.map { $0 >= today ? " · " + LS("可用至 %@", $0) : "" } ?? "")
+        let face = store.subFace(s)
         return Section {
-            VStack(spacing: AppSpacing.icon) {
-                Image(systemName: store.subIcon(s))
-                    .font(.system(size: 26))
-                    .foregroundStyle(Color.jadeInk)
-                    .frame(width: 60, height: 60)
-                    .background(Color.jade.soft, in: Circle())
-                Text(s.name).font(.title3.weight(.semibold)).multilineTextAlignment(.center)
-                Text(money(s.amount, s.currency))
-                    .heroAmount().monospacedDigit()
-                    .rollingNumber(s.amount)
-                    .lineLimit(1).minimumScaleFactor(0.6)
-                    .sensitive()
-                Text(s.period.name).font(.footnote).foregroundStyle(.secondary)
-                Text(s.status == .active ? LS(s.manual ? "下次续费 %@（%@）" : "下次扣费 %@（%@）", next, daysText(next, today: today)) : statusText)
-                    .font(.subheadline).foregroundStyle(s.status == .active ? Color.secondary : Color.warn)
-                HStack(alignment: .top, spacing: AppSpacing.control) {
-                    Figure(label: LS("累计已付"), value: money(s.totalPaid, s.currency, 0))
-                    Spacer()
-                    Figure(label: LS("今年"), value: money(s.paid(in: String(today.prefix(4))), s.currency, 0))
-                    Spacer()
-                    Figure(label: LS("扣费次数"), value: "\(s.periodCharges.count)", alignment: .trailing)
+            FaceCard(subject: face.subject, title: s.name, tint: face.tint) { _ in
+                VStack(alignment: .leading, spacing: AppSpacing.control) {
+                    VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                        Text(s.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                        Text(s.status == .active ? LS(s.manual ? "下次续费 %@（%@）" : "下次扣费 %@（%@）", next, daysText(next, today: today)) : statusText)
+                            .font(.caption).opacity(0.8).lineLimit(1)
+                    }
+                    VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                        Text(s.period.name).font(.caption)
+                        Text(money(s.amount, s.currency))
+                            .heroAmount().monospacedDigit()
+                            .rollingNumber(s.amount)
+                            .lineLimit(1).minimumScaleFactor(0.6)
+                            .sensitive()
+                    }
+                    Rectangle().fill(.primary.opacity(0.18)).frame(height: 1).accessibilityHidden(true)
+                    HStack(alignment: .top, spacing: AppSpacing.control) {
+                        SubFigure(label: LS("累计已付"), value: money(s.totalPaid, s.currency, 0))
+                        Spacer(minLength: 0)
+                        SubFigure(label: LS("今年"), value: money(s.paid(in: String(today.prefix(4))), s.currency, 0))
+                        Spacer(minLength: 0)
+                        SubFigure(label: LS("扣费次数"), value: "\(s.periodCharges.count)", alignment: .trailing)
+                    }
                 }
-                .padding(.top, AppSpacing.icon)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, AppSpacing.content)
-            .padding(.horizontal, AppSpacing.content)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+            .grayscale(s.status == .active ? 0 : 1)
             .cardRow()
         }
     }

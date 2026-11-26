@@ -3,12 +3,12 @@ import PhotosUI
 import UniformTypeIdentifiers
 import LedgerKit
 
-/// 长按卡面 → 编辑卡面: one account's card changed by hand: its institution, colour, texture and watermark (a text,
+/// 长按卡面 → 编辑卡面: one account's (or subscription's) card changed by hand: its institution, colour, texture and watermark (a text,
 /// an icon of one's own, or none). Kept on this phone for this ledger; the preview at the top follows each change.
 struct FaceStyleSheet: View {
     @Environment(Store.self) var store
     @Environment(\.dismiss) private var dismiss
-    let account: String
+    let subject: FaceSubject
     let title: String
     let tint: Color
     @State private var style = FaceStyle()
@@ -34,8 +34,12 @@ struct FaceStyleSheet: View {
             case .auto: style.mark = nil
             case .text: style.mark = .text(FacePattern.mark(title))
             // the built-in icon of the institution the card is for, else its group's; an uploaded one when there is one
-            case .icon: style.mark = style.icon != nil ? .icon
-                : (institutionID ?? FaceMarks.group(of: account)).map(FaceStyle.Mark.symbol) ?? .icon
+            // (a subscription's: its category's icon, drawn for `.icon` until one is uploaded)
+            case .icon:
+                if style.icon != nil { style.mark = .icon; break }
+                if case .account(let account) = subject {
+                    style.mark = (institutionID ?? FaceMarks.group(of: account)).map(FaceStyle.Mark.symbol) ?? .icon
+                } else { style.mark = .icon }
             case .off: style.mark = .off
             }
         }
@@ -48,14 +52,16 @@ struct FaceStyleSheet: View {
         } set: { t in style.mark = .text(String(t.prefix(4))) }
     }
 
-    /// what 自动 stands for: the institution recognised from the account's name
+    /// what 自动 stands for: the institution recognised from the account's name, or the service from the subscription's
     private var recognised: String? {
-        institution(account: account, name: title).flatMap { i in FaceLook.named.first { $0.id == i.id }?.name }
+        subject.recognised(title: title).flatMap { id in subject.named.first { $0.id == id }?.name }
     }
+
+    private var isSubscription: Bool { if case .subscription = subject { true } else { false } }
 
     /// the institution the card is drawn for: the one picked, else the one recognised
     private var institutionID: String? {
-        style.institution.map { $0 == FaceStyle.noInstitution ? nil : $0 } ?? institution(account: account, name: title)?.id
+        style.institution.map { $0 == FaceStyle.noInstitution ? nil : $0 } ?? subject.recognised(title: title)
     }
 
     var body: some View {
@@ -63,10 +69,10 @@ struct FaceStyleSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    FaceCard(account: account, title: title, tint: tint, preview: style) { _ in
+                    FaceCard(subject: subject, title: title, tint: tint, preview: style) { _ in
                         VStack(alignment: .leading, spacing: AppSpacing.control) {
                             Text(title).font(.subheadline.weight(.semibold)).lineLimit(1)
-                            Text(LS("当前余额")).font(.caption)
+                            if !isSubscription { Text(LS("当前余额")).font(.caption) }
                             Text(masked("1,234.56")).heroAmount().monospacedDigit()
                         }
                         .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
@@ -76,21 +82,22 @@ struct FaceStyleSheet: View {
                     .accessibilityIdentifier("face.preview")
                 }
                 Section {
-                    Picker(LS("机构"), selection: $style.institution) {
+                    Picker(isSubscription ? LS("服务") : LS("机构"), selection: $style.institution) {
                         Text(recognised.map { LS("自动（%@）", $0) } ?? LS("自动（未识别）")).tag(String?.none)
                         Text(LS("不用")).tag(String?.some(FaceStyle.noInstitution))
-                        ForEach(FaceLook.named, id: \.id) { i in Text(i.name).tag(String?.some(i.id)) }
+                        ForEach(subject.named, id: \.id) { i in Text(i.name).tag(String?.some(i.id)) }
                     }
                     .accessibilityIdentifier("face.institution")
                 } footer: {
-                    Text(LS("按账户名自动认出常见银行和钱包；认错或想换时在这里选，「不用」就用大类颜色。"))
+                    Text(isSubscription ? LS("按订阅名称和收款方自动认出常见服务；认错或想换时在这里选，「不用」就用订阅自己的颜色。")
+                         : LS("按账户名自动认出常见银行和钱包；认错或想换时在这里选，「不用」就用大类颜色。"))
                 }
                 Section {
-                    IconTintGrid(tint: $style.color, fallback: FaceDesign(account: account, title: title, tint: tint, style: withoutColor, ledger: ledger).fill)
+                    IconTintGrid(tint: $style.color, fallback: FaceDesign(subject: subject, title: title, tint: tint, style: withoutColor, ledger: ledger).fill)
                 } header: {
                     Text(LS("颜色"))
                 } footer: {
-                    Text(LS("「默认」是机构的配色，没有机构时是大类颜色。"))
+                    Text(isSubscription ? LS("「默认」是服务的配色，没有服务时是订阅自己的颜色。") : LS("「默认」是机构的配色，没有机构时是大类颜色。"))
                 }
                 Section {
                     Picker(LS("纹理"), selection: $style.pattern) {
@@ -144,7 +151,7 @@ struct FaceStyleSheet: View {
             .onAppear {
                 guard !loaded else { return }
                 loaded = true
-                style = store.faceStyles[account] ?? FaceStyle()
+                style = store.faceStyles[subject.key] ?? FaceStyle()
                 // UI tests: an icon as if picked, so the upload path can be checked without the photo library
                 if let path = store.demoEnv["LEDGER_FACE_ICON"] { adopt(FileManager.default.contents(atPath: path), ledger: ledger) }
             }
@@ -169,7 +176,8 @@ struct FaceStyleSheet: View {
                     .accessibilityIdentifier("face.markText")
             }
             if markChoice.wrappedValue == .icon {
-                SymbolGrid(mark: $style.mark, uploaded: style.icon != nil)
+                // the built-in icons are banks' and wallets': not offered on a subscription's card
+                if !isSubscription { SymbolGrid(mark: $style.mark, uploaded: style.icon != nil) }
                 PhotosPicker(selection: $photo, matching: .images) {
                     Label(style.icon == nil ? LS("从照片选择图标") : LS("从照片换一个图标"), systemImage: "photo").labelStyle(ControlLabelStyle())
                 }
@@ -197,6 +205,7 @@ struct FaceStyleSheet: View {
         } footer: {
             if markChoice.wrappedValue == .icon {
                 Text(iconFailed ? LS("这个文件不是能读的图片，换一张试试。")
+                     : isSubscription ? LS("没选图标时用订阅分类的图标；也可以从照片或文件选自己的图标。单色时图标变成卡面文字颜色的剪影。")
                      : LS("点一个内置图标直接换；也可以从照片或文件选自己的图标。单色时图标变成卡面文字颜色的剪影：透明背景的 PNG 直接用它的形状；有底色的图片按四个角的颜色去掉背景，去不干净时调「强度」。"))
             }
         }
@@ -212,14 +221,14 @@ struct FaceStyleSheet: View {
 
     private func leave(keep: Bool) {
         let ledger = store.cfg.id
-        let before = store.faceStyles[account]?.icon
+        let before = store.faceStyles[subject.key]?.icon
         let kept = keep ? style.icon : before
         // icons no longer used: the ones picked here and not kept, and the old one when it was replaced or reset
         for name in Set(added + [before].compactMap { $0 }) where name != kept { FaceIcons.remove(name, ledger: ledger) }
         if keep {
             var s = style
             if s.icon != nil, s.mark != .icon { FaceIcons.remove(s.icon!, ledger: ledger); s.icon = nil }
-            store.faceStyles[account] = s.isEmpty ? nil : s
+            store.faceStyles[subject.key] = s.isEmpty ? nil : s
         }
         dismiss()
     }
