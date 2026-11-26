@@ -66,7 +66,9 @@ struct AccountsPage: View {
         // when each card's bill is due, where one is still owed
         let due = Dictionary(ledger.cardCyclesKept().filter { $0.statementAmount - $0.paid > 0.005 }.map { ($0.account, $0.due) }) { a, _ in a }
         let categories = categoryLines
-        let names = mode == .worth ? lines.filter { !folded.contains(rootGroup($0)) }.map(\.name) : categories.lines.map(\.name)
+        let held = mode == .worth ? holdings(ledger) : []
+        let names = mode == .worth ? (held.isEmpty ? [] : [HoldingsPane.key]) + lines.filter { !folded.contains(rootGroup($0)) }.map(\.name)
+            : categories.lines.map(\.name)
         HStack(spacing: 0) {
             VStack(spacing: 0) {
                 Picker(selection: $mode) {
@@ -80,6 +82,7 @@ struct AccountsPage: View {
                         VStack(alignment: .leading, spacing: 12) {
                             if mode == .worth {
                                 worthCard
+                                if !held.isEmpty { holdingsRow(held).id(HoldingsPane.key) }
                                 ForEach(["Assets", "Liabilities"], id: \.self) { root in
                                     ForEach(groups(lines.filter { $0.name.hasPrefix(root + ":") }), id: \.0) { group in
                                         groupSection(root + ":" + group.0, group.0, group.1, due)
@@ -112,7 +115,14 @@ struct AccountsPage: View {
             .frame(width: 340)
             Divider()
             Group {
-                if mode == .worth, let selected, let line = lines.first(where: { $0.name == selected }) {
+                if mode == .worth, selected == HoldingsPane.key, !held.isEmpty {
+                    HoldingsPane(ledger: ledger, folder: folder) { account in
+                        // its group unfolded, so the account is in the list to be picked
+                        let group = account.components(separatedBy: ":").prefix(2).joined(separator: ":")
+                        if folded.contains(group) { foldedRaw = folded.subtracting([group]).sorted().joined(separator: ",") }
+                        selected = account
+                    }
+                } else if mode == .worth, let selected, let line = lines.first(where: { $0.name == selected }) {
                     AccountDetail(ledger: ledger, config: config, account: line.name, balance: line.balance, folder: folder, mode: mode, period: period)
                         .id(selected)
                 } else if mode != .worth, let selected, categories.lines.contains(where: { $0.name == selected }) {
@@ -133,12 +143,15 @@ struct AccountsPage: View {
         }
         .sheet(isPresented: $managing) { AccountManager(ledger: ledger, folder: folder) }
         .onAppear {
-            if selected == nil { selected = names.first }
+            if selected == nil { selected = firstAccount(names) }
             listFocused = true
         }
         // a category that took nothing in the new period leaves the list, and the switch starts on the first line
-        .onChange(of: names) { if !(selected.map(names.contains) ?? false) { selected = names.first } }
+        .onChange(of: names) { if !(selected.map(names.contains) ?? false) { selected = firstAccount(names) } }
     }
+
+    /// the page opens on its first account, as before 投资持仓 was above them
+    private func firstAccount(_ names: [String]) -> String? { names.first { $0 != HoldingsPane.key } ?? names.first }
 
     /// the period's span; all time runs from the first entry to today
     private var span: (String, String) {
@@ -200,6 +213,46 @@ struct AccountsPage: View {
             .padding(.horizontal, 8)
             .padding(.vertical, line.sub ? 5 : 7)
             .background(picked ? Color.jade : Color.clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .focusEffectDisabled()
+        .accessibilityAddTraits(picked ? .isSelected : [])
+    }
+
+    /// 投资持仓 under 净资产, as the phone's tile: the market value and how far it is up or down
+    private func holdingsRow(_ held: [Holding]) -> some View {
+        let picked = selected == HoldingsPane.key
+        let value = held.reduce(0.0) { $0 + inBase(ledger, $1.value ?? $1.cost, $1.q) }
+        let cost = held.reduce(0.0) { $0 + inBase(ledger, $1.cost, $1.q) }
+        let change = cost > 0 ? (value >= cost ? LS("持仓浮盈 %@", String(format: "+%.1f%%", (value - cost) / cost * 100))
+                                               : LS("持仓浮亏 %@", String(format: "−%.1f%%", (cost - value) / cost * 100))) : ""
+        return Button {
+            selected = HoldingsPane.key
+            listFocused = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 32, height: 32)
+                    .background(Color.jade, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(LS("投资持仓")).lineLimit(1)
+                    if !change.isEmpty {
+                        Text(change).font(.caption).foregroundStyle(picked ? Color.white.opacity(0.8) : Color.secondary).lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 8)
+                Text(money(value, ledger.base)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .foregroundStyle(picked ? Color.white : Color.primary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 7)
+            .background(picked ? Color.jade : Color.clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .padding(4)
+            .background(Color.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

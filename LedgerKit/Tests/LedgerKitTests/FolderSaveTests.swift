@@ -668,4 +668,17 @@ final class FolderSaveTests: XCTestCase {
         XCTAssertEqual(work.receivable, "Assets:Receivable:Work")
     }
 
+
+    /// 更新价格 on the Mac writes the price lines into the folder, where the ledger then reads them
+    func testPricesAreWrittenIntoTheFolder() throws {
+        let line = "2026-11-26 price USD" + String(repeating: " ", count: 23) + "7.1 CNY"
+        try commitFolderSave(try prepareFolderPrices([line], folder: folder).get(), folder: folder)
+        let L = try XCTUnwrap(loadLedger(folder: folder))
+        XCTAssertEqual(latestPrice(L, "USD", "CNY")?.number, 7.1)
+        XCTAssertEqual(latestPrice(L, "USD", "CNY")?.date, "2026-11-26")
+    }
+
+    func testNoPricesAreRefused() {
+        guard case .failure = prepareFolderPrices([], folder: folder) else { return XCTFail("nothing to write was accepted") }
+    }
 }

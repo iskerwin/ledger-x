@@ -174,6 +174,13 @@ public func prepareFolderCommodity(_ currency: String, firstUsed: String?, folde
     return folderDirective("\(date) commodity \(currency)", ledger, folder: folder)
 }
 
+/// 更新价格 on the Mac: the price lines (`typedPriceLines`, `PriceFetch.line`) put where prices go, as the phone writes them
+public func prepareFolderPrices(_ lines: [String], folder: URL) -> Result<FolderSave, FolderSaveError> {
+    guard !lines.isEmpty else { return .failure(FolderSaveError(message: tr("没有填写新价格", "No new prices were entered"))) }
+    guard let ledger = loadLedger(folder: folder) else { return .failure(noLedgerInFolder) }
+    return folderDirective(lines.joined(separator: "\n"), ledger, folder: folder)
+}
+
 /// a line of its own (an assertion, a declaration), put where its kind goes
 private func folderDirective(_ text: String, _ ledger: Ledger, folder: URL) -> Result<FolderSave, FolderSaveError> {
     let layout = folderLayout(ledger, folder: folder)
