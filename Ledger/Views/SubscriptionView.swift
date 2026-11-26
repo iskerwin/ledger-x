@@ -265,7 +265,6 @@ struct SubscriptionsView: View {
             list(L, active: active, inactive: inactive, today: today)
                 .opacity(flight.shown ? 0 : 1)
                 .allowsHitTesting(flight.open == nil)
-                .accessibilityHidden(flight.open != nil)
             if let open {
                 // the others folded at the bottom: the soonest ones, as many as show
                 let others = (active + inactive).filter { $0.link != open.link }
@@ -291,65 +290,69 @@ struct SubscriptionsView: View {
         let paidThisYear = all.reduce(0.0) { $0 + (toCNY(L, $1.paid(in: year), $1.currency) ?? 0) }
         let cands = store.subCandidates
         return List {
-            Section {
-                Card(padding: AppSpacing.summary) {
-                    VStack(alignment: .leading, spacing: AppSpacing.content) {
-                        VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                            Text(LS("月均")).font(.subheadline).foregroundStyle(.secondary)
-                            Text(money(monthly, L.base)).heroAmount(HeroAmount.summary).monospacedDigit()
-                                .rollingNumber(monthly).sensitive()
-                        }
-                        Divider()
-                        FigureRow(items: [
-                            .init(label: LS("%@ 年已付", year), value: money(paidThisYear, L.base, 0)),
-                            .init(label: LS("订阅中"), value: "\(active.count)"),
-                        ], alignment: .center)
-                    }
-                }
-                .cardRow()
-            }
-            if misplaced > 0 {
+            // hidden row by row while a card is open: a List's own accessibilityHidden does not reach its rows
+            Group {
                 Section {
-                    Button { tidy() } label: {
-                        Label(LS("把 %@ 条订阅记录移到 %@", misplaced, store.layout.subscriptionsPath), systemImage: "tray.and.arrow.down").labelStyle(ControlLabelStyle())
-                    }
-                } footer: {
-                    Text(LS("订阅记录集中放在单独的文件里，主文件只保留 include；移动在一次提交中完成。文件名可在 设置 → 仓库结构 中修改。"))
-                }
-            }
-            if !due.isEmpty {
-                Section(LS("待记账")) { ForEach(due) { SubDueRow(due: $0) } }
-            }
-            if !cands.isEmpty {
-                Section {
-                    ForEach(cands) { c in
-                        HStack(spacing: AppSpacing.control) {
+                    Card(padding: AppSpacing.summary) {
+                        VStack(alignment: .leading, spacing: AppSpacing.content) {
                             VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                                Text(c.payee)
-                                Text(LS("%@ · %@ 笔 · %@ 起", c.period.name, c.count, c.first)).font(.caption).foregroundStyle(.secondary)
+                                Text(LS("月均")).font(.subheadline).foregroundStyle(.secondary)
+                                Text(money(monthly, L.base)).heroAmount(HeroAmount.summary).monospacedDigit()
+                                    .rollingNumber(monthly).sensitive()
                             }
-                            Spacer()
-                            Text(money(c.amount, c.currency)).monospacedDigit().sensitive()
-                            Button { editing = SubDraft(c) } label: { Label(LS("加入"), systemImage: "plus").labelStyle(ControlLabelStyle()) }.rowButton()
+                            Divider()
+                            FigureRow(items: [
+                                .init(label: LS("%@ 年已付", year), value: money(paidThisYear, L.base, 0)),
+                                .init(label: LS("订阅中"), value: "\(active.count)"),
+                            ], alignment: .center)
                         }
-                        .rowActions { Button { store.ignoreCandidate(c) } label: { Label(LS("忽略"), systemImage: "eye.slash") }.tint(.gray) }
                     }
-                } header: {
-                    Text(LS("发现可能的订阅"))
-                } footer: {
-                    HintFooter(LS("同一收付款方按固定周期扣费的交易。加入后会把这些交易关联到订阅。"), tip: LS("左滑可忽略。"), .swipe)
+                    .cardRow()
                 }
+                if misplaced > 0 {
+                    Section {
+                        Button { tidy() } label: {
+                            Label(LS("把 %@ 条订阅记录移到 %@", misplaced, store.layout.subscriptionsPath), systemImage: "tray.and.arrow.down").labelStyle(ControlLabelStyle())
+                        }
+                    } footer: {
+                        Text(LS("订阅记录集中放在单独的文件里，主文件只保留 include；移动在一次提交中完成。文件名可在 设置 → 仓库结构 中修改。"))
+                    }
+                }
+                if !due.isEmpty {
+                    Section(LS("待记账")) { ForEach(due) { SubDueRow(due: $0) } }
+                }
+                if !cands.isEmpty {
+                    Section {
+                        ForEach(cands) { c in
+                            HStack(spacing: AppSpacing.control) {
+                                VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                                    Text(c.payee)
+                                    Text(LS("%@ · %@ 笔 · %@ 起", c.period.name, c.count, c.first)).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(money(c.amount, c.currency)).monospacedDigit().sensitive()
+                                Button { editing = SubDraft(c) } label: { Label(LS("加入"), systemImage: "plus").labelStyle(ControlLabelStyle()) }.rowButton()
+                            }
+                            .rowActions { Button { store.ignoreCandidate(c) } label: { Label(LS("忽略"), systemImage: "eye.slash") }.tint(.gray) }
+                        }
+                    } header: {
+                        Text(LS("发现可能的订阅"))
+                    } footer: {
+                        HintFooter(LS("同一收付款方按固定周期扣费的交易。加入后会把这些交易关联到订阅。"), tip: LS("左滑可忽略。"), .swipe)
+                    }
+                }
+                Section {
+                    if active.isEmpty { EmptyAdd(text: LS("还没有订阅。也可以在交易详情里选择「加入订阅管理」。"), title: LS("添加订阅")) { editing = SubDraft(currency: store.L?.base ?? "CNY") } }
+                    else { SubCardStack(subs: active, today: today).cardRow() }
+                } header: {
+                    Text(LS("订阅中"))
+                }
+                if !inactive.isEmpty {
+                    Section(LS("已暂停 / 已取消")) { SubCardStack(subs: inactive, today: today).cardRow() }
+                }
+                statsSection(all, L, today)
             }
-            Section {
-                if active.isEmpty { EmptyAdd(text: LS("还没有订阅。也可以在交易详情里选择「加入订阅管理」。"), title: LS("添加订阅")) { editing = SubDraft(currency: store.L?.base ?? "CNY") } }
-                else { SubCardStack(subs: active, today: today).cardRow() }
-            } header: {
-                Text(LS("订阅中"))
-            }
-            if !inactive.isEmpty {
-                Section(LS("已暂停 / 已取消")) { SubCardStack(subs: inactive, today: today).cardRow() }
-            }
-            statsSection(all, L, today)
+            .accessibilityHidden(flight.open != nil)
         }
         .listChanges(store.version)
         .listSectionSpacing(.compact)
