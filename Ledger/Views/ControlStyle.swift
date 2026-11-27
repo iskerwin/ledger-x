@@ -13,9 +13,11 @@ enum AppSpacing {
     static let summary: CGFloat = 20
 }
 
-/// Corner radii: a card 22, a panel inside one 14, a key or a control 12, a tile 8, a tiny mark 4
+/// Corner radii: a card 26, a panel inside one 14, a key or a control 12, a tile 8, a tiny mark 4
 enum AppRadius {
-    static let card: CGFloat = 22
+    /// as round as an iOS 26 inset List's own corners: a card at a section's edge is not cut rounder by the List
+    /// than the same card elsewhere (in the middle of a section, or a copy in flight out of the List)
+    static let card: CGFloat = 26
     static let panel: CGFloat = 14
     static let control: CGFloat = 12
     static let tile: CGFloat = 8

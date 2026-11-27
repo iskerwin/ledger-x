@@ -734,3 +734,19 @@ public func ambiguousSubscriptions(payee: String, account: String, amount: Doubl
             && (s.payee == payee || s.name == payee) && abs(abs(s.amount - amount) - d) < 0.005
     }
 }
+
+/// 订阅管理's cards: the active ones by their next charge, soonest first, then the paused and cancelled ones. Every
+/// place the cards show (the stacks, the cards in flight) draws them in this one order, so a card in flight never
+/// passes over another.
+public struct SubCards {
+    public let active: [Subscription]
+    public let inactive: [Subscription]
+
+    public init(_ subs: [Subscription], today: String) {
+        active = subs.filter { $0.status == .active }.sorted { $0.nextCharge(onOrAfter: today) < $1.nextCharge(onOrAfter: today) }
+        inactive = subs.filter { $0.status != .active }
+    }
+
+    /// back to front: the soonest is drawn last, on top
+    public var drawn: [Subscription] { (active + inactive).reversed() }
+}
