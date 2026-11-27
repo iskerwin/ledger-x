@@ -42,6 +42,12 @@ extension Store {
         return catIcon(catOf(s.account))
     }
 
+    /// a subscription's card: drawn for the service it is for, else in its category's picked colour or one of its own
+    func subFace(_ s: Subscription) -> (subject: FaceSubject, tint: Color) {
+        let tint = pickedTint(s.account) ?? CategoryPalette.color(stableColorSlot(s.name, count: CategoryPalette.colors.count))
+        return (.subscription(link: s.link, name: s.name, payee: s.payee, symbol: subIcon(s)), tint)
+    }
+
     /// subscriptions and candidates for the current ledger, computed once per rebuild
     var subs: [Subscription] {
         guard let L = L else { return [] }
@@ -214,24 +220,30 @@ struct SubscriptionsView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var editing: SubDraft?
     @State private var demoDetail: String?
+    @State private var flight = SubFlight()
 
     var body: some View {
         Group {
-            if let L = store.L { list(L) } else { PageLoading() }
+            if let L = store.L { page(L) } else { PageLoading() }
         }
         .refreshable { await store.refresh() }
         .navigationTitle(LS("订阅管理"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                NavigationLink(value: SubCalendarDest()) { Image(systemName: "calendar") }
-                    .accessibilityLabel(LS("订阅日历"))
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { editing = SubDraft(currency: store.L?.base ?? "CNY") } label: { Image(systemName: "plus") }
-                    .accessibilityLabel(LS("添加订阅"))
+            if flight.open == nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink(value: SubCalendarDest()) { Image(systemName: "calendar") }
+                        .accessibilityLabel(LS("订阅日历"))
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { editing = SubDraft(currency: store.L?.base ?? "CNY") } label: { Image(systemName: "plus") }
+                        .accessibilityLabel(LS("添加订阅"))
+                }
             }
         }
+        .environment(flight)
+        .onChange(of: store.cfg.id) { _, _ in flight.reset() }
+        .onChange(of: reduceMotion, initial: true) { _, on in flight.reduceMotion = on }
         .sheet(item: $editing) { SubEditSheet(draft: $0) }
         .navigationDestination(item: $demoDetail) { SubscriptionDetailView(name: $0) }
         .task {
@@ -241,77 +253,106 @@ struct SubscriptionsView: View {
         }
     }
 
-    private func list(_ L: Ledger) -> some View {
-        let all = store.subs
+    /// the stacks, and over them the open card's subscription (`SubFlight`)
+    private func page(_ L: Ledger) -> some View {
         let today = Day.today()
+        let all = store.subs
         let active = all.filter { $0.status == .active }.sorted { $0.nextCharge(onOrAfter: today) < $1.nextCharge(onOrAfter: today) }
-        let misplaced = store.misplacedSubLines.count
         let inactive = all.filter { $0.status != .active }
+        let open = flight.open.flatMap { link in all.first { $0.link == link } }
+        return ZStack {
+            // kept while one is open: its place and where each card goes back to
+            list(L, active: active, inactive: inactive, today: today)
+                .opacity(flight.shown ? 0 : 1)
+                .allowsHitTesting(flight.open == nil)
+            if let open {
+                // the others folded at the bottom: the soonest ones, as many as show
+                let others = (active + inactive).filter { $0.link != open.link }
+                SubscriptionDetailView(name: open.name, close: { flight.close() }, folded: Array(others.prefix(4)))
+                    .opacity(flight.shown ? 1 : 0)
+            }
+        }
+        .overlay {
+            if flight.phase == .opening || flight.phase == .closing {
+                SubFlightLayer(cards: active.reversed() + inactive.reversed(), today: today)
+            }
+        }
+        // deleted, or gone with a refresh: back to the stacks at once
+        .onChange(of: open == nil) { _, gone in if gone && flight.open != nil { flight.reset() } }
+    }
+
+    private func list(_ L: Ledger, active: [Subscription], inactive: [Subscription], today: String) -> some View {
+        let all = store.subs
+        let misplaced = store.misplacedSubLines.count
         let due = subscriptionsDue(L, today: today, subs: all)
         let monthly = active.reduce(0.0) { $0 + (toCNY(L, $1.monthly, $1.currency) ?? 0) }
         let year = String(today.prefix(4))
         let paidThisYear = all.reduce(0.0) { $0 + (toCNY(L, $1.paid(in: year), $1.currency) ?? 0) }
         let cands = store.subCandidates
         return List {
-            Section {
-                Card(padding: AppSpacing.summary) {
-                    VStack(alignment: .leading, spacing: AppSpacing.content) {
-                        VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                            Text(LS("月均")).font(.subheadline).foregroundStyle(.secondary)
-                            Text(money(monthly, L.base)).heroAmount(HeroAmount.summary).monospacedDigit()
-                                .rollingNumber(monthly).sensitive()
-                        }
-                        Divider()
-                        FigureRow(items: [
-                            .init(label: LS("%@ 年已付", year), value: money(paidThisYear, L.base, 0)),
-                            .init(label: LS("订阅中"), value: "\(active.count)"),
-                        ], alignment: .center)
-                    }
-                }
-                .cardRow()
-            }
-            if misplaced > 0 {
+            // hidden row by row while a card is open: a List's own accessibilityHidden does not reach its rows
+            Group {
                 Section {
-                    Button { tidy() } label: {
-                        Label(LS("把 %@ 条订阅记录移到 %@", misplaced, store.layout.subscriptionsPath), systemImage: "tray.and.arrow.down").labelStyle(ControlLabelStyle())
-                    }
-                } footer: {
-                    Text(LS("订阅记录集中放在单独的文件里，主文件只保留 include；移动在一次提交中完成。文件名可在 设置 → 仓库结构 中修改。"))
-                }
-            }
-            if !due.isEmpty {
-                Section(LS("待记账")) { ForEach(due) { SubDueRow(due: $0) } }
-            }
-            if !cands.isEmpty {
-                Section {
-                    ForEach(cands) { c in
-                        HStack(spacing: AppSpacing.control) {
+                    Card(padding: AppSpacing.summary) {
+                        VStack(alignment: .leading, spacing: AppSpacing.content) {
                             VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                                Text(c.payee)
-                                Text(LS("%@ · %@ 笔 · %@ 起", c.period.name, c.count, c.first)).font(.caption).foregroundStyle(.secondary)
+                                Text(LS("月均")).font(.subheadline).foregroundStyle(.secondary)
+                                Text(money(monthly, L.base)).heroAmount(HeroAmount.summary).monospacedDigit()
+                                    .rollingNumber(monthly).sensitive()
                             }
-                            Spacer()
-                            Text(money(c.amount, c.currency)).monospacedDigit().sensitive()
-                            Button { editing = SubDraft(c) } label: { Label(LS("加入"), systemImage: "plus").labelStyle(ControlLabelStyle()) }.rowButton()
+                            Divider()
+                            FigureRow(items: [
+                                .init(label: LS("%@ 年已付", year), value: money(paidThisYear, L.base, 0)),
+                                .init(label: LS("订阅中"), value: "\(active.count)"),
+                            ], alignment: .center)
                         }
-                        .rowActions { Button { store.ignoreCandidate(c) } label: { Label(LS("忽略"), systemImage: "eye.slash") }.tint(.gray) }
                     }
-                } header: {
-                    Text(LS("发现可能的订阅"))
-                } footer: {
-                    HintFooter(LS("同一收付款方按固定周期扣费的交易。加入后会把这些交易关联到订阅。"), tip: LS("左滑可忽略。"), .swipe)
+                    .cardRow()
                 }
+                if misplaced > 0 {
+                    Section {
+                        Button { tidy() } label: {
+                            Label(LS("把 %@ 条订阅记录移到 %@", misplaced, store.layout.subscriptionsPath), systemImage: "tray.and.arrow.down").labelStyle(ControlLabelStyle())
+                        }
+                    } footer: {
+                        Text(LS("订阅记录集中放在单独的文件里，主文件只保留 include；移动在一次提交中完成。文件名可在 设置 → 仓库结构 中修改。"))
+                    }
+                }
+                if !due.isEmpty {
+                    Section(LS("待记账")) { ForEach(due) { SubDueRow(due: $0) } }
+                }
+                if !cands.isEmpty {
+                    Section {
+                        ForEach(cands) { c in
+                            HStack(spacing: AppSpacing.control) {
+                                VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                                    Text(c.payee)
+                                    Text(LS("%@ · %@ 笔 · %@ 起", c.period.name, c.count, c.first)).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(money(c.amount, c.currency)).monospacedDigit().sensitive()
+                                Button { editing = SubDraft(c) } label: { Label(LS("加入"), systemImage: "plus").labelStyle(ControlLabelStyle()) }.rowButton()
+                            }
+                            .rowActions { Button { store.ignoreCandidate(c) } label: { Label(LS("忽略"), systemImage: "eye.slash") }.tint(.gray) }
+                        }
+                    } header: {
+                        Text(LS("发现可能的订阅"))
+                    } footer: {
+                        HintFooter(LS("同一收付款方按固定周期扣费的交易。加入后会把这些交易关联到订阅。"), tip: LS("左滑可忽略。"), .swipe)
+                    }
+                }
+                Section {
+                    if active.isEmpty { EmptyAdd(text: LS("还没有订阅。也可以在交易详情里选择「加入订阅管理」。"), title: LS("添加订阅")) { editing = SubDraft(currency: store.L?.base ?? "CNY") } }
+                    else { SubCardStack(subs: active, today: today).cardRow() }
+                } header: {
+                    Text(LS("订阅中"))
+                }
+                if !inactive.isEmpty {
+                    Section(LS("已暂停 / 已取消")) { SubCardStack(subs: inactive, today: today).cardRow() }
+                }
+                statsSection(all, L, today)
             }
-            Section {
-                if active.isEmpty { EmptyAdd(text: LS("还没有订阅。也可以在交易详情里选择「加入订阅管理」。"), title: LS("添加订阅")) { editing = SubDraft(currency: store.L?.base ?? "CNY") } }
-                ForEach(active) { s in row(s, L, today) }
-            } header: {
-                Text(LS("订阅中"))
-            }
-            if !inactive.isEmpty {
-                Section(LS("已暂停 / 已取消")) { ForEach(inactive) { s in row(s, L, today) } }
-            }
-            statsSection(all, L, today)
+            .accessibilityHidden(flight.open != nil)
         }
         .listChanges(store.version)
         .listSectionSpacing(.compact)
@@ -320,53 +361,6 @@ struct SubscriptionsView: View {
     private func tidy() {
         guard let ops = store.moveSubLinesOps(), !ops.isEmpty else { return }
         Task { await store.commit(ops, word: LS("已整理订阅记录")) }
-    }
-
-    private func row(_ s: Subscription, _ L: Ledger, _ today: String) -> some View {
-        let next = s.nextCharge(onOrAfter: today)
-        let alerts = subscriptionAlerts(s, today: today)
-        let when: String
-        if s.status == .active {
-            when = s.period.name + " · " + LS("下次 %@（%@）", next, daysText(next, today: today))
-        } else {
-            var tail = s.statusDate
-            if let u = s.until, u >= today { tail = LS("可用至 %@", u) }
-            when = s.period.name + " · " + s.status.name + " · " + tail
-        }
-        let count = s.periodCharges.count
-        let countLine = LS("已扣 %@ 期 · 累计 %@", count, money(s.totalPaid, s.currency, 0))
-        // each by its category's icon (as on its detail page), so they tell apart at a glance; paused or ended grey
-        let icon = s.status == .active ? store.subIcon(s) : s.status == .paused ? "pause" : "xmark"
-        let tint: Color = s.status == .active ? .purple : .gray
-        // charged today or tomorrow: the icon breathes
-        let dueSoon = s.status == .active && next >= today && next <= Day.shift(today, 1)
-        return NavigationLink(value: SubDetailDest(name: s.name)) {
-            HStack(spacing: AppSpacing.icon) {
-                IconBadge(symbol: icon, color: tint, size: 30)
-                    .symbolEffect(.pulse, options: .repeating, isActive: dueSoon && !reduceMotion)
-                VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                    HStack(spacing: AppSpacing.detail) {
-                        Text(s.name)
-                        if !alerts.isEmpty { Image(systemName: "exclamationmark.circle.fill").font(.caption).foregroundStyle(Color.warn) }
-                    }
-                    Text(when).font(.caption).foregroundStyle(.secondary)
-                    Text(countLine).font(.caption2).foregroundStyle(.secondary).sensitive()
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: AppSpacing.detail) {
-                    Text(money(s.amount, s.currency)).monospacedDigit()
-                    if s.period != .monthly {
-                        Text(LS("月均 %@", money(s.monthly, s.currency))).font(.caption2).foregroundStyle(.secondary).monospacedDigit()
-                    }
-                }
-                .sensitive()
-            }
-        }
-        .rowActions(edge: .leading) {
-            if s.status == .active {
-                Button { store.recordSubscription(s) } label: { Label(LS("记一笔"), systemImage: "plus.circle") }.tint(Color.jade)
-            }
-        }
     }
 
     @ViewBuilder
@@ -402,7 +396,12 @@ private func byCategory(_ subs: [Subscription], _ L: Ledger) -> [(key: String, v
 
 struct SubscriptionDetailView: View {
     @Environment(Store.self) var store
+    @Environment(SubFlight.self) private var flight: SubFlight?
     let name: String
+    /// opened in place from 订阅管理's stacks: closes back into them, with the other cards folded at the bottom
+    var close: (() -> Void)? = nil
+    var folded: [Subscription] = []
+    @State private var editingFace = false
     @State private var editing: SubDraft?
     @State private var stateChange: SubStatus?
     @State private var linking = false
@@ -430,7 +429,7 @@ struct SubscriptionDetailView: View {
         let alerts = subscriptionAlerts(s, today: today)
         let charges = Array(s.charges.reversed())
         return List {
-            hero(s, today: today, next: next)
+            if close != nil { openCard(s, today: today) } else { hero(s, today: today, next: next) }
             infoSection(s)
             if !alerts.isEmpty {
                 Section(LS("需要留意")) {
@@ -470,9 +469,24 @@ struct SubscriptionDetailView: View {
                 Text(LS("左滑变更记录可撤销。「调价或更改」会新增一条带生效日期的记录，保留历史；「修正记录」直接修改最近一条，用于改正填错的内容。"))
             }
         }
-        .safeAreaInset(edge: .bottom) { actionBar(s) }
-        .toolbar(.hidden, for: .tabBar)
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { moreMenu(s, next: next) } }
+        .safeAreaInset(edge: .bottom) {
+            if close != nil { SubFoldedStack(cards: folded, today: today) } else { actionBar(s) }
+        }
+        .modifier(HidesTabBar(on: close == nil))
+        .navigationBarBackButtonHidden(close != nil)
+        .toolbar {
+            if let close {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { close() } label: { Image(systemName: "xmark") }.accessibilityLabel(LS("关闭"))
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) { moreMenu(s, next: next) }
+        }
+        .sheet(isPresented: $editingFace) {
+            let face = store.subFace(s)
+            FaceStyleSheet(subject: face.subject, title: s.name, tint: face.tint)
+                .tint(Color.jadeInk).environment(\.locale, AppLanguage.current.locale)
+        }
         .listSectionSpacing(.compact)
         .confirmationDialog(LS("删除订阅「%@」？", name), isPresented: $confirmDelete, titleVisibility: .visible) {
             let n = s.charges.filter { $0.txn.links.contains(s.link) }.count
@@ -488,38 +502,51 @@ struct SubscriptionDetailView: View {
         }
     }
 
-    /// as a transaction's detail: the icon, the name, what it costs each period, where it stands, the totals
+    /// opened in place: the same card as in the stack, where its flight lands; a tap closes it
+    private func openCard(_ s: Subscription, today: String) -> some View {
+        Section {
+            Button { close?() } label: { SubCard(s: s, today: today) }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("sub.card." + s.name)
+                .fixedSize(horizontal: false, vertical: true)
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { flight?.place(s.link, $0, open: true) }
+                // its copy is in the air until it lands
+                .opacity(flight?.phase == .open ? 1 : 0)
+                .cardRow()
+        }
+    }
+
+    /// its card: the name and where it stands, what it costs each period, the totals
     private func hero(_ s: Subscription, today: String, next: String) -> some View {
         let statusText = s.status.name + " · " + s.statusDate + (s.until.map { $0 >= today ? " · " + LS("可用至 %@", $0) : "" } ?? "")
+        let face = store.subFace(s)
         return Section {
-            VStack(spacing: AppSpacing.icon) {
-                Image(systemName: store.subIcon(s))
-                    .font(.system(size: 26))
-                    .foregroundStyle(Color.jadeInk)
-                    .frame(width: 60, height: 60)
-                    .background(Color.jade.soft, in: Circle())
-                Text(s.name).font(.title3.weight(.semibold)).multilineTextAlignment(.center)
-                Text(money(s.amount, s.currency))
-                    .heroAmount().monospacedDigit()
-                    .rollingNumber(s.amount)
-                    .lineLimit(1).minimumScaleFactor(0.6)
-                    .sensitive()
-                Text(s.period.name).font(.footnote).foregroundStyle(.secondary)
-                Text(s.status == .active ? LS(s.manual ? "下次续费 %@（%@）" : "下次扣费 %@（%@）", next, daysText(next, today: today)) : statusText)
-                    .font(.subheadline).foregroundStyle(s.status == .active ? Color.secondary : Color.warn)
-                HStack(alignment: .top, spacing: AppSpacing.control) {
-                    Figure(label: LS("累计已付"), value: money(s.totalPaid, s.currency, 0))
-                    Spacer()
-                    Figure(label: LS("今年"), value: money(s.paid(in: String(today.prefix(4))), s.currency, 0))
-                    Spacer()
-                    Figure(label: LS("扣费次数"), value: "\(s.periodCharges.count)", alignment: .trailing)
+            FaceCard(subject: face.subject, title: s.name, tint: face.tint) { _ in
+                VStack(alignment: .leading, spacing: AppSpacing.control) {
+                    VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                        Text(s.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                        Text(s.status == .active ? LS(s.manual ? "下次续费 %@（%@）" : "下次扣费 %@（%@）", next, daysText(next, today: today)) : statusText)
+                            .font(.caption).opacity(0.8).lineLimit(1)
+                    }
+                    VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                        Text(s.period.name).font(.caption)
+                        Text(money(s.amount, s.currency))
+                            .heroAmount().monospacedDigit()
+                            .rollingNumber(s.amount)
+                            .lineLimit(1).minimumScaleFactor(0.6)
+                            .sensitive()
+                    }
+                    Rectangle().fill(.primary.opacity(0.18)).frame(height: 1).accessibilityHidden(true)
+                    HStack(alignment: .top, spacing: AppSpacing.control) {
+                        SubFigure(label: LS("累计已付"), value: money(s.totalPaid, s.currency, 0))
+                        Spacer(minLength: 0)
+                        SubFigure(label: LS("今年"), value: money(s.paid(in: String(today.prefix(4))), s.currency, 0))
+                        Spacer(minLength: 0)
+                        SubFigure(label: LS("扣费次数"), value: "\(s.periodCharges.count)", alignment: .trailing)
+                    }
                 }
-                .padding(.top, AppSpacing.icon)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, AppSpacing.content)
-            .padding(.horizontal, AppSpacing.content)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+            .grayscale(s.status == .active ? 0 : 1)
             .cardRow()
         }
     }
@@ -590,7 +617,15 @@ struct SubscriptionDetailView: View {
 
     /// the everyday actions at the bottom, as on a transaction
     private func actionBar(_ s: Subscription) -> some View {
-        let items: [ActionRow.Item] = s.status == .active ? [
+        ActionRow(size: .large, items: actionItems(s))
+            .padding(.horizontal, AppSpacing.content)
+            .padding(.top, AppSpacing.icon)
+            .padding(.bottom, AppSpacing.icon)
+            .background(.bar)
+    }
+
+    private func actionItems(_ s: Subscription) -> [ActionRow.Item] {
+        s.status == .active ? [
             ActionRow.Item(title: s.manual ? LS("记一笔续费") : LS("记一笔扣费"), systemImage: "plus.circle", emphasis: .primary) { store.recordSubscription(s) },
             ActionRow.Item(title: LS("调价或更改"), systemImage: "slider.horizontal.3") { editing = SubDraft(s, mode: .change) },
         ] : [
@@ -598,16 +633,19 @@ struct SubscriptionDetailView: View {
                 var d = SubDraft(s, mode: .change); d.status = .active; editing = d
             },
         ]
-        return ActionRow(size: .large, items: items)
-            .padding(.horizontal, AppSpacing.content)
-            .padding(.top, AppSpacing.icon)
-            .padding(.bottom, AppSpacing.icon)
-            .background(.bar)
     }
 
     /// everything else, as a transaction's ⋯
     private func moreMenu(_ s: Subscription, next: String) -> some View {
         Menu {
+            // opened in place there is no bar under it: its buttons are here
+            if close != nil {
+                ForEach(Array(actionItems(s).enumerated()), id: \.offset) { _, a in
+                    Button { a.action() } label: { Label(a.title, systemImage: a.systemImage) }
+                }
+                Button { editingFace = true } label: { Label(LS("编辑卡面"), systemImage: "paintbrush") }
+                Divider()
+            }
             if s.status == .active {
                 Button { editing = SubDraft(dueOf: s) } label: { Label(LS("调整到期日"), systemImage: "calendar.badge.clock") }
                 Button { skip(s, next) } label: { Label(LS("跳过下一期（%@）", next), systemImage: "forward.end") }
@@ -677,7 +715,8 @@ struct SubscriptionDetailView: View {
 
     private func delete(_ s: Subscription, unlink: Bool) {
         let ops = subscriptionDeleteOps(s, unlink: unlink)
-        Task { if await store.commit(ops, word: LS("已删除")) { dismiss() } }
+        // opened in place: 订阅管理 goes back to its stacks by itself once it is gone
+        Task { if await store.commit(ops, word: LS("已删除")), close == nil { dismiss() } }
     }
 
     private func undo(_ item: SubTimelineItem, _ s: Subscription) {
@@ -712,6 +751,14 @@ struct SubscriptionDetailView: View {
 }
 
 // MARK: - pause / cancel
+
+/// hides the tab bar on a page pushed over it; not on one opened in place, which would move the page under it
+private struct HidesTabBar: ViewModifier {
+    let on: Bool
+    func body(content: Content) -> some View {
+        if on { content.toolbar(.hidden, for: .tabBar) } else { content }
+    }
+}
 
 struct SubStateSheet: View {
     @Environment(Store.self) var store

@@ -1,0 +1,17 @@
+; three subscriptions for 订阅管理's stack of cards
+2026-01-01 open Expenses:Subscription CNY
+2026-01-05 custom "subscription" "Netflix" "monthly" 68.00 CNY
+  account: "Expenses:Subscription"
+  funding: "Assets:Bank:CGB"
+  payee: "Netflix"
+  link: "sub-netflix"
+2026-01-12 custom "subscription" "Example Cloud" "monthly" 21.00 CNY
+  account: "Expenses:Subscription"
+  funding: "Assets:Bank:CGB"
+  payee: "Example Cloud"
+  link: "sub-example-cloud"
+2026-02-20 custom "subscription" "Example News" "yearly" 298.00 CNY
+  account: "Expenses:Subscription"
+  funding: "Assets:Bank:CGB"
+  payee: "Example News"
+  link: "sub-example-news"
