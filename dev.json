@@ -20,13 +20,13 @@
       "versions": [
         {
           "version": "1.0.18",
-          "buildVersion": "76.1",
-          "date": "2026-11-27T13:50:32Z",
-          "localizedDescription": "# Ledger X 1.0.18 预览\n\n版本 1.0.18 · 构建 76.1 · fix/sub-card-flight-order cae0a5c 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+          "buildVersion": "76.2",
+          "date": "2026-11-27T14:17:24Z",
+          "localizedDescription": "# Ledger X 1.0.18 预览\n\n版本 1.0.18 · 构建 76.2 · fix/sub-card-flight-order 1985f36 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
           "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-          "size": 11203450,
+          "size": 11203170,
           "minOSVersion": "17.0",
-          "sha256": "e50cf2d09f4f07b9955bcd7545e0c6598d3413e1f3edfd48f20cddaf2c0ef673"
+          "sha256": "5847932a8f6883503dc9be0ab847a9f6e55e2529c2c46410abf0f7223d9456d6"
         },
         {
           "version": "1.0.18",
@@ -218,10 +218,10 @@
         }
       },
       "version": "1.0.18",
-      "versionDate": "2026-11-27T13:50:32Z",
-      "versionDescription": "# Ledger X 1.0.18 预览\n\n版本 1.0.18 · 构建 76.1 · fix/sub-card-flight-order cae0a5c 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
+      "versionDate": "2026-11-27T14:17:24Z",
+      "versionDescription": "# Ledger X 1.0.18 预览\n\n版本 1.0.18 · 构建 76.2 · fix/sub-card-flight-order 1985f36 。\n\n只做了静态检查、工具测试和 Release 编译，没有经过 PR 检查或开发版测试；用于在手机上确认修复效果，不能转正。合并后的开发版构建号更大，会直接覆盖安装。",
       "downloadURL": "https://github.com/iskerwin/ledger-x/releases/download/preview/Ledger.ipa",
-      "size": 11203450
+      "size": 11203170
     }
   ],
   "news": []
