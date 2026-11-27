@@ -282,7 +282,8 @@ struct SubscriptionsView: View {
             }
         }
         .background(Color(.systemGroupedBackground))
-        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: { opening.bottom = $0 }
+        // the screen's bottom edge: past the page's, under the home indicator, where the scrolled cards still show
+        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY + $0.safeAreaInsets.bottom } action: { opening.bottom = $0 }
         // deleted, or gone with a refresh: back to the stacks at once
         .onChange(of: open == nil) { _, gone in if gone && opening.link != nil { opening.reset() } }
     }

@@ -68,7 +68,7 @@ struct SubCard: View {
 @Observable final class SubOpening {
     /// the open subscription, by its link (a rename keeps it)
     private(set) var link: String?
-    /// the bottom of the page, in window space: how far a card goes to be below it
+    /// the screen's bottom edge, in window space: how far a card goes to be below it
     var bottom: CGFloat = 0
     var reduceMotion = false
 
@@ -114,7 +114,8 @@ private struct SubCardAway: ViewModifier {
         if opening.reduceMotion { content.opacity(away ? 0 : 1) } else {
             content.visualEffect { view, proxy in
                 let frame = proxy.frame(in: .global)
-                return view.offset(y: away && frame.maxY > 0 ? max(0, bottom - frame.minY) : 0)
+                // past the edge by its shadow too
+                return view.offset(y: away && frame.maxY > 0 ? max(0, bottom + AppSpacing.content - frame.minY) : 0)
             }
         }
     }
