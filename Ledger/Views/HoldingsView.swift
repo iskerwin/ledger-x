@@ -136,7 +136,7 @@ struct HoldingsView: View {
         let value = rows.reduce(0.0) { $0 + cny(L, $1.value ?? $1.cost, $1.q) }
         let cost = rows.reduce(0.0) { $0 + cny(L, $1.cost, $1.q) }
         let pxDate = rows.compactMap { $0.px?.date }.max()
-        let income = investIncome(L, String(Day.today().prefix(4))).reduce(0.0) { $0 + $1.2 }
+        let income = investIncome(L, year: String(Day.today().prefix(4))).reduce(0.0) { $0 + $1.all }
         let up = value >= cost
         return Section {
             Card(padding: AppSpacing.summary) {
@@ -274,7 +274,7 @@ struct HoldingsView: View {
     @ViewBuilder
     private func incomeSection(_ L: Ledger) -> some View {
         let year = String(Day.today().prefix(4))
-        let rows = investIncome(L, year)
+        let rows = investIncome(L, year: year)
         if !rows.isEmpty {
             Section {
                 ForEach(rows, id: \.0) { row in
@@ -299,32 +299,10 @@ struct HoldingsView: View {
     }
 
     static var incomeZH: [String: String] { ["Gain": LS("已实现收益"), "Dividend": LS("股息"), "Interest": LS("利息"), "StockAward": LS("股票奖励"), "Coupon": LS("票息")] }
-
-    /// Income:Invest:* (or any income account under an "Invest" group): (account, this year, all time)
-    private func investIncome(_ L: Ledger, _ year: String) -> [(String, Double, Double)] {
-        var ytd: [String: Double] = [:], all: [String: Double] = [:]
-        for t in L.txns {
-            for p in t.postings where p.units != nil && p.account.hasPrefix("Income:") && p.account.components(separatedBy: ":").contains(where: { $0.hasPrefix("Invest") }) {
-                let v = -(toCNY(L, p.units!, p.currency ?? L.base, t.date) ?? 0)
-                all[p.account, default: 0] += v
-                if t.date.hasPrefix(year) { ytd[p.account, default: 0] += v }
-            }
-        }
-        return all.keys.sorted { abs(all[$0]!) > abs(all[$1]!) }.map { ($0, ytd[$0] ?? 0, all[$0]!) }
-    }
 }
 
 
 // MARK: - 更新价格
-
-/// one row of the price sheet: a commodity or currency and the currency it is quoted in
-struct PriceItem: Identifiable, Hashable {
-    var id: String { c + "/" + q }
-    let c: String
-    let q: String
-    let last: Double?
-    let date: String?
-}
 
 /// write price directives for the held commodities and foreign currencies, all at once
 struct PriceUpdateSheet: View {
@@ -354,30 +332,8 @@ struct PriceUpdateSheet: View {
         }
     }
 
-    static func items(_ L: Ledger) -> [PriceItem] {
-        var seen = Set<String>()
-        var out: [PriceItem] = []
-        func add(_ c: String, _ q: String) {
-            guard c != q, seen.insert(c + "/" + q).inserted else { return }
-            let p = latestPrice(L, c, q)
-            out.append(PriceItem(c: c, q: q, last: p?.number, date: p?.date))
-        }
-        for h in holdings(L) { add(h.c, h.q) }
-        // foreign currencies held in assets or liabilities
-        for (a, cs) in L.final.sorted(by: { $0.key < $1.key }) where a.hasPrefix("Assets") || a.hasPrefix("Liabilities") {
-            for (c, n) in cs.sorted(by: { $0.key < $1.key }) where abs(n) > 0.005 && c.count == 3 && c.uppercased() == c && !holdings(L).contains(where: { $0.c == c }) {
-                add(c, L.base)
-            }
-        }
-        // anything else that already has prices
-        for p in L.prices where !seen.contains(p.currency.map { $0 + "/" + (p.quote ?? "") } ?? "") {
-            if let c = p.currency, let q = p.quote, out.count < 40 { add(c, q) }
-        }
-        return out
-    }
-
     private func form(_ L: Ledger) -> some View {
-        let items = Self.items(L)
+        let items = priceItems(L)
         return Form {
             Section {
                 DatePicker(LS("价格日期"), selection: dateBinding($date), displayedComponents: .date)
@@ -444,10 +400,7 @@ struct PriceUpdateSheet: View {
 
     private func lines() -> [String] {
         guard let L = store.L else { return [] }
-        return Self.items(L).compactMap { it in
-            guard let v = evalAmount(values[it.id] ?? ""), v > 0 else { return nil }
-            return "\(date) price \(it.c)" + String(repeating: " ", count: max(1, 26 - it.c.count)) + jsNumberString(roundTo(v, 6)) + " " + it.q
-        }
+        return typedPriceLines(priceItems(L), values, date: date)
     }
 
     private func save() {

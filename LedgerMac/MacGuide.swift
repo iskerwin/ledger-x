@@ -87,6 +87,8 @@ struct MacGuide: View {
         Topic(title: tr("账户、预算、订阅与报销", "Accounts, budgets, subscriptions and reimbursements"), points: [
             tr("账户页右上角「管理账户」可搜索全部账户、新建账户或修改开户信息，关闭和重新开启账户。修改开户信息会保留其他元数据；关闭保留历史，重新开启会移除 close 指令。「核对余额…」把账面余额和你看到的实际余额对一下。",
                "Manage Accounts at the top right of Accounts searches every account, creates one, edits its opening details, closes or reopens it. Editing keeps other metadata; closing keeps history, and reopening removes the close directive. Check Balance… compares the book balance with the one you see."),
+            tr("持有以成本记账的证券或基金时，账户页净资产下面有「投资持仓」，点开看总市值、持仓成本、浮动盈亏和收益率，按市场筛选、按市值、盈亏或名称排序；点一项看它的买入批次和 K 线（数据来自 Yahoo Finance），「账户明细」跳到它的账户。右上角「更新价格」可从 Yahoo Finance 获取或手动填写，每项写一条 price 指令，可用「编辑 › 撤销」撤回。",
+               "Holding securities or funds at cost, Accounts shows Investments under net worth: market value, cost, unrealised gain and return, filtered by market and sorted by value, gain or name. Pick one to see its buys and price chart (from Yahoo Finance); Account Register opens its account. Update Prices at the top right fetches prices from Yahoo Finance or takes them typed in, one price directive each; Edit › Undo takes them back."),
             tr("预算页右上角「管理预算」可添加预算，或从当前预算的「⋯」编辑、停用；调整默认从本月起生效，之前的记录保留。覆盖其他同日记录前会确认。「历史记录」可删除某条记录，删除后更早的预算可能重新生效。",
                "Manage Budgets at the top right of Budgets adds one, or a current budget's ⋯ menu edits or stops it. Changes start this month by default and keep earlier records. Overwriting another record on the same day asks first. History deletes a record; an earlier budget may then take effect again."),
             tr("订阅页右上角「添加订阅」，每个订阅的「⋯」或右键里可记一笔扣费、调价或更改、调整到期日、跳过下一期、暂停、取消、恢复、修正记录和删除；待记账旁有「记一笔」，可能的订阅旁有「加入…」。明细右键订阅的扣费可「并入上一期（补差）」或「改为单独一期」。",

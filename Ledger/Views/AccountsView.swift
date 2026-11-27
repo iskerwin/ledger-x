@@ -373,7 +373,7 @@ struct AccountsView: View {
                 }
                 // the count joins the row's label: tests find it by this
                 .accessibilityIdentifier("accounts.documents")
-                let prices = PriceUpdateSheet.items(L)
+                let prices = priceItems(L)
                 if !prices.isEmpty {
                     // a row with its words: the icon on 投资持仓 alone was easy to miss, and there is none without holdings
                     Button { pricing = true } label: {
