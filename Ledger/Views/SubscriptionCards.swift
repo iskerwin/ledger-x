@@ -3,9 +3,9 @@ import LedgerKit
 
 /// 订阅管理's subscriptions as a stack of cards, as Wallet keeps its passes: each card shows its top strip (the name
 /// and what it costs each period), the front one in full. Active ones come in order of their next charge, the
-/// soonest at the front. A card opens in place (`SubFlight`); its menu also has 记一笔 and 编辑卡面.
+/// soonest at the front. A card opens in place (`SubOpening`); its menu also has 记一笔 and 编辑卡面.
 struct SubCardStack: View {
-    @Environment(SubFlight.self) private var flight
+    @Environment(SubOpening.self) private var opening
     let subs: [Subscription]
     let today: String
     /// the strip each card behind the front one shows: its padding and the name's line, larger with the text
@@ -17,26 +17,30 @@ struct SubCardStack: View {
         VStack(spacing: 0) {
             ForEach(Array(cards.enumerated()), id: \.element.id) { i, s in
                 let front = i == cards.count - 1
-                Button { flight.openCard(s.link) } label: { SubCard(s: s, today: today) }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("sub.card." + s.name)
-                    // while one is open the stacks stay laid out under it, unseen and not read out
-                    .accessibilityHidden(flight.open != nil)
-                    // laid out whole whatever height it is given
-                    .fixedSize(horizontal: false, vertical: true)
-                    // where the whole card is, for its flight: taken before the strip cuts it short
-                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { flight.place(s.link, $0, open: false) }
-                    // while one is open its copy flies in its place
-                    .opacity(flight.phase == .closed ? 1 : 0)
-                    // the ones behind take only their strip; the rest of each lies under the card in front of it
-                    .frame(height: front ? nil : peek, alignment: .top)
-                    .zIndex(Double(i))
+                Group {
+                    if opening.link == s.link {
+                        // gone to the top of the page: its place kept for it
+                        SubCard(s: s, today: today, still: true).hidden()
+                    } else {
+                        Button { opening.open(s.link) } label: { SubCard(s: s, today: today) }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("sub.card." + s.name)
+                            .modifier(SubCardMatch(link: s.link))
+                    }
+                }
+                // laid out whole whatever height it is given
+                .fixedSize(horizontal: false, vertical: true)
+                // while one is open the others are down below the screen, as Wallet's
+                .modifier(SubCardAway(away: opening.link != nil && opening.link != s.link, bottom: opening.bottom))
+                // the ones behind take only their strip; the rest of each lies under the card in front of it
+                .frame(height: front ? nil : peek, alignment: .top)
+                .zIndex(Double(i))
             }
         }
     }
 }
 
-/// a subscription's card; `still` for a copy (in flight, or in the stack under the open one): no menu, not read out
+/// a subscription's card; `still` for one only drawn (its place kept in the stack): no menu, not read out
 struct SubCard: View {
     @Environment(Store.self) var store
     let s: Subscription
@@ -48,7 +52,7 @@ struct SubCard: View {
         let actions = s.status == .active && !still ? [FaceAction(title: LS("记一笔"), symbol: "plus.circle") { store.recordSubscription(s) }] : []
         FaceCard(subject: face.subject, title: s.name, tint: face.tint,
                  preview: still ? store.faceStyles[face.subject.key] ?? FaceStyle() : nil,
-                 actions: actions, identifier: "sub.card." + s.name) { _ in
+                 actions: actions, identifier: "sub.card." + s.name, real: true) { _ in
             SubCardContent(s: s, today: today)
         }
         .grayscale(s.status == .active ? 0 : 1)
@@ -58,107 +62,61 @@ struct SubCard: View {
     }
 }
 
-/// a card opening as Wallet's do: it rises to the top of the page, the others slide down off the screen, and its
-/// subscription shows under it; closing puts every card back where it was. The cards sit in two different Lists
-/// (the stacks, the open one's page), and List rows take no part in `matchedGeometryEffect`, so copies of the cards
-/// fly between the frames each place reports.
-@Observable final class SubFlight {
-    enum Phase { case closed, opening, open, closing }
+/// the open card of 订阅管理, as Wallet opens a pass: the card moves to the top of the page and the others go down
+/// below the screen, with its subscription under it; closing puts every card back. The stacks and the open card are
+/// drawn outside any List, so one card moves between them with `matchedGeometryEffect`.
+@Observable final class SubOpening {
     /// the open subscription, by its link (a rename keeps it)
-    private(set) var open: String?
-    private(set) var phase = Phase.closed
-    /// the cards have reached the other end of the flight
-    private(set) var landed = false
-    /// the open one's page has come in (animated with the flight)
-    private(set) var shown = false
-    /// where each card is in the stacks, and on the open one's page (window space)
-    private(set) var from: [String: CGRect] = [:]
-    private(set) var to: [String: CGRect] = [:]
+    private(set) var link: String?
+    /// the bottom of the page, in window space: how far a card goes to be below it
+    var bottom: CGFloat = 0
     var reduceMotion = false
-    private var layerShown = false
 
-    func openCard(_ link: String) {
-        guard phase == .closed else { return }
-        to = [:]
-        open = link
-        if reduceMotion {
-            withAnimation(AppMotion.standard) { phase = .open; shown = true }
-        } else {
-            phase = .opening
-        }
-    }
+    func open(_ link: String) { withAnimation(motion) { self.link = link } }
+    func close() { withAnimation(motion) { link = nil } }
+    /// at once: its subscription is gone, or the ledger changed
+    func reset() { link = nil }
 
-    func close() {
-        guard phase == .open else { return }
-        if reduceMotion {
-            withAnimation(AppMotion.standard) { shown = false } completion: { self.reset() }
-        } else {
-            phase = .closing
-        }
-    }
-
-    /// a card's frame in the stacks (`open` false) or on the open one's page
-    func place(_ link: String, _ frame: CGRect, open: Bool) {
-        if open { if to[link] != frame { to[link] = frame } } else if from[link] != frame { from[link] = frame }
-        if open, link == self.open { ready() }
-    }
-
-    /// at once, no flight: its subscription is gone, or the ledger changed
-    func reset() {
-        open = nil; phase = .closed; landed = false; shown = false; layerShown = false
-    }
-
-    /// the copies are up (`appeared`) or the open page has laid out its card: fly when both are ready
-    func ready(appeared: Bool = false) {
-        if appeared { layerShown = true }
-        guard layerShown, !landed, let open else { return }
-        switch phase {
-        case .opening:
-            guard to[open] != nil else { return }
-            withAnimation(Self.flight, completionCriteria: .logicallyComplete) { landed = true; shown = true } completion: {
-                self.phase = .open; self.landed = false; self.layerShown = false
-            }
-        case .closing:
-            withAnimation(Self.flight, completionCriteria: .logicallyComplete) { landed = true; shown = false } completion: {
-                self.reset()
-            }
-        default: break
-        }
-    }
-
-    static let flight = Animation.spring(duration: 0.5, bounce: 0.12)
+    /// 减少动态效果: the open card fades in where it opens, nothing moves
+    private var motion: Animation { reduceMotion ? AppMotion.quick : .spring(duration: 0.5, bounce: 0.12) }
 }
 
-/// the cards in flight: each from where it was to where it goes; one with no place at an end (off screen, or any but
-/// the open one on its page) comes from or goes to below the bottom edge
-struct SubFlightLayer: View {
-    @Environment(SubFlight.self) private var flight
-    /// every card, back to front (`SubCards.drawn`)
-    let cards: [Subscription]
-    let today: String
+/// where a subscription's card sits at the top of its page: the page's margins
+struct OpenCardPlace: ViewModifier {
+    func body(content: Content) -> some View {
+        content.padding(.horizontal, AppSpacing.content).padding(.top, AppSpacing.control)
+    }
+}
 
-    var body: some View {
-        GeometryReader { g in
-            let space = g.frame(in: .global)
-            let opening = flight.phase == .opening
-            let width = flight.from.values.first?.width ?? space.width - 2 * AppSpacing.content
-            ForEach(Array(cards.enumerated()), id: \.element.id) { i, s in
-                let start = opening ? flight.from[s.link] : flight.to[s.link]
-                let end = opening ? flight.to[s.link] : flight.from[s.link]
-                let r = (flight.landed ? end : start)
-                    ?? CGRect(x: space.minX + (space.width - width) / 2, y: space.maxY + 40, width: width, height: 160)
-                SubCard(s: s, today: today, still: true)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(width: r.width, height: r.height, alignment: .top)
-                    .position(x: r.midX - space.minX, y: r.midY - space.minY)
-                    // the open one rises over the others; back down, the ones in front of it close over it on the way
-                    .zIndex(opening && s.link == flight.open ? 1000 : Double(i))
+/// the one card moving between the stack and the top of the open page; with 减少动态效果 it does not move
+struct SubCardMatch: ViewModifier {
+    @Environment(SubOpening.self) private var opening
+    @Environment(\.subCards) private var ns
+    let link: String
+    func body(content: Content) -> some View {
+        if opening.reduceMotion || ns == nil { content.transition(.opacity) } else {
+            content.matchedGeometryEffect(id: link, in: ns!).transition(.identity)
+        }
+    }
+}
+
+extension EnvironmentValues {
+    /// where 订阅管理's cards move between the stacks and the open page (`SubCardMatch`)
+    @Entry var subCards: Namespace.ID? = nil
+}
+
+/// a card down below the screen while another is open; one above the screen stays there
+private struct SubCardAway: ViewModifier {
+    @Environment(SubOpening.self) private var opening
+    let away: Bool
+    let bottom: CGFloat
+    func body(content: Content) -> some View {
+        if opening.reduceMotion { content.opacity(away ? 0 : 1) } else {
+            content.visualEffect { view, proxy in
+                let frame = proxy.frame(in: .global)
+                return view.offset(y: away && frame.maxY > 0 ? max(0, bottom - frame.minY) : 0)
             }
         }
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-        .onAppear { flight.ready(appeared: true) }
     }
 }
 
@@ -184,6 +142,8 @@ private struct SubCardContent: View {
                 Spacer(minLength: AppSpacing.icon)
                 Text(money(s.amount, s.currency)).font(.subheadline.weight(.semibold)).monospacedDigit().lineLimit(1).sensitive()
             }
+            // the rest at the foot of a card as tall as a bank card
+            Spacer(minLength: 0)
             HStack(alignment: .bottom, spacing: AppSpacing.control) {
                 VStack(alignment: .leading, spacing: AppSpacing.detail) {
                     if s.status == .active {

@@ -314,6 +314,47 @@ struct Card<Content: View>: View {
     }
 }
 
+/// a List's inset section on a page that scrolls by itself (订阅管理, so its cards are drawn whole, not cut round by
+/// a List): the header, a rounded group of rows (`GroupedDivider` between them) and the footer
+struct GroupedSection<Rows: View, Header: View, Footer: View>: View {
+    @ViewBuilder var rows: Rows
+    @ViewBuilder var header: Header
+    @ViewBuilder var footer: Footer
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.detail) {
+            header.font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                .padding(.horizontal, AppSpacing.content)
+            VStack(alignment: .leading, spacing: 0) { rows }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+            footer.font(.footnote).foregroundStyle(.secondary)
+                .padding(.horizontal, AppSpacing.content)
+        }
+    }
+}
+
+extension GroupedSection where Footer == EmptyView {
+    init(@ViewBuilder rows: () -> Rows, @ViewBuilder header: () -> Header) {
+        self.init(rows: rows, header: header, footer: { EmptyView() })
+    }
+}
+
+/// a row of a `GroupedSection`: a List row's padding and height
+struct GroupedRow<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View {
+        content
+            .padding(.horizontal, AppSpacing.content).padding(.vertical, AppSpacing.control)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+    }
+}
+
+/// the line between two rows of a `GroupedSection`, from where the text starts
+struct GroupedDivider: View {
+    var body: some View { Divider().padding(.leading, AppSpacing.content) }
+}
+
 extension View {
     /// a List row that draws its own card
     func cardRow() -> some View {

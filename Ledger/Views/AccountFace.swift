@@ -18,6 +18,8 @@ struct FaceCard<Content: View>: View {
     /// more items for the card's menu, before 编辑卡面
     var actions: [FaceAction] = []
     var identifier = "card.face"
+    /// drawn as a bank card: its proportions (at least as tall) and its corners; for a card outside any List
+    var real = false
     @ViewBuilder let content: (Color) -> Content
     @State private var editing = false
     @State private var cardInfo = false
@@ -28,17 +30,20 @@ struct FaceCard<Content: View>: View {
     }
 
     init(subject: FaceSubject, title: String, tint: Color, preview: FaceStyle? = nil, holdsCard: Bool = false,
-         actions: [FaceAction] = [], identifier: String = "card.face", @ViewBuilder content: @escaping (Color) -> Content) {
+         actions: [FaceAction] = [], identifier: String = "card.face", real: Bool = false,
+         @ViewBuilder content: @escaping (Color) -> Content) {
         self.subject = subject; self.title = title; self.tint = tint; self.preview = preview
-        self.holdsCard = holdsCard; self.actions = actions; self.identifier = identifier; self.content = content
+        self.holdsCard = holdsCard; self.actions = actions; self.identifier = identifier; self.real = real; self.content = content
     }
 
     var body: some View {
         let d = FaceDesign(subject: subject, title: title, tint: tint, style: preview ?? store.faceStyles[subject.key] ?? FaceStyle(), ledger: store.cfg.id)
+        let corner = RoundedRectangle(cornerRadius: real ? AppRadius.face : AppRadius.card, style: .continuous)
         content(d.ink)
             .foregroundStyle(d.ink)
             .padding(AppSpacing.content)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: real ? .infinity : nil, alignment: .topLeading)
+            .modifier(BankCardProportion(on: real))
             .background {
                 ZStack(alignment: .bottomTrailing) {
                     LinearGradient(colors: [d.fill, d.accent], startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -49,9 +54,9 @@ struct FaceCard<Content: View>: View {
                     Canvas { context, size in d.drawMark(in: &context, size: size) }
                         .accessibilityHidden(true)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+                .clipShape(corner)
             }
-            .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+            .contentShape(.contextMenuPreview, corner)
             .contextMenu {
                 if preview == nil {
                     ForEach(actions) { a in Button { a.run() } label: { Label(a.title, systemImage: a.symbol) } }
@@ -76,6 +81,30 @@ struct FaceCard<Content: View>: View {
                         .tint(Color.jadeInk).environment(\.locale, AppLanguage.current.locale)
                 }
             }
+    }
+}
+
+/// a card at least as tall as a bank card is for its width (ISO/IEC 7810 ID-1, 85.60 × 53.98 mm), taller when its
+/// content needs more (a large text size)
+private struct BankCardProportion: ViewModifier {
+    let on: Bool
+    func body(content: Content) -> some View {
+        if on { BankCardLayout { content } } else { content }
+    }
+}
+
+private struct BankCardLayout: Layout {
+    static let ratio: CGFloat = 85.60 / 53.98
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let card = subviews.first else { return .zero }
+        let width = proposal.width ?? card.sizeThatFits(.unspecified).width
+        let height = card.sizeThatFits(ProposedViewSize(width: width, height: nil)).height
+        return CGSize(width: width, height: max(height, width / Self.ratio))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
     }
 }
 
