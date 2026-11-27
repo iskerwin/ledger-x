@@ -1918,8 +1918,11 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["扣费方式"].waitForExistence(timeout: 5))
         // the open card at the top, above its subscription
         let open = app.descendants(matching: .any)["sub.card." + cards[0].0].firstMatch
-        let method = app.staticTexts["扣费方式"].firstMatch
-        XCTAssertLessThan(open.frame.maxY, method.frame.minY, "card \(open.frame), 扣费方式 \(method.frame), bar \(app.navigationBars.firstMatch.frame), cards \(app.descendants(matching: .any).matching(identifier: "sub.card." + cards[0].0).allElementsBoundByIndex.map(\.frame))")
+        XCTAssertLessThan(open.frame.maxY, app.staticTexts["扣费方式"].firstMatch.frame.minY)
+        // the stacks stay laid out under it but are not read out: only the open card, and none of the page under it
+        let same = app.descendants(matching: .any).matching(identifier: "sub.card." + cards[0].0).allElementsBoundByIndex
+        XCTAssertTrue(same.allSatisfy { $0.frame == open.frame }, "\(same.map(\.frame))")
+        XCTAssertFalse(app.staticTexts["月均"].exists)
         // closing puts every card back where it was
         close.tap()
         XCTAssertTrue(close.waitForNonExistence(timeout: 5))

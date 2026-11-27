@@ -20,6 +20,8 @@ struct SubCardStack: View {
                 Button { flight.openCard(s.link) } label: { SubCard(s: s, today: today) }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("sub.card." + s.name)
+                    // while one is open the stacks stay laid out under it, unseen and not read out
+                    .accessibilityHidden(flight.open != nil)
                     // laid out whole whatever height it is given
                     .fixedSize(horizontal: false, vertical: true)
                     // where the whole card is, for its flight: taken before the strip cuts it short
