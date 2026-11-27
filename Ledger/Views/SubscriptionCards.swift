@@ -58,7 +58,7 @@ struct SubCard: View {
     }
 }
 
-/// a card opening as Wallet's do: it rises to the top of the page, the others fold into a stack at the bottom, and its
+/// a card opening as Wallet's do: it rises to the top of the page, the others slide down off the screen, and its
 /// subscription shows under it; closing puts every card back where it was. The cards sit in two different Lists
 /// (the stacks, the open one's page), and List rows take no part in `matchedGeometryEffect`, so copies of the cards
 /// fly between the frames each place reports.
@@ -129,8 +129,8 @@ struct SubCard: View {
     static let flight = Animation.spring(duration: 0.5, bounce: 0.12)
 }
 
-/// the cards in flight: each from where it was to where it goes; one with no place at an end (off screen, or not in
-/// the stack under the open one) comes from or goes to below the bottom edge
+/// the cards in flight: each from where it was to where it goes; one with no place at an end (off screen, or any but
+/// the open one on its page) comes from or goes to below the bottom edge
 struct SubFlightLayer: View {
     @Environment(SubFlight.self) private var flight
     /// every card, back to front (`SubCards.drawn`)
@@ -159,35 +159,6 @@ struct SubFlightLayer: View {
         .allowsHitTesting(false)
         .accessibilityHidden(true)
         .onAppear { flight.ready(appeared: true) }
-    }
-}
-
-/// the other cards folded at the bottom of the open one's page, as Wallet's; a tap puts them all back
-struct SubFoldedStack: View {
-    @Environment(SubFlight.self) private var flight
-    /// back to front, as the stacks draw them (`SubCards.folded`): the soonest at the front
-    let cards: [Subscription]
-    let today: String
-    /// how much of each shows
-    @ScaledMetric(relativeTo: .subheadline) private var edge: CGFloat = 10
-
-    var body: some View {
-        ZStack(alignment: .top) {
-            ForEach(Array(cards.enumerated()), id: \.element.id) { i, s in
-                SubCard(s: s, today: today, still: true)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { flight.place(s.link, $0, open: true) }
-                    .padding(.top, CGFloat(i) * edge)
-                    .zIndex(Double(i))
-            }
-        }
-        .opacity(flight.phase == .open ? 1 : 0)
-        .padding(.horizontal, AppSpacing.content)
-        // only the edges are on screen: the cards run on past the bottom
-        .frame(height: CGFloat(cards.count) * edge + AppSpacing.content * 2, alignment: .top)
-        .contentShape(Rectangle())
-        .onTapGesture { flight.close() }
-        .accessibilityHidden(true)
     }
 }
 

@@ -265,8 +265,7 @@ struct SubscriptionsView: View {
                 .opacity(flight.shown ? 0 : 1)
                 .allowsHitTesting(flight.open == nil)
             if let open {
-                // the others folded at the bottom: the soonest ones, as many as show
-                SubscriptionDetailView(name: open.name, close: { flight.close() }, folded: cards.folded(under: open.link))
+                SubscriptionDetailView(name: open.name, close: { flight.close() })
                     .opacity(flight.shown ? 1 : 0)
             }
         }
@@ -396,9 +395,8 @@ struct SubscriptionDetailView: View {
     @Environment(Store.self) var store
     @Environment(SubFlight.self) private var flight: SubFlight?
     let name: String
-    /// opened in place from 订阅管理's stacks: closes back into them, with the other cards folded at the bottom
+    /// opened in place from 订阅管理's stacks: closes back into them
     var close: (() -> Void)? = nil
-    var folded: [Subscription] = []
     @State private var editingFace = false
     @State private var editing: SubDraft?
     @State private var stateChange: SubStatus?
@@ -468,7 +466,8 @@ struct SubscriptionDetailView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            if close != nil { SubFoldedStack(cards: folded, today: today) } else { actionBar(s) }
+            // opened in place: its actions are in ⋯, as Wallet shows a pass on its own
+            if close == nil { actionBar(s) }
         }
         .modifier(HidesTabBar(on: close == nil))
         .navigationBarBackButtonHidden(close != nil)
