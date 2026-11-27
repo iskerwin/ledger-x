@@ -304,4 +304,20 @@ final class SubTests: XCTestCase {
         let lay2 = RepoLayout(main: "ledger/main.bean", journal: "ledger/{year}.bean", subscriptions: "ledger/config/subs.bean")
         XCTAssertEqual(lay2.includeLine("ledger/config/subs.bean"), "include \"config/subs.bean\"")
     }
+
+    /// the stack folded under an open card keeps the stacks' order: the soonest at the front, the paused behind
+    func testFoldedCardsKeepTheStacksOrder() {
+        func sub(_ name: String, _ start: String, _ status: SubStatus = .active) -> Subscription {
+            Subscription(name: name, amount: 1, currency: "CNY", period: .monthly, start: start, account: "Expenses:Subscription",
+                         funding: "Assets:Bank:CMB", status: status, link: "sub-" + name)
+        }
+        let today = "2026-11-27"
+        let cards = SubCards([sub("late", "2026-01-25"), sub("paused", "2026-01-01", .paused), sub("soon", "2026-01-28"),
+                              sub("mid", "2026-01-05"), sub("open", "2026-01-29")], today: today)
+        XCTAssertEqual(cards.active.map(\.name), ["soon", "open", "mid", "late"])
+        XCTAssertEqual(cards.drawn.map(\.name), ["paused", "late", "mid", "open", "soon"])
+        // as drawn in flight, less the open one: no card passes over another on its way down
+        XCTAssertEqual(cards.folded(under: "sub-open").map(\.name), ["paused", "late", "mid", "soon"])
+        XCTAssertEqual(cards.folded(under: "sub-open", count: 2).map(\.name), ["mid", "soon"])
+    }
 }

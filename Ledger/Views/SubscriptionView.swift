@@ -257,24 +257,22 @@ struct SubscriptionsView: View {
     private func page(_ L: Ledger) -> some View {
         let today = Day.today()
         let all = store.subs
-        let active = all.filter { $0.status == .active }.sorted { $0.nextCharge(onOrAfter: today) < $1.nextCharge(onOrAfter: today) }
-        let inactive = all.filter { $0.status != .active }
+        let cards = SubCards(all, today: today)
         let open = flight.open.flatMap { link in all.first { $0.link == link } }
         return ZStack {
             // kept while one is open: its place and where each card goes back to
-            list(L, active: active, inactive: inactive, today: today)
+            list(L, active: cards.active, inactive: cards.inactive, today: today)
                 .opacity(flight.shown ? 0 : 1)
                 .allowsHitTesting(flight.open == nil)
             if let open {
                 // the others folded at the bottom: the soonest ones, as many as show
-                let others = (active + inactive).filter { $0.link != open.link }
-                SubscriptionDetailView(name: open.name, close: { flight.close() }, folded: Array(others.prefix(4)))
+                SubscriptionDetailView(name: open.name, close: { flight.close() }, folded: cards.folded(under: open.link))
                     .opacity(flight.shown ? 1 : 0)
             }
         }
         .overlay {
             if flight.phase == .opening || flight.phase == .closing {
-                SubFlightLayer(cards: active.reversed() + inactive.reversed(), today: today)
+                SubFlightLayer(cards: cards.drawn, today: today)
             }
         }
         // deleted, or gone with a refresh: back to the stacks at once

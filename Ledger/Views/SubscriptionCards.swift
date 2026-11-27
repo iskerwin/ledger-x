@@ -133,7 +133,7 @@ struct SubCard: View {
 /// the stack under the open one) comes from or goes to below the bottom edge
 struct SubFlightLayer: View {
     @Environment(SubFlight.self) private var flight
-    /// every card, in the order they are drawn
+    /// every card, back to front (`SubCards.drawn`)
     let cards: [Subscription]
     let today: String
 
@@ -164,6 +164,7 @@ struct SubFlightLayer: View {
 /// the other cards folded at the bottom of the open one's page, as Wallet's; a tap puts them all back
 struct SubFoldedStack: View {
     @Environment(SubFlight.self) private var flight
+    /// back to front, as the stacks draw them (`SubCards.folded`): the soonest at the front
     let cards: [Subscription]
     let today: String
     /// how much of each shows
