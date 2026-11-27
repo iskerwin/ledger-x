@@ -1918,7 +1918,8 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["扣费方式"].waitForExistence(timeout: 5))
         // the open card at the top, above its subscription
         let open = app.descendants(matching: .any)["sub.card." + cards[0].0].firstMatch
-        XCTAssertLessThan(open.frame.maxY, app.staticTexts["扣费方式"].frame.minY)
+        let method = app.staticTexts["扣费方式"].firstMatch
+        XCTAssertLessThan(open.frame.maxY, method.frame.minY, "card \(open.frame), 扣费方式 \(method.frame), bar \(app.navigationBars.firstMatch.frame), cards \(app.descendants(matching: .any).matching(identifier: "sub.card." + cards[0].0).allElementsBoundByIndex.map(\.frame))")
         // closing puts every card back where it was
         close.tap()
         XCTAssertTrue(close.waitForNonExistence(timeout: 5))
