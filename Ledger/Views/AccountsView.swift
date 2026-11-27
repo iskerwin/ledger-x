@@ -853,9 +853,16 @@ struct RegisterView: View {
     }
 
     /// 卡面 is for the accounts that hold money day to day: banks, wallets and stored-value cards, cash
+    /// the groups drawn as a card: what is kept or held (banks, wallets, cash, brokers, crypto, public funds, money owed
+    /// to you) and money borrowed; a credit card has its own page
     private func hasFace(_ account: String) -> Bool {
-        let parts = account.split(separator: ":")
-        return parts.count > 1 && parts[0] == "Assets" && ["Bank", "EWallet", "Cash"].contains(String(parts[1]))
+        let parts = account.split(separator: ":").map(String.init)
+        guard parts.count > 1 else { return false }
+        switch parts[0] {
+        case "Assets": return ["Bank", "EWallet", "Cash", "Brokerage", "Crypto", "Government", "Receivable"].contains(parts[1])
+        case "Liabilities": return parts[1] == "Loan"
+        default: return false
+        }
     }
 
     @ViewBuilder

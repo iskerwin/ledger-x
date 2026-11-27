@@ -4,22 +4,37 @@ import LedgerKit
 /// 账户卡片 → 卡面: the top of an account's page drawn as a card. A known bank or wallet (`FaceLook`) gets close to
 /// its own colours and its built-in icon (`FaceMarks`), large and faint, in the corner; any other account its
 /// group's colour, its own texture (picked from the account's name, the same on every launch) and its group's icon
-/// (cash) or else the first character of its name.
+/// (cash) or else the first character of its name. A subscription's card is drawn the same way from the service it
+/// is for (`FaceLook.service`), else its own colour and its category's icon.
 struct FaceCard<Content: View>: View {
     @Environment(Store.self) var store
-    let account: String
+    let subject: FaceSubject
     let title: String
     let tint: Color
     /// the style to draw instead of the saved one (编辑卡面's preview); the preview is not itself editable
     var preview: FaceStyle? = nil
     /// a bank card or a credit card: 卡片信息 is offered beside 编辑卡面
     var holdsCard = false
+    /// more items for the card's menu, before 编辑卡面
+    var actions: [FaceAction] = []
+    var identifier = "card.face"
     @ViewBuilder let content: (Color) -> Content
     @State private var editing = false
     @State private var cardInfo = false
 
+    init(account: String, title: String, tint: Color, preview: FaceStyle? = nil, holdsCard: Bool = false,
+         @ViewBuilder content: @escaping (Color) -> Content) {
+        self.init(subject: .account(account), title: title, tint: tint, preview: preview, holdsCard: holdsCard, content: content)
+    }
+
+    init(subject: FaceSubject, title: String, tint: Color, preview: FaceStyle? = nil, holdsCard: Bool = false,
+         actions: [FaceAction] = [], identifier: String = "card.face", @ViewBuilder content: @escaping (Color) -> Content) {
+        self.subject = subject; self.title = title; self.tint = tint; self.preview = preview
+        self.holdsCard = holdsCard; self.actions = actions; self.identifier = identifier; self.content = content
+    }
+
     var body: some View {
-        let d = FaceDesign(account: account, title: title, tint: tint, style: preview ?? store.faceStyles[account] ?? FaceStyle(), ledger: store.cfg.id)
+        let d = FaceDesign(subject: subject, title: title, tint: tint, style: preview ?? store.faceStyles[subject.key] ?? FaceStyle(), ledger: store.cfg.id)
         content(d.ink)
             .foregroundStyle(d.ink)
             .padding(AppSpacing.content)
@@ -39,6 +54,7 @@ struct FaceCard<Content: View>: View {
             .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
             .contextMenu {
                 if preview == nil {
+                    ForEach(actions) { a in Button { a.run() } label: { Label(a.title, systemImage: a.symbol) } }
                     Button { editing = true } label: { Label(LS("编辑卡面"), systemImage: "paintbrush") }
                     if holdsCard {
                         Button { cardInfo = true } label: { Label(LS("卡片信息"), systemImage: "creditcard") }
@@ -46,21 +62,87 @@ struct FaceCard<Content: View>: View {
                 }
             }
             .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("card.face")
+            .accessibilityIdentifier(identifier)
+            .modifier(FaceActionsA11y(actions: preview == nil ? actions : []))
             .accessibilityAction(named: Text(LS("编辑卡面"))) { if preview == nil { editing = true } }
             .accessibilityAction(named: Text(LS("卡片信息"))) { if preview == nil && holdsCard { cardInfo = true } }
             .sheet(isPresented: $editing) {
-                FaceStyleSheet(account: account, title: title, tint: tint)
+                FaceStyleSheet(subject: subject, title: title, tint: tint)
                     .tint(Color.jadeInk).environment(\.locale, AppLanguage.current.locale)
             }
             .sheet(isPresented: $cardInfo) {
-                CardInfoSheet(account: account, title: title)
-                    .tint(Color.jadeInk).environment(\.locale, AppLanguage.current.locale)
+                if case .account(let account) = subject {
+                    CardInfoSheet(account: account, title: title)
+                        .tint(Color.jadeInk).environment(\.locale, AppLanguage.current.locale)
+                }
             }
     }
 }
 
-/// What a card is drawn with once its saved style, its institution and its group's colour are settled.
+/// an item of a card's menu (and the same as an accessibility action)
+struct FaceAction: Identifiable {
+    var id: String { title }
+    let title: String
+    let symbol: String
+    let run: () -> Void
+}
+
+private struct FaceActionsA11y: ViewModifier {
+    let actions: [FaceAction]
+    func body(content: Content) -> some View {
+        actions.reduce(AnyView(content)) { view, a in AnyView(view.accessibilityAction(named: Text(a.title), a.run)) }
+    }
+}
+
+/// what a card face is drawn for. Its manual style is kept in `Store.faceStyles` under `key`: an account's name, or
+/// `sub:` and a subscription's link (the link stays when the subscription is renamed).
+enum FaceSubject: Equatable {
+    case account(String)
+    /// `symbol`: its category's icon, the watermark when it is for no known service
+    case subscription(link: String, name: String, payee: String, symbol: String)
+
+    var key: String {
+        switch self {
+        case .account(let a): return a
+        case .subscription(let link, _, _, _): return "sub:" + link
+        }
+    }
+
+    /// the institution or service recognised from its name, nil when none
+    func recognised(title: String) -> String? {
+        switch self {
+        case .account(let a): return institution(account: a, name: title)?.id
+        case .subscription(_, let name, let payee, _): return subService(name: name, payee: payee)?.id
+        }
+    }
+
+    func look(_ id: String?) -> FaceLook? {
+        switch self {
+        case .account: return FaceLook.of(id)
+        case .subscription: return FaceLook.service(id)
+        }
+    }
+
+    /// what 编辑卡面 offers to pick from, with their names
+    var named: [(id: String, name: String)] {
+        switch self {
+        case .account: return FaceLook.named
+        case .subscription: return FaceLook.servicesNamed
+        }
+    }
+
+    /// the icon drawn by default when there is no known one's own: an account group's (cash), a subscription's category
+    var defaultSymbol: Image? {
+        switch self {
+        case .account(let a): return FaceMarks.group(of: a).flatMap(FaceMarks.image)
+        case .subscription(_, _, _, let symbol): return Image(systemName: symbol)
+        }
+    }
+
+    /// the built-in icon of a known institution or service (shared by both: `FaceMarks`)
+    func builtInSymbol(_ id: String?) -> Image? { id.flatMap(FaceMarks.image) }
+}
+
 struct FaceDesign {
     let fill: Color
     let accent: Color
@@ -76,14 +158,18 @@ struct FaceDesign {
     let opacity: Double
 
     @MainActor init(account: String, title: String, tint: Color, style: FaceStyle, ledger: String) {
-        let id = style.institution.map { $0 == FaceStyle.noInstitution ? nil : $0 } ?? institution(account: account, name: title)?.id
-        let look = FaceLook.of(id)
+        self.init(subject: .account(account), title: title, tint: tint, style: style, ledger: ledger)
+    }
+
+    @MainActor init(subject: FaceSubject, title: String, tint: Color, style: FaceStyle, ledger: String) {
+        let id = style.institution.map { $0 == FaceStyle.noInstitution ? nil : $0 } ?? subject.recognised(title: title)
+        let look = subject.look(id)
         let picked = IconTint.color(style.color)
         fill = picked ?? look?.color ?? tint
         // a colour of one's own is flat: the brand's second colour would not go with it
         accent = picked == nil ? (look?.accent ?? fill) : fill
         ink = picked == nil ? (look?.ink ?? fill.onFill) : fill.onFill
-        pattern = style.pattern.flatMap(FacePatternKind.init(rawValue:)).map(FacePattern.init(kind:)) ?? look?.pattern ?? FacePattern.of(account)
+        pattern = style.pattern.flatMap(FacePatternKind.init(rawValue:)).map(FacePattern.init(kind:)) ?? look?.pattern ?? FacePattern.of(subject.key)
         iconMono = style.iconMono ?? true
         size = min(1.5, max(0.5, style.size ?? 1))
         opacity = min(0.4, max(0.04, style.opacity ?? FaceStyle.defaultOpacity))
@@ -91,8 +177,10 @@ struct FaceDesign {
         case .off?:
             mark = nil; icon = nil; symbol = nil
         case .icon?:
-            mark = nil; symbol = nil
+            mark = nil
             icon = style.icon.flatMap { FaceIcons.image($0, ledger: ledger, mono: style.iconMono ?? true, strength: style.strength ?? FaceStyle.defaultStrength) }
+            // a subscription's 图标 with nothing uploaded yet: its category's icon (an account's picks a built-in one)
+            if icon == nil, case .subscription = subject { symbol = subject.defaultSymbol } else { symbol = nil }
         case .symbol(let s)?:
             mark = nil; icon = nil
             symbol = FaceMarks.image(s)
@@ -101,7 +189,7 @@ struct FaceDesign {
         case nil:
             icon = nil
             // a known institution's own icon, else its group's (cash); its short mark only while it has none
-            symbol = look == nil ? FaceMarks.group(of: account).flatMap(FaceMarks.image) : id.flatMap(FaceMarks.image)
+            symbol = look == nil ? subject.defaultSymbol : subject.builtInSymbol(id)
             mark = symbol == nil ? look?.mark ?? FacePattern.mark(title) : nil
         }
     }
@@ -151,13 +239,12 @@ struct FaceDesign {
 struct FaceLook {
     /// the institutions in the order 编辑卡面 lists them, with their names
     static var named: [(id: String, name: String)] { [
-        ("cmb", LS("招商银行")), ("icbc", LS("工商银行")), ("ccb", LS("建设银行")), ("boc", LS("中国银行")), ("abc", LS("农业银行")),
-        ("bocom", LS("交通银行")), ("spdb", LS("浦发银行")), ("citic", LS("中信银行")),
-        ("cgb", LS("广发银行")), ("ceb", LS("光大银行")), ("hxb", LS("华夏银行")), ("hsbc", LS("汇丰")), ("citi", LS("花旗")),
-        ("hangseng", LS("恒生银行")), ("bochk", LS("中银香港")), ("sc", LS("渣打银行")), ("za", LS("众安银行")), ("mox", "Mox"),
-        ("ifast", "iFAST"), ("n26", "N26"),
-        ("alipay", LS("支付宝")), ("wechat", LS("微信支付")), ("wise", "Wise"), ("octopus", LS("八达通")), ("alipayhk", "AlipayHK"),
-        ("payme", "PayMe"), ("paypal", "PayPal"), ("revolut", "Revolut"),
+        ("cmb", LS("招商银行")), ("ccb", LS("建设银行")), ("boc", LS("中国银行")), ("bochk", LS("中银香港")),
+        ("spdb", LS("浦发银行")), ("citic", LS("中信银行")), ("cgb", LS("广发银行")), ("ceb", LS("光大银行")), ("hxb", LS("华夏银行")),
+        ("hsbc", LS("汇丰")), ("za", LS("众安银行")), ("ifast", "iFAST"), ("n26", "N26"),
+        ("alipay", LS("支付宝")), ("wechat", LS("微信支付")), ("wise", "Wise"), ("octopus", LS("八达通")), ("paypal", "PayPal"),
+        ("ibkr", "Interactive Brokers"), ("schwab", "Charles Schwab"), ("fsmone", "FSMone"), ("okx", "OKX"), ("plasma", "Plasma One"),
+        ("housingfund", LS("公积金")), ("medical", LS("医保")), ("pension", LS("养老金")),
     ] }
 
     let color: Color
@@ -173,39 +260,38 @@ struct FaceLook {
         Color(red: Double(v >> 16 & 0xFF) / 255, green: Double(v >> 8 & 0xFF) / 255, blue: Double(v & 0xFF) / 255)
     }
 
-    private static func look(_ color: UInt32, _ accent: UInt32, _ pattern: FacePattern, _ mark: String, ink: UInt32? = nil) -> FaceLook {
+    /// a look from its colours (also the services' in SubscriptionCards.swift)
+    static func look(_ color: UInt32, _ accent: UInt32, _ pattern: FacePattern, _ mark: String, ink: UInt32? = nil) -> FaceLook {
         FaceLook(color: hex(color), accent: hex(accent), ink: ink.map(hex), pattern: pattern, mark: mark)
     }
 
     private static let all: [String: FaceLook] = [
         "cmb": look(0xC8152D, 0x8E0E20, .rings(gap: 22), "招"),
-        "icbc": look(0xC7000B, 0xE0393E, .stripes(angle: 20, gap: 16), "工"),
         "ccb": look(0x0B5BA8, 0x073C70, .grid(gap: 20), "建"),
         "boc": look(0xA71E32, 0x6E1020, .rings(gap: 22), "中"),
-        "abc": look(0x0A8A6E, 0x05624E, .stripes(angle: 110, gap: 16), "农"),
-        "bocom": look(0x1C3F94, 0x2E5BC4, .dots(gap: 16), "交"),
         "spdb": look(0x0B3A73, 0x1A5AA6, .stripes(angle: 65, gap: 16), "浦"),
         "citic": look(0xD6001C, 0x9A0014, .dots(gap: 16), "信"),
         "cgb": look(0xE60012, 0xA8000D, .grid(gap: 20), "广"),
         "ceb": look(0x5E2B83, 0x8A4BB4, .rings(gap: 22), "光"),
         "hxb": look(0xD7000F, 0x96000A, .stripes(angle: 110, gap: 16), "华"),
         "hsbc": look(0xDB0011, 0xA3000D, .stripes(angle: 45, gap: 16), "HSBC"),
-        "citi": look(0x003B70, 0x056DAE, .stripes(angle: 20, gap: 16), "citi"),
-        "hangseng": look(0x00775B, 0x00543F, .rings(gap: 22), "恒"),
         "bochk": look(0x9E1B32, 0xC23A4F, .dots(gap: 16), "中银"),
-        "sc": look(0x0072AA, 0x1E9E6A, .stripes(angle: 155, gap: 16), "渣"),
         "za": look(0x00CF9A, 0x00A57B, .grid(gap: 20), "ZA"),
-        "mox": look(0x1C1C20, 0x3A3A44, .rings(gap: 22), "Mox"),
         "ifast": look(0x054F68, 0x00A3B2, .stripes(angle: 65, gap: 16), "iF"),
         "n26": look(0x008376, 0x00655B, .dots(gap: 16), "N26"),
         "alipay": look(0x1677FF, 0x0B4FCC, .rings(gap: 22), "支"),
         "wechat": look(0x07C160, 0x058F47, .dots(gap: 16), "微"),
         "wise": look(0x9FE870, 0x7FD44A, .stripes(angle: 155, gap: 16), "W", ink: 0x163300),
         "octopus": look(0xF08C00, 0xD06A00, .grid(gap: 20), "八"),
-        "alipayhk": look(0x1677FF, 0x00A0E9, .stripes(angle: 20, gap: 16), "HK"),
-        "payme": look(0xDB0011, 0xA3000D, .dots(gap: 16), "Me"),
         "paypal": look(0x003087, 0x009CDE, .rings(gap: 22), "P"),
-        "revolut": look(0x191C1F, 0x3B4048, .grid(gap: 20), "R"),
+        "ibkr": look(0xD81222, 0x8E0C17, .rings(gap: 22), "IB"),
+        "schwab": look(0x00A0DF, 0x006A99, .stripes(angle: 20, gap: 16), "S"),
+        "fsmone": look(0x00A3E0, 0x00709A, .dots(gap: 16), "FS"),
+        "okx": look(0x1C1C1E, 0x3A3A3C, .grid(gap: 20), "OKX"),
+        "plasma": look(0x6C3CE9, 0x3F1FA8, .rings(gap: 22), "P"),
+        "housingfund": look(0x2E7D32, 0x1B5E20, .grid(gap: 20), "公"),
+        "medical": look(0x1E88E5, 0x1565C0, .dots(gap: 16), "医"),
+        "pension": look(0x8D6E63, 0x5D4037, .stripes(angle: 110, gap: 16), "养"),
     ]
 }
 
@@ -403,17 +489,18 @@ struct TrendLine: View {
 /// is an imageset named after the id (template rendering, vector kept); check_project keeps the lists the same.
 enum FaceMarks {
     /// a group's own icon, for an account in it that is no known institution
-    static let groups = ["Cash": "cash"]
+    static let groups = ["Cash": "cash", "Receivable": "receivable", "Loan": "loan"]
     /// the group icons in the order 水印 → 图标 lists them after the institutions, with their names
-    static var groupsNamed: [(id: String, name: String)] { [("cash", LS("现金"))] }
+    static var groupsNamed: [(id: String, name: String)] { [("cash", LS("现金")), ("receivable", LS("应收")), ("loan", LS("借款"))] }
 
     static func image(_ id: String) -> Image? {
         UIImage(named: "FaceMarks/" + id) == nil ? nil : Image("FaceMarks/" + id)
     }
 
-    /// the icon of the group `account` is in (Assets:Cash, Assets:Cash:Wallet → cash), nil when its group has none
+    /// the icon of the group `account` is in (Assets:Cash:Wallet → cash, Liabilities:Loan:Bank → loan), nil when its
+    /// group has none
     static func group(of account: String) -> String? {
         let parts = account.split(separator: ":")
-        return parts.count > 1 && parts[0] == "Assets" ? groups[String(parts[1])] : nil
+        return parts.count > 1 && (parts[0] == "Assets" || parts[0] == "Liabilities") ? groups[String(parts[1])] : nil
     }
 }
