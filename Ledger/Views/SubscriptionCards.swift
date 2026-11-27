@@ -151,7 +151,8 @@ struct SubFlightLayer: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(width: r.width, height: r.height, alignment: .top)
                     .position(x: r.midX - space.minX, y: r.midY - space.minY)
-                    .zIndex(s.link == flight.open ? 1000 : Double(i))
+                    // the open one rises over the others; back down, the ones in front of it close over it on the way
+                    .zIndex(opening && s.link == flight.open ? 1000 : Double(i))
             }
         }
         .ignoresSafeArea()
