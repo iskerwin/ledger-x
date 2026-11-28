@@ -350,6 +350,21 @@ struct GroupedRow<Content: View>: View {
     }
 }
 
+/// a row of a `GroupedSection` that opens something: its content, then (`chevron`) the arrow a List's link has
+struct GroupedLinkRow<Content: View>: View {
+    var chevron = true
+    @ViewBuilder var content: Content
+    var body: some View {
+        GroupedRow {
+            HStack(spacing: AppSpacing.icon) {
+                HStack(spacing: AppSpacing.icon) { content }.frame(maxWidth: .infinity, alignment: .leading)
+                if chevron { Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary) }
+            }
+        }
+        .contentShape(Rectangle())
+    }
+}
+
 /// the line between two rows of a `GroupedSection`, from where the text starts
 struct GroupedDivider: View {
     var body: some View { Divider().padding(.leading, AppSpacing.content) }

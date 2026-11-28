@@ -217,10 +217,9 @@ struct SubDueRow: View {
 
 struct SubscriptionsView: View {
     @Environment(Store.self) var store
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var editing: SubDraft?
     @State private var demoDetail: String?
-    @State private var opening = SubOpening()
+    @State private var opening = CardOpening()
     @Namespace private var cardSpace
 
     var body: some View {
@@ -230,7 +229,7 @@ struct SubscriptionsView: View {
         .navigationTitle(LS("订阅管理"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if opening.link == nil {
+            if opening.key == nil {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink(value: SubCalendarDest()) { Image(systemName: "calendar") }
                         .accessibilityLabel(LS("订阅日历"))
@@ -241,10 +240,7 @@ struct SubscriptionsView: View {
                 }
             }
         }
-        .environment(opening)
-        .environment(\.subCards, cardSpace)
-        .onChange(of: store.cfg.id) { _, _ in opening.reset() }
-        .onChange(of: reduceMotion, initial: true) { _, on in opening.reduceMotion = on }
+        .cardStacks(opening, in: cardSpace)
         .sheet(item: $editing) { SubEditSheet(draft: $0) }
         .navigationDestination(item: $demoDetail) { SubscriptionDetailView(name: $0) }
         .task {
@@ -254,13 +250,13 @@ struct SubscriptionsView: View {
         }
     }
 
-    /// the stacks, and over them the open card's subscription (`SubOpening`): its page under the stacks, so the cards
+    /// the stacks, and over them the open card's subscription (`CardOpening`): its page under the stacks, so the cards
     /// coming back pass over it, and its card over them
     private func page(_ L: Ledger) -> some View {
         let today = Day.today()
         let all = store.subs
         let cards = SubCards(all, today: today)
-        let open = opening.link.flatMap { link in all.first { $0.link == link } }
+        let open = opening.key.flatMap { link in all.first { $0.link == link } }
         return ZStack(alignment: .top) {
             if let open {
                 VStack(spacing: 0) {
@@ -271,21 +267,18 @@ struct SubscriptionsView: View {
                 .transition(.opacity)
             }
             stacks(L, active: cards.active, inactive: cards.inactive, today: today)
-                .allowsHitTesting(opening.link == nil)
-                .accessibilityHidden(opening.link != nil)
+                .allowsHitTesting(opening.key == nil)
+                .accessibilityHidden(opening.key != nil)
             if let open {
                 Button { opening.close() } label: { SubCard(s: open, today: today) }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("sub.card." + open.name)
-                    .modifier(SubCardMatch(link: open.link))
+                    .modifier(CardMatch(key: open.link))
                     .modifier(OpenCardPlace())
             }
         }
-        .background(Color(.systemGroupedBackground))
-        // the screen's bottom edge: past the page's, under the home indicator, where the scrolled cards still show
-        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY + $0.safeAreaInsets.bottom } action: { opening.bottom = $0 }
         // deleted, or gone with a refresh: back to the stacks at once
-        .onChange(of: open == nil) { _, gone in if gone && opening.link != nil { opening.reset() } }
+        .onChange(of: open == nil) { _, gone in if gone && opening.key != nil { opening.reset() } }
     }
 
     private func openCard(_ s: Subscription, today: String) -> some View {
@@ -303,7 +296,7 @@ struct SubscriptionsView: View {
         let paidThisYear = all.reduce(0.0) { $0 + (toCNY(L, $1.paid(in: year), $1.currency) ?? 0) }
         let cands = store.subCandidates
         // while one is open the rest of the page goes, the cards go down below the screen
-        let rest = opening.link == nil ? 1.0 : 0
+        let rest = opening.key == nil ? 1.0 : 0
         return ScrollView {
             VStack(alignment: .leading, spacing: AppSpacing.summary) {
                 Card(padding: AppSpacing.summary) {

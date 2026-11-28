@@ -11,6 +11,9 @@ struct AccountsView: View {
     private var collapsed: Set<String> { Set(collapsedRaw.split(separator: ",").map(String.init)) }
     /// 全部 / 资产 / 负债
     @AppStorage("ledger.accounts.side") private var side = "all"
+    /// 卡面: the account opened in place from its stack
+    @State private var opening = CardOpening()
+    @Namespace private var cardSpace
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -19,16 +22,20 @@ struct AccountsView: View {
             }
             .navigationTitle(LS("账户"))
             .toolbar {
-                StandardToolbar(currency: true)
-                ToolbarItemGroup(placement: .topBarLeading) {
-                    NavigationLink(value: AccountManagerDest()) { Image(systemName: "slider.horizontal.3") }
-                        .accessibilityLabel(LS("管理账户"))
-                    // a plain button: a toggle's "on" background spills out of the toolbar's glass
-                    Button { showClosed.toggle() } label: { Image(systemName: showClosed ? "archivebox.fill" : "archivebox") }
-                        .accessibilityLabel(LS("显示已关闭和为零的账户"))
-                        .accessibilityAddTraits(showClosed ? .isSelected : [])
+                // an account open in place has its own (✕, ⋯)
+                if opening.key == nil {
+                    StandardToolbar(currency: true)
+                    ToolbarItemGroup(placement: .topBarLeading) {
+                        NavigationLink(value: AccountManagerDest()) { Image(systemName: "slider.horizontal.3") }
+                            .accessibilityLabel(LS("管理账户"))
+                        // a plain button: a toggle's "on" background spills out of the toolbar's glass
+                        Button { showClosed.toggle() } label: { Image(systemName: showClosed ? "archivebox.fill" : "archivebox") }
+                            .accessibilityLabel(LS("显示已关闭和为零的账户"))
+                            .accessibilityAddTraits(showClosed ? .isSelected : [])
+                    }
                 }
             }
+            .cardStacks(opening, in: cardSpace)
             .navigationDestination(for: AccountDest.self) { RegisterView(account: $0.name).privacyToolbar() }
             .navigationDestination(for: HoldingsDest.self) { _ in HoldingsView().privacyToolbar() }
             .navigationDestination(for: TxDest.self) { TxDetailView(dest: $0).privacyToolbar() }
@@ -48,7 +55,8 @@ struct AccountsView: View {
         .ledgerControls("accounts", value: Binding(get: {
             var context = BrowseContext(); context.query = collapsedRaw; context.filters = [side]; return context
         }, set: { collapsedRaw = $0.query; side = $0.filters.first ?? "all" }))
-        .onChange(of: store.popToken) { _, _ in path = NavigationPath() }
+        // the tab tapped again: back to its first page, the cards back in their stacks
+        .onChange(of: store.popToken) { _, _ in path = NavigationPath(); opening.close() }
         .task {
             if let x = store.demoEnv["LEDGER_SIDE"] { side = x }
             if store.demoEnv["LEDGER_MANAGE"] != nil, path.isEmpty { path.append(AccountManagerDest()) }
@@ -124,45 +132,65 @@ struct AccountsView: View {
                 }
             }
         } header: {
-            // tap to fold the group away (remembered on this device); its total stays in sight
-            Button {
-                withAnimation(AppMotion.standard) {
-                    var s = collapsed
-                    if shut { s.remove(key) } else { s.insert(key) }
-                    collapsedRaw = s.sorted().joined(separator: ",")
-                }
-            } label: {
-                HStack(spacing: AppSpacing.icon) {
-                    Image(systemName: "chevron.right").font(.caption2.weight(.bold)).rotationEffect(.degrees(shut ? 0 : 90))
-                    Text(groupName(g))
-                    if AppLanguage.current != .en { Text(g).foregroundStyle(.tertiary).textCase(nil) }
-                    if shut { Text(LS("%@ 个", rs.count)).foregroundStyle(.tertiary).textCase(nil) }
-                    Spacer()
-                    Text(total(rs).byCurrency(base: L.base).map { unitText($0.amount, $0.currency) }.joined(separator: " · "))
-                        .monospacedDigit().lineLimit(1).minimumScaleFactor(0.7).sensitive().textCase(nil)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
+            groupHeader(L, g, key: key, rs)
         }
+    }
+
+    /// 卡面: a group's accounts as a stack of cards, under the same header
+    private func groupStack(_ L: Ledger, _ root: String, _ g: String, _ rs: [Row], rest: Double, card: @escaping (Row, Bool) -> AccountCard) -> some View {
+        let key = root + ":" + g
+        return VStack(alignment: .leading, spacing: AppSpacing.detail) {
+            groupHeader(L, g, key: key, rs)
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, AppSpacing.content)
+                .opacity(rest)
+            if !collapsed.contains(key) {
+                CardStack(items: rs, key: \.account, identifier: { "account.card." + $0.account }, card: card)
+            }
+        }
+    }
+
+    /// a group's name and total: tap to fold the group away (remembered on this device); its total stays in sight
+    private func groupHeader(_ L: Ledger, _ g: String, key: String, _ rs: [Row]) -> some View {
+        let shut = collapsed.contains(key)
+        return Button {
+            withAnimation(AppMotion.standard) {
+                var s = collapsed
+                if shut { s.remove(key) } else { s.insert(key) }
+                collapsedRaw = s.sorted().joined(separator: ",")
+            }
+        } label: {
+            HStack(spacing: AppSpacing.icon) {
+                Image(systemName: "chevron.right").font(.caption2.weight(.bold)).rotationEffect(.degrees(shut ? 0 : 90))
+                Text(groupName(g))
+                if AppLanguage.current != .en { Text(g).foregroundStyle(.tertiary).textCase(nil) }
+                if shut { Text(LS("%@ 个", rs.count)).foregroundStyle(.tertiary).textCase(nil) }
+                Spacer()
+                Text(total(rs).byCurrency(base: L.base).map { unitText($0.amount, $0.currency) }.joined(separator: " · "))
+                    .monospacedDigit().lineLimit(1).minimumScaleFactor(0.7).sensitive().textCase(nil)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
     }
 
     /// The page's card: 净资产, or (收支) this year's income and spending. Both are laid out in the one card and
     /// only the tab's is shown, so the card is as tall as the taller one and the tabs below never move when
     /// switching, whatever the ledger's currencies or left-out accounts make 净资产 take.
     private func heroSection(_ L: Ledger, assets: Inventory, liab: Inventory, year: String) -> some View {
+        Section { heroCard(L, assets: assets, liab: liab, year: year).cardRow() }
+    }
+
+    private func heroCard(_ L: Ledger, assets: Inventory, liab: Inventory, year: String) -> some View {
         let flows = side == "flows"
-        return Section {
-            Card(padding: AppSpacing.summary) {
-                // several currencies as booked (按原币): both tabs a table, a row per currency
-                let several = CurrencyTable.rows([assets, liab], base: L.base).count > 1
-                ZStack(alignment: .topLeading) {
-                    netWorth(L, assets: assets, liab: liab, several: several).concealed(flows)
-                    yearFlows(L, year, several: several).concealed(!flows)
-                }
+        return Card(padding: AppSpacing.summary) {
+            // several currencies as booked (按原币): both tabs a table, a row per currency
+            let several = CurrencyTable.rows([assets, liab], base: L.base).count > 1
+            ZStack(alignment: .topLeading) {
+                netWorth(L, assets: assets, liab: liab, several: several).concealed(flows)
+                yearFlows(L, year, several: several).concealed(!flows)
             }
-            .cardRow()
         }
     }
 
@@ -263,65 +291,97 @@ struct AccountsView: View {
             if !rows.isEmpty {
                 Section {
                     ForEach(rows, id: \.0) { item in
-                        NavigationLink(value: AccountDest(name: item.0)) {
-                            HStack(spacing: AppSpacing.icon) {
-                                IconBadge(symbol: item.0.hasPrefix("Income") ? "arrow.down.circle.fill" : store.catIcon(item.0),
-                                          color: IconTint.color(store.catStyle.colors[item.0]) ?? (item.0.hasPrefix("Income") ? .green : .gray), size: 28)
-                                VStack(alignment: .leading, spacing: AppSpacing.detail) {
-                                    Text(leaf(item.0))
-                                    Text(acctZH(item.0) ?? (item.0.hasPrefix("Income") ? LS("收入") : LS("支出"))).font(.caption).foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Amount(n: -item.1, color: true)
-                            }
-                        }
+                        NavigationLink(value: AccountDest(name: item.0)) { ytdRow(item) }
                     }
                 } header: {
-                    HStack(spacing: AppSpacing.control) {
-                        Text(year + " " + title)
-                        Spacer()
-                        Text(money(abs(rows.reduce(0.0) { $0 + $1.1 }), L.base)).monospacedDigit().textCase(nil).sensitive()
-                    }
+                    ytdHeader(L, year, title, rows)
                 }
             }
         }
     }
 
-    /// 待核对 and 投资持仓 side by side (投资持仓 only with holdings)
+    /// 卡面's 收支: the same, outside a List
+    @ViewBuilder
+    private func ytdGroups(_ L: Ledger, _ year: String) -> some View {
+        let ie = ytd(L, year)
+        let inc = ie.filter { $0.0.hasPrefix("Income") }, exp = ie.filter { $0.0.hasPrefix("Expenses") }
+        if ie.isEmpty {
+            GroupedSection {
+                GroupedRow { Text(LS("%@ 年还没有收支", year)).foregroundStyle(.secondary) }
+            } header: { EmptyView() }
+        }
+        ForEach([(LS("收入"), inc), (LS("支出"), exp)], id: \.0) { title, rows in
+            if !rows.isEmpty {
+                GroupedSection {
+                    ForEach(Array(rows.enumerated()), id: \.element.0) { i, item in
+                        if i > 0 { GroupedDivider() }
+                        NavigationLink(value: AccountDest(name: item.0)) { GroupedLinkRow { ytdRow(item) } }
+                            .buttonStyle(.plain)
+                    }
+                } header: {
+                    ytdHeader(L, year, title, rows)
+                }
+            }
+        }
+    }
+
+    private func ytdRow(_ item: (String, Double)) -> some View {
+        HStack(spacing: AppSpacing.icon) {
+            IconBadge(symbol: item.0.hasPrefix("Income") ? "arrow.down.circle.fill" : store.catIcon(item.0),
+                      color: IconTint.color(store.catStyle.colors[item.0]) ?? (item.0.hasPrefix("Income") ? .green : .gray), size: 28)
+            VStack(alignment: .leading, spacing: AppSpacing.detail) {
+                Text(leaf(item.0))
+                Text(acctZH(item.0) ?? (item.0.hasPrefix("Income") ? LS("收入") : LS("支出"))).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Amount(n: -item.1, color: true)
+        }
+    }
+
+    private func ytdHeader(_ L: Ledger, _ year: String, _ title: String, _ rows: [(String, Double)]) -> some View {
+        HStack(spacing: AppSpacing.control) {
+            Text(year + " " + title)
+            Spacer()
+            Text(money(abs(rows.reduce(0.0) { $0 + $1.1 }), L.base)).monospacedDigit().textCase(nil).sensitive()
+        }
+    }
+
     private func tilesSection(_ L: Ledger) -> some View {
+        Section { tiles(L).cardRow() }
+    }
+
+    /// 待核对 and 投资持仓 side by side (投资持仓 only with holdings)
+    private func tiles(_ L: Ledger) -> some View {
         let dueAccounts = Set(reconcileDue(L).map { $0.account })
         let failingAccounts = Set(L.balanceResults.filter { !$0.ok }.compactMap { $0.entry.account })
         // accounts to look at: due for a check, or with an assertion that fails (each counted once)
         let open = dueAccounts.union(failingAccounts).count
         let hs = holdings(L)
-        return Section {
-            HStack(spacing: AppSpacing.icon) {
-                // buttons, not links: a link in a row draws its own chevron beside the tile
-                Button { path.append(ReconcileDest()) } label: {
-                    if open == 0 {
-                        tile(icon: "checkmark.seal", color: .gain, title: LS("核对完成"), line: LS("账户都已核对"),
-                             sub: nil, subColor: .secondary, dot: false)
-                    } else {
-                        tile(icon: "doc.text.magnifyingglass", color: Color.warn, title: LS("待核对 · %@ 个", open),
-                             line: [dueAccounts.isEmpty ? nil : LS("%@ 个到核对日", dueAccounts.count),
-                                    failingAccounts.isEmpty ? nil : LS("%@ 个断言不符", failingAccounts.count)].compactMap { $0 }.joined(separator: " · "),
-                             sub: nil, subColor: .secondary, dot: true)
-                    }
-                }
-                .buttonStyle(.plain)
-                if !hs.isEmpty {
-                    let value = hs.reduce(0.0) { $0 + (toCNY(L, $1.value ?? $1.cost, $1.q) ?? 0) }
-                    let cost = hs.reduce(0.0) { $0 + (toCNY(L, $1.cost, $1.q) ?? 0) }
-                    Button { path.append(HoldingsDest()) } label: {
-                        tile(icon: "chart.line.uptrend.xyaxis", color: .jade, title: LS("投资持仓"), line: masked(money(value, L.base)),
-                             sub: cost > 0 ? (value >= cost ? LS("持仓浮盈 %@", String(format: "+%.1f%%", (value - cost) / cost * 100))
-                                                           : LS("持仓浮亏 %@", String(format: "−%.1f%%", (cost - value) / cost * 100))) : nil,
-                             subColor: value >= cost ? Color.gain : Color.loss, dot: false)
-                    }
-                    .buttonStyle(.plain)
+        return HStack(spacing: AppSpacing.icon) {
+            // buttons, not links: a link in a row draws its own chevron beside the tile
+            Button { path.append(ReconcileDest()) } label: {
+                if open == 0 {
+                    tile(icon: "checkmark.seal", color: .gain, title: LS("核对完成"), line: LS("账户都已核对"),
+                         sub: nil, subColor: .secondary, dot: false)
+                } else {
+                    tile(icon: "doc.text.magnifyingglass", color: Color.warn, title: LS("待核对 · %@ 个", open),
+                         line: [dueAccounts.isEmpty ? nil : LS("%@ 个到核对日", dueAccounts.count),
+                                failingAccounts.isEmpty ? nil : LS("%@ 个断言不符", failingAccounts.count)].compactMap { $0 }.joined(separator: " · "),
+                         sub: nil, subColor: .secondary, dot: true)
                 }
             }
-            .cardRow()
+            .buttonStyle(.plain)
+            if !hs.isEmpty {
+                let value = hs.reduce(0.0) { $0 + (toCNY(L, $1.value ?? $1.cost, $1.q) ?? 0) }
+                let cost = hs.reduce(0.0) { $0 + (toCNY(L, $1.cost, $1.q) ?? 0) }
+                Button { path.append(HoldingsDest()) } label: {
+                    tile(icon: "chart.line.uptrend.xyaxis", color: .jade, title: LS("投资持仓"), line: masked(money(value, L.base)),
+                         sub: cost > 0 ? (value >= cost ? LS("持仓浮盈 %@", String(format: "+%.1f%%", (value - cost) / cost * 100))
+                                                       : LS("持仓浮亏 %@", String(format: "−%.1f%%", (cost - value) / cost * 100))) : nil,
+                         subColor: value >= cost ? Color.gain : Color.loss, dot: false)
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 
@@ -349,6 +409,7 @@ struct AccountsView: View {
         .contentShape(Rectangle())
     }
 
+    @ViewBuilder
     private func list(_ L: Ledger) -> some View {
         let today = Day.today()
         let v = valued(L)
@@ -358,52 +419,153 @@ struct AccountsView: View {
         let counted = { (gs: [(String, [Row])]) in gs.flatMap { $0.1 }.filter { !isExcluded($0.account, store.netWorthExclude) } }
         let assets = total(counted(ag)), liab = total(counted(lg))
         let year = String(today.prefix(4))
-        return List {
-            if !store.cview.isDefault { Section { CurrencyBanner() } }
-            // the hero follows the tab (收支: this year's income and spending); 待核对, 投资持仓 and 往来 stay in every tab
-            heroSection(L, assets: assets, liab: liab, year: year)
-            tilesSection(L)
-            Section {
-                NavigationLink(value: CounterpartyDest()) { Label(LS("往来"), systemImage: "person.2").labelStyle(ControlLabelStyle()) }
-                NavigationLink(value: DocumentsDest()) {
-                    LabeledContent {
-                        let n = documentItems(L).count
-                        if n > 0 { Text(LS("%@ 个", n)) }
-                    } label: { Label(LS("附件与对账单"), systemImage: "paperclip").labelStyle(ControlLabelStyle()) }
-                }
-                // the count joins the row's label: tests find it by this
-                .accessibilityIdentifier("accounts.documents")
-                let prices = priceItems(L)
-                if !prices.isEmpty {
-                    // a row with its words: the icon on 投资持仓 alone was easy to miss, and there is none without holdings
-                    Button { pricing = true } label: {
+        if AccountCardStyle.current == .card {
+            cards(L, ag: ag, lg: lg, assets: assets, liab: liab, year: year)
+        } else {
+            List {
+                if !store.cview.isDefault { Section { CurrencyBanner() } }
+                // the hero follows the tab (收支: this year's income and spending); 待核对, 投资持仓 and 往来 stay in every tab
+                heroSection(L, assets: assets, liab: liab, year: year)
+                tilesSection(L)
+                Section {
+                    NavigationLink(value: CounterpartyDest()) { Label(LS("往来"), systemImage: "person.2").labelStyle(ControlLabelStyle()) }
+                    NavigationLink(value: DocumentsDest()) {
                         LabeledContent {
-                            let latest = prices.compactMap { $0.date }.max()
-                            if let d = latest { Text(LS("最新 %@", d)) }
-                        } label: { Label(LS("更新价格"), systemImage: "arrow.clockwise").labelStyle(ControlLabelStyle()) }
+                            let n = documentItems(L).count
+                            if n > 0 { Text(LS("%@ 个", n)) }
+                        } label: { Label(LS("附件与对账单"), systemImage: "paperclip").labelStyle(ControlLabelStyle()) }
                     }
-                    .accessibilityIdentifier("accounts.updatePrices")
+                    // the count joins the row's label: tests find it by this
+                    .accessibilityIdentifier("accounts.documents")
+                    let prices = priceItems(L)
+                    if !prices.isEmpty {
+                        // a row with its words: the icon on 投资持仓 alone was easy to miss, and there is none without holdings
+                        Button { pricing = true } label: {
+                            LabeledContent {
+                                let latest = prices.compactMap { $0.date }.max()
+                                if let d = latest { Text(LS("最新 %@", d)) }
+                            } label: { Label(LS("更新价格"), systemImage: "arrow.clockwise").labelStyle(ControlLabelStyle()) }
+                        }
+                        .accessibilityIdentifier("accounts.updatePrices")
+                    }
+                }
+                Section { sidePicker.cardRow() }
+                if side == "flows" {
+                    ytdSection(L, year)
+                } else {
+                    if side != "liabilities" { ForEach(ag, id: \.0) { g in groupSection(L, "Assets", g.0, g.1) } }
+                    if side != "assets" { ForEach(lg, id: \.0) { g in groupSection(L, "Liabilities", g.0, g.1) } }
                 }
             }
-            Section {
-                Picker(LS("显示"), selection: $side) {
-                    Text(LS("全部")).tag("all")
-                    Text(LS("资产")).tag("assets")
-                    Text(LS("负债")).tag("liabilities")
-                    Text(LS("收支")).tag("flows")
-                }
-                .pickerStyle(.segmented)
-                .cardRow()
+            .listSectionSpacing(.compact)
+            .refreshable { await store.refresh() }
+        }
+    }
+
+    /// 卡面: 往来, 附件与对账单 and 更新价格, outside a List
+    private func links(_ L: Ledger) -> some View {
+        let prices = priceItems(L)
+        return GroupedSection {
+            NavigationLink(value: CounterpartyDest()) {
+                GroupedLinkRow { Label(LS("往来"), systemImage: "person.2").labelStyle(ControlLabelStyle()) }
             }
-            if side == "flows" {
-                ytdSection(L, year)
-            } else {
-                if side != "liabilities" { ForEach(ag, id: \.0) { g in groupSection(L, "Assets", g.0, g.1) } }
-                if side != "assets" { ForEach(lg, id: \.0) { g in groupSection(L, "Liabilities", g.0, g.1) } }
+            .buttonStyle(.plain)
+            GroupedDivider()
+            NavigationLink(value: DocumentsDest()) {
+                GroupedLinkRow {
+                    Label(LS("附件与对账单"), systemImage: "paperclip").labelStyle(ControlLabelStyle())
+                    Spacer(minLength: AppSpacing.icon)
+                    let n = documentItems(L).count
+                    if n > 0 { Text(LS("%@ 个", n)).foregroundStyle(.secondary) }
+                }
+            }
+            .buttonStyle(.plain)
+            // the count joins the row's label: tests find it by this
+            .accessibilityIdentifier("accounts.documents")
+            if !prices.isEmpty {
+                GroupedDivider()
+                // a row with its words: the icon on 投资持仓 alone was easy to miss, and there is none without holdings
+                Button { pricing = true } label: {
+                    GroupedLinkRow(chevron: false) {
+                        Label(LS("更新价格"), systemImage: "arrow.clockwise").labelStyle(ControlLabelStyle())
+                        Spacer(minLength: AppSpacing.icon)
+                        if let d = prices.compactMap({ $0.date }).max() { Text(LS("最新 %@", d)).foregroundStyle(.secondary) }
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("accounts.updatePrices")
+            }
+        } header: { EmptyView() }
+    }
+
+    private var sidePicker: some View {
+        Picker(LS("显示"), selection: $side) {
+            Text(LS("全部")).tag("all")
+            Text(LS("资产")).tag("assets")
+            Text(LS("负债")).tag("liabilities")
+            Text(LS("收支")).tag("flows")
+        }
+        .pickerStyle(.segmented)
+    }
+
+    /// 卡面: the page outside a List, each group a stack of cards (`CardStack`), so the cards are whole (a List cuts
+    /// the corners of a row at a section's edge rounder than a card's) and one moves to the top with
+    /// `matchedGeometryEffect`. An account opens in place (`CardOpening`): its page under the stacks, so the cards
+    /// coming back pass over it, and its card over them.
+    private func cards(_ L: Ledger, ag: [(String, [Row])], lg: [(String, [Row])], assets: Inventory, liab: Inventory, year: String) -> some View {
+        let shown = (side == "liabilities" ? [] : ag.map { (key: "Assets:" + $0.0, root: "Assets", g: $0.0, rows: $0.1) })
+            + (side == "assets" ? [] : lg.map { (key: "Liabilities:" + $0.0, root: "Liabilities", g: $0.0, rows: $0.1) })
+        let open = side == "flows" ? nil : opening.key.flatMap { k in shown.lazy.flatMap(\.rows).first { $0.account == k } }
+        let failing = Set(L.balanceResults.filter { !$0.ok }.compactMap { $0.entry.account })
+        let cycles = Dictionary(cardCycles(L).map { ($0.account, $0) }, uniquingKeysWith: { a, _ in a })
+        let card = { (row: Row, still: Bool) in
+            AccountCard(row: row, failing: failing.contains(row.account), cycle: cycles[row.account], still: still)
+        }
+        // while one is open the rest of the page goes, the cards go down below the screen
+        let rest = opening.key == nil ? 1.0 : 0
+        return ZStack(alignment: .top) {
+            if let open {
+                VStack(spacing: 0) {
+                    // its card's place: the card itself is drawn on top, where it moves to
+                    card(open, true).modifier(OpenCardPlace()).hidden().accessibilityHidden(true)
+                    RegisterView(account: open.account, close: { opening.close() })
+                }
+                .transition(.opacity)
+            }
+            ScrollView {
+                VStack(alignment: .leading, spacing: AppSpacing.summary) {
+                    if !store.cview.isDefault {
+                        GroupedSection { GroupedRow { CurrencyBanner() } } header: { EmptyView() }
+                            .opacity(rest)
+                    }
+                    // the hero follows the tab (收支: this year's income and spending); 待核对, 投资持仓 and 往来 stay in every tab
+                    heroCard(L, assets: assets, liab: liab, year: year).opacity(rest)
+                    tiles(L).opacity(rest)
+                    links(L).opacity(rest)
+                    sidePicker.opacity(rest)
+                    if side == "flows" {
+                        ytdGroups(L, year)
+                    } else {
+                        ForEach(shown, id: \.key) { s in
+                            groupStack(L, s.root, s.g, s.rows, rest: rest, card: card)
+                        }
+                    }
+                }
+                .padding(.horizontal, AppSpacing.content).padding(.vertical, AppSpacing.control)
+            }
+            .refreshable { await store.refresh() }
+            .allowsHitTesting(opening.key == nil)
+            .accessibilityHidden(opening.key != nil)
+            if let open {
+                Button { opening.close() } label: { card(open, false) }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("account.card." + open.account)
+                    .modifier(CardMatch(key: open.account))
+                    .modifier(OpenCardPlace())
             }
         }
-        .listSectionSpacing(.compact)
-        .refreshable { await store.refresh() }
+        // closed, hidden with 为零 or gone with a refresh: back to the stacks at once
+        .onChange(of: open == nil) { _, gone in if gone && opening.key != nil { opening.reset() } }
     }
 
     /// this year's income and spending in the currencies they were booked in (the ones counted, 币种与换算)
@@ -557,6 +719,8 @@ struct AccountRow: View {
 struct RegisterView: View {
     @Environment(Store.self) var store
     let account: String
+    /// opened in place from 账户's stacks (卡面): its card is drawn there, it closes back into them
+    var close: (() -> Void)? = nil
     @State private var checking: CheckPreset?
     /// months opened or closed by hand (the rest follow `open`)
     @State private var opened: [String: Bool] = [:]
@@ -577,14 +741,19 @@ struct RegisterView: View {
         .ledgerControls("register." + account, value: Binding(get: {
             var context = BrowseContext(); context.opened = opened; context.query = query; return context
         }, set: { opened = $0.opened; query = $0.query }))
-        .navigationTitle(acctLabel(account).isEmpty ? account : acctLabel(account))
-        .navigationBarTitleDisplayMode(.inline)
-        .appSearchable(text: $query, prompt: LS("收付款方、摘要、金额、日期"))
+        // opened in place: 账户's bar stays as it is (its title, no search field; the name is on the card, 查看明细
+        // searches), so the page under the cards is where it was when the card goes back
+        .modifier(RegisterBar(account: account, pushed: close == nil, query: $query))
         .sheet(item: $checking) { p in CheckSheet(account: account, preset: p) }
         .sheet(item: $noting) { NoteSheet(account: account, note: $0.note) }
         .sheet(item: $viewing) { DocumentViewer(path: $0.path) }
         .sheet(isPresented: $addingDocument) { AccountDocumentSheet(account: account) }
         .toolbar {
+            if let close {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { close() } label: { Image(systemName: "xmark") }.accessibilityLabel(LS("关闭"))
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button { addingDocument = true } label: { Label(LS("添加票据 / 对账单"), systemImage: "doc.badge.plus") }
@@ -626,10 +795,11 @@ struct RegisterView: View {
         return List {
             if let c = card {
                 // a card: its bill first; the account's settings are in ⋯
-                CardHeroSection(cycle: c)
+                CardHeroSection(cycle: c, face: close == nil)
                 CardLimitSection(cycle: c)
             } else {
-                header(L, built.1)
+                // opened in place its card is above the List, drawn by 账户: only the buttons under it
+                if close == nil { header(L, built.1) } else { Section { ActionRow(size: .small, items: accountActions(check: check)).cardRow() } }
                 if account.hasPrefix("Assets:") || account.hasPrefix("Liabilities:") { countsSection() }
             }
             if months.isEmpty {
@@ -934,6 +1104,22 @@ struct RegisterView: View {
             }
         }
         return (items, order.map { ($0, bal[$0]!) })
+    }
+}
+
+/// a register's search field, in the bar of its own page only
+/// a pushed register's bar: the account's name and a search field
+private struct RegisterBar: ViewModifier {
+    let account: String
+    let pushed: Bool
+    @Binding var query: String
+    func body(content: Content) -> some View {
+        if pushed {
+            content
+                .navigationTitle(acctLabel(account).isEmpty ? account : acctLabel(account))
+                .navigationBarTitleDisplayMode(.inline)
+                .appSearchable(text: $query, prompt: LS("收付款方、摘要、金额、日期"))
+        } else { content }
     }
 }
 
