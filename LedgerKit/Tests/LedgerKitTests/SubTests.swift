@@ -305,8 +305,8 @@ final class SubTests: XCTestCase {
         XCTAssertEqual(lay2.includeLine("ledger/config/subs.bean"), "include \"config/subs.bean\"")
     }
 
-    /// the cards in flight are drawn as the stacks draw them: the soonest at the front, the paused behind
-    func testCardsInFlightKeepTheStacksOrder() {
+    /// 订阅管理's stacks: the active ones by their next charge, soonest first; the paused ones apart
+    func testCardStacksGoByTheNextCharge() {
         func sub(_ name: String, _ start: String, _ status: SubStatus = .active) -> Subscription {
             Subscription(name: name, amount: 1, currency: "CNY", period: .monthly, start: start, account: "Expenses:Subscription",
                          funding: "Assets:Bank:CMB", status: status, link: "sub-" + name)
@@ -315,6 +315,6 @@ final class SubTests: XCTestCase {
         let cards = SubCards([sub("late", "2026-01-25"), sub("paused", "2026-01-01", .paused), sub("soon", "2026-01-28"),
                               sub("mid", "2026-01-05"), sub("open", "2026-01-29")], today: today)
         XCTAssertEqual(cards.active.map(\.name), ["soon", "open", "mid", "late"])
-        XCTAssertEqual(cards.drawn.map(\.name), ["paused", "late", "mid", "open", "soon"])
+        XCTAssertEqual(cards.inactive.map(\.name), ["paused"])
     }
 }
