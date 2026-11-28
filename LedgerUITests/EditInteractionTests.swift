@@ -1933,6 +1933,63 @@ final class EditInteractionTests: XCTestCase {
         }
     }
 
+    /// 账户 with 卡面 keeps each group as a stack of cards, as 订阅管理 does: the card behind shows its strip, the
+    /// front one is whole, a strip opens its own account in place, and closing puts every card back
+    func testAccountsStackAsCards() {
+        checkAccountStack(textSize: nil)
+    }
+
+    func testAccountsStackAsCardsAtLargeText() {
+        checkAccountStack(textSize: "UICTContentSizeCategoryXXXL")
+    }
+
+    private func checkAccountStack(textSize: String?) {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures").path
+        app.launchEnvironment = ["LEDGER_DEMO": fixture, "LEDGER_TAB": "accounts", "LEDGER_LANG": "zh"]
+        app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-ledger.card.style", "card"]
+            + (textSize.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
+        app.launch()
+        let all = app.buttons["全部"]
+        XCTAssertTrue(all.waitForExistence(timeout: 20))
+        // the tab is remembered: start from 全部
+        all.tap()
+        // the fixture's two bank accounts: one stack
+        let names = ["Assets:Bank:CGB", "Assets:Bank:ExampleFX"]
+        let found = names.map { app.descendants(matching: .any)["account.card." + $0].firstMatch }
+        for _ in 0..<6 {
+            guard !(found[0].exists && found[0].isHittable && found[1].exists && found[1].isHittable) else { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(found[0].waitForExistence(timeout: 5))
+        let cards = zip(names, found.map(\.frame)).sorted { $0.1.minY < $1.1.minY }
+        let frames = cards.map(\.1)
+        // the one behind shows its strip, the front one is whole
+        let strip = frames[1].minY - frames[0].minY
+        XCTAssertGreaterThan(strip, 20)
+        XCTAssertGreaterThan(frames[1].height, strip * 2)
+        XCTAssertEqual(frames[0].width, frames[1].width, accuracy: 1)
+        // the strip of the card behind opens that account in place, with its register under it
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: frames[0].midX, dy: frames[0].minY + strip / 2)).tap()
+        let close = app.navigationBars.buttons["关闭"]
+        XCTAssertTrue(close.waitForExistence(timeout: 5))
+        let register = app.buttons["查看明细"].firstMatch
+        XCTAssertTrue(register.waitForExistence(timeout: 5))
+        let open = app.descendants(matching: .any).matching(identifier: "account.card." + cards[0].0).allElementsBoundByIndex.first { $0.isHittable }
+        XCTAssertNotNil(open)
+        XCTAssertLessThan(open?.frame.maxY ?? .infinity, register.frame.minY)
+        // closing puts every card back where it was
+        close.tap()
+        XCTAssertTrue(close.waitForNonExistence(timeout: 5))
+        for (name, before) in cards {
+            let card = app.descendants(matching: .any)["account.card." + name].firstMatch
+            XCTAssertTrue(card.waitForExistence(timeout: 5))
+            XCTAssertEqual(card.frame.minY, before.minY, accuracy: 1, name)
+            XCTAssertEqual(card.frame.height, before.height, accuracy: 1, name)
+        }
+    }
+
     /// 持仓、均价、现价 of an open holding each sit in the middle of their third
     func testHoldingStatsAreCentred() {
         let extra = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/holdings-extra.bean").path
