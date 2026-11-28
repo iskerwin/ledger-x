@@ -1,0 +1,5 @@
+; a second bank account, so 账户's bank group is a stack of two cards
+2026-01-01 open Assets:Bank:Example CNY
+2026-01-01 * "Opening"
+  Assets:Bank:Example 500.00 CNY
+  Equity:Opening

@@ -1947,7 +1947,8 @@ final class EditInteractionTests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication()
         let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures").path
-        app.launchEnvironment = ["LEDGER_DEMO": fixture, "LEDGER_TAB": "accounts", "LEDGER_LANG": "zh"]
+        app.launchEnvironment = ["LEDGER_DEMO": fixture, "LEDGER_TAB": "accounts", "LEDGER_LANG": "zh",
+                                 "LEDGER_EXTRA": fixture + "/bank-extra.bean"]
         app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-ledger.card.style", "card"]
             + (textSize.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
         app.launch()
@@ -1955,8 +1956,8 @@ final class EditInteractionTests: XCTestCase {
         XCTAssertTrue(all.waitForExistence(timeout: 20))
         // the tab is remembered: start from 全部
         all.tap()
-        // the fixture's two bank accounts: one stack
-        let names = ["Assets:Bank:CGB", "Assets:Bank:ExampleFX"]
+        // two bank accounts: one stack
+        let names = ["Assets:Bank:CGB", "Assets:Bank:Example"]
         let found = names.map { app.descendants(matching: .any)["account.card." + $0].firstMatch }
         for _ in 0..<6 {
             guard !(found[0].exists && found[0].isHittable && found[1].exists && found[1].isHittable) else { break }
