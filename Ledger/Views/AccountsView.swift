@@ -741,10 +741,9 @@ struct RegisterView: View {
         .ledgerControls("register." + account, value: Binding(get: {
             var context = BrowseContext(); context.opened = opened; context.query = query; return context
         }, set: { opened = $0.opened; query = $0.query }))
-        .navigationTitle(acctLabel(account).isEmpty ? account : acctLabel(account))
-        .navigationBarTitleDisplayMode(.inline)
-        // opened in place: no search field in 账户's bar, which would come and go with the card (查看明细 searches)
-        .modifier(RegisterSearch(on: close == nil, query: $query))
+        // opened in place: 账户's bar stays as it is (its title, no search field; the name is on the card, 查看明细
+        // searches), so the page under the cards is where it was when the card goes back
+        .modifier(RegisterBar(account: account, pushed: close == nil, query: $query))
         .sheet(item: $checking) { p in CheckSheet(account: account, preset: p) }
         .sheet(item: $noting) { NoteSheet(account: account, note: $0.note) }
         .sheet(item: $viewing) { DocumentViewer(path: $0.path) }
@@ -1109,11 +1108,18 @@ struct RegisterView: View {
 }
 
 /// a register's search field, in the bar of its own page only
-private struct RegisterSearch: ViewModifier {
-    let on: Bool
+/// a pushed register's bar: the account's name and a search field
+private struct RegisterBar: ViewModifier {
+    let account: String
+    let pushed: Bool
     @Binding var query: String
     func body(content: Content) -> some View {
-        if on { content.appSearchable(text: $query, prompt: LS("收付款方、摘要、金额、日期")) } else { content }
+        if pushed {
+            content
+                .navigationTitle(acctLabel(account).isEmpty ? account : acctLabel(account))
+                .navigationBarTitleDisplayMode(.inline)
+                .appSearchable(text: $query, prompt: LS("收付款方、摘要、金额、日期"))
+        } else { content }
     }
 }
 
