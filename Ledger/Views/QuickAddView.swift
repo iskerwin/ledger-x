@@ -663,26 +663,22 @@ struct QuickAddView: View {
         .dynamicTypeSize(...DynamicTypeSize.xxLarge)
     }
 
-    /// the picked group's other accounts, one tap each, and the path picked ("餐饮 › 咖啡") on the right
+    /// the picked group's accounts, one tap each (the picked one lit)
     @ViewBuilder
     private func subCategories(_ d: Draft, _ L: Ledger, _ D: Derived) -> some View {
         let root = Store.categoryRoot(d.kind)
         if d.account.hasPrefix(root), let g = store.gridGroups(root, D).first(where: { $0.id == catOf(d.account) }), !g.single {
-            HStack(spacing: AppSpacing.icon) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: AppSpacing.icon) {
-                        ForEach(g.accounts, id: \.self) { a in
-                            Chip(label: leafTitle(L, a), systemImage: store.catIcon(a), selected: a == d.account) {
-                                store.draft.account = a
-                                store.draft.edited = nil
-                                pickedCategory = true
-                                Haptics.selection()
-                            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: AppSpacing.icon) {
+                    ForEach(g.accounts, id: \.self) { a in
+                        Chip(label: leafTitle(L, a), systemImage: store.catIcon(a), selected: a == d.account) {
+                            store.draft.account = a
+                            store.draft.edited = nil
+                            pickedCategory = true
+                            Haptics.selection()
                         }
                     }
                 }
-                Text(store.catTitle(g, L) + " › " + leafTitle(L, d.account))
-                    .font(.caption).foregroundStyle(Color.jadeInk).lineLimit(1).fixedSize()
             }
         }
     }

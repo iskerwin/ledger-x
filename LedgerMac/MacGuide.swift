@@ -51,8 +51,8 @@ struct MacGuide: View {
         Topic(title: tr("记一笔", "Adding an entry"), points: [
             tr("侧栏底部的「记一笔」或 ⌘N 打开记一笔窗口，在哪个页面都一样；窗口右上角只放当前页面自己的操作。",
                "Add Entry at the bottom of the sidebar, or ⌘N, opens the Add window from any page; the top right of the main window holds only the open page's own actions."),
-            tr("窗口打开时光标已在金额里，直接打数字（可写 12+8 这样的算式）。分类点常用的那几个（选中的写成「餐饮 › 午餐」，再点一下换子类），其余的和搜索在「全部」里；Tab 依次到收付款方和摘要，打字时下面弹出用过的，↑↓ 选、↩ 确定。中文、日文输入法下打的「。」也当小数点。",
-               "The cursor starts in the amount: type it (a sum like 12+8 works). Click a common category (the picked one reads like Food › Lunch; click it again for another sub-category); the rest, and a search, are under All; Tab goes on to the payee and the note; as you type, ones used before drop down to pick with ↑↓ and ↩. A 。 typed with a Chinese or Japanese input method counts as the decimal point."),
+            tr("窗口打开时光标已在金额里，直接打数字（可写 12+8 这样的算式）。分类点两行里常用的那些（按窗口宽度排满，用过的在前；选中的写成「餐饮 › 午餐」，再点一下换子类），其余的和搜索在「全部」里；Tab 依次到收付款方和摘要，打字时下面弹出用过的，↑↓ 选、↩ 确定。中文、日文输入法下打的「。」也当小数点。",
+               "The cursor starts in the amount: type it (a sum like 12+8 works). Click one of the common categories in the two rows (as many as the window's width holds, the ones used most first; the picked one reads like Food › Lunch; click it again for another sub-category); the rest, and a search, are under All; Tab goes on to the payee and the note; as you type, ones used before drop down to pick with ↑↓ and ↩. A 。 typed with a Chinese or Japanese input method counts as the decimal point."),
             tr("支出、收入、转账在顶部切换，下面一行是常记的几笔（转账时是常转的两个账户），点一下填好；分录、直接写文本、AA 和组合付款在「⋯ › 完整表单」里。",
                "Switch between expense, income and transfer at the top; the row under it holds the entries made most (for a transfer, the pairs of accounts moved between most), one click to fill in; split entries, plain text, sharing and several accounts are under ⋯ › Full form."),
             tr("右键一个常用分类可以更换图标、名称和颜色，或把它从常用分类隐藏（仍在「全部」里）；「⋯ › 分类图标与排序…」里拖动调整顺序、恢复隐藏的分类。这些存在账本的 ledger-x.json 里，和手机一样；常用交易也照手机的置顶和隐藏排。",
