@@ -464,21 +464,7 @@ struct AccountFace: View {
         }
     }
 
-    private func checkPill(_ ink: Color) -> some View {
-        let days = glance.lastCheck.map { daysBetween($0, Day.today()) }
-        let text: String
-        switch days {
-        case nil: text = LS("还没核对过")
-        case 0?: text = LS("已核对 · 今天")
-        case let d? where d <= 14: text = LS("已核对 · %@ 天前", d)
-        case let d?: text = LS("%@ 天未核对", d)
-        }
-        return Label(text, systemImage: (days ?? 99) <= 14 ? "checkmark" : "clock")
-            .labelStyle(ControlLabelStyle())
-            .font(.caption.weight(.semibold))
-            .padding(.horizontal, AppSpacing.icon).padding(.vertical, 3)
-            .background(ink.opacity(0.18), in: Capsule())
-    }
+    private func checkPill(_ ink: Color) -> some View { CheckPill(lastCheck: glance.lastCheck, ink: ink) }
 
     private var inText: some View {
         Text(LS("本月流入 %@", money(glance.inflow, glance.currency))).sensitive()
@@ -486,6 +472,31 @@ struct AccountFace: View {
 
     private var outText: some View {
         Text(LS("本月流出 %@", money(glance.outflow, glance.currency))).sensitive()
+    }
+}
+
+/// on an account's card: how long since its balance was checked
+struct CheckPill: View {
+    let lastCheck: String?
+    let ink: Color
+    /// an assertion that fails (断言不符) instead
+    var failing = false
+
+    var body: some View {
+        let days = lastCheck.map { daysBetween($0, Day.today()) }
+        let text: String
+        switch days {
+        case _ where failing: text = LS("断言不符")
+        case nil: text = LS("还没核对过")
+        case 0?: text = LS("已核对 · 今天")
+        case let d? where d <= 14: text = LS("已核对 · %@ 天前", d)
+        case let d?: text = LS("%@ 天未核对", d)
+        }
+        return Label(text, systemImage: failing ? "exclamationmark.triangle" : (days ?? 99) <= 14 ? "checkmark" : "clock")
+            .labelStyle(ControlLabelStyle())
+            .font(.caption.weight(.semibold))
+            .padding(.horizontal, AppSpacing.icon).padding(.vertical, 3)
+            .background(ink.opacity(0.18), in: Capsule())
     }
 }
 

@@ -78,6 +78,8 @@ struct CardFace: View {
 struct CardHeroSection: View {
     @Environment(Store.self) var store
     let cycle: CardCycle
+    /// its face or plain top; not when the card is drawn above the List (opened in place from 账户's stacks)
+    var face = true
     @State private var billing = false
     @State private var documents = false
 
@@ -88,9 +90,9 @@ struct CardHeroSection: View {
         let look = CardStatusLook(c, today: today)
         Section {
             VStack(alignment: .leading, spacing: AppSpacing.control) {
-                if AccountCardStyle.current == .card {
+                if face, AccountCardStyle.current == .card {
                     CardFace(cycle: c, tail: tail, look: look)
-                } else {
+                } else if face {
                     HStack(spacing: AppSpacing.icon) {
                         IconBadge(symbol: "creditcard.fill", color: store.groupIcon(c.account).color, size: 34)
                         Text(LS("本期账单") + (tail.map { " · " + LS("尾号 %@", $0) } ?? "")).font(.subheadline).foregroundStyle(.secondary)
@@ -113,7 +115,7 @@ struct CardHeroSection: View {
                         }
                     }
                 }
-                Divider()
+                if face { Divider() }
                 HStack(spacing: 0) {
                     VStack(spacing: AppSpacing.detail) {
                         Text(LS("本期账单")).font(.caption).foregroundStyle(.secondary)
